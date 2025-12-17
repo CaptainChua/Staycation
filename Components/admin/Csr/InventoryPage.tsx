@@ -23,33 +23,28 @@ import AddItem from "./Modals/AddItem";
 type InventoryStatus = "In Stock" | "Low Stock" | "Out of Stock";
 
 interface InventoryRow {
-  inventory_id: string;
+  item_id: string;
   item_name: string;
-  stock: number;
-  price: number;
+  category: string;
+  current_stock: number;
+  minimum_stock: number;
+  unit_type: string;
+  last_restocked: string | null;
   status: InventoryStatus;
   statusColor: string;
 }
 
 type InventoryApiRow = {
-  inventory_id: string;
+  item_id: string;
   item_name: string;
-  stock_quantity: number;
-  price: string | number | null;
+  category: string;
+  current_stock: number;
+  minimum_stock: number;
+  unit_type: string;
+  last_restocked: string | null;
   status: string;
   created_at: string;
   updated_at: string;
-};
-
-const statusToColor = (status: InventoryStatus) => {
-  if (status === "In Stock") return "bg-green-100 text-green-700";
-  if (status === "Low Stock") return "bg-yellow-100 text-yellow-700";
-  return "bg-red-100 text-red-700";
-};
-
-const getUiStatus = (apiStatus: string, stockQty: number): InventoryStatus => {
-  if (apiStatus === "Out of Stock") return "Out of Stock";
-  return stockQty > 0 && stockQty <= 10 ? "Low Stock" : "In Stock";
 };
 
 interface UsageRow {
@@ -60,12 +55,40 @@ interface UsageRow {
   trend: "up" | "down";
 }
 
-const formatCurrency = (value: number) => {
-  return new Intl.NumberFormat("en-PH", {
-    style: "currency",
-    currency: "PHP",
-    maximumFractionDigits: 2,
-  }).format(value);
+const statusToColor = (status: InventoryStatus) => {
+  if (status === "In Stock") return "bg-green-100 text-green-700";
+  if (status === "Low Stock") return "bg-yellow-100 text-yellow-700";
+  return "bg-red-100 text-red-700";
+};
+
+const getUiStatus = (currentStock: number): InventoryStatus => {
+  if (!Number.isFinite(currentStock) || currentStock <= 0) return "Out of Stock";
+  if (currentStock <= 10) return "Low Stock";
+  return "In Stock";
+};
+
+const formatDateTime = (value: unknown) => {
+  if (!value) return "-";
+
+  const asDate = value instanceof Date ? value : null;
+  const asString = typeof value === "string" ? value.trim() : "";
+  const asNumber = typeof value === "number" ? value : NaN;
+
+  const normalizedString = asString.includes("T")
+    ? asString
+    : asString.includes(" ")
+      ? asString.replace(" ", "T")
+      : asString;
+
+  const d = asDate ?? (Number.isFinite(asNumber) ? new Date(asNumber) : new Date(normalizedString));
+  if (!Number.isFinite(d.getTime())) return "-";
+  return new Intl.DateTimeFormat("en-PH", {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(d);
 };
 
 export default function InventoryPage() {
@@ -98,14 +121,17 @@ export default function InventoryPage() {
     const apiRows = Array.isArray(json?.data) ? json.data : [];
 
     const mapped: InventoryRow[] = apiRows.map((r) => {
-      const priceNum = r.price === null ? 0 : Number(r.price);
-      const stockQty = Number(r.stock_quantity ?? 0);
-      const status = getUiStatus(r.status, stockQty);
+      const currentStock = Number(r.current_stock ?? 0);
+      const status = getUiStatus(currentStock);
+      const lastRestocked = r.last_restocked ?? r.created_at ?? null;
       return {
-        inventory_id: r.inventory_id,
+        item_id: r.item_id,
         item_name: r.item_name,
-        stock: stockQty,
-        price: Number.isFinite(priceNum) ? priceNum : 0,
+        category: r.category,
+        current_stock: currentStock,
+        minimum_stock: Number(r.minimum_stock ?? 0),
+        unit_type: r.unit_type,
+        last_restocked: lastRestocked,
         status,
         statusColor: statusToColor(status),
       };
@@ -149,8 +175,10 @@ export default function InventoryPage() {
     const term = searchTerm.toLowerCase();
     return rows.filter((row) => {
       const matchesSearch =
-        row.inventory_id.toLowerCase().includes(term) ||
-        row.item_name.toLowerCase().includes(term);
+        row.item_id.toLowerCase().includes(term) ||
+        row.item_name.toLowerCase().includes(term) ||
+        row.category.toLowerCase().includes(term) ||
+        row.unit_type.toLowerCase().includes(term);
 
       const matchesFilter = filterStatus === "all" || row.status === filterStatus;
       return matchesSearch && matchesFilter;
@@ -184,7 +212,7 @@ export default function InventoryPage() {
   };
 
   const deleteRow = (item_id: string) => {
-    setRows((prev) => prev.filter((r) => r.inventory_id !== item_id));
+    setRows((prev) => prev.filter((r) => r.item_id !== item_id));
   };
 
   const totalCount = rows.length;
@@ -216,10 +244,10 @@ export default function InventoryPage() {
             setLoading(true);
             setError(null);
             try {
-              const apiStatus: InventoryStatus =
-                item.stock === 0
+              const derivedStatus: InventoryStatus =
+                !Number.isFinite(item.current_stock) || item.current_stock <= 0
                   ? "Out of Stock"
-                  : item.stock <= 10
+                  : item.current_stock <= 10
                     ? "Low Stock"
                     : "In Stock";
 
@@ -228,9 +256,11 @@ export default function InventoryPage() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                   item_name: item.name,
-                  stock_quantity: item.stock,
-                  price: item.price,
-                  status: apiStatus,
+                  category: item.category,
+                  current_stock: item.current_stock,
+                  minimum_stock: item.minimum_stock,
+                  unit_type: item.unit_type,
+                  status: derivedStatus,
                 }),
               });
 
@@ -297,7 +327,7 @@ export default function InventoryPage() {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search by item ID or item name..."
+                placeholder="Search by item ID, item name, category, or unit type..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
@@ -336,11 +366,11 @@ export default function InventoryPage() {
             <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-200">
               <tr>
                 <th
-                  onClick={() => handleSort("inventory_id")}
+                  onClick={() => handleSort("item_id")}
                   className="text-left py-4 px-4 text-sm font-bold text-gray-700 cursor-pointer hover:bg-gray-200 transition-colors group whitespace-nowrap"
                 >
                   <div className="flex items-center gap-2">
-                    Inventory ID
+                    Item ID
                     <ArrowUpDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600" />
                   </div>
                 </th>
@@ -354,7 +384,16 @@ export default function InventoryPage() {
                   </div>
                 </th>
                 <th
-                  onClick={() => handleSort("stock")}
+                  onClick={() => handleSort("category")}
+                  className="text-center py-4 px-4 text-sm font-bold text-gray-700 cursor-pointer hover:bg-gray-200 transition-colors whitespace-nowrap"
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    Category
+                    <ArrowUpDown className="w-4 h-4 text-gray-400" />
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort("current_stock")}
                   className="text-center py-4 px-4 text-sm font-bold text-gray-700 cursor-pointer hover:bg-gray-200 transition-colors whitespace-nowrap"
                 >
                   <div className="flex items-center justify-center gap-2">
@@ -363,11 +402,20 @@ export default function InventoryPage() {
                   </div>
                 </th>
                 <th
-                  onClick={() => handleSort("price")}
-                  className="text-right py-4 px-4 text-sm font-bold text-gray-700 cursor-pointer hover:bg-gray-200 transition-colors whitespace-nowrap"
+                  onClick={() => handleSort("unit_type")}
+                  className="text-center py-4 px-4 text-sm font-bold text-gray-700 cursor-pointer hover:bg-gray-200 transition-colors whitespace-nowrap"
                 >
-                  <div className="flex items-center justify-end gap-2">
-                    Price
+                  <div className="flex items-center justify-center gap-2">
+                    Unit
+                    <ArrowUpDown className="w-4 h-4 text-gray-400" />
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort("last_restocked")}
+                  className="text-center py-4 px-4 text-sm font-bold text-gray-700 cursor-pointer hover:bg-gray-200 transition-colors whitespace-nowrap"
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    Last Restocked
                     <ArrowUpDown className="w-4 h-4 text-gray-400" />
                   </div>
                 </th>
@@ -386,7 +434,7 @@ export default function InventoryPage() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="py-10 px-4 text-center text-sm text-gray-500">
+                  <td colSpan={8} className="py-10 px-4 text-center text-sm text-gray-500">
                     <div className="flex items-center justify-center gap-3">
                       <span className="inline-block w-5 h-5 rounded-full border-2 border-gray-300 border-t-gray-600 animate-spin" />
                       Loading inventory...
@@ -395,24 +443,34 @@ export default function InventoryPage() {
                 </tr>
               ) : paginatedRows.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-10 px-4 text-center text-sm text-gray-500">
+                  <td colSpan={8} className="py-10 px-4 text-center text-sm text-gray-500">
                     No inventory items found.
                   </td>
                 </tr>
               ) : (
                 paginatedRows.map((row) => (
-                  <tr key={row.inventory_id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                  <tr key={row.item_id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
                     <td className="py-4 px-4">
-                      <span className="font-semibold text-gray-800 text-sm">{row.inventory_id}</span>
+                      <span className="font-semibold text-gray-800 text-sm">{row.item_id}</span>
                     </td>
                     <td className="py-4 px-4">
                       <span className="font-semibold text-gray-800 text-sm">{row.item_name}</span>
                     </td>
                     <td className="py-4 px-4 text-center">
-                      <span className="text-sm font-semibold text-gray-700">{row.stock}</span>
+                      <span className="text-sm font-semibold text-gray-700">{row.category}</span>
                     </td>
-                    <td className="py-4 px-4 text-right">
-                      <span className="font-bold text-gray-800 text-sm whitespace-nowrap">{formatCurrency(row.price)}</span>
+                    <td className="py-4 px-4 text-center">
+                      <span className="text-sm font-semibold text-gray-700">
+                        {row.current_stock} / {row.minimum_stock}
+                      </span>
+                    </td>
+                    <td className="py-4 px-4 text-center">
+                      <span className="text-sm font-semibold text-gray-700">{row.unit_type}</span>
+                    </td>
+                    <td className="py-4 px-4 text-center">
+                      <span className="text-sm font-semibold text-gray-700 whitespace-nowrap">
+                        {formatDateTime(row.last_restocked)}
+                      </span>
                     </td>
                     <td className="py-4 px-4 text-center">
                       <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${row.statusColor}`}>
@@ -431,7 +489,7 @@ export default function InventoryPage() {
                           className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                           title="Delete"
                           type="button"
-                          onClick={() => deleteRow(row.inventory_id)}
+                          onClick={() => deleteRow(row.item_id)}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
