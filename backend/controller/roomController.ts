@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { upload_file } from "../utils/cloudinary";
+import { upload_file, delete_file } from "../utils/cloudinary";
 import pool from "../config/db";
 
 //  /api/addHavenRoom/route.ts
@@ -246,10 +246,11 @@ export const getAllHavens = async (req: NextRequest): Promise<NextResponse> => {
 
 export const getHavenById = async (
   req: NextRequest,
-  ctx: { params: { id: string } }
+  ctx: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> => {
   try {
-    const { id } = ctx.params;
+    const params = await ctx.params;
+    const { id } = params;
 
     if (!id) {
       return NextResponse.json(
@@ -307,6 +308,304 @@ export const getHavenById = async (
   }
 };
 
+export const updateHaven = async (req: NextRequest): Promise<NextResponse> => {
+  try {
+    const body = await req.json();
+    const {
+      id,
+      haven_name,
+      tower,
+      floor,
+      view_type,
+      capacity,
+      room_size,
+      beds,
+      description,
+      youtube_url,
+      six_hour_rate,
+      ten_hour_rate,
+      weekday_rate,
+      weekend_rate,
+      six_hour_check_in,
+      ten_hour_check_in,
+      twenty_one_hour_check_in,
+      amenities,
+      haven_images,
+      existing_images,
+      photo_tour_images,
+      existing_photo_tours,
+      blocked_dates
+    } = body;
+
+    // Update haven basic info
+    const query = `
+      UPDATE havens
+      SET haven_name = $1,
+          tower = $2,
+          floor = $3,
+          view_type = $4,
+          capacity = $5,
+          room_size = $6,
+          beds = $7,
+          description = $8,
+          youtube_url = $9,
+          six_hour_rate = $10,
+          ten_hour_rate = $11,
+          weekday_rate = $12,
+          weekend_rate = $13,
+          six_hour_check_in = $14,
+          ten_hour_check_in = $15,
+          twenty_one_hour_check_in = $16,
+          amenities = $17,
+          updated_at = NOW()
+      WHERE uuid_id = $18
+      RETURNING *
+    `;
+
+    const values = [
+      haven_name,
+      tower,
+      floor,
+      view_type,
+      capacity,
+      room_size,
+      beds,
+      description,
+      youtube_url || null,
+      six_hour_rate,
+      ten_hour_rate,
+      weekday_rate,
+      weekend_rate,
+      six_hour_check_in || "09:00:00",
+      ten_hour_check_in || "09:00:00",
+      twenty_one_hour_check_in || "14:00:00",
+      JSON.stringify(amenities || {}),
+      id
+    ];
+
+    const result = await pool.query(query, values);
+
+    if (result.rows.length === 0) {
+      return NextResponse.json({
+        success: false,
+        error: "Haven not found"
+      }, { status: 404 });
+    }
+
+    // Get all current images and photo tours from database
+    const currentImagesResult = await pool.query(
+      'SELECT id, image_url, cloudinary_public_id FROM haven_images WHERE haven_id = $1',
+      [id]
+    );
+    const currentPhotoToursResult = await pool.query(
+      'SELECT id, image_url, cloudinary_public_id, category FROM photo_tour_images WHERE haven_id = $1',
+      [id]
+    );
+
+    // Find images that were removed (exist in DB but not in existing_images array)
+    const existingImageUrls = (existing_images || []).map((img: any) => img.url);
+    const imagesToDelete = currentImagesResult.rows.filter(
+      (img: any) => !existingImageUrls.includes(img.image_url)
+    );
+
+    // Find photo tours that were removed
+    const existingPhotoTourUrls = (existing_photo_tours || []).map((photo: any) => photo.url);
+    const photoToursToDelete = currentPhotoToursResult.rows.filter(
+      (photo: any) => !existingPhotoTourUrls.includes(photo.image_url)
+    );
+
+    // Delete removed images from database and Cloudinary
+    for (const img of imagesToDelete) {
+      await pool.query('DELETE FROM haven_images WHERE id = $1', [img.id]);
+      if (img.cloudinary_public_id) {
+        await delete_file(img.cloudinary_public_id);
+      }
+    }
+
+    // Delete removed photo tours from database and Cloudinary
+    for (const photo of photoToursToDelete) {
+      await pool.query('DELETE FROM photo_tour_images WHERE id = $1', [photo.id]);
+      if (photo.cloudinary_public_id) {
+        await delete_file(photo.cloudinary_public_id);
+      }
+    }
+
+    // Handle new haven images if provided
+    if (haven_images && haven_images.length > 0) {
+      const havenImageUrls = await Promise.all(
+        haven_images.map(async (image: string, index: number) => {
+          const result = await upload_file(image, "staycation-haven/havens");
+          return {
+            url: result.url,
+            public_id: result.public_id,
+            display_order: index,
+          };
+        })
+      );
+
+      // Insert new images
+      for (const img of havenImageUrls) {
+        await pool.query(
+          `INSERT INTO haven_images (haven_id, image_url, cloudinary_public_id, display_order, uploaded_at)
+           VALUES ($1, $2, $3, $4, NOW())`,
+          [id, img.url, img.public_id, img.display_order]
+        );
+      }
+    }
+
+    // Handle new photo tour images if provided
+    if (photo_tour_images) {
+      for (const [category, images] of Object.entries(photo_tour_images)) {
+        if (Array.isArray(images) && images.length > 0) {
+          const categoryUrls = await Promise.all(
+            images.map(async (image: string, index: number) => {
+              const result = await upload_file(
+                image,
+                `staycation-haven/photo-tours/${category}`
+              );
+              return {
+                category,
+                url: result.url,
+                public_id: result.public_id,
+                display_order: index,
+              };
+            })
+          );
+
+          // Insert new photo tour images
+          for (const img of categoryUrls) {
+            await pool.query(
+              `INSERT INTO photo_tour_images (haven_id, category, image_url, cloudinary_public_id, display_order, uploaded_at)
+               VALUES ($1, $2, $3, $4, $5, NOW())`,
+              [id, img.category, img.url, img.public_id, img.display_order]
+            );
+          }
+        }
+      }
+    }
+
+    // Handle blocked dates update
+    if (blocked_dates) {
+      // Delete existing blocked dates
+      await pool.query('DELETE FROM blocked_dates WHERE haven_id = $1', [id]);
+
+      // Insert new blocked dates
+      if (blocked_dates.length > 0) {
+        for (const dateRange of blocked_dates) {
+          const fromDate = new Date(dateRange.from_date);
+          const toDate = new Date(dateRange.to_date);
+
+          const actualFromDate = fromDate <= toDate ? dateRange.from_date : dateRange.to_date;
+          const actualToDate = fromDate <= toDate ? dateRange.to_date : dateRange.from_date;
+
+          await pool.query(
+            `INSERT INTO blocked_dates (haven_id, from_date, to_date, reason, created_at)
+             VALUES ($1, $2, $3, $4, NOW())`,
+            [id, actualFromDate, actualToDate, dateRange.reason || null]
+          );
+        }
+      }
+    }
+
+    console.log("✅ Haven updated successfully:", result.rows[0]);
+
+    return NextResponse.json({
+      success: true,
+      data: result.rows[0],
+      message: "Haven updated successfully"
+    });
+  } catch (error: any) {
+    console.log("❌ Update haven error:", error);
+    return NextResponse.json({
+      success: false,
+      error: error.message || "Failed to update haven"
+    }, { status: 500 });
+  }
+}
+
+export const deleteHaven = async (
+  req: NextRequest,
+  ctx?: { params: Promise<{ id: string }> }
+): Promise<NextResponse> => {
+  try {
+    // Try to get ID from route params first, fallback to query params
+    let id: string | null = null;
+
+    if (ctx?.params) {
+      const params = await ctx.params;
+      id = params.id;
+    } else {
+      const { searchParams } = new URL(req.url);
+      id = searchParams.get("id");
+    }
+
+    if (!id) {
+      return NextResponse.json({
+        success: false,
+        error: "Haven ID is required"
+      }, { status: 400 });
+    }
+
+    // Get all images before deleting to clean up from Cloudinary
+    const imagesQuery = `
+      SELECT cloudinary_public_id FROM haven_images WHERE haven_id = $1
+    `;
+    const imagesResult = await pool.query(imagesQuery, [id]);
+
+    // Get all photo tour images
+    const photoToursQuery = `
+      SELECT cloudinary_public_id FROM photo_tour_images WHERE haven_id = $1
+    `;
+    const photoToursResult = await pool.query(photoToursQuery, [id]);
+
+    // Delete the haven (this will cascade delete related records if ON DELETE CASCADE is set)
+    const deleteQuery = `
+      DELETE FROM havens WHERE uuid_id = $1 RETURNING *
+    `;
+    const result = await pool.query(deleteQuery, [id]);
+
+    if (result.rows.length === 0) {
+      return NextResponse.json({
+        success: false,
+        error: "Haven not found"
+      }, { status: 404 });
+    }
+
+    // Delete images from Cloudinary
+    const deletePromises: Promise<boolean>[] = [];
+
+    // Delete haven images from Cloudinary
+    for (const img of imagesResult.rows) {
+      if (img.cloudinary_public_id) {
+        deletePromises.push(delete_file(img.cloudinary_public_id));
+      }
+    }
+
+    // Delete photo tour images from Cloudinary
+    for (const img of photoToursResult.rows) {
+      if (img.cloudinary_public_id) {
+        deletePromises.push(delete_file(img.cloudinary_public_id));
+      }
+    }
+
+    // Wait for all Cloudinary deletions to complete
+    await Promise.all(deletePromises);
+
+    console.log("✅ Haven deleted successfully:", result.rows[0].haven_name);
+
+    return NextResponse.json({
+      success: true,
+      data: result.rows[0],
+      message: "Haven deleted successfully"
+    });
+  } catch(error: any) {
+    console.log("❌ Delete haven error:", error);
+    return NextResponse.json({
+      success: false,
+      error: error.message || "Failed to delete haven"
+    }, { status: 500 });
+  }
+}
 export const getAllAdminRooms = async (
   req: NextRequest
 ): Promise<NextResponse> => {

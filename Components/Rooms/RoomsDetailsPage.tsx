@@ -62,6 +62,7 @@ const RoomsDetailsPage = ({ room, onBack }: RoomsDetailsPageProps) => {
   const [activeCategory, setActiveCategory] = useState("Living Area");
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxImage, setLightboxImage] = useState("");
+  const [showAllPhotos, setShowAllPhotos] = useState(false);
 
   // Safe defaults
   const images = Array.isArray(room.images) ? room.images : [];
@@ -112,6 +113,11 @@ const RoomsDetailsPage = ({ room, onBack }: RoomsDetailsPageProps) => {
   const closeLightbox = () => {
     setLightboxOpen(false);
     setLightboxImage("");
+  };
+
+  const handleCategoryChange = (category: string) => {
+    setActiveCategory(category);
+    setShowAllPhotos(false);
   };
 
   const getYouTubeEmbedUrl = (url: string) => {
@@ -285,7 +291,7 @@ const RoomsDetailsPage = ({ room, onBack }: RoomsDetailsPageProps) => {
                   {photoTourCategories.map((category) => (
                     <button
                       key={category}
-                      onClick={() => setActiveCategory(category)}
+                      onClick={() => handleCategoryChange(category)}
                       className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-all ${
                         activeCategory === category
                           ? "bg-orange-500 text-white"
@@ -297,31 +303,50 @@ const RoomsDetailsPage = ({ room, onBack }: RoomsDetailsPageProps) => {
                   ))}
                 </div>
 
-                {/* Photo grid */}
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {(photoTourData[activeCategory] ?? []).length > 0 ? (
-                    (photoTourData[activeCategory] ?? []).map((photo, index) => (
-                      <div
-                        key={index}
-                        onClick={() => openLightbox(photo)}
-                        className="relative aspect-video rounded-lg overflow-hidden cursor-pointer group"
-                      >
-                        <Image
-                          src={photo}
-                          alt={`${activeCategory} ${index + 1}`}
-                          fill
-                          sizes="(max-width: 768px) 50vw, 33vw"
-                          className="object-cover group-hover:scale-110 transition-transform duration-300"
-                        />
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all" />
+                {/* Pinterest-style Masonry Grid */}
+                {(() => {
+                  const photos = photoTourData[activeCategory] ?? [];
+                  const displayPhotos = showAllPhotos ? photos : photos.slice(0, 12);
+                  const hasMore = photos.length > 12;
+
+                  return photos.length > 0 ? (
+                    <>
+                      <div className="columns-2 md:columns-3 lg:columns-4 gap-4 space-y-4">
+                        {displayPhotos.map((photo, index) => (
+                          <div
+                            key={index}
+                            onClick={() => openLightbox(photo)}
+                            className="relative break-inside-avoid mb-4 rounded-lg overflow-hidden cursor-pointer group"
+                          >
+                            <Image
+                              src={photo}
+                              alt={`${activeCategory} ${index + 1}`}
+                              width={400}
+                              height={Math.floor(Math.random() * 200) + 250}
+                              className="w-full h-auto object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all" />
+                          </div>
+                        ))}
                       </div>
-                    ))
+
+                      {hasMore && !showAllPhotos && (
+                        <div className="text-center mt-6">
+                          <button
+                            onClick={() => setShowAllPhotos(true)}
+                            className="px-6 py-3 bg-orange-500 text-white rounded-lg font-medium hover:bg-orange-600 transition-colors"
+                          >
+                            View All {photos.length} Photos
+                          </button>
+                        </div>
+                      )}
+                    </>
                   ) : (
-                    <div className="col-span-full text-center py-8 text-gray-500">
+                    <div className="text-center py-8 text-gray-500">
                       No photos available for this category
                     </div>
-                  )}
-                </div>
+                  );
+                })()}
               </div>
             )}
 

@@ -41,8 +41,9 @@ export const roomApi = createApi({
         // Update haven
         updateHaven: builder.mutation({
             query(body) {
+                const { id } = body;
                 return {
-                    url: "/haven",
+                    url: `/admin/haven/${id}`,
                     method: "PUT",
                     body
                 }
@@ -54,7 +55,7 @@ export const roomApi = createApi({
         deleteHaven: builder.mutation({
             query(id) {
                 return {
-                    url: `/havens?id=${id}`,
+                    url: `/admin/haven/${id}`,
                     method: "DELETE"
                 }
             },
