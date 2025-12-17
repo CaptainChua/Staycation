@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
+import { getToken } from "next-auth/jwt";
 import pool from "../config/db";
 
 export const getAllInventory = async (req: NextRequest): Promise<NextResponse> => {
@@ -41,6 +42,16 @@ export const getAllInventory = async (req: NextRequest): Promise<NextResponse> =
 
 export const createInventoryItem = async (req: NextRequest): Promise<NextResponse> => {
   try {
+    const session = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+    const userId = session?.sub || session?.id;
+
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, error: "You must be signed in to add inventory items" },
+        { status: 401 }
+      );
+    }
+
     const body = await req.json().catch(() => ({}));
 
     const item_name = String(body?.item_name ?? body?.name ?? "").trim();
@@ -128,21 +139,101 @@ export const createInventoryItem = async (req: NextRequest): Promise<NextRespons
         updated_at
     `;
 
-    const result = await pool.query(query, [
-      item_id,
-      item_name,
-      category,
-      current_stock,
-      minimum_stock,
-      unit_type,
-      dbStatus,
-    ]);
+    const client = await pool.connect();
 
-    return NextResponse.json({
-      success: true,
-      data: result.rows[0],
-      message: "Inventory item created successfully",
-    }, { status: 201 });
+    const extractClientIp = (): string => {
+      const headerCandidates = [
+        "x-real-ip",
+        "cf-connecting-ip",
+        "x-client-ip",
+        "x-forwarded-for",
+        "fastly-client-ip",
+        "true-client-ip",
+        "x-cluster-client-ip",
+        "x-forwarded",
+        "forwarded",
+      ];
+
+      for (const header of headerCandidates) {
+        const value = req.headers.get(header);
+        if (value) {
+          if (header === "x-forwarded-for" || header === "forwarded" || header === "x-forwarded") {
+            const first = value.split(",")[0]?.trim();
+            if (first) {
+              return first;
+            }
+          } else {
+            return value.trim();
+          }
+        }
+      }
+
+      return req.ip || "unknown";
+    };
+
+    const ipAddress = extractClientIp();
+    const userAgent = req.headers.get("user-agent") || "unknown";
+
+    try {
+      await client.query("BEGIN");
+
+      const result = await client.query(query, [
+        item_id,
+        item_name,
+        category,
+        current_stock,
+        minimum_stock,
+        unit_type,
+        dbStatus,
+      ]);
+
+      const actionDescription = `Added inventory item ${item_name}`;
+
+      await client.query(
+        `
+        INSERT INTO activity_logs (
+          user_id,
+          action_type,
+          action_description,
+          target_type,
+          target_id,
+          old_value,
+          new_value,
+          ip_address,
+          user_agent,
+          created_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, timezone('Asia/Manila', now()))
+      `,
+        [
+          userId,
+          "inventory_create",
+          actionDescription.slice(0, 255),
+          "inventory",
+          item_id,
+          null,
+          String(current_stock),
+          ipAddress,
+          userAgent.slice(0, 255),
+        ]
+      );
+
+      await client.query("COMMIT");
+
+      return NextResponse.json(
+        {
+          success: true,
+          data: result.rows[0],
+          message: "Inventory item created successfully",
+        },
+        { status: 201 }
+      );
+    } catch (innerError) {
+      await client.query("ROLLBACK");
+      throw innerError;
+    } finally {
+      client.release();
+    }
   } catch (error: any) {
     console.log("❌ Error creating inventory item:", error);
     return NextResponse.json(
