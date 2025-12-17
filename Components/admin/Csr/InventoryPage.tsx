@@ -22,6 +22,7 @@ import {
 
 import { useEffect, useMemo, useState } from "react";
 import AddItem from "./Modals/AddItem";
+import EditItem, { EditInventoryItemInput } from "./Modals/EditItem";
 import ViewItem, { ViewInventoryItem } from "./Modals/ViewItem";
 
 type InventoryStatus = "In Stock" | "Low Stock" | "Out of Stock";
@@ -107,6 +108,8 @@ const formatDateTime = (value: unknown) => {
 export default function InventoryPage() {
   const [isAddItemOpen, setIsAddItemOpen] = useState(false);
   const [viewItem, setViewItem] = useState<ViewInventoryItem | null>(null);
+  const [editItem, setEditItem] = useState<EditInventoryItemInput | null>(null);
+
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | InventoryStatus>("all");
   const [filterCategory, setFilterCategory] = useState<string>("all");
@@ -164,9 +167,9 @@ export default function InventoryPage() {
         setError(null);
 
         await loadInventory();
-      } catch (e: any) {
+      } catch (e: unknown) {
         if (!mounted) return;
-        setError(e?.message || "Failed to load inventory");
+        setError(e instanceof Error ? e.message : "Failed to load inventory");
       } finally {
         if (!mounted) return;
         setLoading(false);
@@ -227,8 +230,23 @@ export default function InventoryPage() {
     }
   };
 
-  const deleteRow = (item_id: string) => {
-    setRows((prev) => prev.filter((r) => r.item_id !== item_id));
+  const deleteRow = async (row: InventoryRow) => {
+    const confirmed = window.confirm(`Delete ${row.item_name}?`);
+    if (!confirmed) return;
+    try {
+      const res = await fetch("/api/inventory", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ item_id: row.item_id }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(payload?.error || payload?.message || "Failed to delete item");
+      }
+      await loadInventory();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to delete item");
+    }
   };
 
   const totalCount = rows.length;
@@ -422,6 +440,24 @@ export default function InventoryPage() {
       )}
 
       {viewItem && <ViewItem item={viewItem} onClose={() => setViewItem(null)} />}
+      {editItem && (
+        <EditItem
+          item={editItem}
+          onClose={() => setEditItem(null)}
+          onSave={async (payload) => {
+            const res = await fetch("/api/inventory", {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok) {
+              throw new Error(json?.error || json?.message || "Failed to update item");
+            }
+            await loadInventory();
+          }}
+        />
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {[
@@ -487,7 +523,7 @@ export default function InventoryPage() {
               <select
                 value={filterStatus}
                 onChange={(e) => {
-                  setFilterStatus(e.target.value as any);
+                  setFilterStatus(e.target.value as "all" | InventoryStatus);
                   setCurrentPage(1);
                 }}
                 className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
@@ -685,14 +721,29 @@ export default function InventoryPage() {
                           <Eye className="w-4 h-4" />
                         </button>
 
-                        <button className="p-2 text-brand-primary hover:bg-brand-primaryLighter rounded-lg transition-colors" title="Edit" type="button">
+                        <button
+                          className="p-2 text-brand-primary hover:bg-brand-primaryLighter rounded-lg transition-colors"
+                          title="Edit"
+                          type="button"
+                          onClick={() =>
+                            setEditItem({
+                              item_id: row.item_id,
+                              item_name: row.item_name,
+                              category: row.category,
+                              current_stock: row.current_stock,
+                              minimum_stock: row.minimum_stock,
+                              unit_type: row.unit_type,
+                              status: row.status,
+                            })
+                          }
+                        >
                           <Edit className="w-4 h-4" />
                         </button>
                         <button
                           className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                           title="Delete"
                           type="button"
-                          onClick={() => deleteRow(row.item_id)}
+                          onClick={() => deleteRow(row)}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
