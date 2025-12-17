@@ -63,7 +63,11 @@ const RoomsDetailsPage = ({ room, onBack }: RoomsDetailsPageProps) => {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxImage, setLightboxImage] = useState("");
 
-  // Photo tour categories
+  // Safe defaults
+  const images = Array.isArray(room.images) ? room.images : [];
+  const amenities = Array.isArray(room.amenities) ? room.amenities : [];
+  const photoTour = room.photoTour || {};
+
   const photoTourCategories = [
     "Living Area",
     "Kitchenette",
@@ -76,28 +80,28 @@ const RoomsDetailsPage = ({ room, onBack }: RoomsDetailsPageProps) => {
     "Additional",
   ];
 
-  // Map categories to room.photoTour keys
   const photoTourData: Record<string, string[]> = {
-  "Living Area": room.photoTour?.livingArea || [],
-  "Kitchenette": room.photoTour?.kitchenette || [],
-  "Dining Area": room.photoTour?.diningArea || [],
-  "Full Bathroom": room.photoTour?.fullBathroom || [],
-  "Garage": room.photoTour?.garage || [],
-  "Exterior": room.photoTour?.exterior || [],
-  "Pool": room.photoTour?.pool || [],
-  "Bedroom": room.photoTour?.bedroom || [],
-  "Additional": room.photoTour?.additional || [],
-};
-
+    "Living Area": photoTour.livingArea ?? [],
+    Kitchenette: photoTour.kitchenette ?? [],
+    "Dining Area": photoTour.diningArea ?? [],
+    "Full Bathroom": photoTour.fullBathroom ?? [],
+    Garage: photoTour.garage ?? [],
+    Exterior: photoTour.exterior ?? [],
+    Pool: photoTour.pool ?? [],
+    Bedroom: photoTour.bedroom ?? [],
+    Additional: photoTour.additional ?? [],
+  };
 
   const nextImage = () => {
-    setCurrentImageIndex((prev) => (prev + 1) % room.images.length);
+    if (images.length > 0) {
+      setCurrentImageIndex((prev) => (prev + 1) % images.length);
+    }
   };
 
   const prevImage = () => {
-    setCurrentImageIndex((prev) =>
-      prev === 0 ? room.images.length - 1 : prev - 1
-    );
+    if (images.length > 0) {
+      setCurrentImageIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1));
+    }
   };
 
   const openLightbox = (image: string) => {
@@ -115,13 +119,10 @@ const RoomsDetailsPage = ({ room, onBack }: RoomsDetailsPageProps) => {
     const videoIdMatch = url.match(
       /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/
     );
-    return videoIdMatch
-      ? `https://www.youtube.com/embed/${videoIdMatch[1]}`
-      : url;
+    return videoIdMatch ? `https://www.youtube.com/embed/${videoIdMatch[1]}` : url;
   };
 
   const handleBookNow = () => {
-    // Save the selected room to Redux
     dispatch(
       setSelectedRoom({
         id: room.id,
@@ -134,6 +135,7 @@ const RoomsDetailsPage = ({ room, onBack }: RoomsDetailsPageProps) => {
     );
     router.push("/checkout");
   };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       {/* Header */}
@@ -167,7 +169,7 @@ const RoomsDetailsPage = ({ room, onBack }: RoomsDetailsPageProps) => {
                   transform: `translateX(-${currentImageIndex * 100}%)`,
                 }}
               >
-                {room.images.map((image, index) => (
+                {images.map((image, index) => (
                   <div
                     key={index}
                     className="w-full h-full flex-shrink-0 relative"
@@ -184,7 +186,7 @@ const RoomsDetailsPage = ({ room, onBack }: RoomsDetailsPageProps) => {
               </div>
 
               {/* Navigation Arrows */}
-              {room.images.length > 1 && (
+              {images.length > 1 && (
                 <>
                   <button
                     onClick={prevImage}
@@ -202,14 +204,16 @@ const RoomsDetailsPage = ({ room, onBack }: RoomsDetailsPageProps) => {
               )}
 
               {/* Image counter */}
-              <div className="absolute top-4 right-4 bg-black/50 text-white px-4 py-2 rounded-full text-sm font-semibold z-10">
-                {currentImageIndex + 1} / {room.images.length}
-              </div>
+              {images.length > 0 && (
+                <div className="absolute top-4 right-4 bg-black/50 text-white px-4 py-2 rounded-full text-sm font-semibold z-10">
+                  {currentImageIndex + 1} / {images.length}
+                </div>
+              )}
             </div>
 
             {/* Thumbnail gallery */}
             <div className="flex gap-2 overflow-x-auto pb-2">
-              {room.images.map((image, index) => (
+              {images.map((image, index) => (
                 <button
                   key={index}
                   onClick={() => setCurrentImageIndex(index)}
@@ -232,7 +236,7 @@ const RoomsDetailsPage = ({ room, onBack }: RoomsDetailsPageProps) => {
 
             {/* Description Section */}
             <div
-              className="mt-8 bg-white rounded-lg p-6 shaodow-md animate-in fade-in slide-in-from-bottom duration-500 "
+              className="mt-8 bg-white rounded-lg p-6 shadow-md animate-in fade-in slide-in-from-bottom duration-500"
               style={{ animationDelay: "100ms" }}
             >
               <h2 className="text-2xl font-bold text-gray-800 mb-2">
@@ -250,21 +254,21 @@ const RoomsDetailsPage = ({ room, onBack }: RoomsDetailsPageProps) => {
 
             {/* Amenities Section */}
             <div
-              className="mt-8 bg-white rounded-lg p-6 shadow-md animate-in fade-in slide-in from-bottom duration-500"
+              className="mt-8 bg-white rounded-lg p-6 shadow-md animate-in fade-in slide-in-from-bottom duration-500"
               style={{ animationDelay: "200ms" }}
             >
               <h2 className="text-2xl font-bold text-gray-800 mb-4">
                 Room Amenities
               </h2>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {room.amenities.map((amenity, index) => (
+                {amenities.map((amenity, index) => (
                   <AmenityBadge key={index} amenity={amenity} />
                 ))}
               </div>
             </div>
 
-            {/* Photo Tour Gallery */}
-            {room.photoTour && (
+            {/* Photo Tour Section */}
+            {photoTour && (
               <div
                 className="mt-8 bg-white rounded-lg p-6 shadow-md animate-in fade-in slide-in-from-bottom duration-500"
                 style={{ animationDelay: "250ms" }}
@@ -276,7 +280,7 @@ const RoomsDetailsPage = ({ room, onBack }: RoomsDetailsPageProps) => {
                   Explore every corner of this haven
                 </p>
 
-                {/* Tab navigation for categories */}
+                {/* Tab navigation */}
                 <div className="flex gap-2 overflow-x-auto mb-6 pb-2">
                   {photoTourCategories.map((category) => (
                     <button
@@ -293,10 +297,10 @@ const RoomsDetailsPage = ({ room, onBack }: RoomsDetailsPageProps) => {
                   ))}
                 </div>
 
-                {/* Photo grid for selected category */}
+                {/* Photo grid */}
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {photoTourData[activeCategory]?.length > 0 ? (
-                    photoTourData[activeCategory].map((photo, index) => (
+                  {(photoTourData[activeCategory] ?? []).length > 0 ? (
+                    (photoTourData[activeCategory] ?? []).map((photo, index) => (
                       <div
                         key={index}
                         onClick={() => openLightbox(photo)}
@@ -321,7 +325,7 @@ const RoomsDetailsPage = ({ room, onBack }: RoomsDetailsPageProps) => {
               </div>
             )}
 
-            {/* YouTube Video Section */}
+            {/* YouTube Video */}
             {room.youtubeUrl && (
               <div
                 className="mt-8 bg-white rounded-lg p-6 shadow-md animate-in fade-in slide-in-from-bottom duration-500"
@@ -334,8 +338,6 @@ const RoomsDetailsPage = ({ room, onBack }: RoomsDetailsPageProps) => {
                 <p className="text-gray-600 mb-6">
                   Watch a virtual tour of this beautiful room
                 </p>
-
-                {/* YouTube Video Embed */}
                 <div className="relative w-full pb-[56.25%] rounded-lg overflow-hidden">
                   <iframe
                     src={getYouTubeEmbedUrl(room.youtubeUrl)}
@@ -347,70 +349,12 @@ const RoomsDetailsPage = ({ room, onBack }: RoomsDetailsPageProps) => {
                 </div>
               </div>
             )}
-
-            {/* Location and Map Section */}
-            <div
-              className="mt-8 bg-white rounded-lg shadow-md overflow-hidden animate-in fade-in slide-in-from-bottom duration-500"
-              style={{ animationDelay: "300ms" }}
-            >
-              <div className="p-6 border-b border-gray-200">
-                <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-                  <MapPin className="w-6 h-6 text-orange-600" />
-                  Location
-                </h2>
-              </div>
-
-              {/* Map */}
-              <div className="w-full h-96 bg-gray-200 relative overflow-hidden">
-                <iframe
-                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3860.5889374956847!2d121.03087197584714!3d14.639809577537995!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3397b603c2fec51b%3A0xdf26cdeed4a6fa95!2sStaycation%20Haven%20PH%20Quezon%20City!5e0!3m2!1sen!2sph!4v1234567890123"
-                  width="100%"
-                  height="100%"
-                  style={{ border: 0 }}
-                  allowFullScreen
-                  loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
-                  className="w-full h-full"
-                />
-              </div>
-
-              {/* Hotel Info */}
-              <div className="p-5 space-y-4">
-                <div className="flex items-start gap-3">
-                  <MapPin className="w-5 h-5 text-orange-600 flex-shrink-0 mt-1" />
-                  <div>
-                    <h3 className="font-semibold text-gray-800">Address</h3>
-                    <p className="text-gray-600">
-                      Staycation Haven PH, Quezon City, Metro Manila,
-                      Philippines
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <Phone className="w-5 h-5 text-orange-600 flex-shrink-0 mt-1" />
-                  <div>
-                    <h3 className="font-semibold text-gray-800">Phone</h3>
-                    <p className="text-gray-600">+63 9232457609</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <Mail className="w-5 h-5 text-orange-600 flex-shrink-0 mt-1" />
-                  <div>
-                    <h3 className="font-semibold text-gray-800">Email</h3>
-                    <p className="text-gray-600">info@staycationhaven.ph</p>
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
 
-          {/* Right Column Details and Booking */}
+          {/* Right Column */}
           <div className="animate-fade-in slide-in-from-right duration-500">
-            {/* Price Card */}
+            {/* Price & Booking Card */}
             <div className="bg-white rounded-lg shadow-lg p-6 mb-6 sticky top-24">
-              {/* Rating */}
               <div className="flex items-start gap-2 mb-4">
                 <div className="flex items-center gap-1">
                   {[...Array(5)].map((_, index) => (
@@ -433,14 +377,12 @@ const RoomsDetailsPage = ({ room, onBack }: RoomsDetailsPageProps) => {
                 {room.name}
               </h1>
 
-              {/* Price */}
               <div className="mb-6 pb-6 border-b border-gray-200">
                 <p>Starting Price</p>
                 <p className="text-sm text-gray-500 mb-2">{room.price}</p>
                 <p className="text-sm text-gray-500">{room.pricePerNight}</p>
               </div>
 
-              {/* Room Details */}
               <div className="mb-4 pb-4 border-b border-gray-200 space-y-3">
                 <div className="flex items-center gap-3">
                   <Users className="w-5 h-5 text-blue-600" />
@@ -456,7 +398,6 @@ const RoomsDetailsPage = ({ room, onBack }: RoomsDetailsPageProps) => {
                 )}
               </div>
 
-              {/* Action Buttons */}
               <div className="space-y-3">
                 <button
                   onClick={handleBookNow}
@@ -473,7 +414,7 @@ const RoomsDetailsPage = ({ room, onBack }: RoomsDetailsPageProps) => {
         </div>
       </div>
 
-      {/* Lightbox Modal */}
+      {/* Lightbox */}
       {lightboxOpen && (
         <div
           className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
