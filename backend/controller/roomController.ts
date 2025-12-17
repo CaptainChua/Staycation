@@ -239,10 +239,9 @@ export const getAllHavens = async (req: NextRequest): Promise<NextResponse> => {
   }
 };
 
-export const getHavenById = async (req: NextRequest): Promise<NextResponse> => {
+export const getHavenById = async (req: NextRequest, ctx: { params: { id: string } }): Promise<NextResponse> => {
   try {
-    const { searchParams } = new URL(req.url);
-    const id = searchParams.get('id');
+    const { id } = ctx.params;
 
     if (!id) {
       return NextResponse.json({

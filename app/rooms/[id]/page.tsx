@@ -1,4 +1,7 @@
-// 'use client';  
+import RoomsDetailsPage from "@/Components/Rooms/RoomsDetailsPage";
+import { Armata } from "next/font/google";
+import { notFound } from "next/navigation";
+import RoomDetailsClient from "./RoomDetailsClient";
 
 
 // import { useParams, useRouter } from "next/navigation";
@@ -169,36 +172,65 @@
 
 // export default RoomDetailsPageRoute;
 
-'use client';
+// 'use client';
 
-import { useParams, useRouter } from "next/navigation";
-import RoomsDetailsPage from "@/Components/Rooms/RoomsDetailsPage";
-import { useGetHavenByIdQuery } from "@/redux/api/roomApi";
+// import { useParams, useRouter } from "next/navigation";
+// import RoomsDetailsPage from "@/Components/Rooms/RoomsDetailsPage";
+// import { useGetHavenByIdQuery } from "@/redux/api/roomApi";
 
-const RoomDetailsPageRoute = () => {
-  const params = useParams();
-  const router = useRouter();
-  const roomId = params.id as string;
+// const RoomDetailsPageRoute = () => {
+//   const params = useParams();
+//   const router = useRouter();
+//   const roomId = params.id as string;
 
-  const { data: room, isLoading, isError } = useGetHavenByIdQuery(roomId);
+//   const { data: room, isLoading, isError } = useGetHavenByIdQuery(roomId);
 
-  if (isLoading) return <p>Loading room...</p>;
-  if (isError || !room) return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold text-gray-800 mb-4">Room Not Found</h1>
-        <button
-          onClick={() => router.push('/')}
-          className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-6 py-3 rounded-lg"
-        >
-          Back to Home
-        </button>
-      </div>
-    </div>
-  );
+//   if (isLoading) return <p>Loading room...</p>;
+//   if (isError || !room) return (
+//     <div className="min-h-screen flex items-center justify-center">
+//       <div className="text-center">
+//         <h1 className="text-2xl font-bold text-gray-800 mb-4">Room Not Found</h1>
+//         <button
+//           onClick={() => router.push('/')}
+//           className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-6 py-3 rounded-lg"
+//         >
+//           Back to Home
+//         </button>
+//       </div>
+//     </div>
+//   );
 
-  return <RoomsDetailsPage room={room} onBack={() => router.push('/')} />;
-};
+//   return <RoomsDetailsPage room={room} onBack={() => router.push('/')} />;
+// };
+
+interface Props {
+  params: {
+    id: string;
+  }
+}
+
+const getRoomById = async (id: string) => {
+  const res = await fetch(`${process.env.API_URL}/api/haven/${id}`, {
+    cache: 'no-cache'
+  })
+
+  if (!res.ok) {
+    return null
+  } 
+
+  return res.json();
+}
+
+const RoomDetailsPageRoute = async ({ params }: Props) => {
+  const { id } = await params;
+  const response =  await getRoomById(id);
+
+  if (!response?.success || !response?.data) {
+    return notFound();
+  }
+
+  return <RoomDetailsClient room={response.data} />
+}
 
 export default RoomDetailsPageRoute;
 

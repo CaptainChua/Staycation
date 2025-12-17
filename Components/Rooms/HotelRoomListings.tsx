@@ -35,7 +35,11 @@ interface Room {
   youtubeUrl?: string;
 }
 
-const HotelRoomListings = () => {
+interface HotelRoomListingsProps {
+  initialHavens : any[];
+}
+
+const HotelRoomListings = ({ initialHavens  }: HotelRoomListingsProps) => {
   const { data, isLoading, isError } = useGetHavensQuery({});
   const [sortBy, setSortBy] = useState<string>("recommended");
   // const [rooms] = useState<Room[]>([
@@ -325,10 +329,10 @@ const HotelRoomListings = () => {
   //     tower: "Tower D",
   //   },
   // ]);
-const rooms: Room[] =
-  data?.data?.map((haven: any) => ({
-    id: haven.id,
-    name: haven.name ?? "Unnamed Haven",
+
+  const rooms: Room[] = initialHavens.map((haven: any) => ({
+    id: haven.uuid_id ?? haven.id,
+    name: haven.haven_name ?? haven.name ?? "Unnamed Haven",
     price: `₱${haven.price ?? "N/A"}`,
     pricePerNight: haven.stay_type ?? "per night",
     images: haven.images?.map((img: any) => img.url) ?? [],

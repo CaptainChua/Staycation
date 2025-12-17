@@ -20,7 +20,7 @@ export const roomApi = createApi({
         getHavenById: builder.query({
             query(id) {
                 return {
-                    url: `/haven?id=${id}`
+                    url: `/haven/${id}`
                 };
             },
             providesTags: ['Haven']

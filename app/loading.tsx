@@ -23,7 +23,7 @@ const Loading = () => {
           ></path>
         </svg>
         <p className="text-sm font-semibold text-gray-600 tracking-wide">
-          Loading dashboard&hellip;
+          Loading &hellip;
         </p>
       </div>
     </div>
