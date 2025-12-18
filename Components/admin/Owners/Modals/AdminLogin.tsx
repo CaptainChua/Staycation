@@ -153,8 +153,9 @@ const AdminLogin = () => {
         {/* Header */}
         <div className="text-center mb-10 animate-in fade-in-slide-from-top duration-700">
           <div className="flex justify-center mb-4">
-            <div className="w-16 h-16 bg-gradient-to-br from-brand-primary to-brand-primaryLight rounded-full flex items-center justify-center">
-              <Home className="w-8 h-8 text-white" />
+            <div className="w-16 h-16 flex items-center justify-center">
+              {/* <Home className="w-8 h-8 text-white" /> */}
+              <img src="/Images/shlogo.png" alt="no-logo" className="w-full h-full rounded-full"/>
             </div>
           </div>
           <h1 className="text-4xl sm:text-5xl font-bold text-gray-800 mb-2">

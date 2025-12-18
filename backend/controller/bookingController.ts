@@ -51,8 +51,12 @@ export const createBooking = async (
       user_id, // Optional: null for guest, UUID for logged-in users
       guest_first_name,
       guest_last_name,
+      guest_age,
+      guest_gender,
       guest_email,
       guest_phone,
+      valid_id, // base64 string for main guest ID
+      additional_guests, // Array of additional guest objects
       room_name,
       check_in_date,
       check_out_date,
@@ -83,15 +87,50 @@ export const createBooking = async (
       paymentProofUrl = uploadResult.url;
     }
 
+    // Upload main guest valid ID to Cloudinary
+    let validIdUrl = null;
+    if (valid_id) {
+      const uploadResult = await upload_file(
+        valid_id,
+        "staycation-haven/valid-ids"
+      );
+      validIdUrl = uploadResult.url;
+    }
+
+    // Upload additional guests' valid IDs to Cloudinary
+    let additionalGuestsWithUrls = [];
+    if (additional_guests && additional_guests.length > 0) {
+      additionalGuestsWithUrls = await Promise.all(
+        additional_guests.map(async (guest: any) => {
+          let guestIdUrl = null;
+          if (guest.validId) {
+            const uploadResult = await upload_file(
+              guest.validId,
+              "staycation-haven/valid-ids"
+            );
+            guestIdUrl = uploadResult.url;
+          }
+          return {
+            firstName: guest.firstName,
+            lastName: guest.lastName,
+            age: guest.age,
+            gender: guest.gender,
+            validIdUrl: guestIdUrl,
+          };
+        })
+      );
+    }
+
     const query = `
       INSERT INTO bookings (
-        booking_id, user_id, guest_first_name, guest_last_name, guest_email, guest_phone,
+        booking_id, user_id, guest_first_name, guest_last_name, guest_age, guest_gender,
+        guest_email, guest_phone, valid_id_url, additional_guests,
         room_name, check_in_date, check_out_date, check_in_time, check_out_time,
         adults, children, infants, facebook_link, payment_method, payment_proof_url,
         room_rate, security_deposit, add_ons_total, total_amount, down_payment,
         remaining_balance, status, add_ons, created_at, updated_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, NOW(), NOW())
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, NOW(), NOW())
       RETURNING *
     `;
 
@@ -100,8 +139,12 @@ export const createBooking = async (
       user_id || null, // NULL for guest bookings
       guest_first_name,
       guest_last_name,
+      guest_age,
+      guest_gender,
       guest_email,
       guest_phone,
+      validIdUrl,
+      JSON.stringify(additionalGuestsWithUrls),
       room_name,
       check_in_date,
       check_out_date,

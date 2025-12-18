@@ -135,7 +135,7 @@ const ReservationsPage = () => {
               <div className="bg-gray-50 rounded-lg p-6">
                 <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
                   <User className="w-5 h-5 text-orange-500" />
-                  Guest Information
+                  Main Guest Information
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -150,6 +150,18 @@ const ReservationsPage = () => {
                     <p className="text-sm text-gray-500">Phone</p>
                     <p className="font-semibold text-gray-800">{selectedBooking.guest_phone}</p>
                   </div>
+                  {selectedBooking.guest_age && (
+                    <div>
+                      <p className="text-sm text-gray-500">Age</p>
+                      <p className="font-semibold text-gray-800">{selectedBooking.guest_age} years old</p>
+                    </div>
+                  )}
+                  {selectedBooking.guest_gender && (
+                    <div>
+                      <p className="text-sm text-gray-500">Gender</p>
+                      <p className="font-semibold text-gray-800 capitalize">{selectedBooking.guest_gender}</p>
+                    </div>
+                  )}
                   {selectedBooking.facebook_link && (
                     <div>
                       <p className="text-sm text-gray-500">Facebook</p>
@@ -159,7 +171,100 @@ const ReservationsPage = () => {
                     </div>
                   )}
                 </div>
+
+                {/* Main Guest Valid ID */}
+                {selectedBooking.valid_id_url && (
+                  <div className="mt-6 pt-6 border-t border-gray-200">
+                    <h4 className="text-md font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                      <CreditCard className="w-4 h-4 text-blue-600" />
+                      Valid ID
+                    </h4>
+                    <div className="relative w-full max-w-md h-64 bg-gray-200 rounded-lg overflow-hidden">
+                      <Image
+                        src={selectedBooking.valid_id_url}
+                        alt="Main Guest Valid ID"
+                        fill
+                        className="object-contain"
+                      />
+                    </div>
+                    <a
+                      href={selectedBooking.valid_id_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2 inline-block text-blue-600 hover:underline text-sm"
+                    >
+                      Open in new tab →
+                    </a>
+                  </div>
+                )}
               </div>
+
+              {/* Additional Guests */}
+              {selectedBooking.additional_guests && selectedBooking.additional_guests.length > 0 && (
+                <div className="bg-gray-50 rounded-lg p-6">
+                  <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                    <User className="w-5 h-5 text-orange-500" />
+                    Additional Guests ({selectedBooking.additional_guests.length})
+                  </h3>
+                  <div className="space-y-6">
+                    {selectedBooking.additional_guests.map((guest: any, index: number) => {
+                      const guestNumber = index + 2;
+                      const isAdult = index < selectedBooking.adults - 1;
+                      const guestType = isAdult ? `Adult ${guestNumber}` : `Child ${guestNumber - (selectedBooking.adults - 1)}`;
+
+                      return (
+                        <div key={index} className="bg-white rounded-lg p-4 border border-gray-200">
+                          <h4 className="font-semibold text-orange-600 mb-3">{guestType}</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                              <p className="text-sm text-gray-500">Full Name</p>
+                              <p className="font-semibold text-gray-800">{guest.firstName} {guest.lastName}</p>
+                            </div>
+                            {guest.age && (
+                              <div>
+                                <p className="text-sm text-gray-500">Age</p>
+                                <p className="font-semibold text-gray-800">{guest.age} years old</p>
+                              </div>
+                            )}
+                            {guest.gender && (
+                              <div>
+                                <p className="text-sm text-gray-500">Gender</p>
+                                <p className="font-semibold text-gray-800 capitalize">{guest.gender}</p>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Additional Guest Valid ID */}
+                          {guest.validIdUrl && (
+                            <div className="mt-4 pt-4 border-t border-gray-100">
+                              <h5 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                                <CreditCard className="w-4 h-4 text-blue-600" />
+                                Valid ID
+                              </h5>
+                              <div className="relative w-full max-w-sm h-48 bg-gray-200 rounded-lg overflow-hidden">
+                                <Image
+                                  src={guest.validIdUrl}
+                                  alt={`${guest.firstName} ${guest.lastName} Valid ID`}
+                                  fill
+                                  className="object-contain"
+                                />
+                              </div>
+                              <a
+                                href={guest.validIdUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="mt-2 inline-block text-blue-600 hover:underline text-sm"
+                              >
+                                Open in new tab →
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Booking Details */}
               <div className="bg-gray-50 rounded-lg p-6">

@@ -752,71 +752,117 @@ const handleSubmit = async (e: React.FormEvent) => {
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
+                      <div ref={(el) => { errorRefs.current[`guest${index}FirstName`] = el; }}>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           First Name *
                         </label>
                         <input
                           type="text"
                           value={guest.firstName}
-                          onChange={(e) => handleAdditionalGuestChange(index, 'firstName', e.target.value)}
+                          onChange={(e) => {
+                            handleAdditionalGuestChange(index, 'firstName', e.target.value);
+                            setErrors(prev => ({...prev, [`guest${index}FirstName`]: ''}));
+                          }}
                           required
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                          className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:border-transparent transition-colors ${
+                            errors[`guest${index}FirstName`] ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-orange-500'
+                          }`}
                           placeholder="Enter first name"
                         />
+                        {errors[`guest${index}FirstName`] && (
+                          <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                            <AlertCircle className="w-4 h-4" />
+                            {errors[`guest${index}FirstName`]}
+                          </p>
+                        )}
                       </div>
 
-                      <div>
+                      <div ref={(el) => { errorRefs.current[`guest${index}LastName`] = el; }}>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           Last Name *
                         </label>
                         <input
                           type="text"
                           value={guest.lastName}
-                          onChange={(e) => handleAdditionalGuestChange(index, 'lastName', e.target.value)}
+                          onChange={(e) => {
+                            handleAdditionalGuestChange(index, 'lastName', e.target.value);
+                            setErrors(prev => ({...prev, [`guest${index}LastName`]: ''}));
+                          }}
                           required
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                          className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:border-transparent transition-colors ${
+                            errors[`guest${index}LastName`] ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-orange-500'
+                          }`}
                           placeholder="Enter last name"
                         />
+                        {errors[`guest${index}LastName`] && (
+                          <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                            <AlertCircle className="w-4 h-4" />
+                            {errors[`guest${index}LastName`]}
+                          </p>
+                        )}
                       </div>
 
-                      <div>
+                      <div ref={(el) => { errorRefs.current[`guest${index}Age`] = el; }}>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           Age *
                         </label>
                         <input
                           type="number"
                           value={guest.age}
-                          onChange={(e) => handleAdditionalGuestChange(index, 'age', e.target.value)}
+                          onChange={(e) => {
+                            handleAdditionalGuestChange(index, 'age', e.target.value);
+                            setErrors(prev => ({...prev, [`guest${index}Age`]: ''}));
+                          }}
                           required
                           min="1"
                           max="120"
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                          className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:border-transparent transition-colors ${
+                            errors[`guest${index}Age`] ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-orange-500'
+                          }`}
                           placeholder="Enter age"
                         />
+                        {errors[`guest${index}Age`] && (
+                          <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                            <AlertCircle className="w-4 h-4" />
+                            {errors[`guest${index}Age`]}
+                          </p>
+                        )}
                       </div>
 
-                      <div>
+                      <div ref={(el) => { errorRefs.current[`guest${index}Gender`] = el; }}>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           Gender *
                         </label>
                         <select
                           value={guest.gender}
-                          onChange={(e) => handleAdditionalGuestChange(index, 'gender', e.target.value)}
+                          onChange={(e) => {
+                            handleAdditionalGuestChange(index, 'gender', e.target.value);
+                            setErrors(prev => ({...prev, [`guest${index}Gender`]: ''}));
+                          }}
                           required
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white"
+                          className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:border-transparent transition-colors bg-white ${
+                            errors[`guest${index}Gender`] ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-orange-500'
+                          }`}
                         >
                           <option value="">Select Gender</option>
                           <option value="male">Male</option>
                           <option value="female">Female</option>
                           <option value="other">Other</option>
                         </select>
+                        {errors[`guest${index}Gender`] && (
+                          <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                            <AlertCircle className="w-4 h-4" />
+                            {errors[`guest${index}Gender`]}
+                          </p>
+                        )}
                       </div>
                     </div>
 
                     {/* Valid ID Upload for Additional Guest if 10+ */}
                     {parseInt(guest.age) >= 10 && (
-                      <div className="mt-6 p-4 bg-blue-50 border-2 border-dashed border-blue-300 rounded-lg">
+                      <div ref={(el) => { errorRefs.current[`guest${index}ValidId`] = el; }} className={`mt-6 p-4 border-2 border-dashed rounded-lg ${
+                        errors[`guest${index}ValidId`] ? 'bg-red-50 border-red-300' : 'bg-blue-50 border-blue-300'
+                      }`}>
                         <div className="flex items-center gap-2 mb-3">
                           <CreditCard className="w-5 h-5 text-blue-600" />
                           <h3 className="font-semibold text-blue-800">
@@ -858,6 +904,12 @@ const handleSubmit = async (e: React.FormEvent) => {
                             </div>
                           )}
                         </div>
+                        {errors[`guest${index}ValidId`] && (
+                          <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                            <AlertCircle className="w-4 h-4" />
+                            {errors[`guest${index}ValidId`]}
+                          </p>
+                        )}
                       </div>
                     )}
                   </div>
@@ -993,7 +1045,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                       />
                     </div>
 
-                    <div>
+                    <div ref={(el) => { errorRefs.current.checkInTime = el; }}>
                       <TimeInput
                         label="Check-in Time *"
                         value={formData.checkInTime ? parseTime(formData.checkInTime) as any : undefined}
@@ -1004,6 +1056,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                               ...formData,
                               checkInTime: timeStr,
                             });
+                            setErrors(prev => ({...prev, checkInTime: ''}));
                           }
                         }}
                         isRequired
@@ -1012,9 +1065,15 @@ const handleSubmit = async (e: React.FormEvent) => {
                           label: "text-sm font-medium text-gray-700",
                         }}
                       />
+                      {errors.checkInTime && (
+                        <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                          <AlertCircle className="w-4 h-4" />
+                          {errors.checkInTime}
+                        </p>
+                      )}
                     </div>
 
-                    <div>
+                    <div ref={(el) => { errorRefs.current.checkOutTime = el; }}>
                       <TimeInput
                         label="Check-out Time *"
                         value={formData.checkOutTime ? parseTime(formData.checkOutTime) as any : undefined}
@@ -1025,6 +1084,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                               ...formData,
                               checkOutTime: timeStr,
                             });
+                            setErrors(prev => ({...prev, checkOutTime: ''}));
                           }
                         }}
                         isRequired
@@ -1033,6 +1093,12 @@ const handleSubmit = async (e: React.FormEvent) => {
                           label: "text-sm font-medium text-gray-700",
                         }}
                       />
+                      {errors.checkOutTime && (
+                        <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                          <AlertCircle className="w-4 h-4" />
+                          {errors.checkOutTime}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>

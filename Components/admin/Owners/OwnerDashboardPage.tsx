@@ -6,6 +6,7 @@ import GuestAssistancePage from "./GuestAssistancePage";
 import AddUnitModal from "./Modals/AddUnitModal";
 import BookingModalSetting from "./Modals/BookingModalSetting";
 import CreateEmployeeModal from "./Modals/CreateEmployeeModal";
+import EditEmployeeModal from "./Modals/EditEmployeeModal";
 import PaymentSettingsModal from "./Modals/PaymentSettingsModal";
 import BookingDateModal from "./Modals/BookingDateModal";
 import AddNewHavenModal from "./Modals/AddNewHavenModal";
@@ -38,9 +39,11 @@ export default function OwnerDashboard() {
     payment: false,
     booking: false,
     employee: false,
+    editEmployee: false,
     addHaven: false,
     policies: false,
   });
+  const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
   const [bookingDateModal, setBookingDateModal] = useState<{
     isOpen: boolean;
     selectedDate: Date | null;
@@ -467,7 +470,13 @@ export default function OwnerDashboard() {
             {page === "reviews" && <ReviewsPage />}
             {page === "guest" && <GuestAssistancePage />}
             {page === "staff" && (
-              <StaffActivityPage onCreateClick={() => openModal("employee")} />
+              <StaffActivityPage
+                onCreateClick={() => openModal("employee")}
+                onEditClick={(employee: any) => {
+                  setSelectedEmployee(employee);
+                  openModal("editEmployee");
+                }}
+              />
             )}
             {page === "settings" && <SettingsPage />}
             {page === "audit" && <AuditLogsPage />}
@@ -510,6 +519,14 @@ export default function OwnerDashboard() {
       <CreateEmployeeModal
         isOpen={modals.employee}
         onClose={() => closeModal("employee")}
+      />
+      <EditEmployeeModal
+        isOpen={modals.editEmployee}
+        onClose={() => {
+          closeModal("editEmployee");
+          setSelectedEmployee(null);
+        }}
+        employee={selectedEmployee}
       />
       <BookingDateModal
         isOpen={bookingDateModal.isOpen}

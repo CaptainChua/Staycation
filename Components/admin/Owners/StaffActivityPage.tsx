@@ -13,8 +13,12 @@ import {
   FileText,
   Search,
   Filter,
+  Loader2,
 } from "lucide-react";
 import { useState } from "react";
+import { useGetEmployeesQuery, useDeleteEmployeeMutation } from "@/redux/api/employeeApi";
+import toast from "react-hot-toast";
+import Image from "next/image";
 
 interface ActivityLog {
   id: number;
@@ -26,10 +30,17 @@ interface ActivityLog {
   type: "login" | "logout" | "task_complete" | "task_pending" | "update" | "other";
 }
 
-const StaffActivityPage = ({ onCreateClick }: any) => {
+const StaffActivityPage = ({ onCreateClick, onEditClick }: any) => {
   const [tab, setTab] = useState("activity");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState<string>("all");
+  const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
+
+  // Fetch employees from API
+  const { data: employeesData, isLoading: isLoadingEmployees } = useGetEmployeesQuery({});
+  const [deleteEmployee, { isLoading: isDeleting }] = useDeleteEmployeeMutation();
+
+  const employees = employeesData?.data || [];
 
   // Sample activity log data
   const activityLogs: ActivityLog[] = [
@@ -237,55 +248,124 @@ const StaffActivityPage = ({ onCreateClick }: any) => {
       )}
 
       {tab === "users" && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="space-y-3">
-            {[
-              {
-                name: "Maria Santos",
-                role: "Cleaner",
-                email: "maria@staycationhaven.com",
-                status: "Active",
-              },
-              {
-                name: "Juan Dela Cruz",
-                role: "CSR",
-                email: "juan@staycationhaven.com",
-                status: "Active",
-              },
-              {
-                name: "Rosa Garcia",
-                role: "Cleaner",
-                email: "rosa@staycationhaven.com",
-                status: "Inactive",
-              },
-            ].map((user, i) => (
-              <div
-                key={i}
-                className="border border-gray-200 rounded-lg p-4 flex justify-between items-center animate-in fade-in duration-500"
-                style={{ animationDelay: `${i * 100}ms` }}
-              >
-                <div>
-                  <p className="font-bold">{user.name}</p>
-                  <p className="text-xs text-gray-500">
-                    {user.role} • {user.email}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`text-xs font-bold px-2 py-1 rounded ${
-                      user.status === "Active"
-                        ? "bg-green-100 text-green-700"
-                        : "bg-gray-100 text-gray-700"
-                    }`}
-                  >
-                    {user.status}
-                  </span>
-                  <button className="p-1 text-red-500 hover:bg-red-50 rounded">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
+        <div className="space-y-4">
+          {/* Search Bar */}
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search by name, email, or role..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
+              />
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-6">
+            {isLoadingEmployees ? (
+              <div className="flex justify-center items-center py-12">
+                <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
               </div>
-            ))}
+            ) : employees.length === 0 ? (
+              <div className="text-center py-12">
+                <User className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                <p className="text-gray-600 font-medium">No employees found</p>
+                <p className="text-sm text-gray-500 mt-1">
+                  Click "Create Employee" to add your first team member
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+              {employees
+                .filter((user: any) =>
+                  user.first_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                  user.last_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                  user.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                  user.role?.toLowerCase().includes(searchQuery.toLowerCase())
+                )
+                .map((user: any, i: number) => (
+                  <div
+                    key={user.id}
+                    className="border border-gray-200 rounded-lg p-4 flex justify-between items-center hover:border-orange-300 transition-colors animate-in fade-in duration-500"
+                    style={{ animationDelay: `${i * 100}ms` }}
+                  >
+                    <div className="flex items-center gap-4">
+                      {user.profile_image_url ? (
+                        <div className="relative w-12 h-12 rounded-full overflow-hidden">
+                          <Image
+                            src={user.profile_image_url}
+                            alt={`${user.first_name} ${user.last_name}`}
+                            fill
+                            className="object-cover"
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-orange-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
+                          {user.first_name?.charAt(0)}{user.last_name?.charAt(0)}
+                        </div>
+                      )}
+                      <div>
+                        <p className="font-bold text-gray-800">
+                          {user.first_name} {user.last_name}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {user.role} • {user.email}
+                        </p>
+                        {user.phone && (
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            📱 {user.phone}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`text-xs font-bold px-3 py-1 rounded-full ${
+                          user.status === "active"
+                            ? "bg-green-100 text-green-700"
+                            : "bg-gray-100 text-gray-700"
+                        }`}
+                      >
+                        {user.status === "active" ? "Active" : "Inactive"}
+                      </span>
+                      <button
+                        onClick={() => {
+                          setSelectedEmployee(user);
+                          onEditClick(user);
+                        }}
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        title="Edit Employee"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={async () => {
+                          if (window.confirm(`Are you sure you want to delete ${user.first_name} ${user.last_name}?`)) {
+                            try {
+                              await deleteEmployee(user.id).unwrap();
+                              toast.success(`Successfully deleted ${user.first_name} ${user.last_name}`);
+                            } catch (error: any) {
+                              toast.error(error?.data?.error || "Failed to delete employee");
+                            }
+                          }
+                        }}
+                        disabled={isDeleting}
+                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                        title="Delete Employee"
+                      >
+                        {isDeleting ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
