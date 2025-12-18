@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useAppSelector, useAppDispatch } from "@/redux/hooks";
 import { setCheckInDate, setCheckOutDate } from "@/redux/slices/bookingSlice";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { DatePicker } from "@nextui-org/date-picker";
 import { TimeInput } from "@nextui-org/date-input";
 import { parseDate, parseTime } from "@internationalized/date";
@@ -48,6 +49,7 @@ const Checkout = () => {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const bookingData = useAppSelector((state) => state.booking);
+  const { data: session } = useSession();
 
   const [isLoading, setIsLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState(1); // 1 = Guest Info, 2 = Confirmation & Payment
@@ -167,45 +169,69 @@ const handleSubmit = async (e: React.FormEvent) => {
     !formData.lastName ||
     !formData.email ||
     !formData.phone ||
-    !formData.paymentProof
+    !formData.paymentProof ||
+    !formData.termsAccepted
   ) {
-    alert("Please fill in all required fields and upload proof of payment");
+    alert("Please fill in all required fields, upload proof of payment, and accept terms");
     return;
   }
 
   try {
+    setIsLoading(true);
+
     // Generate booking ID
     const bookingId = `BK${Date.now()}`;
 
-    // Prepare booking data for email
-    const bookingEmailData = {
-      bookingId,
-      firstName: formData.firstName,
-      lastName: formData.lastName,
-      email: formData.email,
-      roomName: bookingData.selectedRoom?.name || 'Standard Room',
-      checkInDate: bookingData.checkInDate,
-      checkOutDate: bookingData.checkOutDate,
-      checkInTime: formData.checkInTime,
-      checkOutTime: formData.checkOutTime,
-      guests: `${bookingData.guests.adults} Adults, ${bookingData.guests.children} Children, ${bookingData.guests.infants} Infants`,
-      paymentMethod: formData.paymentMethod,
-      totalAmount: totalAmount,
-      downPayment: downPayment,
+    // Convert payment proof to base64 if it's a File
+    let paymentProofBase64 = '';
+    if (formData.paymentProof) {
+      const reader = new FileReader();
+      paymentProofBase64 = await new Promise((resolve, reject) => {
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(formData.paymentProof as File);
+      });
+    }
+
+    // Prepare booking data for database
+    const bookingRequestData = {
+      booking_id: bookingId,
+      user_id: (session?.user as any)?.id || null, // NULL for guest, UUID for logged-in users
+      guest_first_name: formData.firstName,
+      guest_last_name: formData.lastName,
+      guest_email: formData.email,
+      guest_phone: formData.phone,
+      room_name: bookingData.selectedRoom?.name || bookingData.location?.name || 'Standard Room',
+      check_in_date: bookingData.checkInDate,
+      check_out_date: bookingData.checkOutDate,
+      check_in_time: formData.checkInTime,
+      check_out_time: formData.checkOutTime,
+      adults: formData.adults,
+      children: formData.children,
+      infants: formData.infants,
+      facebook_link: formData.facebookLink,
+      payment_method: formData.paymentMethod,
+      payment_proof: paymentProofBase64,
+      room_rate: roomRate,
+      security_deposit: securityDeposit,
+      add_ons_total: addOnsTotal,
+      total_amount: totalAmount,
+      down_payment: downPayment,
+      remaining_balance: remainingBalance,
+      add_ons: addOns,
     };
 
-    // Send email using axios
-    setIsLoading(true);
-    const response = await axios.post('/api/send-booking-email', bookingEmailData);
+    // Save booking to database
+    const response = await axios.post('/api/bookings', bookingRequestData);
 
     if (response.data.success) {
-      alert(`Booking Confirmed! Your booking ID is: ${bookingId}\n\nA confirmation email has been sent to ${formData.email}`);
+      alert(`Booking Submitted Successfully!\n\nYour booking ID is: ${bookingId}\n\nStatus: Pending Admin Approval\n\nYou will receive a confirmation email once the admin approves your booking.`);
 
       // Clear form and redirect
       router.push('/');
     } else {
       setIsLoading(false);
-      alert('Booking saved, but email failed to send. Please contact support.');
+      alert('Failed to create booking. Please try again or contact support.');
     }
 
   } catch (error) {

@@ -1,16 +1,16 @@
 "use server";
 
 import { NextRequest, NextResponse } from "next/server";
-import { getEmployeeById, updateEmployee, deleteEmployee } from "@/backend/controller/employeeController";
+import { getBookingById, updateBookingStatus, deleteBooking } from "@/backend/controller/bookingController";
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
-  return getEmployeeById(request);
+  return getBookingById(request);
 }
 
 export async function PUT(request: NextRequest): Promise<NextResponse> {
-  return updateEmployee(request);
+  return updateBookingStatus(request);
 }
 
 export async function DELETE(request: NextRequest): Promise<NextResponse> {
-  return deleteEmployee(request);
+  return deleteBooking(request);
 }

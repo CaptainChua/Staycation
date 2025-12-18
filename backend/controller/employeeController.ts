@@ -177,7 +177,7 @@ export const getAllEmployees = async (req: NextRequest): Promise<NextResponse> =
 export const updateEmployee = async (req: NextRequest): Promise<NextResponse> => {
   try {
     const body = await req.json();
-    const { id, ...employeeData } = body;
+    const { id, profile_image_url, ...employeeData } = body;
 
     if (!id) {
       return NextResponse.json({
@@ -186,9 +186,23 @@ export const updateEmployee = async (req: NextRequest): Promise<NextResponse> =>
       }, { status: 400 });
     }
 
+    // Handle profile image upload to Cloudinary if it's a base64 string
+    let profileImageUrl = profile_image_url;
+    if (profile_image_url && profile_image_url.startsWith('data:image')) {
+      const uploadResult = await upload_file(profile_image_url, "staycation-haven/profiles");
+      profileImageUrl = uploadResult.url;
+    }
+
     const fields: string[] = [];
     const values: any[] = [];
     let paramCount = 1;
+
+    // Add profile_image_url if it exists
+    if (profileImageUrl) {
+      fields.push(`profile_image_url = $${paramCount}`);
+      values.push(profileImageUrl);
+      paramCount++;
+    }
 
     Object.entries(employeeData).forEach(([key, value]) => {
       if (value !== undefined && key !== 'id') {
@@ -294,7 +308,7 @@ export const loginEmployee = async (req: NextRequest):Promise <NextResponse> => 
       )
     }
 
-    const findQuery = `SELECT id, first_name, last_name, email, password, role, department, profile_image_url FROM employees WHERE email = $1 LIMIT 1`;
+    const findQuery = `SELECT id, first_name, last_name, email, phone, employment_id, hire_date, role, department, monthly_salary, street_address, city, zip_code, password, profile_image_url, emergency_contact_name, emergency_contact_phone, emergency_contact_relation FROM employees WHERE email = $1 LIMIT 1`;
 
     const userResult = await pool.query(findQuery, [email]);
 
@@ -335,9 +349,19 @@ export const loginEmployee = async (req: NextRequest):Promise <NextResponse> => 
           id: employee.id,
           email: employee.email,
           name: `${employee.first_name} ${employee.last_name}`,
+          phone: employee.phone,
+          employment_id: employee.employment_id,
+          hire_date: employee.hire_date,
           role: employee.role,
           department: employee.department,
-          profile_image_url: employee.profile_image_url
+          monthly_salary: employee.monthly_salary,
+          street_address: employee.street_address,
+          city: employee.city,
+          zip_code: employee.zip_code,
+          profile_image_url: employee.profile_image_url,
+          emergency_contact_name: employee.emergency_contact_name,
+          emergency_contact_phone: employee.emergency_contact_phone,
+          emergency_contact_relation: employee.emergency_contact_relation
         }
       },
       { status: 200 }

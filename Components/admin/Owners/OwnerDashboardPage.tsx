@@ -1,6 +1,6 @@
 "use client";
 
-import { LogOut, Menu, X, Home, Users, MessageSquare, Settings, Bell } from "lucide-react";
+import { LogOut, Menu, X, Home, Users, MessageSquare, Settings, Bell, UserCircle, ChevronDown, BarChart3, Calendar, DollarSign, Wrench, Star, Shield, FileText } from "lucide-react";
 import DashboardPage from "./DashboardPage";
 import GuestAssistancePage from "./GuestAssistancePage";
 import AddUnitModal from "./Modals/AddUnitModal";
@@ -12,15 +12,26 @@ import AddNewHavenModal from "./Modals/AddNewHavenModal";
 import PoliciesModal from "./Modals/PoliciesModal";
 import StaffActivityPage from "./StaffActivityPage";
 import ViewAllUnits from "./ViewAllUnits";
+import ProfilePage from "./ProfilePage";
+import AnalyticsPage from "./AnalyticsPage";
+import ReservationsPage from "./ReservationsPage";
+import RevenueManagementPage from "./RevenueManagementPage";
+import MaintenancePage from "./MaintenancePage";
+import ReviewsPage from "./ReviewsPage";
+import SettingsPage from "./SettingsPage";
+import AuditLogsPage from "./AuditLogsPage";
 import toast from 'react-hot-toast';
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { signOut, useSession } from "next-auth/react";
+import Image from "next/image";
 
 export default function OwnerDashboard() {
   const { data: session} = useSession();
    const [sidebar, setSidebar] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [page, setPage] = useState("dashboard");
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const [havenView, setHavenView] = useState<"overview" | "list">("overview");
   const [modals, setModals] = useState({
     addUnit: false,
@@ -64,6 +75,23 @@ export default function OwnerDashboard() {
     }
   }, []);
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setProfileDropdownOpen(false);
+      }
+    };
+
+    if (profileDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [profileDropdownOpen]);
+
   const handleLogout = async () => {
     try {
       await signOut({
@@ -80,10 +108,40 @@ export default function OwnerDashboard() {
   const navItems = [
     { id: "dashboard", icon: Home, label: "Dashboard", color: "text-blue-500" },
     {
+      id: "analytics",
+      icon: BarChart3,
+      label: "Analytics & Reports",
+      color: "text-cyan-500",
+    },
+    {
+      id: "reservations",
+      icon: Calendar,
+      label: "Reservations",
+      color: "text-indigo-500",
+    },
+    {
       id: "havens",
       icon: Home,
       label: "Haven Management",
       color: "text-purple-500",
+    },
+    {
+      id: "revenue",
+      icon: DollarSign,
+      label: "Revenue Management",
+      color: "text-emerald-500",
+    },
+    {
+      id: "maintenance",
+      icon: Wrench,
+      label: "Maintenance",
+      color: "text-amber-500",
+    },
+    {
+      id: "reviews",
+      icon: Star,
+      label: "Reviews & Feedback",
+      color: "text-yellow-500",
     },
     {
       id: "guest",
@@ -96,6 +154,18 @@ export default function OwnerDashboard() {
       icon: Users,
       label: "Staff Management",
       color: "text-orange-500",
+    },
+    {
+      id: "settings",
+      icon: Settings,
+      label: "Settings",
+      color: "text-gray-500",
+    },
+    {
+      id: "audit",
+      icon: Shield,
+      label: "Audit Logs",
+      color: "text-red-500",
     },
   ];
 
@@ -188,9 +258,19 @@ export default function OwnerDashboard() {
           {sidebar && (
             <div className="mb-3 p-3 bg-white rounded-lg border border-gray-200">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-yellow-500 rounded-full flex items-center justify-center text-white font-bold">
-                  O
-                </div>
+                {session && ((session.user as any)?.image || (session.user as any)?.profile_image_url) ? (
+                  <Image
+                    src={(session.user as any)?.image || (session.user as any)?.profile_image_url}
+                    alt="Profile"
+                    width={40}
+                    height={40}
+                    className="rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-yellow-500 rounded-full flex items-center justify-center text-white font-bold">
+                    {session?.user?.name?.charAt(0) || "O"}
+                  </div>
+                )}
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-gray-800 truncate">
                     {(session?.user.name || "User")}
@@ -258,9 +338,96 @@ export default function OwnerDashboard() {
               <Settings className="w-6 h-6 text-gray-600" />
             </button>
 
-            {/* User Avatar */}
-            <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-yellow-500 rounded-full flex items-center justify-center text-white font-bold cursor-pointer hover:shadow-lg transition-shadow">
-              O
+            {/* Profile Dropdown */}
+            <div className="relative" ref={dropdownRef}>
+              <button
+                onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+                className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                {session && ((session.user as any)?.image || (session.user as any)?.profile_image_url) ? (
+                  <Image
+                    src={(session.user as any)?.image || (session.user as any)?.profile_image_url}
+                    alt="Profile"
+                    width={40}
+                    height={40}
+                    className="rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-yellow-500 rounded-full flex items-center justify-center text-white font-bold">
+                    {session?.user?.name?.charAt(0) || "O"}
+                  </div>
+                )}
+                <ChevronDown className={`w-4 h-4 text-gray-600 transition-transform ${profileDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {/* Dropdown Menu */}
+              {profileDropdownOpen && (
+                <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                  {/* User Info */}
+                  <div className="px-4 py-3 border-b border-gray-200">
+                    <div className="flex items-center gap-3">
+                      {session && ((session.user as any)?.image || (session.user as any)?.profile_image_url) ? (
+                        <Image
+                          src={(session.user as any)?.image || (session.user as any)?.profile_image_url}
+                          alt="Profile"
+                          width={48}
+                          height={48}
+                          className="rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-yellow-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
+                          {session?.user?.name?.charAt(0) || "O"}
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-gray-800 truncate">
+                          {session?.user?.name || "User"}
+                        </p>
+                        <p className="text-xs text-gray-500 truncate">
+                          {(session?.user as any)?.role || "Owner"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Menu Items */}
+                  <div className="py-1">
+                    <button
+                      onClick={() => {
+                        setPage("profile");
+                        setProfileDropdownOpen(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      <UserCircle className="w-4 h-4" />
+                      View Profile
+                    </button>
+                    <button
+                      onClick={() => {
+                        setProfileDropdownOpen(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      <Settings className="w-4 h-4" />
+                      Settings
+                    </button>
+                  </div>
+
+                  {/* Logout */}
+                  <div className="border-t border-gray-200 pt-1">
+                    <button
+                      onClick={() => {
+                        setProfileDropdownOpen(false);
+                        handleLogout();
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      Logout
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -293,10 +460,18 @@ export default function OwnerDashboard() {
             {page === "havens" && havenView === "list" && (
               <ViewAllUnits onAddUnitClick={() => openModal("addHaven")} />
             )}
+            {page === "analytics" && <AnalyticsPage />}
+            {page === "reservations" && <ReservationsPage />}
+            {page === "revenue" && <RevenueManagementPage />}
+            {page === "maintenance" && <MaintenancePage />}
+            {page === "reviews" && <ReviewsPage />}
             {page === "guest" && <GuestAssistancePage />}
             {page === "staff" && (
               <StaffActivityPage onCreateClick={() => openModal("employee")} />
             )}
+            {page === "settings" && <SettingsPage />}
+            {page === "audit" && <AuditLogsPage />}
+            {page === "profile" && <ProfilePage />}
           </div>
         </div>
 

@@ -15,6 +15,16 @@ export const employeeApi = createApi({
             providesTags: ['Employee']
         }),
 
+        // Get employee by ID
+        getEmployeeById: builder.query({
+            query(id) {
+                return {
+                    url: `/admin/employees/${id}`
+                };
+            },
+            providesTags: ['Employee']
+        }),
+
         //Create employee
         createEmployee: builder.mutation({
             query(body) {
@@ -22,6 +32,31 @@ export const employeeApi = createApi({
                     url: "/admin/employees",
                     method: "POST",
                     body
+                }
+            },
+            invalidatesTags: ['Employee']
+        }),
+
+        // Update employee
+        updateEmployee: builder.mutation({
+            query(body) {
+                const { id } = body;
+                return {
+                    url: `/admin/employees/${id}`,
+                    method: "PUT",
+                    body
+                }
+            },
+            invalidatesTags: ['Employee']
+        }),
+
+        // Delete employee
+        deleteEmployee: builder.mutation({
+            query(id) {
+                return {
+                    url: `/admin/employees`,
+                    method: "DELETE",
+                    params: { id }
                 }
             },
             invalidatesTags: ['Employee']
@@ -40,7 +75,10 @@ export const employeeApi = createApi({
 });
 
 export const {
-    useCreateEmployeeMutation,
     useGetEmployeesQuery,
+    useGetEmployeeByIdQuery,
+    useCreateEmployeeMutation,
+    useUpdateEmployeeMutation,
+    useDeleteEmployeeMutation,
     useLoginEmployeeMutation
 } = employeeApi
