@@ -172,7 +172,7 @@ export default function BestPracticesContent() {
             <p className="text-sm text-red-900 mb-2 flex items-center gap-2"><X className="w-4 h-4" /> Wrong:</p>
             <div className="bg-gray-900 text-gray-100 p-3 rounded font-mono text-xs">
               <div>git checkout develop</div>
-              <div>git checkout -b feature/my-feature <span className="text-red-400"># Missing pull!</span></div>
+              <div>git checkout -b feature-my-feature <span className="text-red-400"># Missing pull!</span></div>
             </div>
           </div>
           <div className="bg-green-100 border border-green-400 p-4 rounded">
@@ -180,7 +180,7 @@ export default function BestPracticesContent() {
             <div className="bg-gray-900 text-gray-100 p-3 rounded font-mono text-xs">
               <div>git checkout develop</div>
               <div className="text-green-400">git pull origin develop</div>
-              <div>git checkout -b feature/my-feature</div>
+              <div>git checkout -b feature-my-feature</div>
             </div>
           </div>
         </div>
@@ -212,7 +212,7 @@ export default function BestPracticesContent() {
             <div className="text-gray-400 mb-2 mt-3"># Then push</div>
             <div className="flex items-center gap-2">
               <span className="text-green-400">$</span>
-              <span>git push origin feature/your-branch</span>
+              <span>git push origin feature-your-branch</span>
             </div>
           </div>
         </div>
