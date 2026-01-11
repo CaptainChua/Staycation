@@ -98,7 +98,7 @@ export default function WorkingOnFeaturesContent() {
       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-4 md:p-5 rounded-lg mb-8">
         <h3 className="text-base md:text-lg font-semibold text-gray-800 dark:text-gray-100 mb-3">You'll see something like:</h3>
         <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded font-mono text-xs md:text-sm text-gray-700 dark:text-gray-300 overflow-x-auto">
-          On branch feature/add-contact-form<br />
+          On branch feature-add-contact-form<br />
           Changes not staged for commit:<br />
           <span className="text-red-600 ml-4">modified:   app/contact/page.tsx</span><br />
           <span className="text-red-600 ml-4">modified:   Components/ContactForm.tsx</span><br />
@@ -163,7 +163,7 @@ export default function WorkingOnFeaturesContent() {
           <h3 className="text-base md:text-lg font-semibold text-green-800 dark:text-green-300">Now you should see:</h3>
         </div>
         <div className="bg-white dark:bg-gray-800 p-4 rounded border border-green-300 dark:border-green-700 font-mono text-xs md:text-sm text-gray-700 dark:text-gray-300 overflow-x-auto">
-          On branch feature/add-contact-form<br />
+          On branch feature-add-contact-form<br />
           Changes to be committed:<br />
           <span className="text-green-600 ml-4">modified:   app/contact/page.tsx</span><br />
           <span className="text-green-600 ml-4">modified:   Components/ContactForm.tsx</span><br />
