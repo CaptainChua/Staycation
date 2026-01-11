@@ -2,9 +2,8 @@ import type { Metadata } from "next";
 import { Inter, Poppins } from "next/font/google";
 import "./globals.css";
 import UIProviders from "@/Components/UIProviders";
-import Navbar from "../Components/Navbar";
 import { Proviers } from '@/Components/Providers'
-import MessageButton from "@/Components/MessageButton";
+import ConditionalLayout from "@/Components/ConditionalLayout";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -34,9 +33,9 @@ export default function RootLayout({
       <body className={`${inter.variable} ${poppins.variable} font-sans antialiased`} suppressHydrationWarning>
         <UIProviders>
           <Proviers>
-            <Navbar />
-            {children}
-            <MessageButton />
+            <ConditionalLayout>
+              {children}
+            </ConditionalLayout>
           </Proviers>
         </UIProviders>
       </body>
