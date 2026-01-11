@@ -154,7 +154,6 @@ const AdminLogin = () => {
       <div className="absolute top-0 right-0 w-96 h-96 bg-brand-primaryLight/30 rounded-full blur-3xl"></div>
       <div className="absolute bottom-0 left-0 w-96 h-96 bg-brand-primaryLight/30 rounded-full blur-3xl"></div>
     
-      {/* Main Container */}
       <div className="w-full max-w-md relative z-10">
         {/* Header */}
         <div className="text-center mb-10 animate-in fade-in-slide-from-top duration-700">
