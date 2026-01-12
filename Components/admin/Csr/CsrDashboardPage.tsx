@@ -228,7 +228,7 @@ export default function CsrDashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-100 to-gray-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 flex">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex">
       {/* Mobile Menu Backdrop */}
       {mobileMenuOpen && (
         <div
@@ -249,7 +249,7 @@ export default function CsrDashboard() {
         } md:flex`}
       >
         {/* Logo Section */}
-        <div className="h-20 px-6 border-b border-gray-200 dark:border-gray-800 bg-gradient-to-r from-brand-primarySoft to-white dark:from-gray-900 dark:to-gray-900 flex items-center">
+        <div className="h-20 px-6 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex items-center">
           <div className="flex items-center justify-between gap-3 w-full">
             <div
               className={`flex items-center ${sidebar ? "gap-3" : "justify-center w-full"}`}
@@ -296,17 +296,17 @@ export default function CsrDashboard() {
                   setPage(item.id);
                   setMobileMenuOpen(false);
                 }}
-                className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all duration-200 group ${
+                className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-lg transition-all duration-200 group ${
                   page === item.id
-                    ? "bg-gradient-to-r from-brand-primary to-brand-primaryDark text-white shadow-lg shadow-[rgba(186,144,60,0.35)]"
-                    : "text-gray-600 dark:text-gray-300 hover:bg-brand-primaryLighter dark:hover:bg-gray-800 hover:shadow-md"
+                    ? "bg-brand-primary text-white shadow-md"
+                    : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
                 }`}
               >
                 <Icon
                   className={`w-5 h-5 ${
                     page === item.id
                       ? "text-white"
-                      : `${item.color} group-hover:scale-110 transition-transform`
+                      : `${item.color}`
                   }`}
                 />
                 {sidebar && (
@@ -323,8 +323,8 @@ export default function CsrDashboard() {
         <div className="p-2 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
           {sidebar && (
             <div className="mb-2">
-              <div className="flex items-center gap-3 p-2 hover:bg-brand-primaryLighter dark:hover:bg-gray-800 rounded-lg transition-colors">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-500 to-yellow-500 flex-shrink-0 flex items-center justify-center text-white font-medium text-lg overflow-hidden">
+              <div className="flex items-center gap-3 p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
+                <div className="w-10 h-10 rounded-full bg-brand-primary flex-shrink-0 flex items-center justify-center text-white font-medium text-lg overflow-hidden">
                   {isLoading ? (
                     <div className="w-full h-full bg-gray-200 animate-pulse"></div>
                   ) : employee?.profile_image_url ? (
@@ -390,7 +390,7 @@ export default function CsrDashboard() {
             {/* Mobile Menu Button */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 hover:bg-brand-primaryLighter dark:hover:bg-gray-800 rounded-lg md:hidden transition-colors"
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg md:hidden transition-colors"
             >
               <Menu className="w-6 h-6 text-gray-600 dark:text-gray-300" />
             </button>
@@ -398,7 +398,7 @@ export default function CsrDashboard() {
             {/* Desktop Sidebar Toggle */}
             <button
               onClick={() => setSidebar(!sidebar)}
-              className="p-2 hover:bg-brand-primaryLighter dark:hover:bg-gray-800 rounded-lg hidden md:block transition-colors"
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg hidden md:block transition-colors"
             >
               {sidebar ? (
                 <X className="w-6 h-6 text-gray-600 dark:text-gray-300" />
@@ -433,7 +433,7 @@ export default function CsrDashboard() {
             {/* Messages */}
             <button
               ref={messageButtonRef}
-              className="relative p-2 hover:bg-brand-primaryLighter dark:hover:bg-gray-800 rounded-lg transition-colors"
+              className="relative p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
               onClick={() => {
                 setMessageBadge(false);
                 setMessageModalOpen((prev) => !prev);
@@ -448,7 +448,7 @@ export default function CsrDashboard() {
             {/* Notifications */}
             <button
               ref={notificationButtonRef}
-              className="relative p-2 hover:bg-brand-primaryLighter dark:hover:bg-gray-800 rounded-lg transition-colors"
+              className="relative p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
               onClick={() => setNotificationOpen((prev) => !prev)}
             >
               <Bell className="w-6 h-6 text-gray-600 dark:text-gray-300" />
@@ -459,9 +459,9 @@ export default function CsrDashboard() {
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-                className="flex items-center gap-2 p-1 hover:bg-brand-primaryLighter dark:hover:bg-gray-800 rounded-lg transition-colors"
+                className="flex items-center gap-2 p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
               >
-                <div className="w-10 h-10 bg-gradient-to-br from-brand-primary to-brand-primaryDark rounded-full overflow-hidden flex items-center justify-center text-white font-bold cursor-pointer hover:shadow-lg transition-shadow">
+                <div className="w-10 h-10 bg-brand-primary rounded-full overflow-hidden flex items-center justify-center text-white font-bold cursor-pointer transition-colors">
                   {isLoading ? (
                     <div className="w-full h-full bg-gray-200 dark:bg-gray-700 animate-pulse" />
                   ) : employee?.profile_image_url ? (
@@ -483,73 +483,70 @@ export default function CsrDashboard() {
               </button>
 
               {profileDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-900 rounded-lg shadow-xl border border-gray-200 dark:border-gray-800 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-                  {/* User Info */}
-                  <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-800">
+                <div className="absolute right-0 mt-2 w-52 sm:w-56 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden z-50 animate-slide-down">
+                  {/* User Info Header */}
+                  <div className="p-4 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-600">
                     <div className="flex items-center gap-3">
-
-                    <div className="w-12 h-12 bg-gradient-to-br from-brand-primary to-brand-primaryDark rounded-full overflow-hidden flex items-center justify-center text-white font-bold text-lg">
-                      {isLoading ? (
-                        <div className="w-full h-full bg-gray-200 animate-pulse" />
-                      ) : employee?.profile_image_url ? (
+                      {employee?.profile_image_url ? (
                         <Image
                           src={employee.profile_image_url}
                           alt={employee.first_name ? `${employee.first_name} ${employee.last_name}` : "Profile"}
-                          width={48}
-                          height={48}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.style.display = 'none';
-                          }}
+                          width={40}
+                          height={40}
+                          className="w-10 h-10 rounded-full object-cover ring-2 ring-brand-primary"
                         />
                       ) : (
-                        <span>
-                          {employee
-                            ? `${employee.first_name?.[0] || ""}${employee.last_name?.[0] || ""}`.toUpperCase() || "C"
-                            : (session?.user?.name ? session.user.name.charAt(0).toUpperCase() : "C")}
-                        </span>
+                        <div className="w-10 h-10 rounded-full bg-brand-primary flex items-center justify-center">
+                          <User className="w-5 h-5 text-white" />
+                        </div>
                       )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">
-                        {session?.user?.name || 'CSR Account'}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                        {session?.user?.email || 'Loading...'}
-                      </p>
-                      <p className="text-xs text-brand-primary font-medium mt-1">
-                        {(session?.user as AdminUser)?.role || 'CSR'}
-                      </p>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-gray-900 dark:text-gray-100 truncate text-sm">
+                          {isLoading ? (
+                            <span className="inline-block h-4 bg-gray-200 rounded animate-pulse w-24"></span>
+                          ) : employee ? (
+                            `${employee.first_name} ${employee.last_name}`.trim()
+                          ) : (
+                            session?.user?.name || 'CSR Account'
+                          )}
+                        </p>
+                        <p className="text-xs text-gray-600 dark:text-gray-400 truncate">
+                          {isLoading ? (
+                            <span className="inline-block h-3 bg-gray-100 rounded animate-pulse w-20 mt-0.5"></span>
+                          ) : (
+                            session?.user?.email || 'Loading...'
+                          )}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
 
+                  {/* Menu Items */}
                   <div className="py-1">
                     <button
                       onClick={() => {
                         setPage("profile");
                         setProfileDropdownOpen(false);
                       }}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 text-gray-700 dark:text-gray-200 hover:bg-brand-primaryLighter dark:hover:bg-gray-800 transition-colors"
+                      className="w-full px-4 py-2.5 flex items-center gap-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-150 text-left"
                     >
-                      <User className="w-4 h-4" />
-                      <span className="text-sm font-medium">Profile</span>
+                      <User className="w-4 h-4 text-brand-primary" />
+                      <span className="text-sm font-medium">My Profile</span>
                     </button>
                     <button
                       onClick={() => {
                         setPage("settings");
                         setProfileDropdownOpen(false);
                       }}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 text-gray-700 dark:text-gray-200 hover:bg-brand-primaryLighter dark:hover:bg-gray-800 transition-colors"
+                      className="w-full px-4 py-2.5 flex items-center gap-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-150 text-left"
                     >
-                      <Settings className="w-4 h-4" />
+                      <Settings className="w-4 h-4 text-brand-primary" />
                       <span className="text-sm font-medium">Settings</span>
                     </button>
                   </div>
 
                   {/* Logout */}
-                  <div className="border-t border-gray-200 dark:border-gray-800 pt-2 px-2">
+                  <div className="border-t border-gray-200 dark:border-gray-600 py-1">
                     <CsrLogout sidebar={true} />
                   </div>
                 </div>
