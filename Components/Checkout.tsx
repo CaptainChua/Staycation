@@ -2087,6 +2087,7 @@ const handleSubmit = async (e: React.FormEvent) => {
         </form>
         <Footer />
       </div>
+    </div>
     </>
   );
 };
