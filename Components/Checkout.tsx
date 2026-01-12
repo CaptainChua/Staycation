@@ -1444,7 +1444,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                     </label>
                     <DatePicker
                       label=""
-                      value={bookingData.checkInDate ? parseDate(bookingData.checkInDate) : undefined}
+                      value={bookingData.checkInDate ? new Date(bookingData.checkInDate) : undefined}
                       onChange={(date: DateValue) => {
                         if (date) {
                           const dateStr = `${date.year}-${String(date.month).padStart(2, '0')}-${String(date.day).padStart(2, '0')}`;
@@ -1474,7 +1474,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                     </label>
                     <DatePicker
                       label=""
-                      value={bookingData.checkOutDate ? parseDate(bookingData.checkOutDate) : undefined}
+                      value={bookingData.checkOutDate ? new Date(bookingData.checkOutDate) : undefined}
                       onChange={(date: DateValue) => {
                         if (date) {
                           const dateStr = `${date.year}-${String(date.month).padStart(2, '0')}-${String(date.day).padStart(2, '0')}`;
