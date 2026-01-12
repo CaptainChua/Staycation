@@ -22,17 +22,25 @@ const GuestSelectorModal = ({ isOpen, onClose, guests, onGuestChange }: GuestSel
   useEffect(() => {
     if (isOpen && !shouldRender) {
       // When opening, set shouldRender first, then animate in
-      setShouldRender(true);
-      // Trigger animation after render
-      requestAnimationFrame(() => {
-        setIsAnimating(true);
-      });
+      const timer = setTimeout(() => {
+        setShouldRender(true);
+        // Trigger animation after render
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            setIsAnimating(true);
+          }, 0);
+        });
+      }, 0);
+      return () => clearTimeout(timer);
     } else if (!isOpen && shouldRender) {
       // When closing, animate out first, then remove from DOM
-      setIsAnimating(false);
-      // Remove from DOM after animation completes
-      const renderTimer = setTimeout(() => setShouldRender(false), 500);
-      return () => clearTimeout(renderTimer);
+      setTimeout(() => {
+        setIsAnimating(false);
+        // Remove from DOM after animation completes
+        const renderTimer = setTimeout(() => setShouldRender(false), 500);
+        return () => clearTimeout(renderTimer);
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [isOpen, shouldRender]);
 

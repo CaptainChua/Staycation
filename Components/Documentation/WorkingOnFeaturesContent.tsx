@@ -2,13 +2,12 @@
 
 import React from 'react';
 import {
-  Save,
   Check,
   X,
   AlertTriangle,
+  FileText,
   Info,
   Lightbulb,
-  FileText,
   Target,
   Play
 } from 'lucide-react';

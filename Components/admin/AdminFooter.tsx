@@ -7,11 +7,12 @@ import Link from "next/link";
 
 const AdminFooter = () => {
   const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const [mounted, setMounted] = useState(() => {
+    if (typeof window !== "undefined") {
+      return true;
+    }
+    return false;
+  });
 
   return (
     <div className="bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 px-6 py-4">

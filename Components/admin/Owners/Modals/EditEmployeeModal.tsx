@@ -100,11 +100,15 @@ const EditEmployeeModal = ({ isOpen, onClose, employee }: EditEmployeeModalProps
   // Use useEffect to handle resetting form data when modal opens with a new employee
   useEffect(() => {
     if (isOpen && employee && initializedEmployeeId.current !== employee.id) {
-      const initialData = getInitialFormData();
-      setFormData(initialData);
-      setProfilePicture(null);
-      setProfilePreview(employee.profile_image_url || "");
-      initializedEmployeeId.current = employee.id;
+      const timer = setTimeout(() => {
+        const initialData = getInitialFormData();
+        setFormData(initialData);
+        setProfilePicture(null);
+        setProfilePreview(employee.profile_image_url || "");
+        initializedEmployeeId.current = employee.id;
+      }, 0);
+      
+      return () => clearTimeout(timer);
     }
     
     // Reset initializedEmployeeId when modal closes

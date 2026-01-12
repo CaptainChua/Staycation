@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Check, X, AlertTriangle, Lightbulb, RefreshCw, TestTube, HelpCircle, Target, BookOpen, ArrowRight } from 'lucide-react';
+import { Check, X, Lightbulb, RefreshCw, TestTube, HelpCircle, Target, BookOpen, ArrowRight } from 'lucide-react';
 
 export default function BestPracticesContent() {
   return (

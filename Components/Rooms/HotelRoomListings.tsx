@@ -112,14 +112,10 @@ const HotelRoomListings = ({ initialHavens }: HotelRoomListingsProps) => {
 
   // Simulate loading state
   useEffect(() => {
-    if (initialHavens.length > 0) {
-      const timer = setTimeout(() => {
-        setIsLoading(false);
-      }, 500);
-      return () => clearTimeout(timer);
-    } else {
+    const timer = setTimeout(() => {
       setIsLoading(false);
-    }
+    }, initialHavens.length > 0 ? 500 : 0);
+    return () => clearTimeout(timer);
   }, [initialHavens]);
 
   // Filter havens based on location when coming from search - use useMemo

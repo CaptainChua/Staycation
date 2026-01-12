@@ -97,18 +97,24 @@ export default function CleanersDashboard() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const savedPage = window.localStorage.getItem(ACTIVE_PAGE_STORAGE_KEY);
-    if (savedPage) {
+    if (savedPage && savedPage !== page) {
       setPage(savedPage);
     }
   }, []);
 
   useEffect(() => {
-    setNow(new Date());
+    const timer = window.setTimeout(() => {
+      setNow(new Date());
+    }, 0);
+    
     const id = window.setInterval(() => {
       setNow(new Date());
     }, 1000);
 
-    return () => window.clearInterval(id);
+    return () => {
+      window.clearTimeout(timer);
+      window.clearInterval(id);
+    };
   }, []);
 
   // Persist page changes

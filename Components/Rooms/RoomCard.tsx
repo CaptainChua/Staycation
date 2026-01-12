@@ -29,7 +29,7 @@ interface RoomCardsProps {
   mode?: "select" | "browse"; // 'select' for filtered search, 'browse' for homepage
   compact?: boolean; // Optional compact mode for smaller card display
 }
-const RoomCard = ({ room, mode = "browse", compact = false }: RoomCardsProps) => {
+const RoomCard = ({ room, mode = "browse" }: RoomCardsProps) => {
   const router = useRouter();
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);

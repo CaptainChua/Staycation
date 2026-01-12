@@ -26,18 +26,18 @@ const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isHelpSidebarOpen, setIsHelpSidebarOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const [mounted] = useState(() => {
+    if (typeof window !== "undefined") {
+      return true;
+    }
+    return false;
+  });
   const pathname = usePathname();
   const router = useRouter();
   const { data: session, status } = useSession();
   const profileContainerRef = useRef<HTMLDivElement>(null);
 
   const menuItems = ["Havens", "Contacts", "Location", "About"];
-
-  // Prevent hydration mismatch
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   // Close profile dropdown when clicking outside
   useEffect(() => {
