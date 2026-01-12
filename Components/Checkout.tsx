@@ -6,8 +6,8 @@
     import { useRouter } from "next/navigation";
     import { useSession } from "next-auth/react";
     import { DatePicker } from "@nextui-org/date-picker";
-    import { parseDate, today, getLocalTimeZone, CalendarDate } from "@internationalized/date";
-    import type { DateValue } from "@react-types/calendar";
+    import { parseDate, today, getLocalTimeZone } from "@internationalized/date";
+    import type { DateValue } from "@nextui-org/date-picker";
     import { useGetRoomBookingsQuery, useCreateBookingMutation } from "@/redux/api/bookingsApi";
     import {
       Calendar,
@@ -1449,7 +1449,8 @@
                             classNames={{
                               input: `${errors.checkInDate ? 'border-red-500' : ''}`,
                             }}
-                            value={bookingData.checkInDate ? parseDate(bookingData.checkInDate) : undefined}
+                            // Cast parseDate result to DateValue
+                            value={bookingData.checkInDate ? parseDate(bookingData.checkInDate) as DateValue : undefined}
                             onChange={(date) => {
                               if (date) {
                                 const formattedDate = `${date.year}-${String(date.month).padStart(2, '0')}-${String(date.day).padStart(2, '0')}`;
@@ -1463,6 +1464,7 @@
                           />
                         </div>
 
+                        {/* Check-out Date Picker */}
                         <div ref={(el) => { errorRefs.current.checkOutDate = el; }}>
                           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Check-out Date *
@@ -1474,7 +1476,8 @@
                             classNames={{
                               input: `${errors.checkOutDate ? 'border-red-500' : ''}`,
                             }}
-                            value={bookingData.checkOutDate ? parseDate(bookingData.checkOutDate) : undefined}
+                            // Cast parseDate result to DateValue
+                            value={bookingData.checkOutDate ? parseDate(bookingData.checkOutDate) as DateValue : undefined}
                             onChange={(date) => {
                               if (date) {
                                 const formattedDate = `${date.year}-${String(date.month).padStart(2, '0')}-${String(date.day).padStart(2, '0')}`;
@@ -1482,7 +1485,8 @@
                                 setErrors(prev => ({...prev, checkOutDate: ''}));
                               }
                             }}
-                            minValue={bookingData.checkInDate ? parseDate(bookingData.checkInDate).add({days: 1}) : today(getLocalTimeZone()).add({days: 1})}
+                            // Also cast here for minValue
+                            minValue={bookingData.checkInDate ? parseDate(bookingData.checkInDate).add({days: 1}) as DateValue : today(getLocalTimeZone()).add({days: 1}) as DateValue}
                             isInvalid={!!errors.checkOutDate}
                             errorMessage={errors.checkOutDate}
                           />
