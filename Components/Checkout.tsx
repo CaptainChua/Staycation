@@ -1472,7 +1472,7 @@ import type { DateValue } from "@react-types/calendar";
                             classNames={{
                               input: `${errors.checkInDate ? 'border-red-500' : ''}`,
                             }}
-                            value={bookingData.checkInDate ? safeParseDate(bookingData.checkInDate) : null}
+                            value={bookingData.checkInDate ? (safeParseDate(bookingData.checkInDate) as any) : null}
                             onChange={(date) => {
                               if (date) {
                                 const formattedDate = formatDateToString(date);
@@ -1501,7 +1501,7 @@ import type { DateValue } from "@react-types/calendar";
                             classNames={{
                               input: `${errors.checkOutDate ? 'border-red-500' : ''}`,
                             }}
-                            value={bookingData.checkOutDate ? safeParseDate(bookingData.checkOutDate) : null}
+                            value={bookingData.checkOutDate ? (safeParseDate(bookingData.checkOutDate) as any) : null}
                             onChange={(date) => {
                               if (date) {
                                 const formattedDate = formatDateToString(date);
