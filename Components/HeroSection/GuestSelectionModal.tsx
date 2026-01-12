@@ -34,13 +34,12 @@ const GuestSelectorModal = ({ isOpen, onClose, guests, onGuestChange }: GuestSel
       return () => clearTimeout(timer);
     } else if (!isOpen && shouldRender) {
       // When closing, animate out first, then remove from DOM
-      setTimeout(() => {
+      const renderTimer = setTimeout(() => {
         setIsAnimating(false);
         // Remove from DOM after animation completes
-        const renderTimer = setTimeout(() => setShouldRender(false), 500);
-        return () => clearTimeout(renderTimer);
+        setTimeout(() => setShouldRender(false), 500);
       }, 0);
-      return () => clearTimeout(timer);
+      return () => clearTimeout(renderTimer);
     }
   }, [isOpen, shouldRender]);
 
