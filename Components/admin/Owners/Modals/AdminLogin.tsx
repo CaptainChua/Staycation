@@ -21,7 +21,7 @@ interface LoginFormState {
   password: string;
   showPassword: boolean;
   isLoading: boolean;
-  error: string;
+  error: string | null;
 }
 
 const AdminLogin = () => {
@@ -31,7 +31,7 @@ const AdminLogin = () => {
     password: "",
     showPassword: false,
     isLoading: false,
-    error: "",
+    error: null,
   });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -39,10 +39,9 @@ const AdminLogin = () => {
     setFormData((prev) => ({
       ...prev,
       [name]: value,
-      error: "",
+      error: null,
     }));
   };
-
 
   const handleLogin = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -60,15 +59,15 @@ const AdminLogin = () => {
       setFormData((prev) => ({
         ...prev,
         error: "Please enter a valid email"
-      }))
+      }));
       return;
     }
 
     setFormData((prev) => ({
       ...prev,
       isLoading: true,
-      error: ""
-    }))
+      error: null
+    }));
 
     try {
       const result = await signIn("credentials", {
@@ -127,17 +126,24 @@ const AdminLogin = () => {
     } catch(error: unknown) {
       console.log("Login error: ", error);
 
-      const errorMessage =
-        error && typeof error === 'object' && 'response' in error &&
-        error.response && typeof error.response === 'object' && 'data' in error.response &&
-        error.response.data && typeof error.response.data === 'object' &&
-        ('error' in error.response.data && typeof error.response.data.error === 'string'
-          ? error.response.data.error
-          : 'message' in error.response.data && typeof error.response.data.message === 'string'
-          ? error.response.data.message
-          : null) ||
-        (error instanceof Error ? error.message : null) ||
-        "An error occurred. Please try again.";
+      let errorMessage: string;
+      
+      if (error && typeof error === 'object' && 'response' in error &&
+          error.response && typeof error.response === 'object' && 'data' in error.response &&
+          error.response.data && typeof error.response.data === 'object') {
+        
+        if ('error' in error.response.data && typeof error.response.data.error === 'string') {
+          errorMessage = error.response.data.error;
+        } else if ('message' in error.response.data && typeof error.response.data.message === 'string') {
+          errorMessage = error.response.data.message;
+        } else {
+          errorMessage = "An error occurred. Please try again.";
+        }
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      } else {
+        errorMessage = "An error occurred. Please try again.";
+      }
       
       setFormData((prev) => ({
         ...prev,
