@@ -68,8 +68,8 @@ const DashboardPage = ({
 useEffect(() => {
   if (havens.length > 0 && !selectedHaven && !hasSetInitialHaven.current) {
     // Check if the value would actually change
-    const newHaven = havens[0];
-    const shouldUpdate = !selectedHaven || (selectedHaven && selectedHaven.uuid_id !== newHaven.uuid_id);
+    const newHaven = havens[0] as Haven;
+    const shouldUpdate = !selectedHaven || (selectedHaven && (selectedHaven as Haven).uuid_id !== (newHaven as Haven).uuid_id);
     
     if (shouldUpdate) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -81,9 +81,9 @@ useEffect(() => {
 
   // Fetch bookings for the selected haven with polling to auto-refresh
   const { data: bookingsData } = useGetRoomBookingsQuery(
-    selectedHaven?.uuid_id || '',
+    (selectedHaven as Haven)?.uuid_id || '',
     {
-      skip: !selectedHaven?.uuid_id,
+      skip: !(selectedHaven as Haven)?.uuid_id,
       pollingInterval: 30000 // Refresh every 30 seconds
     }
   );
@@ -127,8 +127,9 @@ useEffect(() => {
 
   // Helper function to check if a date is blocked
   const isDateBlocked = (date: Date) => {
-    if (!selectedHaven?.blocked_dates) return false;
-    return selectedHaven.blocked_dates.some((blocked) => {
+    const selectedHavenTyped = selectedHaven as Haven;
+    if (!selectedHavenTyped?.blocked_dates) return false;
+    return selectedHavenTyped.blocked_dates.some((blocked) => {
       const fromDate = new Date(blocked.from_date);
       fromDate.setHours(0, 0, 0, 0);
 
@@ -281,16 +282,16 @@ useEffect(() => {
               Select Haven
             </label>
             <select
-              value={selectedHaven?.uuid_id || ''}
+              value={(selectedHaven as Haven)?.uuid_id || ''}
               onChange={(e) => {
-                const selected = havens.find((h) => h.uuid_id === e.target.value);
+                const selected = (havens as Haven[]).find((h) => h.uuid_id === e.target.value);
                 if (selected) {
                   setSelectedHaven(selected);
                 }
               }}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
             >
-              {havens.map((h) => (
+              {(havens as Haven[]).map((h) => (
                 <option key={h.uuid_id} value={h.uuid_id}>
                   {h.haven_name || h.name}
                 </option>
