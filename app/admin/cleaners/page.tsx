@@ -1,9 +1,7 @@
 'use client';
 
-const CleanersPage = () => {
-  return (
-    <div>page</div>
-  )
-}
+import CleanersDashboard from '@/Components/admin/Cleaners/CleanersDashboard';
 
-export default CleanersPage
+export default function Cleaners() {
+  return <CleanersDashboard />;
+}
