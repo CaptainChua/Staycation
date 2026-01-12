@@ -71,25 +71,28 @@ export default function CleanersDashboard() {
 
   const notifications = [
     {
-      id: "1",
+      id: 1,
       title: "New Assignment",
-      description: "Haven 3 needs cleaning after checkout at 11:00 AM",
-      timestamp: "5 mins ago",
+      message: "Haven 3 needs cleaning after checkout at 11:00 AM",
+      time: "5 mins ago",
       type: "info" as const,
+      read: false,
     },
     {
-      id: "2",
+      id: 2,
       title: "Reminder",
-      description: "Haven 7 cleaning scheduled for 2:00 PM today",
-      timestamp: "1 hr ago",
+      message: "Haven 7 cleaning scheduled for 2:00 PM today",
+      time: "1 hr ago",
       type: "warning" as const,
+      read: false,
     },
     {
-      id: "3",
+      id: 3,
       title: "Task Completed",
-      description: "Your cleaning report for Haven 2 was approved",
-      timestamp: "2 hrs ago",
+      message: "Your cleaning report for Haven 2 was approved",
+      time: "2 hrs ago",
       type: "success" as const,
+      read: true,
     },
   ];
 
@@ -490,8 +493,8 @@ export default function CleanersDashboard() {
                 className="p-4 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               >
                 <h4 className="text-sm font-semibold text-gray-800 dark:text-white">{notif.title}</h4>
-                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{notif.description}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">{notif.timestamp}</p>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{notif.message}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">{notif.time}</p>
               </div>
             ))}
           </div>
