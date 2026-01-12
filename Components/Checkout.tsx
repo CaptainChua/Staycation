@@ -6,7 +6,7 @@ import { setCheckInDate, setCheckOutDate } from "@/redux/slices/bookingSlice";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { DatePicker } from "@nextui-org/date-picker";
-import { parseDate, today, getLocalTimeZone } from "@internationalized/date";
+import { parseDate, today, getLocalTimeZone, CalendarDate } from "@internationalized/date";
 import type { DateValue } from "@react-types/calendar";
 import { useGetRoomBookingsQuery, useCreateBookingMutation } from "@/redux/api/bookingsApi";
 import {
@@ -1449,7 +1449,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                       classNames={{
                         input: `${errors.checkInDate ? 'border-red-500' : ''}`,
                       }}
-                      value={bookingData.checkInDate ? parseDate(bookingData.checkInDate) as DateValue : null}
+                      value={bookingData.checkInDate ? new CalendarDate(bookingData.checkInDate.split('-')[0], parseInt(bookingData.checkInDate.split('-')[1]), parseInt(bookingData.checkInDate.split('-')[2])) : undefined}
                       onChange={(date) => {
                         const formattedDate = date ? `${date.year}-${String(date.month).padStart(2, '0')}-${String(date.day).padStart(2, '0')}` : '';
                         dispatch(setCheckInDate(formattedDate));
@@ -1473,7 +1473,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                       classNames={{
                         input: `${errors.checkOutDate ? 'border-red-500' : ''}`,
                       }}
-                      value={bookingData.checkOutDate ? parseDate(bookingData.checkOutDate) as DateValue : null}
+                      value={bookingData.checkOutDate ? new CalendarDate(bookingData.checkOutDate.split('-')[0], parseInt(bookingData.checkOutDate.split('-')[1]), parseInt(bookingData.checkOutDate.split('-')[2])) : undefined}
                       onChange={(date) => {
                         const formattedDate = date ? `${date.year}-${String(date.month).padStart(2, '0')}-${String(date.day).padStart(2, '0')}` : '';
                         dispatch(setCheckOutDate(formattedDate));
