@@ -1437,60 +1437,52 @@ const handleSubmit = async (e: React.FormEvent) => {
                 </h2>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Check-in Date Picker */}
                   <div ref={(el) => { errorRefs.current.checkInDate = el; }}>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
-                      <LogIn className="w-4 h-4 text-brand-primary" />
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Check-in Date *
                     </label>
                     <DatePicker
                       label=""
-                      value={bookingData.checkInDate ? {
-                        year: parseDate(bookingData.checkInDate).year,
-                        month: parseDate(bookingData.checkInDate).month,
-                        day: parseDate(bookingData.checkInDate).day
-                      } : undefined}
-                      onChange={(date: DateValue) => {
-                        if (date) {
-                          const dateStr = `${date.year}-${String(date.month).padStart(2, '0')}-${String(date.day).padStart(2, '0')}`;
-                          dispatch(setCheckInDate(dateStr));
-                          setErrors(prev => ({...prev, checkInDate: ''}));
-                        }
-                      }}
-                      minValue={today(getLocalTimeZone())}
                       isDateUnavailable={isDateUnavailable}
                       className="w-full"
                       classNames={{
                         input: `${errors.checkInDate ? 'border-red-500' : ''}`,
                       }}
+                      value={bookingData.checkInDate ? parseDate(bookingData.checkInDate) : null}
+                      onChange={(date) => {
+                        const formattedDate = date ? `${date.year}-${String(date.month).padStart(2, '0')}-${String(date.day).padStart(2, '0')}` : '';
+                        dispatch(setCheckInDate(formattedDate));
+                        setErrors(prev => ({...prev, checkInDate: ''}));
+                      }}
+                      minValue={today(getLocalTimeZone())}
+                      isInvalid={!!errors.checkInDate}
+                      errorMessage={errors.checkInDate}
                     />
-                    {errors.checkInDate && (
-                      <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
-                        <AlertCircle className="w-4 h-4" />
-                        {errors.checkInDate}
-                      </p>
-                    )}
                   </div>
 
+                  {/* Check-out Date Picker */}
                   <div ref={(el) => { errorRefs.current.checkOutDate = el; }}>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
-                      <LogOut className="w-4 h-4 text-brand-primary" />
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Check-out Date *
                     </label>
                     <DatePicker
                       label=""
-                      }
                       isDateUnavailable={isDateUnavailable}
                       className="w-full"
                       classNames={{
                         input: `${errors.checkOutDate ? 'border-red-500' : ''}`,
                       }}
+                      value={bookingData.checkOutDate ? parseDate(bookingData.checkOutDate) : null}
+                      onChange={(date) => {
+                        const formattedDate = date ? `${date.year}-${String(date.month).padStart(2, '0')}-${String(date.day).padStart(2, '0')}` : '';
+                        dispatch(setCheckOutDate(formattedDate));
+                        setErrors(prev => ({...prev, checkOutDate: ''}));
+                      }}
+                      minValue={bookingData.checkInDate ? parseDate(bookingData.checkInDate).add({days: 1}) : today(getLocalTimeZone()).add({days: 1})}
+                      isInvalid={!!errors.checkOutDate}
+                      errorMessage={errors.checkOutDate}
                     />
-                    {errors.checkOutDate && (
-                      <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
-                        <AlertCircle className="w-4 h-4" />
-                        {errors.checkOutDate}
-                      </p>
-                    )}
                   </div>
                 </div>
               </div>
@@ -2093,11 +2085,8 @@ const handleSubmit = async (e: React.FormEvent) => {
             </div>
           )}
         </form>
-        </div>
+        <Footer />
       </div>
-
-      {/* Footer */}
-      <Footer />
     </>
   );
 };
