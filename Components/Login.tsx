@@ -95,8 +95,8 @@ const Login = () => {
     if (!formData.password) {
       newErrors.password = "Password is required";
       isValid = false;
-    } else if (mode === "register" && formData.password.length < 6) {
-      newErrors.password = "Password must be at least 6 characters";
+    } else if (mode === "register" && formData.password.length < 8) {
+      newErrors.password = "Password must be at least 8 characters";
       isValid = false;
     }
 
@@ -128,18 +128,41 @@ const Login = () => {
       });
 
       if (result?.error) {
-        toast.error(result.error || "Invalid email or password");
+        toast.error(result.error || "Invalid email or password", {
+          duration: 4000,
+          position: 'top-center',
+        });
+        // Clear form fields on error
+        setFormData({
+          name: "",
+          email: "",
+          password: "",
+          confirmPassword: "",
+        });
         setIsEmailLoading(false);
         return;
       }
 
       if (result?.ok) {
-        toast.success("Login successful!");
+        toast.success("Login successful!", {
+          duration: 3000,
+          position: 'top-center',
+        });
         router.push("/rooms");
       }
     } catch (error) {
       console.error("Login error:", error);
-      toast.error("An error occurred during login");
+      toast.error("An error occurred during login", {
+        duration: 4000,
+        position: 'top-center',
+      });
+      // Clear form fields on error
+      setFormData({
+        name: "",
+        email: "",
+        password: "",
+        confirmPassword: "",
+      });
       setIsEmailLoading(false);
     }
   };
@@ -150,25 +173,53 @@ const Login = () => {
     setIsEmailLoading(true);
 
     try {
+      const requestBody = {
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+      };
+      
+      console.log("Sending registration request:", requestBody);
+      
       const response = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: formData.name,
-          email: formData.email,
-          password: formData.password,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
-      const data = await response.json();
+      console.log("Response status:", response.status);
+      
+      let data;
+      try {
+        data = await response.json();
+        console.log("Response data:", data);
+      } catch (parseError) {
+        console.error("Failed to parse response:", parseError);
+        throw new Error("Failed to parse server response");
+      }
 
       if (!response.ok) {
-        toast.error(data.error || "Registration failed");
+        // Display error message from API or fallback message
+        const errorMessage = data.error || "Registration failed";
+        toast.error(errorMessage, {
+          duration: 4000,
+          position: 'top-center',
+        });
+        // Clear form fields on error
+        setFormData({
+          name: "",
+          email: "",
+          password: "",
+          confirmPassword: "",
+        });
         setIsEmailLoading(false);
         return;
       }
 
-      toast.success("Registration successful! Logging you in...");
+      toast.success("Registration successful! Logging you in...", {
+        duration: 3000,
+        position: 'top-center',
+      });
 
       // Auto-login after registration
       const result = await signIn("credentials", {
@@ -180,13 +231,28 @@ const Login = () => {
       if (result?.ok) {
         router.push("/rooms");
       } else {
-        toast.error("Please login with your new account");
+        toast.error("Please login with your new account", {
+          duration: 4000,
+          position: 'top-center',
+        });
         setMode("login");
         setIsEmailLoading(false);
       }
     } catch (error) {
       console.error("Registration error:", error);
-      toast.error("An error occurred during registration");
+      // Show more specific error message
+      const errorMessage = error instanceof Error ? error.message : "An error occurred during registration";
+      toast.error(errorMessage, {
+        duration: 4000,
+        position: 'top-center',
+      });
+      // Clear form fields on error
+      setFormData({
+        name: "",
+        email: "",
+        password: "",
+        confirmPassword: "",
+      });
       setIsEmailLoading(false);
     }
   };
