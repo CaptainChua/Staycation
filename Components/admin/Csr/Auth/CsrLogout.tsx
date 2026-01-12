@@ -25,10 +25,10 @@ export default function CsrLogout({ sidebar }: CsrLogoutProps) {
   return (
     <button
       onClick={handleLogout}
-      className="w-full flex items-center gap-3 px-4 py-3 text-red-600 hover:bg-red-50 rounded-lg transition-all font-medium"
+      className="w-full px-4 py-2.5 flex items-center gap-3 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors duration-150 text-left"
     >
-      <LogOut className="w-5 h-5" />
-      {sidebar && <span className="text-sm">Logout</span>}
+      <LogOut className="w-4 h-4" />
+      {sidebar && <span className="text-sm font-medium">Sign Out</span>}
     </button>
   );
 }
