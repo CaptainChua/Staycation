@@ -7,7 +7,7 @@
     import { useSession } from "next-auth/react";
     import { DatePicker } from "@nextui-org/date-picker";
     import { parseDate, today, getLocalTimeZone } from "@internationalized/date";
-  import type { DateValue } from "@nextui-org/react";
+import type { DateValue } from "@react-types/calendar";
     import { useGetRoomBookingsQuery, useCreateBookingMutation } from "@/redux/api/bookingsApi";
     import {
       Calendar,
@@ -101,12 +101,14 @@
       }, [bookingData.selectedRoom, roomBookingsData]);
 
       // Helper function to safely parse date
-  const safeParseDate = (dateString: string): DateValue | undefined => {
+  const safeParseDate = (dateString: string) => {
     try {
-      return parseDate(dateString) as DateValue;
+      const parsed = parseDate(dateString);
+      // Return the parsed date directly, TypeScript will infer the correct type
+      return parsed;
     } catch (error) {
       console.error('[Checkout] Error parsing date:', dateString, error);
-      return undefined;
+      return null;
     }
   };
 
@@ -1470,7 +1472,7 @@
                             classNames={{
                               input: `${errors.checkInDate ? 'border-red-500' : ''}`,
                             }}
-                            value={bookingData.checkInDate ? safeParseDate(bookingData.checkInDate) : undefined}
+                            value={bookingData.checkInDate ? safeParseDate(bookingData.checkInDate) : null}
                             onChange={(date) => {
                               if (date) {
                                 const formattedDate = formatDateToString(date);
@@ -1499,7 +1501,7 @@
                             classNames={{
                               input: `${errors.checkOutDate ? 'border-red-500' : ''}`,
                             }}
-                            value={bookingData.checkOutDate ? safeParseDate(bookingData.checkOutDate) : undefined}
+                            value={bookingData.checkOutDate ? safeParseDate(bookingData.checkOutDate) : null}
                             onChange={(date) => {
                               if (date) {
                                 const formattedDate = formatDateToString(date);
@@ -1512,8 +1514,8 @@
                             }}
                             minValue={bookingData.checkInDate ? (() => {
                               const parsedDate = safeParseDate(bookingData.checkInDate);
-                              return parsedDate ? parsedDate.add({days: 1}) as DateValue : today(getLocalTimeZone()).add({days: 1}) as DateValue;
-                            })() : today(getLocalTimeZone()).add({days: 1}) as DateValue}
+                              return parsedDate ? parsedDate.add({days: 1}) : today(getLocalTimeZone()).add({days: 1});
+                            })() : today(getLocalTimeZone()).add({days: 1})}
                             isInvalid={!!errors.checkOutDate}
                             errorMessage={errors.checkOutDate}
                           />
