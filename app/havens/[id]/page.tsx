@@ -2,9 +2,9 @@ import { notFound } from "next/navigation";
 import HavenDetailsClient from "./HavenDetailsClient";
 
 interface Props {
-  params: {
+  params: Promise<{
     id: string;
-  }
+  }>;
 }
 
 const getHavenRooms = async (havenId: string) => {

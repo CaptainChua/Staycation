@@ -202,9 +202,9 @@ import RoomDetailsClient from "./RoomDetailsClient";
 // };
 
 interface Props {
-  params: {
+  params: Promise<{
     id: string;
-  }
+  }>;
 }
 
 const getRoomById = async (id: string) => {
