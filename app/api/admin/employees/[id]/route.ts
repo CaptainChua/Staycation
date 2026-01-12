@@ -1,14 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getEmployeeById, updateEmployee, deleteEmployee } from "@/backend/controller/employeeController";
+import {
+  getEmployeeById,
+  updateEmployee,
+  deleteEmployee,
+} from "@/backend/controller/employeeController";
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }): Promise<NextResponse> {
-  return getEmployeeById(request, params);
+type RouteContext = {
+  params: Promise<{ id: string }>;
+};
+
+export async function GET(
+  request: NextRequest,
+  { params }: RouteContext
+): Promise<NextResponse> {
+  const { id } = await params;
+  return getEmployeeById(request, { id });
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }): Promise<NextResponse> {
-  return updateEmployee(request, params);
+export async function PUT(
+  request: NextRequest,
+  { params }: RouteContext
+): Promise<NextResponse> {
+  const { id } = await params;
+  return updateEmployee(request, { id });
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }): Promise<NextResponse> {
-  return deleteEmployee(request, params);
+export async function DELETE(
+  request: NextRequest,
+  { params }: RouteContext
+): Promise<NextResponse> {
+  const { id } = await params;
+  return deleteEmployee(request, { id });
 }
