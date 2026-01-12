@@ -31,6 +31,7 @@ import NotificationsPage from "./NotificationsPage";
 import MySchedulePage from "./MySchedulePage";
 import UserGuidePage from "./UserGuidePage";
 import ProfilePage from "./ProfilePage";
+import AdminFooter from "../AdminFooter";
 
 const ACTIVE_PAGE_STORAGE_KEY = "cleaners-dashboard-active-page";
 
@@ -461,22 +462,7 @@ export default function CleanersDashboard() {
         </div>
 
         {/* FOOTER */}
-        <div className="bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 px-6 py-4">
-          <div className="max-w-[1600px] mx-auto flex justify-between items-center text-sm text-gray-600 dark:text-gray-300">
-            <p> 2024 Staycation Haven. All rights reserved.</p>
-            <div className="flex gap-4">
-              <button className="hover:text-brand-primary transition-colors">
-                Help Center
-              </button>
-              <button className="hover:text-brand-primary transition-colors">
-                Privacy Policy
-              </button>
-              <button className="hover:text-brand-primary transition-colors">
-                Terms of Service
-              </button>
-            </div>
-          </div>
-        </div>
+        <AdminFooter />
       </div>
 
       {/* Notification Dropdown */}
