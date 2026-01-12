@@ -1449,13 +1449,13 @@ const handleSubmit = async (e: React.FormEvent) => {
                       classNames={{
                         input: `${errors.checkInDate ? 'border-red-500' : ''}`,
                       }}
-                      value={bookingData.checkInDate ? parseDate(bookingData.checkInDate) : null}
+                      value={bookingData.checkInDate ? parseDate(bookingData.checkInDate) as any : undefined}
                       onChange={(date) => {
                         const formattedDate = date ? `${date.year}-${String(date.month).padStart(2, '0')}-${String(date.day).padStart(2, '0')}` : '';
                         dispatch(setCheckInDate(formattedDate));
                         setErrors(prev => ({...prev, checkInDate: ''}));
                       }}
-                      minValue={today(getLocalTimeZone())}
+                      minValue={today(getLocalTimeZone()) as any}
                       isInvalid={!!errors.checkInDate}
                       errorMessage={errors.checkInDate}
                     />
@@ -1473,13 +1473,13 @@ const handleSubmit = async (e: React.FormEvent) => {
                       classNames={{
                         input: `${errors.checkOutDate ? 'border-red-500' : ''}`,
                       }}
-                      value={bookingData.checkOutDate ? parseDate(bookingData.checkOutDate) : null}
+                      value={bookingData.checkOutDate ? parseDate(bookingData.checkOutDate) as any : undefined}
                       onChange={(date) => {
                         const formattedDate = date ? `${date.year}-${String(date.month).padStart(2, '0')}-${String(date.day).padStart(2, '0')}` : '';
                         dispatch(setCheckOutDate(formattedDate));
                         setErrors(prev => ({...prev, checkOutDate: ''}));
                       }}
-                      minValue={bookingData.checkInDate ? parseDate(bookingData.checkInDate).add({days: 1}) : today(getLocalTimeZone()).add({days: 1})}
+                      minValue={bookingData.checkInDate ? parseDate(bookingData.checkInDate).add({days: 1}) as any : today(getLocalTimeZone()).add({days: 1}) as any}
                       isInvalid={!!errors.checkOutDate}
                       errorMessage={errors.checkOutDate}
                     />
