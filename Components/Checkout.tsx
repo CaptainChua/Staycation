@@ -9,6 +9,7 @@ import { DatePicker } from "@nextui-org/date-picker";
 import { parseDate, today, getLocalTimeZone, CalendarDate } from "@internationalized/date";
 import type { DateValue } from "@react-types/calendar";
 import { useGetRoomBookingsQuery, useCreateBookingMutation } from "@/redux/api/bookingsApi";
+import { parseDate } from '@internationalized/date';
 import {
   Calendar,
   Users,
@@ -1449,7 +1450,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                       classNames={{
                         input: `${errors.checkInDate ? 'border-red-500' : ''}`,
                       }}
-                      value={bookingData.checkInDate ? new CalendarDate(bookingData.checkInDate.split('-')[0], parseInt(bookingData.checkInDate.split('-')[1]), parseInt(bookingData.checkInDate.split('-')[2])) : undefined}
+                      value={bookingData.checkInDate ? parseDate(bookingData.checkInDate) : null}
                       onChange={(date) => {
                         const formattedDate = date ? `${date.year}-${String(date.month).padStart(2, '0')}-${String(date.day).padStart(2, '0')}` : '';
                         dispatch(setCheckInDate(formattedDate));
@@ -1473,7 +1474,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                       classNames={{
                         input: `${errors.checkOutDate ? 'border-red-500' : ''}`,
                       }}
-                      value={bookingData.checkOutDate ? new CalendarDate(bookingData.checkOutDate.split('-')[0], parseInt(bookingData.checkOutDate.split('-')[1]), parseInt(bookingData.checkOutDate.split('-')[2])) : undefined}
+                      value={bookingData.checkOutDate ? parseDate(bookingData.checkOutDate) : null}
                       onChange={(date) => {
                         const formattedDate = date ? `${date.year}-${String(date.month).padStart(2, '0')}-${String(date.day).padStart(2, '0')}` : '';
                         dispatch(setCheckOutDate(formattedDate));
