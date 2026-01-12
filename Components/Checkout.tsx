@@ -888,7 +888,8 @@ const handleSubmit = async (e: React.FormEvent) => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div ref={(el) => { errorRefs.current.firstName = el; }}>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                      <User className="w-4 h-4" />
                       First Name *
                     </label>
                     <input
@@ -900,7 +901,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                         setErrors(prev => ({...prev, firstName: ''}));
                       }}
                       required
-                      className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 ${
+                      className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 ${
                         errors.firstName ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-gray-600'
                       }`}
                       placeholder="Enter first name"
@@ -914,7 +915,8 @@ const handleSubmit = async (e: React.FormEvent) => {
                   </div>
 
                   <div ref={(el) => { errorRefs.current.lastName = el; }}>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                      <User className="w-4 h-4" />
                       Last Name *
                     </label>
                     <input
@@ -926,7 +928,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                         setErrors(prev => ({...prev, lastName: ''}));
                       }}
                       required
-                      className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 ${
+                      className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 ${
                         errors.lastName ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-gray-600'
                       }`}
                       placeholder="Enter last name"
@@ -1060,7 +1062,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                       name="facebookLink"
                       value={formData.facebookLink}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
                       placeholder="e.g., Juan Dela Cruz or facebook.com/juandelacruz"
                     />
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -1373,7 +1375,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                 <button
                   type="button"
                   onClick={handleNext}
-                  className="flex items-center gap-2 bg-brand-primary hover:bg-brand-primaryDark text-white font-bold py-3 px-8 rounded-lg transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg"
+                  className="flex items-center gap-2 bg-brand-primary hover:bg-brand-primaryDark text-white font-bold py-3 px-8 rounded-lg shadow-lg"
                 >
                   Next Step
                   <ChevronRight className="w-5 h-5" />
@@ -1574,7 +1576,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                 <button
                   type="button"
                   onClick={handleNext}
-                  className="flex-1 flex items-center justify-center gap-2 bg-brand-primary hover:bg-brand-primaryDark text-white font-bold py-3 rounded-lg transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg"
+                  className="flex-1 flex items-center justify-center gap-2 bg-brand-primary hover:bg-brand-primaryDark text-white font-bold py-3 rounded-lg shadow-lg"
                 >
                   Next Step
                   <ChevronRight className="w-5 h-5" />
@@ -1676,7 +1678,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                 <button
                   type="button"
                   onClick={handleNext}
-                  className="flex-1 flex items-center justify-center gap-2 bg-brand-primary hover:bg-brand-primaryDark text-white font-bold py-3 rounded-lg transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg"
+                  className="flex-1 flex items-center justify-center gap-2 bg-brand-primary hover:bg-brand-primaryDark text-white font-bold py-3 rounded-lg shadow-lg"
                 >
                   Next Step
                   <ChevronRight className="w-5 h-5" />
@@ -2081,7 +2083,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="flex-1 bg-brand-primary hover:bg-brand-primaryDark text-white font-bold py-3 sm:py-4 rounded-lg transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none text-sm sm:text-base"
+                  className="flex-1 bg-brand-primary hover:bg-brand-primaryDark text-white font-bold py-3 sm:py-4 rounded-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
                 >
                   {isLoading ? (
                     <span className="flex items-center justify-center gap-2">
