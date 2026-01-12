@@ -396,14 +396,14 @@ const MessageButton = () => {
                               <div className="flex justify-between">
                                 <span className="text-gray-600 dark:text-gray-400">Room Rate:</span>
                                 <span className="font-medium text-gray-900 dark:text-gray-100">
-                                  ₱{parseFloat(bookingData.room_rate).toLocaleString()}
+                                  ₱{bookingData.room_rate.toLocaleString()}
                                 </span>
                               </div>
                               {bookingData.security_deposit > 0 && (
                                 <div className="flex justify-between">
                                   <span className="text-gray-600 dark:text-gray-400">Security Deposit:</span>
                                   <span className="font-medium text-gray-900 dark:text-gray-100">
-                                    ₱{parseFloat(bookingData.security_deposit).toLocaleString()}
+                                    ₱{bookingData.security_deposit.toLocaleString()}
                                   </span>
                                 </div>
                               )}
@@ -411,26 +411,26 @@ const MessageButton = () => {
                                 <div className="flex justify-between">
                                   <span className="text-gray-600 dark:text-gray-400">Add-ons Total:</span>
                                   <span className="font-medium text-gray-900 dark:text-gray-100">
-                                    ₱{parseFloat(bookingData.add_ons_total).toLocaleString()}
+                                    ₱{bookingData.add_ons_total.toLocaleString()}
                                   </span>
                                 </div>
                               )}
                               <div className="flex justify-between font-semibold mt-2 pt-2 border-t border-gray-300 dark:border-gray-600">
                                 <span className="text-gray-600 dark:text-gray-400">Total Amount:</span>
                                 <span className="text-gray-900 dark:text-gray-100">
-                                  ₱{parseFloat(bookingData.total_amount).toLocaleString()}
+                                  ₱{bookingData.total_amount.toLocaleString()}
                                 </span>
                               </div>
                               <div className="flex justify-between">
                                 <span className="text-gray-600 dark:text-gray-400">Down Payment:</span>
                                 <span className="font-medium text-gray-900 dark:text-gray-100">
-                                  ₱{parseFloat(bookingData.down_payment).toLocaleString()}
+                                  ₱{bookingData.down_payment.toLocaleString()}
                                 </span>
                               </div>
                               <div className="flex justify-between">
                                 <span className="text-gray-600 dark:text-gray-400">Remaining Balance:</span>
                                 <span className="font-medium text-brand-primary">
-                                  ₱{parseFloat(bookingData.remaining_balance).toLocaleString()}
+                                  ₱{bookingData.remaining_balance.toLocaleString()}
                                 </span>
                               </div>
                             </div>
