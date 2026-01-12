@@ -7,7 +7,7 @@
     import { useSession } from "next-auth/react";
     import { DatePicker } from "@nextui-org/date-picker";
     import { parseDate, today, getLocalTimeZone } from "@internationalized/date";
-    import type { DateValue } from "@nextui-org/date-picker";
+  import type { DateValue } from "@nextui-org/react";
     import { useGetRoomBookingsQuery, useCreateBookingMutation } from "@/redux/api/bookingsApi";
     import {
       Calendar,
@@ -100,7 +100,22 @@
         }
       }, [bookingData.selectedRoom, roomBookingsData]);
 
-      // Debug: Log booking data from Redux
+      // Helper function to safely parse date
+  const safeParseDate = (dateString: string): DateValue | undefined => {
+    try {
+      return parseDate(dateString) as DateValue;
+    } catch (error) {
+      console.error('[Checkout] Error parsing date:', dateString, error);
+      return undefined;
+    }
+  };
+
+  // Helper function to format date to string
+  const formatDateToString = (date: DateValue): string => {
+    return `${date.year}-${String(date.month).padStart(2, '0')}-${String(date.day).padStart(2, '0')}`;
+  };
+
+  // Debug: Log booking data from Redux
       useEffect(() => {
         console.log('[Checkout] Booking Data from Redux:', bookingData);
         console.log('[Checkout] isFromSearch:', bookingData.isFromSearch);
@@ -108,6 +123,12 @@
         console.log('[Checkout] Check-out Date:', bookingData.checkOutDate);
         console.log('[Checkout] Guests from Redux:', bookingData.guests);
       }, [bookingData]);
+
+      // Debug: Log when dates change
+      useEffect(() => {
+        console.log('[Checkout] Check-in date changed:', bookingData.checkInDate);
+        console.log('[Checkout] Check-out date changed:', bookingData.checkOutDate);
+      }, [bookingData.checkInDate, bookingData.checkOutDate]);
 
       // RTK Query mutation for creating bookings
       const [createBooking] = useCreateBookingMutation();
@@ -1449,13 +1470,15 @@
                             classNames={{
                               input: `${errors.checkInDate ? 'border-red-500' : ''}`,
                             }}
-                            // Cast parseDate result to DateValue
-                            value={bookingData.checkInDate ? parseDate(bookingData.checkInDate) as DateValue : undefined}
+                            value={bookingData.checkInDate ? safeParseDate(bookingData.checkInDate) : undefined}
                             onChange={(date) => {
                               if (date) {
-                                const formattedDate = `${date.year}-${String(date.month).padStart(2, '0')}-${String(date.day).padStart(2, '0')}`;
+                                const formattedDate = formatDateToString(date);
                                 dispatch(setCheckInDate(formattedDate));
                                 setErrors(prev => ({...prev, checkInDate: ''}));
+                              } else {
+                                // Handle null/undefined date
+                                dispatch(setCheckInDate(''));
                               }
                             }}
                             minValue={today(getLocalTimeZone())}
@@ -1476,17 +1499,21 @@
                             classNames={{
                               input: `${errors.checkOutDate ? 'border-red-500' : ''}`,
                             }}
-                            // Cast parseDate result to DateValue
-                            value={bookingData.checkOutDate ? parseDate(bookingData.checkOutDate) as DateValue : undefined}
+                            value={bookingData.checkOutDate ? safeParseDate(bookingData.checkOutDate) : undefined}
                             onChange={(date) => {
                               if (date) {
-                                const formattedDate = `${date.year}-${String(date.month).padStart(2, '0')}-${String(date.day).padStart(2, '0')}`;
+                                const formattedDate = formatDateToString(date);
                                 dispatch(setCheckOutDate(formattedDate));
                                 setErrors(prev => ({...prev, checkOutDate: ''}));
+                              } else {
+                                // Handle null/undefined date
+                                dispatch(setCheckOutDate(''));
                               }
                             }}
-                            // Also cast here for minValue
-                            minValue={bookingData.checkInDate ? parseDate(bookingData.checkInDate).add({days: 1}) as DateValue : today(getLocalTimeZone()).add({days: 1}) as DateValue}
+                            minValue={bookingData.checkInDate ? (() => {
+                              const parsedDate = safeParseDate(bookingData.checkInDate);
+                              return parsedDate ? parsedDate.add({days: 1}) as DateValue : today(getLocalTimeZone()).add({days: 1}) as DateValue;
+                            })() : today(getLocalTimeZone()).add({days: 1}) as DateValue}
                             isInvalid={!!errors.checkOutDate}
                             errorMessage={errors.checkOutDate}
                           />
