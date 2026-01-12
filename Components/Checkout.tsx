@@ -9,7 +9,6 @@ import { DatePicker } from "@nextui-org/date-picker";
 import { parseDate, today, getLocalTimeZone, CalendarDate } from "@internationalized/date";
 import type { DateValue } from "@react-types/calendar";
 import { useGetRoomBookingsQuery, useCreateBookingMutation } from "@/redux/api/bookingsApi";
-import { parseDate } from '@internationalized/date';
 import {
   Calendar,
   Users,
