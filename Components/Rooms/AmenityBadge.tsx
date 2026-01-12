@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { 
     Wifi, 
     Wind, 
@@ -26,7 +27,7 @@ const AmenityBadge = ({amenity}:AmenityBadgeProps) => {
         const normalizedName = name.toLowerCase().replace(/[^a-z]/g, '');
         
         // Icon mapping
-        const iconMap: Record<string, JSX.Element> = {
+        const iconMap: Record<string, React.ReactElement> = {
             'wifi': <Wifi className="w-4 h-4" />,
             'ac': <Wind className="w-4 h-4" />,
             'airconditioning': <Wind className="w-4 h-4" />,
