@@ -71,10 +71,11 @@ const Navbar = () => {
     setIsProfileOpen(!isProfileOpen);
   };
 
-  // Hide navbar on certain pages
-  const shouldHideNavbar = pathname === "/admin/login" || 
-                           pathname === "/admin/owners" || 
-                           pathname === "/admin/csr";
+  // Hide navbar on certain pages (not on admin login, only on admin dashboards)
+  const shouldHideNavbar = pathname === "/admin/owners" ||
+                           pathname === "/admin/csr" ||
+                           pathname === "/admin/partners" ||
+                           pathname === "/admin/cleaners";
 
   if (!mounted || shouldHideNavbar) return null;
 
