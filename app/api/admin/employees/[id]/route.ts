@@ -14,7 +14,7 @@ export async function GET(
   { params }: RouteContext
 ): Promise<NextResponse> {
   const { id } = await params;
-  return getEmployeeById(request, { id });
+  return getEmployeeById(request);
 }
 
 export async function PUT(
@@ -22,7 +22,7 @@ export async function PUT(
   { params }: RouteContext
 ): Promise<NextResponse> {
   const { id } = await params;
-  return updateEmployee(request, { id });
+  return updateEmployee(request);
 }
 
 export async function DELETE(
@@ -30,5 +30,5 @@ export async function DELETE(
   { params }: RouteContext
 ): Promise<NextResponse> {
   const { id } = await params;
-  return deleteEmployee(request, { id });
+  return deleteEmployee(request);
 }

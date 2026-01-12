@@ -14,6 +14,27 @@ interface AdditionalGuest {
 interface Booking {
   id: string;
   status: string;
+  booking_id?: string;
+  guest_first_name?: string;
+  guest_last_name?: string;
+  guest_email?: string;
+  guest_phone?: string;
+  guest_age?: string;
+  guest_gender?: string;
+  facebook_link?: string;
+  valid_id_url?: string;
+  room_name?: string;
+  adults?: number;
+  children?: number;
+  infants?: number;
+  check_in_date?: string;
+  check_in_time?: string;
+  check_out_date?: string;
+  check_out_time?: string;
+  payment_method?: string;
+  payment_proof_url?: string;
+  rejection_reason?: string;
+  created_at?: string;
   additional_guests?: AdditionalGuest[];
   [key: string]: unknown;
 }
@@ -83,11 +104,11 @@ const ReservationsPage = () => {
           email: booking.guest_email,
           bookingId: booking.booking_id,
           roomName: booking.room_name,
-          checkInDate: new Date(booking.check_in_date).toLocaleDateString(),
+          checkInDate: new Date(booking.check_in_date || '').toLocaleDateString(),
           checkInTime: booking.check_in_time,
-          checkOutDate: new Date(booking.check_out_date).toLocaleDateString(),
+          checkOutDate: new Date(booking.check_out_date || '').toLocaleDateString(),
           checkOutTime: booking.check_out_time,
-          guests: `${booking.adults} Adults, ${booking.children} Children, ${booking.infants} Infants`,
+          guests: `${booking.adults || 0} Adults, ${booking.children || 0} Children, ${booking.infants || 0} Infants`,
         };
 
         const emailResponse = await fetch('/api/send-checkin-email', {
@@ -137,8 +158,8 @@ const ReservationsPage = () => {
           email: booking.guest_email,
           bookingId: booking.booking_id,
           roomName: booking.room_name,
-          checkInDate: new Date(booking.check_in_date).toLocaleDateString(),
-          checkOutDate: new Date(booking.check_out_date).toLocaleDateString(),
+          checkInDate: new Date(booking.check_in_date || '').toLocaleDateString(),
+          checkOutDate: new Date(booking.check_out_date || '').toLocaleDateString(),
           totalAmount: Number(booking.total_amount).toLocaleString(),
           remainingBalance: Number(booking.remaining_balance),
         };
@@ -271,14 +292,14 @@ const ReservationsPage = () => {
                     </h4>
                     <div className="relative w-full max-w-md h-64 bg-gray-200 rounded-lg overflow-hidden">
                       <Image
-                        src={selectedBooking.valid_id_url}
+                        src={selectedBooking.valid_id_url as string}
                         alt="Main Guest Valid ID"
                         fill
                         className="object-contain"
                       />
                     </div>
                     <a
-                      href={selectedBooking.valid_id_url}
+                      href={selectedBooking.valid_id_url as string}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="mt-2 inline-block text-blue-600 hover:underline text-sm"
@@ -303,200 +324,89 @@ const ReservationsPage = () => {
                       const guestType = isAdult ? `Adult ${guestNumber}` : `Child ${guestNumber - (selectedBooking.adults - 1)}`;
 
                       return (
-                        <div key={index} className="bg-white rounded-lg p-4 border border-gray-200">
-                          <h4 className="font-semibold text-orange-600 mb-3">{guestType}</h4>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <div>
-                              <p className="text-sm text-gray-500">Full Name</p>
-                              <p className="font-semibold text-gray-800">{guest.firstName} {guest.lastName}</p>
-                            </div>
-                            {guest.age && (
-                              <div>
-                                <p className="text-sm text-gray-500">Age</p>
-                                <p className="font-semibold text-gray-800">{guest.age} years old</p>
-                              </div>
-                            )}
-                            {guest.gender && (
-                              <div>
-                                <p className="text-sm text-gray-500">Gender</p>
-                                <p className="font-semibold text-gray-800 capitalize">{guest.gender}</p>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Additional Guest Valid ID */}
-                          {guest.validIdUrl && (
-                            <div className="mt-4 pt-4 border-t border-gray-100">
-                              <h5 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                                <CreditCard className="w-4 h-4 text-blue-600" />
-                                Valid ID
-                              </h5>
-                              <div className="relative w-full max-w-sm h-48 bg-gray-200 rounded-lg overflow-hidden">
-                                <Image
-                                  src={guest.validIdUrl}
-                                  alt={`${guest.firstName} ${guest.lastName} Valid ID`}
-                                  fill
-                                  className="object-contain"
-                                />
-                              </div>
-                              <a
-                                href={guest.validIdUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="mt-2 inline-block text-blue-600 hover:underline text-sm"
-                              >
-                                Open in new tab →
-                              </a>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Booking Details */}
-              <div className="bg-gray-50 rounded-lg p-6">
-                <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                  <Calendar className="w-5 h-5 text-orange-500" />
-                  Booking Details
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-500">Room</p>
-                    <p className="font-semibold text-gray-800">{selectedBooking.room_name || 'Not specified'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Total Guests</p>
-                    <p className="font-semibold text-gray-800">
-                      {selectedBooking.adults + selectedBooking.children + selectedBooking.infants} People
-                      <span className="text-sm text-gray-500 ml-2">
-                        ({selectedBooking.adults} Adults, {selectedBooking.children} Children, {selectedBooking.infants} Infants)
-                      </span>
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Check-in</p>
-                    <p className="font-semibold text-gray-800">
-                      {new Date(selectedBooking.check_in_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                      <br />
-                      <span className="text-sm text-orange-600">at {selectedBooking.check_in_time}</span>
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Check-out</p>
-                    <p className="font-semibold text-gray-800">
-                      {new Date(selectedBooking.check_out_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                      <br />
-                      <span className="text-sm text-orange-600">at {selectedBooking.check_out_time}</span>
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Booking Created</p>
-                    <p className="font-semibold text-gray-800">
-                      {new Date(selectedBooking.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Payment Information */}
-              <div className="bg-gray-50 rounded-lg p-6">
-                <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                  <CreditCard className="w-5 h-5 text-orange-500" />
-                  Payment Information
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <p className="text-sm text-gray-500">Payment Method</p>
-                    <p className="font-semibold text-gray-800 uppercase">{selectedBooking.payment_method}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Room Rate</p>
-                    <p className="font-semibold text-gray-800">₱{Number(selectedBooking.room_rate).toLocaleString()}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Security Deposit</p>
-                    <p className="font-semibold text-gray-800">₱{Number(selectedBooking.security_deposit).toLocaleString()}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Add-ons Total</p>
-                    <p className="font-semibold text-gray-800">₱{Number(selectedBooking.add_ons_total).toLocaleString()}</p>
-                  </div>
-                </div>
-                <div className="border-t pt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="bg-white p-4 rounded-lg">
-                    <p className="text-sm text-gray-500">Total Amount</p>
-                    <p className="text-2xl font-bold text-gray-800">₱{Number(selectedBooking.total_amount).toLocaleString()}</p>
-                  </div>
-                  <div className="bg-white p-4 rounded-lg">
-                    <p className="text-sm text-gray-500">Down Payment</p>
-                    <p className="text-2xl font-bold text-green-600">₱{Number(selectedBooking.down_payment).toLocaleString()}</p>
-                  </div>
-                  <div className="bg-white p-4 rounded-lg">
-                    <p className="text-sm text-gray-500">Remaining Balance</p>
-                    <p className="text-2xl font-bold text-orange-600">₱{Number(selectedBooking.remaining_balance).toLocaleString()}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Add-ons */}
-              {selectedBooking.add_ons && Object.keys(selectedBooking.add_ons).length > 0 && (
-                <div className="bg-gray-50 rounded-lg p-6">
-                  <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                    <Package className="w-5 h-5 text-orange-500" />
-                    Add-ons Selected
-                  </h3>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {Object.entries(selectedBooking.add_ons).map(([key, value]: [string, unknown]) => {
-                      if (value > 0) {
-                        return (
-                          <div key={key} className="bg-white p-3 rounded-lg">
-                            <p className="text-sm text-gray-500 capitalize">{key.replace(/([A-Z])/g, ' $1')}</p>
-                            <p className="font-semibold text-gray-800">× {value}</p>
-                          </div>
-                        );
-                      }
-                      return null;
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Payment Proof */}
-              {selectedBooking.payment_proof_url && (
-                <div className="bg-gray-50 rounded-lg p-6">
-                  <h3 className="text-lg font-bold text-gray-800 mb-4">Payment Proof</h3>
-                  <div className="relative w-full h-96 bg-gray-200 rounded-lg overflow-hidden">
                     <Image
-                      src={selectedBooking.payment_proof_url}
-                      alt="Payment Proof"
+                      src={selectedBooking.valid_id_url as string}
+                      alt="Main Guest Valid ID"
                       fill
                       className="object-contain"
                     />
                   </div>
                   <a
-                    href={selectedBooking.payment_proof_url}
+                    href={selectedBooking.valid_id_url as string}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="mt-4 inline-block text-blue-600 hover:underline"
+                    className="mt-2 inline-block text-blue-600 hover:underline text-sm"
                   >
                     Open in new tab →
                   </a>
                 </div>
               )}
+            </div>
 
-              {/* Rejection Reason */}
-              {selectedBooking.rejection_reason && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-                  <h3 className="text-lg font-bold text-red-800 mb-2">Rejection Reason</h3>
-                  <p className="text-red-700">{selectedBooking.rejection_reason}</p>
+            {/* Additional Guests */}
+            {selectedBooking.additional_guests && selectedBooking.additional_guests.length > 0 && (
+              <div className="bg-gray-50 rounded-lg p-6">
+                <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                  <User className="w-5 h-5 text-orange-500" />
+                  Additional Guests ({selectedBooking.additional_guests.length})
+                </h3>
+                <div className="space-y-6">
+                  {selectedBooking.additional_guests.map((guest: AdditionalGuest, index: number) => {
+                    const guestNumber = index + 2;
+                    const isAdult = index < selectedBooking.adults - 1;
+                    const guestType = isAdult ? `Adult ${guestNumber}` : `Child ${guestNumber - (selectedBooking.adults - 1)}`;
+
+                    return (
+                      <div key={index} className="bg-white rounded-lg p-4 border border-gray-200">
+                        <h4 className="font-semibold text-orange-600 mb-3">{guestType}</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div>
+                            <p className="text-sm text-gray-500">Full Name</p>
+                            <p className="font-semibold text-gray-800">{guest.firstName as string} {guest.lastName as string}</p>
+                          </div>
+                          {guest.age && (
+                            <div>
+                              <p className="text-sm text-gray-500">Age</p>
+                              <p className="font-semibold text-gray-800">{guest.age} years old</p>
+                            </div>
+                          )}
+                          {guest.gender && (
+                            <div>
+                              <p className="text-sm text-gray-500">Gender</p>
+                              <p className="font-semibold text-gray-800 capitalize">{guest.gender as string}</p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Additional Guest Valid ID */}
+                        {guest.validIdUrl && (
+                          <div className="mt-4 pt-4 border-t border-gray-100">
+                            <h5 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                              <CreditCard className="w-4 h-4 text-blue-600" />
+                              Valid ID
+                            </h5>
+                            <div className="relative w-full max-w-sm h-48 bg-gray-200 rounded-lg overflow-hidden">
+                              <Image
+                                src={guest.validIdUrl as string}
+                                alt={`${guest.firstName} ${guest.lastName} Valid ID`}
+                                fill
+                                className="object-contain"
+                              />
+                            </div>
+                            <a
+                              href={guest.validIdUrl as string}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="mt-2 inline-block text-blue-600 hover:underline text-sm"
+                            >
+                              Open in new tab →
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
-              )}
-
-              {/* Action Buttons */}
-              <div className="flex gap-3 justify-end border-t pt-6">
                 {selectedBooking.status === "pending" && (
                   <>
                     <button
@@ -631,7 +541,7 @@ const ReservationsPage = () => {
                     </div>
                     <div className="flex items-center gap-2 text-sm text-gray-600">
                       <User className="w-4 h-4" />
-                      {reservation.adults + reservation.children + reservation.infants} Guests ({reservation.adults} Adults, {reservation.children} Children, {reservation.infants} Infants)
+                      {(reservation.adults || 0) + (reservation.children || 0) + (reservation.infants || 0)} Guests ({reservation.adults || 0} Adults, {reservation.children || 0} Children, {reservation.infants || 0} Infants)
                     </div>
                   </div>
 
@@ -639,19 +549,19 @@ const ReservationsPage = () => {
                     <div className="flex items-center gap-2 text-gray-700">
                       <Calendar className="w-4 h-4 text-blue-500" />
                       <span className="font-medium">Check-in:</span>
-                      {new Date(reservation.check_in_date).toLocaleDateString()} at {reservation.check_in_time}
+                      {new Date(reservation.check_in_date || '').toLocaleDateString()} at {reservation.check_in_time}
                     </div>
                     <div className="flex items-center gap-2 text-gray-700">
                       <Calendar className="w-4 h-4 text-orange-500" />
                       <span className="font-medium">Check-out:</span>
-                      {new Date(reservation.check_out_date).toLocaleDateString()} at {reservation.check_out_time}
+                      {new Date(reservation.check_out_date || '').toLocaleDateString()} at {reservation.check_out_time}
                     </div>
                   </div>
 
                   {reservation.rejection_reason && (
                     <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm">
                       <p className="font-semibold text-red-700 mb-1">Rejection Reason:</p>
-                      <p className="text-red-600">{reservation.rejection_reason}</p>
+                      <p className="text-red-600">{reservation.rejection_reason as string}</p>
                     </div>
                   )}
                 </div>

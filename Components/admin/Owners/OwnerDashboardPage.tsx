@@ -529,11 +529,11 @@ export default function OwnerDashboard() {
                 onBookingClick={() => openModal("booking")}
                 onPoliciesClick={() => openModal("policies")}
                 havens={havens}
-                onDateClick={(date: Date, havenName: string) => {
+                onDateClick={(date: Date, haven: Haven) => {
                   setBookingDateModal({
                     isOpen: true,
                     selectedDate: date,
-                    havenName: havenName,
+                    havenName: haven.haven_name || haven.name || 'Unknown Haven',
                   });
                 }}
               />

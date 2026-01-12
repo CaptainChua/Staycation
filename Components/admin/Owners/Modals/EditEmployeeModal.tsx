@@ -5,7 +5,7 @@ import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { Input } from "@nextui-org/input";
 import { Select, SelectItem } from "@nextui-org/select";
 import { DatePicker } from "@nextui-org/date-picker";
-import { parseDate, type CalendarDate } from "@internationalized/date";
+import { parseDate, type CalendarDate, type DateValue } from "@internationalized/date";
 import { useUpdateEmployeeMutation } from "@/redux/api/employeeApi";
 import toast from "react-hot-toast";
 import Image from "next/image";
@@ -153,7 +153,7 @@ const EditEmployeeModal = ({ isOpen, onClose, employee }: EditEmployeeModalProps
 
   const getAvailableDepartments = () => {
     if (!formData.role) return [];
-    return departmentByRole[formData.role] || [];
+    return departmentByRole[formData.role as keyof typeof departmentByRole] || [];
   };
 
   const handleProfilePictureUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -386,7 +386,7 @@ const EditEmployeeModal = ({ isOpen, onClose, employee }: EditEmployeeModalProps
                     value: "text-sm",
                   }}
                 >
-                  {getAvailableDepartments().map((dept) => (
+                  {getAvailableDepartments().map((dept: { value: string; label: string }) => (
                     <SelectItem key={dept.value} value={dept.value}>
                       {dept.label}
                     </SelectItem>
@@ -394,8 +394,8 @@ const EditEmployeeModal = ({ isOpen, onClose, employee }: EditEmployeeModalProps
                 </Select>
                 <DatePicker
                   label="Hire Date"
-                  value={formData.hireDate ? parseDate(formData.hireDate) : undefined}
-                  onChange={(date: CalendarDate | null) => {
+                  value={formData.hireDate ? parseDate(formData.hireDate) : null}
+                  onChange={(date: DateValue | null) => {
                     if (date) {
                       const dateStr = `${date.year}-${String(date.month).padStart(2, "0")}-${String(date.day).padStart(2, "0")}`;
                       setFormData({ ...formData, hireDate: dateStr });
