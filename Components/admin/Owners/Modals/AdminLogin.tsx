@@ -193,57 +193,57 @@ const AdminLogin = () => {
 
               {/* Login Form */}
               <div className="space-y-3 mb-6">
-            {/* Email */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                Email Address
-              </label>
-              <div className="relative">
-                <User className="absolute left-4 top-3.5 w-5 h-5 text-gray-400 dark:text-gray-500" />
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  placeholder="Enter your email"
-                  className="w-full pl-12 pr-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent transition-all duration-300 placeholder-gray-500 dark:placeholder-gray-400"
-                />
-              </div>
-            </div>
+                {/* Email */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    Email Address
+                  </label>
+                  <div className="relative">
+                    <User className="absolute left-4 top-3.5 w-5 h-5 text-gray-400 dark:text-gray-500" />
+                    <input
+                      type="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      placeholder="Enter your email"
+                      className="w-full pl-12 pr-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent transition-all duration-300 placeholder-gray-500 dark:placeholder-gray-400"
+                    />
+                  </div>
+                </div>
 
-            {/* Password Field */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                Password
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-4 top-3.5 w-5 h-5 text-gray-400 dark:text-gray-500" />
-                <input
-                  type={formData.showPassword ? "text" : "password"}
-                  name="password"
-                  value={formData.password}
-                  onChange={handleInputChange}
-                  placeholder="Enter your password"
-                  className="w-full pl-12 pr-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent transition-all duration-300 placeholder-gray-500 dark:placeholder-gray-400"
-                />
-                <button
-                  type="button"
-                  onClick={() =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      showPassword: !prev.showPassword,
-                    }))
-                  }
-                  className="absolute right-4 top-3.5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                >
-                  {formData.showPassword ? (
-                    <EyeOff className="w-5 h-5" />
-                  ) : (
-                    <Eye className="w-5 h-5" />
-                  )}
-                </button>
-              </div>
-            </div>
+                {/* Password Field */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    Password
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute left-4 top-3.5 w-5 h-5 text-gray-400 dark:text-gray-500" />
+                    <input
+                      type={formData.showPassword ? "text" : "password"}
+                      name="password"
+                      value={formData.password}
+                      onChange={handleInputChange}
+                      placeholder="Enter your password"
+                      className="w-full pl-12 pr-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent transition-all duration-300 placeholder-gray-500 dark:placeholder-gray-400"
+                    />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          showPassword: !prev.showPassword,
+                        }))
+                      }
+                      className="absolute right-4 top-3.5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                    >
+                      {formData.showPassword ? (
+                        <EyeOff className="w-5 h-5" />
+                      ) : (
+                        <Eye className="w-5 h-5" />
+                      )}
+                    </button>
+                  </div>
+                </div>
 
                 {/* Error Message */}
                 {formData.error && (
