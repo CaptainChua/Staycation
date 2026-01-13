@@ -39,8 +39,7 @@ export async function POST(req: Request) {
 
     if (existingUser.rows.length > 0) {
       return NextResponse.redirect(
-        req,
-        '/'
+        new URL('/', req.url)
       );
     }
 
