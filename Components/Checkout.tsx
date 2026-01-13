@@ -7,7 +7,7 @@
     import { useSession } from "next-auth/react";
     import { DatePicker } from "@nextui-org/date-picker";
     import { parseDate, today, getLocalTimeZone } from "@internationalized/date";
-import type { DateValue } from "@react-types/calendar";
+  import type { DateValue } from "@react-types/calendar";
     import { useGetRoomBookingsQuery, useCreateBookingMutation } from "@/redux/api/bookingsApi";
     import {
       Calendar,
