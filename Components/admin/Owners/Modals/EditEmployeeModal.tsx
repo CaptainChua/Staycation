@@ -394,7 +394,7 @@ const EditEmployeeModal = ({ isOpen, onClose, employee }: EditEmployeeModalProps
                 </Select>
                 <DatePicker
                   label="Hire Date"
-                  value={formData.hireDate ? parseDate(formData.hireDate) : null}
+                  value={formData.hireDate ? (parseDate(formData.hireDate) as any) : null}
                   onChange={(date: DateValue | null) => {
                     if (date) {
                       const dateStr = `${date.year}-${String(date.month).padStart(2, "0")}-${String(date.day).padStart(2, "0")}`;
