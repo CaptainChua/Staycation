@@ -11,21 +11,21 @@ type RouteContext = {
 
 export async function GET(
   request: NextRequest,
-  { params }: RouteContext
+  _params: RouteContext
 ): Promise<NextResponse> {
   return getEmployeeById(request);
 }
 
 export async function PUT(
   request: NextRequest,
-  { params }: RouteContext
+  _params: RouteContext
 ): Promise<NextResponse> {
   return updateEmployee(request);
 }
 
 export async function DELETE(
   request: NextRequest,
-  { params }: RouteContext
+  _params: RouteContext
 ): Promise<NextResponse> {
   return deleteEmployee(request);
 }
