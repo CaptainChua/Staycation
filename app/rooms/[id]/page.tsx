@@ -197,7 +197,6 @@ import RoomDetailsClient from "./RoomDetailsClient";
 //       </div>
 //     </div>
 //   );
-
 //   return <RoomsDetailsPage room={room} onBack={() => router.push('/')} />;
 // };
 
