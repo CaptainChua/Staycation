@@ -35,7 +35,7 @@
     } from "lucide-react";
     import toast from "react-hot-toast";
     import Image from "next/image";
-    import Footer from "./Footer";
+    import Footer from "@/Components/Footer";
 
     interface AddOns {
       poolPass: number;
@@ -876,7 +876,7 @@
                     {completedSteps.includes(4) ? (
                       <CheckCircle className="w-5 h-5" />
                     ) : (
-                      <Wallet className="w-5 h-5" />
+                      <CreditCard className="w-5 h-5" />
                     )}
                   </div>
                   <span
@@ -911,8 +911,7 @@
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div ref={(el) => { errorRefs.current.firstName = el; }}>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
-                          <User className="w-4 h-4" />
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                           First Name *
                         </label>
                         <input
@@ -924,7 +923,7 @@
                             setErrors(prev => ({...prev, firstName: ''}));
                           }}
                           required
-                          className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 ${
+                          className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 ${
                             errors.firstName ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-gray-600'
                           }`}
                           placeholder="Enter first name"
@@ -938,8 +937,7 @@
                       </div>
 
                       <div ref={(el) => { errorRefs.current.lastName = el; }}>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
-                          <User className="w-4 h-4" />
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                           Last Name *
                         </label>
                         <input
@@ -951,7 +949,7 @@
                             setErrors(prev => ({...prev, lastName: ''}));
                           }}
                           required
-                          className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 ${
+                          className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 ${
                             errors.lastName ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-gray-600'
                           }`}
                           placeholder="Enter last name"
@@ -979,7 +977,7 @@
                           required
                           min="1"
                           max="120"
-                          className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
+                          className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
                             errors.age ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-gray-600'
                           }`}
                           placeholder="Enter age"
@@ -1004,7 +1002,7 @@
                             setErrors(prev => ({...prev, gender: ''}));
                           }}
                           required
-                          className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-colors ${
+                          className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-colors ${
                             errors.gender ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-gray-600'
                           }`}
                         >
@@ -1022,8 +1020,7 @@
                       </div>
 
                       <div ref={(el) => { errorRefs.current.email = el; }}>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
-                          <Mail className="w-4 h-4 text-brand-primary dark:text-brand-primary" />
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                           Email Address *
                         </label>
                         <input
@@ -1035,7 +1032,7 @@
                             setErrors(prev => ({...prev, email: ''}));
                           }}
                           required
-                          className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 ${
+                          className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 ${
                             errors.email ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-gray-600'
                           }`}
                           placeholder="Enter email"
@@ -1049,8 +1046,7 @@
                       </div>
 
                       <div ref={(el) => { errorRefs.current.phone = el; }}>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
-                          <Phone className="w-4 h-4 text-brand-primary dark:text-brand-primary" />
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                           Phone Number *
                         </label>
                         <input
@@ -1062,7 +1058,7 @@
                             setErrors(prev => ({...prev, phone: ''}));
                           }}
                           required
-                          className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 ${
+                          className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 ${
                             errors.phone ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-gray-600'
                           }`}
                           placeholder="e.g., 182918212"
@@ -1076,8 +1072,7 @@
                       </div>
 
                       <div className="md:col-span-2">
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
-                          <User className="w-4 h-4 text-blue-500 dark:text-blue-400" />
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                           Facebook Name or Link
                         </label>
                         <input
@@ -1085,7 +1080,7 @@
                           name="facebookLink"
                           value={formData.facebookLink}
                           onChange={handleInputChange}
-                          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
+                          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
                           placeholder="e.g., Juan Dela Cruz or facebook.com/juandelacruz"
                         />
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -1173,7 +1168,7 @@
                           min="1"
                           max="4"
                           required
-                          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                         />
                       </div>
                       <div>
@@ -1187,7 +1182,7 @@
                           onChange={handleInputChange}
                           min="0"
                           max="4"
-                          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                         />
                       </div>
                       <div>
@@ -1201,7 +1196,7 @@
                           onChange={handleInputChange}
                           min="0"
                           max="2"
-                          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                         />
                       </div>
                     </div>
@@ -1242,7 +1237,7 @@
                                 setErrors(prev => ({...prev, [`guest${index}FirstName`]: ''}));
                               }}
                               required
-                              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 ${
+                              className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 ${
                                 errors[`guest${index}FirstName`] ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-gray-600'
                               }`}
                               placeholder="Enter first name"
@@ -1267,7 +1262,7 @@
                                 setErrors(prev => ({...prev, [`guest${index}LastName`]: ''}));
                               }}
                               required
-                              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 ${
+                              className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 ${
                                 errors[`guest${index}LastName`] ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-gray-600'
                               }`}
                               placeholder="Enter last name"
@@ -1294,7 +1289,7 @@
                               required
                               min="1"
                               max="120"
-                              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
+                              className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
                                 errors[`guest${index}Age`] ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-gray-600'
                               }`}
                               placeholder="Enter age"
@@ -1318,7 +1313,7 @@
                                 setErrors(prev => ({...prev, [`guest${index}Gender`]: ''}));
                               }}
                               required
-                              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-colors ${
+                              className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-colors ${
                                 errors[`guest${index}Gender`] ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-gray-600'
                               }`}
                             >
@@ -1413,8 +1408,8 @@
                   {/* Stay Type Selection */}
                   <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 sm:p-6">
                     <h2 className="text-xl sm:text-2xl font-bold text-gray-800 dark:text-white mb-4 sm:mb-6 flex items-center gap-2">
-                      <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-brand-primary dark:text-brand-primary" />
-                      Stay Type
+                      <Calendar className="w-5 h-5 sm:w-6 sm:h-6 text-brand-primary dark:text-brand-primary" />
+                      Booking Details
                     </h2>
 
                     <div ref={(el) => { errorRefs.current.stayType = el; }}>
@@ -1429,7 +1424,7 @@
                           setErrors(prev => ({...prev, stayType: ''}));
                         }}
                         required
-                        className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-colors ${
+                        className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-colors ${
                           errors.stayType ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-gray-600'
                         }`}
                       >
@@ -1544,7 +1539,7 @@
                             setErrors(prev => ({...prev, checkInTime: ''}));
                           }}
                           required
-                          className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-colors ${
+                          className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-colors ${
                             errors.checkInTime ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-gray-600'
                           }`}
                         />
@@ -1569,7 +1564,7 @@
                             setErrors(prev => ({...prev, checkOutTime: ''}));
                           }}
                           required
-                          className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-colors ${
+                          className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-colors ${
                             errors.checkOutTime ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-gray-600'
                           }`}
                         />
@@ -2121,11 +2116,11 @@
                 </div>
               )}
             </form>
-            <Footer />
           </div>
         </div>
-        </>
-      );
-    };
+        <Footer />
+      </>
+    );
+  };
 
-    export default Checkout;
+export default Checkout;
