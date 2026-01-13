@@ -6,7 +6,7 @@ import { Input } from "@nextui-org/input";
 import { Select, SelectItem } from "@nextui-org/select";
 import { DatePicker } from "@nextui-org/date-picker";
 import { parseDate, toZoned } from "@internationalized/date";
-import type { DateValue } from "@nextui-org/date-picker";
+import type { DateValue } from "@internationalized/date";
 import { useCreateEmployeeMutation } from "@/redux/api/employeeApi";
 import toast from "react-hot-toast";
 import Image from "next/image";
@@ -605,8 +605,8 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       labelPlacement="outside"
                       value={
                         formData.hireDate
-                          ? (toZoned(parseDate(formData.hireDate), "UTC") as DateValue)
-                          : undefined
+                          ? (parseDate(formData.hireDate) as any)
+                          : null
                       }
                       onChange={(date: DateValue | null) => {
                         if (date) {
