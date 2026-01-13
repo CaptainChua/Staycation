@@ -5,7 +5,7 @@ import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { Input } from "@nextui-org/input";
 import { Select, SelectItem } from "@nextui-org/select";
 import { DatePicker } from "@nextui-org/date-picker";
-import { parseDate, type CalendarDate, type DateValue } from "@internationalized/date";
+import { parseDate, type DateValue } from "@internationalized/date";
 import { useUpdateEmployeeMutation } from "@/redux/api/employeeApi";
 import toast from "react-hot-toast";
 import Image from "next/image";

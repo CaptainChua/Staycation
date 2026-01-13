@@ -53,7 +53,7 @@ export default function BookingsPage() {
   const [isNewBookingModalOpen, setIsNewBookingModalOpen] = useState(false);
 
   // Fetch bookings from API
-  const { data: bookings = [], isLoading, error } = useGetBookingsQuery({}) as { data: BookingData[]; isLoading: boolean; error: any };
+  const { data: bookings = [], isLoading, error } = useGetBookingsQuery({}) as { data: BookingData[]; isLoading: boolean; error: unknown };
   const [deleteBooking] = useDeleteBookingMutation();
 
   // Get status color

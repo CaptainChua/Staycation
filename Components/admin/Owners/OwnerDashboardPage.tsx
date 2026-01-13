@@ -253,7 +253,6 @@ export default function OwnerDashboard() {
     };
   };
 
-  const user = getUser();
   const userSession = getUserSession();
 
   return (

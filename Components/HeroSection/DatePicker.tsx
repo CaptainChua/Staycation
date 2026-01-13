@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { DatePicker as HeroDatePicker } from "@nextui-org/date-picker";
 import { parseDate, toZoned } from "@internationalized/date";
 import { Calendar } from "lucide-react";
-import type { ZonedDateTime } from "@internationalized/date";
+import type { ZonedDateTime, DateValue } from "@internationalized/date";
 import { formatDateWithYear } from "@/lib/dateUtils";
 
 interface DatePickerProps {
@@ -59,9 +59,9 @@ const DatePicker = ({ label, date, onDateChange }: DatePickerProps) => {
       {/* Hidden DatePicker that opens on click */}
       <div className="absolute top-0 left-0 w-full h-full opacity-0">
         <HeroDatePicker
-          value={selectedDate as any}
+          value={selectedDate as unknown as DateValue}
           onChange={(newDate) => {
-            if (newDate) onDateChange(newDate.toString());
+            if (newDate) onDateChange((newDate as DateValue).toString());
           }}
           className="w-full h-full"
           classNames={{

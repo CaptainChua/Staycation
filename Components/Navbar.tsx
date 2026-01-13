@@ -26,11 +26,12 @@ const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isHelpSidebarOpen, setIsHelpSidebarOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const [mounted, setMounted] = useState(() => {
+    if (typeof window !== "undefined") {
+      return true;
+    }
+    return false;
+  });
 
   const pathname = usePathname();
   const router = useRouter();

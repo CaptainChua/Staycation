@@ -103,7 +103,7 @@ export default function CleanersDashboard() {
     if (savedPage && savedPage !== page) {
       setPage(savedPage);
     }
-  }, []);
+  }, [page]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
