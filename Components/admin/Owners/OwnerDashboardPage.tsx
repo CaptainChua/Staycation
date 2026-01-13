@@ -1,7 +1,7 @@
 "use client";
 
 import { LogOut, Menu, X, Home, Users, MessageSquare, Settings, Bell, UserCircle, ChevronDown, BarChart3, Calendar, DollarSign, Wrench, Star, Shield } from "lucide-react";
-import DashboardPage from "./DashboardPage";
+import DashboardPage, { Haven } from "./DashboardPage";
 import GuestAssistancePage from "./GuestAssistancePage";
 import AddUnitModal from "./Modals/AddUnitModal";
 import BookingModalSetting from "./Modals/BookingModalSetting";
@@ -28,14 +28,6 @@ import { useState, useEffect, useRef } from "react";
 import { signOut, useSession } from "next-auth/react";
 import Image from "next/image";
 import { useGetHavensQuery } from "@/redux/api/roomApi";
-
-interface Haven {
-  uuid_id?: string;
-  haven_name?: string;
-  tower?: string;
-  floor?: string;
-  [key: string]: unknown;
-}
 
 interface EmployeeData {
   id: string;

@@ -22,7 +22,7 @@ import {
 import { useGetRoomBookingsQuery } from "@/redux/api/bookingsApi";
 
 // Define types for the component
-interface Haven {
+export interface Haven {
   uuid_id: string;
   haven_name?: string;
   name?: string;
@@ -30,6 +30,8 @@ interface Haven {
     from_date: string;
     to_date: string;
   }>;
+  status?: "available" | "booked" | "blocked" | "past";
+  [key: string]: unknown;
 }
 
 interface Booking {
