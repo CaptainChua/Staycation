@@ -182,7 +182,6 @@ import RoomDetailsClient from "./RoomDetailsClient";
 //   const roomId = params.id as string;
 
 //   const { data: room, isLoading, isError } = useGetHavenByIdQuery(roomId);
-
 //   if (isLoading) return <p>Loading room...</p>;
 //   if (isError || !room) return (
 //     <div className="min-h-screen flex items-center justify-center">
