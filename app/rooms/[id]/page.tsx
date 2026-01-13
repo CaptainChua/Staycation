@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import RoomDetailsClient from "./RoomDetailsClient";
+import RoomDetailsSkeleton from "@/Components/Rooms/RoomDetailsSkeleton";
 
 
 // import { useParams, useRouter } from "next/navigation";
