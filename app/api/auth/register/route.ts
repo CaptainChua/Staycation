@@ -38,9 +38,9 @@ export async function POST(req: Request) {
     );
 
     if (existingUser.rows.length > 0) {
-      return NextResponse.json(
-        { error: "Email already registered" },
-        { status: 409 }
+      return NextResponse.redirect(
+        req,
+        '/'
       );
     }
 
