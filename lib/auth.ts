@@ -162,7 +162,7 @@ export const authOptions: NextAuthOptions = {
           console.log("📊 Querying users table...");
           const userResult = await pool.query(
             "SELECT user_id, email, password, user_role, name FROM users WHERE email = $1",
-            [credentials.email]
+            [credentials?.email || '']
           );
 
           if (userResult.rows.length === 0) {
@@ -175,7 +175,10 @@ export const authOptions: NextAuthOptions = {
 
           // Verify password
           console.log("🔒 Verifying password...");
-          const isValid = await bcrypt.compare(credentials.password, user.password);
+          const isValid = await bcrypt.compare(
+            String(credentials?.password || ''), 
+            String(user.password)
+          );
 
           if (!isValid) {
             console.log("❌ Invalid password");
