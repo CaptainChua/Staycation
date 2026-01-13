@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { DatePicker as HeroDatePicker } from "@nextui-org/date-picker";
-import { parseDate } from "@internationalized/date";
+import { parseDate, toZoned } from "@internationalized/date";
 import { Calendar } from "lucide-react";
 import type { DateValue } from "@internationalized/date";
 import { formatDateWithYear } from "@/lib/dateUtils";
@@ -19,7 +19,9 @@ const DatePicker = ({ label, date, onDateChange }: DatePickerProps) => {
   // Update selectedDate whenever `date` prop changes
   const selectedDate = useMemo<DateValue | null>(() => {
     if (date) {
-      return parseDate(date); // CalendarDate extends DateValue
+      const parsed = parseDate(date); // CalendarDate
+      const zoned = toZoned(parsed, "UTC"); // ZonedDateTime
+      return zoned as DateValue;
     }
     return null;
   }, [date]);
@@ -57,7 +59,7 @@ const DatePicker = ({ label, date, onDateChange }: DatePickerProps) => {
       {/* Hidden DatePicker that opens on click */}
       <div className="absolute top-0 left-0 w-full h-full opacity-0">
         <HeroDatePicker
-          value={selectedDate}
+          value={(selectedDate ?? undefined) as DateValue | undefined}
           onChange={(newDate) => {
             if (newDate) onDateChange((newDate as DateValue).toString());
           }}
