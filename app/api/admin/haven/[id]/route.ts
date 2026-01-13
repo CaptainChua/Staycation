@@ -5,7 +5,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   return getHavenById(request, { params });
 }
 
-export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }): Promise<NextResponse> {
+export async function PUT(request: NextRequest, { params: _params }: { params: Promise<{ id: string }> }): Promise<NextResponse> {
   return updateHaven(request);
 }
 
