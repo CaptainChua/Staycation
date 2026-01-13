@@ -201,12 +201,6 @@ import RoomDetailsClient from "./RoomDetailsClient";
 //   return <RoomsDetailsPage room={room} onBack={() => router.push('/')} />;
 // };
 
-interface Props {
-  params: Promise<{
-    id: string;
-  }>
-}
-
 const getRoomById = async (id: string) => {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || 'http://localhost:3000';
   const res = await fetch(`${baseUrl}/api/haven/${id}`, {
@@ -220,7 +214,7 @@ const getRoomById = async (id: string) => {
   return res.json();
 }
 
-const RoomDetailsPageRoute = async ({ params }: Props) => {
+const RoomDetailsPageRoute = async ({ params }: { params: Promise<{ id: string }> }) => {
   const { id } = await params;
   const response =  await getRoomById(id);
 
