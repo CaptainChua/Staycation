@@ -1,6 +1,6 @@
 'use client';
 
-import { TrendingUp, Calendar, Edit2, Tag } from "lucide-react";
+import { TrendingUp, Calendar, Edit2, Tag, DollarSign, Plus } from "lucide-react";
 import { useState } from "react";
 
 const RevenueManagementPage = () => {
@@ -72,46 +72,58 @@ const RevenueManagementPage = () => {
     },
   ];
 
+  // Revenue stats matching Bookings page card colors
   const revenueStats = [
-    { label: "This Month", value: "₱145,000", change: "+12.5%" },
-    { label: "Last Month", value: "₱128,000", change: "+8.3%" },
-    { label: "Average Daily", value: "₱4,833", change: "+5.2%" },
-    { label: "Projected (End of Month)", value: "₱185,000", change: "+15.7%" },
+    { label: "This Month", value: "₱145,000", change: "+12.5%", color: "bg-blue-500", icon: DollarSign },
+    { label: "Last Month", value: "₱128,000", change: "+8.3%", color: "bg-green-500", icon: Calendar },
+    { label: "Average Daily", value: "₱4,833", change: "+5.2%", color: "bg-yellow-500", icon: TrendingUp },
+    { label: "Projected (End of Month)", value: "₱185,000", change: "+15.7%", color: "bg-indigo-500", icon: DollarSign },
   ];
 
   return (
     <div className="space-y-6 animate-in fade-in duration-700">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">Revenue Management</h1>
-        <p className="text-gray-600">Manage pricing, discounts, and revenue optimization</p>
+      {/* Header - Matching Bookings page style */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Revenue Management</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage pricing, discounts, and revenue optimization</p>
+        </div>
       </div>
 
-      {/* Revenue Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {revenueStats.map((stat, index) => (
-          <div key={index} className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-sm text-gray-500">{stat.label}</p>
-              <span className="text-xs font-semibold text-green-600 flex items-center gap-1">
-                <TrendingUp className="w-3 h-3" />
-                {stat.change}
-              </span>
+      {/* Revenue Stats Cards - Matching Bookings page style */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {revenueStats.map((stat, index) => {
+          const IconComponent = stat.icon;
+          return (
+            <div
+              key={index}
+              className={`${stat.color} text-white rounded-lg p-6 shadow hover:shadow-lg transition-all`}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm opacity-90">{stat.label}</p>
+                  <p className="text-3xl font-bold mt-2">{stat.value}</p>
+                  <div className="flex items-center gap-1 text-xs font-semibold mt-2 text-green-100">
+                    <TrendingUp className="w-3 h-3" />
+                    {stat.change}
+                  </div>
+                </div>
+                <IconComponent className="w-12 h-12 opacity-50" />
+              </div>
             </div>
-            <p className="text-2xl font-bold text-gray-800">{stat.value}</p>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
-      {/* Tabs */}
-      <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-        <div className="flex border-b border-gray-200">
+      {/* Tabs - Matching Bookings page card style */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden">
+        <div className="flex border-b-2 border-gray-200 dark:border-gray-600">
           <button
             onClick={() => setActiveTab("pricing")}
             className={`flex-1 px-6 py-4 font-semibold transition-all ${
               activeTab === "pricing"
-                ? "bg-orange-500 text-white"
-                : "text-gray-600 hover:bg-gray-50"
+                ? "bg-gradient-to-r from-brand-primary to-brand-primaryDark text-white"
+                : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
             }`}
           >
             Pricing Rules
@@ -120,8 +132,8 @@ const RevenueManagementPage = () => {
             onClick={() => setActiveTab("discounts")}
             className={`flex-1 px-6 py-4 font-semibold transition-all ${
               activeTab === "discounts"
-                ? "bg-orange-500 text-white"
-                : "text-gray-600 hover:bg-gray-50"
+                ? "bg-gradient-to-r from-brand-primary to-brand-primaryDark text-white"
+                : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
             }`}
           >
             Discounts & Promos
@@ -132,38 +144,78 @@ const RevenueManagementPage = () => {
           {activeTab === "pricing" && (
             <div className="space-y-4">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-gray-800">Pricing Rules</h2>
-                <button className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors">
-                  + Add Pricing Rule
+                <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">Pricing Rules</h2>
+                <button className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-brand-primary to-brand-primaryDark text-white rounded-lg hover:shadow-lg hover:scale-[1.02] transition-all font-semibold shadow-[rgba(186,144,60,0.35)]">
+                  <Plus className="w-5 h-5" />
+                  Add Pricing Rule
                 </button>
               </div>
 
-              <div className="space-y-3">
-                {pricingRules.map((rule) => (
-                  <div key={rule.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-gray-800 mb-1">{rule.name}</h3>
-                      <div className="flex gap-4 text-sm text-gray-600">
-                        <span>Haven: {rule.haven}</span>
-                        <span>Check-in: {rule.checkInTime}</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <div className="text-right">
-                        <p className="text-sm text-gray-500">Price</p>
-                        <p className="text-xl font-bold text-green-600">₱{rule.price.toLocaleString()}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${rule.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
-                          {rule.active ? "Active" : "Inactive"}
-                        </span>
-                        <button className="p-2 hover:bg-gray-200 rounded-lg transition-colors">
-                          <Edit2 className="w-4 h-4 text-gray-600" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+              {/* Pricing Rules Table - Matching Bookings page table style */}
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 border-b-2 border-gray-200 dark:border-gray-600">
+                      <tr>
+                        <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                          Rule Name
+                        </th>
+                        <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                          Haven
+                        </th>
+                        <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                          Check-In Time
+                        </th>
+                        <th className="text-right py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                          Price
+                        </th>
+                        <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                          Status
+                        </th>
+                        <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pricingRules.map((rule) => (
+                        <tr
+                          key={rule.id}
+                          className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                        >
+                          <td className="py-4 px-4">
+                            <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{rule.name}</span>
+                          </td>
+                          <td className="py-4 px-4">
+                            <span className="text-sm text-gray-700 dark:text-gray-200">{rule.haven}</span>
+                          </td>
+                          <td className="py-4 px-4">
+                            <span className="text-sm text-gray-700 dark:text-gray-200">{rule.checkInTime}</span>
+                          </td>
+                          <td className="py-4 px-4 text-right">
+                            <span className="text-sm font-bold text-gray-800 dark:text-gray-100 whitespace-nowrap">
+                              ₱{rule.price.toLocaleString()}
+                            </span>
+                          </td>
+                          <td className="py-4 px-4 text-center">
+                            <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${
+                              rule.active ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200' : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                            }`}>
+                              {rule.active ? "Active" : "Inactive"}
+                            </span>
+                          </td>
+                          <td className="py-4 px-4">
+                            <div className="flex items-center justify-center gap-1">
+                              <button className="p-2 text-brand-primary hover:bg-brand-primaryLighter rounded-lg transition-colors" title="Edit">
+                                <Edit2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           )}
@@ -171,45 +223,92 @@ const RevenueManagementPage = () => {
           {activeTab === "discounts" && (
             <div className="space-y-4">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-gray-800">Discounts & Promotions</h2>
-                <button className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors">
-                  + Add Discount Code
+                <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">Discounts & Promotions</h2>
+                <button className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-brand-primary to-brand-primaryDark text-white rounded-lg hover:shadow-lg hover:scale-[1.02] transition-all font-semibold shadow-[rgba(186,144,60,0.35)]">
+                  <Plus className="w-5 h-5" />
+                  Add Discount Code
                 </button>
               </div>
 
-              <div className="space-y-3">
-                {discounts.map((discount) => (
-                  <div key={discount.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Tag className="w-4 h-4 text-orange-500" />
-                        <h3 className="font-bold text-gray-800">{discount.code}</h3>
-                      </div>
-                      <p className="text-sm text-gray-600 mb-1">{discount.description}</p>
-                      <div className="flex gap-4 text-xs text-gray-500">
-                        <span className="flex items-center gap-1">
-                          <Calendar className="w-3 h-3" />
-                          Valid until: {new Date(discount.validUntil).toLocaleDateString()}
-                        </span>
-                        <span>Used: {discount.used} times</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <div className="text-right">
-                        <p className="text-sm text-gray-500">Discount</p>
-                        <p className="text-xl font-bold text-orange-600">{discount.discount}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${discount.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
-                          {discount.active ? "Active" : "Inactive"}
-                        </span>
-                        <button className="p-2 hover:bg-gray-200 rounded-lg transition-colors">
-                          <Edit2 className="w-4 h-4 text-gray-600" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+              {/* Discounts Table - Matching Bookings page table style */}
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 border-b-2 border-gray-200 dark:border-gray-600">
+                      <tr>
+                        <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                          Code
+                        </th>
+                        <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                          Description
+                        </th>
+                        <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                          Valid Until
+                        </th>
+                        <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                          Used
+                        </th>
+                        <th className="text-right py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                          Discount
+                        </th>
+                        <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                          Status
+                        </th>
+                        <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {discounts.map((discount) => (
+                        <tr
+                          key={discount.id}
+                          className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                        >
+                          <td className="py-4 px-4">
+                            <div className="flex items-center gap-2">
+                              <Tag className="w-4 h-4 text-brand-primary flex-shrink-0" />
+                              <span className="font-bold text-gray-800 dark:text-gray-100 text-sm">{discount.code}</span>
+                            </div>
+                          </td>
+                          <td className="py-4 px-4">
+                            <span className="text-sm text-gray-700 dark:text-gray-200">{discount.description}</span>
+                          </td>
+                          <td className="py-4 px-4">
+                            <div className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-300">
+                              <Calendar className="w-3 h-3 flex-shrink-0" />
+                              <span>{new Date(discount.validUntil).toLocaleDateString()}</span>
+                            </div>
+                          </td>
+                          <td className="py-4 px-4 text-center">
+                            <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                              {discount.used} times
+                            </span>
+                          </td>
+                          <td className="py-4 px-4 text-right">
+                            <span className="text-sm font-bold text-gray-800 dark:text-gray-100 whitespace-nowrap">
+                              {discount.discount}
+                            </span>
+                          </td>
+                          <td className="py-4 px-4 text-center">
+                            <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${
+                              discount.active ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200' : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                            }`}>
+                              {discount.active ? "Active" : "Inactive"}
+                            </span>
+                          </td>
+                          <td className="py-4 px-4">
+                            <div className="flex items-center justify-center gap-1">
+                              <button className="p-2 text-brand-primary hover:bg-brand-primaryLighter rounded-lg transition-colors" title="Edit">
+                                <Edit2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           )}
