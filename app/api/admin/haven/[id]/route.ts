@@ -13,7 +13,7 @@ export async function GET(request: NextRequest, { params }: RouteContext): Promi
 }
 
 export async function PUT(request: NextRequest, { params }: RouteContext): Promise<NextResponse> {
-  const { id } = await params;
+  const { id: _id } = await params;
   return updateHaven(request);
 }
 
