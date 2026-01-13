@@ -207,11 +207,6 @@ export const authOptions: NextAuthOptions = {
             });
           }
 
-          // Create NextAuth session for Haven account
-          const session = await session({ session: session, user: user });
-          console.log("✅ NextAuth session created for:", user.email);
-          return true;
-
           // Update last_login timestamp
           try {
             await pool.query(
@@ -223,18 +218,10 @@ export const authOptions: NextAuthOptions = {
             console.error("❌ Failed to update last_login:", updateError);
           }
 
-          // Return regular user object
-          return {
-            id: String(user.user_id),
-            email: user.email,
-            name: user.name,
-            role: user.user_role,
-          };
+          // Return true to allow sign in
+          console.log("✅ Credentials authentication successful for:", user.email);
+          return true;
         }
-
-        // Create NextAuth session for both Google and credential users
-        const session = await session({ session: session, user: user });
-        console.log("✅ NextAuth session created for:", user.email);
         return true;
       } catch (error) {
         console.error("❌ Error saving user to database:", error);

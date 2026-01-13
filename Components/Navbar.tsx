@@ -26,12 +26,11 @@ const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isHelpSidebarOpen, setIsHelpSidebarOpen] = useState(false);
-  const [mounted, setMounted] = useState(() => {
-    if (typeof window !== "undefined") {
-      return true;
-    }
-    return false;
-  });
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const pathname = usePathname();
   const router = useRouter();
@@ -230,7 +229,7 @@ const Navbar = () => {
                     <button
                       onClick={async () => {
                         setIsProfileOpen(false);
-                        await signOut({ callbackUrl: "/login" });
+                        await signOut({ callbackUrl: "/" });
                       }}
                       className="w-full px-4 py-2.5 flex items-center gap-3 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors duration-150 text-left"
                     >
@@ -353,7 +352,7 @@ const Navbar = () => {
                     <button
                       onClick={async () => {
                         setIsProfileOpen(false);
-                        await signOut({ callbackUrl: "/login" });
+                        await signOut({ callbackUrl: "/" });
                       }}
                       className="w-full px-4 py-2.5 flex items-center gap-3 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors duration-150 text-left"
                     >
@@ -517,7 +516,7 @@ const Navbar = () => {
                 <button
                   onClick={async () => {
                     setIsMenuOpen(false);
-                    await signOut({ callbackUrl: "/login" });
+                    await signOut({ callbackUrl: "/" });
                   }}
                   className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium transition-all duration-300 shadow-md"
                 >
