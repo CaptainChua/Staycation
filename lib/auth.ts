@@ -143,9 +143,9 @@ export const authOptions: NextAuthOptions = {
   },
 
   callbacks: {
-    async signIn({ user, account, profile }) {
+    async signIn({ user, account, profile, credentials }) {
       try {
-        // Only process Google sign-ins
+        // Handle Google sign-ins
         if (account?.provider === "google" && profile?.sub) {
           await upsertUser({
             googleId: profile.sub,
@@ -154,14 +154,94 @@ export const authOptions: NextAuthOptions = {
             picture: user.image || undefined,
           });
           console.log("✅ User saved to database:", user.email);
+        } else {
+          // Handle regular credential sign-ins
+          console.log("🔐 Processing credentials login for:", credentials?.email);
+
+          // Check regular users table (not employees)
+          console.log("📊 Querying users table...");
+          const userResult = await pool.query(
+            "SELECT user_id, email, password, user_role, name FROM users WHERE email = $1",
+            [credentials.email]
+          );
+
+          if (userResult.rows.length === 0) {
+            console.log("❌ User not found in users table");
+            throw new Error("Invalid email or password");
+          }
+
+          const user = userResult.rows[0];
+          console.log("✅ User found:", user.email, "- Role:", user.user_role);
+
+          // Verify password
+          console.log("🔒 Verifying password...");
+          const isValid = await bcrypt.compare(credentials.password, user.password);
+
+          if (!isValid) {
+            console.log("❌ Invalid password");
+            throw new Error("Invalid email or password");
+          }
+
+          console.log("✅ Password valid! User login successful");
+
+          // Create activity log for regular user login
+          try {
+            await pool.query(
+              `INSERT INTO staff_activity_logs (user_id, action_type, action, details, created_at)
+               VALUES ($1, $2, $3, $4, NOW())`,
+              [
+                user.user_id,
+                'login',
+                'Logged into system',
+                `${user.name} logged in successfully via NextAuth`
+              ]
+            );
+            console.log('✅ Activity log created for user login');
+          } catch (logError) {
+            const error = logError as { message?: string; code?: string; detail?: string };
+            console.error('❌ Failed to create activity log:', logError);
+            console.error('Error details:', {
+              message: error?.message,
+              code: error?.code,
+              detail: error?.detail
+            });
+          }
+
+          // Create NextAuth session for Haven account
+          const session = await session({ session: session, user: user });
+          console.log("✅ NextAuth session created for:", user.email);
+          return true;
+
+          // Update last_login timestamp
+          try {
+            await pool.query(
+              "UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE user_id = $1",
+              [user.user_id]
+            );
+            console.log("✅ Updated last_login for user");
+          } catch (updateError) {
+            console.error("❌ Failed to update last_login:", updateError);
+          }
+
+          // Return regular user object
+          return {
+            id: String(user.user_id),
+            email: user.email,
+            name: user.name,
+            role: user.user_role,
+          };
         }
+
+        // Create NextAuth session for both Google and credential users
+        const session = await session({ session: session, user: user });
+        console.log("✅ NextAuth session created for:", user.email);
         return true;
       } catch (error) {
         console.error("❌ Error saving user to database:", error);
         return true;
       }
     },
-    
+
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
