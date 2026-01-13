@@ -1,13 +1,16 @@
 'use client';
 
-import { Calendar, User, MapPin, Phone, Mail, Check, X, AlertCircle, Eye, XCircle, CreditCard, Package } from "lucide-react";
+import { Calendar, User, MapPin, Phone, Mail, Check, X, AlertCircle, Eye, XCircle, CreditCard } from "lucide-react";
 import { useState } from "react";
 import { useGetBookingsQuery, useUpdateBookingStatusMutation } from "@/redux/api/bookingsApi";
 import Image from "next/image";
 
 interface AdditionalGuest {
-  name: string;
+  firstName?: string;
+  lastName?: string;
   age?: number;
+  gender?: string;
+  validIdUrl?: string;
   [key: string]: unknown;
 }
 
@@ -36,6 +39,9 @@ interface Booking {
   rejection_reason?: string;
   created_at?: string;
   additional_guests?: AdditionalGuest[];
+  total_amount?: number;
+  down_payment?: number;
+  remaining_balance?: number;
   [key: string]: unknown;
 }
 
@@ -320,93 +326,65 @@ const ReservationsPage = () => {
                   <div className="space-y-6">
                     {selectedBooking.additional_guests.map((guest: AdditionalGuest, index: number) => {
                       const guestNumber = index + 2;
-                      const isAdult = index < selectedBooking.adults - 1;
-                      const guestType = isAdult ? `Adult ${guestNumber}` : `Child ${guestNumber - (selectedBooking.adults - 1)}`;
+                      const isAdult = index < (selectedBooking.adults || 0) - 1;
+                      const guestType = isAdult ? `Adult ${guestNumber}` : `Child ${guestNumber - ((selectedBooking.adults || 0) - 1)}`;
 
                       return (
-                    <Image
-                      src={selectedBooking.valid_id_url as string}
-                      alt="Main Guest Valid ID"
-                      fill
-                      className="object-contain"
-                    />
-                  </div>
-                  <a
-                    href={selectedBooking.valid_id_url as string}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-2 inline-block text-blue-600 hover:underline text-sm"
-                  >
-                    Open in new tab →
-                  </a>
-                </div>
-              )}
-            </div>
-
-            {/* Additional Guests */}
-            {selectedBooking.additional_guests && selectedBooking.additional_guests.length > 0 && (
-              <div className="bg-gray-50 rounded-lg p-6">
-                <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                  <User className="w-5 h-5 text-orange-500" />
-                  Additional Guests ({selectedBooking.additional_guests.length})
-                </h3>
-                <div className="space-y-6">
-                  {selectedBooking.additional_guests.map((guest: AdditionalGuest, index: number) => {
-                    const guestNumber = index + 2;
-                    const isAdult = index < selectedBooking.adults - 1;
-                    const guestType = isAdult ? `Adult ${guestNumber}` : `Child ${guestNumber - (selectedBooking.adults - 1)}`;
-
-                    return (
-                      <div key={index} className="bg-white rounded-lg p-4 border border-gray-200">
-                        <h4 className="font-semibold text-orange-600 mb-3">{guestType}</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          <div>
-                            <p className="text-sm text-gray-500">Full Name</p>
-                            <p className="font-semibold text-gray-800">{guest.firstName as string} {guest.lastName as string}</p>
-                          </div>
-                          {guest.age && (
+                        <div key={index} className="bg-white rounded-lg p-4 border border-gray-200">
+                          <h4 className="font-semibold text-orange-600 mb-3">{guestType}</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             <div>
-                              <p className="text-sm text-gray-500">Age</p>
-                              <p className="font-semibold text-gray-800">{guest.age} years old</p>
+                              <p className="text-sm text-gray-500">Full Name</p>
+                              <p className="font-semibold text-gray-800">{guest.firstName as string} {guest.lastName as string}</p>
                             </div>
-                          )}
-                          {guest.gender && (
-                            <div>
-                              <p className="text-sm text-gray-500">Gender</p>
-                              <p className="font-semibold text-gray-800 capitalize">{guest.gender as string}</p>
+                            {guest.age && (
+                              <div>
+                                <p className="text-sm text-gray-500">Age</p>
+                                <p className="font-semibold text-gray-800">{guest.age} years old</p>
+                              </div>
+                            )}
+                            {guest.gender && (
+                              <div>
+                                <p className="text-sm text-gray-500">Gender</p>
+                                <p className="font-semibold text-gray-800 capitalize">{guest.gender as string}</p>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Additional Guest Valid ID */}
+                          {guest.validIdUrl && (
+                            <div className="mt-4 pt-4 border-t border-gray-100">
+                              <h5 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                                <CreditCard className="w-4 h-4 text-blue-600" />
+                                Valid ID
+                              </h5>
+                              <div className="relative w-full max-w-sm h-48 bg-gray-200 rounded-lg overflow-hidden">
+                                <Image
+                                  src={guest.validIdUrl as string}
+                                  alt={`${guest.firstName as string} ${guest.lastName as string} Valid ID`}
+                                  fill
+                                  className="object-contain"
+                                />
+                              </div>
+                              <a
+                                href={guest.validIdUrl as string}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="mt-2 inline-block text-blue-600 hover:underline text-sm"
+                              >
+                                Open in new tab →
+                              </a>
                             </div>
                           )}
                         </div>
-
-                        {/* Additional Guest Valid ID */}
-                        {guest.validIdUrl && (
-                          <div className="mt-4 pt-4 border-t border-gray-100">
-                            <h5 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                              <CreditCard className="w-4 h-4 text-blue-600" />
-                              Valid ID
-                            </h5>
-                            <div className="relative w-full max-w-sm h-48 bg-gray-200 rounded-lg overflow-hidden">
-                              <Image
-                                src={guest.validIdUrl as string}
-                                alt={`${guest.firstName} ${guest.lastName} Valid ID`}
-                                fill
-                                className="object-contain"
-                              />
-                            </div>
-                            <a
-                              href={guest.validIdUrl as string}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="mt-2 inline-block text-blue-600 hover:underline text-sm"
-                            >
-                              Open in new tab →
-                            </a>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 justify-center mt-6">
                 {selectedBooking.status === "pending" && (
                   <>
                     <button
@@ -466,164 +444,164 @@ const ReservationsPage = () => {
       )}
 
       <div className="space-y-6 animate-in fade-in duration-700">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">Reservations</h1>
-          <p className="text-gray-600">Manage all your bookings and reservations</p>
-        </div>
-        <button className="px-6 py-3 bg-gradient-to-r from-orange-500 to-yellow-500 text-white rounded-lg font-semibold hover:shadow-lg transition-all">
-          + New Reservation
-        </button>
-      </div>
-
-      {/* Filters */}
-      <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
-        <div className="flex gap-2 overflow-x-auto">
-          {["all", "pending", "approved", "confirmed", "checked-in", "completed", "rejected", "cancelled"].map((status) => (
-            <button
-              key={status}
-              onClick={() => setFilter(status)}
-              className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-all ${
-                filter === status
-                  ? "bg-orange-500 text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-              }`}
-            >
-              {status.charAt(0).toUpperCase() + status.slice(1).replace("-", " ")}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Reservations List */}
-      <div className="space-y-4">
-        {isLoading ? (
-          <div className="flex justify-center items-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
+        {/* Header */}
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-800 mb-2">Reservations</h1>
+            <p className="text-gray-600">Manage all your bookings and reservations</p>
           </div>
-        ) : filteredReservations.length === 0 ? (
-          <div className="bg-white rounded-2xl shadow-lg p-12 border border-gray-200 text-center">
-            <AlertCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-800 mb-2">No Reservations Found</h3>
-            <p className="text-gray-600">There are no {filter !== 'all' ? filter : ''} reservations at the moment.</p>
+          <button className="px-6 py-3 bg-gradient-to-r from-orange-500 to-yellow-500 text-white rounded-lg font-semibold hover:shadow-lg transition-all">
+            + New Reservation
+          </button>
+        </div>
+
+        {/* Filters */}
+        <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
+          <div className="flex gap-2 overflow-x-auto">
+            {["all", "pending", "approved", "confirmed", "checked-in", "completed", "rejected", "cancelled"].map((status) => (
+              <button
+                key={status}
+                onClick={() => setFilter(status)}
+                className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-all ${
+                  filter === status
+                    ? "bg-orange-500 text-white"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                {status.charAt(0).toUpperCase() + status.slice(1).replace("-", " ")}
+              </button>
+            ))}
           </div>
-        ) : (
-          filteredReservations.map((reservation: Booking) => (
-            <div key={reservation.id} className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200 hover:shadow-xl transition-shadow">
-              <div className="flex flex-col md:flex-row gap-6">
-                {/* Left Section */}
-                <div className="flex-1">
-                  <div className="flex items-start justify-between mb-4">
-                    <div>
-                      <h3 className="text-xl font-bold text-gray-800 mb-1">
-                        {reservation.guest_first_name} {reservation.guest_last_name}
-                      </h3>
-                      <p className="text-sm text-gray-500">Booking ID: {reservation.booking_id}</p>
+        </div>
+
+        {/* Reservations List */}
+        <div className="space-y-4">
+          {isLoading ? (
+            <div className="flex justify-center items-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
+            </div>
+          ) : filteredReservations.length === 0 ? (
+            <div className="bg-white rounded-2xl shadow-lg p-12 border border-gray-200 text-center">
+              <AlertCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-gray-800 mb-2">No Reservations Found</h3>
+              <p className="text-gray-600">There are no {filter !== 'all' ? filter : ''} reservations at the moment.</p>
+            </div>
+          ) : (
+            filteredReservations.map((reservation: Booking) => (
+              <div key={reservation.id} className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200 hover:shadow-xl transition-shadow">
+                <div className="flex flex-col md:flex-row gap-6">
+                  {/* Left Section */}
+                  <div className="flex-1">
+                    <div className="flex items-start justify-between mb-4">
+                      <div>
+                        <h3 className="text-xl font-bold text-gray-800 mb-1">
+                          {reservation.guest_first_name} {reservation.guest_last_name}
+                        </h3>
+                        <p className="text-sm text-gray-500">Booking ID: {reservation.booking_id}</p>
+                      </div>
+                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(reservation.status)}`}>
+                        {reservation.status.toUpperCase().replace("-", " ")}
+                      </span>
                     </div>
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(reservation.status)}`}>
-                      {reservation.status.toUpperCase().replace("-", " ")}
-                    </span>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <Mail className="w-4 h-4" />
+                        {reservation.guest_email}
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <Phone className="w-4 h-4" />
+                        {reservation.guest_phone}
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <MapPin className="w-4 h-4" />
+                        {reservation.room_name || 'Room not specified'}
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <User className="w-4 h-4" />
+                        {(reservation.adults || 0) + (reservation.children || 0) + (reservation.infants || 0)} Guests ({reservation.adults || 0} Adults, {reservation.children || 0} Children, {reservation.infants || 0} Infants)
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-4 text-sm mb-3">
+                      <div className="flex items-center gap-2 text-gray-700">
+                        <Calendar className="w-4 h-4 text-blue-500" />
+                        <span className="font-medium">Check-in:</span>
+                        {new Date(reservation.check_in_date || '').toLocaleDateString()} at {reservation.check_in_time}
+                      </div>
+                      <div className="flex items-center gap-2 text-gray-700">
+                        <Calendar className="w-4 h-4 text-orange-500" />
+                        <span className="font-medium">Check-out:</span>
+                        {new Date(reservation.check_out_date || '').toLocaleDateString()} at {reservation.check_out_time}
+                      </div>
+                    </div>
+
+                    {reservation.rejection_reason && (
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm">
+                        <p className="font-semibold text-red-700 mb-1">Rejection Reason:</p>
+                        <p className="text-red-600">{reservation.rejection_reason as string}</p>
+                      </div>
+                    )}
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <Mail className="w-4 h-4" />
-                      {reservation.guest_email}
+                  {/* Right Section */}
+                  <div className="flex flex-col justify-between items-end gap-4">
+                    <div className="text-right">
+                      <p className="text-sm text-gray-500 mb-1">Total Amount</p>
+                      <p className="text-2xl font-bold text-green-600">₱{Number(reservation.total_amount).toLocaleString()}</p>
+                      <p className="text-xs text-gray-500 mt-1">Down Payment: ₱{Number(reservation.down_payment).toLocaleString()}</p>
+                      <p className="text-xs text-gray-500">Balance: ₱{Number(reservation.remaining_balance).toLocaleString()}</p>
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <Phone className="w-4 h-4" />
-                      {reservation.guest_phone}
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <MapPin className="w-4 h-4" />
-                      {reservation.room_name || 'Room not specified'}
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <User className="w-4 h-4" />
-                      {(reservation.adults || 0) + (reservation.children || 0) + (reservation.infants || 0)} Guests ({reservation.adults || 0} Adults, {reservation.children || 0} Children, {reservation.infants || 0} Infants)
-                    </div>
-                  </div>
 
-                  <div className="flex items-center gap-4 text-sm mb-3">
-                    <div className="flex items-center gap-2 text-gray-700">
-                      <Calendar className="w-4 h-4 text-blue-500" />
-                      <span className="font-medium">Check-in:</span>
-                      {new Date(reservation.check_in_date || '').toLocaleDateString()} at {reservation.check_in_time}
-                    </div>
-                    <div className="flex items-center gap-2 text-gray-700">
-                      <Calendar className="w-4 h-4 text-orange-500" />
-                      <span className="font-medium">Check-out:</span>
-                      {new Date(reservation.check_out_date || '').toLocaleDateString()} at {reservation.check_out_time}
-                    </div>
-                  </div>
-
-                  {reservation.rejection_reason && (
-                    <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm">
-                      <p className="font-semibold text-red-700 mb-1">Rejection Reason:</p>
-                      <p className="text-red-600">{reservation.rejection_reason as string}</p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Right Section */}
-                <div className="flex flex-col justify-between items-end gap-4">
-                  <div className="text-right">
-                    <p className="text-sm text-gray-500 mb-1">Total Amount</p>
-                    <p className="text-2xl font-bold text-green-600">₱{Number(reservation.total_amount).toLocaleString()}</p>
-                    <p className="text-xs text-gray-500 mt-1">Down Payment: ₱{Number(reservation.down_payment).toLocaleString()}</p>
-                    <p className="text-xs text-gray-500">Balance: ₱{Number(reservation.remaining_balance).toLocaleString()}</p>
-                  </div>
-
-                  <div className="flex gap-2 flex-wrap justify-end">
-                    {reservation.status === "pending" && (
-                      <>
+                    <div className="flex gap-2 flex-wrap justify-end">
+                      {reservation.status === "pending" && (
+                        <>
+                          <button
+                            onClick={() => handleApprove(reservation.id)}
+                            className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2"
+                          >
+                            <Check className="w-4 h-4" />
+                            Approve
+                          </button>
+                          <button
+                            onClick={() => handleReject(reservation.id)}
+                            className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2"
+                          >
+                            <X className="w-4 h-4" />
+                            Reject
+                          </button>
+                        </>
+                      )}
+                      {(reservation.status === "approved" || reservation.status === "confirmed") && (
                         <button
-                          onClick={() => handleApprove(reservation.id)}
-                          className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2"
+                          onClick={() => handleCheckIn(reservation.id)}
+                          className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
                         >
-                          <Check className="w-4 h-4" />
-                          Approve
+                          Check In
                         </button>
+                      )}
+                      {reservation.status === "checked-in" && (
                         <button
-                          onClick={() => handleReject(reservation.id)}
-                          className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2"
+                          onClick={() => handleCheckOut(reservation.id)}
+                          className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
                         >
-                          <X className="w-4 h-4" />
-                          Reject
+                          Check Out
                         </button>
-                      </>
-                    )}
-                    {(reservation.status === "approved" || reservation.status === "confirmed") && (
+                      )}
                       <button
-                        onClick={() => handleCheckIn(reservation.id)}
-                        className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                        onClick={() => handleViewDetails(reservation)}
+                        className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2"
                       >
-                        Check In
+                        <Eye className="w-4 h-4" />
+                        View Details
                       </button>
-                    )}
-                    {reservation.status === "checked-in" && (
-                      <button
-                        onClick={() => handleCheckOut(reservation.id)}
-                        className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
-                      >
-                        Check Out
-                      </button>
-                    )}
-                    <button
-                      onClick={() => handleViewDetails(reservation)}
-                      className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2"
-                    >
-                      <Eye className="w-4 h-4" />
-                      View Details
-                    </button>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))
-        )}
-      </div>
+            ))
+          )}
+        </div>
       </div>
     </>
   );
