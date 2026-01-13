@@ -5,23 +5,23 @@ import {
   Eye,
   EyeOff,
   Lock,
-  LogIn,
   User,
 } from "lucide-react";
-import Link from "next/link";
 import React, { useState } from "react";
 import { toast } from "react-hot-toast";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import axios from "axios";
 import Image from "next/image";
+import Navbar from "@/Components/Navbar";
+import Footer from "@/Components/Footer";
 
 interface LoginFormState {
   email: string;
   password: string;
   showPassword: boolean;
   isLoading: boolean;
-  error: string;
+  error: string | null;
 }
 
 const AdminLogin = () => {
@@ -31,7 +31,7 @@ const AdminLogin = () => {
     password: "",
     showPassword: false,
     isLoading: false,
-    error: "",
+    error: null,
   });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -39,10 +39,9 @@ const AdminLogin = () => {
     setFormData((prev) => ({
       ...prev,
       [name]: value,
-      error: "",
+      error: null,
     }));
   };
-
 
   const handleLogin = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -60,15 +59,15 @@ const AdminLogin = () => {
       setFormData((prev) => ({
         ...prev,
         error: "Please enter a valid email"
-      }))
+      }));
       return;
     }
 
     setFormData((prev) => ({
       ...prev,
       isLoading: true,
-      error: ""
-    }))
+      error: null
+    }));
 
     try {
       const result = await signIn("credentials", {
@@ -127,17 +126,24 @@ const AdminLogin = () => {
     } catch(error: unknown) {
       console.log("Login error: ", error);
 
-      const errorMessage =
-        error && typeof error === 'object' && 'response' in error &&
-        error.response && typeof error.response === 'object' && 'data' in error.response &&
-        error.response.data && typeof error.response.data === 'object' &&
-        ('error' in error.response.data && typeof error.response.data.error === 'string'
-          ? error.response.data.error
-          : 'message' in error.response.data && typeof error.response.data.message === 'string'
-          ? error.response.data.message
-          : null) ||
-        (error instanceof Error ? error.message : null) ||
-        "An error occurred. Please try again.";
+      let errorMessage: string;
+      
+      if (error && typeof error === 'object' && 'response' in error &&
+          error.response && typeof error.response === 'object' && 'data' in error.response &&
+          error.response.data && typeof error.response.data === 'object') {
+        
+        if ('error' in error.response.data && typeof error.response.data.error === 'string') {
+          errorMessage = error.response.data.error;
+        } else if ('message' in error.response.data && typeof error.response.data.message === 'string') {
+          errorMessage = error.response.data.message;
+        } else {
+          errorMessage = "An error occurred. Please try again.";
+        }
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      } else {
+        errorMessage = "An error occurred. Please try again.";
+      }
       
       setFormData((prev) => ({
         ...prev,
@@ -149,149 +155,159 @@ const AdminLogin = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-brand-primaryLighter via-white to-brand-primarySoft flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Decorative Background */}
-      <div className="absolute top-0 right-0 w-96 h-96 bg-brand-primaryLight/30 rounded-full blur-3xl"></div>
-      <div className="absolute bottom-0 left-0 w-96 h-96 bg-brand-primaryLight/30 rounded-full blur-3xl"></div>
-    
-      <div className="w-full max-w-md relative z-10">
-        {/* Header */}
-        <div className="text-center mb-10 animate-in fade-in-slide-from-top duration-700">
-          <div className="flex justify-center mb-4">
-            <div className="w-16 h-16 flex items-center justify-center">
-              <Image src="/Images/shlogo.png" alt="Staycation Haven Logo" width={64} height={64} className="w-full h-full rounded-full"/>
-            </div>
-          </div>
-          <h1 className="text-4xl sm:text-5xl font-bold text-gray-800 mb-2">
-            Staycation Haven
-          </h1>
-          <p className="text-gray-600">Admin Portal</p>
-        </div>
+    <>
+      {/* Navbar */}
+      <Navbar />
 
-        {/* Login Card */}
-        <div
-          className="bg-white rounded-2xl p-8 sm:p-10 border border-gray-200 shadow-2xl animate-in fade-in-slide-in-from-bottom duration-700"
-          style={{ animationDelay: "100ms" }}
-        >
-          {/* Title */}
-          <h2 className="text-3xl font-bold text-gray-800 mb-2 text-center">
-            Admin Login
-          </h2>
-          <p className="text-gray-600 text-center mb-8">
-            Sign in to your account
-          </p>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col pt-14 sm:pt-16">
+        {/* Main Content */}
+        <div className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
+          {/* Main Container */}
+          <div className="w-full max-w-md">
 
-          {/* Login Form */}
-          <div
-            className="space-y-5 animate-in fade-in duration-700"
-            style={{ animationDelay: "200ms" }}
-          >
-            {/* Email */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Email Address
-              </label>
-              <div className="relative">
-                <User className="absolute left-4 top-3.5 w-5 h-5 text-gray-400" />
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  placeholder="Enter your email"
-                  className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-300 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent transition-all duration-300 placeholder-gray-500"
-                />
-              </div>
-            </div>
-
-            {/* Password Field */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Password
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-4 top-3.5 w-5 h-5 text-gray-400" />
-                <input
-                  type={formData.showPassword ? "text" : "password"}
-                  name="password"
-                  value={formData.password}
-                  onChange={handleInputChange}
-                  placeholder="Enter your password"
-                  className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-300 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent transition-all duration-300 placeholder-gray-500"
-                />
+            {/* Login Card */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 sm:p-8 border border-gray-200 dark:border-gray-700">
+              {/* Logo/Home Link */}
+              <div className="flex justify-center mb-6">
                 <button
-                  type="button"
-                  onClick={() =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      showPassword: !prev.showPassword,
-                    }))
-                  }
-                  className="absolute right-4 top-3.5 text-gray-400 hover:text-gray-600 transition-colors"
+                  onClick={() => router.push("/")}
+                  className="flex items-center gap-1 hover:opacity-80 transition-opacity"
+                  aria-label="Go to homepage"
                 >
-                  {formData.showPassword ? (
-                    <EyeOff className="w-5 h-5" />
+                  <Image
+                    src="/haven_logo.png"
+                    alt="Staycation Haven Logo"
+                    width={24}
+                    height={24}
+                    className="w-6 h-6 object-contain"
+                  />
+                  <span className="text-xl font-display text-brand-primary dark:text-brand-primary">
+                    taycation Haven
+                  </span>
+                </button>
+              </div>
+
+              {/* Title */}
+              <div className="text-center mb-8">
+                <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-2">
+                  Admin Login
+                </h1>
+                <p className="text-gray-600 dark:text-gray-300">
+                  Sign in to your admin account
+                </p>
+              </div>
+
+              {/* Login Form */}
+              <div className="space-y-3 mb-6">
+                {/* Email */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    Email Address
+                  </label>
+                  <div className="relative">
+                    <User className="absolute left-4 top-3.5 w-5 h-5 text-gray-400 dark:text-gray-500" />
+                    <input
+                      type="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      placeholder="Enter your email"
+                      className="w-full pl-12 pr-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent transition-all duration-300 placeholder-gray-500 dark:placeholder-gray-400"
+                    />
+                  </div>
+                </div>
+
+                {/* Password Fieldd */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    Password
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute left-4 top-3.5 w-5 h-5 text-gray-400 dark:text-gray-500" />
+                    <input
+                      type={formData.showPassword ? "text" : "password"}
+                      name="password"
+                      value={formData.password}
+                      onChange={handleInputChange}
+                      placeholder="Enter your password"
+                      className="w-full pl-12 pr-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent transition-all duration-300 placeholder-gray-500 dark:placeholder-gray-400"
+                    />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          showPassword: !prev.showPassword,
+                        }))
+                      }
+                      className="absolute right-4 top-3.5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                    >
+                      {formData.showPassword ? (
+                        <EyeOff className="w-5 h-5" />
+                      ) : (
+                        <Eye className="w-5 h-5" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Error Message */}
+                {formData.error && (
+                  <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-300 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-sm">
+                    {formData.error}
+                  </div>
+                )}
+              </div>
+
+              {/* Login Button */}
+              <div className="mb-8">
+                <button
+                  onClick={handleLogin}
+                  disabled={formData.isLoading}
+                  className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-lg bg-brand-primary hover:bg-brand-primaryDark text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  aria-label="Login"
+                >
+                  {formData.isLoading ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-orange-300/40 border-t-white rounded-full animate-spin"></div>
+                      <span>Logging in...</span>
+                    </>
                   ) : (
-                    <Eye className="w-5 h-5" />
+                    <>
+                      <span>Login</span>
+                      <ChevronRight className="w-5 h-5" />
+                    </>
                   )}
                 </button>
               </div>
-            </div>
 
-            {/* Error Message */}
-            {formData.error && (
-              <div className="p-3 bg-red-50 border border-red-300 rounded-lg text-red-700 text-sm animate-in fade-in duration-300">
-                {formData.error}
+              {/* Terms */}
+              <div className="text-center pt-6 border-t border-gray-200 dark:border-gray-700">
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  By continuing, you agree to our{" "}
+                  <a
+                    href="/terms"
+                    className="text-brand-primary hover:text-brand-primaryDark underline transition-colors"
+                  >
+                    Terms
+                  </a>{" "}
+                  and{" "}
+                  <a
+                    href="/privacy"
+                    className="text-brand-primary hover:text-brand-primaryDark underline transition-colors"
+                  >
+                    Privacy Policy
+                  </a>
+                </p>
               </div>
-            )}
-
-            {/* Remember Me & Forgot Password */}
-            <div className="flex items-center justify-between text-sm">
-              <label className="flex items-center gap-2 text-gray-600 hover:text-gray-800 transition-colors cursor-pointer">
-                <input type="checkbox" className="rounded border-gray-300" />
-                <span>Remember me</span>
-              </label>
-              <Link
-                className="text-brand-primary hover:text-brand-primaryDark transition-colors font-semibold"
-                href={"#"}
-              >
-                Forgot Password
-              </Link>
             </div>
-
-            {/* Login Bottom */}
-            <button
-              onClick={handleLogin}
-              disabled={formData.isLoading}
-              className="w-full flex items-center justify-center gap-2 py-3 px-6 rounded-lg bg-gradient-to-r from-brand-primary to-brand-primaryLight hover:from-brand-primaryDark hover:to-brand-primaryLight text-white font-semibold transition-all duration-300 transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none mt-6"
-            >
-              {!formData.isLoading && <LogIn className="w-5 h-5" />}
-              <span>{formData.isLoading ? "Logging in..." : "Login"}</span>
-              {!formData.isLoading && <ChevronRight className="w-5 h-5" />}
-            </button>
           </div>
-
-          {/* footer */}
-          <p className="text-center text-xs text-gray-500 mt-6">Need help? Contact{' '}
-            <Link href={"mailto:support@staycationhaven.com"} className="text-brand-primary hover:text-brand-primaryDark transition-colors">support@staycationhaven.com</Link>
-          </p>
         </div>
 
-        {/* Security Note */}
-        <div className="mt-6 p-4 bg-white/80 border border-gray-300 rounded-lg text-center text-xs text-gray-600 animate-in fade-in duration-700" style={{ animationDelay: '400ms'}}>
-        🔒 This is a secure admin portal. Keep your credentials confidential.
-        </div>
+        {/* Footer */}
+        <Footer />
       </div>
-
-      {formData.isLoading && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-8 text-center border border-gray-300">
-            <div className="w-12 h-12 border-4 border-gray-300 border-t-brand-primary rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-gray-700 font-semibold">Verifying Credentials...</p>
-          </div>
-        </div>
-      )}
-    </div>
+    </>
   );
 };
 
