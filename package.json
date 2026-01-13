@@ -26,6 +26,7 @@
     "axios": "^1.13.2",
     "bcryptjs": "^3.0.3",
     "cloudinary": "^2.8.0",
+    "critters": "^0.0.23",
     "framer-motion": "^12.23.25",
     "jspdf": "^4.0.0",
     "jspdf-autotable": "^5.0.2",
