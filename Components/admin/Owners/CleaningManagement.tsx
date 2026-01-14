@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Users, Home, CheckCircle, AlertCircle, Wrench, Filter, Search, UserPlus, CalendarClock, CheckCircle2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { Users, Home, CheckCircle, AlertCircle, Wrench, Filter, Search, UserPlus, CalendarClock, CheckCircle2 } from "lucide-react";
 
 interface Room {
   id: string;
@@ -70,8 +70,6 @@ const RoomManagement = () => {
   // Filter states
   const [statusFilter, setStatusFilter] = useState<"all" | "occupied" | "available" | "cleaning">("all");
   const [searchTerm, setSearchTerm] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [entriesPerPage, setEntriesPerPage] = useState(10);
 
   // Filter rooms based on status and search
   const filteredRooms = rooms.filter(room => {
@@ -82,11 +80,6 @@ const RoomManagement = () => {
     
     return matchesStatus && matchesSearch;
   });
-
-  const totalPages = Math.ceil(filteredRooms.length / entriesPerPage);
-  const startIndex = (currentPage - 1) * entriesPerPage;
-  const endIndex = startIndex + entriesPerPage;
-  const paginatedRooms = filteredRooms.slice(startIndex, endIndex);
 
   const getStatusColor = (status: Room["status"]) => {
     switch (status) {
@@ -229,124 +222,97 @@ const RoomManagement = () => {
           <table className="w-full min-w-[1000px]">
             <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 border-b-2 border-gray-200 dark:border-gray-700">
               <tr>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-200 tracking-wide">Room</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-200 tracking-wide">Status</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-200 tracking-wide">Guest</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-200 tracking-wide">Check In</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-200 tracking-wide">Check Out</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-200 tracking-wide">Cleaner</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-200 tracking-wide">Last Cleaned</th>
-                <th className="px-6 py-4 text-center text-sm font-semibold text-gray-700 dark:text-gray-200 tracking-wide">Actions</th>
+                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wide">Room</th>
+                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wide">Status</th>
+                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wide">Guest</th>
+                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wide">Check In</th>
+                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wide">Check Out</th>
+                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wide">Cleaner</th>
+                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wide">Contact</th>
+                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wide">Last Cleaned</th>
+                <th className="px-6 py-4 text-center text-sm font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wide">Actions</th>
               </tr>
             </thead>
-            <tbody>
-              {paginatedRooms.map((room) => (
-                <tr key={room.id}>
-                  <td className="px-6 py-4 text-left text-sm text-gray-600 dark:text-gray-300">{room.roomNumber}</td>
-                  <td className="px-6 py-4 text-left text-sm text-gray-600 dark:text-gray-300">{getStatusText(room.status)}</td>
-                  <td className="px-6 py-4 text-left text-sm text-gray-600 dark:text-gray-300">{room.guestName || "N/A"}</td>
-                  <td className="px-6 py-4 text-left text-sm text-gray-600 dark:text-gray-300">{room.checkIn || "N/A"}</td>
-                  <td className="px-6 py-4 text-left text-sm text-gray-600 dark:text-gray-300">{room.checkOut || "N/A"}</td>
-                  <td className="px-6 py-4 text-left text-sm text-gray-600 dark:text-gray-300">{room.assignedCleaner || "Unassigned"}</td>
-                  <td className="px-6 py-4 text-left text-sm text-gray-600 dark:text-gray-300">{room.lastCleaned || "Unknown"}</td>
-                  <td className="px-6 py-4 text-center text-sm text-gray-600 dark:text-gray-300">Actions</td>
+            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+              {filteredRooms.map((room, index) => (
+                <tr
+                  key={room.id}
+                  className="bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                  style={{ animationDelay: `${index * 30}ms` }}
+                >
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center">
+                        <Home className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Room {room.roomNumber}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">#{room.id.padStart(3, "0")}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border ${getStatusColor(room.status)}`}>
+                      {getStatusIcon(room.status)}
+                      <span>{getStatusText(room.status)}</span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-800 dark:text-gray-100">
+                    {room.guestName || "-"}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-300">
+                    {room.checkIn || "-"}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-300">
+                    {room.checkOut || "-"}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-800 dark:text-gray-100">
+                    {room.assignedCleaner || "-"}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-300">
+                    {room.cleanerContact || "-"}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-300">
+                    {room.lastCleaned || "-"}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center justify-center gap-2">
+                      {room.status === "available" && (
+                        <button
+                          type="button"
+                          className="p-2 rounded-md border border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-900/50 dark:text-blue-300 dark:hover:bg-blue-900/30 transition-colors"
+                          aria-label="Assign cleaner"
+                        >
+                          <UserPlus className="w-4 h-4" />
+                          <span className="sr-only">Assign Cleaner</span>
+                        </button>
+                      )}
+                      {room.status === "occupied" && (
+                        <button
+                          type="button"
+                          className="p-2 rounded-md border border-amber-200 text-amber-600 hover:bg-amber-50 dark:border-amber-900/50 dark:text-amber-300 dark:hover:bg-amber-900/30 transition-colors"
+                          aria-label="Schedule cleaning"
+                        >
+                          <CalendarClock className="w-4 h-4" />
+                          <span className="sr-only">Schedule Cleaning</span>
+                        </button>
+                      )}
+                      {room.status === "cleaning" && (
+                        <button
+                          type="button"
+                          className="p-2 rounded-md border border-emerald-200 text-emerald-600 hover:bg-emerald-50 dark:border-emerald-900/50 dark:text-emerald-300 dark:hover:bg-emerald-900/30 transition-colors"
+                          aria-label="Mark cleaned"
+                        >
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span className="sr-only">Mark Cleaned</span>
+                        </button>
+                      )}
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
-
-      {/* Pagination */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden">
-        <div className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 px-6 py-4 border-t border-gray-200 dark:border-gray-600">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <p className="text-sm text-gray-600 dark:text-gray-300">
-              Showing {paginatedRooms.length === 0 ? 0 : startIndex + 1} to {Math.min(endIndex, filteredRooms.length)} of {filteredRooms.length} rooms
-            </p>
-            <div className="flex gap-1">
-              <div className="flex items-center gap-2">
-                <label className="text-sm text-gray-600 whitespace-nowrap">Show</label>
-                <select
-                  value={entriesPerPage}
-                  onChange={(e) => {
-                    setEntriesPerPage(Number(e.target.value));
-                    setCurrentPage(1);
-                  }}
-                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-brand-primary text-sm"
-                >
-                  <option value="5">5</option>
-                  <option value="10">10</option>
-                  <option value="25">25</option>
-                  <option value="50">50</option>
-                </select>
-                <label className="text-sm text-gray-600 whitespace-nowrap">entries</label>
-              </div>
-            </div>
-          </div>
-          <div className="flex gap-1">
-            <button
-              onClick={() => setCurrentPage(1)}
-              disabled={currentPage === 1 || totalPages === 0}
-              className="p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title="First Page"
-              type="button"
-            >
-              <ChevronsLeft className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-              disabled={currentPage === 1 || totalPages === 0}
-              className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-              type="button"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            {Array.from({ length: Math.min(5, totalPages || 1) }, (_, i) => {
-              let pageNum;
-              if (totalPages <= 5) {
-                pageNum = i + 1;
-              } else if (currentPage <= 3) {
-                pageNum = i + 1;
-              } else if (currentPage >= totalPages - 2) {
-                pageNum = totalPages - 4 + i;
-              } else {
-                pageNum = currentPage - 2 + i;
-              }
-
-              return (
-                <button
-                  key={pageNum}
-                  onClick={() => setCurrentPage(pageNum)}
-                  className={`px-4 py-2 rounded-lg transition-colors text-sm font-medium ${
-                    currentPage === pageNum
-                      ? "bg-gradient-to-r from-brand-primary to-brand-primaryDark text-white shadow-md"
-                      : "border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-600"
-                  }`}
-                  disabled={totalPages === 0}
-                  type="button"
-                >
-                  {pageNum}
-                </button>
-              );
-            })}
-            <button
-              onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-              disabled={currentPage === totalPages || totalPages === 0}
-              className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-              type="button"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setCurrentPage(totalPages)}
-              disabled={currentPage === totalPages || totalPages === 0}
-              className="p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Last Page"
-              type="button"
-            >
-              <ChevronsRight className="w-4 h-4" />
-            </button>
-          </div>
         </div>
       </div>
 

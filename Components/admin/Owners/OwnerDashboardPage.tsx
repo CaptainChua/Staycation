@@ -1,6 +1,6 @@
 "use client";
 
-import { LogOut, Menu, X, Home, Users, MessageSquare, Settings, Bell, UserCircle, ChevronDown, BarChart3, Calendar, DollarSign, Wrench, Star, Shield, TrendingUp, TrendingDown, Building2 } from "lucide-react";
+import { LogOut, Menu, X, Home, Users, MessageSquare, Settings, Bell, UserCircle, ChevronDown, BarChart3, Calendar, DollarSign, Wrench, Star, Shield, TrendingUp, TrendingDown, Building2, Sparkles } from "lucide-react";
 import DashboardPage, { Haven } from "./DashboardPage";
 import GuestAssistancePage from "./GuestAssistancePage";
 import AddUnitModal from "./Modals/AddUnitModal";
@@ -699,24 +699,6 @@ export default function OwnerDashboard() {
             {page === "audit" && <AuditLogsPage />}
             {page === "profile" && <ProfilePage />}
             {page === "messages" && <MessagesPage />}
-          </div>
-        </div>
-
-        {/* FOOTER */}
-        <div className="bg-white border-t border-gray-200 px-6 py-4">
-          <div className="max-w-[1600px] mx-auto flex justify-between items-center text-sm text-gray-600">
-            <p> 2024 Staycation Haven. All rights reserved.</p>
-            <div className="flex gap-4">
-              <button className="hover:text-brand-primary transition-colors">
-                Help Center
-              </button>
-              <button className="hover:text-brand-primary transition-colors">
-                Privacy Policy
-              </button>
-              <button className="hover:text-brand-primary transition-colors">
-                Terms of Service
-              </button>
-            </div>
           </div>
         </div>
         <AdminFooter />

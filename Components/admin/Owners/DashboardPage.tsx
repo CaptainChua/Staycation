@@ -11,12 +11,6 @@ import {
   Users,
   Target,
   Clock,
-  Calendar,
-  CheckCircle,
-  Home,
-  LogOut,
-  XCircle,
-  UserPlus,
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import {
@@ -486,8 +480,7 @@ useEffect(() => {
                   details: "Logged in from Admin Portal",
                   status: "Success",
                   statusColor: "bg-green-100 text-green-700",
-                  Icon: CheckCircle,
-                  iconColor: "text-green-600",
+                  icon: "✓",
                 },
                 {
                   time: "1:15 PM",
@@ -497,8 +490,7 @@ useEffect(() => {
                   details: "New booking for Haven 2 - March 15",
                   status: "Completed",
                   statusColor: "bg-blue-100 text-blue-700",
-                  Icon: Calendar,
-                  iconColor: "text-blue-600",
+                  icon: "📅",
                 },
                 {
                   time: "12:45 PM",
@@ -508,8 +500,7 @@ useEffect(() => {
                   details: "₱5,000 payment for Haven 1",
                   status: "Success",
                   statusColor: "bg-green-100 text-green-700",
-                  Icon: DollarSign,
-                  iconColor: "text-green-600",
+                  icon: "💰",
                 },
                 {
                   time: "12:00 PM",
@@ -519,8 +510,7 @@ useEffect(() => {
                   details: "Logged in from Mobile App",
                   status: "Success",
                   statusColor: "bg-green-100 text-green-700",
-                  Icon: CheckCircle,
-                  iconColor: "text-green-600",
+                  icon: "✓",
                 },
                 {
                   time: "11:30 AM",
@@ -530,8 +520,7 @@ useEffect(() => {
                   details: "Updated Haven 3 availability",
                   status: "Completed",
                   statusColor: "bg-blue-100 text-blue-700",
-                  Icon: Home,
-                  iconColor: "text-blue-600",
+                  icon: "🏠",
                 },
                 {
                   time: "10:45 AM",
@@ -541,8 +530,7 @@ useEffect(() => {
                   details: "Logged out from Admin Portal",
                   status: "Success",
                   statusColor: "bg-gray-100 text-gray-700",
-                  Icon: LogOut,
-                  iconColor: "text-gray-600",
+                  icon: "↩",
                 },
                 {
                   time: "10:15 AM",
@@ -552,8 +540,7 @@ useEffect(() => {
                   details: "Cancelled booking for Haven 4",
                   status: "Cancelled",
                   statusColor: "bg-red-100 text-red-700",
-                  Icon: XCircle,
-                  iconColor: "text-red-600",
+                  icon: "✕",
                 },
                 {
                   time: "9:30 AM",
@@ -563,12 +550,9 @@ useEffect(() => {
                   details: "New employee added: Pedro Cruz",
                   status: "Completed",
                   statusColor: "bg-blue-100 text-blue-700",
-                  Icon: UserPlus,
-                  iconColor: "text-blue-600",
+                  icon: "👤",
                 },
-              ].map((item, i) => {
-                const ActivityIcon = item.Icon;
-                return (
+              ].map((item, i) => (
                 <tr
                   key={i}
                   className="border-b border-gray-100 hover:bg-gray-50 transition-colors animate-in fade-in duration-500"
@@ -581,7 +565,7 @@ useEffect(() => {
                   </td>
                   <td className="py-4 px-4">
                     <div className="flex items-center gap-2">
-                      <ActivityIcon className={`w-5 h-5 ${item.iconColor}`} />
+                      <span className="text-lg">{item.icon}</span>
                       <span className="text-sm font-semibold text-gray-800">
                         {item.action}
                       </span>
@@ -608,8 +592,7 @@ useEffect(() => {
                     </span>
                   </td>
                 </tr>
-                );
-              })}
+              ))}
             </tbody>
           </table>
         </div>
@@ -617,7 +600,7 @@ useEffect(() => {
         {/* Pagination or View All button */}
         <div className="mt-4 pt-4 border-t border-gray-200 flex justify-between items-center">
           <p className="text-sm text-gray-600">Showing 8 of 127 activities</p>
-          <button className="text-sm font-semibold bg-gradient-to-r from-brand-primary to-brand-primaryDark bg-clip-text text-transparent hover:opacity-80 transition-opacity">
+          <button className="text-sm font-semibold text-orange-600 hover:text-orange-700 transition-colors">
             View All Activity →
           </button>
         </div>
