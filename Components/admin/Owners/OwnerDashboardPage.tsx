@@ -1,6 +1,6 @@
 "use client";
 
-import { LogOut, Menu, X, Home, Users, MessageSquare, Settings, Bell, UserCircle, ChevronDown, BarChart3, Calendar, DollarSign, Wrench, Star, Shield } from "lucide-react";
+import { LogOut, Menu, X, Home, Users, MessageSquare, Settings, Bell, UserCircle, ChevronDown, BarChart3, Calendar, DollarSign, Wrench, Star, Shield, Sparkles } from "lucide-react";
 import DashboardPage, { Haven } from "./DashboardPage";
 import GuestAssistancePage from "./GuestAssistancePage";
 import AddUnitModal from "./Modals/AddUnitModal";
@@ -22,6 +22,7 @@ import ReviewsPage from "./ReviewsPage";
 import SettingsPage from "./SettingsPage";
 import AuditLogsPage from "./AuditLogsPage";
 import MessagesPage from "./MessagesPage";
+import RoomManagement from "./CleaningManagement";
 import AdminFooter from "../AdminFooter";
 import toast from 'react-hot-toast';
 import { useState, useEffect, useRef } from "react";
@@ -265,22 +266,16 @@ export default function OwnerDashboard() {
       color: "text-purple-500",
     },
     {
-      id: "revenue",
-      icon: DollarSign,
-      label: "Revenue Management",
-      color: "text-emerald-500",
-    },
-     {
-      id: "messages",
-      icon: MessageSquare,
-      label: "Messages",
-      color: "text-pink-500",
-    },
-    {
       id: "maintenance",
       icon: Wrench,
       label: "Maintenance",
       color: "text-amber-500",
+    },
+    {
+      id: "roomManagement",
+      icon: Sparkles,
+      label: "Cleaning Management",
+      color: "text-orange-500",
     },
     {
       id: "reviews",
@@ -289,9 +284,15 @@ export default function OwnerDashboard() {
       color: "text-yellow-500",
     },
     {
-      id: "guest",
+      id: "revenue",
+      icon: DollarSign,
+      label: "Revenue Management",
+      color: "text-emerald-500",
+    },
+    {
+      id: "messages",
       icon: MessageSquare,
-      label: "Guest Assistance",
+      label: "Messages",
       color: "text-green-500",
     },
     {
@@ -634,7 +635,7 @@ export default function OwnerDashboard() {
         </div>
 
         {/* PAGE CONTENT */}
-        <div className="flex-1 p-6 overflow-auto">
+        <div className="flex-1 p-6">
           <div className="max-w-[1600px] mx-auto">
             {page === "dashboard" && (
               <DashboardPage
@@ -672,14 +673,15 @@ export default function OwnerDashboard() {
                 onCreateClick={() => openModal("employee")}
                 onEditClick={(employee: EmployeeData) => {
                   setSelectedEmployee(employee);
-                  openModal("editEmployee");
                 }}
               />
             )}
-            {page === "messages" && <MessagesPage />}
             {page === "settings" && <SettingsPage />}
             {page === "audit" && <AuditLogsPage />}
+            {page === "roomManagement" && <RoomManagement />}
+            {page === "audit" && <AuditLogsPage />}
             {page === "profile" && <ProfilePage />}
+            {page === "messages" && <MessagesPage />}
           </div>
         </div>
 
