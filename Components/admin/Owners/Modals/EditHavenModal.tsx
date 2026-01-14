@@ -177,54 +177,58 @@ const EditHavenModal = ({ isOpen, onClose, havenData }: EditHavenModalProps) => 
   // Initialize form data when havenData changes
   useEffect(() => {
     if (havenData && isOpen && !isInitialized) {
-      const formattedData = {
-        haven_name: havenData.haven_name || "",
-        tower: havenData.tower || "",
-        floor: havenData.floor || "",
-        view_type: havenData.view_type || "",
-        capacity: havenData.capacity?.toString() || "",
-        room_size: havenData.room_size?.toString() || "",
-        beds: havenData.beds || "",
-        description: havenData.description || "",
-        youtube_url: havenData.youtube_url || "",
-        six_hour_rate: havenData.six_hour_rate?.toString() || "",
-        ten_hour_rate: havenData.ten_hour_rate?.toString() || "",
-        weekday_rate: havenData.weekday_rate?.toString() || "",
-        weekend_rate: havenData.weekend_rate?.toString() || "",
-        six_hour_check_in: havenData.six_hour_check_in?.slice(0, 5) || "09:00",
-        ten_hour_check_in: havenData.ten_hour_check_in?.slice(0, 5) || "09:00",
-        twenty_one_hour_check_in: havenData.twenty_one_hour_check_in?.slice(0, 5) || "14:00",
-        amenities: havenData.amenities || {
-          wifi: false,
-          netflix: false,
-          ps4: false,
-          glowBed: false,
-          airConditioning: false,
-          kitchen: false,
-          balcony: false,
-          tv: false,
-          poolAccess: false,
-          parking: false,
-          washerDryer: false,
-          towels: false,
-        },
-      };
+      const timer = setTimeout(() => {
+        const formattedData = {
+          haven_name: havenData.haven_name || "",
+          tower: havenData.tower || "",
+          floor: havenData.floor || "",
+          view_type: havenData.view_type || "",
+          capacity: havenData.capacity?.toString() || "",
+          room_size: havenData.room_size?.toString() || "",
+          beds: havenData.beds || "",
+          description: havenData.description || "",
+          youtube_url: havenData.youtube_url || "",
+          six_hour_rate: havenData.six_hour_rate?.toString() || "",
+          ten_hour_rate: havenData.ten_hour_rate?.toString() || "",
+          weekday_rate: havenData.weekday_rate?.toString() || "",
+          weekend_rate: havenData.weekend_rate?.toString() || "",
+          six_hour_check_in: havenData.six_hour_check_in || "09:00",
+          ten_hour_check_in: havenData.ten_hour_check_in || "09:00",
+          twenty_one_hour_check_in: havenData.twenty_one_hour_check_in || "14:00",
+          amenities: {
+            wifi: havenData.amenities?.wifi || false,
+            netflix: havenData.amenities?.netflix || false,
+            ps4: havenData.amenities?.ps4 || false,
+            glowBed: havenData.amenities?.glowBed || false,
+            airConditioning: havenData.amenities?.airConditioning || false,
+            kitchen: havenData.amenities?.kitchen || false,
+            balcony: havenData.amenities?.balcony || false,
+            tv: havenData.amenities?.tv || false,
+            poolAccess: havenData.amenities?.poolAccess || false,
+            parking: havenData.amenities?.parking || false,
+            washerDryer: havenData.amenities?.washerDryer || false,
+            towels: havenData.amenities?.towels || false,
+          },
+        };
 
-      setFormData(formattedData);
-      setExistingImages(havenData.images || []);
-      setExistingPhotoTours(havenData.photo_tours || []);
+        setFormData(formattedData);
+        setExistingImages(havenData.images || []);
+        setExistingPhotoTours(havenData.photo_tours || []);
 
-      if (havenData.blocked_dates) {
-        setBlockedDates(
-          havenData.blocked_dates.map((date, index) => ({
-            id: index,
-            fromDate: date.from_date,
-            toDate: date.to_date,
-            reason: date.reason || "",
-          }))
-        );
-      }
-      setIsInitialized(true);
+        if (havenData.blocked_dates) {
+          setBlockedDates(
+            havenData.blocked_dates.map((date, index) => ({
+              id: index,
+              fromDate: date.from_date,
+              toDate: date.to_date,
+              reason: date.reason || "",
+            }))
+          );
+        }
+        setIsInitialized(true);
+      }, 0);
+      
+      return () => clearTimeout(timer);
     }
   }, [havenData, isOpen, isInitialized]);
 
@@ -763,9 +767,9 @@ const EditHavenModal = ({ isOpen, onClose, havenData }: EditHavenModalProps) => 
                   {photoTourCategories.map((category) => {
                     // Get existing photos for this category with their global indices
                     const existingCategoryPhotos = existingPhotoTours
-                      .map((photo: any, globalIndex: number) => ({ ...photo, globalIndex }))
+                      .map((photo: PhotoTourData, globalIndex: number) => ({ ...photo, globalIndex }))
                       .filter(
-                        (photo: any) => photo.category?.toLowerCase().replace(/\s+/g, '') === category.key.toLowerCase()
+                        (photo: PhotoTourData & { globalIndex: number }) => photo.category?.toLowerCase().replace(/\s+/g, '') === category.key.toLowerCase()
                       );
 
                     return (

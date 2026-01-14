@@ -1,6 +1,6 @@
 "use client";
 
-import { User, Mail, Phone, MapPin, Calendar, Award, Star, Clock, CheckCircle, TrendingUp } from "lucide-react";
+import { Mail, Phone, MapPin, Calendar, Award, Star, Clock, CheckCircle, TrendingUp } from "lucide-react";
 
 interface CleanerData {
   name?: string;
@@ -39,7 +39,7 @@ export default function ProfilePage({ cleanerData }: ProfilePageProps) {
     },
     {
       label: "Average Rating",
-      value: profile.rating.toFixed(1),
+      value: (profile.rating || 0).toFixed(1),
       change: "+0.3",
       color: "bg-yellow-500",
       icon: Star,
@@ -100,11 +100,11 @@ export default function ProfilePage({ cleanerData }: ProfilePageProps) {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-6">
         <div className="flex flex-col md:flex-row items-center gap-6">
           <div className="w-24 h-24 bg-brand-primary rounded-full flex items-center justify-center text-white text-3xl font-bold">
-            {profile.name.split(" ").map((n) => n[0]).join("")}
+            {((profile.name || 'Unknown') as string).split(" ").map((n) => n[0]).join("")}
           </div>
           <div className="flex-1 text-center md:text-left">
             <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
-              {profile.name}
+              {(profile.name || 'Unknown') as string}
             </h2>
             <p className="text-brand-primary font-semibold">{profile.department}</p>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
@@ -115,14 +115,14 @@ export default function ProfilePage({ cleanerData }: ProfilePageProps) {
                 <Star
                   key={i}
                   className={`w-4 h-4 ${
-                    i < Math.floor(profile.rating)
+                    i < Math.floor((profile.rating || 0) as number)
                       ? "text-yellow-500 fill-yellow-500"
                       : "text-gray-300 dark:text-gray-600"
                   }`}
                 />
               ))}
               <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 ml-2">
-                {profile.rating} / 5.0
+                {(profile.rating || 0)} / 5.0
               </span>
             </div>
           </div>

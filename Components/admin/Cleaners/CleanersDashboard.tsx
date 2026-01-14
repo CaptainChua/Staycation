@@ -31,6 +31,7 @@ import NotificationsPage from "./NotificationsPage";
 import MySchedulePage from "./MySchedulePage";
 import UserGuidePage from "./UserGuidePage";
 import ProfilePage from "./ProfilePage";
+import AdminFooter from "../AdminFooter";
 
 const ACTIVE_PAGE_STORAGE_KEY = "cleaners-dashboard-active-page";
 
@@ -70,25 +71,28 @@ export default function CleanersDashboard() {
 
   const notifications = [
     {
-      id: "1",
+      id: 1,
       title: "New Assignment",
-      description: "Haven 3 needs cleaning after checkout at 11:00 AM",
-      timestamp: "5 mins ago",
+      message: "Haven 3 needs cleaning after checkout at 11:00 AM",
+      time: "5 mins ago",
       type: "info" as const,
+      read: false,
     },
     {
-      id: "2",
+      id: 2,
       title: "Reminder",
-      description: "Haven 7 cleaning scheduled for 2:00 PM today",
-      timestamp: "1 hr ago",
+      message: "Haven 7 cleaning scheduled for 2:00 PM today",
+      time: "1 hr ago",
       type: "warning" as const,
+      read: false,
     },
     {
-      id: "3",
+      id: 3,
       title: "Task Completed",
-      description: "Your cleaning report for Haven 2 was approved",
-      timestamp: "2 hrs ago",
+      message: "Your cleaning report for Haven 2 was approved",
+      time: "2 hrs ago",
       type: "success" as const,
+      read: true,
     },
   ];
 
@@ -102,12 +106,18 @@ export default function CleanersDashboard() {
   }, []);
 
   useEffect(() => {
-    setNow(new Date());
+    const timer = window.setTimeout(() => {
+      setNow(new Date());
+    }, 0);
+    
     const id = window.setInterval(() => {
       setNow(new Date());
     }, 1000);
 
-    return () => window.clearInterval(id);
+    return () => {
+      window.clearTimeout(timer);
+      window.clearInterval(id);
+    };
   }, []);
 
   // Persist page changes
@@ -461,22 +471,7 @@ export default function CleanersDashboard() {
         </div>
 
         {/* FOOTER */}
-        <div className="bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 px-6 py-4">
-          <div className="max-w-[1600px] mx-auto flex justify-between items-center text-sm text-gray-600 dark:text-gray-300">
-            <p> 2024 Staycation Haven. All rights reserved.</p>
-            <div className="flex gap-4">
-              <button className="hover:text-brand-primary transition-colors">
-                Help Center
-              </button>
-              <button className="hover:text-brand-primary transition-colors">
-                Privacy Policy
-              </button>
-              <button className="hover:text-brand-primary transition-colors">
-                Terms of Service
-              </button>
-            </div>
-          </div>
-        </div>
+        <AdminFooter />
       </div>
 
       {/* Notification Dropdown */}
@@ -498,8 +493,8 @@ export default function CleanersDashboard() {
                 className="p-4 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               >
                 <h4 className="text-sm font-semibold text-gray-800 dark:text-white">{notif.title}</h4>
-                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{notif.description}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">{notif.timestamp}</p>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{notif.message}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">{notif.time}</p>
               </div>
             ))}
           </div>

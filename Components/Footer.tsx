@@ -12,7 +12,6 @@ const Footer = () => {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
-  // Hydration fix: prevent SSR mismatch with theme
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -195,55 +194,59 @@ const Footer = () => {
       {/* Bottom Bar */}
       <div className="border-t border-gray-200 dark:border-gray-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-4">
-            {/* Copyright */}
-            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 text-center sm:text-left">
+          {/* Single Row Layout: Copyright | Theme Toggle | Links */}
+          <div className="flex flex-col lg:flex-row items-center justify-between gap-4 lg:gap-6">
+            {/* Left: Copyright */}
+            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap order-2 lg:order-1">
               &copy; {new Date().getFullYear()} Staycation Haven. All rights reserved.
             </p>
 
-            {/* Theme Toggle - Centered */}
+            {/* Center: Theme Toggle */}
             {mounted && (
-              <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 rounded-full p-1">
-                <button
-                  onClick={() => setTheme('dark')}
-                  className={`p-1.5 rounded-full transition-all duration-200 ${
-                    theme === 'dark'
-                      ? 'bg-white dark:bg-gray-700 text-brand-primary shadow-sm'
-                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-                  }`}
-                  aria-label="Dark mode"
-                  title="Dark"
-                >
-                  <Moon className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setTheme('light')}
-                  className={`p-1.5 rounded-full transition-all duration-200 ${
-                    theme === 'light'
-                      ? 'bg-white dark:bg-gray-700 text-brand-primary shadow-sm'
-                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-                  }`}
-                  aria-label="Light mode"
-                  title="Light"
-                >
-                  <Sun className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setTheme('system')}
-                  className={`p-1.5 rounded-full transition-all duration-200 ${
-                    theme === 'system'
-                      ? 'bg-white dark:bg-gray-700 text-brand-primary shadow-sm'
-                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-                  }`}
-                  aria-label="System mode"
-                  title="System"
-                >
-                  <Monitor className="w-4 h-4" />
-                </button>
+              <div className="flex justify-center order-1 lg:order-2">
+                <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 rounded-full p-1">
+                  <button
+                    onClick={() => setTheme('dark')}
+                    className={`p-1.5 rounded-full transition-all duration-200 ${
+                      theme === 'dark'
+                        ? 'bg-white dark:bg-gray-700 text-brand-primary shadow-sm'
+                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                    }`}
+                    aria-label="Dark mode"
+                    title="Dark"
+                  >
+                    <Moon className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setTheme('light')}
+                    className={`p-1.5 rounded-full transition-all duration-200 ${
+                      theme === 'light'
+                        ? 'bg-white dark:bg-gray-700 text-brand-primary shadow-sm'
+                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                    }`}
+                    aria-label="Light mode"
+                    title="Light"
+                  >
+                    <Sun className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setTheme('system')}
+                    className={`p-1.5 rounded-full transition-all duration-200 ${
+                      theme === 'system'
+                        ? 'bg-white dark:bg-gray-700 text-brand-primary shadow-sm'
+                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                    }`}
+                    aria-label="System mode"
+                    title="System"
+                  >
+                    <Monitor className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             )}
 
-            <div className="flex flex-wrap justify-center sm:justify-end items-center gap-x-3 sm:gap-x-4 gap-y-2 text-xs sm:text-sm">
+            {/* Right: Links */}
+            <div className="flex flex-wrap justify-center lg:justify-end items-center gap-y-2 text-xs sm:text-sm order-3">
               {[
                 { href: '/sitemap', label: 'Sitemap' },
                 { href: '/accessibility', label: 'Accessibility' },
@@ -252,11 +255,11 @@ const Footer = () => {
               ].map((item, index) => (
                 <div key={item.label} className="flex items-center">
                   {index > 0 && (
-                    <span className="text-gray-400 mx-2 hidden sm:inline">•</span>
+                    <span className="text-gray-400 dark:text-gray-600 mx-2 sm:mx-3">•</span>
                   )}
                   <Link
                     href={item.href}
-                    className={`hover:text-brand-primary transition-colors ${pathname === item.href ? 'text-brand-primary font-semibold' : 'text-gray-600 dark:text-gray-400'}`}
+                    className={`hover:text-brand-primary dark:hover:text-brand-primary transition-colors ${pathname === item.href ? 'text-brand-primary font-semibold' : 'text-gray-600 dark:text-gray-400'}`}
                   >
                     {item.label}
                   </Link>

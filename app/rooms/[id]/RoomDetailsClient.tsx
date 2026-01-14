@@ -1,7 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 import RoomsDetailsPage from "@/Components/Rooms/RoomsDetailsPage";
+import RoomDetailsSkeleton from "@/Components/Rooms/RoomDetailsSkeleton";
 
 interface HavenData {
   uuid_id: string;
@@ -28,10 +30,23 @@ interface RoomDetailsClientProps {
 
 export default function RoomDetailsClient({ room: haven }: RoomDetailsClientProps) {
   const router = useRouter();
+  const [isLoading, setIsLoading] = useState(true);
 
   const handleBack = () => {
     router.push('/rooms');
   };
+
+  // Simulate loading for smooth transition
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (isLoading) {
+    return <RoomDetailsSkeleton />;
+  }
 
   // Transform haven data to room format expected by RoomsDetailsPage
   const room = {

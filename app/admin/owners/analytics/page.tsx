@@ -5,6 +5,9 @@ export const metadata = {
   title: "Analytics & Reports - Staycation Haven"
 }
 
+// Force dynamic rendering to prevent build-time database connection
+export const dynamic = 'force-dynamic';
+
 export default async function AnalyticsPage() {
   // Fetch all data in parallel on the server
   const [summary, revenueByHaven, monthlyRevenue] = await Promise.all([

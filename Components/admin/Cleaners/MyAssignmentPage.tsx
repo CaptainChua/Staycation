@@ -110,7 +110,7 @@ export default function MyAssignmentPage() {
       {/* Assignments List */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-6">
         <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4">
-          Today's Assignments
+          Today&apos;s Assignments
         </h2>
         <div className="space-y-4">
           {assignments.map((assignment) => (

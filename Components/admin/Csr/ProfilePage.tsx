@@ -8,7 +8,7 @@ interface AdminUser {
   id?: string;
   email?: string | null;
   name?: string | null;
-  role?: string;
+  role?: string | null;
   picture?: string;
   image?: string | null;
 }

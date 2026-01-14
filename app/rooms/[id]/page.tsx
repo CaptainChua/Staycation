@@ -182,7 +182,6 @@ import RoomDetailsClient from "./RoomDetailsClient";
 //   const roomId = params.id as string;
 
 //   const { data: room, isLoading, isError } = useGetHavenByIdQuery(roomId);
-
 //   if (isLoading) return <p>Loading room...</p>;
 //   if (isError || !room) return (
 //     <div className="min-h-screen flex items-center justify-center">
@@ -197,12 +196,11 @@ import RoomDetailsClient from "./RoomDetailsClient";
 //       </div>
 //     </div>
 //   );
-
 //   return <RoomsDetailsPage room={room} onBack={() => router.push('/')} />;
 // };
 
 const getRoomById = async (id: string) => {
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || 'http://localhost:3000';
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || '';
   const res = await fetch(`${baseUrl}/api/haven/${id}`, {
     cache: 'no-cache'
   })

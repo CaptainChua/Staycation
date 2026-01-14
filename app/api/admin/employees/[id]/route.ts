@@ -8,16 +8,16 @@ interface RouteContext {
 }
 
 export async function GET(request: NextRequest, { params }: RouteContext): Promise<NextResponse> {
-  const { id: _id } = await params;
+  await params;
   return getEmployeeById(request);
 }
 
 export async function PUT(request: NextRequest, { params }: RouteContext): Promise<NextResponse> {
-  const { id: _id } = await params;
+  await params;
   return updateEmployee(request);
 }
 
 export async function DELETE(request: NextRequest, { params }: RouteContext): Promise<NextResponse> {
-  const { id: _id } = await params;
+  await params;
   return deleteEmployee(request);
 }
