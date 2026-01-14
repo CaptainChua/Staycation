@@ -22,12 +22,9 @@ import ReviewsPage from "./ReviewsPage";
 import SettingsPage from "./SettingsPage";
 import AuditLogsPage from "./AuditLogsPage";
 import MessagesPage from "./MessagesPage";
-<<<<<<< HEAD
 import RoomManagement from "./CleaningManagement";
 import AdminFooter from "../AdminFooter";
-=======
 import NotificationModal from "../Csr/Modals/Notification";
->>>>>>> 2b16dcf (notification)
 import toast from 'react-hot-toast';
 import { useState, useEffect, useRef } from "react";
 import { signOut, useSession } from "next-auth/react";
@@ -141,6 +138,8 @@ function HavenManagementPlaceholder({ onAddHavenClick, onViewAllClick }: HavenMa
 
 export default function OwnerDashboard() {
   const { data: session} = useSession();
+  const NOTIF_SOUND_STORAGE_KEY = "owner-dashboard-notification-sound-v1";
+  const NOTIF_LAST_ID_STORAGE_KEY = "owner-dashboard-last-notification-id-v1";
   const [sidebar, setSidebar] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [page, setPage] = useState("dashboard");
@@ -148,6 +147,7 @@ export default function OwnerDashboard() {
   const [notificationOpen, setNotificationOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const notificationButtonRef = useRef<HTMLButtonElement | null>(null);
+  const notificationsHydratedRef = useRef(false);
   const [havenView, setHavenView] = useState<"overview" | "list">("overview");
   const [now, setNow] = useState<Date | null>(null);
   const [modals, setModals] = useState({
@@ -216,6 +216,55 @@ export default function OwnerDashboard() {
       type: "warning" as const,
     },
   ];
+
+  const playSavedNotificationSound = () => {
+    try {
+      const raw = localStorage.getItem(NOTIF_SOUND_STORAGE_KEY);
+      const parsed = raw
+        ? (JSON.parse(raw) as {
+            enabled?: boolean;
+            dataUrl?: string | null;
+          })
+        : null;
+
+      if (parsed?.enabled === false) return;
+      if (!parsed?.dataUrl) return;
+
+      const audio = new Audio(parsed.dataUrl);
+      audio.volume = 1;
+      void audio.play();
+    } catch {
+      // ignore
+    }
+  };
+
+  // Play sound only when a NEW notification is received (not when opening the bell)
+  useEffect(() => {
+    const newestId = notifications[0]?.id;
+    if (!newestId) return;
+
+    // skip first run (page load)
+    if (!notificationsHydratedRef.current) {
+      notificationsHydratedRef.current = true;
+      try {
+        localStorage.setItem(NOTIF_LAST_ID_STORAGE_KEY, newestId);
+      } catch {
+        // ignore
+      }
+      return;
+    }
+
+    try {
+      const lastId = localStorage.getItem(NOTIF_LAST_ID_STORAGE_KEY);
+      if (lastId && lastId !== newestId) {
+        playSavedNotificationSound();
+      }
+      localStorage.setItem(NOTIF_LAST_ID_STORAGE_KEY, newestId);
+    } catch {
+      // ignore
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notifications]);
 
   // Group havens by name to get unique haven names
   const uniqueHavenNames = Array.from(
