@@ -29,6 +29,19 @@ import { signOut, useSession } from "next-auth/react";
 import Image from "next/image";
 import { useGetHavensQuery } from "@/redux/api/roomApi";
 
+interface Haven {
+  uuid_id?: string;
+  haven_name?: string;
+  name?: string;
+  tower?: string;
+  floor?: string;
+  blocked_dates?: Array<{
+    from_date: string;
+    to_date: string;
+  }>;
+  [key: string]: unknown;
+}
+
 interface EmployeeData {
   id: string;
   first_name?: string;
@@ -49,6 +62,68 @@ interface User {
   name?: string | null;
   email?: string | null;
   image?: string | null;
+}
+
+// Placeholder component for Haven Management
+interface HavenManagementPlaceholderProps {
+  onAddHavenClick: () => void;
+  onViewAllClick: () => void;
+}
+
+function HavenManagementPlaceholder({ onAddHavenClick, onViewAllClick }: HavenManagementPlaceholderProps) {
+  const sampleHavens = ["Haven 1", "Haven 2", "Haven 3", "Haven 4"];
+  
+  return (
+    <div className="space-y-6">
+      <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-200">
+        <div className="text-center py-12">
+          <div className="w-24 h-24 bg-gradient-to-br from-purple-100 to-purple-200 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Home className="w-12 h-12 text-purple-600" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-800 mb-3">
+            Haven Management
+          </h2>
+          <p className="text-gray-600 max-w-md mx-auto mb-6">
+            Manage your property units, availability, pricing, and amenities all
+            in one place.
+          </p>
+          <div className="flex gap-4 justify-center">
+            <button
+              onClick={onAddHavenClick}
+              className="px-6 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg font-medium hover:shadow-lg transition-all"
+            >
+              Add New Haven
+            </button>
+            <button
+              onClick={onViewAllClick}
+              className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-all"
+            >
+              View All Units
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Quick Stats for Haven Management */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-2xl shadow-lg p-6">
+          <p className="text-sm opacity-90 mb-2">Total Units</p>
+          <p className="text-4xl font-bold">{sampleHavens.length}</p>
+          <p className="text-sm mt-2 opacity-75">Active properties</p>
+        </div>
+        <div className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-2xl shadow-lg p-6">
+          <p className="text-sm opacity-90 mb-2">Available Now</p>
+          <p className="text-4xl font-bold">3</p>
+          <p className="text-sm mt-2 opacity-75">Ready for booking</p>
+        </div>
+        <div className="bg-brand-primary text-white rounded-2xl shadow-lg p-6">
+          <p className="text-sm opacity-90 mb-2">Maintenance</p>
+          <p className="text-4xl font-bold">1</p>
+          <p className="text-sm mt-2 opacity-75">Under maintenance</p>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function OwnerDashboard() {
@@ -98,10 +173,23 @@ export default function OwnerDashboard() {
   ).filter(Boolean) as string[];
 
   // Create haven objects with the first matching haven's data for each unique name
-  const havens = uniqueHavenNames.map((name: string) => {
-    const haven = allHavens.find((h: Haven) => h.haven_name?.trim() === name);
-    return haven;
-  }).filter((haven): haven is Haven => !!haven);
+  // Ensure haven_name, tower, and floor are required for DashboardPage compatibility
+  const havens = uniqueHavenNames
+    .map((name: string) => {
+      const haven = allHavens.find((h: Haven) => h.haven_name?.trim() === name);
+      if (haven && haven.haven_name && haven.tower && haven.floor) {
+        return {
+          ...haven,
+          haven_name: haven.haven_name,
+          tower: haven.tower,
+          floor: haven.floor,
+        };
+      }
+      return null;
+    })
+    .filter((haven): haven is Haven & { haven_name: string; tower: string; floor: string } => {
+      return !!haven && !!haven.haven_name && !!haven.tower && !!haven.floor;
+    });
 
   const openModal = (modal: string) => setModals({ ...modals, [modal]: true });
   const closeModal = (modal: string) =>
@@ -210,7 +298,7 @@ export default function OwnerDashboard() {
       id: "staff",
       icon: Users,
       label: "Staff Management",
-      color: "text-orange-500",
+      color: "text-brand-primary",
     },
     {
       id: "settings",
@@ -248,7 +336,7 @@ export default function OwnerDashboard() {
   const userSession = getUserSession();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-100 to-gray-50 flex">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-100 to-gray-50 flex items-start">
       {/* Mobile Menu Backdrop */}
       {mobileMenuOpen && (
         <div
@@ -261,7 +349,7 @@ export default function OwnerDashboard() {
       <div
         className={`${
           sidebar ? "w-72" : "w-20"
-        } bg-white border-r border-gray-200 transition-all duration-300 flex-col sticky top-0 h-screen shadow-xl
+        } bg-white border-r border-gray-200 transition-all duration-300 flex-col sticky top-0 self-start h-screen shadow-xl
         ${
           mobileMenuOpen
             ? "fixed inset-y-0 left-0 z-50 flex animate-in slide-in-from-left duration-300"
@@ -269,11 +357,20 @@ export default function OwnerDashboard() {
         } md:flex`}
       >
         {/* Logo Section */}
-        <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-orange-50 to-yellow-50">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-gradient-to-br from-orange-500 via-orange-600 to-yellow-500 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg">
-                SH
+        <div className="h-20 px-6 border-b border-gray-200 bg-white flex items-center">
+          <div className="flex items-center justify-between gap-3 w-full">
+            <div
+              className={`flex items-center ${sidebar ? "gap-3" : "justify-center w-full"}`}
+            >
+              <div className="w-12 h-12 rounded-xl overflow-hidden flex items-center justify-center">
+                <Image
+                  src="/haven_logo.png"
+                  alt="Staycation Haven logo"
+                  width={48}
+                  height={48}
+                  className="object-cover"
+                  priority
+                />
               </div>
               {sidebar && (
                 <div>
@@ -284,7 +381,6 @@ export default function OwnerDashboard() {
                 </div>
               )}
             </div>
-
             {/* Mobile Close Button */}
             {mobileMenuOpen && (
               <button
@@ -308,9 +404,9 @@ export default function OwnerDashboard() {
                   setPage(item.id);
                   setMobileMenuOpen(false);
                 }}
-                className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all duration-200 group ${
+                className={`w-full flex items-center ${sidebar ? "gap-4 px-4" : "justify-center px-2"} py-3.5 rounded-xl transition-all duration-200 group ${
                   page === item.id
-                    ? "bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-200"
+                    ? "bg-brand-primary text-white shadow-lg shadow-md"
                     : "text-gray-600 hover:bg-gray-50 hover:shadow-md"
                 }`}
               >
@@ -332,20 +428,20 @@ export default function OwnerDashboard() {
         </nav>
 
         {/* User Profile & Logout */}
-        <div className="p-4 border-t border-gray-200 bg-gray-50">
+        <div className="p-2 border-t border-gray-200 bg-gray-50">
           {sidebar && (
-            <div className="mb-3 p-3 bg-white rounded-lg border border-gray-200">
-              <div className="flex items-center gap-3">
+            <div className="mb-2">
+              <div className="flex items-center gap-3 p-2 hover:bg-gray-100 rounded-lg transition-colors">
                 {userSession?.profile_image_url || userSession?.image ? (
                   <Image
                     src={userSession.profile_image_url || userSession.image || ''}
                     alt="Profile"
                     width={40}
                     height={40}
-                    className="rounded-full object-cover"
+                    className="w-10 h-10 rounded-full object-cover flex-shrink-0"
                   />
                 ) : (
-                  <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-yellow-500 rounded-full flex items-center justify-center text-white font-bold">
+                  <div className="w-10 h-10 bg-brand-primary rounded-full flex-shrink-0 flex items-center justify-center text-white font-bold">
                     {userSession?.name?.charAt(0) || "O"}
                   </div>
                 )}
@@ -358,21 +454,48 @@ export default function OwnerDashboard() {
                   </p>
                 </div>
               </div>
+              <div className="mt-2">
+                <button 
+                  className="w-full flex items-center gap-3 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-all font-medium"
+                  onClick={handleLogout}
+                >
+                  <LogOut className="w-5 h-5" />
+                  <span className="text-sm">Logout</span>
+                </button>
+              </div>
             </div>
           )}
-          <button className="w-full flex items-center gap-3 px-4 py-3 text-red-600 hover:bg-red-50 rounded-lg transition-all font-medium"
-          onClick={handleLogout}
-          >
-            <LogOut className="w-5 h-5" />
-            {sidebar && <span className="text-sm">Logout</span>}
-          </button>
+          {!sidebar && (
+            <div className="flex flex-col items-center gap-2">
+              <div className="w-10 h-10 bg-brand-primary rounded-full flex items-center justify-center text-white font-bold">
+                {userSession?.profile_image_url || userSession?.image ? (
+                  <Image
+                    src={userSession.profile_image_url || userSession.image || ''}
+                    alt="Profile"
+                    width={40}
+                    height={40}
+                    className="w-full h-full rounded-full object-cover"
+                  />
+                ) : (
+                  <span>{userSession?.name?.charAt(0) || "O"}</span>
+                )}
+              </div>
+              <button 
+                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                onClick={handleLogout}
+                title="Logout"
+              >
+                <LogOut className="w-5 h-5" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
       {/* MAIN CONTENT */}
-      <div className="flex-1 flex flex-col min-h-screen">
+      <div className="flex-1 flex flex-col h-screen min-w-0 overflow-x-hidden overflow-y-auto">
         {/* HEADER */}
-        <div className="bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center sticky top-0 z-10 shadow-sm">
+        <div className="bg-white border-b border-gray-200 px-6 h-20 min-h-20 flex-shrink-0 flex justify-between items-center sticky top-0 z-10 shadow-sm">
           <div className="flex items-center gap-4">
             {/* Mobile Menu Button */}
             <button
@@ -431,7 +554,7 @@ export default function OwnerDashboard() {
                     className="rounded-full object-cover"
                   />
                 ) : (
-                  <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-yellow-500 rounded-full flex items-center justify-center text-white font-bold">
+                  <div className="w-10 h-10 bg-brand-primary rounded-full flex items-center justify-center text-white font-bold">
                     {userSession?.name?.charAt(0) || "O"}
                   </div>
                 )}
@@ -441,73 +564,73 @@ export default function OwnerDashboard() {
               {/* Dropdown Menu */}
               {profileDropdownOpen && (
                 <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-                  {/* User Info */}
-                  <div className="px-4 py-3 border-b border-gray-200">
-                    <div className="flex items-center gap-3">
-                      {userSession?.profile_image_url || userSession?.image ? (
-                        <Image
-                          src={userSession.profile_image_url || userSession.image || ''}
-                          alt="Profile"
-                          width={48}
-                          height={48}
-                          className="rounded-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-yellow-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
-                          {userSession?.name?.charAt(0) || "O"}
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-gray-800 truncate">
-                          {userSession?.name || "User"}
-                        </p>
-                        <p className="text-xs text-gray-500 truncate">
-                          {userSession?.role || "Owner"}
-                        </p>
+                {/* User Info */}
+                <div className="px-4 py-3 border-b border-gray-200">
+                  <div className="flex items-center gap-3">
+                    {userSession?.profile_image_url || userSession?.image ? (
+                      <Image
+                        src={userSession.profile_image_url || userSession.image || ''}
+                        alt="Profile"
+                        width={48}
+                        height={48}
+                        className="rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 bg-brand-primary rounded-full flex items-center justify-center text-white font-bold text-lg">
+                        {userSession?.name?.charAt(0) || "O"}
                       </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-800 truncate">
+                        {userSession?.name || "User"}
+                      </p>
+                      <p className="text-xs text-gray-500 truncate">
+                        {userSession?.role || "Owner"}
+                      </p>
                     </div>
                   </div>
-
-                  {/* Menu Items */}
-                  <div className="py-1">
-                    <button
-                      onClick={() => {
-                        setPage("profile");
-                        setProfileDropdownOpen(false);
-                      }}
-                      className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                    >
-                      <UserCircle className="w-4 h-4" />
-                      View Profile
-                    </button>
-                    <button
-                      onClick={() => {
-                        setProfileDropdownOpen(false);
-                      }}
-                      className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                    >
-                      <Settings className="w-4 h-4" />
-                      Settings
-                    </button>
-                  </div>
-
-                  {/* Logout */}
-                  <div className="border-t border-gray-200 pt-1">
-                    <button
-                      onClick={() => {
-                        setProfileDropdownOpen(false);
-                        handleLogout();
-                      }}
-                      className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                    >
-                      <LogOut className="w-4 h-4" />
-                      Logout
-                    </button>
-                  </div>
                 </div>
-              )}
-            </div>
+
+                {/* Menu Items */}
+                <div className="py-1">
+                  <button
+                    onClick={() => {
+                      setPage("profile");
+                      setProfileDropdownOpen(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    <UserCircle className="w-4 h-4" />
+                    View Profile
+                  </button>
+                  <button
+                    onClick={() => {
+                      setProfileDropdownOpen(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    <Settings className="w-4 h-4" />
+                    Settings
+                  </button>
+                </div>
+
+                {/* Logout */}
+                <div className="border-t border-gray-200 pt-1">
+                  <button
+                    onClick={() => {
+                      setProfileDropdownOpen(false);
+                      handleLogout();
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Logout
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
+        </div>
         </div>
 
         {/* PAGE CONTENT */}
@@ -561,6 +684,22 @@ export default function OwnerDashboard() {
         </div>
 
         {/* FOOTER */}
+        <div className="bg-white border-t border-gray-200 px-6 py-4">
+          <div className="max-w-[1600px] mx-auto flex justify-between items-center text-sm text-gray-600">
+            <p> 2024 Staycation Haven. All rights reserved.</p>
+            <div className="flex gap-4">
+              <button className="hover:text-brand-primary transition-colors">
+                Help Center
+              </button>
+              <button className="hover:text-brand-primary transition-colors">
+                Privacy Policy
+              </button>
+              <button className="hover:text-brand-primary transition-colors">
+                Terms of Service
+              </button>
+            </div>
+          </div>
+        </div>
         <AdminFooter />
       </div>
 
@@ -609,68 +748,6 @@ export default function OwnerDashboard() {
         isOpen={modals.policies}
         onClose={() => closeModal("policies")}
       />
-    </div>
-  );
-}
-
-// Placeholder component for Haven Management
-interface HavenManagementPlaceholderProps {
-  onAddHavenClick: () => void;
-  onViewAllClick: () => void;
-}
-
-function HavenManagementPlaceholder({ onAddHavenClick, onViewAllClick }: HavenManagementPlaceholderProps) {
-  const sampleHavens = ["Haven 1", "Haven 2", "Haven 3", "Haven 4"];
-  
-  return (
-    <div className="space-y-6">
-      <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-200">
-        <div className="text-center py-12">
-          <div className="w-24 h-24 bg-gradient-to-br from-purple-100 to-purple-200 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Home className="w-12 h-12 text-purple-600" />
-          </div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-3">
-            Haven Management
-          </h2>
-          <p className="text-gray-600 max-w-md mx-auto mb-6">
-            Manage your property units, availability, pricing, and amenities all
-            in one place.
-          </p>
-          <div className="flex gap-4 justify-center">
-            <button
-              onClick={onAddHavenClick}
-              className="px-6 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg font-medium hover:shadow-lg transition-all"
-            >
-              Add New Haven
-            </button>
-            <button
-              onClick={onViewAllClick}
-              className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-all"
-            >
-              View All Units
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Quick Stats for Haven Management */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-2xl shadow-lg p-6">
-          <p className="text-sm opacity-90 mb-2">Total Units</p>
-          <p className="text-4xl font-bold">{sampleHavens.length}</p>
-          <p className="text-sm mt-2 opacity-75">Active properties</p>
-        </div>
-        <div className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-2xl shadow-lg p-6">
-          <p className="text-sm opacity-90 mb-2">Available Now</p>
-          <p className="text-4xl font-bold">3</p>
-          <p className="text-sm mt-2 opacity-75">Ready for booking</p>
-        </div>
-        <div className="bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-2xl shadow-lg p-6">
-          <p className="text-sm opacity-90 mb-2">Maintenance</p>
-          <p className="text-4xl font-bold">1</p>
-          <p className="text-sm mt-2 opacity-75">Under maintenance</p>
-        </div>
-      </div>
     </div>
   );
 }
