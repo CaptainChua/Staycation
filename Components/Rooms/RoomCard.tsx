@@ -30,6 +30,7 @@ interface RoomCardsProps {
   compact?: boolean; // Optional compact mode for smaller card display
 }
 const RoomCard = ({ room, mode = "browse", compact = false }: RoomCardsProps) => {
+
   const router = useRouter();
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);

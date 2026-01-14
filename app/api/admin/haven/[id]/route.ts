@@ -1,26 +1,23 @@
 import { deleteHaven, updateHaven, getHavenById } from "@/backend/controller/roomController";
 import { NextRequest, NextResponse } from "next/server";
-import { createEdgeRouter } from "next-connect";
 
-interface RequestContext {
+interface RouteContext {
   params: Promise<{
     id: string
   }>
 }
 
-const router = createEdgeRouter<NextRequest, RequestContext>();
-router.get(getHavenById);
-router.put(updateHaven);
-router.delete(deleteHaven);
-
-export async function GET(request: NextRequest, ctx: RequestContext): Promise<NextResponse> {
-  return router.run(request, ctx) as Promise<NextResponse>;
+export async function GET(request: NextRequest, { params }: RouteContext): Promise<NextResponse> {
+  const { id } = await params;
+  return getHavenById(request, { params: Promise.resolve({ id }) });
 }
 
-export async function PUT(request: NextRequest, ctx: RequestContext): Promise<NextResponse> {
-  return router.run(request, ctx) as Promise<NextResponse>;
+export async function PUT(request: NextRequest, { params }: RouteContext): Promise<NextResponse> {
+  await params;
+  return updateHaven(request);
 }
 
-export async function DELETE(request: NextRequest, ctx: RequestContext): Promise<NextResponse> {
-  return router.run(request, ctx) as Promise<NextResponse>;
+export async function DELETE(request: NextRequest, { params }: RouteContext): Promise<NextResponse> {
+  const { id } = await params;
+  return deleteHaven(request, { params: Promise.resolve({ id }) });
 }

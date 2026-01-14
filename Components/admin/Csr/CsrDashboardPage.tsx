@@ -19,6 +19,7 @@ import NotificationModal from "./Modals/Notification";
 import MessageModal from "./Modals/MessageModal";
 import MessagePage from "./MessagePage";
 import SettingsPage from "./SettingsPage";
+import AdminFooter from "../AdminFooter";
 import { useGetConversationsQuery } from "@/redux/api/messagesApi";
 import { useGetEmployeesQuery } from "@/redux/api/employeeApi";
 
@@ -581,22 +582,7 @@ export default function CsrDashboard() {
         </div>
 
         {/* FOOTER */}
-        <div className="bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 px-6 py-4">
-          <div className="max-w-[1600px] mx-auto flex justify-between items-center text-sm text-gray-600 dark:text-gray-300">
-            <p> 2024 Staycation Haven. All rights reserved.</p>
-            <div className="flex gap-4">
-              <button className="hover:text-brand-primary transition-colors">
-                Help Center
-              </button>
-              <button className="hover:text-brand-primary transition-colors">
-                Privacy Policy
-              </button>
-              <button className="hover:text-brand-primary transition-colors">
-                Terms of Service
-              </button>
-            </div>
-          </div>
-        </div>
+        <AdminFooter />
       </div>
       {notificationOpen && (
         <NotificationModal

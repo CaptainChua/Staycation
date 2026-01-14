@@ -1,7 +1,7 @@
 "use client";
 
 import { LogOut, Menu, X, Home, Users, MessageSquare, Settings, Bell, UserCircle, ChevronDown, BarChart3, Calendar, DollarSign, Wrench, Star, Shield, TrendingUp, TrendingDown, Building2 } from "lucide-react";
-import DashboardPage from "./DashboardPage";
+import DashboardPage, { Haven } from "./DashboardPage";
 import GuestAssistancePage from "./GuestAssistancePage";
 import AddUnitModal from "./Modals/AddUnitModal";
 import BookingModalSetting from "./Modals/BookingModalSetting";
@@ -22,19 +22,12 @@ import ReviewsPage from "./ReviewsPage";
 import SettingsPage from "./SettingsPage";
 import AuditLogsPage from "./AuditLogsPage";
 import MessagesPage from "./MessagesPage";
+import AdminFooter from "../AdminFooter";
 import toast from 'react-hot-toast';
 import { useState, useEffect, useRef } from "react";
 import { signOut, useSession } from "next-auth/react";
 import Image from "next/image";
 import { useGetHavensQuery } from "@/redux/api/roomApi";
-
-interface Haven {
-  uuid_id?: string;
-  haven_name?: string;
-  tower?: string;
-  floor?: string;
-  [key: string]: unknown;
-}
 
 interface EmployeeData {
   id: string;
@@ -252,7 +245,6 @@ export default function OwnerDashboard() {
     };
   };
 
-  const user = getUser();
   const userSession = getUserSession();
 
   return (
@@ -528,11 +520,11 @@ export default function OwnerDashboard() {
                 onBookingClick={() => openModal("booking")}
                 onPoliciesClick={() => openModal("policies")}
                 havens={havens}
-                onDateClick={(date: Date, havenName: string) => {
+                onDateClick={(date: Date, haven: Haven) => {
                   setBookingDateModal({
                     isOpen: true,
                     selectedDate: date,
-                    havenName: havenName,
+                    havenName: haven.haven_name || haven.name || 'Unknown Haven',
                   });
                 }}
               />
@@ -569,22 +561,7 @@ export default function OwnerDashboard() {
         </div>
 
         {/* FOOTER */}
-        <div className="bg-white border-t border-gray-200 px-6 py-4">
-          <div className="max-w-[1600px] mx-auto flex justify-between items-center text-sm text-gray-600">
-            <p>© 2024 Staycation Haven. All rights reserved.</p>
-            <div className="flex gap-4">
-              <button className="hover:text-orange-600 transition-colors">
-                Help Center
-              </button>
-              <button className="hover:text-orange-600 transition-colors">
-                Privacy Policy
-              </button>
-              <button className="hover:text-orange-600 transition-colors">
-                Terms of Service
-              </button>
-            </div>
-          </div>
-        </div>
+        <AdminFooter />
       </div>
 
       {/* MODALS */}

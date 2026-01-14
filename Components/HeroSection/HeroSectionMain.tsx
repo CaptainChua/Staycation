@@ -45,6 +45,7 @@ const HeroSectionMain = () => {
     null
   );
   const [locationOpen, setLocationOpen] = useState<boolean>(false);
+  const [locations, setLocations] = useState<Location[]>([]);
   const [checkInDate, setCheckInDate] = useState<string>("");
   const [checkOutDate, setCheckOutDate] = useState<string>("");
   const [isGuestModalOpen, setIsGuestModalOpen] = useState<boolean>(false);
@@ -57,6 +58,55 @@ const HeroSectionMain = () => {
     children: 0,
     infants: 0,
   });
+
+  // Fetch locations from API
+  useEffect(() => {
+    const fetchLocations = async () => {
+      try {
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || '';
+        const res = await fetch(`${baseUrl}/api/haven`, { cache: 'no-cache' });
+        if (res.ok) {
+          const response = await res.json();
+          const havens = response?.data || [];
+
+          // Extract unique haven numbers (e.g., "Haven 1", "Haven 2")
+          const havenMap = new Map<string, Location>();
+
+          havens.forEach((haven: {
+            id?: number;
+            haven_name?: string;
+            tower?: string;
+          }) => {
+            if (haven.haven_name) {
+              // Extract haven number from haven_name (e.g., "Haven 1" from "Haven 1 - Tower A")
+              const havenNumber = haven.haven_name.match(/Haven\s+\d+/i)?.[0] || haven.haven_name;
+
+              if (!havenMap.has(havenNumber)) {
+                havenMap.set(havenNumber, {
+                  id: haven.id || havenMap.size + 1,
+                  name: havenNumber,
+                  branch: '' // Empty branch since we're only showing haven number
+                });
+              }
+            }
+          });
+
+          const uniqueLocations = Array.from(havenMap.values()).sort((a, b) => {
+            // Sort by haven number
+            const numA = parseInt(a.name.match(/\d+/)?.[0] || '0');
+            const numB = parseInt(b.name.match(/\d+/)?.[0] || '0');
+            return numA - numB;
+          });
+
+          setLocations(uniqueLocations);
+        }
+      } catch (error) {
+        console.error('Failed to fetch locations:', error);
+      }
+    };
+
+    fetchLocations();
+  }, []);
 
   // Scroll detection for sticky search bar with hide/show behavior
   useEffect(() => {
@@ -171,6 +221,7 @@ const HeroSectionMain = () => {
                   }}
                   isOpen={locationOpen}
                   onToggle={() => setLocationOpen(!locationOpen)}
+                  locations={locations}
                 />
               </div>
 
@@ -240,6 +291,7 @@ const HeroSectionMain = () => {
                 }}
                 isOpen={locationOpen}
                 onToggle={() => setLocationOpen(!locationOpen)}
+                locations={locations}
               />
             </div>
 

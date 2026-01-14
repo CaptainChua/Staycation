@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import Image from "next/image";
 import RoomCard from "./RoomCard";
+import RoomCardSkeleton from "./RoomCardSkeleton";
 import { SlidersHorizontal, ChevronRight, ChevronLeft, Eye } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAppSelector, useAppDispatch } from "@/redux/hooks";
@@ -81,6 +82,7 @@ interface HotelRoomListingsProps {
 const HotelRoomListings = ({ initialHavens }: HotelRoomListingsProps) => {
   const [currentPage, setCurrentPage] = useState<Record<string, number>>({});
   const [isMobile, setIsMobile] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const router = useRouter();
   const dispatch = useAppDispatch();
   const ROOMS_PER_PAGE = 5;
@@ -107,6 +109,14 @@ const HotelRoomListings = ({ initialHavens }: HotelRoomListingsProps) => {
       window.removeEventListener('resize', checkMobile);
     };
   }, []);
+
+  // Simulate loading state
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, initialHavens.length > 0 ? 500 : 0);
+    return () => clearTimeout(timer);
+  }, [initialHavens]);
 
   // Filter havens based on location when coming from search - use useMemo
   const filteredHavens = useMemo(() => {
@@ -209,7 +219,7 @@ const HotelRoomListings = ({ initialHavens }: HotelRoomListingsProps) => {
       <div className="min-h-screen bg-white dark:bg-gray-900 py-6 sm:py-8">
         <div className="w-full">
           {/* Active Filter Indicator */}
-          {isFromSearch && searchLocation && (
+          {isFromSearch && searchLocation && !isLoading && (
             <div className="mb-4 flex items-center gap-2 px-4 py-2 bg-brand-primary/10 border border-brand-primary/30 rounded-lg w-fit">
               <span className="text-sm font-medium text-brand-primary">
                 Showing results for: {searchLocation.name} - {searchLocation.branch}
@@ -226,28 +236,66 @@ const HotelRoomListings = ({ initialHavens }: HotelRoomListingsProps) => {
           )}
 
           {/* Header Section - Airbnb style */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-            {/* Results Count */}
-            <h2 className="text-sm text-gray-600 dark:text-gray-400">
-              {rooms.length} {rooms.length === 1 ? 'haven' : 'havens'}
-              {isFromSearch && searchLocation && (
-                <span className="ml-1">
-                  in {searchLocation.name} - {searchLocation.branch}
-                </span>
-              )}
-            </h2>
+          {!isLoading && (
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+              {/* Results Count */}
+              <h2 className="text-sm text-gray-600 dark:text-gray-400">
+                {rooms.length} {rooms.length === 1 ? 'haven' : 'havens'}
+                {isFromSearch && searchLocation && (
+                  <span className="ml-1">
+                    in {searchLocation.name} - {searchLocation.branch}
+                  </span>
+                )}
+              </h2>
 
-            {/* Filter Dropdown - Airbnb style */}
-            <div className="flex items-center gap-3">
-              <button className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl hover:border-gray-400 dark:hover:border-gray-500">
-                <SlidersHorizontal className="w-4 h-4 text-gray-700 dark:text-gray-300" />
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Filters</span>
-              </button>
+              {/* Filter Dropdown - Airbnb style */}
+              <div className="flex items-center gap-3">
+                <button className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl hover:border-gray-400 dark:hover:border-gray-500">
+                  <SlidersHorizontal className="w-4 h-4 text-gray-700 dark:text-gray-300" />
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Filters</span>
+                </button>
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* Loading Skeletons */}
+          {isLoading && (
+            <div className="space-y-12">
+              {[1, 2, 3].map((havenGroup) => (
+                <div key={havenGroup}>
+                  {/* Haven Header Skeleton */}
+                  <div className="mb-6 flex items-center justify-between">
+                    <div className="h-7 bg-gray-300 dark:bg-gray-700 rounded w-32 animate-pulse"></div>
+                  </div>
+
+                  {/* Mobile Layout Skeleton */}
+                  {isMobile ? (
+                    <div className="overflow-x-auto scrollbar-hide pb-4">
+                      <div className="flex gap-4" style={{ minWidth: 'max-content' }}>
+                        {[1, 2, 3, 4, 5].map((skeleton) => (
+                          <div key={skeleton} className="flex-shrink-0 w-[200px] sm:w-[240px]">
+                            <RoomCardSkeleton compact={true} />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    /* Desktop Layout Skeleton */
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                      {[1, 2, 3, 4, 5].map((skeleton) => (
+                        <div key={skeleton}>
+                          <RoomCardSkeleton compact={false} />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* No Results Message */}
-          {rooms.length === 0 && (
+          {!isLoading && rooms.length === 0 && (
             <div className="text-center py-20">
               <div className="mb-4">
                 <svg
@@ -286,7 +334,7 @@ const HotelRoomListings = ({ initialHavens }: HotelRoomListingsProps) => {
           )}
 
           {/* Room Groups by Haven */}
-          {sortedHavenNumbers.map((havenNumber) => {
+          {!isLoading && sortedHavenNumbers.map((havenNumber) => {
             const { displayedRooms, currentPage, totalPages, hasMoreRooms, remainingRooms } = getCurrentPageRooms(havenNumber);
             
             // Only show pagination if there are more than 5 rooms

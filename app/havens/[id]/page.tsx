@@ -2,13 +2,13 @@ import { notFound } from "next/navigation";
 import HavenDetailsClient from "./HavenDetailsClient";
 
 interface Props {
-  params: {
+  params: Promise<{
     id: string;
-  }
+  }>
 }
 
 const getHavenRooms = async (havenId: string) => {
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || 'http://localhost:3000';
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || '';
   const res = await fetch(`${baseUrl}/api/haven`, {
     cache: 'no-cache'
   });

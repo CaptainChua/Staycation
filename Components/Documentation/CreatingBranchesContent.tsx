@@ -33,25 +33,25 @@ export default function CreatingBranchesContent() {
 
       <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 p-4 md:p-6 rounded-lg mb-6">
         <div className="font-mono text-base md:text-lg text-purple-900 dark:text-purple-200 mb-4">
-          feature/&lt;short-description&gt;
+          feature-&lt;short-description&gt;
         </div>
         <h3 className="text-base md:text-lg font-semibold text-purple-800 dark:text-purple-300 mb-3">Good Examples:</h3>
         <ul className="space-y-2 text-sm md:text-base text-gray-700 dark:text-gray-300">
           <li className="flex gap-2 items-start">
             <Check className="w-4 h-4 text-green-600 dark:text-green-400 flex-shrink-0 mt-1" />
-            <span className="font-mono bg-white dark:bg-gray-800 px-2 py-1 rounded text-xs md:text-sm">feature/add-login-button</span>
+            <span className="font-mono bg-white dark:bg-gray-800 px-2 py-1 rounded text-xs md:text-sm">feature-add-login-button</span>
           </li>
           <li className="flex gap-2 items-start">
             <Check className="w-4 h-4 text-green-600 dark:text-green-400 flex-shrink-0 mt-1" />
-            <span className="font-mono bg-white dark:bg-gray-800 px-2 py-1 rounded text-xs md:text-sm">feature/fix-booking-form</span>
+            <span className="font-mono bg-white dark:bg-gray-800 px-2 py-1 rounded text-xs md:text-sm">feature-fix-booking-form</span>
           </li>
           <li className="flex gap-2 items-start">
             <Check className="w-4 h-4 text-green-600 dark:text-green-400 flex-shrink-0 mt-1" />
-            <span className="font-mono bg-white dark:bg-gray-800 px-2 py-1 rounded text-xs md:text-sm">feature/update-navbar-design</span>
+            <span className="font-mono bg-white dark:bg-gray-800 px-2 py-1 rounded text-xs md:text-sm">feature-update-navbar-design</span>
           </li>
           <li className="flex gap-2 items-start">
             <Check className="w-4 h-4 text-green-600 dark:text-green-400 flex-shrink-0 mt-1" />
-            <span className="font-mono bg-white dark:bg-gray-800 px-2 py-1 rounded text-xs md:text-sm">feature/add-room-search</span>
+            <span className="font-mono bg-white dark:bg-gray-800 px-2 py-1 rounded text-xs md:text-sm">feature-add-room-search</span>
           </li>
         </ul>
       </div>
@@ -76,7 +76,7 @@ export default function CreatingBranchesContent() {
           <li className="flex gap-2 items-start">
             <X className="w-4 h-4 text-red-600 dark:text-red-400 flex-shrink-0 mt-1" />
             <div className="flex flex-col sm:flex-row sm:gap-2 sm:items-center">
-              <span className="font-mono bg-white dark:bg-gray-800 px-2 py-1 rounded text-xs md:text-sm">feature/lots of changes to the website</span>
+              <span className="font-mono bg-white dark:bg-gray-800 px-2 py-1 rounded text-xs md:text-sm">feature-lots-of-changes-to-the-website</span>
               <span className="text-xs md:text-sm text-red-700 dark:text-red-400">(spaces, too long)</span>
             </div>
           </li>
@@ -125,7 +125,7 @@ export default function CreatingBranchesContent() {
       <div className="bg-gray-900 text-gray-100 p-4 md:p-6 rounded-lg mb-6 font-mono text-xs md:text-sm overflow-x-auto">
         <div className="flex items-center gap-2 mb-2">
           <span className="text-green-400">$</span>
-          <span>git checkout -b feature/your-task-name</span>
+          <span>git checkout -b feature-your-task-name</span>
         </div>
       </div>
 
@@ -145,7 +145,7 @@ export default function CreatingBranchesContent() {
           </li>
           <li className="flex gap-2">
             <span className="text-purple-600 dark:text-purple-400">•</span>
-            <span><code className="bg-white dark:bg-gray-800 px-2 py-1 rounded text-sm">feature/your-task-name</code> = The name of your new branch</span>
+            <span><code className="bg-white dark:bg-gray-800 px-2 py-1 rounded text-sm">feature-your-task-name</code> = The name of your new branch</span>
           </li>
         </ul>
         <p className="text-sm md:text-base text-purple-900 dark:text-purple-200 mt-3 font-semibold">
@@ -177,11 +177,11 @@ export default function CreatingBranchesContent() {
             <div className="text-gray-400 text-xs mb-1 mt-4"># 2. Create your feature branch</div>
             <div className="flex items-center gap-2">
               <span className="text-green-400">$</span>
-              <span>git checkout -b feature/add-contact-form</span>
+              <span>git checkout -b feature-add-contact-form</span>
             </div>
           </div>
           <div className="mt-4 text-green-300">
-            Switched to a new branch 'feature/add-contact-form'
+            Switched to a new branch 'feature-add-contact-form'
           </div>
         </div>
       </div>
@@ -205,7 +205,7 @@ export default function CreatingBranchesContent() {
         </div>
         <div className="bg-white dark:bg-gray-800 p-3 rounded border border-green-300 dark:border-green-700 font-mono text-xs md:text-sm text-gray-700 dark:text-gray-300">
           develop<br />
-          * feature/add-contact-form
+          * feature-add-contact-form
         </div>
         <p className="text-sm md:text-base text-green-800 dark:text-green-300 mt-3">
           The <code className="bg-white dark:bg-gray-800 px-2 py-1 rounded text-sm">*</code> shows you're on the feature branch. Perfect!
@@ -217,7 +217,7 @@ export default function CreatingBranchesContent() {
         <ul className="space-y-3 text-sm md:text-base text-gray-700 dark:text-gray-300">
           <li className="flex gap-2 items-start">
             <Target className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-1" />
-            <span>Always start with <code className="bg-white dark:bg-gray-800 px-2 py-1 rounded text-sm">feature/</code></span>
+            Always start with <code className="bg-white dark:bg-gray-800 px-2 py-1 rounded text-sm">feature-</code>
           </li>
           <li className="flex gap-2 items-start">
             <Target className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-1" />
