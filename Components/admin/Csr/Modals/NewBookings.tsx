@@ -34,7 +34,7 @@ const paymentMethods = ["cash", "gcash", "bank-transfer", "credit-card"];
 export default function NewBookingModal({ onClose }: NewBookingModalProps) {
   const [isMounted, setIsMounted] = useState(false);
   const [createBooking, { isLoading }] = useCreateBookingMutation();
-  const { data: havensData, isLoading: isLoadingHavens } = useGetHavensQuery({});
+  const { data: havensData, isLoading: isLoadingHavens } = useGetHavensQuery({}) as { data: Haven[]; isLoading: boolean };
 
   const [form, setForm] = useState({
     guestFirstName: "",

@@ -53,7 +53,7 @@ export default function BookingsPage() {
   const [isNewBookingModalOpen, setIsNewBookingModalOpen] = useState(false);
 
   // Fetch bookings from API
-  const { data: bookings = [], isLoading, error } = useGetBookingsQuery({});
+  const { data: bookings = [], isLoading, error } = useGetBookingsQuery({}) as { data: BookingData[]; isLoading: boolean; error: unknown };
   const [deleteBooking] = useDeleteBookingMutation();
 
   // Get status color
@@ -131,23 +131,23 @@ export default function BookingsPage() {
       let bValue: string | number;
 
       if (sortField === "guestName") {
-        aValue = `${a.guest_first_name} ${a.guest_last_name}`;
-        bValue = `${b.guest_first_name} ${b.guest_last_name}`;
+        aValue = `${a.guest_first_name || ''} ${a.guest_last_name || ''}`;
+        bValue = `${b.guest_first_name || ''} ${b.guest_last_name || ''}`;
       } else if (sortField === "id") {
-        aValue = a.booking_id;
-        bValue = b.booking_id;
+        aValue = a.booking_id || '';
+        bValue = b.booking_id || '';
       } else if (sortField === "haven") {
-        aValue = a.room_name;
-        bValue = b.room_name;
+        aValue = a.room_name || '';
+        bValue = b.room_name || '';
       } else if (sortField === "checkIn") {
-        aValue = a.check_in_date;
-        bValue = b.check_in_date;
+        aValue = a.check_in_date || '';
+        bValue = b.check_out_date || '';
       } else if (sortField === "checkOut") {
-        aValue = a.check_out_date;
-        bValue = b.check_out_date;
+        aValue = a.check_out_date || '';
+        bValue = b.check_out_date || '';
       } else {
-        aValue = a[sortField as keyof BookingData];
-        bValue = b[sortField as keyof BookingData];
+        aValue = (a[sortField as keyof BookingData] as string | number) || '';
+        bValue = (b[sortField as keyof BookingData] as string | number) || '';
       }
 
       if (aValue < bValue) return sortDirection === "asc" ? -1 : 1;

@@ -71,7 +71,7 @@ export default function OverviewContent() {
         <div className="bg-white dark:bg-gray-800 border-l-4 border-purple-500 dark:border-purple-400 p-4 md:p-5 rounded-r-lg shadow-sm">
           <div className="flex items-start gap-3 mb-2">
             <GitBranch className="w-5 h-5 md:w-6 md:h-6 text-purple-600 dark:text-purple-400 flex-shrink-0 mt-0.5" />
-            <h3 className="text-lg md:text-xl font-semibold text-purple-700 dark:text-purple-400">feature/your-feature-name (Your Work)</h3>
+            <h3 className="text-lg md:text-xl font-semibold text-purple-700 dark:text-purple-400">feature-your-feature-name (Your Work)</h3>
           </div>
           <p className="text-sm md:text-base text-gray-700 dark:text-gray-300">
             This is <strong>your personal workspace</strong>. You'll create a new feature branch for each task.
