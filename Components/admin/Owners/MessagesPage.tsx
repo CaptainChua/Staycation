@@ -203,66 +203,53 @@ export default function MessagesPage() {
   if (isLoadingConversations) {
     return (
       <div className="flex items-center justify-center h-[75vh]">
-        <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+        <Loader2 className="w-8 h-8 animate-spin text-brand-primary" />
       </div>
     );
   }
 
   return (
     <div className="space-y-6 animate-in fade-in duration-700">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      {/* Header - Matching Analytics page style */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-            <MessageCircle className="w-7 h-7 text-orange-500" />
-            Messages & Communications
-          </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Connect with staff teams, departments, and guests
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="px-4 py-2 bg-gradient-to-r from-orange-50 to-yellow-50 rounded-lg border border-orange-200">
-            <p className="text-sm text-gray-600">
-              <span className="font-bold text-orange-600">{totalUnread}</span>{" "}
-              unread messages
-            </p>
-          </div>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Messages & Communications</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Connect with staff teams, departments, and guests</p>
         </div>
       </div>
 
-      {/* Main Chat Interface */}
-      <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+      {/* Main Chat Interface - Matching Analytics page table style */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden">
         <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr]">
           {/* Conversations List */}
-          <div className="border-b lg:border-b-0 lg:border-r border-gray-200 bg-white flex flex-col h-[75vh]">
+          <div className="border-b lg:border-b-0 lg:border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex flex-col h-[75vh]">
             {/* Conversations Header */}
-            <div className="h-16 px-4 flex items-center gap-3 border-b border-gray-200 bg-gradient-to-r from-orange-50 to-yellow-50">
-              <Users className="w-5 h-5 text-orange-500" />
-              <p className="text-base font-bold text-gray-900">
+            <div className="h-16 px-4 flex items-center gap-3 border-b border-gray-200 dark:border-gray-600 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600">
+              <Users className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+              <p className="text-base font-bold text-gray-900 dark:text-gray-100">
                 All Conversations
               </p>
               <div className="ml-auto">
                 <button
                   type="button"
                   onClick={() => setIsNewMessageModalOpen(true)}
-                  className="p-2 rounded-full hover:bg-orange-100 transition-colors"
+                  className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                   title="New message"
                 >
-                  <Plus className="w-5 h-5 text-orange-600" />
+                  <Plus className="w-5 h-5 text-gray-600 dark:text-gray-300" />
                 </button>
               </div>
             </div>
 
             {/* Search Bar */}
-            <div className="p-4 border-b border-gray-200">
+            <div className="p-4 border-b border-gray-200 dark:border-gray-700">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500" />
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search conversations..."
-                  className="w-full pl-10 pr-3 py-2.5 rounded-full bg-gray-100 border border-gray-200 text-gray-900 placeholder:text-gray-400 focus:bg-white focus:ring-2 focus:ring-orange-200 focus:border-orange-300 transition-all"
+                  className="w-full pl-10 pr-3 py-2.5 rounded-full bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:bg-white dark:focus:bg-gray-600 focus:ring-2 focus:ring-brand-primary focus:border-brand-primary transition-all"
                 />
               </div>
             </div>
@@ -279,42 +266,42 @@ export default function MessagesPage() {
                     onClick={() => setActiveId(c.id)}
                     className={`w-full px-4 py-3.5 flex items-center gap-3 text-left transition-all ${
                       isActive
-                        ? "bg-gradient-to-r from-orange-50 to-yellow-50 border-l-4 border-orange-500"
-                        : "hover:bg-gray-50 border-l-4 border-transparent"
+                        ? "bg-gray-50 dark:bg-gray-700 border-l-4 border-brand-primary"
+                        : "hover:bg-gray-50 dark:hover:bg-gray-700 border-l-4 border-transparent"
                     }`}
                   >
                     <div className="relative">
-                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-500 to-yellow-500 text-white font-bold flex items-center justify-center shadow-md">
+                      <div className="w-12 h-12 rounded-full bg-brand-primary text-white font-bold flex items-center justify-center shadow-md">
                         {c.name?.charAt(0).toUpperCase() || "?"}
                       </div>
                       {activeStatus.isActive && (
-                        <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-white rounded-full" />
+                        <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-white dark:border-gray-800 rounded-full" />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <p
                           className={`text-sm font-semibold truncate ${
-                            isActive ? "text-orange-700" : "text-gray-900"
+                            isActive ? "text-brand-primary dark:text-brand-primaryLight" : "text-gray-900 dark:text-gray-100"
                           }`}
                         >
                           {c.name}
                         </p>
-                        <span className="text-xs text-gray-400">•</span>
-                        <p className="text-xs text-gray-400 whitespace-nowrap">
+                        <span className="text-xs text-gray-400 dark:text-gray-500">•</span>
+                        <p className="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap">
                           {c.last_message_time
                             ? formatTime(c.last_message_time)
                             : ""}
                         </p>
                       </div>
-                      <p className="text-xs text-gray-500 truncate mb-1">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate mb-1">
                         {activeStatus.statusText}
                       </p>
                       <p
                         className={`text-xs truncate ${
                           (c.unread_count || 0) > 0
-                            ? "text-gray-700 font-medium"
-                            : "text-gray-400"
+                            ? "text-gray-700 dark:text-gray-300 font-medium"
+                            : "text-gray-400 dark:text-gray-500"
                         }`}
                       >
                         {c.last_message || "No messages yet"}
@@ -323,7 +310,7 @@ export default function MessagesPage() {
 
                     {(c.unread_count || 0) > 0 && (
                       <div className="w-6 flex justify-end">
-                        <span className="inline-flex items-center justify-center min-w-6 h-6 px-1.5 rounded-full bg-gradient-to-r from-orange-500 to-yellow-500 text-white text-xs font-bold shadow-sm">
+                        <span className="inline-flex items-center justify-center min-w-6 h-6 px-1.5 rounded-full bg-brand-primary text-white text-xs font-bold shadow-sm">
                           {c.unread_count}
                         </span>
                       </div>
@@ -334,28 +321,28 @@ export default function MessagesPage() {
 
               {filteredConversations.length === 0 && (
                 <div className="flex flex-col items-center justify-center h-full text-center p-8">
-                  <MessageCircle className="w-12 h-12 text-gray-300 mb-3" />
-                  <p className="text-gray-500 text-sm">No conversations found</p>
+                  <MessageCircle className="w-12 h-12 text-gray-300 dark:text-gray-600 mb-3" />
+                  <p className="text-gray-500 dark:text-gray-400 text-sm">No conversations found</p>
                 </div>
               )}
             </div>
           </div>
 
           {/* Chat Area */}
-          <div className="bg-white flex flex-col h-[75vh]">
+          <div className="bg-white dark:bg-gray-800 flex flex-col h-[75vh]">
             {activeConversation ? (
               <>
                 {/* Chat Header */}
-                <div className="h-16 px-4 flex items-center justify-between border-b border-gray-200 bg-gradient-to-r from-orange-50 to-yellow-50 sticky top-0 z-10">
+                <div className="h-16 px-4 flex items-center justify-between border-b border-gray-200 dark:border-gray-600 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 sticky top-0 z-10">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-500 to-yellow-500 text-white font-bold flex items-center justify-center flex-shrink-0 shadow-md">
+                    <div className="w-10 h-10 rounded-full bg-brand-primary text-white font-bold flex items-center justify-center flex-shrink-0 shadow-md">
                       {activeConversation.name?.charAt(0).toUpperCase() || "?"}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-bold text-gray-900 truncate">
+                      <p className="text-sm font-bold text-gray-900 dark:text-gray-100 truncate">
                         {activeConversation.name}
                       </p>
-                      <p className="text-xs text-gray-500 truncate flex items-center gap-1">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate flex items-center gap-1">
                         {getActiveStatus(activeConversation.last_message_time, activeConversation.type).isActive && (
                           <span className="w-2 h-2 bg-green-500 rounded-full" />
                         )}
@@ -366,33 +353,33 @@ export default function MessagesPage() {
                   <div className="flex items-center gap-1">
                     <button
                       type="button"
-                      className="p-2 rounded-full hover:bg-orange-100 transition-colors"
+                      className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                       title="Call"
                     >
-                      <Phone className="w-5 h-5 text-orange-600" />
+                      <Phone className="w-5 h-5 text-gray-600 dark:text-gray-300" />
                     </button>
                     <button
                       type="button"
-                      className="p-2 rounded-full hover:bg-orange-100 transition-colors"
+                      className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                       title="Video Call"
                     >
-                      <Video className="w-5 h-5 text-orange-600" />
+                      <Video className="w-5 h-5 text-gray-600 dark:text-gray-300" />
                     </button>
                     <button
                       type="button"
-                      className="p-2 rounded-full hover:bg-orange-100 transition-colors"
+                      className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                       title="Info"
                     >
-                      <Info className="w-5 h-5 text-orange-600" />
+                      <Info className="w-5 h-5 text-gray-600 dark:text-gray-300" />
                     </button>
                   </div>
                 </div>
 
                 {/* Messages Thread */}
-                <div className="flex-1 overflow-y-auto bg-gradient-to-b from-gray-50 to-white px-4 py-4 space-y-3">
+                <div className="flex-1 overflow-y-auto bg-gradient-to-b from-gray-50 to-white dark:from-gray-800 dark:to-gray-800 px-4 py-4 space-y-3">
                   {isLoadingMessages ? (
                     <div className="flex items-center justify-center h-full">
-                      <Loader2 className="w-6 h-6 animate-spin text-orange-500" />
+                      <Loader2 className="w-6 h-6 animate-spin text-brand-primary" />
                     </div>
                   ) : messages.length > 0 ? (
                     messages.map((m: Message) => {
@@ -412,13 +399,13 @@ export default function MessagesPage() {
                             <div
                               className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed shadow-sm ${
                                 isMe
-                                  ? "bg-gradient-to-r from-orange-500 to-yellow-500 text-white rounded-br-md"
-                                  : "bg-white text-gray-900 border border-gray-200 rounded-bl-md"
+                                  ? "bg-brand-primary text-white rounded-br-md"
+                                  : "bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-600 rounded-bl-md"
                               }`}
                             >
                               {m.message_text}
                             </div>
-                            <span className="text-[11px] text-gray-400 px-1">
+                            <span className="text-[11px] text-gray-400 dark:text-gray-500 px-1">
                               {formatMessageTime(m.created_at)}
                             </span>
                           </div>
@@ -427,8 +414,8 @@ export default function MessagesPage() {
                     })
                   ) : (
                     <div className="flex flex-col items-center justify-center h-full text-center">
-                      <MessageCircle className="w-12 h-12 text-gray-300 mb-3" />
-                      <p className="text-gray-500 text-sm">
+                      <MessageCircle className="w-12 h-12 text-gray-300 dark:text-gray-600 mb-3" />
+                      <p className="text-gray-500 dark:text-gray-400 text-sm">
                         No messages yet. Start the conversation!
                       </p>
                     </div>
@@ -437,23 +424,23 @@ export default function MessagesPage() {
                 </div>
 
                 {/* Message Input */}
-                <div className="border-t border-gray-200 bg-white px-4 py-3">
+                <div className="border-t border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-3">
                   <div className="flex items-end gap-2">
                     <button
                       type="button"
-                      className="p-2 rounded-full hover:bg-orange-50 transition-colors"
+                      className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                       title="Add"
                     >
-                      <Plus className="w-5 h-5 text-orange-600" />
+                      <Plus className="w-5 h-5 text-gray-600 dark:text-gray-300" />
                     </button>
                     <button
                       type="button"
-                      className="p-2 rounded-full hover:bg-orange-50 transition-colors"
+                      className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                       title="Attach Image"
                     >
-                      <ImageIcon className="w-5 h-5 text-orange-600" />
+                      <ImageIcon className="w-5 h-5 text-gray-600 dark:text-gray-300" />
                     </button>
-                    <div className="flex-1 bg-gray-100 rounded-full px-4 py-2 flex items-center gap-2 border border-gray-200 focus-within:bg-white focus-within:border-orange-300 focus-within:ring-2 focus-within:ring-orange-200 transition-all">
+                    <div className="flex-1 bg-gray-100 dark:bg-gray-700 rounded-full px-4 py-2 flex items-center gap-2 border border-gray-200 dark:border-gray-600 focus-within:bg-white dark:focus-within:bg-gray-600 focus-within:border-brand-primary focus-within:ring-2 focus-within:ring-brand-primaryLighter transition-all">
                       <input
                         value={draft}
                         onChange={(e) => setDraft(e.target.value)}
@@ -465,14 +452,14 @@ export default function MessagesPage() {
                         }}
                         placeholder="Type a message..."
                         disabled={isSending}
-                        className="flex-1 bg-transparent outline-none text-sm text-gray-900 placeholder:text-gray-400"
+                        className="flex-1 bg-transparent outline-none text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500"
                       />
                       <button
                         type="button"
-                        className="p-1.5 rounded-full hover:bg-orange-50 transition-colors"
+                        className="p-1.5 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                         title="Emoji"
                       >
-                        <Smile className="w-5 h-5 text-orange-600" />
+                        <Smile className="w-5 h-5 text-gray-600 dark:text-gray-300" />
                       </button>
                     </div>
 
@@ -480,7 +467,7 @@ export default function MessagesPage() {
                       type="button"
                       onClick={handleSendMessage}
                       disabled={isSending || !draft.trim()}
-                      className="p-2.5 rounded-full bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="p-2.5 rounded-full bg-brand-primary hover:bg-brand-primaryDark transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                       title="Send"
                     >
                       {isSending ? (
@@ -495,11 +482,11 @@ export default function MessagesPage() {
             ) : (
               <div className="flex items-center justify-center h-full text-center p-8">
                 <div>
-                  <MessageCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-500 text-lg font-medium mb-2">
+                  <MessageCircle className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+                  <p className="text-gray-500 dark:text-gray-400 text-lg font-medium mb-2">
                     Select a conversation
                   </p>
-                  <p className="text-gray-400 text-sm">
+                  <p className="text-gray-400 dark:text-gray-500 text-sm">
                     Choose a conversation from the list to start messaging
                   </p>
                 </div>
