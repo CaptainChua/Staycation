@@ -13,11 +13,11 @@ const ProfilePage = () => {
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   
-  // Use a key to reset form data when session changes
-  const [formData, setFormData] = useState(() => ({
-    name: session?.user?.name || "",
-    email: session?.user?.email || ""
-  }));
+  // State for form inputs during editing
+  const [formData, setFormData] = useState({
+    name: "",
+    email: ""
+  });
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -25,15 +25,15 @@ const ProfilePage = () => {
     }
   }, [status, router]);
 
-  // Reset form when session changes and we're not editing
+  // Initialize form data when session loads
   useEffect(() => {
-    if (session?.user && !isEditing) {
+    if (session?.user) {
       setFormData({
         name: session.user.name || "",
         email: session.user.email || ""
       });
     }
-  }, [session?.user?.name, session?.user?.email, isEditing]);
+  }, [session?.user?.name, session?.user?.email]);
 
   if (status === "loading") {
     return <LoadingAnimation />;
