@@ -13,7 +13,7 @@ const ProfilePage = () => {
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   
-  // Initialize form data with session values using lazy initialization
+  // Use a key to reset form data when session changes
   const [formData, setFormData] = useState(() => ({
     name: session?.user?.name || "",
     email: session?.user?.email || ""
@@ -25,20 +25,15 @@ const ProfilePage = () => {
     }
   }, [status, router]);
 
-  // Update form data when session changes, but only if we're not editing and values are different
+  // Reset form when session changes and we're not editing
   useEffect(() => {
     if (session?.user && !isEditing) {
-      const newName = session.user.name || "";
-      const newEmail = session.user.email || "";
-      
-      setFormData(prev => {
-        if (prev.name !== newName || prev.email !== newEmail) {
-          return { name: newName, email: newEmail };
-        }
-        return prev;
+      setFormData({
+        name: session.user.name || "",
+        email: session.user.email || ""
       });
     }
-  }, [session, isEditing]);
+  }, [session?.user?.name, session?.user?.email, isEditing]);
 
   if (status === "loading") {
     return <LoadingAnimation />;
