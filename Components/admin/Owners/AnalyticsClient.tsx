@@ -10,7 +10,7 @@ interface AnalyticsClientProps {
 }
 
 export default function AnalyticsClient({ summary, revenueByHaven, monthlyRevenue }: AnalyticsClientProps) {
-  // Build stats array from backend data
+  // Build stats array from backend data - matching Bookings page card colors
   const stats = [
     {
       label: "Total Revenue",
@@ -18,7 +18,7 @@ export default function AnalyticsClient({ summary, revenueByHaven, monthlyRevenu
       change: `${summary.revenue_change >= 0 ? '+' : ''}${summary.revenue_change.toFixed(1)}%`,
       trending: summary.revenue_change >= 0 ? "up" : "down",
       icon: DollarSign,
-      color: "text-green-500"
+      color: "bg-green-500" // Match Bookings "Confirmed" card color
     },
     {
       label: "Total Bookings",
@@ -26,7 +26,7 @@ export default function AnalyticsClient({ summary, revenueByHaven, monthlyRevenu
       change: `${summary.bookings_change >= 0 ? '+' : ''}${summary.bookings_change.toFixed(1)}%`,
       trending: summary.bookings_change >= 0 ? "up" : "down",
       icon: Calendar,
-      color: "text-blue-500"
+      color: "bg-blue-500" // Match Bookings "Total Bookings" card color
     },
     {
       label: "Occupancy Rate",
@@ -34,7 +34,7 @@ export default function AnalyticsClient({ summary, revenueByHaven, monthlyRevenu
       change: `${summary.occupancy_change >= 0 ? '+' : ''}${summary.occupancy_change.toFixed(1)}%`,
       trending: summary.occupancy_change >= 0 ? "up" : "down",
       icon: Home,
-      color: "text-purple-500"
+      color: "bg-indigo-500" // Match Bookings "Checked-In" card color
     },
     {
       label: "New Guests",
@@ -42,104 +42,150 @@ export default function AnalyticsClient({ summary, revenueByHaven, monthlyRevenu
       change: `${summary.guests_change >= 0 ? '+' : ''}${summary.guests_change.toFixed(1)}%`,
       trending: summary.guests_change >= 0 ? "up" : "down",
       icon: Users,
-      color: "text-orange-500"
+      color: "bg-yellow-500" // Match Bookings "Pending" card color
     },
   ];
 
   return (
     <div className="space-y-6 animate-in fade-in duration-700">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">Analytics & Reports</h1>
-        <p className="text-gray-600">Track your business performance and insights</p>
+      {/* Header - Matching Bookings page style */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Analytics & Reports</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Track your business performance and insights</p>
+        </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* Stats Cards - Matching Bookings page style */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {stats.map((stat, index) => {
-          const Icon = stat.icon;
+          const IconComponent = stat.icon;
           return (
-            <div key={index} className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
-              <div className="flex items-center justify-between mb-4">
-                <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${stat.color} bg-opacity-10`}>
-                  <Icon className={`w-6 h-6 ${stat.color}`} />
+            <div
+              key={index}
+              className={`${stat.color} text-white rounded-lg p-6 shadow hover:shadow-lg transition-all`}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm opacity-90">{stat.label}</p>
+                  <p className="text-3xl font-bold mt-2">{stat.value}</p>
+                  {/* Show trend indicator below value */}
+                  <div className={`flex items-center gap-1 text-xs font-semibold mt-2 ${stat.trending === 'up' ? 'text-green-100' : 'text-red-100'}`}>
+                    {stat.trending === 'up' ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                    {stat.change}
+                  </div>
                 </div>
-                <div className={`flex items-center gap-1 text-sm font-semibold ${stat.trending === 'up' ? 'text-green-600' : 'text-red-600'}`}>
-                  {stat.trending === 'up' ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-                  {stat.change}
-                </div>
+                <IconComponent className="w-12 h-12 opacity-50" />
               </div>
-              <p className="text-sm text-gray-500 mb-1">{stat.label}</p>
-              <p className="text-2xl font-bold text-gray-800">{stat.value}</p>
             </div>
           );
         })}
       </div>
 
-      {/* Revenue by Haven */}
-      <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
-        <h2 className="text-xl font-bold text-gray-800 mb-6">Revenue by Haven</h2>
-        {revenueByHaven.length === 0 ? (
-          <div className="text-center py-12 text-gray-500">
-            No revenue data available for this period.
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {revenueByHaven.map((haven, index) => {
-              const maxRevenue = Math.max(...revenueByHaven.map(h => h.revenue));
-              return (
-                <div key={index} className="border-b border-gray-100 pb-4 last:border-0">
-                  <div className="flex justify-between items-center mb-2">
-                    <h3 className="font-semibold text-gray-800">{haven.room_name}</h3>
-                    <span className="text-lg font-bold text-green-600">₱{haven.revenue.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between items-center text-sm text-gray-500">
-                    <span>{haven.bookings} bookings</span>
-                    <span>Avg: ₱{Math.round(haven.revenue / haven.bookings).toLocaleString()}/booking</span>
-                  </div>
-                  <div className="mt-2 h-2 bg-gray-100 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-orange-500 to-yellow-500 rounded-full"
-                      style={{ width: `${(haven.revenue / maxRevenue) * 100}%` }}
-                    ></div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+      {/* Revenue by Haven - Matching Bookings page table style */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 border-b-2 border-gray-200 dark:border-gray-600">
+              <tr>
+                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                  Haven
+                </th>
+                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                  Total Revenue
+                </th>
+                <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                  Bookings
+                </th>
+                <th className="text-right py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                  Avg Revenue
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {revenueByHaven.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="py-8 text-center text-gray-500 dark:text-gray-400">
+                    No revenue data available for this period.
+                  </td>
+                </tr>
+              ) : (
+                revenueByHaven.map((haven, index) => {
+                  const maxRevenue = Math.max(...revenueByHaven.map(h => h.revenue));
+                  const avgRevenue = haven.bookings > 0 ? Math.round(haven.revenue / haven.bookings) : 0;
+                  return (
+                    <tr
+                      key={index}
+                      className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      <td className="py-4 px-4">
+                        <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{haven.room_name}</span>
+                      </td>
+                      <td className="py-4 px-4">
+                        <span className="font-bold text-gray-800 dark:text-gray-100 text-sm whitespace-nowrap">
+                          ₱{haven.revenue.toLocaleString()}
+                        </span>
+                      </td>
+                      <td className="py-4 px-4 text-center">
+                        <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                          {haven.bookings}
+                        </span>
+                      </td>
+                      <td className="py-4 px-4 text-right">
+                        <span className="text-sm font-bold text-gray-800 dark:text-gray-100 whitespace-nowrap">
+                          ₱{avgRevenue.toLocaleString()}
+                        </span>
+                        {/* Progress bar indicator */}
+                        <div className="mt-2 h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-brand-primary to-brand-primaryDark rounded-full"
+                            style={{ width: `${maxRevenue > 0 ? (haven.revenue / maxRevenue) * 100 : 0}%` }}
+                          ></div>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      {/* Monthly Revenue Chart */}
-      <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
-        <h2 className="text-xl font-bold text-gray-800 mb-6">Monthly Revenue Trend</h2>
-        {monthlyRevenue.length === 0 ? (
-          <div className="text-center py-12 text-gray-500">
-            No monthly revenue data available.
-          </div>
-        ) : (
-          <div className="flex items-end justify-between gap-4 h-64">
-            {monthlyRevenue.map((data, index) => {
-              const maxRevenue = Math.max(...monthlyRevenue.map(m => m.revenue));
-              const height = maxRevenue > 0 ? (data.revenue / maxRevenue) * 100 : 0;
-              return (
-                <div key={index} className="flex-1 flex flex-col items-center gap-2">
-                  <div className="w-full bg-gray-100 rounded-t-lg flex items-end justify-center" style={{ height: '100%' }}>
-                    <div
-                      className="w-full bg-gradient-to-t from-orange-500 to-yellow-500 rounded-t-lg transition-all duration-500 flex items-end justify-center pb-2"
-                      style={{ height: `${height}%` }}
-                    >
-                      {data.revenue > 0 && (
-                        <span className="text-xs font-semibold text-white">₱{(data.revenue / 1000).toFixed(0)}k</span>
-                      )}
+      {/* Monthly Revenue Chart - Matching Bookings page card style */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden">
+        <div className="p-4 border-b-2 border-gray-200 dark:border-gray-600">
+          <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">Monthly Revenue Trend</h2>
+        </div>
+        <div className="p-6">
+          {monthlyRevenue.length === 0 ? (
+            <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+              No monthly revenue data available.
+            </div>
+          ) : (
+            <div className="flex items-end justify-between gap-4 h-64">
+              {monthlyRevenue.map((data, index) => {
+                const maxRevenue = Math.max(...monthlyRevenue.map(m => m.revenue));
+                const height = maxRevenue > 0 ? (data.revenue / maxRevenue) * 100 : 0;
+                return (
+                  <div key={index} className="flex-1 flex flex-col items-center gap-2">
+                    <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-t-lg flex items-end justify-center" style={{ height: '100%' }}>
+                      <div
+                        className="w-full bg-gradient-to-t from-brand-primary to-brand-primaryDark rounded-t-lg transition-all duration-500 flex items-end justify-center pb-2"
+                        style={{ height: `${height}%` }}
+                      >
+                        {data.revenue > 0 && (
+                          <span className="text-xs font-semibold text-white">₱{(data.revenue / 1000).toFixed(0)}k</span>
+                        )}
+                      </div>
                     </div>
+                    <span className="text-sm font-medium text-gray-600 dark:text-gray-300">{data.month}</span>
                   </div>
-                  <span className="text-sm font-medium text-gray-600">{data.month}</span>
-                </div>
-              );
-            })}
-          </div>
-        )}
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
