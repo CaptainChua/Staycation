@@ -12,10 +12,12 @@ const ProfilePage = () => {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
-  const [formData, setFormData] = useState({
-    name: "",
-    email: ""
-  });
+  
+  // Initialize form data with session values, and use a key to reset when session changes
+  const [formData, setFormData] = useState(() => ({
+    name: session?.user?.name || "",
+    email: session?.user?.email || ""
+  }));
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -23,20 +25,15 @@ const ProfilePage = () => {
     }
   }, [status, router]);
 
+  // Reset form data when session changes, but only if we're not editing
   useEffect(() => {
-    if (session?.user) {
-      const newName = session.user.name || "";
-      const newEmail = session.user.email || "";
-      
-      // Only update if values actually changed to prevent unnecessary re-renders
-      setFormData(prev => {
-        if (prev.name !== newName || prev.email !== newEmail) {
-          return { name: newName, email: newEmail };
-        }
-        return prev;
+    if (session?.user && !isEditing) {
+      setFormData({
+        name: session.user.name || "",
+        email: session.user.email || ""
       });
     }
-  }, [session]);
+  }, [session, isEditing]);
 
   if (status === "loading") {
     return <LoadingAnimation />;
