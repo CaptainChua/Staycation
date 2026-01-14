@@ -25,9 +25,15 @@ const ProfilePage = () => {
 
   useEffect(() => {
     if (session?.user) {
-      setFormData({
-        name: session.user.name || "",
-        email: session.user.email || ""
+      const newName = session.user.name || "";
+      const newEmail = session.user.email || "";
+      
+      // Only update if values actually changed to prevent unnecessary re-renders
+      setFormData(prev => {
+        if (prev.name !== newName || prev.email !== newEmail) {
+          return { name: newName, email: newEmail };
+        }
+        return prev;
       });
     }
   }, [session]);
