@@ -24,18 +24,10 @@ import {
 } from "recharts";
 import { useGetRoomBookingsQuery } from "@/redux/api/bookingsApi";
 
-<<<<<<< HEAD
-// Define types for the component
 export interface Haven {
   uuid_id: string;
   haven_name?: string;
-=======
-// Import Haven type from parent component to ensure consistency
-type Haven = {
   id?: number;
-  uuid_id?: string;
-  haven_name: string;
->>>>>>> e76881a6da5d5c249ef50ec8e0488629d91e765c
   name?: string;
   tower: string;
   floor: string;
@@ -59,14 +51,9 @@ type Haven = {
     from_date: string;
     to_date: string;
   }>;
-<<<<<<< HEAD
   status?: "available" | "booked" | "blocked" | "past";
   [key: string]: unknown;
 }
-=======
-  [key: string]: unknown;
-};
->>>>>>> e76881a6da5d5c249ef50ec8e0488629d91e765c
 
 interface Booking {
   check_in_date: string;
@@ -105,11 +92,7 @@ useEffect(() => {
   if (havens.length > 0 && !selectedHaven && !hasSetInitialHaven.current) {
     // Check if the value would actually change
     const newHaven = havens[0] as Haven;
-<<<<<<< HEAD
-    const shouldUpdate = !selectedHaven || (selectedHaven && (selectedHaven as Haven).uuid_id !== (newHaven as Haven).uuid_id);
-=======
     const shouldUpdate = !selectedHaven || ((selectedHaven as Haven).uuid_id !== newHaven.uuid_id);
->>>>>>> e76881a6da5d5c249ef50ec8e0488629d91e765c
     
     if (shouldUpdate) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
