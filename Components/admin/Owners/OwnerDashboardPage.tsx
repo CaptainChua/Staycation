@@ -394,7 +394,11 @@ export default function OwnerDashboard() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+        <nav className={`flex-1 p-4 space-y-2 overflow-y-auto ${
+          !sidebar 
+            ? "[&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]" 
+            : ""
+        }`}>
           {navItems.map((item) => {
             const Icon = item.icon;
             return (
@@ -535,7 +539,11 @@ export default function OwnerDashboard() {
             </button>
 
             {/* Settings */}
-            <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+            <button
+              onClick={() => setPage("settings")}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              title="Settings"
+            >
               <Settings className="w-6 h-6 text-gray-600" />
             </button>
 
@@ -605,6 +613,7 @@ export default function OwnerDashboard() {
                   </button>
                   <button
                     onClick={() => {
+                      setPage("settings");
                       setProfileDropdownOpen(false);
                     }}
                     className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
