@@ -1,6 +1,6 @@
 "use client";
 
-import { LogOut, Menu, X, Home, Users, MessageSquare, Settings, Bell, UserCircle, ChevronDown, BarChart3, Calendar, DollarSign, Wrench, Star, Shield } from "lucide-react";
+import { LogOut, Menu, X, Home, Users, MessageSquare, Settings, Bell, UserCircle, ChevronDown, BarChart3, Calendar, DollarSign, Wrench, Star, Shield, TrendingUp, TrendingDown, Building2 } from "lucide-react";
 import DashboardPage, { Haven } from "./DashboardPage";
 import GuestAssistancePage from "./GuestAssistancePage";
 import AddUnitModal from "./Modals/AddUnitModal";
@@ -22,6 +22,7 @@ import ReviewsPage from "./ReviewsPage";
 import SettingsPage from "./SettingsPage";
 import AuditLogsPage from "./AuditLogsPage";
 import MessagesPage from "./MessagesPage";
+import RoomManagement from "./CleaningManagement";
 import AdminFooter from "../AdminFooter";
 import toast from 'react-hot-toast';
 import { useState, useEffect, useRef } from "react";
@@ -73,54 +74,62 @@ interface HavenManagementPlaceholderProps {
 function HavenManagementPlaceholder({ onAddHavenClick, onViewAllClick }: HavenManagementPlaceholderProps) {
   const sampleHavens = ["Haven 1", "Haven 2", "Haven 3", "Haven 4"];
   
+  // Stats cards matching Analytics page style
+  const stats = [
+    { label: "Total Units", value: sampleHavens.length.toString(), icon: Building2, color: "bg-green-500", change: "+2", trending: "up" },
+    { label: "Available Now", value: "3", icon: Home, color: "bg-blue-500", change: "+1", trending: "up" },
+    { label: "Maintenance", value: "1", icon: Wrench, color: "bg-indigo-500", change: "0", trending: "up" },
+    { label: "Occupied", value: "0", icon: Users, color: "bg-yellow-500", change: "-1", trending: "down" },
+  ];
+  
   return (
-    <div className="space-y-6">
-      <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-200">
-        <div className="text-center py-12">
-          <div className="w-24 h-24 bg-gradient-to-br from-purple-100 to-purple-200 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Home className="w-12 h-12 text-purple-600" />
-          </div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-3">
-            Haven Management
-          </h2>
-          <p className="text-gray-600 max-w-md mx-auto mb-6">
-            Manage your property units, availability, pricing, and amenities all
-            in one place.
-          </p>
-          <div className="flex gap-4 justify-center">
-            <button
-              onClick={onAddHavenClick}
-              className="px-6 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg font-medium hover:shadow-lg transition-all"
-            >
-              Add New Haven
-            </button>
-            <button
-              onClick={onViewAllClick}
-              className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-all"
-            >
-              View All Units
-            </button>
-          </div>
+    <div className="space-y-6 animate-in fade-in duration-700">
+      {/* Header - Matching Analytics page style */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Haven Management</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage your property units, availability, pricing, and amenities</p>
+        </div>
+        <div className="flex gap-3">
+          <button
+            onClick={onViewAllClick}
+            className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+          >
+            View All Units
+          </button>
+          <button
+            onClick={onAddHavenClick}
+            className="px-4 py-2 bg-brand-primary hover:bg-brand-primaryDark text-white rounded-lg font-medium transition-all"
+          >
+            Add New Haven
+          </button>
         </div>
       </div>
 
-      {/* Quick Stats for Haven Management */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-2xl shadow-lg p-6">
-          <p className="text-sm opacity-90 mb-2">Total Units</p>
-          <p className="text-4xl font-bold">{sampleHavens.length}</p>
-          <p className="text-sm mt-2 opacity-75">Active properties</p>
-        </div>
-        <div className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-2xl shadow-lg p-6">
-          <p className="text-sm opacity-90 mb-2">Available Now</p>
-          <p className="text-4xl font-bold">3</p>
-          <p className="text-sm mt-2 opacity-75">Ready for booking</p>
-        </div>
-        <div className="bg-brand-primary text-white rounded-2xl shadow-lg p-6">
-          <p className="text-sm opacity-90 mb-2">Maintenance</p>
-          <p className="text-4xl font-bold">1</p>
-          <p className="text-sm mt-2 opacity-75">Under maintenance</p>
-        </div>
+      {/* Stats Cards - Matching Analytics page style */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {stats.map((stat, index) => {
+          const IconComponent = stat.icon;
+          return (
+            <div
+              key={index}
+              className={`${stat.color} text-white rounded-lg p-6 shadow hover:shadow-lg transition-all`}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm opacity-90">{stat.label}</p>
+                  <p className="text-3xl font-bold mt-2">{stat.value}</p>
+                  {/* Show trend indicator below value */}
+                  <div className={`flex items-center gap-1 text-xs font-semibold mt-2 ${stat.trending === 'up' ? 'text-green-100' : 'text-red-100'}`}>
+                    {stat.trending === 'up' ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                    {stat.change}
+                  </div>
+                </div>
+                <IconComponent className="w-12 h-12 opacity-50" />
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -265,22 +274,16 @@ export default function OwnerDashboard() {
       color: "text-purple-500",
     },
     {
-      id: "revenue",
-      icon: DollarSign,
-      label: "Revenue Management",
-      color: "text-emerald-500",
-    },
-     {
-      id: "messages",
-      icon: MessageSquare,
-      label: "Messages",
-      color: "text-pink-500",
-    },
-    {
       id: "maintenance",
       icon: Wrench,
       label: "Maintenance",
       color: "text-amber-500",
+    },
+    {
+      id: "roomManagement",
+      icon: Sparkles,
+      label: "Cleaning Management",
+      color: "text-orange-500",
     },
     {
       id: "reviews",
@@ -289,9 +292,15 @@ export default function OwnerDashboard() {
       color: "text-yellow-500",
     },
     {
-      id: "guest",
+      id: "revenue",
+      icon: DollarSign,
+      label: "Revenue Management",
+      color: "text-emerald-500",
+    },
+    {
+      id: "messages",
       icon: MessageSquare,
-      label: "Guest Assistance",
+      label: "Messages",
       color: "text-green-500",
     },
     {
@@ -394,7 +403,11 @@ export default function OwnerDashboard() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+        <nav className={`flex-1 p-4 space-y-2 overflow-y-auto ${
+          !sidebar 
+            ? "[&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]" 
+            : ""
+        }`}>
           {navItems.map((item) => {
             const Icon = item.icon;
             return (
@@ -535,7 +548,11 @@ export default function OwnerDashboard() {
             </button>
 
             {/* Settings */}
-            <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+            <button
+              onClick={() => setPage("settings")}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              title="Settings"
+            >
               <Settings className="w-6 h-6 text-gray-600" />
             </button>
 
@@ -605,6 +622,7 @@ export default function OwnerDashboard() {
                   </button>
                   <button
                     onClick={() => {
+                      setPage("settings");
                       setProfileDropdownOpen(false);
                     }}
                     className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
@@ -634,7 +652,7 @@ export default function OwnerDashboard() {
         </div>
 
         {/* PAGE CONTENT */}
-        <div className="flex-1 p-6 overflow-auto">
+        <div className="flex-1 p-6">
           <div className="max-w-[1600px] mx-auto">
             {page === "dashboard" && (
               <DashboardPage
@@ -672,14 +690,15 @@ export default function OwnerDashboard() {
                 onCreateClick={() => openModal("employee")}
                 onEditClick={(employee: EmployeeData) => {
                   setSelectedEmployee(employee);
-                  openModal("editEmployee");
                 }}
               />
             )}
-            {page === "messages" && <MessagesPage />}
             {page === "settings" && <SettingsPage />}
             {page === "audit" && <AuditLogsPage />}
+            {page === "roomManagement" && <RoomManagement />}
+            {page === "audit" && <AuditLogsPage />}
             {page === "profile" && <ProfilePage />}
+            {page === "messages" && <MessagesPage />}
           </div>
         </div>
 

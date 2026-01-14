@@ -1,6 +1,6 @@
 'use client';
 
-import { Shield, User, Calendar, Activity, Filter } from "lucide-react";
+import { Shield, User, Calendar, Activity, Filter, TrendingUp, TrendingDown } from "lucide-react";
 import { useState } from "react";
 
 const AuditLogsPage = () => {
@@ -119,56 +119,91 @@ const AuditLogsPage = () => {
 
   const filtered = filterType === "all" ? auditLogs : auditLogs.filter(log => log.type === filterType);
 
+  // Define stats to match AnalyticsClient structure
+  const stats = [
+    {
+      label: "Total Events",
+      value: "1,247",
+      change: "+12%",
+      trending: "up",
+      icon: Activity,
+      color: "bg-blue-500" // Match AnalyticsClient/Bookings color
+    },
+    {
+      label: "Active Users",
+      value: "8",
+      change: "+2",
+      trending: "up",
+      icon: User,
+      color: "bg-green-500" // Match AnalyticsClient/Bookings color
+    },
+    {
+      label: "Security Events",
+      value: "3",
+      change: "-50%",
+      trending: "down",
+      icon: Shield,
+      color: "bg-indigo-500" // Using Indigo to match generic card style, or could be red if critical
+    },
+    {
+      label: "Today's Events",
+      value: "24",
+      change: "+5",
+      trending: "up",
+      icon: Calendar,
+      color: "bg-yellow-500" // Match AnalyticsClient/Bookings color
+    },
+  ];
+
   return (
     <div className="space-y-6 animate-in fade-in duration-700">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">Audit Logs</h1>
-        <p className="text-gray-600">Monitor all system activities and security events</p>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
-          <div className="flex items-center gap-3 mb-2">
-            <Activity className="w-5 h-5 text-blue-500" />
-            <p className="text-sm text-gray-500">Total Events</p>
-          </div>
-          <p className="text-2xl font-bold text-gray-800">1,247</p>
-        </div>
-        <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
-          <div className="flex items-center gap-3 mb-2">
-            <User className="w-5 h-5 text-green-500" />
-            <p className="text-sm text-gray-500">Active Users</p>
-          </div>
-          <p className="text-2xl font-bold text-gray-800">8</p>
-        </div>
-        <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
-          <div className="flex items-center gap-3 mb-2">
-            <Shield className="w-5 h-5 text-red-500" />
-            <p className="text-sm text-gray-500">Security Events</p>
-          </div>
-          <p className="text-2xl font-bold text-gray-800">3</p>
-        </div>
-        <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
-          <div className="flex items-center gap-3 mb-2">
-            <Calendar className="w-5 h-5 text-purple-500" />
-            <p className="text-sm text-gray-500">Today&apos;s Events</p>
-          </div>
-          <p className="text-2xl font-bold text-gray-800">24</p>
+      {/* Header - Matching AnalyticsClient style */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Audit Logs</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Monitor all system activities and security events</p>
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
+      {/* Stats Cards - Matching AnalyticsClient style */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {stats.map((stat, index) => {
+          const IconComponent = stat.icon;
+          return (
+            <div
+              key={index}
+              className={`${stat.color} text-white rounded-lg p-6 shadow hover:shadow-lg transition-all`}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm opacity-90">{stat.label}</p>
+                  <p className="text-3xl font-bold mt-2">{stat.value}</p>
+                  {/* Show trend indicator below value */}
+                  <div className={`flex items-center gap-1 text-xs font-semibold mt-2 ${stat.trending === 'up' ? 'text-green-100' : 'text-red-100'}`}>
+                    {stat.trending === 'up' ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                    {stat.change}
+                  </div>
+                </div>
+                <IconComponent className="w-12 h-12 opacity-50" />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Filters - Styled to match card container style */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-6">
         <div className="flex items-center gap-4">
-          <Filter className="w-5 h-5 text-gray-600" />
+          <Filter className="w-5 h-5 text-gray-600 dark:text-gray-400" />
           <div className="flex gap-2 overflow-x-auto">
             {["all", "auth", "create", "update", "delete"].map((type) => (
               <button
                 key={type}
                 onClick={() => setFilterType(type)}
                 className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-all ${
-                  filterType === type ? "bg-orange-500 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  filterType === type 
+                    ? "bg-brand-primary text-white" 
+                    : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
                 }`}
               >
                 {type.charAt(0).toUpperCase() + type.slice(1)}
@@ -178,41 +213,44 @@ const AuditLogsPage = () => {
         </div>
       </div>
 
-      {/* Logs */}
-      <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+      {/* Logs Table - Matching AnalyticsClient table style */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
+            <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 border-b-2 border-gray-200 dark:border-gray-600">
               <tr>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">Type</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">Action</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">User</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">Timestamp</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">IP Address</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">Severity</th>
+                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">Type</th>
+                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">Action</th>
+                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">User</th>
+                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">Timestamp</th>
+                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">IP Address</th>
+                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">Severity</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody>
               {filtered.map((log) => (
-                <tr key={log.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4">
+                <tr 
+                  key={log.id} 
+                  className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <td className="py-4 px-4">
                     <span className="text-2xl">{getTypeIcon(log.type)}</span>
                   </td>
-                  <td className="px-6 py-4">
-                    <p className="font-semibold text-gray-800">{log.action}</p>
-                    <p className="text-sm text-gray-500">{log.details}</p>
+                  <td className="py-4 px-4">
+                    <p className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{log.action}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{log.details}</p>
                   </td>
-                  <td className="px-6 py-4">
-                    <p className="text-sm font-medium text-gray-800">{log.user}</p>
-                    <p className="text-xs text-gray-500">{log.userRole}</p>
+                  <td className="py-4 px-4">
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-100">{log.user}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{log.userRole}</p>
                   </td>
-                  <td className="px-6 py-4">
-                    <p className="text-sm text-gray-600">{log.timestamp}</p>
+                  <td className="py-4 px-4">
+                    <p className="text-sm text-gray-600 dark:text-gray-300">{log.timestamp}</p>
                   </td>
-                  <td className="px-6 py-4">
-                    <p className="text-sm font-mono text-gray-600">{log.ipAddress}</p>
+                  <td className="py-4 px-4">
+                    <p className="text-sm font-mono text-gray-600 dark:text-gray-300">{log.ipAddress}</p>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="py-4 px-4">
                     <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getSeverityColor(log.severity)}`}>
                       {log.severity.toUpperCase()}
                     </span>
