@@ -393,7 +393,11 @@ export default function OwnerDashboard() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+        <nav className={`flex-1 p-4 space-y-2 overflow-y-auto ${
+          !sidebar 
+            ? "[&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]" 
+            : ""
+        }`}>
           {navItems.map((item) => {
             const Icon = item.icon;
             return (
@@ -679,24 +683,6 @@ export default function OwnerDashboard() {
             {page === "settings" && <SettingsPage />}
             {page === "audit" && <AuditLogsPage />}
             {page === "profile" && <ProfilePage />}
-          </div>
-        </div>
-
-        {/* FOOTER */}
-        <div className="bg-white border-t border-gray-200 px-6 py-4">
-          <div className="max-w-[1600px] mx-auto flex justify-between items-center text-sm text-gray-600">
-            <p> 2024 Staycation Haven. All rights reserved.</p>
-            <div className="flex gap-4">
-              <button className="hover:text-brand-primary transition-colors">
-                Help Center
-              </button>
-              <button className="hover:text-brand-primary transition-colors">
-                Privacy Policy
-              </button>
-              <button className="hover:text-brand-primary transition-colors">
-                Terms of Service
-              </button>
-            </div>
           </div>
         </div>
       </div>
