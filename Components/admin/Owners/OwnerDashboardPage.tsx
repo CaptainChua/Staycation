@@ -558,16 +558,7 @@ export default function OwnerDashboard() {
                   : ""}
               </p>
             </div>
-
-            <div className="ml-2 border-l border-gray-200 pl-4 h-10 flex flex-col justify-center">
-              <h1 className="text-2xl font-bold text-gray-800 leading-none">
-                {navItems.find((item) => item.id === page)?.label ||
-                  "Dashboard"}
-              </h1>
-              <p className="text-xs text-gray-500 mt-1">
-                Welcome back! Here&apos;s what&apos;s happening today.
-              </p>
-            </div>
+            {/* Module/Page title removed to match CSR header style */}
           </div>
 
           <div className="flex items-center gap-3">
