@@ -1,6 +1,6 @@
 "use client";
 
-import { LogOut, Menu, X, Home, Users, MessageSquare, Settings, Bell, UserCircle, ChevronDown, BarChart3, Calendar, DollarSign, Wrench, Star, Shield } from "lucide-react";
+import { LogOut, Menu, X, Home, Users, MessageSquare, Settings, Bell, UserCircle, ChevronDown, BarChart3, Calendar, DollarSign, Wrench, Star, Shield, TrendingUp, TrendingDown, Building2 } from "lucide-react";
 import DashboardPage, { Haven } from "./DashboardPage";
 import GuestAssistancePage from "./GuestAssistancePage";
 import AddUnitModal from "./Modals/AddUnitModal";
@@ -757,6 +757,76 @@ export default function OwnerDashboard() {
         isOpen={modals.policies}
         onClose={() => closeModal("policies")}
       />
+    </div>
+  );
+}
+
+// Placeholder component for Haven Management
+interface HavenManagementPlaceholderProps {
+  onAddHavenClick: () => void;
+  onViewAllClick: () => void;
+}
+
+function HavenManagementPlaceholder({ onAddHavenClick, onViewAllClick }: HavenManagementPlaceholderProps) {
+  const sampleHavens = ["Haven 1", "Haven 2", "Haven 3", "Haven 4"];
+  
+  // Stats cards matching Analytics page style
+  const stats = [
+    { label: "Total Units", value: sampleHavens.length.toString(), icon: Building2, color: "bg-green-500", change: "+2", trending: "up" },
+    { label: "Available Now", value: "3", icon: Home, color: "bg-blue-500", change: "+1", trending: "up" },
+    { label: "Maintenance", value: "1", icon: Wrench, color: "bg-indigo-500", change: "0", trending: "up" },
+    { label: "Occupied", value: "0", icon: Users, color: "bg-yellow-500", change: "-1", trending: "down" },
+  ];
+  
+  return (
+    <div className="space-y-6 animate-in fade-in duration-700">
+      {/* Header - Matching Analytics page style */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Haven Management</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage your property units, availability, pricing, and amenities</p>
+        </div>
+        <div className="flex gap-3">
+          <button
+            onClick={onViewAllClick}
+            className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+          >
+            View All Units
+          </button>
+          <button
+            onClick={onAddHavenClick}
+            className="px-4 py-2 bg-brand-primary hover:bg-brand-primaryDark text-white rounded-lg font-medium transition-all"
+          >
+            Add New Haven
+          </button>
+        </div>
+      </div>
+
+      {/* Stats Cards - Matching Analytics page style */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {stats.map((stat, index) => {
+          const IconComponent = stat.icon;
+          return (
+            <div
+              key={index}
+              className={`${stat.color} text-white rounded-lg p-6 shadow hover:shadow-lg transition-all`}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm opacity-90">{stat.label}</p>
+                  <p className="text-3xl font-bold mt-2">{stat.value}</p>
+                  {/* Show trend indicator below value */}
+                  <div className={`flex items-center gap-1 text-xs font-semibold mt-2 ${stat.trending === 'up' ? 'text-green-100' : 'text-red-100'}`}>
+                    {stat.trending === 'up' ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                    {stat.change}
+                  </div>
+                </div>
+                <IconComponent className="w-12 h-12 opacity-50" />
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

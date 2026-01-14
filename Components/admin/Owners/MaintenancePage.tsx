@@ -1,6 +1,6 @@
 'use client';
 
-import { Wrench, AlertCircle, CheckCircle, Clock } from "lucide-react";
+import { Wrench, AlertCircle, CheckCircle, Clock, TrendingUp, TrendingDown, ListTodo } from "lucide-react";
 import { useState } from "react";
 
 const MaintenancePage = () => {
@@ -50,21 +50,35 @@ const MaintenancePage = () => {
     },
   ];
 
+  // Calculate stats for cards matching Analytics page style
+  const totalRequests = maintenanceRequests.length;
+  const pendingCount = maintenanceRequests.filter(r => r.status === "pending").length;
+  const inProgressCount = maintenanceRequests.filter(r => r.status === "in-progress").length;
+  const completedCount = maintenanceRequests.filter(r => r.status === "completed").length;
+
+  // Stats cards matching Analytics page style with colored backgrounds
+  const stats = [
+    { label: "Total Requests", value: totalRequests.toString(), icon: ListTodo, color: "bg-green-500", change: "+2", trending: "up" },
+    { label: "Pending", value: pendingCount.toString(), icon: Clock, color: "bg-blue-500", change: "+1", trending: "up" },
+    { label: "In Progress", value: inProgressCount.toString(), icon: Wrench, color: "bg-indigo-500", change: "+1", trending: "up" },
+    { label: "Completed", value: completedCount.toString(), icon: CheckCircle, color: "bg-yellow-500", change: "+1", trending: "up" },
+  ];
+
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case "high": return "bg-red-100 text-red-700";
-      case "medium": return "bg-yellow-100 text-yellow-700";
-      case "low": return "bg-green-100 text-green-700";
-      default: return "bg-gray-100 text-gray-700";
+      case "high": return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300";
+      case "medium": return "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300";
+      case "low": return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300";
+      default: return "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300";
     }
   };
 
-  const getStatusIcon = (status: string) => {
+  const getStatusColor = (status: string) => {
     switch (status) {
-      case "pending": return <Clock className="w-5 h-5 text-yellow-500" />;
-      case "in-progress": return <Wrench className="w-5 h-5 text-blue-500" />;
-      case "completed": return <CheckCircle className="w-5 h-5 text-green-500" />;
-      default: return <AlertCircle className="w-5 h-5 text-gray-500" />;
+      case "pending": return "text-yellow-600 dark:text-yellow-400";
+      case "in-progress": return "text-blue-600 dark:text-blue-400";
+      case "completed": return "text-green-600 dark:text-green-400";
+      default: return "text-gray-600 dark:text-gray-400";
     }
   };
 
@@ -72,86 +86,134 @@ const MaintenancePage = () => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-700">
-      <div className="flex justify-between items-center">
+      {/* Header - Matching Analytics page style */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">Maintenance</h1>
-          <p className="text-gray-600">Track and manage maintenance requests</p>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Maintenance</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Track and manage maintenance requests</p>
         </div>
-        <button className="px-6 py-3 bg-gradient-to-r from-orange-500 to-yellow-500 text-white rounded-lg font-semibold hover:shadow-lg transition-all">
-          + New Request
-        </button>
       </div>
 
-      {/* Filters */}
-      <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
-        <div className="flex gap-2 overflow-x-auto">
-          {["all", "pending", "in-progress", "completed"].map((status) => (
-            <button
-              key={status}
-              onClick={() => setFilter(status)}
-              className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-all ${
-                filter === status ? "bg-orange-500 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-              }`}
+      {/* Stats Cards - Matching Analytics page style */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {stats.map((stat, index) => {
+          const IconComponent = stat.icon;
+          return (
+            <div
+              key={index}
+              className={`${stat.color} text-white rounded-lg p-6 shadow hover:shadow-lg transition-all`}
             >
-              {status.charAt(0).toUpperCase() + status.slice(1).replace("-", " ")}
-            </button>
-          ))}
-        </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm opacity-90">{stat.label}</p>
+                  <p className="text-3xl font-bold mt-2">{stat.value}</p>
+                  {/* Show trend indicator below value */}
+                  <div className={`flex items-center gap-1 text-xs font-semibold mt-2 ${stat.trending === 'up' ? 'text-green-100' : 'text-red-100'}`}>
+                    {stat.trending === 'up' ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                    {stat.change}
+                  </div>
+                </div>
+                <IconComponent className="w-12 h-12 opacity-50" />
+              </div>
+            </div>
+          );
+        })}
       </div>
 
-      {/* Requests */}
-      <div className="space-y-4">
-        {filtered.map((request) => (
-          <div key={request.id} className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-start gap-3">
-                {getStatusIcon(request.status)}
-                <div>
-                  <h3 className="text-lg font-bold text-gray-800">{request.issue}</h3>
-                  <p className="text-sm text-gray-600">{request.haven}</p>
-                </div>
-              </div>
-              <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getPriorityColor(request.priority)}`}>
-                {request.priority.toUpperCase()}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-              <div>
-                <p className="text-gray-500 mb-1">Request ID</p>
-                <p className="font-semibold text-gray-800">{request.id}</p>
-              </div>
-              <div>
-                <p className="text-gray-500 mb-1">Reported By</p>
-                <p className="font-semibold text-gray-800">{request.reportedBy}</p>
-              </div>
-              <div>
-                <p className="text-gray-500 mb-1">Assigned To</p>
-                <p className="font-semibold text-gray-800">{request.assignedTo}</p>
-              </div>
-              <div>
-                <p className="text-gray-500 mb-1">Date</p>
-                <p className="font-semibold text-gray-800">{new Date(request.reportedDate).toLocaleDateString()}</p>
-              </div>
-            </div>
-
-            <div className="flex gap-2 mt-4">
-              {request.status === "pending" && (
-                <button className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
-                  Assign Team
-                </button>
-              )}
-              {request.status === "in-progress" && (
-                <button className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors">
-                  Mark Complete
-                </button>
-              )}
-              <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
-                View Details
+      {/* Maintenance Requests - Matching Analytics page table style */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden">
+        <div className="p-4 border-b-2 border-gray-200 dark:border-gray-600 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">Maintenance Requests</h2>
+          {/* Filters - Matching Analytics page styling */}
+          <div className="flex gap-2 overflow-x-auto">
+            {["all", "pending", "in-progress", "completed"].map((status) => (
+              <button
+                key={status}
+                onClick={() => setFilter(status)}
+                className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-all text-sm ${
+                  filter === status 
+                    ? "bg-brand-primary text-white" 
+                    : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                }`}
+              >
+                {status.charAt(0).toUpperCase() + status.slice(1).replace("-", " ")}
               </button>
-            </div>
+            ))}
           </div>
-        ))}
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 border-b-2 border-gray-200 dark:border-gray-600">
+              <tr>
+                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                  Request ID
+                </th>
+                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                  Issue
+                </th>
+                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                  Haven
+                </th>
+                <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                  Status
+                </th>
+                <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                  Priority
+                </th>
+                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                  Assigned To
+                </th>
+                <th className="text-right py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                  Date
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-8 text-center text-gray-500 dark:text-gray-400">
+                    No maintenance requests available.
+                  </td>
+                </tr>
+              ) : (
+                filtered.map((request) => (
+                  <tr
+                    key={request.id}
+                    className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    <td className="py-4 px-4">
+                      <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{request.id}</span>
+                    </td>
+                    <td className="py-4 px-4">
+                      <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{request.issue}</span>
+                    </td>
+                    <td className="py-4 px-4">
+                      <span className="text-sm text-gray-700 dark:text-gray-300">{request.haven}</span>
+                    </td>
+                    <td className="py-4 px-4 text-center">
+                      <span className={`text-sm font-semibold ${getStatusColor(request.status)}`}>
+                        {request.status.charAt(0).toUpperCase() + request.status.slice(1).replace("-", " ")}
+                      </span>
+                    </td>
+                    <td className="py-4 px-4 text-center">
+                      <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${getPriorityColor(request.priority)}`}>
+                        {request.priority.toUpperCase()}
+                      </span>
+                    </td>
+                    <td className="py-4 px-4">
+                      <span className="text-sm text-gray-700 dark:text-gray-300">{request.assignedTo}</span>
+                    </td>
+                    <td className="py-4 px-4 text-right">
+                      <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                        {new Date(request.reportedDate).toLocaleDateString()}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

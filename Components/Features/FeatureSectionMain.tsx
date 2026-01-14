@@ -83,7 +83,7 @@ const FeatureSectionMain = () => {
           ))}
         </div>
 
-        {/* CTA Section */}
+
         <div
           className="mt-16 sm:mt-20 lg:mt-24 bg-gradient-to-r from-orange-500 to-yellow-500 rounded-lg shadow-2xl p-8 sm:p-12 lg:p-16 text-center animate-in fade-in slide-in-from-bottom duration-700"
           style={{ animationDelay: "1000ms" }}
