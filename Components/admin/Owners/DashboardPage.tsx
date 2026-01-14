@@ -24,10 +24,11 @@ import {
 } from "recharts";
 import { useGetRoomBookingsQuery } from "@/redux/api/bookingsApi";
 
-export interface Haven {
-  uuid_id: string;
-  haven_name?: string;
+// Import Haven type from parent component to ensure consistency
+type Haven = {
   id?: number;
+  uuid_id?: string;
+  haven_name: string;
   name?: string;
   tower: string;
   floor: string;
@@ -51,9 +52,8 @@ export interface Haven {
     from_date: string;
     to_date: string;
   }>;
-  status?: "available" | "booked" | "blocked" | "past";
   [key: string]: unknown;
-}
+};
 
 interface Booking {
   check_in_date: string;
@@ -104,9 +104,9 @@ useEffect(() => {
 
   // Fetch bookings for the selected haven with polling to auto-refresh
   const { data: bookingsData } = useGetRoomBookingsQuery(
-    (selectedHaven as Haven)?.uuid_id || '',
+    selectedHaven?.uuid_id || '',
     {
-      skip: !(selectedHaven as Haven)?.uuid_id,
+      skip: !selectedHaven?.uuid_id,
       pollingInterval: 30000 // Refresh every 30 seconds
     }
   );
@@ -150,9 +150,8 @@ useEffect(() => {
 
   // Helper function to check if a date is blocked
   const isDateBlocked = (date: Date) => {
-    const selectedHavenTyped = selectedHaven as Haven;
-    if (!selectedHavenTyped?.blocked_dates) return false;
-    return selectedHavenTyped.blocked_dates.some((blocked) => {
+    if (!selectedHaven?.blocked_dates) return false;
+    return selectedHaven.blocked_dates.some((blocked) => {
       const fromDate = new Date(blocked.from_date);
       fromDate.setHours(0, 0, 0, 0);
 
@@ -312,16 +311,16 @@ useEffect(() => {
               Select Haven
             </label>
             <select
-              value={(selectedHaven as Haven)?.uuid_id || ''}
+              value={selectedHaven?.uuid_id || ''}
               onChange={(e) => {
-                const selected = (havens as Haven[]).find((h) => h.uuid_id === e.target.value);
+                const selected = havens.find((h) => h.uuid_id === e.target.value);
                 if (selected) {
                   setSelectedHaven(selected);
                 }
               }}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
             >
-              {(havens as Haven[]).map((h) => (
+              {havens.map((h) => (
                 <option key={h.uuid_id} value={h.uuid_id}>
                   {h.haven_name || h.name}
                 </option>
