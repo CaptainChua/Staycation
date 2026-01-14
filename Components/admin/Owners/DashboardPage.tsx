@@ -71,7 +71,7 @@ interface DashboardPageProps {
   onPaymentClick: () => void;
   onBookingClick: () => void;
   onPoliciesClick: () => void;
-  onDateClick: (date: Date, havenName: string) => void;
+  onDateClick: (date: Date, haven: Haven) => void;
   havens: Haven[];
 }
 
@@ -200,7 +200,7 @@ useEffect(() => {
       day.date
     );
     if (selectedHaven) {
-      onDateClick(clickedDate, selectedHaven.haven_name || selectedHaven.name || '');
+      onDateClick(clickedDate, selectedHaven);
     }
   };
 
