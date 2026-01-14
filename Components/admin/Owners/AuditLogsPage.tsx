@@ -1,6 +1,6 @@
 'use client';
 
-import { Shield, User, Calendar, Activity, Filter, TrendingUp, TrendingDown } from "lucide-react";
+import { Shield, User, Calendar, Activity, Filter, TrendingUp, TrendingDown, Lock, Plus, Pencil, Trash2, FileText } from "lucide-react";
 import { useState } from "react";
 
 const AuditLogsPage = () => {
@@ -109,11 +109,11 @@ const AuditLogsPage = () => {
 
   const getTypeIcon = (type: string) => {
     switch (type) {
-      case "auth": return "🔐";
-      case "create": return "➕";
-      case "update": return "✏️";
-      case "delete": return "🗑️";
-      default: return "📝";
+      case "auth": return <Lock className="w-5 h-5 text-blue-500" />;
+      case "create": return <Plus className="w-5 h-5 text-green-500" />;
+      case "update": return <Pencil className="w-5 h-5 text-amber-500" />;
+      case "delete": return <Trash2 className="w-5 h-5 text-red-500" />;
+      default: return <FileText className="w-5 h-5 text-gray-500" />;
     }
   };
 
@@ -234,7 +234,9 @@ const AuditLogsPage = () => {
                   className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
                   <td className="py-4 px-4">
-                    <span className="text-2xl">{getTypeIcon(log.type)}</span>
+                    <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg inline-block">
+                      {getTypeIcon(log.type)}
+                    </div>
                   </td>
                   <td className="py-4 px-4">
                     <p className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{log.action}</p>
