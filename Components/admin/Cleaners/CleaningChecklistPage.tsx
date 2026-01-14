@@ -1,10 +1,10 @@
 "use client";
 
-import { CheckCircle2, Circle, BedDouble, Bath, ChefHat, Sofa, Trash2, Sparkles } from "lucide-react";
+import { CheckCircle2, Circle, BedDouble, Bath, ChefHat, Sofa, Sparkles } from "lucide-react";
 import { useState } from "react";
 
 export default function CleaningChecklistPage() {
-  const [selectedHaven, setSelectedHaven] = useState("Haven 3");
+  const [selectedHaven] = useState("Haven 3");
 
   const [checklist, setChecklist] = useState([
     {

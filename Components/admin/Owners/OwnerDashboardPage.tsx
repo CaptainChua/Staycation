@@ -1,7 +1,7 @@
 "use client";
 
 import { LogOut, Menu, X, Home, Users, MessageSquare, Settings, Bell, UserCircle, ChevronDown, BarChart3, Calendar, DollarSign, Wrench, Star, Shield } from "lucide-react";
-import DashboardPage from "./DashboardPage";
+import DashboardPage, { Haven } from "./DashboardPage";
 import GuestAssistancePage from "./GuestAssistancePage";
 import AddUnitModal from "./Modals/AddUnitModal";
 import BookingModalSetting from "./Modals/BookingModalSetting";
@@ -22,6 +22,7 @@ import ReviewsPage from "./ReviewsPage";
 import SettingsPage from "./SettingsPage";
 import AuditLogsPage from "./AuditLogsPage";
 import MessagesPage from "./MessagesPage";
+import AdminFooter from "../AdminFooter";
 import toast from 'react-hot-toast';
 import { useState, useEffect, useRef } from "react";
 import { signOut, useSession } from "next-auth/react";
@@ -642,11 +643,11 @@ export default function OwnerDashboard() {
                 onBookingClick={() => openModal("booking")}
                 onPoliciesClick={() => openModal("policies")}
                 havens={havens}
-                onDateClick={(date: Date, havenName: string) => {
+                onDateClick={(date: Date, haven: Haven) => {
                   setBookingDateModal({
                     isOpen: true,
                     selectedDate: date,
-                    havenName: havenName,
+                    havenName: haven.haven_name || haven.name || 'Unknown Haven',
                   });
                 }}
               />
@@ -699,6 +700,7 @@ export default function OwnerDashboard() {
             </div>
           </div>
         </div>
+        <AdminFooter />
       </div>
 
       {/* MODALS */}

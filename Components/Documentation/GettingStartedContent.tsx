@@ -2,13 +2,10 @@
 
 import React from 'react';
 import {
-  GitBranch,
   Download,
   CheckCircle2,
   AlertTriangle,
   Info,
-  Terminal,
-  RefreshCw,
   Play
 } from 'lucide-react';
 

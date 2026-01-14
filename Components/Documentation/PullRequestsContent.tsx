@@ -83,7 +83,7 @@ export default function PullRequestsContent() {
         <div className="bg-white dark:bg-gray-800 border border-yellow-400 dark:border-yellow-600 rounded p-4 mb-3">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <span className="text-sm md:text-base text-gray-700 dark:text-gray-300">
-              <strong>feature/add-contact-form</strong> had recent pushes 2 minutes ago
+              <strong>feature-add-contact-form</strong> had recent pushes 2 minutes ago
             </span>
             <button className="bg-green-600 text-white px-4 py-2 rounded font-semibold text-sm md:text-base">
               Compare & pull request
@@ -190,7 +190,7 @@ This PR adds a contact form component to the contact page with email validation.
           <div className="flex-1 w-full">
             <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">compare:</label>
             <select className="w-full border border-gray-300 dark:border-gray-600 rounded px-3 py-2 text-sm md:text-base">
-              <option>feature/add-contact-form</option>
+              <option>feature-add-contact-form</option>
             </select>
           </div>
         </div>

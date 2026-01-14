@@ -28,64 +28,103 @@ export const authOptions: NextAuthOptions = {
             throw new Error("Email and password are required");
           }
 
-          // Check employee table
+          // First check employee table (for admin/staff users)
           console.log("📊 Querying employees table...");
-          const result = await pool.query(
+          const employeeResult = await pool.query(
             "SELECT id, email, password, role, first_name, last_name FROM employees WHERE email = $1",
             [credentials.email]
           );
-          
-          console.log("📊 Query returned", result.rows.length, "rows");
-          const user = result.rows[0];
 
-          if (!user) {
-            console.log("❌ User not found");
+          if (employeeResult.rows.length > 0) {
+            const user = employeeResult.rows[0];
+            console.log("✅ Employee found:", user.email, "- Role:", user.role);
+
+            // Verify password
+            console.log("🔒 Verifying password...");
+            const isValid = await bcrypt.compare(credentials.password, user.password);
+
+            if (!isValid) {
+              console.log("❌ Invalid password");
+              throw new Error("Invalid email or password");
+            }
+
+            console.log("✅ Password valid! Employee login successful");
+
+            // Create activity log for employee login
+            try {
+              await pool.query(
+                `INSERT INTO staff_activity_logs (employment_id, action_type, action, details, created_at)
+                 VALUES ($1, $2, $3, $4, NOW())`,
+                [
+                  user.id,
+                  'login',
+                  'Logged into system',
+                  `${user.first_name} ${user.last_name} logged in successfully via NextAuth`
+                ]
+              );
+              console.log('✅ Activity log created for employee login');
+            } catch (logError: unknown) {
+              const error = logError as { message?: string; code?: string; detail?: string };
+              console.error('❌ Failed to create activity log:', logError);
+              console.error('Error details:', {
+                message: error?.message,
+                code: error?.code,
+                detail: error?.detail
+              });
+            }
+
+            // Return employee user object
+            return {
+              id: String(user.id),
+              email: user.email,
+              name: `${user.first_name} ${user.last_name}`,
+              role: user.role,
+            };
+          }
+
+          // If not found in employees, check users table (for regular users)
+          console.log("📊 Querying users table...");
+          const userResult = await pool.query(
+            "SELECT user_id, email, password, user_role, name FROM users WHERE email = $1",
+            [credentials.email]
+          );
+
+          if (userResult.rows.length === 0) {
+            console.log("❌ User not found in any table");
             throw new Error("Invalid email or password");
           }
 
-          console.log("✅ User found:", user.email, "- Role:", user.role);
-          
+          const user = userResult.rows[0];
+          console.log("✅ User found:", user.email, "- Role:", user.user_role);
+
           // Verify password
           console.log("🔒 Verifying password...");
           const isValid = await bcrypt.compare(credentials.password, user.password);
-          
+
           if (!isValid) {
             console.log("❌ Invalid password");
             throw new Error("Invalid email or password");
           }
 
-          console.log("✅ Password valid! Login successful");
+          console.log("✅ Password valid! User login successful");
 
-          // Create activity log for login
+          // Update last_login timestamp
           try {
             await pool.query(
-              `INSERT INTO staff_activity_logs (employment_id, action_type, action, details, created_at)
-               VALUES ($1, $2, $3, $4, NOW())`,
-              [
-                user.id,
-                'login',
-                'Logged into system',
-                `${user.first_name} ${user.last_name} logged in successfully via NextAuth`
-              ]
+              "UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE user_id = $1",
+              [user.user_id]
             );
-            console.log('✅ Activity log created for login');
-          } catch (logError: unknown) {
-            const error = logError as { message?: string; code?: string; detail?: string };
-            console.error('❌ Failed to create activity log:', logError);
-            console.error('Error details:', {
-              message: error?.message,
-              code: error?.code,
-              detail: error?.detail
-            });
-            // Don't fail the login if activity log creation fails
+            console.log("✅ Updated last_login for user");
+          } catch (updateError) {
+            console.error("❌ Failed to update last_login:", updateError);
           }
 
-          // Return user object
+          // Return regular user object
           return {
-            id: String(user.id),  // ✅ Convert to string
+            id: String(user.user_id),
             email: user.email,
-            name: `${user.first_name} ${user.last_name}`,
-            role: user.role,
+            name: user.name,
+            role: user.user_role,
           };
         } catch (error: unknown) {
           const authError = error as { message?: string; stack?: string };
@@ -104,9 +143,9 @@ export const authOptions: NextAuthOptions = {
   },
 
   callbacks: {
-    async signIn({ user, account, profile }) {
+    async signIn({ user, account, profile, credentials }) {
       try {
-        // Only process Google sign-ins
+        // Handle Google sign-ins
         if (account?.provider === "google" && profile?.sub) {
           await upsertUser({
             googleId: profile.sub,
@@ -115,6 +154,76 @@ export const authOptions: NextAuthOptions = {
             picture: user.image || undefined,
           });
           console.log("✅ User saved to database:", user.email);
+        } else {
+          // Handle regular credential sign-ins
+          console.log("🔐 Processing credentials login for:", credentials?.email);
+
+          // Check regular users table (not employees)
+          console.log("📊 Querying users table...");
+          const userResult = await pool.query(
+            "SELECT user_id, email, password, user_role, name FROM users WHERE email = $1",
+            [credentials?.email || '']
+          );
+
+          if (userResult.rows.length === 0) {
+            console.log("❌ User not found in users table");
+            throw new Error("Invalid email or password");
+          }
+
+          const user = userResult.rows[0];
+          console.log("✅ User found:", user.email, "- Role:", user.user_role);
+
+          // Verify password
+          console.log("🔒 Verifying password...");
+          const isValid = await bcrypt.compare(
+            String(credentials?.password || ''), 
+            String(user.password)
+          );
+
+          if (!isValid) {
+            console.log("❌ Invalid password");
+            throw new Error("Invalid email or password");
+          }
+
+          console.log("✅ Password valid! User login successful");
+
+          // Create activity log for regular user login
+          try {
+            await pool.query(
+              `INSERT INTO staff_activity_logs (user_id, action_type, action, details, created_at)
+               VALUES ($1, $2, $3, $4, NOW())`,
+              [
+                user.user_id,
+                'login',
+                'Logged into system',
+                `${user.name} logged in successfully via NextAuth`
+              ]
+            );
+            console.log('✅ Activity log created for user login');
+          } catch (logError) {
+            const error = logError as { message?: string; code?: string; detail?: string };
+            console.error('❌ Failed to create activity log:', logError);
+            console.error('Error details:', {
+              message: error?.message,
+              code: error?.code,
+              detail: error?.detail
+            });
+          }
+
+          // Update last_login timestamp
+          try {
+            await pool.query(
+              "UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE user_id = $1",
+              [user.user_id]
+            );
+            console.log("✅ Updated last_login for user");
+          } catch (updateError) {
+            console.error("❌ Failed to update last_login:", updateError);
+          }
+
+          // Return true to allow sign in
+          console.log("✅ Credentials authentication successful for:", user.email);
+          return true;
         }
         return true;
       } catch (error) {
@@ -122,7 +231,7 @@ export const authOptions: NextAuthOptions = {
         return true;
       }
     },
-    
+
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;

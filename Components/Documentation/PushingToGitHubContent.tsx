@@ -74,7 +74,7 @@ export default function PushingToGitHubContent() {
           <h3 className="text-base md:text-lg font-semibold text-green-800 dark:text-green-300">You should see:</h3>
         </div>
         <div className="bg-white dark:bg-gray-800 p-4 rounded border border-green-300 dark:border-green-700 font-mono text-xs md:text-sm text-gray-700 dark:text-gray-300 overflow-x-auto">
-          On branch feature/add-contact-form<br />
+          On branch feature-add-contact-form<br />
           nothing to commit, working tree clean
         </div>
         <p className="text-sm md:text-base text-green-800 dark:text-green-300 mt-3">
@@ -110,7 +110,7 @@ export default function PushingToGitHubContent() {
       <div className="bg-gray-900 text-gray-100 p-4 md:p-6 rounded-lg mb-6 font-mono text-xs md:text-sm overflow-x-auto">
         <div className="flex items-center gap-2 mb-2">
           <span className="text-green-400">$</span>
-          <span>git push origin feature/your-branch-name</span>
+          <span>git push origin feature-your-branch-name</span>
         </div>
       </div>
 
@@ -130,7 +130,7 @@ export default function PushingToGitHubContent() {
           </li>
           <li className="flex gap-2">
             <span className="text-purple-600 dark:text-purple-400">•</span>
-            <span><code className="bg-white dark:bg-gray-800 px-2 py-1 rounded text-sm">feature/your-branch-name</code> = The branch you want to push</span>
+            <span><code className="bg-white dark:bg-gray-800 px-2 py-1 rounded text-sm">feature-your-branch-name</code> = The branch you want to push</span>
           </li>
         </ul>
       </div>
@@ -142,7 +142,7 @@ export default function PushingToGitHubContent() {
 
       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-4 md:p-5 rounded-lg mb-6">
         <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded font-mono text-xs md:text-sm text-gray-700 dark:text-gray-300 overflow-x-auto">
-          fatal: The current branch feature/add-contact-form has no upstream branch.
+          fatal: The current branch feature-add-contact-form has no upstream branch.
         </div>
       </div>
 
@@ -153,7 +153,7 @@ export default function PushingToGitHubContent() {
       <div className="bg-gray-900 text-gray-100 p-4 md:p-6 rounded-lg mb-6 font-mono text-xs md:text-sm overflow-x-auto">
         <div className="flex items-center gap-2 mb-2">
           <span className="text-green-400">$</span>
-          <span>git push -u origin feature/your-branch-name</span>
+          <span>git push -u origin feature-your-branch-name</span>
         </div>
       </div>
 
@@ -174,7 +174,7 @@ export default function PushingToGitHubContent() {
 
       <h2 className="text-xl md:text-2xl font-semibold text-gray-800 dark:text-gray-100 mt-8 mb-4">Real Example</h2>
       <p className="text-sm md:text-base text-gray-700 dark:text-gray-300 leading-relaxed mb-4">
-        Let's say you're on <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-sm">feature/add-contact-form</code>.
+        Let's say you're on <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-sm">feature-add-contact-form</code>.
         Here's the complete workflow:
       </p>
 
@@ -188,14 +188,14 @@ export default function PushingToGitHubContent() {
             </div>
           </div>
           <div className="mt-3 text-gray-300 text-xs">
-            On branch feature/add-contact-form<br />
+            On branch feature-add-contact-form<br />
             nothing to commit, working tree clean
           </div>
           <div>
             <div className="text-gray-400 text-xs mb-1 mt-4"># 2. Push to GitHub (first time)</div>
             <div className="flex items-center gap-2">
               <span className="text-green-400">$</span>
-              <span>git push -u origin feature/add-contact-form</span>
+              <span>git push -u origin feature-add-contact-form</span>
             </div>
           </div>
           <div className="mt-3 text-green-300 text-xs">
@@ -206,7 +206,7 @@ export default function PushingToGitHubContent() {
             Writing objects: 100% (8/8), 1.23 KiB | 1.23 MiB/s, done.<br />
             Total 8 (delta 4), reused 0 (delta 0)<br />
             To https://github.com/your-team/Staycation.git<br />
-            * [new branch]      feature/add-contact-form -&gt; feature/add-contact-form
+            * [new branch]      feature-add-contact-form -&gt; feature-add-contact-form
           </div>
         </div>
       </div>
@@ -300,7 +300,7 @@ export default function PushingToGitHubContent() {
             <div className="text-gray-400 mb-1">First time pushing a new branch:</div>
             <div className="flex items-center gap-2">
               <span className="text-green-400">$</span>
-              <span>git push -u origin feature/branch-name</span>
+              <span>git push -u origin feature-branch-name</span>
             </div>
           </div>
           <div>
@@ -314,7 +314,7 @@ export default function PushingToGitHubContent() {
             <div className="text-gray-400 mb-1">Or be explicit every time:</div>
             <div className="flex items-center gap-2">
               <span className="text-green-400">$</span>
-              <span>git push origin feature/branch-name</span>
+              <span>git push origin feature-branch-name</span>
             </div>
           </div>
         </div>

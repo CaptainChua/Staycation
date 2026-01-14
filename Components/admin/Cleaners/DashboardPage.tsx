@@ -1,6 +1,6 @@
 "use client";
 
-import { Sparkles, ClipboardList, CheckCircle, Clock, AlertTriangle } from "lucide-react";
+import { ClipboardList, CheckCircle, Clock, AlertTriangle } from "lucide-react";
 
 export default function DashboardPage() {
   const stats = [
@@ -69,7 +69,7 @@ export default function DashboardPage() {
       {/* Recent Tasks */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-6">
         <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4">
-          Today's Schedule
+          Today&apos;s Schedule
         </h2>
         <div className="space-y-3">
           {recentTasks.map((task, index) => (

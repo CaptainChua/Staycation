@@ -56,7 +56,7 @@ export default function QuickReferenceContent() {
             </div>
             <div>
               <div className="bg-gray-900 text-gray-100 p-4 rounded-lg font-mono text-sm mb-2">
-                git checkout -b feature/branch-name
+                git checkout -b feature-branch-name
               </div>
               <p className="text-gray-700 text-sm">Create and switch to a new feature branch</p>
             </div>
@@ -116,7 +116,7 @@ export default function QuickReferenceContent() {
           <div className="p-6 space-y-4">
             <div>
               <div className="bg-gray-900 text-gray-100 p-4 rounded-lg font-mono text-sm mb-2">
-                git push -u origin feature/branch-name
+                git push -u origin feature-branch-name
               </div>
               <p className="text-gray-700 text-sm">Push a new branch for the first time</p>
             </div>
@@ -141,7 +141,7 @@ export default function QuickReferenceContent() {
             <div className="text-gray-400 mt-3"># 2. Get latest changes</div>
             <div>git pull origin develop</div>
             <div className="text-gray-400 mt-3"># 3. Create your feature branch</div>
-            <div>git checkout -b feature/your-task-name</div>
+            <div>git checkout -b feature-your-task-name</div>
             <div className="text-gray-400 mt-3"># 4. Verify you're on the new branch</div>
             <div>git branch</div>
           </div>
@@ -165,7 +165,7 @@ export default function QuickReferenceContent() {
           <h3 className="text-xl font-semibold text-purple-900 mb-4 flex items-center gap-2"><Cloud className="w-5 h-5" /> Pushing to GitHub</h3>
           <div className="bg-gray-900 text-gray-100 p-5 rounded-lg font-mono text-sm space-y-2">
             <div className="text-gray-400"># First time pushing this branch</div>
-            <div>git push -u origin feature/your-branch-name</div>
+            <div>git push -u origin feature-your-branch-name</div>
             <div className="text-gray-400 mt-3"># Future pushes (after using -u once)</div>
             <div>git push</div>
           </div>
