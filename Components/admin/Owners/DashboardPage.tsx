@@ -8,6 +8,9 @@ import {
   Settings,
   TrendingUp,
   FileText,
+  Users,
+  Target,
+  Clock,
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import {
@@ -21,18 +24,49 @@ import {
 } from "recharts";
 import { useGetRoomBookingsQuery } from "@/redux/api/bookingsApi";
 
+<<<<<<< HEAD
 // Define types for the component
 export interface Haven {
   uuid_id: string;
   haven_name?: string;
+=======
+// Import Haven type from parent component to ensure consistency
+type Haven = {
+  id?: number;
+  uuid_id?: string;
+  haven_name: string;
+>>>>>>> e76881a6da5d5c249ef50ec8e0488629d91e765c
   name?: string;
+  tower: string;
+  floor: string;
+  view_type?: string;
+  capacity?: number;
+  room_size?: number;
+  beds?: string;
+  description?: string;
+  youtube_url?: string;
+  six_hour_rate?: number;
+  ten_hour_rate?: number;
+  weekday_rate?: number;
+  weekend_rate?: number;
+  six_hour_check_in?: string;
+  ten_hour_check_in?: string;
+  twenty_one_hour_check_in?: string;
+  amenities?: any;
+  created_at?: string;
+  updated_at?: string;
   blocked_dates?: Array<{
     from_date: string;
     to_date: string;
   }>;
+<<<<<<< HEAD
   status?: "available" | "booked" | "blocked" | "past";
   [key: string]: unknown;
 }
+=======
+  [key: string]: unknown;
+};
+>>>>>>> e76881a6da5d5c249ef50ec8e0488629d91e765c
 
 interface Booking {
   check_in_date: string;
@@ -50,7 +84,7 @@ interface DashboardPageProps {
   onPaymentClick: () => void;
   onBookingClick: () => void;
   onPoliciesClick: () => void;
-  onDateClick: (date: Date, haven: Haven) => void;
+  onDateClick: (date: Date, havenName: string) => void;
   havens: Haven[];
 }
 
@@ -59,8 +93,8 @@ const DashboardPage = ({
   onPaymentClick,
   onBookingClick,
   onPoliciesClick,
-  havens,
   onDateClick,
+  havens,
 }: DashboardPageProps) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedHaven, setSelectedHaven] = useState<Haven | null>(null);
@@ -71,7 +105,11 @@ useEffect(() => {
   if (havens.length > 0 && !selectedHaven && !hasSetInitialHaven.current) {
     // Check if the value would actually change
     const newHaven = havens[0] as Haven;
+<<<<<<< HEAD
     const shouldUpdate = !selectedHaven || (selectedHaven && (selectedHaven as Haven).uuid_id !== (newHaven as Haven).uuid_id);
+=======
+    const shouldUpdate = !selectedHaven || ((selectedHaven as Haven).uuid_id !== newHaven.uuid_id);
+>>>>>>> e76881a6da5d5c249ef50ec8e0488629d91e765c
     
     if (shouldUpdate) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -180,7 +218,7 @@ useEffect(() => {
       day.date
     );
     if (selectedHaven) {
-      onDateClick(clickedDate, selectedHaven);
+      onDateClick(clickedDate, selectedHaven.haven_name || selectedHaven.name || '');
     }
   };
 
@@ -212,7 +250,7 @@ useEffect(() => {
   interface KpiItem {
     title: string;
     value: string;
-    icon: string;
+    icon: any; // Lucide React icon component
     color: string;
   }
 
@@ -220,25 +258,25 @@ useEffect(() => {
     {
       title: "Total Revenue",
       value: "₱121,000",
-      icon: "💰",
+      icon: DollarSign,
       color: "bg-blue-500"
     },
     {
       title: "Occupancy",
       value: "78%",
-      icon: "👥",
+      icon: Users,
       color: "bg-green-500",
     },
     { 
       title: "Pending", 
       value: "12", 
-      icon: "⏳", 
+      icon: Clock, 
       color: "bg-orange-500" 
     },
     {
       title: "Target",
       value: "₱30,000",
-      icon: "🎯",
+      icon: Target,
       color: "bg-purple-500",
     },
   ];
@@ -246,17 +284,24 @@ useEffect(() => {
   return (
     <div className="space-y-6 animate-in fade-in duration-700">
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {kpis.map((kpi, i) => (
-          <div
-            key={kpi.title}
-            className={`${kpi.color} text-white rounded-lg p-6 shadow hover:shadow-lg animate-in fade-in slide-in-from-bottom duration-500`}
-            style={{ animationDelay: `${i * 100}ms` }}
-          >
-            <p className="text-sm opacity-90">{kpi.title}</p>
-            <p className="text-3xl font-bold mt-2">{kpi.value}</p>
-            <p className="text-2xl mt-2">{kpi.icon}</p>
-          </div>
-        ))}
+        {kpis.map((kpi, i) => {
+          const IconComponent = kpi.icon;
+          return (
+            <div
+              key={kpi.title}
+              className={`${kpi.color} text-white rounded-lg p-6 shadow hover:shadow-lg animate-in fade-in slide-in-from-bottom duration-500`}
+              style={{ animationDelay: `${i * 100}ms` }}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm opacity-90">{kpi.title}</p>
+                  <p className="text-3xl font-bold mt-2">{kpi.value}</p>
+                </div>
+                <IconComponent className="w-12 h-12 opacity-50" />
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

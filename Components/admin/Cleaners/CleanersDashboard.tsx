@@ -100,10 +100,10 @@ export default function CleanersDashboard() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const savedPage = window.localStorage.getItem(ACTIVE_PAGE_STORAGE_KEY);
-    if (savedPage && savedPage !== page) {
+    if (savedPage) {
       setPage(savedPage);
     }
-  }, [page]);
+  }, []);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {

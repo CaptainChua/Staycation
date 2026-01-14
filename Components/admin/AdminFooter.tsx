@@ -1,18 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTheme } from "next-themes";
 import { Sun, Moon, Monitor } from "lucide-react";
 import Link from "next/link";
 
 const AdminFooter = () => {
   const { theme, setTheme } = useTheme();
-  const [mounted] = useState(() => {
-    if (typeof window !== "undefined") {
-      return true;
-    }
-    return false;
-  });
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <div className="bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 px-6 py-4">
@@ -25,8 +24,8 @@ const AdminFooter = () => {
           </p>
 
           {/* Center: Theme Toggle */}
-          {mounted && (
-            <div className="flex justify-center order-1 lg:order-2">
+          <div className="flex justify-center order-1 lg:order-2">
+            {mounted ? (
               <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 rounded-full p-1">
                 <button
                   onClick={() => setTheme("dark")}
@@ -65,8 +64,14 @@ const AdminFooter = () => {
                   <Monitor className="w-4 h-4" />
                 </button>
               </div>
-            </div>
-          )}
+            ) : (
+              <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 rounded-full p-1">
+                <div className="w-7 h-7 bg-gray-300 dark:bg-gray-600 rounded-full animate-pulse"></div>
+                <div className="w-7 h-7 bg-gray-300 dark:bg-gray-600 rounded-full animate-pulse"></div>
+                <div className="w-7 h-7 bg-gray-300 dark:bg-gray-600 rounded-full animate-pulse"></div>
+              </div>
+            )}
+          </div>
 
           {/* Right: Links */}
           <div className="flex flex-wrap justify-center lg:justify-end items-center gap-x-3 sm:gap-x-4 gap-y-2 text-xs sm:text-sm order-3">

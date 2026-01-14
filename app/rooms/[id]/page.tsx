@@ -203,7 +203,11 @@ import RoomDetailsSkeleton from "@/Components/Rooms/RoomDetailsSkeleton";
 interface Props {
   params: Promise<{
     id: string;
+<<<<<<< HEAD
   }>;
+=======
+  }>
+>>>>>>> e76881a6da5d5c249ef50ec8e0488629d91e765c
 }
 
 const getRoomById = async (id: string) => {
