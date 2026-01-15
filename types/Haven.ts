@@ -1,5 +1,6 @@
 export interface Haven {
   id?: number;
+  uuid_id?: string;
   haven_name: string;
   tower: string;
   floor: string;

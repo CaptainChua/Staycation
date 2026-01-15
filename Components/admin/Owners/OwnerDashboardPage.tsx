@@ -30,7 +30,7 @@ import { signOut, useSession } from "next-auth/react";
 import Image from "next/image";
 import { useGetHavensQuery } from "@/redux/api/roomApi";
 
-interface Haven {
+interface OwnerHaven {
   uuid_id?: string;
   haven_name?: string;
   name?: string;
@@ -167,9 +167,9 @@ export default function OwnerDashboard() {
   const { data: havensData } = useGetHavensQuery({});
   
   // Type guard for havensData
-  const getAllHavens = (): Haven[] => {
+  const getAllHavens = (): OwnerHaven[] => {
     if (Array.isArray(havensData)) {
-      return havensData as Haven[];
+      return havensData as OwnerHaven[];
     }
     return [];
   };
@@ -178,14 +178,14 @@ export default function OwnerDashboard() {
 
   // Group havens by name to get unique haven names
   const uniqueHavenNames = Array.from(
-    new Set(allHavens.map((h: Haven) => h.haven_name?.trim()))
+    new Set(allHavens.map((h: OwnerHaven) => h.haven_name?.trim()))
   ).filter(Boolean) as string[];
 
   // Create haven objects with the first matching haven's data for each unique name
   // Ensure haven_name, tower, and floor are required for DashboardPage compatibility
   const havens = uniqueHavenNames
     .map((name: string) => {
-      const haven = allHavens.find((h: Haven) => h.haven_name?.trim() === name);
+      const haven = allHavens.find((h: OwnerHaven) => h.haven_name?.trim() === name);
       if (haven && haven.haven_name && haven.tower && haven.floor) {
         return {
           ...haven,
@@ -196,7 +196,7 @@ export default function OwnerDashboard() {
       }
       return null;
     })
-    .filter((haven): haven is Haven & { haven_name: string; tower: string; floor: string } => {
+    .filter((haven): haven is OwnerHaven & { haven_name: string; tower: string; floor: string } => {
       return !!haven && !!haven.haven_name && !!haven.tower && !!haven.floor;
     });
 
