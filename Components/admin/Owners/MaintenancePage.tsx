@@ -34,6 +34,7 @@ interface Report {
   specific_location: string;
   issue_description: string;
   created_at: string;
+  status: MaintenanceStatus;
   user_id: string;
   haven_name?: string;
   images?: Array<{
@@ -142,7 +143,7 @@ const MaintenancePage = () => {
       specific_location: report.specific_location,
       issue_description: report.issue_description,
       created_at: report.created_at,
-      status: report.status || 'Open',
+      status: report.status,
       user_id: report.user_id,
       reported_by: userMap[report.user_id] || 'Unknown User',
       images: report.images || []
@@ -158,26 +159,26 @@ const MaintenancePage = () => {
     },
     {
       label: "Open",
-      value: rows.filter(r => r.status === "Open").length,
+      value: rows.filter((r: MaintenanceRow) => r.status === "Open").length,
       color: "bg-orange-500",
       icon: AlertCircle,
     },
     {
       label: "In Progress",
-      value: rows.filter(r => r.status === "In Progress").length,
+      value: rows.filter((r: MaintenanceRow) => r.status === "In Progress").length,
       color: "bg-yellow-500",
       icon: Clock,
     },
     {
       label: "Resolved",
-      value: rows.filter(r => r.status === "Resolved").length,
+      value: rows.filter((r: MaintenanceRow) => r.status === "Resolved").length,
       color: "bg-green-500",
       icon: CheckCircle,
     },
   ], [rows]);
 
   const filteredRows = useMemo(() => {
-    return rows.filter((row) => {
+    return rows.filter((row: MaintenanceRow) => {
       const matchesSearch = 
         row.report_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
         row.haven_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
