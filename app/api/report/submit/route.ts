@@ -8,8 +8,11 @@ const pool = new Pool({
 });
 
 export async function POST(request: NextRequest) {
+  console.log('🚀 Report submission API called');
+  
   try {
     const formData = await request.formData();
+    console.log('📝 Form data received:', formData);
     
     // Extract form fields
     const haven_id = formData.get('haven_id') as string;
@@ -17,6 +20,8 @@ export async function POST(request: NextRequest) {
     const priority_level = formData.get('priority_level') as string;
     const specific_location = formData.get('specific_location') as string;
     const issue_description = formData.get('issue_description') as string;
+    
+    console.log('📋 Extracted fields:', { haven_id, issue_type, priority_level, specific_location, issue_description: issue_description?.substring(0, 50) + '...' });
     
     // Validate required fields
     if (!haven_id || !issue_type || !priority_level || !specific_location || !issue_description) {
@@ -101,28 +106,78 @@ export async function POST(request: NextRequest) {
         }
       }
       
+      // Get all employees with Owner role
+      const ownerEmployeesQuery = `
+        SELECT id, first_name, last_name, email
+        FROM employees
+        WHERE role = 'Owner'
+      `;
+      
+      const ownerEmployeesResult = await client.query(ownerEmployeesQuery);
+      const ownerEmployees = ownerEmployeesResult.rows;
+      
+      // Insert notifications for all Owner role employees
+      if (ownerEmployees.length > 0) {
+        for (const employee of ownerEmployees) {
+          try {
+            const notificationQuery = `
+              INSERT INTO notifications (user_id, title, message, notification_type, is_read)
+              VALUES ($1, $2, $3, $4, $5)
+              RETURNING notification_id
+            `;
+            
+            await client.query(notificationQuery, [
+              employee.id,
+              `New Issue Report: ${issue_type}`,
+              `A new ${priority_level.toLowerCase()} priority issue has been reported for ${specific_location}: ${issue_description.substring(0, 100)}${issue_description.length > 100 ? '...' : ''}`,
+              'ReportIssue',
+              false
+            ]);
+          } catch (notificationError) {
+            console.error('Failed to create notification:', notificationError);
+            throw new Error(`Failed to create notification: ${notificationError}`);
+          }
+        }
+      }
+      
       // Commit transaction
       await client.query('COMMIT');
       
       return NextResponse.json({
         success: true,
-        message: 'Report submitted successfully',
+        message: 'Report submitted successfully with notifications',
         data: newReport
       });
       
     } catch (error) {
-      // Rollback on error
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      client.release();
-    }
+    // Rollback on error
+    await client.query('ROLLBACK');
     
-  } catch (error) {
-    console.error('Error submitting report:', error);
+    // Log the detailed error
+    console.error('❌ Report submission error:', error);
+    
+    // Return detailed error for debugging
     return NextResponse.json(
-      { success: false, message: error instanceof Error ? error.message : 'Internal server error' },
+      { 
+        success: false, 
+        message: error instanceof Error ? error.message : 'Internal server error',
+        details: error instanceof Error ? error.stack : 'No stack trace available'
+      },
       { status: 500 }
     );
+  } finally {
+    client.release();
   }
+  
+} catch (error) {
+  console.error('❌ Outer error:', error);
+  return NextResponse.json(
+    { 
+      success: false, 
+      message: error instanceof Error ? error.message : 'Internal server error',
+      details: error instanceof Error ? error.stack : 'No stack trace available'
+    },
+    { status: 500 }
+  );
+}
 }
