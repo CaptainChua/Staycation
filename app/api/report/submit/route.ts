@@ -20,11 +20,12 @@ export async function POST(request: NextRequest) {
     const priority_level = formData.get('priority_level') as string;
     const specific_location = formData.get('specific_location') as string;
     const issue_description = formData.get('issue_description') as string;
+    const user_id = formData.get('user_id') as string;
     
-    console.log('📋 Extracted fields:', { haven_id, issue_type, priority_level, specific_location, issue_description: issue_description?.substring(0, 50) + '...' });
+    console.log('📋 Extracted fields:', { haven_id, issue_type, priority_level, specific_location, issue_description: issue_description?.substring(0, 50) + '...', user_id });
     
     // Validate required fields
-    if (!haven_id || !issue_type || !priority_level || !specific_location || !issue_description) {
+    if (!haven_id || !issue_type || !priority_level || !specific_location || !issue_description || !user_id) {
       return NextResponse.json(
         { success: false, message: 'Missing required fields' },
         { status: 400 }
@@ -46,11 +47,13 @@ export async function POST(request: NextRequest) {
       // Start transaction
       await client.query('BEGIN');
       
-      // Insert the report
+      // Insert report
+      console.log('🔍 Inserting report with data:', { haven_id, issue_type, priority_level, specific_location, issue_description: issue_description?.substring(0, 50) + '...', user_id });
+      
       const reportQuery = `
-        INSERT INTO report_issue (haven_id, issue_type, priority_level, specific_location, issue_description)
-        VALUES ($1, $2, $3, $4, $5)
-        RETURNING report_id, haven_id, issue_type, priority_level, specific_location, issue_description, created_at
+        INSERT INTO report_issue (haven_id, issue_type, priority_level, specific_location, issue_description, user_id)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING report_id, haven_id, issue_type, priority_level, specific_location, issue_description, created_at, user_id
       `;
       
       const reportResult = await client.query(reportQuery, [
@@ -58,10 +61,12 @@ export async function POST(request: NextRequest) {
         issue_type,
         priority_level,
         specific_location,
-        issue_description
+        issue_description,
+        user_id
       ]);
       
       const newReport = reportResult.rows[0];
+      console.log('✅ Report inserted successfully:', newReport);
       
       // Handle image uploads if any
       const imageFiles: File[] = [];
@@ -141,7 +146,9 @@ export async function POST(request: NextRequest) {
       }
       
       // Commit transaction
+      console.log('🔄 Committing transaction...');
       await client.query('COMMIT');
+      console.log('✅ Transaction committed successfully');
       
       return NextResponse.json({
         success: true,
@@ -150,24 +157,24 @@ export async function POST(request: NextRequest) {
       });
       
     } catch (error) {
-    // Rollback on error
-    await client.query('ROLLBACK');
-    
-    // Log the detailed error
-    console.error('❌ Report submission error:', error);
-    
-    // Return detailed error for debugging
-    return NextResponse.json(
-      { 
-        success: false, 
-        message: error instanceof Error ? error.message : 'Internal server error',
-        details: error instanceof Error ? error.stack : 'No stack trace available'
-      },
-      { status: 500 }
-    );
-  } finally {
-    client.release();
-  }
+      // Rollback on error
+      await client.query('ROLLBACK');
+      
+      // Log the detailed error
+      console.error('❌ Report submission error:', error);
+      
+      // Return detailed error for debugging
+      return NextResponse.json(
+        { 
+          success: false, 
+          message: error instanceof Error ? error.message : 'Internal server error',
+          details: error instanceof Error ? error.stack : 'No stack trace available'
+        },
+        { status: 500 }
+      );
+    } finally {
+      client.release();
+    }
   
 } catch (error) {
   console.error('❌ Outer error:', error);
