@@ -185,7 +185,7 @@ export default function CleanersDashboard() {
       {/* Mobile Menu Backdrop */}
       {mobileMenuOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 md:hidden animate-in fade-in duration-300"
+          className="fixed inset-0 bg-black/50 z-[55] md:hidden"
           onClick={() => setMobileMenuOpen(false)}
         ></div>
       )}
@@ -193,13 +193,13 @@ export default function CleanersDashboard() {
       {/* SIDEBAR */}
       <div
         className={`${
-          sidebar ? "w-72" : "w-20"
-        } bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 transition-all duration-300 flex-col sticky top-0 h-screen shadow-xl flex-shrink-0
+          sidebar ? "w-72 lg:w-72" : "w-20 lg:w-20"
+        } bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex-col h-screen shadow-xl flex-shrink-0
         ${
           mobileMenuOpen
-            ? "fixed inset-y-0 left-0 z-50 flex animate-in slide-in-from-left duration-300"
-            : "hidden"
-        } md:flex`}
+            ? "fixed inset-y-0 left-0 z-[60] flex w-72"
+            : sidebar ? "sticky top-0 hidden md:flex" : "hidden md:flex"
+        }`}
       >
         {/* Logo Section */}
         <div className="h-20 px-6 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex items-center">
@@ -316,9 +316,9 @@ export default function CleanersDashboard() {
       </div>
 
       {/* MAIN CONTENT */}
-      <div className="flex-1 flex flex-col h-screen min-w-0 overflow-x-hidden overflow-y-auto">
+      <div className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${mobileMenuOpen ? 'overflow-hidden md:overflow-x-hidden md:overflow-y-auto' : 'overflow-x-hidden overflow-y-auto'}`}>
         {/* HEADER */}
-        <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-6 h-20 min-h-20 flex-shrink-0 flex justify-between items-center sticky top-0 z-30 shadow-sm">
+        <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-4 sm:px-6 h-20 min-h-20 flex-shrink-0 flex justify-between items-center sticky top-0 z-30 shadow-sm">
           <div className="flex items-center gap-4">
             {/* Mobile Menu Button */}
             <button
@@ -340,7 +340,7 @@ export default function CleanersDashboard() {
               )}
             </button>
             <div className="flex flex-col">
-              <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+              <p className="text-xs sm:text-sm font-semibold text-gray-800 dark:text-gray-100">
                 {now
                   ? now.toLocaleString("en-US", {
                       weekday: "long",
@@ -466,8 +466,8 @@ export default function CleanersDashboard() {
         </div>
 
         {/* PAGE CONTENT */}
-        <div className="flex-1 p-6">
-          <div className="max-w-[1600px] mx-auto">{renderPage()}</div>
+        <div className="flex-1 p-4 sm:p-6">
+          <div className="max-w-[1600px] mx-auto w-full">{renderPage()}</div>
         </div>
 
         {/* FOOTER */}
@@ -476,7 +476,7 @@ export default function CleanersDashboard() {
 
       {/* Notification Dropdown */}
       {notificationOpen && (
-        <div className="fixed top-20 right-6 w-96 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-2xl z-50 animate-in slide-in-from-top-2 duration-200">
+        <div className="fixed top-16 sm:top-20 right-4 sm:right-6 w-80 sm:w-96 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-2xl z-50 animate-in slide-in-from-top-2 duration-200 max-h-[80vh] overflow-hidden">
           <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
             <h3 className="font-semibold text-gray-800 dark:text-white">Notifications</h3>
             <button
