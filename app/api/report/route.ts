@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
           ri.specific_location,
           ri.issue_description,
           ri.created_at,
+          ri.user_id,
           h.haven_name,
           ARRAY_AGG(
             JSON_BUILD_OBJECT(
@@ -42,7 +43,7 @@ export async function GET(request: NextRequest) {
         params.push(haven_id);
       }
       
-      query += ' GROUP BY ri.report_id, ri.haven_id, ri.issue_type, ri.priority_level, ri.specific_location, ri.issue_description, ri.created_at, h.haven_name';
+      query += ' GROUP BY ri.report_id, ri.haven_id, ri.issue_type, ri.priority_level, ri.specific_location, ri.issue_description, ri.created_at, ri.user_id, h.haven_name';
       query += ' ORDER BY ri.created_at DESC';
       
       const result = await client.query(query, params);
