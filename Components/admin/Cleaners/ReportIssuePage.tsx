@@ -68,6 +68,22 @@ export default function ReportIssuePage() {
     return aNum - bNum;
   });
 
+  // Helper function to determine status color
+  const getStatusColor = (status: string) => {
+    switch (status?.toLowerCase()) {
+      case 'resolved':
+        return 'text-green-600';
+      case 'in progress':
+        return 'text-blue-600';
+      case 'open':
+        return 'text-yellow-600';
+      case 'closed':
+        return 'text-gray-600';
+      default:
+        return 'text-gray-600';
+    }
+  };
+
   const issueTypes = [
     { label: "Maintenance Needed", icon: Wrench, value: "maintenance" },
     { label: "Damage Found", icon: AlertTriangle, value: "damage" },
@@ -77,32 +93,19 @@ export default function ReportIssuePage() {
     { label: "Other", icon: FileText, value: "other" },
   ];
 
-  const recentReports = [
-    {
-      id: 1,
-      haven: uniqueHavens.length > 0 ? uniqueHavens[0]?.haven_name || "Haven 7" : "Haven 7",
-      issue: "Broken AC unit",
-      status: "Under Review",
-      date: "2 hours ago",
-      statusColor: "text-yellow-600",
-    },
-    {
-      id: 2,
-      haven: uniqueHavens.length > 1 ? uniqueHavens[1]?.haven_name || "Haven 12" : "Haven 12",
-      issue: "Missing towels",
-      status: "Resolved",
-      date: "Yesterday",
-      statusColor: "text-green-600",
-    },
-    {
-      id: 3,
-      haven: uniqueHavens.length > 2 ? uniqueHavens[2]?.haven_name || "Haven 3" : "Haven 3",
-      issue: "Leaking faucet",
-      status: "In Progress",
-      date: "2 days ago",
-      statusColor: "text-blue-600",
-    },
-  ];
+  // Transform API reports data to match the expected format
+  const reportsData = reports?.data || reports; // Handle both direct array and nested data structure
+  const recentReports = Array.isArray(reportsData) ? reportsData.map((report: any, index: number) => ({
+    id: report.report_id || index + 1,
+    haven: report.haven_name || "Unknown Haven",
+    issue: report.issue_description || "No issue description",
+    status: report.status || "Open", // Use actual status from database
+    date: report.created_at ? new Date(report.created_at).toLocaleDateString() : "Unknown date",
+    statusColor: getStatusColor(report.status || "Open"), // Use actual status for color
+    priority: report.priority_level || "Medium",
+    location: report.specific_location || "Not specified",
+    type: report.issue_type || "Other"
+  })).slice(0, 3) : []; // Show only 3 most recent reports
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -461,26 +464,60 @@ export default function ReportIssuePage() {
           Recent Reports
         </h2>
         <div className="space-y-3">
-          {recentReports.map((report) => (
-            <div
-              key={report.id}
-              className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg transition-colors"
-            >
-              <div className="flex items-center gap-3 mb-2 sm:mb-0">
-                <div className="w-2 h-2 rounded-full bg-brand-primary"></div>
-                <div>
-                  <p className="font-semibold text-gray-800 dark:text-gray-100">{report.haven}</p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">{report.issue}</p>
+          {isLoadingReports ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <div className="flex items-center gap-3 mb-2 sm:mb-0">
+                    <div className="w-2 h-2 rounded-full bg-gray-300 animate-pulse"></div>
+                    <div className="space-y-1">
+                      <div className="h-4 bg-gray-300 rounded animate-pulse w-24"></div>
+                      <div className="h-3 bg-gray-200 rounded animate-pulse w-32"></div>
+                    </div>
+                  </div>
+                  <div className="text-right sm:text-left">
+                    <div className="h-4 bg-gray-300 rounded animate-pulse w-16 mb-1"></div>
+                    <div className="h-3 bg-gray-200 rounded animate-pulse w-20"></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : reportsError ? (
+            <div className="text-center py-8">
+              <p className="text-red-600 dark:text-red-400">Failed to load recent reports</p>
+              <button 
+                onClick={() => window.location.reload()} 
+                className="mt-2 text-brand-primary hover:text-brand-primaryDark text-sm"
+              >
+                Try again
+              </button>
+            </div>
+          ) : recentReports.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-gray-500 dark:text-gray-400">No recent reports found</p>
+            </div>
+          ) : (
+            recentReports.map((report) => (
+              <div
+                key={report.id}
+                className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg transition-colors"
+              >
+                <div className="flex items-center gap-3 mb-2 sm:mb-0">
+                  <div className="w-2 h-2 rounded-full bg-brand-primary"></div>
+                  <div>
+                    <p className="font-semibold text-gray-800 dark:text-gray-100">{report.haven}</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">{report.issue}</p>
+                  </div>
+                </div>
+                <div className="text-right sm:text-left">
+                  <span className={`text-sm font-bold ${report.statusColor}`}>
+                    {report.status}
+                  </span>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{report.date}</p>
                 </div>
               </div>
-              <div className="text-right sm:text-left">
-                <span className={`text-sm font-bold ${report.statusColor}`}>
-                  {report.status}
-                </span>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{report.date}</p>
-              </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
     </div>
