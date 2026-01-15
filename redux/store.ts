@@ -7,6 +7,7 @@ import { wishlistApi } from "./api/wishlistApi";
 import { messagesApi } from "./api/messagesApi";
 import { activityLogApi } from "./api/activityLogApi";
 import { analyticsApi } from "./api/analyticsApi";
+import { reportApi } from "./api/reportApi";
 
 export const store = configureStore({
     reducer: {
@@ -18,8 +19,9 @@ export const store = configureStore({
         [messagesApi.reducerPath]: messagesApi.reducer,
         [activityLogApi.reducerPath]: activityLogApi.reducer,
         [analyticsApi.reducerPath]: analyticsApi.reducer,
+        [reportApi.reducerPath]: reportApi.reducer,
     },
-    middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(employeeApi.middleware).concat(roomApi.middleware).concat(bookingsApi.middleware).concat(wishlistApi.middleware).concat(messagesApi.middleware).concat(activityLogApi.middleware).concat(analyticsApi.middleware),
+    middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(employeeApi.middleware).concat(roomApi.middleware).concat(bookingsApi.middleware).concat(wishlistApi.middleware).concat(messagesApi.middleware).concat(activityLogApi.middleware).concat(analyticsApi.middleware).concat(reportApi.middleware),
 
 });
 
