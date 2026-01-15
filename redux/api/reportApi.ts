@@ -101,6 +101,13 @@ export const reportApi = createApi({
         method: "DELETE"
       }),
       invalidatesTags: ['Report']
+    }),
+
+    // Get user by ID
+    getUserById: builder.query({
+      query: (userId) => ({
+        url: `/admin/employees/${userId}`
+      })
     })
   })
 });
@@ -111,5 +118,6 @@ export const {
   useGetReportsByHavenQuery,
   useGetReportByIdQuery,
   useUpdateReportStatusMutation,
-  useDeleteReportMutation
+  useDeleteReportMutation,
+  useGetUserByIdQuery
 } = reportApi;
