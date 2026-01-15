@@ -1,117 +1,155 @@
 'use client';
 
-import { Wrench, AlertCircle, CheckCircle, Clock, TrendingUp, TrendingDown, ListTodo, Search, Filter, ArrowUpDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Eye, Trash2 } from "lucide-react";
+import { AlertCircle, CheckCircle, Clock, TrendingUp, TrendingDown, ListTodo, Search, Filter, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Eye, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
+import { useGetReportsQuery } from "@/redux/api/reportApi";
+import { useGetEmployeesQuery } from "@/redux/api/employeeApi";
 
-type MaintenanceStatus = "pending" | "in-progress" | "completed";
+type MaintenanceStatus = "Open" | "In Progress" | "Resolved" | "Closed";
+type PriorityLevel = "Low" | "Medium" | "High" | "Urgent";
 
 interface MaintenanceRow {
-  id: string;
-  haven: string;
-  issue: string;
-  priority: "high" | "medium" | "low";
+  report_id: string;
+  haven_id: string;
+  haven_name: string;
+  issue_type: string;
+  priority_level: PriorityLevel;
+  specific_location: string;
+  issue_description: string;
+  created_at: string;
   status: MaintenanceStatus;
-  reportedBy: string;
-  reportedDate: string;
-  assignedTo?: string;
-  completedDate?: string;
+  user_id: string;
+  reported_by?: string;
+  images?: Array<{
+    image_url: string;
+    cloudinary_public_id?: string;
+  }>;
 }
+
+interface Report {
+  report_id: string;
+  haven_id: string;
+  issue_type: string;
+  priority_level: PriorityLevel;
+  specific_location: string;
+  issue_description: string;
+  created_at: string;
+  user_id: string;
+  haven_name?: string;
+  images?: Array<{
+    image_url: string;
+    cloudinary_public_id?: string;
+  }>;
+}
+
+interface Employee {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone?: string;
+  employment_id: string;
+  hire_date: string;
+  role: string;
+  department?: string;
+  monthly_salary?: number;
+  street_address?: string;
+  city?: string;
+  zip_code?: string;
+  created_at?: string;
+  updated_at?: string;
+  profile_image_url?: string;
+}
+
+interface StatsCard {
+  label: string;
+  value: number;
+  color: string;
+  icon: React.ComponentType<{ className?: string }>;
+}
+
+// Skeleton Components
+const StatsCardSkeleton = () => (
+  <div className="bg-gray-200 dark:bg-gray-700 rounded-lg p-6 animate-pulse">
+    <div className="flex items-center justify-between">
+      <div className="flex-1">
+        <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded w-20 mb-2"></div>
+        <div className="h-8 bg-gray-300 dark:bg-gray-600 rounded w-12"></div>
+      </div>
+      <div className="w-12 h-12 bg-gray-300 dark:bg-gray-600 rounded"></div>
+    </div>
+  </div>
+);
+
+const TableSkeleton = () => (
+  <div className="space-y-2">
+    {/* Header skeleton */}
+    <div className="grid grid-cols-10 gap-4 p-4 bg-gray-100 dark:bg-gray-700 rounded">
+      {[...Array(10)].map((_, i) => (
+        <div key={i} className="h-4 bg-gray-300 dark:bg-gray-600 rounded animate-pulse"></div>
+      ))}
+    </div>
+    {/* Row skeletons */}
+    {[...Array(5)].map((_, rowIndex) => (
+      <div key={rowIndex} className="grid grid-cols-10 gap-4 p-4 bg-white dark:bg-gray-800 rounded">
+        {[...Array(10)].map((_, colIndex) => (
+          <div key={colIndex} className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+        ))}
+      </div>
+    ))}
+  </div>
+);
 
 const MaintenancePage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | MaintenanceStatus>("all");
-  const [filterPriority, setFilterPriority] = useState<"all" | "high" | "medium" | "low">("all");
+  const [filterPriority, setFilterPriority] = useState<"all" | "Low" | "Medium" | "High" | "Urgent">("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [entriesPerPage, setEntriesPerPage] = useState(5);
   const [sortField, setSortField] = useState<keyof MaintenanceRow | null>(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
-  const [rows, setRows] = useState<MaintenanceRow[]>([
-    {
-      id: "MNT-001",
-      haven: "Haven A - City View",
-      issue: "Air conditioning not cooling properly",
-      priority: "high",
-      status: "pending",
-      reportedBy: "Juan Dela Cruz",
-      reportedDate: "2024-12-17",
-      assignedTo: "Maintenance Team A"
-    },
-    {
-      id: "MNT-002",
-      haven: "Haven B - Ocean View",
-      issue: "Leaking faucet in bathroom",
-      priority: "medium",
-      status: "in-progress",
-      reportedBy: "Maria Santos",
-      reportedDate: "2024-12-16",
-      assignedTo: "Maintenance Team B"
-    },
-    {
-      id: "MNT-003",
-      haven: "Haven C - Pool View",
-      issue: "Broken TV remote",
-      priority: "low",
-      status: "completed",
-      reportedBy: "Pedro Reyes",
-      reportedDate: "2024-12-15",
-      assignedTo: "Maintenance Team A",
-      completedDate: "2024-12-16"
-    },
-    {
-      id: "MNT-004",
-      haven: "Haven D - Garden View",
-      issue: "WiFi not working",
-      priority: "high",
-      status: "in-progress",
-      reportedBy: "Ana Garcia",
-      reportedDate: "2024-12-17",
-      assignedTo: "IT Team"
-    },
-    {
-      id: "MNT-005",
-      haven: "Haven E - Mountain View",
-      issue: "Broken window lock",
-      priority: "medium",
-      status: "pending",
-      reportedBy: "Carlos Mendoza",
-      reportedDate: "2024-12-14",
-      assignedTo: "Maintenance Team C"
-    },
-    {
-      id: "MNT-006",
-      haven: "Haven F - Beach View",
-      issue: "Water heater not working",
-      priority: "high",
-      status: "completed",
-      reportedBy: "Liza Tan",
-      reportedDate: "2024-12-13",
-      assignedTo: "Maintenance Team B",
-      completedDate: "2024-12-14"
-    },
-    {
-      id: "MNT-007",
-      haven: "Haven G - Lake View",
-      issue: "Electrical outlet not working",
-      priority: "low",
-      status: "pending",
-      reportedBy: "Roberto Cruz",
-      reportedDate: "2024-12-17",
-      assignedTo: "Maintenance Team A"
-    },
-    {
-      id: "MNT-008",
-      haven: "Haven H - Forest View",
-      issue: "Gutter cleaning needed",
-      priority: "medium",
-      status: "in-progress",
-      reportedBy: "Diana Lee",
-      reportedDate: "2024-12-12",
-      assignedTo: "Maintenance Team C"
+  // Fetch data from API
+  const { data: reportsData, error: reportsError, isLoading: reportsLoading } = useGetReportsQuery({});
+  const { data: employeesData, isLoading: employeesLoading } = useGetEmployeesQuery({});
+  
+  // Check if any data is still loading
+  const isLoading = reportsLoading || employeesLoading;
+  
+  // Create user lookup map from all employees data
+  const userMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    if (employeesData?.success && employeesData?.data) {
+      employeesData.data.forEach((employee: Employee) => {
+        if (employee.id && employee.first_name && employee.last_name) {
+          map[employee.id] = `${employee.first_name} ${employee.last_name}`;
+        }
+      });
     }
-  ]);
+    return map;
+  }, [employeesData]);
+  
+  // Transform API data to match our interface
+  const rows = useMemo(() => {
+    if (!reportsData?.data) return [];
+    
+    return reportsData.data.map((report: Report): MaintenanceRow => ({
+      report_id: report.report_id,
+      haven_id: report.haven_id,
+      haven_name: report.haven_name || 'Unknown Haven',
+      issue_type: report.issue_type,
+      priority_level: report.priority_level,
+      specific_location: report.specific_location,
+      issue_description: report.issue_description,
+      created_at: report.created_at,
+      status: report.status || 'Open',
+      user_id: report.user_id,
+      reported_by: userMap[report.user_id] || 'Unknown User',
+      images: report.images || []
+    }));
+  }, [reportsData, userMap]);
 
-  const stats = useMemo(() => [
+  const stats = useMemo((): StatsCard[] => [
     {
       label: "Total Requests",
       value: rows.length,
@@ -119,20 +157,20 @@ const MaintenancePage = () => {
       icon: ListTodo,
     },
     {
-      label: "Pending",
-      value: rows.filter(r => r.status === "pending").length,
+      label: "Open",
+      value: rows.filter(r => r.status === "Open").length,
+      color: "bg-orange-500",
+      icon: AlertCircle,
+    },
+    {
+      label: "In Progress",
+      value: rows.filter(r => r.status === "In Progress").length,
       color: "bg-yellow-500",
       icon: Clock,
     },
     {
-      label: "In Progress",
-      value: rows.filter(r => r.status === "in-progress").length,
-      color: "bg-orange-500",
-      icon: TrendingUp,
-    },
-    {
-      label: "Completed",
-      value: rows.filter(r => r.status === "completed").length,
+      label: "Resolved",
+      value: rows.filter(r => r.status === "Resolved").length,
       color: "bg-green-500",
       icon: CheckCircle,
     },
@@ -141,14 +179,15 @@ const MaintenancePage = () => {
   const filteredRows = useMemo(() => {
     return rows.filter((row) => {
       const matchesSearch = 
-        row.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        row.haven.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        row.issue.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        row.reportedBy.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (row.assignedTo && row.assignedTo.toLowerCase().includes(searchTerm.toLowerCase()));
+        row.report_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        row.haven_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        row.issue_description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        row.specific_location.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        row.issue_type.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (row.reported_by && row.reported_by.toLowerCase().includes(searchTerm.toLowerCase()));
       
       const matchesStatusFilter = filterStatus === "all" || row.status === filterStatus;
-      const matchesPriorityFilter = filterPriority === "all" || row.priority === filterPriority;
+      const matchesPriorityFilter = filterPriority === "all" || row.priority_level === filterPriority;
       
       return matchesSearch && matchesStatusFilter && matchesPriorityFilter;
     });
@@ -158,8 +197,8 @@ const MaintenancePage = () => {
     if (!sortField) return filteredRows;
     
     return [...filteredRows].sort((a, b) => {
-      let aVal = a[sortField];
-      let bVal = b[sortField];
+      const aVal = a[sortField];
+      const bVal = b[sortField];
       
       if (aVal === null || aVal === undefined) return 1;
       if (bVal === null || bVal === undefined) return -1;
@@ -192,24 +231,28 @@ const MaintenancePage = () => {
 
   const getStatusColor = (status: MaintenanceStatus) => {
     switch (status) {
-      case "pending":
+      case "Open":
         return "text-yellow-600 dark:text-yellow-400";
-      case "in-progress":
+      case "In Progress":
         return "text-blue-600 dark:text-blue-400";
-      case "completed":
+      case "Resolved":
         return "text-green-600 dark:text-green-400";
+      case "Closed":
+        return "text-gray-600 dark:text-gray-400";
       default:
         return "text-gray-600 dark:text-gray-400";
     }
   };
 
-  const getPriorityColor = (priority: string) => {
+  const getPriorityColor = (priority: PriorityLevel) => {
     switch (priority) {
-      case "high":
+      case "Urgent":
         return "bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400";
-      case "medium":
+      case "High":
+        return "bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400";
+      case "Medium":
         return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400";
-      case "low":
+      case "Low":
         return "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400";
       default:
         return "bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400";
@@ -225,26 +268,66 @@ const MaintenancePage = () => {
         </p>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((stat, i) => {
-          const IconComponent = stat.icon;
-          return (
-            <div
-              key={i}
-              className={`${stat.color} text-white rounded-lg p-6 shadow dark:shadow-gray-900 hover:shadow-lg transition-all`}
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm opacity-90">{stat.label}</p>
-                  <p className="text-3xl font-bold mt-2">{stat.value}</p>
+      {/* Skeleton Loading State */}
+      {isLoading && (
+        <>
+          {/* Stats Cards Skeleton */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[...Array(4)].map((_, i) => (
+              <StatsCardSkeleton key={i} />
+            ))}
+          </div>
+
+          {/* Table Skeleton */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-4">
+            <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between mb-4">
+              <div className="flex flex-col sm:flex-row gap-4 flex-1 w-full">
+                <div className="flex items-center gap-2">
+                  <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded w-8 animate-pulse"></div>
+                  <div className="h-8 bg-gray-300 dark:bg-gray-600 rounded w-16 animate-pulse"></div>
+                  <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded w-12 animate-pulse"></div>
                 </div>
-                <IconComponent className="w-12 h-12 opacity-50" />
+                <div className="flex-1 h-10 bg-gray-300 dark:bg-gray-600 rounded animate-pulse"></div>
+              </div>
+              <div className="flex gap-2">
+                <div className="h-10 bg-gray-300 dark:bg-gray-600 rounded w-32 animate-pulse"></div>
+                <div className="h-10 bg-gray-300 dark:bg-gray-600 rounded w-32 animate-pulse"></div>
               </div>
             </div>
-          );
-        })}
-      </div>
+            <TableSkeleton />
+          </div>
+        </>
+      )}
+
+      {/* Error State */}
+      {!isLoading && reportsError && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+          <p className="text-red-600 dark:text-red-400">Failed to load maintenance requests. Please try again.</p>
+        </div>
+      )}
+
+      {!isLoading && !reportsError && (
+        <>
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {stats.map((stat, i) => {
+            const IconComponent = stat.icon;
+            return (
+              <div
+                key={i}
+                className={`${stat.color} text-white rounded-lg p-6 shadow dark:shadow-gray-900 hover:shadow-lg transition-all`}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm opacity-90">{stat.label}</p>
+                    <p className="text-3xl font-bold mt-2">{stat.value}</p>
+                  </div>
+                  <IconComponent className="w-12 h-12 opacity-50" />
+                </div>
+              </div>
+            );
+          })}
+        </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-4">
         <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
@@ -271,7 +354,7 @@ const MaintenancePage = () => {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500" />
               <input
                 type="text"
-                placeholder="Search by ID, haven, issue, or reported by..."
+                placeholder="Search by ID, haven, issue, location, type, or reported by..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-orange-500"
@@ -290,22 +373,24 @@ const MaintenancePage = () => {
               className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-orange-500 text-sm"
             >
               <option value="all">All Status</option>
-              <option value="pending">Pending</option>
-              <option value="in-progress">In Progress</option>
-              <option value="completed">Completed</option>
+              <option value="Open">Open</option>
+              <option value="In Progress">In Progress</option>
+              <option value="Resolved">Resolved</option>
+              <option value="Closed">Closed</option>
             </select>
             <select
               value={filterPriority}
               onChange={(e) => {
-                setFilterPriority(e.target.value as "all" | "high" | "medium" | "low");
+                setFilterPriority(e.target.value as "all" | "Low" | "Medium" | "High" | "Urgent");
                 setCurrentPage(1);
               }}
               className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-orange-500 text-sm"
             >
               <option value="all">All Priority</option>
-              <option value="high">High</option>
-              <option value="medium">Medium</option>
-              <option value="low">Low</option>
+              <option value="Low">Low</option>
+              <option value="Medium">Medium</option>
+              <option value="High">High</option>
+              <option value="Urgent">Urgent</option>
             </select>
           </div>
         </div>
@@ -319,33 +404,33 @@ const MaintenancePage = () => {
               <tr className="bg-gray-50 dark:bg-gray-700">
                 <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
                   <button
-                    onClick={() => handleSort("id")}
+                    onClick={() => handleSort("report_id")}
                     className="flex items-center gap-1 hover:text-orange-500 transition-colors"
                   >
                     ID
-                    {sortField === "id" && (
+                    {sortField === "report_id" && (
                       sortDirection === "asc" ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />
                     )}
                   </button>
                 </th>
                 <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
                   <button
-                    onClick={() => handleSort("haven")}
+                    onClick={() => handleSort("haven_name")}
                     className="flex items-center gap-1 hover:text-orange-500 transition-colors"
                   >
                     Haven
-                    {sortField === "haven" && (
+                    {sortField === "haven_name" && (
                       sortDirection === "asc" ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />
                     )}
                   </button>
                 </th>
                 <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
                   <button
-                    onClick={() => handleSort("issue")}
+                    onClick={() => handleSort("issue_description")}
                     className="flex items-center gap-1 hover:text-orange-500 transition-colors"
                   >
                     Issue
-                    {sortField === "issue" && (
+                    {sortField === "issue_description" && (
                       sortDirection === "asc" ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />
                     )}
                   </button>
@@ -363,36 +448,39 @@ const MaintenancePage = () => {
                 </th>
                 <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
                   <button
-                    onClick={() => handleSort("priority")}
+                    onClick={() => handleSort("priority_level")}
                     className="flex items-center justify-center gap-1 hover:text-orange-500 transition-colors"
                   >
                     Priority
-                    {sortField === "priority" && (
+                    {sortField === "priority_level" && (
                       sortDirection === "asc" ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />
                     )}
                   </button>
                 </th>
                 <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
                   <button
-                    onClick={() => handleSort("reportedBy")}
+                    onClick={() => handleSort("reported_by")}
                     className="flex items-center gap-1 hover:text-orange-500 transition-colors"
                   >
                     Reported By
-                    {sortField === "reportedBy" && (
+                    {sortField === "reported_by" && (
                       sortDirection === "asc" ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />
                     )}
                   </button>
                 </th>
                 <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                  Assigned To
+                  Location
+                </th>
+                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                  Type
                 </th>
                 <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
                   <button
-                    onClick={() => handleSort("reportedDate")}
+                    onClick={() => handleSort("created_at")}
                     className="flex items-center gap-1 hover:text-orange-500 transition-colors"
                   >
                     Date
-                    {sortField === "reportedDate" && (
+                    {sortField === "created_at" && (
                       sortDirection === "asc" ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />
                     )}
                   </button>
@@ -405,43 +493,48 @@ const MaintenancePage = () => {
             <tbody>
               {paginatedRows.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-8 text-center text-gray-500 dark:text-gray-400">
+                  <td colSpan={10} className="py-8 text-center text-gray-500 dark:text-gray-400">
                     No maintenance requests found.
                   </td>
                 </tr>
               ) : (
-                paginatedRows.map((row) => (
+                paginatedRows.map((row: MaintenanceRow) => (
                   <tr
-                    key={row.id}
+                    key={row.report_id}
                     className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                   >
                     <td className="py-4 px-4">
-                      <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{row.id}</span>
+                      <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{row.report_id.slice(0, 8)}</span>
                     </td>
                     <td className="py-4 px-4">
-                      <span className="text-sm text-gray-700 dark:text-gray-300">{row.haven}</span>
+                      <span className="text-sm text-gray-700 dark:text-gray-300">{row.haven_name}</span>
                     </td>
                     <td className="py-4 px-4">
-                      <span className="text-sm text-gray-700 dark:text-gray-300">{row.issue}</span>
+                      <span className="text-sm text-gray-700 dark:text-gray-300">{row.issue_description}</span>
                     </td>
                     <td className="py-4 px-4 text-center">
                       <span className={`text-sm font-semibold ${getStatusColor(row.status)}`}>
-                        {row.status.charAt(0).toUpperCase() + row.status.slice(1).replace("-", " ")}
+                        {row.status}
                       </span>
                     </td>
                     <td className="py-4 px-4 text-center">
-                      <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${getPriorityColor(row.priority)}`}>
-                        {row.priority.toUpperCase()}
+                      <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${getPriorityColor(row.priority_level)}`}>
+                        {row.priority_level}
                       </span>
                     </td>
                     <td className="py-4 px-4">
-                      <span className="text-sm text-gray-700 dark:text-gray-300">{row.reportedBy}</span>
+                      <span className="text-sm text-gray-700 dark:text-gray-300">{row.reported_by || 'Unknown User'}</span>
                     </td>
                     <td className="py-4 px-4">
-                      <span className="text-sm text-gray-700 dark:text-gray-300">{row.assignedTo || "Unassigned"}</span>
+                      <span className="text-sm text-gray-700 dark:text-gray-300">{row.specific_location}</span>
                     </td>
                     <td className="py-4 px-4">
-                      <span className="text-sm text-gray-700 dark:text-gray-300">{row.reportedDate}</span>
+                      <span className="text-sm text-gray-700 dark:text-gray-300">{row.issue_type}</span>
+                    </td>
+                    <td className="py-4 px-4">
+                      <span className="text-sm text-gray-700 dark:text-gray-300">
+                        {new Date(row.created_at).toLocaleDateString()}
+                      </span>
                     </td>
                     <td className="py-4 px-4 text-center">
                       <div className="flex items-center justify-center gap-2">
@@ -543,6 +636,8 @@ const MaintenancePage = () => {
           </div>
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 };
