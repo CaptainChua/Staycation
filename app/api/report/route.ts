@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
         LEFT JOIN report_issue_image rii ON ri.report_id = rii.report_id
       `;
       
-      const params: any[] = [];
+      const params: (string | number)[] = [];
       
       if (haven_id) {
         query += ' WHERE ri.haven_id = $1';
