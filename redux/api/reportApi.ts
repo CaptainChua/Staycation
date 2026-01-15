@@ -6,6 +6,7 @@ export interface ReportIssueRequest {
   priority_level: string;
   specific_location: string;
   issue_description: string;
+  user_id: string;
   images?: File[];
 }
 
@@ -39,6 +40,7 @@ export const reportApi = createApi({
         formData.append('priority_level', data.priority_level);
         formData.append('specific_location', data.specific_location);
         formData.append('issue_description', data.issue_description);
+        formData.append('user_id', data.user_id);
         
         // Add images if any
         if (data.images && data.images.length > 0) {

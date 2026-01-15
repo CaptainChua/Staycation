@@ -3,6 +3,7 @@
 import { AlertTriangle, Wrench, PackageMinus, Droplets, Zap, FileText, Camera, Send, Loader2, CheckCircle, Search, Filter, Plus, Eye, Trash2, ArrowUpDown, X } from "lucide-react";
 import { useState } from "react";
 import toast from "react-hot-toast";
+import { useSession } from "next-auth/react";
 import { useGetHavensQuery } from "@/redux/api/roomApi";
 import { useSubmitReportMutation, useGetReportsQuery, useDeleteReportMutation, ReportIssueRequest } from "@/redux/api/reportApi";
 import { Haven } from "@/types/Haven";
@@ -26,6 +27,7 @@ export default function ReportIssuePage() {
   const [entriesPerPage, setEntriesPerPage] = useState(5);
 
   // Fetch havens from API
+  const { data: session } = useSession();
   const { data: havens, isLoading, isError } = useGetHavensQuery({});
   const [submitReport, { isLoading: isSubmittingReport }] = useSubmitReportMutation();
   const { data: reports = [], isLoading: isLoadingReports, error: reportsError } = useGetReportsQuery({});
@@ -112,6 +114,11 @@ export default function ReportIssuePage() {
     setIsSubmitting(true);
     
     // Validation
+    if (!session?.user?.id) {
+      toast.error("You must be logged in to submit a report");
+      setIsSubmitting(false);
+      return;
+    }
     if (!formData.haven) {
       toast.error("Please select a haven/unit");
       setIsSubmitting(false);
@@ -144,14 +151,13 @@ export default function ReportIssuePage() {
         priority_level: formData.priority,
         specific_location: formData.location || 'Not specified',
         issue_description: formData.description,
+        user_id: session.user.id,
         images: uploadedPhotos
       };
 
       // Submit report
       const result = await submitReport(reportData).unwrap().catch((error) => {
-        console.error("RTK Query unwrap error:", error);
-        console.error("Full RTK error:", JSON.stringify(error, null, 2));
-        
+        toast.error("Failed to submit report. Please try again.");
         // Extract error message from RTK Query error
         let errorMessage = "Failed to submit report. Please try again.";
         
