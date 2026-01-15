@@ -1,15 +1,71 @@
 "use client";
 
-import { AlertTriangle, Wrench, PackageMinus, Droplets, Zap, FileText, Camera, Send } from "lucide-react";
+import { AlertTriangle, Wrench, PackageMinus, Droplets, Zap, FileText, Camera, Send, Loader2, CheckCircle, Search, Filter, Plus, Eye, Trash2, ArrowUpDown } from "lucide-react";
 import { useState } from "react";
+import toast from "react-hot-toast";
+import { useGetHavensQuery } from "@/redux/api/roomApi";
+import { useSubmitReportMutation, useGetReportsQuery, useDeleteReportMutation, ReportIssueRequest } from "@/redux/api/reportApi";
+import { Haven } from "@/types/Haven";
 
 export default function ReportIssuePage() {
   const [formData, setFormData] = useState({
-    haven: "Haven 3",
+    haven: "",
     issueType: "",
     priority: "Medium",
     description: "",
     location: "",
+  });
+
+  const [uploadedPhotos, setUploadedPhotos] = useState<File[]>([]);
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [entriesPerPage, setEntriesPerPage] = useState(5);
+
+  // Fetch havens from API
+  const { data: havens, isLoading, isError } = useGetHavensQuery({});
+  const [submitReport, { isLoading: isSubmittingReport }] = useSubmitReportMutation();
+  const { data: reports = [], isLoading: isLoadingReports, error: reportsError } = useGetReportsQuery({});
+  const [deleteReport] = useDeleteReportMutation();
+  const havenList = Array.isArray(havens) ? havens : [];
+  
+  // Remove duplicate haven names while preserving all data and ensure proper alignment
+  const uniqueHavens: Haven[] = [];
+  const seenNames = new Set<string>();
+  
+  havenList.forEach((haven) => {
+    if (haven && typeof (haven as any).haven_name === 'string') {
+      let name = (haven as any).haven_name.trim();
+      
+      // Standardize haven name format (Haven 1, Haven 2, etc.)
+      if (name.toLowerCase().includes('haven')) {
+        // Extract the number and ensure proper format
+        const match = name.match(/haven\s*(\d+)/i);
+        if (match) {
+          const number = parseInt(match[1]);
+          if (number >= 1 && number <= 5) {
+            name = `Haven ${number}`;
+          }
+        }
+      }
+      
+      if (name && !seenNames.has(name)) {
+        seenNames.add(name);
+        uniqueHavens.push({ ...haven, haven_name: name } as Haven);
+      }
+    }
+  });
+  
+  // Sort havens by number (Haven 1, Haven 2, etc.)
+  uniqueHavens.sort((a, b) => {
+    const aMatch = a.haven_name.match(/\d+/);
+    const bMatch = b.haven_name.match(/\d+/);
+    const aNum = aMatch ? parseInt(aMatch[0]) : 0;
+    const bNum = bMatch ? parseInt(bMatch[0]) : 0;
+    return aNum - bNum;
   });
 
   const issueTypes = [
@@ -24,7 +80,7 @@ export default function ReportIssuePage() {
   const recentReports = [
     {
       id: 1,
-      haven: "Haven 7",
+      haven: uniqueHavens.length > 0 ? uniqueHavens[0]?.haven_name || "Haven 7" : "Haven 7",
       issue: "Broken AC unit",
       status: "Under Review",
       date: "2 hours ago",
@@ -32,7 +88,7 @@ export default function ReportIssuePage() {
     },
     {
       id: 2,
-      haven: "Haven 12",
+      haven: uniqueHavens.length > 1 ? uniqueHavens[1]?.haven_name || "Haven 12" : "Haven 12",
       issue: "Missing towels",
       status: "Resolved",
       date: "Yesterday",
@@ -40,7 +96,7 @@ export default function ReportIssuePage() {
     },
     {
       id: 3,
-      haven: "Haven 3",
+      haven: uniqueHavens.length > 2 ? uniqueHavens[2]?.haven_name || "Haven 3" : "Haven 3",
       issue: "Leaking faucet",
       status: "In Progress",
       date: "2 days ago",
@@ -48,10 +104,108 @@ export default function ReportIssuePage() {
     },
   ];
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Issue reported:", formData);
-    // Handle form submission
+    setIsSubmitting(true);
+    
+    // Validation
+    if (!formData.haven) {
+      toast.error("Please select a haven/unit");
+      setIsSubmitting(false);
+      return;
+    }
+    if (!formData.issueType) {
+      toast.error("Please select an issue type");
+      setIsSubmitting(false);
+      return;
+    }
+    if (!formData.description.trim()) {
+      toast.error("Please provide a description of the issue");
+      setIsSubmitting(false);
+      return;
+    }
+    
+    try {
+      // Find the haven ID from the selected haven name
+      const selectedHaven = uniqueHavens.find(h => h.haven_name === formData.haven);
+      if (!selectedHaven) {
+        toast.error("Invalid haven selected");
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Prepare the report data
+      const reportData: ReportIssueRequest = {
+        haven_id: (selectedHaven.uuid_id || selectedHaven.id || '').toString(),
+        issue_type: formData.issueType,
+        priority_level: formData.priority,
+        specific_location: formData.location || 'Not specified',
+        issue_description: formData.description,
+        images: uploadedPhotos
+      };
+
+      // Submit report
+      const result = await submitReport(reportData);
+      
+      if ('data' in result && result.data?.success) {
+        toast.success("Report submitted successfully!");
+        setSubmitSuccess(true);
+        // Reset form after successful submission
+        setTimeout(() => {
+          setFormData({
+            haven: "",
+            issueType: "",
+            priority: "Medium",
+            description: "",
+            location: "",
+          });
+          setUploadedPhotos([]);
+          setPhotoPreviews([]);
+          setSubmitSuccess(false);
+        }, 3000);
+      } else {
+        toast.error(result.data?.message || "Failed to submit report");
+      }
+    } catch (error: any) {
+      console.error("Error submitting report:", error);
+      toast.error(error.data?.message || error.message || "Failed to submit report. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    
+    // Filter for valid image files
+    const validFiles = files.filter(file => {
+      const isValidType = file.type.startsWith('image/');
+      const isValidSize = file.size <= 10 * 1024 * 1024; // 10MB
+      return isValidType && isValidSize;
+    });
+
+    if (validFiles.length === 0) {
+      toast.error("Please select valid image files (PNG, JPG) under 10MB");
+      return;
+    }
+
+    // Create previews for valid files
+    const newPreviews = validFiles.map(file => URL.createObjectURL(file));
+    
+    setUploadedPhotos(prev => [...prev, ...validFiles]);
+    setPhotoPreviews(prev => [...prev, ...newPreviews]);
+    
+    toast.success(`${validFiles.length} photo(s) added successfully`);
+  };
+
+  const removePhoto = (index: number) => {
+    URL.revokeObjectURL(photoPreviews[index]);
+    setUploadedPhotos(prev => prev.filter((_, i) => i !== index));
+    setPhotoPreviews(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const openFileDialog = () => {
+    document.getElementById('photo-upload-input')?.click();
   };
 
   return (
@@ -75,16 +229,32 @@ export default function ReportIssuePage() {
             <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
               Haven/Unit
             </label>
-            <select
-              value={formData.haven}
-              onChange={(e) => setFormData({ ...formData, haven: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-brand-primary focus:border-transparent"
-            >
-              <option>Haven 3</option>
-              <option>Haven 7</option>
-              <option>Haven 12</option>
-              <option>Haven 15</option>
-            </select>
+            {isLoading ? (
+              <div className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin text-brand-primary" />
+                <span className="text-gray-500 dark:text-gray-400">Loading havens...</span>
+              </div>
+            ) : isError ? (
+              <div className="w-full px-4 py-3 border border-red-300 dark:border-red-600 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400">
+                Failed to load havens. Please refresh the page.
+              </div>
+            ) : (
+              <select
+                value={formData.haven}
+                onChange={(e) => setFormData({ ...formData, haven: e.target.value })}
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-brand-primary focus:border-transparent outline-none transition-all"
+              >
+                <option value="">Select a haven...</option>
+                {uniqueHavens.map((haven: Haven, index: number) => (
+                  <option 
+                    key={haven.id || `${haven.haven_name || 'unknown'}-${index}`} 
+                    value={haven.haven_name || ''}
+                  >
+                    {haven.haven_name || 'Unnamed Haven'}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
           {/* Issue Type Selection */}
@@ -147,7 +317,7 @@ export default function ReportIssuePage() {
               value={formData.location}
               onChange={(e) => setFormData({ ...formData, location: e.target.value })}
               placeholder="e.g., Bathroom, Kitchen sink, Living room"
-              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-brand-primary focus:border-transparent"
+              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-brand-primary focus:border-transparent outline-none transition-all"
             />
           </div>
 
@@ -161,7 +331,7 @@ export default function ReportIssuePage() {
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               rows={5}
               placeholder="Describe the issue in detail..."
-              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-brand-primary focus:border-transparent resize-none"
+              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-brand-primary focus:border-transparent outline-none transition-all resize-none"
             ></textarea>
           </div>
 
@@ -170,7 +340,22 @@ export default function ReportIssuePage() {
             <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
               Upload Photos (Optional)
             </label>
-            <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center hover:border-brand-primary transition-colors cursor-pointer">
+            
+            {/* Hidden file input */}
+            <input
+              id="photo-upload-input"
+              type="file"
+              multiple
+              accept="image/*"
+              onChange={handlePhotoUpload}
+              className="hidden"
+            />
+            
+            {/* Upload area */}
+            <div 
+              onClick={openFileDialog}
+              className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center hover:border-brand-primary transition-colors cursor-pointer"
+            >
               <Camera className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-2" />
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 Click to upload or drag and drop
@@ -179,15 +364,63 @@ export default function ReportIssuePage() {
                 PNG, JPG up to 10MB
               </p>
             </div>
+            
+            {/* Photo previews */}
+            {photoPreviews.length > 0 && (
+              <div className="mt-4">
+                <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                  Uploaded Photos ({photoPreviews.length})
+                </p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {photoPreviews.map((preview, index) => (
+                    <div key={index} className="relative group">
+                      <img
+                        src={preview}
+                        alt={`Upload ${index + 1}`}
+                        className="w-full h-24 object-cover rounded-lg border border-gray-300 dark:border-gray-600"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removePhoto(index)}
+                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Submit Button */}
           <button
             type="submit"
-            className="w-full bg-brand-primary hover:bg-brand-primaryDark text-white py-4 rounded-lg font-bold text-lg flex items-center justify-center gap-2 transition-colors"
+            disabled={isSubmitting || isSubmittingReport || submitSuccess}
+            className={`w-full py-4 rounded-lg font-bold text-lg flex items-center justify-center gap-2 transition-colors disabled:cursor-not-allowed ${
+              isSubmitting || isSubmittingReport || submitSuccess
+                ? "bg-brand-primaryDark text-white"
+                : "bg-brand-primary hover:bg-brand-primaryDark text-white"
+            }`}
           >
-            <Send className="w-5 h-5" />
-            Submit Issue Report
+            {submitSuccess ? (
+              <>
+                <CheckCircle className="w-5 h-5" />
+                Report Submitted Successfully!
+              </>
+            ) : isSubmitting || isSubmittingReport ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Submitting Report...
+              </>
+            ) : (
+              <>
+                <Send className="w-5 h-5" />
+                Submit Issue Report
+              </>
+            )}
           </button>
         </form>
       </div>
