@@ -316,9 +316,9 @@ export default function CleanersDashboard() {
       </div>
 
       {/* MAIN CONTENT */}
-      <div className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${mobileMenuOpen ? 'overflow-hidden md:overflow-x-hidden md:overflow-y-auto' : 'overflow-x-hidden overflow-y-auto'}`}>
+      <div className={`flex-1 flex flex-col min-h-screen ${mobileMenuOpen ? 'overflow-hidden md:overflow-x-hidden md:overflow-y-auto' : 'overflow-x-hidden overflow-y-auto'}`}>
         {/* HEADER */}
-        <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-4 sm:px-6 h-20 min-h-20 flex-shrink-0 flex justify-between items-center sticky top-0 z-30 shadow-sm">
+        <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-4 sm:px-6 h-20 min-h-20 flex-shrink-0 flex justify-between items-center fixed top-0 right-0 left-0 z-30 shadow-sm md:left-20 lg:left-72">
           <div className="flex items-center gap-4">
             {/* Mobile Menu Button */}
             <button
@@ -466,7 +466,7 @@ export default function CleanersDashboard() {
         </div>
 
         {/* PAGE CONTENT */}
-        <div className="flex-1 p-4 sm:p-6">
+        <div className="flex-1 p-4 sm:p-6 pt-20">
           <div className="max-w-[1600px] mx-auto w-full">{renderPage()}</div>
         </div>
 
