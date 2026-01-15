@@ -185,21 +185,20 @@ export default function CleanersDashboard() {
       {/* Mobile Menu Backdrop */}
       {mobileMenuOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-[55] md:hidden"
+          className="fixed inset-0 bg-black/50 z-40 md:hidden animate-in fade-in duration-300"
           onClick={() => setMobileMenuOpen(false)}
         ></div>
       )}
 
-      {/* SIDEBAR */}
+      {/* SIDEBAR - Desktop and Mobile */}
       <div
         className={`${
-          sidebar ? "w-72 lg:w-72" : "w-20 lg:w-20"
-        } bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex-col h-screen shadow-xl flex-shrink-0
-        ${
+          sidebar ? "w-72" : "w-20"
+        } bg-white border-r border-gray-200 transition-all duration-300 flex-col sticky top-0 self-start h-screen shadow-xl ${
           mobileMenuOpen
-            ? "fixed inset-y-0 left-0 z-[60] flex w-72"
-            : sidebar ? "sticky top-0 hidden md:flex" : "hidden md:flex"
-        }`}
+            ? "fixed inset-y-0 left-0 z-50 flex animate-in slide-in-from-left duration-300"
+            : "hidden"
+        } md:flex`}
       >
         {/* Logo Section */}
         <div className="h-20 px-6 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex items-center">
