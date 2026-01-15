@@ -542,7 +542,7 @@ export default function OwnerDashboard() {
             </button>
 
             {/* Reused from CSR Dashboard: Live Date & Time Component */}
-            <div className="flex flex-col border-l border-gray-200 pl-4 h-10 justify-center">
+            <div className="flex flex-col pl-4 h-10 justify-center">
               <p className="text-sm font-semibold text-gray-800">
                 {now
                   ? now.toLocaleString("en-US", {
