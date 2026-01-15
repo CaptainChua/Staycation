@@ -143,6 +143,7 @@ export default function OwnerDashboard() {
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [havenView, setHavenView] = useState<"overview" | "list">("overview");
+  const [now, setNow] = useState<Date | null>(null); // Reused from CSR Dashboard
   const [modals, setModals] = useState({
     addUnit: false,
     payment: false,
@@ -162,6 +163,16 @@ export default function OwnerDashboard() {
     selectedDate: null,
     havenName: "",
   });
+
+  // Reused from CSR Dashboard: Live date and time update logic
+  useEffect(() => {
+    setNow(new Date());
+    const id = window.setInterval(() => {
+      setNow(new Date());
+    }, 1000);
+
+    return () => window.clearInterval(id);
+  }, []);
 
   // Fetch havens from database
   const { data: havensData } = useGetHavensQuery({});
@@ -529,15 +540,30 @@ export default function OwnerDashboard() {
                 <Menu className="w-6 h-6 text-gray-600" />
               )}
             </button>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-800">
-                {navItems.find((item) => item.id === page)?.label ||
-                  "Dashboard"}
-              </h1>
-              <p className="text-sm text-gray-500">
-                Welcome back! Here&apos;s what&apos;s happening today.
+
+            {/* Reused from CSR Dashboard: Live Date & Time Component */}
+            <div className="flex flex-col border-l border-gray-200 pl-4 h-10 justify-center">
+              <p className="text-sm font-semibold text-gray-800">
+                {now
+                  ? now.toLocaleString("en-US", {
+                      weekday: "long",
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    })
+                  : ""}
+              </p>
+              <p className="text-xs text-gray-500">
+                {now
+                  ? now.toLocaleString("en-US", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      second: "2-digit",
+                    })
+                  : ""}
               </p>
             </div>
+            {/* Module/Page title removed to match CSR header style */}
           </div>
 
           <div className="flex items-center gap-3">
