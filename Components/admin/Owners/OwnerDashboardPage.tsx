@@ -143,7 +143,7 @@ export default function OwnerDashboard() {
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [havenView, setHavenView] = useState<"overview" | "list">("overview");
-  const [now, setNow] = useState<Date | null>(null); // Reused from CSR Dashboard
+  const [now, setNow] = useState<Date | null>(null);
   const [modals, setModals] = useState({
     addUnit: false,
     payment: false,
@@ -164,7 +164,7 @@ export default function OwnerDashboard() {
     havenName: "",
   });
 
-  // Reused from CSR Dashboard: Live date and time update logic
+  // Live date and time update logic
   useEffect(() => {
     setNow(new Date());
     const id = window.setInterval(() => {
@@ -193,7 +193,6 @@ export default function OwnerDashboard() {
   ).filter(Boolean) as string[];
 
   // Create haven objects with the first matching haven's data for each unique name
-  // Ensure haven_name, tower, and floor are required for DashboardPage compatibility
   const havens = uniqueHavenNames
     .map((name: string) => {
       const haven = allHavens.find((h: OwnerHaven) => h.haven_name?.trim() === name);
@@ -218,16 +217,11 @@ export default function OwnerDashboard() {
   // Prevent back navigation to login page after login
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      // Push current state to history
       window.history.pushState(null, '', window.location.href);
-
-      // Prevent back navigation
       const handlePopState = () => {
         window.history.pushState(null, '', window.location.href);
       };
-
       window.addEventListener('popstate', handlePopState);
-
       return () => {
         window.removeEventListener('popstate', handlePopState);
       };
@@ -541,7 +535,7 @@ export default function OwnerDashboard() {
               )}
             </button>
 
-            {/* Reused from CSR Dashboard: Live Date & Time Component */}
+            {/* Live Date & Time Component */}
             <div className="flex flex-col pl-4 h-10 justify-center">
               <p className="text-sm font-semibold text-gray-800">
                 {now
@@ -563,7 +557,6 @@ export default function OwnerDashboard() {
                   : ""}
               </p>
             </div>
-            {/* Module/Page title removed to match CSR header style */}
           </div>
 
           <div className="flex items-center gap-3">
@@ -607,74 +600,74 @@ export default function OwnerDashboard() {
               {/* Dropdown Menu */}
               {profileDropdownOpen && (
                 <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-                {/* User Info */}
-                <div className="px-4 py-3 border-b border-gray-200">
-                  <div className="flex items-center gap-3">
-                    {userSession?.profile_image_url || userSession?.image ? (
-                      <Image
-                        src={userSession.profile_image_url || userSession.image || ''}
-                        alt="Profile"
-                        width={48}
-                        height={48}
-                        className="rounded-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-12 h-12 bg-brand-primary rounded-full flex items-center justify-center text-white font-bold text-lg">
-                        {userSession?.name?.charAt(0) || "O"}
+                  {/* User Info */}
+                  <div className="px-4 py-3 border-b border-gray-200">
+                    <div className="flex items-center gap-3">
+                      {userSession?.profile_image_url || userSession?.image ? (
+                        <Image
+                          src={userSession.profile_image_url || userSession.image || ''}
+                          alt="Profile"
+                          width={48}
+                          height={48}
+                          className="rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 bg-brand-primary rounded-full flex items-center justify-center text-white font-bold text-lg">
+                          {userSession?.name?.charAt(0) || "O"}
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-gray-800 truncate">
+                          {userSession?.name || "User"}
+                        </p>
+                        <p className="text-xs text-gray-500 truncate">
+                          {userSession?.role || "Owner"}
+                        </p>
                       </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-gray-800 truncate">
-                        {userSession?.name || "User"}
-                      </p>
-                      <p className="text-xs text-gray-500 truncate">
-                        {userSession?.role || "Owner"}
-                      </p>
                     </div>
                   </div>
-                </div>
 
-                {/* Menu Items */}
-                <div className="py-1">
-                  <button
-                    onClick={() => {
-                      setPage("profile");
-                      setProfileDropdownOpen(false);
-                    }}
-                    className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                  >
-                    <UserCircle className="w-4 h-4" />
-                    View Profile
-                  </button>
-                  <button
-                    onClick={() => {
-                      setPage("settings");
-                      setProfileDropdownOpen(false);
-                    }}
-                    className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                  >
-                    <Settings className="w-4 h-4" />
-                    Settings
-                  </button>
-                </div>
+                  {/* Menu Items */}
+                  <div className="py-1">
+                    <button
+                      onClick={() => {
+                        setPage("profile");
+                        setProfileDropdownOpen(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      <UserCircle className="w-4 h-4" />
+                      View Profile
+                    </button>
+                    <button
+                      onClick={() => {
+                        setPage("settings");
+                        setProfileDropdownOpen(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      <Settings className="w-4 h-4" />
+                      Settings
+                    </button>
+                  </div>
 
-                {/* Logout */}
-                <div className="border-t border-gray-200 pt-1">
-                  <button
-                    onClick={() => {
-                      setProfileDropdownOpen(false);
-                      handleLogout();
-                    }}
-                    className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                  >
-                    <LogOut className="w-4 h-4" />
-                    Logout
-                  </button>
+                  {/* Logout */}
+                  <div className="border-t border-gray-200 pt-1">
+                    <button
+                      onClick={() => {
+                        setProfileDropdownOpen(false);
+                        handleLogout();
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      Logout
+                    </button>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
-        </div>
         </div>
 
         {/* PAGE CONTENT */}
@@ -716,13 +709,13 @@ export default function OwnerDashboard() {
                 onCreateClick={() => openModal("employee")}
                 onEditClick={(employee: EmployeeData) => {
                   setSelectedEmployee(employee);
+                  openModal("editEmployee");
                 }}
               />
             )}
             {page === "settings" && <SettingsPage />}
             {page === "audit" && <AuditLogsPage />}
             {page === "roomManagement" && <RoomManagement />}
-            {page === "audit" && <AuditLogsPage />}
             {page === "profile" && <ProfilePage />}
             {page === "messages" && <MessagesPage />}
           </div>
