@@ -46,11 +46,11 @@ export default function ViewReportDetails({ isOpen, onClose, reportId, onAssign 
   const modalRef = useRef<HTMLDivElement>(null);
 
   // Fetch specific report details
-  const { data: reportsData, isLoading: reportsLoading } = useGetReportsQuery({});
+  const { data: reportsData } = useGetReportsQuery({});
   
   // Fetch employees for name lookup
-  const { data: employeesData, isLoading: employeesLoading } = useGetEmployeesQuery({});
-
+  const { data: employeesData } = useGetEmployeesQuery({});
+  
   // Create user lookup map from all employees data
   const userMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -63,13 +63,13 @@ export default function ViewReportDetails({ isOpen, onClose, reportId, onAssign 
     }
     return map;
   }, [employeesData]);
-
+  
   const selectedReport = reportsData?.data?.find((report: Report) => report.report_id === reportId);
-
+  
   // Transform report data to include proper reported_by name
   const transformedReport = useMemo(() => {
     if (!selectedReport) return null;
-
+    
     return {
       ...selectedReport,
       reported_by: userMap[selectedReport.user_id] || 'Unknown User'
@@ -155,12 +155,7 @@ export default function ViewReportDetails({ isOpen, onClose, reportId, onAssign 
         </div>
 
         <div className="p-6 space-y-6 max-h-[calc(90vh-200px)] overflow-y-auto">
-          {reportsLoading || employeesLoading ? (
-            <div className="flex flex-col items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 text-brand-primary animate-spin mb-4" />
-              <p className="text-sm text-gray-600 dark:text-gray-400">Loading report details...</p>
-            </div>
-          ) : transformedReport ? (
+          {transformedReport && (
             <>
               {/* Issue Information */}
               <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-3">
@@ -288,11 +283,6 @@ export default function ViewReportDetails({ isOpen, onClose, reportId, onAssign 
                 </div>
               )}
             </>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-12">
-              <FileText className="w-8 h-8 text-gray-400 mb-4" />
-              <p className="text-sm text-gray-600 dark:text-gray-400">Report not found</p>
-            </div>
           )}
         </div>
 

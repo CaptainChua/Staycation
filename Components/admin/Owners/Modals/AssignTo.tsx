@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { X, Search, UserPlus, CheckCircle, AlertCircle, MapPin, Calendar, User, FileText, Loader2 } from "lucide-react";
+import { X, Search, UserPlus, CheckCircle, AlertCircle, MapPin, Calendar, User, FileText } from "lucide-react";
 import { useGetEmployeesQuery } from "@/redux/api/employeeApi";
 import { useGetReportsQuery } from "@/redux/api/reportApi";
 import toast from 'react-hot-toast';
@@ -46,7 +46,7 @@ export default function AssignToModal({ isOpen, onClose, onAssign, reportId, isL
   const { data: employeesData, isLoading: employeesLoading } = useGetEmployeesQuery({});
   
   // Fetch specific report details
-  const { data: reportsData, isLoading: reportsLoading } = useGetReportsQuery({});
+  const { data: reportsData } = useGetReportsQuery({});
   
   // Create user lookup map from all employees data
   const userMap = useMemo(() => {
@@ -157,12 +157,8 @@ export default function AssignToModal({ isOpen, onClose, onAssign, reportId, isL
         </div>
 
         <div className="p-6 space-y-6 max-h-[calc(90vh-200px)] overflow-y-auto">
-          {reportsLoading || employeesLoading ? (
-            <div className="flex flex-col items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 text-brand-primary animate-spin mb-4" />
-              <p className="text-sm text-gray-600 dark:text-gray-400">Loading assignment details...</p>
-            </div>
-          ) : transformedReport ? (
+          {/* Issue Information */}
+          {transformedReport && (
             <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-3">
               <div className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
                 <FileText className="w-4 h-4" />
@@ -231,12 +227,8 @@ export default function AssignToModal({ isOpen, onClose, onAssign, reportId, isL
                 </div>
               </div>
             </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-12">
-              <FileText className="w-8 h-8 text-gray-400 mb-4" />
-              <p className="text-sm text-gray-600 dark:text-gray-400">Report not found</p>
-            </div>
           )}
+
           {/* Employee Selection */}
           <div className="space-y-4">
             <div>
@@ -302,17 +294,17 @@ export default function AssignToModal({ isOpen, onClose, onAssign, reportId, isL
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end gap-2 p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+        <div className="flex justify-end gap-3 p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
           <button
             onClick={onClose}
-            className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 font-medium text-sm"
+            className="px-6 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 font-medium"
           >
             Cancel
           </button>
           <button
             onClick={handleAssign}
             disabled={!selectedEmployee || employeesLoading || isLoading}
-            className="px-4 py-2 bg-brand-primary text-white rounded-lg hover:bg-brand-primaryDark disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center gap-2 text-sm"
+            className="px-6 py-3 bg-brand-primary text-white rounded-lg hover:bg-brand-primaryDark disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center gap-2"
           >
             {employeesLoading || isLoading ? (
               <>
