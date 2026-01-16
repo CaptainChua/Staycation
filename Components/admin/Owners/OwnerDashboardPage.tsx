@@ -73,10 +73,9 @@ interface User {
 // Placeholder component for Haven Management
 interface HavenManagementPlaceholderProps {
   onAddHavenClick: () => void;
-  onViewAllClick: () => void;
 }
 
-function HavenManagementPlaceholder({ onAddHavenClick, onViewAllClick }: HavenManagementPlaceholderProps) {
+function HavenManagementPlaceholder({ onAddHavenClick }: HavenManagementPlaceholderProps) {
   const sampleHavens = ["Haven 1", "Haven 2", "Haven 3", "Haven 4"];
   
   // Stats cards matching Analytics page style
@@ -96,12 +95,6 @@ function HavenManagementPlaceholder({ onAddHavenClick, onViewAllClick }: HavenMa
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage your property units, availability, pricing, and amenities</p>
         </div>
         <div className="flex gap-3">
-          <button
-            onClick={onViewAllClick}
-            className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
-          >
-            View All Units
-          </button>
           <button
             onClick={onAddHavenClick}
             className="px-4 py-2 bg-brand-primary hover:bg-brand-primaryDark text-white rounded-lg font-medium transition-all"
@@ -165,7 +158,6 @@ export default function OwnerDashboard() {
   const notificationButtonRef = useRef<HTMLButtonElement | null>(null);
   const messageButtonRef = useRef<HTMLButtonElement | null>(null);
   const notificationsHydratedRef = useRef(false);
-  const [havenView, setHavenView] = useState<"overview" | "list">("overview");
   const [now, setNow] = useState<Date | null>(null);
   const [modals, setModals] = useState({
     addUnit: false,
@@ -240,6 +232,9 @@ export default function OwnerDashboard() {
 
     return () => window.clearInterval(id);
   }, []);
+
+  // Notification modal state
+  const [notificationModalOpen, setNotificationModalOpen] = useState(false);
 
   // Fetch havens from database
   const { data: havensData } = useGetHavensQuery({});
@@ -842,19 +837,18 @@ export default function OwnerDashboard() {
                   setBookingDateModal({
                     isOpen: true,
                     selectedDate: date,
-                    havenName: haven.haven_name || haven.name || 'Unknown Haven',
+                    havenName: haven.haven_name || haven.name || "Unknown Haven",
                   });
                 }}
               />
             )}
-            {page === "havens" && havenView === "overview" && (
-              <HavenManagementPlaceholder
-                onAddHavenClick={() => openModal("addHaven")}
-                onViewAllClick={() => setHavenView("list")}
-              />
-            )}
-            {page === "havens" && havenView === "list" && (
-              <ViewAllUnits onAddUnitClick={() => openModal("addHaven")} />
+            {page === "havens" && (
+              <div className="space-y-6">
+                <HavenManagementPlaceholder
+                  onAddHavenClick={() => openModal("addHaven")}
+                />
+                <ViewAllUnits onAddUnitClick={() => openModal("addHaven")} hideHeader={true} />
+              </div>
             )}
             {page === "analytics" && <AnalyticsPage />}
             {page === "reservations" && <ReservationsPage />}
@@ -889,7 +883,6 @@ export default function OwnerDashboard() {
         <AdminFooter />
       </div>
 
-      {/* NOTIFICATIONS POPUP */}
       {notificationOpen && (
         <NotificationModal
           onClose={() => setNotificationOpen(false)}
@@ -984,4 +977,4 @@ export default function OwnerDashboard() {
       )}
     </div>
   );
-}
+} 

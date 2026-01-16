@@ -1,13 +1,18 @@
 "use client";
 
-import { X, Upload, Trash2, Calendar } from "lucide-react";
+import { X, Home, DollarSign, Clock, Calendar, FileText, Star, Image as ImageIcon, Images, Youtube } from "lucide-react";
 import { useState } from "react";
-import Image from "next/image";
-import { Input } from "@nextui-org/input";
-import { Select, SelectItem } from "@nextui-org/select";
-import { Checkbox } from "@nextui-org/checkbox";
 import { useCreateHavenMutation } from "@/redux/api/roomApi"
 import toast from 'react-hot-toast';
+import BasicInformationModal from "./BasicInformationModal";
+import PricingManagementModal from "./PricingManagementModal";
+import CheckInTimeSettingsModal from "./CheckInTimeSettingsModal";
+import AvailabilityManagementModal from "./AvailabilityManagementModal";
+import HavenDetailsModal from "./HavenDetailsModal";
+import AmenitiesModal from "./AmenitiesModal";
+import HavenImagesModal from "./HavenImagesModal";
+import PhotoTourManagementModal from "./PhotoTourManagementModal";
+import YouTubeVideoModal from "./YouTubeVideoModal";
 
 interface AddNewHavenModalProps {
   isOpen: boolean;
@@ -31,6 +36,7 @@ interface ApiError {
 
 const AddNewHavenModal = ({ isOpen, onClose }: AddNewHavenModalProps) => {
   const [createHaven, { isLoading }] = useCreateHavenMutation();
+  const [openModal, setOpenModal] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     havenName: "",
     tower: "",
@@ -341,677 +347,109 @@ const AddNewHavenModal = ({ isOpen, onClose }: AddNewHavenModalProps) => {
             </button>
           </div>
 
-          {/* Form - Scrollable */}
-          <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6">
-            <div className="space-y-6">
-              {/* Basic Information Section */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">
-                  Basic Information
-                </h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Input
-                      type="text"
-                      label="Haven Name *"
-                      placeholder="e.g., Haven 1"
-                      labelPlacement="outside"
-                      value={formData.havenName}
-                      onChange={(e) =>
-                        setFormData({ ...formData, havenName: e.target.value })
-                      }
-                      isRequired
-                      classNames={{
-                        base: "w-full",
-                        label: "text-sm font-medium text-gray-700 mb-1",
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <Select
-                      label="Tower *"
-                      placeholder="Select Tower"
-                      labelPlacement="outside"
-                      selectedKeys={formData.tower ? [formData.tower] : []}
-                      onSelectionChange={(keys) => {
-                        const selectedValue = Array.from(keys)[0] as string;
-                        setFormData({ ...formData, tower: selectedValue });
-                      }}
-                      isRequired
-                      classNames={{
-                        base: "w-full",
-                        label: "text-sm font-medium text-gray-700 mb-1",
-                      }}
-                    >
-                      {towers.map((tower) => (
-                        <SelectItem key={tower.value} value={tower.value}>
-                          {tower.label}
-                        </SelectItem>
-                      ))}
-                    </Select>
-                  </div>
-                </div>
+          {/* Modules List */}
+          <div className="flex-1 overflow-y-auto p-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+              {/* Basic Information */}
+              <button
+                type="button"
+                onClick={() => setOpenModal("basic")}
+                className="flex flex-col items-center justify-center p-4 bg-white border-2 border-gray-200 rounded-lg hover:border-amber-600 hover:bg-amber-50 transition-all group text-center"
+              >
+                <Home className="w-6 h-6 text-gray-500 group-hover:text-amber-600 mb-2" />
+                <h3 className="font-semibold text-sm text-gray-800 mb-1">Basic Information</h3>
+                <p className="text-xs text-gray-500 leading-tight">Haven name, tower, floor, view</p>
+              </button>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Input
-                      type="text"
-                      label="Floor *"
-                      placeholder="e.g., 1"
-                      labelPlacement="outside"
-                      value={formData.floor}
-                      onChange={(e) =>
-                        setFormData({ ...formData, floor: e.target.value })
-                      }
-                      isRequired
-                      classNames={{
-                        base: "w-full",
-                        label: "text-sm font-medium text-gray-700 mb-1",
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <Select
-                      label="View Type *"
-                      placeholder="Select View"
-                      labelPlacement="outside"
-                      selectedKeys={formData.view ? [formData.view] : []}
-                      onSelectionChange={(keys) => {
-                        const selectedValue = Array.from(keys)[0] as string;
-                        setFormData({ ...formData, view: selectedValue });
-                      }}
-                      isRequired
-                      classNames={{
-                        base: "w-full",
-                        label: "text-sm font-medium text-gray-700 mb-1",
-                      }}
-                    >
-                      {views.map((view) => (
-                        <SelectItem key={view.value} value={view.value}>
-                          {view.label}
-                        </SelectItem>
-                      ))}
-                    </Select>
-                  </div>
-                </div>
-              </div>
-
-              {/* Pricing Management Section */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">
-                  Pricing Management
-                </h3>
-
-                <p className="text-sm font-semibold text-gray-700">
-                  Weekday Rates
-                </p>
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <Input
-                      type="number"
-                      label="6-Hour Rate"
-                      placeholder="1299.00"
-                      labelPlacement="outside"
-                      startContent={<span className="text-gray-500">₱</span>}
-                      value={formData.sixHourRate}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          sixHourRate: e.target.value,
-                        })
-                      }
-                      isRequired
-                      classNames={{
-                        base: "w-full",
-                        label: "text-sm font-medium text-gray-700 mb-1",
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <Input
-                      type="number"
-                      label="10-Hour Rate"
-                      placeholder="1599.00"
-                      labelPlacement="outside"
-                      startContent={<span className="text-gray-500">₱</span>}
-                      value={formData.tenHourRate}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          tenHourRate: e.target.value,
-                        })
-                      }
-                      isRequired
-                      classNames={{
-                        base: "w-full",
-                        label: "text-sm font-medium text-gray-700 mb-1",
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <Input
-                      type="number"
-                      label="21-Hour Rate"
-                      placeholder="1799.00"
-                      labelPlacement="outside"
-                      startContent={<span className="text-gray-500">₱</span>}
-                      value={formData.weekdayRate}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          weekdayRate: e.target.value,
-                        })
-                      }
-                      isRequired
-                      classNames={{
-                        base: "w-full",
-                        label: "text-sm font-medium text-gray-700 mb-1",
-                      }}
-                    />
-                  </div>
-                </div>
-
-                <p className="text-sm font-semibold text-gray-700 mt-4">
-                  Weekend Rates
-                </p>
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <Input
-                      type="number"
-                      label="21-Hour Weekend Rate"
-                      placeholder="1999.00"
-                      labelPlacement="outside"
-                      startContent={<span className="text-gray-500">₱</span>}
-                      value={formData.weekendRate}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          weekendRate: e.target.value,
-                        })
-                      }
-                      isRequired
-                      classNames={{
-                        base: "w-full",
-                        label: "text-sm font-medium text-gray-700 mb-1",
-                      }}
-                    />
-                  </div>
-                </div>
-
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
-                  <p className="text-sm text-blue-800 font-medium mb-2">
-                    Pricing Notes
-                  </p>
-                  <ul className="text-xs text-blue-700 space-y-1 list-disc list-inside">
-                    <li>6h & 10h rates: Weekdays only</li>
-                    <li>21h rate: Available weekdays</li>
-                    <li>Weekend rate: Fri-Sun 21h bookings</li>
-                  </ul>
-                </div>
-              </div>
+              {/* Pricing Management */}
+              <button
+                type="button"
+                onClick={() => setOpenModal("pricing")}
+                className="flex flex-col items-center justify-center p-4 bg-white border-2 border-gray-200 rounded-lg hover:border-amber-600 hover:bg-amber-50 transition-all group text-center"
+              >
+                <DollarSign className="w-6 h-6 text-gray-500 group-hover:text-amber-600 mb-2" />
+                <h3 className="font-semibold text-sm text-gray-800 mb-1">Pricing</h3>
+                <p className="text-xs text-gray-500 leading-tight">Weekday and weekend rates</p>
+              </button>
 
               {/* Check-in Time Settings */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">
-                  Check-in Time Settings
-                </h3>
-                <p className="text-sm text-gray-600">
-                  Set default check-in times for each booking duration
-                </p>
+              <button
+                type="button"
+                onClick={() => setOpenModal("checkin")}
+                className="flex flex-col items-center justify-center p-4 bg-white border-2 border-gray-200 rounded-lg hover:border-amber-600 hover:bg-amber-50 transition-all group text-center"
+              >
+                <Clock className="w-6 h-6 text-gray-500 group-hover:text-amber-600 mb-2" />
+                <h3 className="font-semibold text-sm text-gray-800 mb-1">Check-in Time</h3>
+                <p className="text-xs text-gray-500 leading-tight">Set default check-in times</p>
+              </button>
 
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <Input
-                      type="time"
-                      label="6-Hour Check-in Time"
-                      labelPlacement="outside"
-                      value={formData.sixHourCheckIn}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          sixHourCheckIn: e.target.value,
-                        })
-                      }
-                      classNames={{
-                        base: "w-full",
-                        label: "text-sm font-medium text-gray-700 mb-1",
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <Input
-                      type="time"
-                      label="10-Hour Check-in Time"
-                      labelPlacement="outside"
-                      value={formData.tenHourCheckIn}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          tenHourCheckIn: e.target.value,
-                        })
-                      }
-                      classNames={{
-                        base: "w-full",
-                        label: "text-sm font-medium text-gray-700 mb-1",
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <Input
-                      type="time"
-                      label="21-Hour Check-in Time"
-                      labelPlacement="outside"
-                      value={formData.twentyOneHourCheckIn}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          twentyOneHourCheckIn: e.target.value,
-                        })
-                      }
-                      classNames={{
-                        base: "w-full",
-                        label: "text-sm font-medium text-gray-700 mb-1",
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Availability Management - Block Dates */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">
-                  Availability Management
-                </h3>
-                <p className="text-sm font-semibold text-gray-700">
-                  Block Dates
-                </p>
-
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <Input
-                      type="date"
-                      label="From Date"
-                      labelPlacement="outside"
-                      value={blockDateForm.fromDate}
-                      onChange={(e) =>
-                        setBlockDateForm({
-                          ...blockDateForm,
-                          fromDate: e.target.value,
-                        })
-                      }
-                      classNames={{
-                        base: "w-full",
-                        label: "text-sm font-medium text-gray-700 mb-1",
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <Input
-                      type="date"
-                      label="To Date"
-                      labelPlacement="outside"
-                      value={blockDateForm.toDate}
-                      onChange={(e) =>
-                        setBlockDateForm({
-                          ...blockDateForm,
-                          toDate: e.target.value,
-                        })
-                      }
-                      classNames={{
-                        base: "w-full",
-                        label: "text-sm font-medium text-gray-700 mb-1",
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <Input
-                      type="text"
-                      label="Reason (Optional)"
-                      placeholder="e.g., Maintenance, Renovation, etc."
-                      labelPlacement="outside"
-                      value={blockDateForm.reason}
-                      onChange={(e) =>
-                        setBlockDateForm({
-                          ...blockDateForm,
-                          reason: e.target.value,
-                        })
-                      }
-                      classNames={{
-                        base: "w-full",
-                        label: "text-sm font-medium text-gray-700 mb-1",
-                      }}
-                    />
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleAddBlockedDate}
-                  className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium transition-colors"
-                >
-                  Block Dates
-                </button>
-
-                <p className="text-xs text-gray-500">
-                  Blocked dates will not be available for booking
-                </p>
-
-                {/* Blocked Date Ranges List */}
-                <div className="mt-4">
-                  <p className="text-sm font-semibold text-gray-700 mb-2">
-                    Blocked Date Ranges
-                  </p>
-                  {blockedDates.length === 0 ? (
-                    <p className="text-sm text-gray-500 italic">
-                      No blocked dates yet
-                    </p>
-                  ) : (
-                    <div className="space-y-2">
-                      {blockedDates.map((date) => (
-                        <div
-                          key={date.id}
-                          className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg"
-                        >
-                          <div className="flex items-center gap-2">
-                            <Calendar className="w-4 h-4 text-gray-500" />
-                            <div>
-                              <p className="text-sm font-medium text-gray-800">
-                                {date.fromDate} to {date.toDate}
-                              </p>
-                              {date.reason && (
-                                <p className="text-xs text-gray-500">
-                                  {date.reason}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveBlockedDate(date.id)}
-                            className="p-1 text-red-500 hover:bg-red-50 rounded"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
+              {/* Availability Management */}
+              <button
+                type="button"
+                onClick={() => setOpenModal("availability")}
+                className="flex flex-col items-center justify-center p-4 bg-white border-2 border-gray-200 rounded-lg hover:border-amber-600 hover:bg-amber-50 transition-all group text-center"
+              >
+                <Calendar className="w-6 h-6 text-gray-500 group-hover:text-amber-600 mb-2" />
+                <h3 className="font-semibold text-sm text-gray-800 mb-1">Availability</h3>
+                <p className="text-xs text-gray-500 leading-tight">Manage blocked dates</p>
+              </button>
 
               {/* Haven Details */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">
-                  Haven Details
-                </h3>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Input
-                      type="number"
-                      label="Maximum Guests *"
-                      placeholder="e.g., 4"
-                      labelPlacement="outside"
-                      min={1}
-                      max={20}
-                      value={formData.capacity}
-                      onChange={(e) =>
-                        setFormData({ ...formData, capacity: e.target.value })
-                      }
-                      isRequired
-                      classNames={{
-                        base: "w-full",
-                        label: "text-sm font-medium text-gray-700 mb-1",
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <Input
-                      type="number"
-                      label="Room Size (sq.m) *"
-                      placeholder="e.g., 45"
-                      labelPlacement="outside"
-                      value={formData.roomSize}
-                      onChange={(e) =>
-                        setFormData({ ...formData, roomSize: e.target.value })
-                      }
-                      isRequired
-                      classNames={{
-                        base: "w-full",
-                        label: "text-sm font-medium text-gray-700 mb-1",
-                      }}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <Input
-                    type="text"
-                    label="Beds Configuration *"
-                    placeholder="e.g., 1 King + 1 Queen Bed"
-                    labelPlacement="outside"
-                    value={formData.beds}
-                    onChange={(e) =>
-                      setFormData({ ...formData, beds: e.target.value })
-                    }
-                    isRequired
-                    classNames={{
-                      base: "w-full",
-                      label: "text-sm font-medium text-gray-700 mb-1",
-                    }}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Description *
-                  </label>
-                  <textarea
-                    placeholder="Enter a detailed description of the haven..."
-                    value={formData.description}
-                    onChange={(e) =>
-                      setFormData({ ...formData, description: e.target.value })
-                    }
-                    rows={4}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none resize-none"
-                  />
-                </div>
-              </div>
+              <button
+                type="button"
+                onClick={() => setOpenModal("details")}
+                className="flex flex-col items-center justify-center p-4 bg-white border-2 border-gray-200 rounded-lg hover:border-amber-600 hover:bg-amber-50 transition-all group text-center"
+              >
+                <FileText className="w-6 h-6 text-gray-500 group-hover:text-amber-600 mb-2" />
+                <h3 className="font-semibold text-sm text-gray-800 mb-1">Haven Details</h3>
+                <p className="text-xs text-gray-500 leading-tight">Capacity, size, beds, description</p>
+              </button>
 
               {/* Amenities */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">
-                  Amenities
-                </h3>
-                <p className="text-sm text-gray-600">
-                  Select all amenities available in this haven
-                </p>
-
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                  {amenitiesList.map((amenity) => (
-                    <Checkbox
-                      key={amenity.key}
-                      isSelected={
-                        formData.amenities[
-                          amenity.key as keyof typeof formData.amenities
-                        ]
-                      }
-                      onValueChange={(checked) =>
-                        handleAmenityChange(amenity.key, checked)
-                      }
-                      classNames={{
-                        label: "text-sm text-gray-700",
-                      }}
-                    >
-                      {amenity.label}
-                    </Checkbox>
-                  ))}
-                </div>
-              </div>
+              <button
+                type="button"
+                onClick={() => setOpenModal("amenities")}
+                className="flex flex-col items-center justify-center p-4 bg-white border-2 border-gray-200 rounded-lg hover:border-amber-600 hover:bg-amber-50 transition-all group text-center"
+              >
+                <Star className="w-6 h-6 text-gray-500 group-hover:text-amber-600 mb-2" />
+                <h3 className="font-semibold text-sm text-gray-800 mb-1">Amenities</h3>
+                <p className="text-xs text-gray-500 leading-tight">Select available amenities</p>
+              </button>
 
               {/* Haven Images */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">
-                  Haven Images
-                </h3>
-
-                <div>
-                  <label className="block">
-                    <input
-                      type="file"
-                      multiple
-                      accept="image/*"
-                      onChange={handleImageUpload}
-                      className="hidden"
-                      id="haven-images"
-                    />
-                    <label
-                      htmlFor="haven-images"
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg font-medium cursor-pointer transition-colors"
-                    >
-                      <Upload className="w-4 h-4" />
-                      Add Image
-                    </label>
-                  </label>
-                </div>
-
-                {havenImages.length > 0 && (
-                  <div className="grid grid-cols-4 gap-4">
-                    {havenImages.map((file, index) => (
-                      <div
-                        key={index}
-                        className="relative group border border-gray-200 rounded-lg overflow-hidden"
-                      >
-                        <div className="aspect-video bg-gray-100 flex items-center justify-center">
-                          <Image
-                            src={URL.createObjectURL(file)}
-                            alt={file.name}
-                            className="w-full h-full object-cover"
-                            width={200}
-                            height={150}
-                            unoptimized // Since we're using object URLs
-                          />
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveImage(index)}
-                          className="absolute top-2 right-2 p-1 bg-red-500 hover:bg-red-600 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <button
+                type="button"
+                onClick={() => setOpenModal("images")}
+                className="flex flex-col items-center justify-center p-4 bg-white border-2 border-gray-200 rounded-lg hover:border-amber-600 hover:bg-amber-50 transition-all group text-center"
+              >
+                <ImageIcon className="w-6 h-6 text-gray-500 group-hover:text-amber-600 mb-2" />
+                <h3 className="font-semibold text-sm text-gray-800 mb-1">Haven Images</h3>
+                <p className="text-xs text-gray-500 leading-tight">Upload and manage images</p>
+              </button>
 
               {/* Photo Tour Management */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">
-                  Photo Tour Management
-                </h3>
-                <p className="text-sm text-gray-600">
-                  Upload photos for each category to create a comprehensive
-                  photo tour. Images will be displayed in the photo gallery
-                  page.
-                </p>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {photoTourCategories.map((category) => (
-                    <div
-                      key={category.key}
-                      className="border border-gray-200 rounded-lg p-4"
-                    >
-                      <p className="text-sm font-semibold text-gray-800 mb-2">
-                        {category.label}
-                      </p>
-                      <label className="block">
-                        <input
-                          type="file"
-                          multiple
-                          accept="image/*"
-                          onChange={(e) => handlePhotoTourUpload(category.key, e)}
-                          className="hidden"
-                          id={`photo-tour-${category.key}`}
-                        />
-                        <label
-                          htmlFor={`photo-tour-${category.key}`}
-                          className="inline-flex items-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium cursor-pointer transition-colors"
-                        >
-                          <Upload className="w-4 h-4" />
-                          Upload
-                        </label>
-                      </label>
-
-                      {/* Show uploaded images for this category */}
-                      {photoTourImages[category.key]?.length > 0 ? (
-                        <div className="mt-3 space-y-2">
-                          {photoTourImages[category.key].map((file, index) => (
-                            <div
-                              key={index}
-                              className="flex items-center justify-between p-2 bg-gray-50 rounded border border-gray-200"
-                            >
-                              <div className="flex items-center gap-2 flex-1 min-w-0">
-                                <Image
-                                  src={URL.createObjectURL(file)}
-                                  alt={file.name}
-                                  className="w-10 h-10 object-cover rounded"
-                                  width={40}
-                                  height={40}
-                                  unoptimized // Since we're using object URLs
-                                />
-                                <p className="text-xs text-gray-600 truncate">
-                                  {file.name}
-                                </p>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleRemovePhotoTourImage(category.key, index)
-                                }
-                                className="p-1 text-red-500 hover:bg-red-50 rounded"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-xs text-gray-500 mt-2 italic">
-                          No photos yet
-                        </p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <button
+                type="button"
+                onClick={() => setOpenModal("phototour")}
+                className="flex flex-col items-center justify-center p-4 bg-white border-2 border-gray-200 rounded-lg hover:border-amber-600 hover:bg-amber-50 transition-all group text-center"
+              >
+                <Images className="w-6 h-6 text-gray-500 group-hover:text-amber-600 mb-2" />
+                <h3 className="font-semibold text-sm text-gray-800 mb-1">Photo Tour</h3>
+                <p className="text-xs text-gray-500 leading-tight">Organize photos by category</p>
+              </button>
 
               {/* YouTube Video */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">
-                  YouTube Video
-                </h3>
-                <div>
-                  <Input
-                    type="url"
-                    label="YouTube Video URL (optional)"
-                    placeholder="https://www.youtube.com/watch?v=..."
-                    labelPlacement="outside"
-                    description="Paste a YouTube video link to showcase this haven"
-                    value={formData.youtubeUrl}
-                    onChange={(e) =>
-                      setFormData({ ...formData, youtubeUrl: e.target.value })
-                    }
-                    classNames={{
-                      base: "w-full",
-                      label: "text-sm font-medium text-gray-700 mb-1",
-                    }}
-                  />
-                </div>
-              </div>
+              <button
+                type="button"
+                onClick={() => setOpenModal("youtube")}
+                className="flex flex-col items-center justify-center p-4 bg-white border-2 border-gray-200 rounded-lg hover:border-amber-600 hover:bg-amber-50 transition-all group text-center"
+              >
+                <Youtube className="w-6 h-6 text-gray-500 group-hover:text-amber-600 mb-2" />
+                <h3 className="font-semibold text-sm text-gray-800 mb-1">YouTube Video</h3>
+                <p className="text-xs text-gray-500 leading-tight">Add YouTube video URL</p>
+              </button>
             </div>
-          </form>
+          </div>
 
           {/* Footer - Sticky */}
           <div className="flex gap-3 p-6 border-t border-gray-200 bg-gray-50 rounded-b-2xl flex-shrink-0">
@@ -1023,15 +461,153 @@ const AddNewHavenModal = ({ isOpen, onClose }: AddNewHavenModalProps) => {
               Cancel
             </button>
             <button
-              type="submit"
+              type="button"
               onClick={handleSubmit}
-              className="flex-1 px-6 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg hover:from-purple-600 hover:to-purple-700 font-medium transition-colors shadow-md hover:shadow-lg"
+              disabled={isLoading}
+              className="flex-1 px-6 py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-medium transition-colors shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? "Creating Haven..." : "Save Changes"}
             </button>
           </div>
         </div>
       </div>
+      
+      {/* Individual Modals */}
+      <BasicInformationModal
+        isOpen={openModal === "basic"}
+        onClose={() => setOpenModal(null)}
+        onSave={(data) => {
+          setFormData({
+            ...formData,
+            havenName: data.haven_name || "",
+            tower: data.tower || "",
+            floor: data.floor || "",
+            view: data.view_type || "",
+          });
+          setOpenModal(null);
+        }}
+        initialData={{
+          haven_name: formData.havenName,
+          tower: formData.tower,
+          floor: formData.floor,
+          view_type: formData.view,
+        }}
+      />
+      
+      <PricingManagementModal
+        isOpen={openModal === "pricing"}
+        onClose={() => setOpenModal(null)}
+        onSave={(data) => {
+          setFormData({
+            ...formData,
+            sixHourRate: data.six_hour_rate?.toString() || "",
+            tenHourRate: data.ten_hour_rate?.toString() || "",
+            weekdayRate: data.weekday_rate?.toString() || "",
+            weekendRate: data.weekend_rate?.toString() || "",
+          });
+          setOpenModal(null);
+        }}
+        initialData={{
+          six_hour_rate: formData.sixHourRate ? parseFloat(formData.sixHourRate) : undefined,
+          ten_hour_rate: formData.tenHourRate ? parseFloat(formData.tenHourRate) : undefined,
+          weekday_rate: formData.weekdayRate ? parseFloat(formData.weekdayRate) : undefined,
+          weekend_rate: formData.weekendRate ? parseFloat(formData.weekendRate) : undefined,
+        }}
+      />
+      
+      <CheckInTimeSettingsModal
+        isOpen={openModal === "checkin"}
+        onClose={() => setOpenModal(null)}
+        onSave={(data) => {
+          setFormData({
+            ...formData,
+            sixHourCheckIn: data.six_hour_check_in || "09:00",
+            tenHourCheckIn: data.ten_hour_check_in || "09:00",
+            twentyOneHourCheckIn: data.twenty_one_hour_check_in || "14:00",
+          });
+          setOpenModal(null);
+        }}
+        initialData={{
+          six_hour_check_in: formData.sixHourCheckIn,
+          ten_hour_check_in: formData.tenHourCheckIn,
+          twenty_one_hour_check_in: formData.twentyOneHourCheckIn,
+        }}
+      />
+      
+      <AvailabilityManagementModal
+        isOpen={openModal === "availability"}
+        onClose={() => setOpenModal(null)}
+        onSave={(dates) => {
+          setBlockedDates(dates);
+          setOpenModal(null);
+        }}
+        initialData={blockedDates.map(date => ({
+          from_date: date.fromDate,
+          to_date: date.toDate,
+          reason: date.reason,
+        }))}
+      />
+      
+      <HavenDetailsModal
+        isOpen={openModal === "details"}
+        onClose={() => setOpenModal(null)}
+        onSave={(data) => {
+          setFormData({
+            ...formData,
+            capacity: data.capacity?.toString() || "",
+            roomSize: data.room_size?.toString() || "",
+            beds: data.beds || "",
+            description: data.description || "",
+          });
+          setOpenModal(null);
+        }}
+        initialData={{
+          capacity: formData.capacity ? parseInt(formData.capacity) : undefined,
+          room_size: formData.roomSize ? parseFloat(formData.roomSize) : undefined,
+          beds: formData.beds,
+          description: formData.description,
+        }}
+      />
+      
+      <AmenitiesModal
+        isOpen={openModal === "amenities"}
+        onClose={() => setOpenModal(null)}
+        onSave={(data) => {
+          setFormData({ ...formData, amenities: data });
+          setOpenModal(null);
+        }}
+        initialData={formData.amenities}
+      />
+      
+      <HavenImagesModal
+        isOpen={openModal === "images"}
+        onClose={() => setOpenModal(null)}
+        onSave={(newImages, existingImages) => {
+          setHavenImages(newImages);
+          setOpenModal(null);
+        }}
+        initialImages={[]}
+      />
+      
+      <PhotoTourManagementModal
+        isOpen={openModal === "phototour"}
+        onClose={() => setOpenModal(null)}
+        onSave={(photoTours, existingPhotoTours) => {
+          setPhotoTourImages(photoTours);
+          setOpenModal(null);
+        }}
+        initialPhotoTours={[]}
+      />
+      
+      <YouTubeVideoModal
+        isOpen={openModal === "youtube"}
+        onClose={() => setOpenModal(null)}
+        onSave={(url) => {
+          setFormData({ ...formData, youtubeUrl: url });
+          setOpenModal(null);
+        }}
+        initialUrl={formData.youtubeUrl}
+      />
     </>
   );
 };
