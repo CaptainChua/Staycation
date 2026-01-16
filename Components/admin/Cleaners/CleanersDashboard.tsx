@@ -17,9 +17,12 @@ import {
   User,
 } from "lucide-react";
 import Image from "next/image";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { useGetConversationsQuery } from "@/redux/api/messagesApi";
+import { useGetEmployeesQuery } from "@/redux/api/employeeApi";
 
 // Page Components
 import DashboardPage from "./DashboardPage";
@@ -31,7 +34,36 @@ import NotificationsPage from "./NotificationsPage";
 import MySchedulePage from "./MySchedulePage";
 import UserGuidePage from "./UserGuidePage";
 import ProfilePage from "./ProfilePage";
+import MessagesPage from "./MessagesPage";
 import AdminFooter from "../AdminFooter";
+import NotificationModal from "./Modals/NotificationModal";
+import MessageModal from "./Modals/MessageModal";
+
+interface EmployeeProfile {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone?: string;
+  employment_id: string;
+  hire_date: string;
+  role: string;
+  department?: string;
+  monthly_salary?: number;
+  street_address?: string;
+  city?: string;
+  zip_code?: string;
+  profile_image_url?: string;
+}
+
+interface AdminUser {
+  id: string;
+  email?: string | null;
+  name?: string | null;
+  role?: string;
+  image?: string | null;
+  profile_image_url?: string;
+}
 
 const ACTIVE_PAGE_STORAGE_KEY = "cleaners-dashboard-active-page";
 
@@ -41,9 +73,48 @@ export default function CleanersDashboard() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [page, setPage] = useState("dashboard");
   const [notificationOpen, setNotificationOpen] = useState(false);
+  const [messageModalOpen, setMessageModalOpen] = useState(false);
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  const [messageBadge, setMessageBadge] = useState(true);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [now, setNow] = useState<Date | null>(null);
+  const [employee, setEmployee] = useState<EmployeeProfile | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const notificationButtonRef = useRef<HTMLButtonElement | null>(null);
+  const messageButtonRef = useRef<HTMLButtonElement | null>(null);
+  const { data: session } = useSession();
+
+  const userId = (session?.user as AdminUser)?.id;
+  const {
+    data: headerConversationsData,
+    isLoading: isLoadingHeaderConversations,
+  } = useGetConversationsQuery(
+    { userId: userId || "" },
+    { skip: !userId, pollingInterval: 5000 }
+  );
+
+  const { data: employeesData } = useGetEmployeesQuery({});
+  const employees = useMemo(() => {
+    return employeesData?.data || [];
+  }, [employeesData?.data]);
+  const employeeNameById = useMemo(() => {
+    const map: Record<string, string> = {};
+    employees.forEach((emp: EmployeeProfile) => {
+      const name = `${emp.first_name ?? ""} ${emp.last_name ?? ""}`.trim();
+      map[emp.id] = name || emp.email || emp.employment_id || "Employee";
+    });
+    return map;
+  }, [employees]);
+  const employeeProfileImageById = useMemo(() => {
+    const map: Record<string, string> = {};
+    employees.forEach((emp: EmployeeProfile) => {
+      if (emp?.id && emp?.profile_image_url) {
+        map[emp.id] = emp.profile_image_url;
+      }
+    });
+    return map;
+  }, [employees]);
 
   // Logout handler
   const handleLogout = async () => {
@@ -60,13 +131,48 @@ export default function CleanersDashboard() {
     }
   };
 
+  // Fetch employee data
+  useEffect(() => {
+    if (!session?.user?.id) return;
+
+    const controller = new AbortController();
+
+    const fetchEmployeeData = async () => {
+      try {
+        setIsLoading(true);
+        const response = await fetch(`/api/admin/employees/${session.user.id}`, {
+          method: "GET",
+          cache: "no-store",
+          signal: controller.signal,
+        });
+
+        const payload = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          throw new Error(payload?.error || "Failed to load employee data");
+        }
+
+        setEmployee(payload?.data ?? null);
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === "AbortError") return;
+        console.error("Error fetching employee data:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchEmployeeData();
+
+    return () => controller.abort();
+  }, [session?.user?.id]);
+
   // Mock cleaner data - replace with actual session/auth data
   const cleanerData = {
-    name: "Maria Santos",
-    email: "maria.santos@staycation.com",
-    employeeId: "EMP-001",
-    role: "Senior Cleaner",
-    profile_image_url: "", // No image - will show initials instead
+    name: employee ? `${employee.first_name} ${employee.last_name}` : "Maria Santos",
+    email: employee?.email || "maria.santos@staycation.com",
+    employeeId: employee?.employment_id || "EMP-001",
+    role: employee?.role || "Senior Cleaner",
+    profile_image_url: employee?.profile_image_url || "", // No image - will show initials instead
   };
 
   const notifications = [
@@ -173,6 +279,8 @@ export default function CleanersDashboard() {
         return <MySchedulePage />;
       case "user-guide":
         return <UserGuidePage />;
+      case "messages":
+        return <MessagesPage />;
       case "profile":
         return <ProfilePage cleanerData={cleanerData} />;
       default:
@@ -190,12 +298,11 @@ export default function CleanersDashboard() {
         ></div>
       )}
 
-      {/* SIDEBAR */}
+      {/* SIDEBAR - Desktop and Mobile */}
       <div
         className={`${
           sidebar ? "w-72" : "w-20"
-        } bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 transition-all duration-300 flex-col sticky top-0 h-screen shadow-xl flex-shrink-0
-        ${
+        } bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 transition-all duration-300 flex-col sticky top-0 self-start h-screen shadow-xl ${
           mobileMenuOpen
             ? "fixed inset-y-0 left-0 z-50 flex animate-in slide-in-from-left duration-300"
             : "hidden"
@@ -293,7 +400,7 @@ export default function CleanersDashboard() {
               <div className="mt-2">
                 <button
                   onClick={handleLogout}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all font-medium"
+                  className="w-full flex items-center gap-3 px-4 py-3 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all font-medium"
                 >
                   <LogOut className="w-5 h-5" />
                   <span className="text-sm">Logout</span>
@@ -308,7 +415,7 @@ export default function CleanersDashboard() {
                 className="p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
                 title="Logout"
               >
-                <LogOut className="w-5 h-5 text-red-600" />
+                <LogOut className="w-5 h-5 text-red-600 dark:text-red-400" />
               </button>
             </div>
           )}
@@ -316,9 +423,11 @@ export default function CleanersDashboard() {
       </div>
 
       {/* MAIN CONTENT */}
-      <div className="flex-1 flex flex-col h-screen min-w-0 overflow-x-hidden overflow-y-auto">
+      <div className={`flex-1 flex flex-col min-h-screen ${mobileMenuOpen ? 'overflow-hidden md:overflow-x-hidden md:overflow-y-auto' : 'overflow-x-hidden overflow-y-auto'}`}>
         {/* HEADER */}
-        <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-6 h-20 min-h-20 flex-shrink-0 flex justify-between items-center sticky top-0 z-30 shadow-sm">
+        <div className={`bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-4 sm:px-6 h-20 min-h-20 flex-shrink-0 flex justify-between items-center fixed top-0 right-0 left-0 z-30 shadow-sm ${
+          sidebar ? "md:left-20 lg:left-72" : "md:left-20 lg:left-20"
+        }`}>
           <div className="flex items-center gap-4">
             {/* Mobile Menu Button */}
             <button
@@ -339,7 +448,8 @@ export default function CleanersDashboard() {
                 <Menu className="w-6 h-6 text-gray-600 dark:text-gray-300" />
               )}
             </button>
-            <div className="flex flex-col">
+            
+            <div className="flex flex-col pl-4 h-10 justify-center">
               <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
                 {now
                   ? now.toLocaleString("en-US", {
@@ -365,14 +475,22 @@ export default function CleanersDashboard() {
           <div className="flex items-center gap-3">
             {/* Messages */}
             <button
+              ref={messageButtonRef}
               className="relative p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+              onClick={() => {
+                setMessageBadge(false);
+                setMessageModalOpen((prev) => !prev);
+              }}
             >
               <MessageSquare className="w-6 h-6 text-gray-600 dark:text-gray-300" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+              {messageBadge && (
+                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+              )}
             </button>
 
             {/* Notifications */}
             <button
+              ref={notificationButtonRef}
               className="relative p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
               onClick={() => setNotificationOpen((prev) => !prev)}
             >
@@ -466,58 +584,53 @@ export default function CleanersDashboard() {
         </div>
 
         {/* PAGE CONTENT */}
-        <div className="flex-1 p-6">
-          <div className="max-w-[1600px] mx-auto">{renderPage()}</div>
+        <div className="flex-1 p-6 pt-24">
+          <div className="max-w-[1600px] mx-auto w-full">{renderPage()}</div>
         </div>
 
         {/* FOOTER */}
         <AdminFooter />
       </div>
 
-      {/* Notification Dropdown */}
+      {/* Notification Modal */}
       {notificationOpen && (
-        <div className="fixed top-20 right-6 w-96 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-2xl z-50 animate-in slide-in-from-top-2 duration-200">
-          <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-            <h3 className="font-semibold text-gray-800 dark:text-white">Notifications</h3>
-            <button
-              onClick={() => setNotificationOpen(false)}
-              className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-            >
-              <X className="w-4 h-4 text-gray-500" />
-            </button>
-          </div>
-          <div className="max-h-96 overflow-y-auto">
-            {notifications.map((notif) => (
-              <div
-                key={notif.id}
-                className="p-4 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-              >
-                <h4 className="text-sm font-semibold text-gray-800 dark:text-white">{notif.title}</h4>
-                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{notif.message}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">{notif.time}</p>
-              </div>
-            ))}
-          </div>
-          <div className="p-3 text-center border-t border-gray-200 dark:border-gray-700">
-            <button
-              onClick={() => {
-                setPage("notifications");
-                setNotificationOpen(false);
-              }}
-              className="text-sm text-brand-primary hover:text-brand-primaryDark font-medium"
-            >
-              View All Notifications
-            </button>
-          </div>
-        </div>
+        <NotificationModal
+          notifications={notifications.map(n => ({
+            id: n.id.toString(),
+            title: n.title,
+            description: n.message,
+            timestamp: n.time,
+            type: n.type
+          }))}
+          onClose={() => setNotificationOpen(false)}
+          onViewAll={() => {
+            setNotificationOpen(false);
+            setPage("notifications");
+          }}
+          anchorRef={notificationButtonRef}
+        />
       )}
-
-      {/* Click Outside to Close Notifications */}
-      {notificationOpen && (
-        <div
-          className="fixed inset-0 z-40"
-          onClick={() => setNotificationOpen(false)}
-        ></div>
+      
+      {/* Message Modal */}
+      {messageModalOpen && (
+        <MessageModal
+          conversations={headerConversationsData?.data || []}
+          currentUserId={userId || ""}
+          employeeNameById={employeeNameById}
+          employeeProfileImageById={employeeProfileImageById}
+          isLoading={isLoadingHeaderConversations}
+          onSelectConversation={(conversationId) => {
+            setSelectedConversationId(conversationId);
+            setMessageModalOpen(false);
+            setPage("messages");
+          }}
+          onClose={() => setMessageModalOpen(false)}
+          onViewAll={() => {
+            setMessageModalOpen(false);
+            setPage("messages");
+          }}
+          anchorRef={messageButtonRef}
+        />
       )}
     </div>
   );

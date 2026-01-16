@@ -320,7 +320,7 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
       await sendMessage({
         conversation_id: activeId,
         sender_id: userId,
-        sender_name: session?.user?.name || "Owner",
+        sender_name: session?.user?.name || "Cleaner",
         message_text: text,
       }).unwrap();
 
@@ -413,10 +413,10 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
 
   return (
       <div className="animate-in fade-in duration-700">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-2 sm:mb-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Messages</h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400">Review and respond to guest and internal chat updates.</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-800 dark:text-gray-100">Messages</h1>
+            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 hidden sm:block">Review and respond to guest and internal chat updates.</p>
           </div>
         </div>
         <div className="bg-white dark:bg-gray-900 rounded-xl sm:rounded-2xl shadow-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
@@ -445,7 +445,7 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                   )}
                 </div>
               </div>
-
+  
               <div className="p-4">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -457,7 +457,7 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                   />
                 </div>
               </div>
-
+  
               <div className="flex-1 overflow-y-auto">
                 {isLoadingConversations ? (
                   <div className="flex items-center justify-center py-10">
@@ -493,7 +493,7 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                         }`}
                       >
                         <div className="relative">
-                          <div className="w-11 h-11 rounded-full bg-brand-primary text-white font-bold flex items-center justify-center">
+                          <div className="w-11 h-11 rounded-full bg-gradient-to-br from-brand-primary to-brand-primaryDark text-white font-bold flex items-center justify-center">
                             {avatarUrl ? (
                               <Image
                                 src={avatarUrl}
@@ -528,7 +528,7 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                             {activeStatus.statusText}
                           </p>
                         </div>
-
+  
                         {(c.unread_count || 0) > 0 && (
                           <div className="w-6 flex justify-end">
                             <span className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-brand-primary text-white text-xs font-bold">
@@ -542,7 +542,7 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                 )}
               </div>
             </div>
-
+  
             <div className={`bg-white dark:bg-gray-900 flex flex-col h-[calc(100vh-180px)] sm:h-[65vh] lg:h-[72vh] ${showMobileChat ? "flex" : "hidden lg:flex"}`}>
               {activeConversation ? (
                 <>
@@ -598,7 +598,7 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                       </button>
                     </div>
                   </div>
-
+  
                   <div className="flex-1 overflow-y-auto bg-white dark:bg-gray-900 px-2 sm:px-4 py-3 sm:py-4 space-y-2 sm:space-y-3">
                     {showSkeletonMessages ? (
                       Array.from({ length: 6 }).map((_, idx) => (
@@ -650,7 +650,7 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                     )}
                     <div ref={messagesEndRef} />
                   </div>
-
+  
                   <div className="border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-2 sm:px-4 py-2 sm:py-3">
                     <div className="flex items-center gap-1 sm:gap-2">
                       <button
@@ -713,7 +713,7 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                           )}
                         </div>
                       </div>
-
+  
                       <button
                         type="button"
                         onClick={handleSendMessage}
@@ -738,7 +738,7 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
             </div>
           </div>
         </div>
-
+  
         <NewMessageModal
           isOpen={isNewMessageModalOpen}
           onClose={() => setIsNewMessageModalOpen(false)}
