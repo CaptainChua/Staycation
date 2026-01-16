@@ -204,7 +204,24 @@ export default function NotificationModal({ onClose, onViewAll, anchorRef, userI
 
           <div className="flex-1 overflow-y-auto">
             {isLoading ? (
-              <div className="text-center py-10 text-sm text-gray-500 dark:text-gray-400">Loading notifications...</div>
+              <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                {[...Array(3)].map((_, index) => (
+                  <div key={index} className="px-6 py-4 flex items-start gap-3">
+                    <div className="relative flex-shrink-0">
+                      <div className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                        <div className="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-700 animate-pulse"></div>
+                      </div>
+                    </div>
+                    <div className="flex-1 min-w-0 space-y-2">
+                      <div className="space-y-1">
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-3/4"></div>
+                        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-full"></div>
+                      </div>
+                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-1/3"></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             ) : visibleItems.length === 0 ? (
               <div className="text-center py-10 text-sm text-gray-500 dark:text-gray-400">You&apos;re all caught up!</div>
             ) : (
