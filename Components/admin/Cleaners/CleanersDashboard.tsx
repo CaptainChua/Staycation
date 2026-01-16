@@ -440,16 +440,17 @@ export default function CleanersDashboard() {
             {/* Desktop Sidebar Toggle */}
             <button
               onClick={() => setSidebar(!sidebar)}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg hidden md:block transition-colors"
+              className="p-2 hover:bg-gray-100 rounded-lg hidden md:block transition-colors"
             >
               {sidebar ? (
-                <X className="w-6 h-6 text-gray-600 dark:text-gray-300" />
+                <X className="w-6 h-6 text-gray-600" />
               ) : (
-                <Menu className="w-6 h-6 text-gray-600 dark:text-gray-300" />
+                <Menu className="w-6 h-6 text-gray-600" />
               )}
             </button>
-            <div className="flex flex-col">
-              <p className="text-xs sm:text-sm font-semibold text-gray-800 dark:text-gray-100">
+            
+            <div className="flex flex-col pl-4 h-10 justify-center">
+              <p className="text-sm font-semibold text-gray-800">
                 {now
                   ? now.toLocaleString("en-US", {
                       weekday: "long",
@@ -459,7 +460,7 @@ export default function CleanersDashboard() {
                     })
                   : ""}
               </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
+              <p className="text-xs text-gray-500">
                 {now
                   ? now.toLocaleString("en-US", {
                       hour: "2-digit",

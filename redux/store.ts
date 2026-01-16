@@ -8,6 +8,7 @@ import { messagesApi } from "./api/messagesApi";
 import { activityLogApi } from "./api/activityLogApi";
 import { analyticsApi } from "./api/analyticsApi";
 import { reportApi } from "./api/reportApi";
+import { notificationsApi } from "./api/notificationsApi";
 
 export const store = configureStore({
     reducer: {
@@ -20,8 +21,9 @@ export const store = configureStore({
         [activityLogApi.reducerPath]: activityLogApi.reducer,
         [analyticsApi.reducerPath]: analyticsApi.reducer,
         [reportApi.reducerPath]: reportApi.reducer,
+        [notificationsApi.reducerPath]: notificationsApi.reducer,
     },
-    middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(employeeApi.middleware).concat(roomApi.middleware).concat(bookingsApi.middleware).concat(wishlistApi.middleware).concat(messagesApi.middleware).concat(activityLogApi.middleware).concat(analyticsApi.middleware).concat(reportApi.middleware),
+    middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(employeeApi.middleware).concat(roomApi.middleware).concat(bookingsApi.middleware).concat(wishlistApi.middleware).concat(messagesApi.middleware).concat(activityLogApi.middleware).concat(analyticsApi.middleware).concat(reportApi.middleware).concat(notificationsApi.middleware),
 
 });
 
