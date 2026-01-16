@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
       WHERE n.user_id = $1
     `;
 
-    const params: any[] = [userId];
+    const params: (string | number)[] = [userId];
 
     if (unreadOnly) {
       query += ' AND n.is_read = FALSE';
