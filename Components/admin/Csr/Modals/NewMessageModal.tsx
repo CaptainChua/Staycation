@@ -114,9 +114,9 @@ export default function NewMessageModal({
         ref={containerRef}
         className="relative w-full max-w-2xl max-h-[80vh] bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-brand-primary/20 dark:border-gray-800 overflow-hidden flex flex-col"
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800 bg-gradient-to-r from-brand-primaryLighter to-white dark:from-gray-900 dark:to-gray-900">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brand-primary to-brand-primaryDark text-white flex items-center justify-center">
+            <div className="w-10 h-10 rounded-full bg-brand-primary text-white flex items-center justify-center">
               <MessageSquare className="w-5 h-5" />
             </div>
             <div>
@@ -182,7 +182,7 @@ export default function NewMessageModal({
                         }}
                       />
                     ) : (
-                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-brand-primary to-brand-primaryDark text-white font-bold flex items-center justify-center">
+                      <div className="w-12 h-12 rounded-full bg-brand-primary text-white font-bold flex items-center justify-center">
                         {initials}
                       </div>
                     )}
@@ -237,7 +237,7 @@ export default function NewMessageModal({
               type="button"
               onClick={handleCreateConversation}
               disabled={!selectedUser || isCreating}
-              className="px-5 py-2 rounded-lg bg-gradient-to-r from-brand-primary to-brand-primaryDark text-white font-semibold shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+              className="px-5 py-2 rounded-lg bg-brand-primary text-white font-semibold shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
             >
               {isCreating ? (
                 <>
