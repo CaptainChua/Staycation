@@ -34,7 +34,7 @@ interface Report {
   specific_location: string;
   issue_description: string;
   created_at: string;
-  status: MaintenanceStatus;
+  status?: MaintenanceStatus;
   user_id: string;
   haven_name?: string;
   images?: Array<{
@@ -134,20 +134,25 @@ const MaintenancePage = () => {
   const rows = useMemo(() => {
     if (!reportsData?.data) return [];
     
-    return reportsData.data.map((report: Report): MaintenanceRow => ({
-      report_id: report.report_id,
-      haven_id: report.haven_id,
-      haven_name: report.haven_name || 'Unknown Haven',
-      issue_type: report.issue_type,
-      priority_level: report.priority_level,
-      specific_location: report.specific_location,
-      issue_description: report.issue_description,
-      created_at: report.created_at,
-      status: report.status,
-      user_id: report.user_id,
-      reported_by: userMap[report.user_id] || 'Unknown User',
-      images: report.images || []
-    }));
+    return reportsData.data.map((report: Report): MaintenanceRow => {
+      // Debug log to see what we're getting from the API
+      console.log('Report data:', report);
+      
+      return {
+        report_id: report.report_id,
+        haven_id: report.haven_id,
+        haven_name: report.haven_name || 'Unknown Haven',
+        issue_type: report.issue_type,
+        priority_level: report.priority_level,
+        specific_location: report.specific_location,
+        issue_description: report.issue_description,
+        created_at: report.created_at,
+        status: report.status || 'Open', // Provide fallback if status is missing
+        user_id: report.user_id,
+        reported_by: userMap[report.user_id] || 'Unknown User',
+        images: report.images || []
+      };
+    });
   }, [reportsData, userMap]);
 
   const stats = useMemo((): StatsCard[] => [
