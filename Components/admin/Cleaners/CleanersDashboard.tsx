@@ -302,7 +302,7 @@ export default function CleanersDashboard() {
       <div
         className={`${
           sidebar ? "w-72" : "w-20"
-        } bg-white border-r border-gray-200 transition-all duration-300 flex-col sticky top-0 self-start h-screen shadow-xl ${
+        } bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 transition-all duration-300 flex-col sticky top-0 self-start h-screen shadow-xl ${
           mobileMenuOpen
             ? "fixed inset-y-0 left-0 z-50 flex animate-in slide-in-from-left duration-300"
             : "hidden"
@@ -400,7 +400,7 @@ export default function CleanersDashboard() {
               <div className="mt-2">
                 <button
                   onClick={handleLogout}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all font-medium"
+                  className="w-full flex items-center gap-3 px-4 py-3 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all font-medium"
                 >
                   <LogOut className="w-5 h-5" />
                   <span className="text-sm">Logout</span>
@@ -415,7 +415,7 @@ export default function CleanersDashboard() {
                 className="p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
                 title="Logout"
               >
-                <LogOut className="w-5 h-5 text-red-600" />
+                <LogOut className="w-5 h-5 text-red-600 dark:text-red-400" />
               </button>
             </div>
           )}
@@ -440,17 +440,17 @@ export default function CleanersDashboard() {
             {/* Desktop Sidebar Toggle */}
             <button
               onClick={() => setSidebar(!sidebar)}
-              className="p-2 hover:bg-gray-100 rounded-lg hidden md:block transition-colors"
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg hidden md:block transition-colors"
             >
               {sidebar ? (
-                <X className="w-6 h-6 text-gray-600" />
+                <X className="w-6 h-6 text-gray-600 dark:text-gray-300" />
               ) : (
-                <Menu className="w-6 h-6 text-gray-600" />
+                <Menu className="w-6 h-6 text-gray-600 dark:text-gray-300" />
               )}
             </button>
             
             <div className="flex flex-col pl-4 h-10 justify-center">
-              <p className="text-sm font-semibold text-gray-800">
+              <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
                 {now
                   ? now.toLocaleString("en-US", {
                       weekday: "long",
@@ -460,7 +460,7 @@ export default function CleanersDashboard() {
                     })
                   : ""}
               </p>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
                 {now
                   ? now.toLocaleString("en-US", {
                       hour: "2-digit",

@@ -414,7 +414,7 @@ export default function OwnerDashboard() {
   const userSession = getUserSession();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-100 to-gray-50 flex items-start">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-start">
       {/* Mobile Menu Backdrop */}
       {mobileMenuOpen && (
         <div
@@ -427,7 +427,7 @@ export default function OwnerDashboard() {
       <div
         className={`${
           sidebar ? "w-72" : "w-20"
-        } bg-white border-r border-gray-200 transition-all duration-300 flex-col sticky top-0 self-start h-screen shadow-xl
+        } bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 transition-all duration-300 flex-col sticky top-0 self-start h-screen shadow-xl
         ${
           mobileMenuOpen
             ? "fixed inset-y-0 left-0 z-50 flex animate-in slide-in-from-left duration-300"
@@ -435,7 +435,7 @@ export default function OwnerDashboard() {
         } md:flex`}
       >
         {/* Logo Section */}
-        <div className="h-20 px-6 border-b border-gray-200 bg-white flex items-center">
+        <div className="h-20 px-6 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex items-center">
           <div className="flex items-center justify-between gap-3 w-full">
             <div
               className={`flex items-center ${sidebar ? "gap-3" : "justify-center w-full"}`}
@@ -452,10 +452,10 @@ export default function OwnerDashboard() {
               </div>
               {sidebar && (
                 <div>
-                  <h1 className="font-bold text-lg text-gray-800">
+                  <h1 className="font-bold text-lg text-gray-800 dark:text-gray-100">
                     Staycation Haven
                   </h1>
-                  <p className="text-xs text-gray-500">Owner Portal</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Owner Portal</p>
                 </div>
               )}
             </div>
@@ -463,9 +463,9 @@ export default function OwnerDashboard() {
             {mobileMenuOpen && (
               <button
                 onClick={() => setMobileMenuOpen(false)}
-                className="p-2 hover:bg-white/50 rounded-lg md:hidden transition-colors"
+                className="p-2 hover:bg-white/50 dark:hover:bg-gray-800 rounded-lg md:hidden transition-colors"
               >
-                <X className="w-5 h-5 text-gray-600" />
+                <X className="w-5 h-5 text-gray-600 dark:text-gray-300" />
               </button>
             )}
           </div>
@@ -489,7 +489,7 @@ export default function OwnerDashboard() {
                 className={`w-full flex items-center ${sidebar ? "gap-4 px-4" : "justify-center px-2"} py-3.5 rounded-xl transition-all duration-200 group ${
                   page === item.id
                     ? "bg-brand-primary text-white shadow-lg shadow-md"
-                    : "text-gray-600 hover:bg-gray-50 hover:shadow-md"
+                    : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:shadow-md"
                 }`}
               >
                 <Icon
@@ -510,10 +510,10 @@ export default function OwnerDashboard() {
         </nav>
 
         {/* User Profile & Logout */}
-        <div className="p-2 border-t border-gray-200 bg-gray-50">
+        <div className="p-2 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900">
           {sidebar && (
             <div className="mb-2">
-              <div className="flex items-center gap-3 p-2 hover:bg-gray-100 rounded-lg transition-colors">
+              <div className="flex items-center gap-3 p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
                 {userSession?.profile_image_url || userSession?.image ? (
                   <Image
                     src={userSession.profile_image_url || userSession.image || ''}
@@ -528,17 +528,17 @@ export default function OwnerDashboard() {
                   </div>
                 )}
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-gray-800 truncate">
+                  <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">
                     {userSession?.name || "User"}
                   </p>
-                  <p className="text-xs text-gray-500 truncate">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                     {userSession?.role || "Owner"}
                   </p>
                 </div>
               </div>
               <div className="mt-2">
                 <button 
-                  className="w-full flex items-center gap-3 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-all font-medium"
+                  className="w-full flex items-center gap-3 px-4 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all font-medium"
                   onClick={handleLogout}
                 >
                   <LogOut className="w-5 h-5" />
@@ -563,7 +563,7 @@ export default function OwnerDashboard() {
                 )}
               </div>
               <button 
-                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
                 onClick={handleLogout}
                 title="Logout"
               >
@@ -577,31 +577,31 @@ export default function OwnerDashboard() {
       {/* MAIN CONTENT */}
       <div className="flex-1 flex flex-col h-screen min-w-0 overflow-x-hidden overflow-y-auto">
         {/* HEADER */}
-        <div className="bg-white border-b border-gray-200 px-6 h-20 min-h-20 flex-shrink-0 flex justify-between items-center sticky top-0 z-10 shadow-sm">
+        <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-6 h-20 min-h-20 flex-shrink-0 flex justify-between items-center sticky top-0 z-10 shadow-sm">
           <div className="flex items-center gap-4">
             {/* Mobile Menu Button */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 hover:bg-gray-100 rounded-lg md:hidden transition-colors"
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg md:hidden transition-colors"
             >
-              <Menu className="w-6 h-6 text-gray-600" />
+              <Menu className="w-6 h-6 text-gray-600 dark:text-gray-300" />
             </button>
 
             {/* Desktop Sidebar Toggle */}
             <button
               onClick={() => setSidebar(!sidebar)}
-              className="p-2 hover:bg-gray-100 rounded-lg hidden md:block transition-colors"
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg hidden md:block transition-colors"
             >
               {sidebar ? (
-                <X className="w-6 h-6 text-gray-600" />
+                <X className="w-6 h-6 text-gray-600 dark:text-gray-300" />
               ) : (
-                <Menu className="w-6 h-6 text-gray-600" />
+                <Menu className="w-6 h-6 text-gray-600 dark:text-gray-300" />
               )}
             </button>
 
             {/* Live Date & Time Component */}
             <div className="flex flex-col pl-4 h-10 justify-center">
-              <p className="text-sm font-semibold text-gray-800">
+              <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
                 {now
                   ? now.toLocaleString("en-US", {
                       weekday: "long",
@@ -611,7 +611,7 @@ export default function OwnerDashboard() {
                     })
                   : ""}
               </p>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
                 {now
                   ? now.toLocaleString("en-US", {
                       hour: "2-digit",
@@ -627,13 +627,13 @@ export default function OwnerDashboard() {
             {/* Messages */}
             <button
               ref={messageButtonRef}
-              className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              className="relative p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
               onClick={() => {
                 setMessageBadge(false);
                 setMessageModalOpen((prev) => !prev);
               }}
             >
-              <MessageSquare className="w-6 h-6 text-gray-600" />
+              <MessageSquare className="w-6 h-6 text-gray-600 dark:text-gray-300" />
               {messageBadge && (
                 <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
               )}
@@ -642,10 +642,10 @@ export default function OwnerDashboard() {
             {/* Notifications */}
             <button
               ref={notificationButtonRef}
-              className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              className="relative p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
               onClick={() => setNotificationOpen((prev) => !prev)}
             >
-              <Bell className="w-6 h-6 text-gray-600" />
+              <Bell className="w-6 h-6 text-gray-600 dark:text-gray-300" />
               {unreadCount > 0 && (
                 <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
               )}
@@ -655,7 +655,7 @@ export default function OwnerDashboard() {
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-                className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="flex items-center gap-2 p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
               >
                 {userSession?.profile_image_url || userSession?.image ? (
                   <Image
@@ -670,14 +670,14 @@ export default function OwnerDashboard() {
                     {userSession?.name?.charAt(0) || "O"}
                   </div>
                 )}
-                <ChevronDown className={`w-4 h-4 text-gray-600 transition-transform ${profileDropdownOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`w-4 h-4 text-gray-600 dark:text-gray-300 transition-transform ${profileDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
 
               {/* Dropdown Menu */}
               {profileDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
                   {/* User Info */}
-                  <div className="px-4 py-3 border-b border-gray-200">
+                  <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
                     <div className="flex items-center gap-3">
                       {userSession?.profile_image_url || userSession?.image ? (
                         <Image
@@ -693,10 +693,10 @@ export default function OwnerDashboard() {
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-gray-800 truncate">
+                        <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">
                           {userSession?.name || "User"}
                         </p>
-                        <p className="text-xs text-gray-500 truncate">
+                        <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                           {userSession?.role || "Owner"}
                         </p>
                       </div>
@@ -710,7 +710,7 @@ export default function OwnerDashboard() {
                         setPage("profile");
                         setProfileDropdownOpen(false);
                       }}
-                      className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                     >
                       <UserCircle className="w-4 h-4" />
                       View Profile
@@ -720,7 +720,7 @@ export default function OwnerDashboard() {
                         setPage("settings");
                         setProfileDropdownOpen(false);
                       }}
-                      className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                     >
                       <Settings className="w-4 h-4" />
                       Settings
@@ -728,13 +728,13 @@ export default function OwnerDashboard() {
                   </div>
 
                   {/* Logout */}
-                  <div className="border-t border-gray-200 pt-1">
+                  <div className="border-t border-gray-200 dark:border-gray-700 pt-1">
                     <button
                       onClick={() => {
                         setProfileDropdownOpen(false);
                         handleLogout();
                       }}
-                      className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                      className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                     >
                       <LogOut className="w-4 h-4" />
                       Logout
