@@ -24,6 +24,7 @@ export async function GET(request: NextRequest) {
           ri.issue_description,
           ri.created_at,
           ri.user_id,
+          ri.assigned_to,
           h.haven_name,
           ARRAY_AGG(
             JSON_BUILD_OBJECT(
@@ -43,7 +44,7 @@ export async function GET(request: NextRequest) {
         params.push(haven_id);
       }
       
-      query += ' GROUP BY ri.report_id, ri.haven_id, ri.issue_type, ri.priority_level, ri.specific_location, ri.issue_description, ri.created_at, ri.user_id, h.haven_name';
+      query += ' GROUP BY ri.report_id, ri.haven_id, ri.issue_type, ri.priority_level, ri.specific_location, ri.issue_description, ri.created_at, ri.user_id, ri.assigned_to, h.haven_name';
       query += ' ORDER BY ri.created_at DESC';
       
       const result = await client.query(query, params);
@@ -59,6 +60,56 @@ export async function GET(request: NextRequest) {
     
   } catch (error) {
     console.error('Error fetching reports:', error);
+    return NextResponse.json(
+      { success: false, message: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { reportId, assigned_to } = body;
+
+    if (!reportId) {
+      return NextResponse.json(
+        { success: false, message: 'Report ID is required' },
+        { status: 400 }
+      );
+    }
+
+    const client = await pool.connect();
+    
+    try {
+      const query = `
+        UPDATE report_issue 
+        SET assigned_to = $1
+        WHERE report_id = $2
+        RETURNING *
+      `;
+      
+      const result = await client.query(query, [assigned_to, reportId]);
+      
+      if (result.rows.length === 0) {
+        return NextResponse.json(
+          { success: false, message: 'Report not found' },
+          { status: 404 }
+        );
+      }
+      
+      return NextResponse.json({
+        success: true,
+        message: 'Report assigned successfully',
+        data: result.rows[0]
+      });
+      
+    } finally {
+      client.release();
+    }
+    
+  } catch (error) {
+    console.error('Error updating report assignment:', error);
     return NextResponse.json(
       { success: false, message: 'Internal server error' },
       { status: 500 }
