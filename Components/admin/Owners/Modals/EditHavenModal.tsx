@@ -3,12 +3,17 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useUpdateHavenMutation } from "@/redux/api/roomApi";
-import { X, Upload, Trash2, Calendar } from "lucide-react";
-import { Input } from "@nextui-org/input";
-import { Select, SelectItem } from "@nextui-org/select";
-import { Checkbox } from "@nextui-org/checkbox";
+import { X, Home, DollarSign, Clock, Calendar, FileText, Star, Image as ImageIcon, Images, Youtube } from "lucide-react";
 import toast from 'react-hot-toast';
-import Image from 'next/image';
+import BasicInformationModal from "./BasicInformationModal";
+import PricingManagementModal from "./PricingManagementModal";
+import CheckInTimeSettingsModal from "./CheckInTimeSettingsModal";
+import AvailabilityManagementModal from "./AvailabilityManagementModal";
+import HavenDetailsModal from "./HavenDetailsModal";
+import AmenitiesModal from "./AmenitiesModal";
+import HavenImagesModal from "./HavenImagesModal";
+import PhotoTourManagementModal from "./PhotoTourManagementModal";
+import YouTubeVideoModal from "./YouTubeVideoModal";
 
 interface HavenData {
   uuid_id?: string;
@@ -131,6 +136,9 @@ const EditHavenModal = ({ isOpen, onClose, havenData }: EditHavenModalProps) => 
   const [updateHaven, { isLoading }] = useUpdateHavenMutation();
   const [errors, setErrors] = useState<FormErrors>({});
   const [isInitialized, setIsInitialized] = useState(false);
+  
+  // Modal states
+  const [openModal, setOpenModal] = useState<string | null>(null);
 
   const towers = [
     { value: "tower-a", label: "Tower A" },
@@ -491,427 +499,109 @@ const EditHavenModal = ({ isOpen, onClose, havenData }: EditHavenModalProps) => 
             </button>
           </div>
 
-          {/* Form - Scrollable */}
-          <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6">
-            <div className="space-y-6">
+          {/* Modules List */}
+          <div className="flex-1 overflow-y-auto p-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
               {/* Basic Information */}
-              <div>
-                <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2 mb-4">
-                  Basic Information
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Input
-                      label="Haven Name"
-                      labelPlacement="outside"
-                      value={formData.haven_name}
-                      onChange={(e) => setFormData({ ...formData, haven_name: e.target.value })}
-                      classNames={{ label: "text-sm font-medium text-gray-700" }}
-                      isInvalid={!!errors.haven_name}
-                      errorMessage={errors.haven_name}
-                    />
-                  </div>
-                  <Select
-                    label="Tower"
-                    labelPlacement="outside"
-                    selectedKeys={formData.tower ? [formData.tower] : []}
-                    onSelectionChange={(keys) => {
-                      const value = Array.from(keys)[0] as string;
-                      setFormData({ ...formData, tower: value });
-                    }}
-                    classNames={{ label: "text-sm font-medium text-gray-700" }}
-                  >
-                    {towers.map((tower) => (
-                      <SelectItem key={tower.value}>{tower.label}</SelectItem>
-                    ))}
-                  </Select>
-                  <Input
-                    label="Floor"
-                    labelPlacement="outside"
-                    value={formData.floor}
-                    onChange={(e) => setFormData({ ...formData, floor: e.target.value })}
-                    classNames={{ label: "text-sm font-medium text-gray-700" }}
-                  />
-                  <Select
-                    label="View Type"
-                    labelPlacement="outside"
-                    selectedKeys={formData.view_type ? [formData.view_type] : []}
-                    onSelectionChange={(keys) => {
-                      const value = Array.from(keys)[0] as string;
-                      setFormData({ ...formData, view_type: value });
-                    }}
-                    classNames={{ label: "text-sm font-medium text-gray-700" }}
-                  >
-                    {views.map((view) => (
-                      <SelectItem key={view.value}>{view.label}</SelectItem>
-                    ))}
-                  </Select>
-                </div>
-              </div>
+              <button
+                type="button"
+                onClick={() => setOpenModal("basic")}
+                className="flex flex-col items-center justify-center p-4 bg-white border-2 border-gray-200 rounded-lg hover:border-amber-600 hover:bg-amber-50 transition-all group text-center"
+              >
+                <Home className="w-6 h-6 text-gray-500 group-hover:text-amber-600 mb-2" />
+                <h3 className="font-semibold text-sm text-gray-800 mb-1">Basic Information</h3>
+                <p className="text-xs text-gray-500 leading-tight">Haven name, tower, floor, view</p>
+              </button>
+
+              {/* Pricing Management */}
+              <button
+                type="button"
+                onClick={() => setOpenModal("pricing")}
+                className="flex flex-col items-center justify-center p-4 bg-white border-2 border-gray-200 rounded-lg hover:border-amber-600 hover:bg-amber-50 transition-all group text-center"
+              >
+                <DollarSign className="w-6 h-6 text-gray-500 group-hover:text-amber-600 mb-2" />
+                <h3 className="font-semibold text-sm text-gray-800 mb-1">Pricing</h3>
+                <p className="text-xs text-gray-500 leading-tight">Weekday and weekend rates</p>
+              </button>
+
+              {/* Check-in Time Settings */}
+              <button
+                type="button"
+                onClick={() => setOpenModal("checkin")}
+                className="flex flex-col items-center justify-center p-4 bg-white border-2 border-gray-200 rounded-lg hover:border-amber-600 hover:bg-amber-50 transition-all group text-center"
+              >
+                <Clock className="w-6 h-6 text-gray-500 group-hover:text-amber-600 mb-2" />
+                <h3 className="font-semibold text-sm text-gray-800 mb-1">Check-in Time</h3>
+                <p className="text-xs text-gray-500 leading-tight">Set default check-in times</p>
+              </button>
+
+              {/* Availability Management */}
+              <button
+                type="button"
+                onClick={() => setOpenModal("availability")}
+                className="flex flex-col items-center justify-center p-4 bg-white border-2 border-gray-200 rounded-lg hover:border-amber-600 hover:bg-amber-50 transition-all group text-center"
+              >
+                <Calendar className="w-6 h-6 text-gray-500 group-hover:text-amber-600 mb-2" />
+                <h3 className="font-semibold text-sm text-gray-800 mb-1">Availability</h3>
+                <p className="text-xs text-gray-500 leading-tight">Manage blocked dates</p>
+              </button>
 
               {/* Haven Details */}
-              <div>
-                <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2 mb-4">
-                  Haven Details
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <Input
-                      type="number"
-                      label="Maximum Guests"
-                      labelPlacement="outside"
-                      value={formData.capacity}
-                      onChange={(e) => setFormData({ ...formData, capacity: e.target.value })}
-                      classNames={{ label: "text-sm font-medium text-gray-700" }}
-                      isInvalid={!!errors.capacity}
-                      errorMessage={errors.capacity}
-                    />
-                  </div>
-                  <div>
-                    <Input
-                      type="number"
-                      label="Room Size (sq.m)"
-                      labelPlacement="outside"
-                      value={formData.room_size}
-                      onChange={(e) => setFormData({ ...formData, room_size: e.target.value })}
-                      classNames={{ label: "text-sm font-medium text-gray-700" }}
-                      isInvalid={!!errors.room_size}
-                      errorMessage={errors.room_size}
-                    />
-                  </div>
-                </div>
-                <div className="mb-4">
-                  <Input
-                    label="Beds Configuration"
-                    labelPlacement="outside"
-                    placeholder="e.g., 1 King + 1 Queen Bed"
-                    value={formData.beds}
-                    onChange={(e) => setFormData({ ...formData, beds: e.target.value })}
-                    classNames={{ label: "text-sm font-medium text-gray-700" }}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
-                  <textarea
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    rows={4}
-                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-
-              {/* Pricing */}
-              <div>
-                <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2 mb-4">
-                  Pricing
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Input
-                      type="number"
-                      label="6-Hour Rate (₱)"
-                      labelPlacement="outside"
-                      value={formData.six_hour_rate}
-                      onChange={(e) => setFormData({ ...formData, six_hour_rate: e.target.value })}
-                      classNames={{ label: "text-sm font-medium text-gray-700" }}
-                      isInvalid={!!errors.six_hour_rate}
-                      errorMessage={errors.six_hour_rate}
-                    />
-                  </div>
-                  <div>
-                    <Input
-                      type="number"
-                      label="10-Hour Rate (₱)"
-                      labelPlacement="outside"
-                      value={formData.ten_hour_rate}
-                      onChange={(e) => setFormData({ ...formData, ten_hour_rate: e.target.value })}
-                      classNames={{ label: "text-sm font-medium text-gray-700" }}
-                      isInvalid={!!errors.ten_hour_rate}
-                      errorMessage={errors.ten_hour_rate}
-                    />
-                  </div>
-                  <div>
-                    <Input
-                      type="number"
-                      label="Weekday Rate (₱)"
-                      labelPlacement="outside"
-                      value={formData.weekday_rate}
-                      onChange={(e) => setFormData({ ...formData, weekday_rate: e.target.value })}
-                      classNames={{ label: "text-sm font-medium text-gray-700" }}
-                      isInvalid={!!errors.weekday_rate}
-                      errorMessage={errors.weekday_rate}
-                    />
-                  </div>
-                  <div>
-                    <Input
-                      type="number"
-                      label="Weekend Rate (₱)"
-                      labelPlacement="outside"
-                      value={formData.weekend_rate}
-                      onChange={(e) => setFormData({ ...formData, weekend_rate: e.target.value })}
-                      classNames={{ label: "text-sm font-medium text-gray-700" }}
-                      isInvalid={!!errors.weekend_rate}
-                      errorMessage={errors.weekend_rate}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Check-in Times */}
-              <div>
-                <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2 mb-4">
-                  Check-in Times
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Input
-                    type="time"
-                    label="6-Hour Check-in"
-                    labelPlacement="outside"
-                    value={formData.six_hour_check_in}
-                    onChange={(e) => setFormData({ ...formData, six_hour_check_in: e.target.value })}
-                    classNames={{ label: "text-sm font-medium text-gray-700" }}
-                  />
-                  <Input
-                    type="time"
-                    label="10-Hour Check-in"
-                    labelPlacement="outside"
-                    value={formData.ten_hour_check_in}
-                    onChange={(e) => setFormData({ ...formData, ten_hour_check_in: e.target.value })}
-                    classNames={{ label: "text-sm font-medium text-gray-700" }}
-                  />
-                  <Input
-                    type="time"
-                    label="21-Hour Check-in"
-                    labelPlacement="outside"
-                    value={formData.twenty_one_hour_check_in}
-                    onChange={(e) => setFormData({ ...formData, twenty_one_hour_check_in: e.target.value })}
-                    classNames={{ label: "text-sm font-medium text-gray-700" }}
-                  />
-                </div>
-              </div>
+              <button
+                type="button"
+                onClick={() => setOpenModal("details")}
+                className="flex flex-col items-center justify-center p-4 bg-white border-2 border-gray-200 rounded-lg hover:border-amber-600 hover:bg-amber-50 transition-all group text-center"
+              >
+                <FileText className="w-6 h-6 text-gray-500 group-hover:text-amber-600 mb-2" />
+                <h3 className="font-semibold text-sm text-gray-800 mb-1">Haven Details</h3>
+                <p className="text-xs text-gray-500 leading-tight">Capacity, size, beds, description</p>
+              </button>
 
               {/* Amenities */}
-              <div>
-                <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2 mb-4">
-                  Amenities
-                </h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                  {amenitiesList.map((amenity) => (
-                    <Checkbox
-                      key={amenity.key}
-                      isSelected={formData.amenities[amenity.key as keyof typeof formData.amenities]}
-                      onValueChange={(checked) => handleAmenityChange(amenity.key, checked)}
-                    >
-                      {amenity.label}
-                    </Checkbox>
-                  ))}
-                </div>
-              </div>
+              <button
+                type="button"
+                onClick={() => setOpenModal("amenities")}
+                className="flex flex-col items-center justify-center p-4 bg-white border-2 border-gray-200 rounded-lg hover:border-amber-600 hover:bg-amber-50 transition-all group text-center"
+              >
+                <Star className="w-6 h-6 text-gray-500 group-hover:text-amber-600 mb-2" />
+                <h3 className="font-semibold text-sm text-gray-800 mb-1">Amenities</h3>
+                <p className="text-xs text-gray-500 leading-tight">Select available amenities</p>
+              </button>
 
               {/* Haven Images */}
-              <div>
-                <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2 mb-4">
-                  Haven Images
-                </h3>
-                <div className="mb-4">
-                  <label htmlFor="haven-images" className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white rounded-lg font-medium cursor-pointer">
-                    <Upload className="w-4 h-4" />
-                    Add Images
-                  </label>
-                  <input
-                    id="haven-images"
-                    type="file"
-                    multiple
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    className="hidden"
-                  />
-                </div>
-                {(existingImages.length > 0 || havenImages.length > 0) && (
-                  <div className="grid grid-cols-4 gap-4">
-                    {existingImages.map((img, index) => (
-                      <div key={`existing-${index}`} className="relative group">
-                        <Image src={img.image_url || ''} alt="Haven image" width={96} height={96} className="w-full h-24 object-cover rounded-lg" />
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveExistingImage(index)}
-                          className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded opacity-0 group-hover:opacity-100"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
-                    {havenImages.map((file, index) => (
-                      <div key={`new-${index}`} className="relative group">
-                        <Image src={URL.createObjectURL(file)} alt="New haven image" width={96} height={96} className="w-full h-24 object-cover rounded-lg" />
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveImage(index)}
-                          className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded opacity-0 group-hover:opacity-100"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <button
+                type="button"
+                onClick={() => setOpenModal("images")}
+                className="flex flex-col items-center justify-center p-4 bg-white border-2 border-gray-200 rounded-lg hover:border-amber-600 hover:bg-amber-50 transition-all group text-center"
+              >
+                <ImageIcon className="w-6 h-6 text-gray-500 group-hover:text-amber-600 mb-2" />
+                <h3 className="font-semibold text-sm text-gray-800 mb-1">Haven Images</h3>
+                <p className="text-xs text-gray-500 leading-tight">Upload and manage images</p>
+              </button>
 
-              {/* Photo Tour */}
-              <div>
-                <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2 mb-4">
-                  Photo Tour
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {photoTourCategories.map((category) => {
-                    // Get existing photos for this category with their global indices
-                    const existingCategoryPhotos = existingPhotoTours
-                      .map((photo: PhotoTourData, globalIndex: number) => ({ ...photo, globalIndex }))
-                      .filter(
-                        (photo: PhotoTourData & { globalIndex: number }) => photo.category?.toLowerCase().replace(/\s+/g, '') === category.key.toLowerCase()
-                      );
+              {/* Photo Tour Management */}
+              <button
+                type="button"
+                onClick={() => setOpenModal("phototour")}
+                className="flex flex-col items-center justify-center p-4 bg-white border-2 border-gray-200 rounded-lg hover:border-amber-600 hover:bg-amber-50 transition-all group text-center"
+              >
+                <Images className="w-6 h-6 text-gray-500 group-hover:text-amber-600 mb-2" />
+                <h3 className="font-semibold text-sm text-gray-800 mb-1">Photo Tour</h3>
+                <p className="text-xs text-gray-500 leading-tight">Organize photos by category</p>
+              </button>
 
-                    return (
-                      <div key={category.key} className="border border-gray-200 rounded-lg p-4">
-                        <p className="text-sm font-semibold text-gray-800 mb-2">{category.label}</p>
-                        <label htmlFor={`photo-tour-${category.key}`} className="inline-flex items-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm cursor-pointer">
-                          <Upload className="w-4 h-4" />
-                          Upload
-                        </label>
-                        <input
-                          id={`photo-tour-${category.key}`}
-                          type="file"
-                          multiple
-                          accept="image/*"
-                          onChange={(e) => handlePhotoTourUpload(category.key, e)}
-                          className="hidden"
-                        />
-
-                        {/* Display existing photos */}
-                        {existingCategoryPhotos.length > 0 && (
-                          <div className="mt-3 space-y-2">
-                            <p className="text-xs text-gray-500 mb-1">Existing ({existingCategoryPhotos.length})</p>
-                            {existingCategoryPhotos.map((photo: PhotoTourData & { globalIndex?: number, url?: string }, index: number) => (
-                              <div key={`existing-${index}`} className="flex items-center justify-between p-2 bg-blue-50 rounded">
-                                <Image src={photo.image_url || photo.url || ''} alt="Photo tour" width={40} height={40} className="w-10 h-10 object-cover rounded" />
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveExistingPhotoTour(photo.globalIndex || 0)}
-                                  className="p-1 text-red-500 hover:bg-red-100 rounded"
-                                  title="Delete photo"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Display newly uploaded photos */}
-                        {photoTourImages[category.key]?.length > 0 && (
-                          <div className="mt-3 space-y-2">
-                            <p className="text-xs text-gray-500 mb-1">New ({photoTourImages[category.key].length})</p>
-                            {photoTourImages[category.key].map((file, index) => (
-                              <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                                <Image src={URL.createObjectURL(file)} alt="New photo tour" width={40} height={40} className="w-10 h-10 object-cover rounded" />
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemovePhotoTourImage(category.key, index)}
-                                  className="p-1 text-red-500"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* YouTube URL */}
-              <div>
-                <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2 mb-4">
-                  YouTube Video
-                </h3>
-                <Input
-                  type="url"
-                  label="YouTube URL (optional)"
-                  labelPlacement="outside"
-                  placeholder="https://www.youtube.com/watch?v=..."
-                  value={formData.youtube_url}
-                  onChange={(e) => setFormData({ ...formData, youtube_url: e.target.value })}
-                  classNames={{ label: "text-sm font-medium text-gray-700" }}
-                />
-              </div>
-
-              {/* Blocked Dates */}
-              <div>
-                <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2 mb-4">
-                  Blocked Dates
-                </h3>
-                <div className="grid grid-cols-3 gap-4 mb-4">
-                  <Input
-                    type="date"
-                    label="From Date"
-                    labelPlacement="outside"
-                    value={blockDateForm.fromDate}
-                    onChange={(e) => setBlockDateForm({ ...blockDateForm, fromDate: e.target.value })}
-                    classNames={{ label: "text-sm font-medium text-gray-700" }}
-                  />
-                  <Input
-                    type="date"
-                    label="To Date"
-                    labelPlacement="outside"
-                    value={blockDateForm.toDate}
-                    onChange={(e) => setBlockDateForm({ ...blockDateForm, toDate: e.target.value })}
-                    classNames={{ label: "text-sm font-medium text-gray-700" }}
-                  />
-                  <Input
-                    label="Reason"
-                    labelPlacement="outside"
-                    value={blockDateForm.reason}
-                    onChange={(e) => setBlockDateForm({ ...blockDateForm, reason: e.target.value })}
-                    classNames={{ label: "text-sm font-medium text-gray-700" }}
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={handleAddBlockedDate}
-                  className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg mb-4"
-                >
-                  Add Blocked Date
-                </button>
-                {blockedDates.length > 0 && (
-                  <div className="space-y-2">
-                    {blockedDates.map((date) => (
-                      <div key={date.id} className="flex items-center justify-between p-3 bg-gray-50 border rounded-lg">
-                        <div className="flex items-center gap-2">
-                          <Calendar className="w-4 h-4 text-gray-500" />
-                          <div>
-                            <p className="text-sm font-medium">
-                              {date.fromDate} to {date.toDate}
-                            </p>
-                            {date.reason && <p className="text-xs text-gray-500">{date.reason}</p>}
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveBlockedDate(date.id)}
-                          className="p-1 text-red-500"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+              {/* YouTube Video */}
+              <button
+                type="button"
+                onClick={() => setOpenModal("youtube")}
+                className="flex flex-col items-center justify-center p-4 bg-white border-2 border-gray-200 rounded-lg hover:border-amber-600 hover:bg-amber-50 transition-all group text-center"
+              >
+                <Youtube className="w-6 h-6 text-gray-500 group-hover:text-amber-600 mb-2" />
+                <h3 className="font-semibold text-sm text-gray-800 mb-1">YouTube Video</h3>
+                <p className="text-xs text-gray-500 leading-tight">Add YouTube video URL</p>
+              </button>
             </div>
-          </form>
+          </div>
 
           {/* Footer */}
           <div className="flex justify-end gap-3 p-6 border-t border-gray-200 bg-gray-50 rounded-b-2xl flex-shrink-0">
@@ -925,7 +615,7 @@ const EditHavenModal = ({ isOpen, onClose, havenData }: EditHavenModalProps) => 
             <button
               onClick={handleSubmit}
               disabled={isLoading}
-              className="px-6 py-2.5 bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white font-semibold rounded-lg transition-all transform hover:scale-105 active:scale-95 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center gap-2"
+              className="px-6 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg transition-all transform hover:scale-105 active:scale-95 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center gap-2"
             >
               {isLoading && (
                 <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -941,7 +631,139 @@ const EditHavenModal = ({ isOpen, onClose, havenData }: EditHavenModalProps) => 
     </>
   );
 
-  return typeof window !== 'undefined' ? createPortal(modalContent, document.body) : null;
+  return (
+    <>
+      {typeof window !== 'undefined' ? createPortal(modalContent, document.body) : null}
+      
+      {/* Individual Modals */}
+      <BasicInformationModal
+        isOpen={openModal === "basic"}
+        onClose={() => setOpenModal(null)}
+        onSave={(data) => {
+          setFormData({ ...formData, ...data });
+          setOpenModal(null);
+        }}
+        initialData={{
+          haven_name: formData.haven_name,
+          tower: formData.tower,
+          floor: formData.floor,
+          view_type: formData.view_type,
+        }}
+      />
+      
+      <PricingManagementModal
+        isOpen={openModal === "pricing"}
+        onClose={() => setOpenModal(null)}
+        onSave={(data) => {
+          setFormData({
+            ...formData,
+            six_hour_rate: data.six_hour_rate?.toString() || "",
+            ten_hour_rate: data.ten_hour_rate?.toString() || "",
+            weekday_rate: data.weekday_rate?.toString() || "",
+            weekend_rate: data.weekend_rate?.toString() || "",
+          });
+          setOpenModal(null);
+        }}
+        initialData={{
+          six_hour_rate: formData.six_hour_rate ? parseFloat(formData.six_hour_rate) : undefined,
+          ten_hour_rate: formData.ten_hour_rate ? parseFloat(formData.ten_hour_rate) : undefined,
+          weekday_rate: formData.weekday_rate ? parseFloat(formData.weekday_rate) : undefined,
+          weekend_rate: formData.weekend_rate ? parseFloat(formData.weekend_rate) : undefined,
+        }}
+      />
+      
+      <CheckInTimeSettingsModal
+        isOpen={openModal === "checkin"}
+        onClose={() => setOpenModal(null)}
+        onSave={(data) => {
+          setFormData({ ...formData, ...data });
+          setOpenModal(null);
+        }}
+        initialData={{
+          six_hour_check_in: formData.six_hour_check_in,
+          ten_hour_check_in: formData.ten_hour_check_in,
+          twenty_one_hour_check_in: formData.twenty_one_hour_check_in,
+        }}
+      />
+      
+      <AvailabilityManagementModal
+        isOpen={openModal === "availability"}
+        onClose={() => setOpenModal(null)}
+        onSave={(dates) => {
+          setBlockedDates(dates);
+          setOpenModal(null);
+        }}
+        initialData={blockedDates.map(date => ({
+          from_date: date.fromDate,
+          to_date: date.toDate,
+          reason: date.reason,
+        }))}
+      />
+      
+      <HavenDetailsModal
+        isOpen={openModal === "details"}
+        onClose={() => setOpenModal(null)}
+        onSave={(data) => {
+          setFormData({
+            ...formData,
+            capacity: data.capacity?.toString() || "",
+            room_size: data.room_size?.toString() || "",
+            beds: data.beds || "",
+            description: data.description || "",
+          });
+          setOpenModal(null);
+        }}
+        initialData={{
+          capacity: formData.capacity ? parseInt(formData.capacity) : undefined,
+          room_size: formData.room_size ? parseFloat(formData.room_size) : undefined,
+          beds: formData.beds,
+          description: formData.description,
+        }}
+      />
+      
+      <AmenitiesModal
+        isOpen={openModal === "amenities"}
+        onClose={() => setOpenModal(null)}
+        onSave={(data) => {
+          setFormData({ ...formData, amenities: data });
+          setOpenModal(null);
+        }}
+        initialData={formData.amenities}
+      />
+      
+      <HavenImagesModal
+        isOpen={openModal === "images"}
+        onClose={() => setOpenModal(null)}
+        onSave={(newImages, existingImagesData) => {
+          setHavenImages(newImages);
+          setExistingImages(existingImagesData);
+          setOpenModal(null);
+        }}
+        initialImages={existingImages}
+      />
+      
+      <PhotoTourManagementModal
+        isOpen={openModal === "phototour"}
+        onClose={() => setOpenModal(null)}
+        onSave={(photoTours, existingPhotoToursData) => {
+          setPhotoTourImages(photoTours);
+          setExistingPhotoTours(existingPhotoToursData);
+          setOpenModal(null);
+        }}
+        initialPhotoTours={existingPhotoTours}
+      />
+      
+      <YouTubeVideoModal
+        isOpen={openModal === "youtube"}
+        onClose={() => setOpenModal(null)}
+        onSave={(url) => {
+          setFormData({ ...formData, youtube_url: url });
+          setOpenModal(null);
+        }}
+        initialUrl={formData.youtube_url}
+      />
+    </>
+  );
 };
 
 export default EditHavenModal;
