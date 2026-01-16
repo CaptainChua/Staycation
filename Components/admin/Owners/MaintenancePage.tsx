@@ -2,8 +2,11 @@
 
 import { AlertCircle, CheckCircle, Clock, TrendingUp, TrendingDown, ListTodo, Search, Filter, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Eye, Trash2, UserPlus } from "lucide-react";
 import { useMemo, useState } from "react";
-import { useGetReportsQuery } from "@/redux/api/reportApi";
+import { useGetReportsQuery, useUpdateReportAssignmentMutation } from "@/redux/api/reportApi";
 import { useGetEmployeesQuery } from "@/redux/api/employeeApi";
+import AssignToModal from "./Modals/AssignTo";
+import ViewReportDetails from "./Modals/ViewReportDetails";
+import { toast } from "react-hot-toast"; // Added toast import
 
 type MaintenanceStatus = "Open" | "In Progress" | "Resolved" | "Closed";
 type PriorityLevel = "Low" | "Medium" | "High" | "Urgent";
@@ -107,14 +110,19 @@ const MaintenancePage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | MaintenanceStatus>("all");
   const [filterPriority, setFilterPriority] = useState<"all" | "Low" | "Medium" | "High" | "Urgent">("all");
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(1); // Fixed: Added this line
   const [entriesPerPage, setEntriesPerPage] = useState(5);
   const [sortField, setSortField] = useState<keyof MaintenanceRow | null>(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const [assignModalOpen, setAssignModalOpen] = useState(false);
+  const [selectedReportId, setSelectedReportId] = useState<string | null>(null); // Added to track selected report
+  const [viewModalOpen, setViewModalOpen] = useState(false);
+  const [viewReportId, setViewReportId] = useState<string | null>(null);
 
   // Fetch data from API
   const { data: reportsData, error: reportsError, isLoading: reportsLoading } = useGetReportsQuery({});
   const { data: employeesData, isLoading: employeesLoading } = useGetEmployeesQuery({});
+  const [updateReportAssignment, { isLoading: isAssigning }] = useUpdateReportAssignmentMutation();
   
   // Check if any data is still loading
   const isLoading = reportsLoading || employeesLoading;
@@ -187,7 +195,7 @@ const MaintenancePage = () => {
 
   const filteredRows = useMemo(() => {
     return rows.filter((row: MaintenanceRow) => {
-                      const matchesSearch = 
+      const matchesSearch = 
         row.report_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
         row.haven_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         row.issue_description.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -236,6 +244,7 @@ const MaintenancePage = () => {
     } else {
       setSortField(field);
       setSortDirection("asc");
+      setCurrentPage(1); // Reset to first page when changing sort
     }
   };
 
@@ -266,6 +275,37 @@ const MaintenancePage = () => {
         return "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400";
       default:
         return "bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400";
+    }
+  };
+
+  const handleAssignClick = (reportId: string) => {
+    setSelectedReportId(reportId);
+    setAssignModalOpen(true);
+  };
+
+  const handleViewClick = (reportId: string) => {
+    setViewReportId(reportId);
+    setViewModalOpen(true);
+  };
+
+  const handleAssignSuccess = async (employeeId: string, assignedTo: string) => {
+    if (!selectedReportId) {
+      toast.error('No report selected');
+      return;
+    }
+
+    try {
+      await updateReportAssignment({
+        reportId: selectedReportId,
+        assignedTo: assignedTo
+      }).unwrap();
+      
+      toast.success(`Successfully assigned to ${assignedTo}`);
+      setAssignModalOpen(false);
+      setSelectedReportId(null);
+    } catch (error) {
+      console.error('Error assigning report:', error);
+      toast.error('Failed to assign report. Please try again.');
     }
   };
 
@@ -318,360 +358,405 @@ const MaintenancePage = () => {
 
       {!isLoading && !reportsError && (
         <>
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {stats.map((stat, i) => {
-            const IconComponent = stat.icon;
-            return (
-              <div
-                key={i}
-                className={`${stat.color} text-white rounded-lg p-6 shadow dark:shadow-gray-900 hover:shadow-lg transition-all`}
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm opacity-90">{stat.label}</p>
-                    <p className="text-3xl font-bold mt-2">{stat.value}</p>
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {stats.map((stat, i) => {
+              const IconComponent = stat.icon;
+              return (
+                <div
+                  key={i}
+                  className={`${stat.color} text-white rounded-lg p-6 shadow dark:shadow-gray-900 hover:shadow-lg transition-all`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm opacity-90">{stat.label}</p>
+                      <p className="text-3xl font-bold mt-2">{stat.value}</p>
+                    </div>
+                    <IconComponent className="w-12 h-12 opacity-50" />
                   </div>
-                  <IconComponent className="w-12 h-12 opacity-50" />
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Filters and Search */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-4">
+            <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+              <div className="flex flex-col sm:flex-row gap-4 flex-1 w-full">
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">Show</label>
+                  <select
+                    value={entriesPerPage}
+                    onChange={(e) => {
+                      setEntriesPerPage(Number(e.target.value));
+                      setCurrentPage(1);
+                    }}
+                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-orange-500 text-sm"
+                  >
+                    <option value="5">5</option>
+                    <option value="10">10</option>
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                  </select>
+                  <label className="text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">entries</label>
+                </div>
+
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500" />
+                  <input
+                    type="text"
+                    placeholder="Search by ID, haven, issue, location, type, or reported by..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-orange-500"
+                  />
                 </div>
               </div>
-            );
-          })}
-        </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-4">
-        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-          <div className="flex flex-col sm:flex-row gap-4 flex-1 w-full">
-            <div className="flex items-center gap-2">
-              <label className="text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">Show</label>
-              <select
-                value={entriesPerPage}
-                onChange={(e) => {
-                  setEntriesPerPage(Number(e.target.value));
-                  setCurrentPage(1);
-                }}
-                className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-orange-500 text-sm"
-              >
-                <option value="5">5</option>
-                <option value="10">10</option>
-                <option value="25">25</option>
-                <option value="50">50</option>
-              </select>
-              <label className="text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">entries</label>
-            </div>
-
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500" />
-              <input
-                type="text"
-                placeholder="Search by ID, haven, issue, location, type, or reported by..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-orange-500"
-              />
+              <div className="flex items-center gap-2">
+                <Filter className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                <select
+                  value={filterStatus}
+                  onChange={(e) => {
+                    setFilterStatus(e.target.value as "all" | MaintenanceStatus);
+                    setCurrentPage(1);
+                  }}
+                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-orange-500 text-sm"
+                >
+                  <option value="all">All Status</option>
+                  <option value="Open">Open</option>
+                  <option value="In Progress">In Progress</option>
+                  <option value="Resolved">Resolved</option>
+                  <option value="Closed">Closed</option>
+                </select>
+                <select
+                  value={filterPriority}
+                  onChange={(e) => {
+                    setFilterPriority(e.target.value as "all" | "Low" | "Medium" | "High" | "Urgent");
+                    setCurrentPage(1);
+                  }}
+                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-orange-500 text-sm"
+                >
+                  <option value="all">All Priority</option>
+                  <option value="Low">Low</option>
+                  <option value="Medium">Medium</option>
+                  <option value="High">High</option>
+                  <option value="Urgent">Urgent</option>
+                </select>
+              </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Filter className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-            <select
-              value={filterStatus}
-              onChange={(e) => {
-                setFilterStatus(e.target.value as "all" | MaintenanceStatus);
-                setCurrentPage(1);
-              }}
-              className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-orange-500 text-sm"
-            >
-              <option value="all">All Status</option>
-              <option value="Open">Open</option>
-              <option value="In Progress">In Progress</option>
-              <option value="Resolved">Resolved</option>
-              <option value="Closed">Closed</option>
-            </select>
-            <select
-              value={filterPriority}
-              onChange={(e) => {
-                setFilterPriority(e.target.value as "all" | "Low" | "Medium" | "High" | "Urgent");
-                setCurrentPage(1);
-              }}
-              className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-orange-500 text-sm"
-            >
-              <option value="all">All Priority</option>
-              <option value="Low">Low</option>
-              <option value="Medium">Medium</option>
-              <option value="High">High</option>
-              <option value="Urgent">Urgent</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* Maintenance Requests Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-gray-50 dark:bg-gray-700">
-                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                  <button
-                    onClick={() => handleSort("report_id")}
-                    className="flex items-center gap-1 hover:text-orange-500 transition-colors"
-                  >
-                    ID
-                    {sortField === "report_id" && (
-                      sortDirection === "asc" ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />
-                    )}
-                  </button>
-                </th>
-                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                  <button
-                    onClick={() => handleSort("haven_name")}
-                    className="flex items-center gap-1 hover:text-orange-500 transition-colors"
-                  >
-                    Haven
-                    {sortField === "haven_name" && (
-                      sortDirection === "asc" ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />
-                    )}
-                  </button>
-                </th>
-                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                  <button
-                    onClick={() => handleSort("issue_description")}
-                    className="flex items-center gap-1 hover:text-orange-500 transition-colors"
-                  >
-                    Issue
-                    {sortField === "issue_description" && (
-                      sortDirection === "asc" ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />
-                    )}
-                  </button>
-                </th>
-                <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                  <button
-                    onClick={() => handleSort("status")}
-                    className="flex items-center justify-center gap-1 hover:text-orange-500 transition-colors"
-                  >
-                    Status
-                    {sortField === "status" && (
-                      sortDirection === "asc" ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />
-                    )}
-                  </button>
-                </th>
-                <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                  <button
-                    onClick={() => handleSort("priority_level")}
-                    className="flex items-center justify-center gap-1 hover:text-orange-500 transition-colors"
-                  >
-                    Priority
-                    {sortField === "priority_level" && (
-                      sortDirection === "asc" ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />
-                    )}
-                  </button>
-                </th>
-                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                  <button
-                    onClick={() => handleSort("reported_by")}
-                    className="flex items-center gap-1 hover:text-orange-500 transition-colors"
-                  >
-                    Reported By
-                    {sortField === "reported_by" && (
-                      sortDirection === "asc" ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />
-                    )}
-                  </button>
-                </th>
-                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                  Location
-                </th>
-                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                  <button
-                    onClick={() => handleSort("assigned_to")}
-                    className="flex items-center gap-1 hover:text-orange-500 transition-colors"
-                  >
-                    Assigned To
-                    {sortField === "assigned_to" && (
-                      sortDirection === "asc" ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />
-                    )}
-                  </button>
-                </th>
-                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                  <button
-                    onClick={() => handleSort("issue_type")}
-                    className="flex items-center gap-1 hover:text-orange-500 transition-colors"
-                  >
-                    Type
-                    {sortField === "issue_type" && (
-                      sortDirection === "asc" ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />
-                    )}
-                  </button>
-                </th>
-                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                  <button
-                    onClick={() => handleSort("created_at")}
-                    className="flex items-center gap-1 hover:text-orange-500 transition-colors"
-                  >
-                    Date
-                    {sortField === "created_at" && (
-                      sortDirection === "asc" ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />
-                    )}
-                  </button>
-                </th>
-                <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {paginatedRows.length === 0 ? (
-                <tr>
-                  <td colSpan={10} className="py-8 text-center text-gray-500 dark:text-gray-400">
-                    No maintenance requests found.
-                  </td>
-                </tr>
-              ) : (
-                paginatedRows.map((row: MaintenanceRow) => (
-                  <tr
-                    key={row.report_id}
-                    className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                  >
-                    <td className="py-4 px-4">
-                      <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{row.report_id.slice(0, 8)}</span>
-                    </td>
-                    <td className="py-4 px-4">
-                      <span className="text-sm text-gray-700 dark:text-gray-300">{row.haven_name}</span>
-                    </td>
-                    <td className="py-4 px-4">
-                      <span className="text-sm text-gray-700 dark:text-gray-300">{row.issue_description}</span>
-                    </td>
-                    <td className="py-4 px-4 text-center">
-                      <span className={`text-sm font-semibold ${getStatusColor(row.status)}`}>
-                        {row.status}
-                      </span>
-                    </td>
-                    <td className="py-4 px-4 text-center">
-                      <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${getPriorityColor(row.priority_level)}`}>
-                        {row.priority_level}
-                      </span>
-                    </td>
-                    <td className="py-4 px-4">
-                      <span className="text-sm text-gray-700 dark:text-gray-300">{row.reported_by || 'Unknown User'}</span>
-                    </td>
-                    <td className="py-4 px-4">
-                      <span className="text-sm text-gray-700 dark:text-gray-300">{row.specific_location}</span>
-                    </td>
-                    <td className="py-4 px-4">
-                      <span className="text-sm text-gray-700 dark:text-gray-300">{row.assigned_to || 'Unassigned'}</span>
-                    </td>
-                    <td className="py-4 px-4">
-                      <span className="text-sm text-gray-700 dark:text-gray-300">{row.issue_type}</span>
-                    </td>
-                    <td className="py-4 px-4">
-                      <span className="text-sm text-gray-700 dark:text-gray-300">
-                        {new Date(row.created_at).toLocaleDateString()}
-                      </span>
-                    </td>
-                    <td className="py-4 px-4 text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        <button className="p-2 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors" title="Assign to Employee">
-                          <UserPlus className="w-4 h-4" />
-                        </button>
-                        <button className="p-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 transition-colors" title="View Details">
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        <button className="p-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 transition-colors" title="Delete">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
+          {/* Maintenance Requests Table */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-gray-50 dark:bg-gray-700">
+                    <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                      <button
+                        onClick={() => handleSort("report_id")}
+                        className="flex items-center gap-1 hover:text-orange-500 transition-colors"
+                      >
+                        ID
+                        {sortField === "report_id" && (
+                          sortDirection === "asc" ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />
+                        )}
+                      </button>
+                    </th>
+                    <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                      <button
+                        onClick={() => handleSort("haven_name")}
+                        className="flex items-center gap-1 hover:text-orange-500 transition-colors"
+                      >
+                        Haven
+                        {sortField === "haven_name" && (
+                          sortDirection === "asc" ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />
+                        )}
+                      </button>
+                    </th>
+                    <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                      <button
+                        onClick={() => handleSort("issue_description")}
+                        className="flex items-center gap-1 hover:text-orange-500 transition-colors"
+                      >
+                        Issue
+                        {sortField === "issue_description" && (
+                          sortDirection === "asc" ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />
+                        )}
+                      </button>
+                    </th>
+                    <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                      <button
+                        onClick={() => handleSort("status")}
+                        className="flex items-center justify-center gap-1 hover:text-orange-500 transition-colors"
+                      >
+                        Status
+                        {sortField === "status" && (
+                          sortDirection === "asc" ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />
+                        )}
+                      </button>
+                    </th>
+                    <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                      <button
+                        onClick={() => handleSort("priority_level")}
+                        className="flex items-center justify-center gap-1 hover:text-orange-500 transition-colors"
+                      >
+                        Priority
+                        {sortField === "priority_level" && (
+                          sortDirection === "asc" ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />
+                        )}
+                      </button>
+                    </th>
+                    <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                      <button
+                        onClick={() => handleSort("reported_by")}
+                        className="flex items-center gap-1 hover:text-orange-500 transition-colors"
+                      >
+                        Reported By
+                        {sortField === "reported_by" && (
+                          sortDirection === "asc" ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />
+                        )}
+                      </button>
+                    </th>
+                    <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                      Location
+                    </th>
+                    <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                      <button
+                        onClick={() => handleSort("assigned_to")}
+                        className="flex items-center gap-1 hover:text-orange-500 transition-colors"
+                      >
+                        Assigned To
+                        {sortField === "assigned_to" && (
+                          sortDirection === "asc" ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />
+                        )}
+                      </button>
+                    </th>
+                    <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                      <button
+                        onClick={() => handleSort("issue_type")}
+                        className="flex items-center gap-1 hover:text-orange-500 transition-colors"
+                      >
+                        Type
+                        {sortField === "issue_type" && (
+                          sortDirection === "asc" ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />
+                        )}
+                      </button>
+                    </th>
+                    <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                      <button
+                        onClick={() => handleSort("created_at")}
+                        className="flex items-center gap-1 hover:text-orange-500 transition-colors"
+                      >
+                        Date
+                        {sortField === "created_at" && (
+                          sortDirection === "asc" ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />
+                        )}
+                      </button>
+                    </th>
+                    <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                      Actions
+                    </th>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Pagination */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-4">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="text-sm text-gray-600 dark:text-gray-300">
-            Showing {startIndex + 1} to {Math.min(endIndex, sortedRows.length)} of {sortedRows.length} entries
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setCurrentPage(1)}
-              disabled={currentPage === 1 || totalPages === 0}
-              className="p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title="First Page"
-              type="button"
-            >
-              <ChevronsLeft className="w-4 h-4" />
-            </button>
-            
-            <button
-              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-              disabled={currentPage === 1 || totalPages === 0}
-              className="p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Previous Page"
-              type="button"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-
-            <div className="flex items-center gap-1">
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
-                if (
-                  pageNum === 1 ||
-                  pageNum === totalPages ||
-                  (pageNum >= currentPage - 2 && pageNum <= currentPage + 2)
-                ) {
-                  return (
-                    <button
-                      key={pageNum}
-                      onClick={() => setCurrentPage(pageNum)}
-                      className={`px-4 py-2 rounded-lg transition-colors text-sm font-medium ${
-                        currentPage === pageNum
-                          ? "bg-brand-primary text-white shadow-md"
-                          : "border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-600"
-                      }`}
-                      disabled={totalPages === 0}
-                      type="button"
-                    >
-                      {pageNum}
-                    </button>
-                  );
-                } else if (pageNum === currentPage - 3 || pageNum === currentPage + 3) {
-                  return (
-                    <span key={pageNum} className="px-2 text-gray-500">
-                      ...
-                    </span>
-                  );
-                }
-                return null;
-              })}
+                </thead>
+                <tbody>
+                  {paginatedRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={11} className="py-8 text-center text-gray-500 dark:text-gray-400">
+                        No maintenance requests found.
+                      </td>
+                    </tr>
+                  ) : (
+                    paginatedRows.map((row: MaintenanceRow) => (
+                      <tr
+                        key={row.report_id}
+                        className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                      >
+                        <td className="py-4 px-4">
+                          <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{row.report_id.slice(0, 8)}</span>
+                        </td>
+                        <td className="py-4 px-4">
+                          <span className="text-sm text-gray-700 dark:text-gray-300">{row.haven_name}</span>
+                        </td>
+                        <td className="py-4 px-4">
+                          <span className="text-sm text-gray-700 dark:text-gray-300">{row.issue_description}</span>
+                        </td>
+                        <td className="py-4 px-4 text-center">
+                          <span className={`text-sm font-semibold ${getStatusColor(row.status)}`}>
+                            {row.status}
+                          </span>
+                        </td>
+                        <td className="py-4 px-4 text-center">
+                          <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${getPriorityColor(row.priority_level)}`}>
+                            {row.priority_level}
+                          </span>
+                        </td>
+                        <td className="py-4 px-4">
+                          <span className="text-sm text-gray-700 dark:text-gray-300">{row.reported_by || 'Unknown User'}</span>
+                        </td>
+                        <td className="py-4 px-4">
+                          <span className="text-sm text-gray-700 dark:text-gray-300">{row.specific_location}</span>
+                        </td>
+                        <td className="py-4 px-4">
+                          <span className="text-sm text-gray-700 dark:text-gray-300">{row.assigned_to || 'Unassigned'}</span>
+                        </td>
+                        <td className="py-4 px-4">
+                          <span className="text-sm text-gray-700 dark:text-gray-300">{row.issue_type}</span>
+                        </td>
+                        <td className="py-4 px-4">
+                          <span className="text-sm text-gray-700 dark:text-gray-300">
+                            {new Date(row.created_at).toLocaleDateString()}
+                          </span>
+                        </td>
+                        <td className="py-4 px-4 text-center">
+                          <div className="flex items-center justify-center gap-2">
+                            <button 
+                              className="p-2 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 disabled:opacity-50 disabled:cursor-not-allowed" 
+                              title="Assign to Employee" 
+                              onClick={() => handleAssignClick(row.report_id)}
+                              disabled={isAssigning && selectedReportId === row.report_id}
+                            >
+                              {isAssigning && selectedReportId === row.report_id ? (
+                                <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                              ) : (
+                                <UserPlus className="w-4 h-4" />
+                              )}
+                            </button>
+                            <button 
+                              onClick={() => handleViewClick(row.report_id)}
+                              className="p-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 transition-colors" 
+                              title="View Details"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            <button className="p-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 transition-colors" title="Delete">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
-
-            <button
-              onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-              disabled={currentPage === totalPages || totalPages === 0}
-              className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg hover:bg-brand-primary hover:text-white transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-              type="button"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-
-            <button
-              onClick={() => setCurrentPage(totalPages)}
-              disabled={currentPage === totalPages || totalPages === 0}
-              className="p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg hover:bg-brand-primary hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Last Page"
-              type="button"
-            >
-              <ChevronsRight className="w-4 h-4" />
-            </button>
           </div>
-        </div>
-      </div>
-      </>
+
+          {/* Assign Modal */}
+          <AssignToModal
+            isOpen={assignModalOpen}
+            onClose={() => {
+              setAssignModalOpen(false);
+              setSelectedReportId(null);
+            }}
+            onAssign={handleAssignSuccess}
+            reportId={selectedReportId || ""}
+            isLoading={isAssigning}
+          />
+
+          {/* View Details Modal */}
+          <ViewReportDetails
+            isOpen={viewModalOpen}
+            onClose={() => {
+              setViewModalOpen(false);
+              setViewReportId(null);
+            }}
+            reportId={viewReportId || ""}
+            onAssign={handleAssignClick}
+          />
+
+          {/* Pagination */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-4">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="text-sm text-gray-600 dark:text-gray-300">
+                Showing {startIndex + 1} to {Math.min(endIndex, sortedRows.length)} of {sortedRows.length} entries
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage(1)}
+                  disabled={currentPage === 1 || totalPages === 0}
+                  className="p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="First Page"
+                  type="button"
+                >
+                  <ChevronsLeft className="w-4 h-4" />
+                </button>
+                
+                <button
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                  disabled={currentPage === 1 || totalPages === 0}
+                  className="p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Previous Page"
+                  type="button"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
+                    if (
+                      pageNum === 1 ||
+                      pageNum === totalPages ||
+                      pageNum === currentPage ||
+                      pageNum === currentPage - 1 ||
+                      pageNum === currentPage + 1
+                    ) {
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => setCurrentPage(pageNum)}
+                          className={`px-4 py-2 rounded-lg transition-colors text-sm font-medium ${
+                            currentPage === pageNum
+                              ? "bg-brand-primary text-white shadow-md"
+                              : "border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-600"
+                          }`}
+                          type="button"
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    } else if (pageNum === 2 && currentPage > 3) {
+                      return (
+                        <span key={pageNum} className="px-2 text-gray-500">
+                          ...
+                        </span>
+                      );
+                    } else if (pageNum === totalPages - 1 && currentPage < totalPages - 2) {
+                      return (
+                        <span key={pageNum} className="px-2 text-gray-500">
+                          ...
+                        </span>
+                      );
+                    }
+                    return null;
+                  })}
+                </div>
+
+                <button
+                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                  disabled={currentPage === totalPages || totalPages === 0}
+                  className="p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Next Page"
+                  type="button"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+
+                <button
+                  onClick={() => setCurrentPage(totalPages)}
+                  disabled={currentPage === totalPages || totalPages === 0}
+                  className="p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Last Page"
+                  type="button"
+                >
+                  <ChevronsRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
