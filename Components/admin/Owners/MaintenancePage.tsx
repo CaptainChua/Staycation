@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertCircle, CheckCircle, Clock, TrendingUp, TrendingDown, ListTodo, Search, Filter, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Eye, Trash2 } from "lucide-react";
+import { AlertCircle, CheckCircle, Clock, TrendingUp, TrendingDown, ListTodo, Search, Filter, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Eye, Trash2, UserPlus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useGetReportsQuery } from "@/redux/api/reportApi";
 import { useGetEmployeesQuery } from "@/redux/api/employeeApi";
@@ -20,6 +20,7 @@ interface MaintenanceRow {
   status: MaintenanceStatus;
   user_id: string;
   reported_by?: string;
+  assigned_to?: string;
   images?: Array<{
     image_url: string;
     cloudinary_public_id?: string;
@@ -37,6 +38,7 @@ interface Report {
   status?: MaintenanceStatus;
   user_id: string;
   haven_name?: string;
+  assigned_to?: string;
   images?: Array<{
     image_url: string;
     cloudinary_public_id?: string;
@@ -150,6 +152,7 @@ const MaintenancePage = () => {
         status: report.status || 'Open', // Provide fallback if status is missing
         user_id: report.user_id,
         reported_by: userMap[report.user_id] || 'Unknown User',
+        assigned_to: report.assigned_to || 'Unassigned',
         images: report.images || []
       };
     });
@@ -184,13 +187,14 @@ const MaintenancePage = () => {
 
   const filteredRows = useMemo(() => {
     return rows.filter((row: MaintenanceRow) => {
-      const matchesSearch = 
+                      const matchesSearch = 
         row.report_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
         row.haven_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         row.issue_description.toLowerCase().includes(searchTerm.toLowerCase()) ||
         row.specific_location.toLowerCase().includes(searchTerm.toLowerCase()) ||
         row.issue_type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (row.reported_by && row.reported_by.toLowerCase().includes(searchTerm.toLowerCase()));
+        (row.reported_by && row.reported_by.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (row.assigned_to && row.assigned_to.toLowerCase().includes(searchTerm.toLowerCase()));
       
       const matchesStatusFilter = filterStatus === "all" || row.status === filterStatus;
       const matchesPriorityFilter = filterPriority === "all" || row.priority_level === filterPriority;
@@ -478,7 +482,26 @@ const MaintenancePage = () => {
                   Location
                 </th>
                 <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                  Type
+                  <button
+                    onClick={() => handleSort("assigned_to")}
+                    className="flex items-center gap-1 hover:text-orange-500 transition-colors"
+                  >
+                    Assigned To
+                    {sortField === "assigned_to" && (
+                      sortDirection === "asc" ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />
+                    )}
+                  </button>
+                </th>
+                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                  <button
+                    onClick={() => handleSort("issue_type")}
+                    className="flex items-center gap-1 hover:text-orange-500 transition-colors"
+                  >
+                    Type
+                    {sortField === "issue_type" && (
+                      sortDirection === "asc" ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />
+                    )}
+                  </button>
                 </th>
                 <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
                   <button
@@ -535,6 +558,9 @@ const MaintenancePage = () => {
                       <span className="text-sm text-gray-700 dark:text-gray-300">{row.specific_location}</span>
                     </td>
                     <td className="py-4 px-4">
+                      <span className="text-sm text-gray-700 dark:text-gray-300">{row.assigned_to || 'Unassigned'}</span>
+                    </td>
+                    <td className="py-4 px-4">
                       <span className="text-sm text-gray-700 dark:text-gray-300">{row.issue_type}</span>
                     </td>
                     <td className="py-4 px-4">
@@ -544,7 +570,10 @@ const MaintenancePage = () => {
                     </td>
                     <td className="py-4 px-4 text-center">
                       <div className="flex items-center justify-center gap-2">
-                        <button className="p-2 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors" title="View Details">
+                        <button className="p-2 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors" title="Assign to Employee">
+                          <UserPlus className="w-4 h-4" />
+                        </button>
+                        <button className="p-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 transition-colors" title="View Details">
                           <Eye className="w-4 h-4" />
                         </button>
                         <button className="p-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 transition-colors" title="Delete">
