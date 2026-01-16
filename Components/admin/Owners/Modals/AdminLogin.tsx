@@ -43,9 +43,14 @@ const AdminLogin = () => {
     }));
   };
 
-  const handleLogin = async (e: React.MouseEvent) => {
-    e.preventDefault();
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleLogin();
+    }
+  };
 
+  const handleLogin = async () => {
     if (!formData.email || !formData.password) {
       setFormData((prev) => ({
         ...prev,
@@ -211,6 +216,7 @@ const AdminLogin = () => {
                       name="email"
                       value={formData.email}
                       onChange={handleInputChange}
+                      onKeyDown={handleKeyDown}
                       placeholder="Enter your email"
                       className="w-full pl-12 pr-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent transition-all duration-300 placeholder-gray-500 dark:placeholder-gray-400"
                     />
@@ -229,6 +235,7 @@ const AdminLogin = () => {
                       name="password"
                       value={formData.password}
                       onChange={handleInputChange}
+                      onKeyDown={handleKeyDown}
                       placeholder="Enter your password"
                       className="w-full pl-12 pr-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent transition-all duration-300 placeholder-gray-500 dark:placeholder-gray-400"
                     />
