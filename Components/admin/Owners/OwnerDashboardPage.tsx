@@ -11,6 +11,8 @@ import PaymentSettingsModal from "./Modals/PaymentSettingsModal";
 import BookingDateModal from "./Modals/BookingDateModal";
 import AddNewHavenModal from "./Modals/AddNewHavenModal";
 import PoliciesModal from "./Modals/PoliciesModal";
+import NotificationModal from "./Modals/NotificationModal";
+import MessageModal from "./Modals/MessageModal";
 import StaffActivityPage from "./StaffActivityPage";
 import ViewAllUnits from "./ViewAllUnits";
 import ProfilePage from "./ProfilePage";
@@ -25,10 +27,13 @@ import MessagesPage from "./MessagesPage";
 import RoomManagement from "./CleaningManagement";
 import AdminFooter from "../AdminFooter";
 import toast from 'react-hot-toast';
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { signOut, useSession } from "next-auth/react";
 import Image from "next/image";
 import { useGetHavensQuery } from "@/redux/api/roomApi";
+import { useGetConversationsQuery } from "@/redux/api/messagesApi";
+import { useGetEmployeesQuery } from "@/redux/api/employeeApi";
+import { useGetUnreadCountQuery } from "@/redux/api/notificationsApi";
 
 interface OwnerHaven {
   uuid_id?: string;
@@ -135,13 +140,28 @@ function HavenManagementPlaceholder({ onAddHavenClick, onViewAllClick }: HavenMa
   );
 }
 
+interface EmployeeProfile {
+  id: string;
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  employment_id?: string;
+  profile_image_url?: string;
+}
+
 export default function OwnerDashboard() {
   const { data: session} = useSession();
   const [sidebar, setSidebar] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [page, setPage] = useState("dashboard");
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const [notificationOpen, setNotificationOpen] = useState(false);
+  const [messageModalOpen, setMessageModalOpen] = useState(false);
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  const [messageBadge, setMessageBadge] = useState(true);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const notificationButtonRef = useRef<HTMLButtonElement | null>(null);
+  const messageButtonRef = useRef<HTMLButtonElement | null>(null);
   const [havenView, setHavenView] = useState<"overview" | "list">("overview");
   const [now, setNow] = useState<Date | null>(null);
   const [modals, setModals] = useState({
@@ -164,8 +184,52 @@ export default function OwnerDashboard() {
     havenName: "",
   });
 
+  // Get user ID for messages
+  const userId = (session?.user as { id?: string })?.id;
+
+  // Fetch conversations for message modal
+  const {
+    data: headerConversationsData,
+    isLoading: isLoadingHeaderConversations,
+  } = useGetConversationsQuery(
+    { userId: userId || "" },
+    { skip: !userId, pollingInterval: 5000 }
+  );
+
+  // Fetch employees for displaying names
+  const { data: employeesData } = useGetEmployeesQuery({});
+  const employees = useMemo(() => {
+    return employeesData?.data || [];
+  }, [employeesData?.data]);
+
+  const employeeNameById = useMemo(() => {
+    const map: Record<string, string> = {};
+    employees.forEach((emp: EmployeeProfile) => {
+      const name = `${emp.first_name ?? ""} ${emp.last_name ?? ""}`.trim();
+      map[emp.id] = name || emp.email || emp.employment_id || "Employee";
+    });
+    return map;
+  }, [employees]);
+
+  const employeeProfileImageById = useMemo(() => {
+    const map: Record<string, string> = {};
+    employees.forEach((emp: EmployeeProfile) => {
+      if (emp?.id && emp?.profile_image_url) {
+        map[emp.id] = emp.profile_image_url;
+      }
+    });
+    return map;
+  }, [employees]);
+
+  // Fetch unread count for notifications badge
+  const { data: unreadCount = 0 } = useGetUnreadCountQuery(undefined, {
+    skip: !userId,
+    pollingInterval: 30000
+  });
+
   // Live date and time update logic
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setNow(new Date());
     const id = window.setInterval(() => {
       setNow(new Date());
@@ -560,19 +624,31 @@ export default function OwnerDashboard() {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Notifications */}
-            <button className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors">
-              <Bell className="w-6 h-6 text-gray-600" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+            {/* Messages */}
+            <button
+              ref={messageButtonRef}
+              className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              onClick={() => {
+                setMessageBadge(false);
+                setMessageModalOpen((prev) => !prev);
+              }}
+            >
+              <MessageSquare className="w-6 h-6 text-gray-600" />
+              {messageBadge && (
+                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+              )}
             </button>
 
-            {/* Settings */}
+            {/* Notifications */}
             <button
-              onClick={() => setPage("settings")}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              title="Settings"
+              ref={notificationButtonRef}
+              className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              onClick={() => setNotificationOpen((prev) => !prev)}
             >
-              <Settings className="w-6 h-6 text-gray-600" />
+              <Bell className="w-6 h-6 text-gray-600" />
+              {unreadCount > 0 && (
+                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+              )}
             </button>
 
             {/* Profile Dropdown */}
@@ -717,7 +793,15 @@ export default function OwnerDashboard() {
             {page === "audit" && <AuditLogsPage />}
             {page === "roomManagement" && <RoomManagement />}
             {page === "profile" && <ProfilePage />}
-            {page === "messages" && <MessagesPage />}
+            {page === "messages" && (
+              <MessagesPage
+                initialConversationId={selectedConversationId}
+                onClose={() => {
+                  setSelectedConversationId(null);
+                  setPage("dashboard");
+                }}
+              />
+            )}
           </div>
         </div>
         <AdminFooter />
@@ -768,6 +852,41 @@ export default function OwnerDashboard() {
         isOpen={modals.policies}
         onClose={() => closeModal("policies")}
       />
+
+      {/* Notification Modal */}
+      {notificationOpen && (
+        <NotificationModal
+          onClose={() => setNotificationOpen(false)}
+          onViewAll={() => {
+            setNotificationOpen(false);
+            // You can add a notifications page navigation here
+          }}
+          anchorRef={notificationButtonRef}
+          userId={userId || undefined}
+        />
+      )}
+
+      {/* Message Modal */}
+      {messageModalOpen && (
+        <MessageModal
+          conversations={headerConversationsData?.data || []}
+          currentUserId={userId || ""}
+          employeeNameById={employeeNameById}
+          employeeProfileImageById={employeeProfileImageById}
+          isLoading={isLoadingHeaderConversations}
+          onSelectConversation={(conversationId) => {
+            setSelectedConversationId(conversationId);
+            setMessageModalOpen(false);
+            setPage("messages");
+          }}
+          onClose={() => setMessageModalOpen(false)}
+          onViewAll={() => {
+            setMessageModalOpen(false);
+            setPage("messages");
+          }}
+          anchorRef={messageButtonRef}
+        />
+      )}
     </div>
   );
 }
