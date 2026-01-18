@@ -15,6 +15,21 @@ interface Booking {
   id: string;
   status: string;
   additional_guests?: AdditionalGuest[];
+  booking_id?: string;
+  guest_first_name?: string;
+  guest_last_name?: string;
+  guest_email?: string;
+  guest_phone?: string;
+  room_name?: string;
+  check_in_date: string;    // ← Add this
+  check_in_time?: string;
+  check_out_date: string;   // ← Add this
+  check_out_time?: string;
+  adults?: number;
+  children?: number;
+  infants?: number;
+  total_amount?: string | number;
+  remaining_balance?: string | number;
   [key: string]: unknown;
 }
 
