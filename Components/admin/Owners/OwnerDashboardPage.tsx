@@ -367,6 +367,12 @@ export default function OwnerDashboard() {
       color: "text-emerald-500",
     },
     {
+      id: "guest",
+      icon: Users,
+      label: "Guest Assistance",
+      color: "text-teal-500",
+    },
+    {
       id: "messages",
       icon: MessageSquare,
       label: "Messages",
