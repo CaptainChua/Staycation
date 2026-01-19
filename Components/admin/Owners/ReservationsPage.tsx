@@ -431,8 +431,8 @@ const ReservationsPage = () => {
                         <div className="text-[10px] text-gray-500">{reservation.check_out_time}</div>
                       </td>
                       <td className="px-2 py-1.5 whitespace-nowrap text-center">
-                        <div className="text-base font-bold text-gray-900">{reservation.adults + reservation.children + reservation.infants}</div>
-                        <div className="text-[10px] text-gray-500">A:{reservation.adults} C:{reservation.children} I:{reservation.infants}</div>
+                        <div className="text-base font-bold text-gray-900">{(reservation.adults || 0) + (reservation.children || 0) + (reservation.infants || 0)}</div>
+                        <div className="text-[10px] text-gray-500">A:{reservation.adults || 0} C:{reservation.children || 0} I:{reservation.infants || 0}</div>
                       </td>
                       <td className="px-2 py-1.5 whitespace-nowrap">
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${getStatusColor(reservation.status)}`}>
