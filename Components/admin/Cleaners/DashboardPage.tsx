@@ -1,30 +1,76 @@
 "use client";
 
 import { ClipboardList, CheckCircle, Clock, AlertTriangle } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
+
+interface DashboardStats {
+  todaysTasks: number;
+  completed: number;
+  inProgress: number;
+  pending: number;
+}
 
 export default function DashboardPage() {
-  const stats = [
+  const { data: session } = useSession();
+  const [stats, setStats] = useState<DashboardStats>({
+    todaysTasks: 0,
+    completed: 0,
+    inProgress: 0,
+    pending: 0,
+  });
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      if (!session?.user?.id) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        const response = await fetch(`/api/admin/cleaners/${session.user.id}/dashboard-stats`, {
+          method: "GET",
+          cache: "no-store",
+        });
+
+        const payload = await response.json();
+        if (payload.success && payload.data) {
+          setStats(payload.data);
+        }
+      } catch (error) {
+        console.error("Error fetching dashboard stats:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchStats();
+  }, [session?.user?.id]);
+
+  const statsArray = [
     {
       label: "Today's Tasks",
-      value: "5",
+      value: isLoading ? "..." : stats.todaysTasks.toString(),
       color: "bg-blue-500",
       icon: ClipboardList,
     },
     {
       label: "Completed",
-      value: "3",
+      value: isLoading ? "..." : stats.completed.toString(),
       color: "bg-green-500",
       icon: CheckCircle,
     },
     {
       label: "In Progress",
-      value: "1",
+      value: isLoading ? "..." : stats.inProgress.toString(),
       color: "bg-yellow-500",
       icon: Clock,
     },
     {
       label: "Pending",
-      value: "1",
+      value: isLoading ? "..." : stats.pending.toString(),
       color: "bg-orange-500",
       icon: AlertTriangle,
     },
@@ -47,7 +93,7 @@ export default function DashboardPage() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((stat, i) => {
+        {statsArray.map((stat, i) => {
           const IconComponent = stat.icon;
           return (
             <div
