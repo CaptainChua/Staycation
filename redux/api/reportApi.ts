@@ -94,6 +94,16 @@ export const reportApi = createApi({
       invalidatesTags: ['Report']
     }),
 
+    // Update report assignment
+    updateReportAssignment: builder.mutation({
+      query: ({ reportId, assignedTo }) => ({
+        url: `/report`,
+        method: "PATCH",
+        body: { reportId, assigned_to: assignedTo }
+      }),
+      invalidatesTags: ['Report']
+    }),
+
     // Delete report
     deleteReport: builder.mutation({
       query: (reportId) => ({
@@ -118,6 +128,7 @@ export const {
   useGetReportsByHavenQuery,
   useGetReportByIdQuery,
   useUpdateReportStatusMutation,
+  useUpdateReportAssignmentMutation,
   useDeleteReportMutation,
   useGetUserByIdQuery
 } = reportApi;
