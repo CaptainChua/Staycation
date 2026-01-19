@@ -26,7 +26,6 @@ import AuditLogsPage from "./AuditLogsPage";
 import MessagesPage from "./MessagesPage";
 import RoomManagement from "./CleaningManagement";
 import AdminFooter from "../AdminFooter";
-import NotificationModal from "../Csr/Modals/Notification";
 import toast from 'react-hot-toast';
 import { useState, useEffect, useRef, useMemo } from "react";
 import { signOut, useSession } from "next-auth/react";
@@ -165,6 +164,7 @@ export default function OwnerDashboard() {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const notificationButtonRef = useRef<HTMLButtonElement | null>(null);
   const messageButtonRef = useRef<HTMLButtonElement | null>(null);
+  const notificationsHydratedRef = useRef(false);
   const [havenView, setHavenView] = useState<"overview" | "list">("overview");
   const [now, setNow] = useState<Date | null>(null);
   const [modals, setModals] = useState({
