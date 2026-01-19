@@ -8,6 +8,7 @@ import {
   Info,
   Lock,
   Mail,
+  Music,
   Palette,
   ShieldCheck,
   Smartphone,
@@ -24,6 +25,7 @@ const primaryBtn =
 
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
+  const NOTIF_SOUND_STORAGE_KEY = "owner-dashboard-notification-sound-v1";
 
   const [notificationPrefs, setNotificationPrefs] = useState({
     bookingAlerts: true,
@@ -51,6 +53,20 @@ export default function SettingsPage() {
     uploadedLogo: null as string | null,
   });
 
+  const [notifSound, setNotifSound] = useState<{
+    enabled: boolean;
+    currentSoundName: string;
+    currentSoundDataUrl: string | null;
+    uploadedSoundName: string;
+    uploadedSoundDataUrl: string | null;
+  }>({
+    enabled: true,
+    currentSoundName: "Default",
+    currentSoundDataUrl: null,
+    uploadedSoundName: "",
+    uploadedSoundDataUrl: null,
+  });
+
   // Sync theme with appearance state using requestAnimationFrame to avoid cascading renders
   useEffect(() => {
     if (theme && theme !== appearance.theme) {
@@ -60,6 +76,28 @@ export default function SettingsPage() {
       return () => cancelAnimationFrame(rafId);
     }
   }, [theme, appearance.theme]);
+
+  // Load saved notification sound settings from localStorage (client only)
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(NOTIF_SOUND_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as {
+        enabled?: boolean;
+        name?: string;
+        dataUrl?: string | null;
+      };
+      setNotifSound((prev) => ({
+        ...prev,
+        enabled: parsed.enabled ?? prev.enabled,
+        currentSoundName: parsed.name ?? prev.currentSoundName,
+        currentSoundDataUrl: parsed.dataUrl ?? prev.currentSoundDataUrl,
+      }));
+    } catch {
+      // ignore malformed storage
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const toggleNotification = (key: keyof typeof notificationPrefs) => {
     setNotificationPrefs((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -102,6 +140,77 @@ export default function SettingsPage() {
       uploadedLogo: null,
     }));
     // TODO: persist to backend when API is available
+  };
+
+  const handleNotifSoundUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("audio/")) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setNotifSound((prev) => ({
+        ...prev,
+        uploadedSoundName: file.name,
+        uploadedSoundDataUrl: reader.result as string,
+      }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleNotifSoundPreview = () => {
+    const src = notifSound.uploadedSoundDataUrl || notifSound.currentSoundDataUrl;
+    if (!src) return;
+    try {
+      const audio = new Audio(src);
+      audio.volume = 1;
+      void audio.play();
+    } catch {
+      // ignore autoplay issues
+    }
+  };
+
+  const handleNotifSoundCancel = () => {
+    setNotifSound((prev) => ({
+      ...prev,
+      uploadedSoundName: "",
+      uploadedSoundDataUrl: null,
+    }));
+  };
+
+  const handleNotifSoundSave = () => {
+    if (!notifSound.uploadedSoundDataUrl) return;
+    const next = {
+      enabled: notifSound.enabled,
+      name: notifSound.uploadedSoundName || "Custom sound",
+      dataUrl: notifSound.uploadedSoundDataUrl,
+    };
+    try {
+      localStorage.setItem(NOTIF_SOUND_STORAGE_KEY, JSON.stringify(next));
+    } catch {
+      // ignore quota errors
+    }
+    setNotifSound((prev) => ({
+      ...prev,
+      currentSoundName: next.name,
+      currentSoundDataUrl: next.dataUrl,
+      uploadedSoundName: "",
+      uploadedSoundDataUrl: null,
+    }));
+  };
+
+  const handleNotifSoundReset = () => {
+    try {
+      localStorage.removeItem(NOTIF_SOUND_STORAGE_KEY);
+    } catch {
+      // ignore
+    }
+    setNotifSound((prev) => ({
+      ...prev,
+      currentSoundName: "Default",
+      currentSoundDataUrl: null,
+      uploadedSoundName: "",
+      uploadedSoundDataUrl: null,
+    }));
   };
 
   return (
@@ -503,6 +612,165 @@ export default function SettingsPage() {
                 </label>
               )}
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Notification sound (owner only) */}
+      <section className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm">
+        <div className="flex flex-col gap-2 border-b border-gray-100 dark:border-gray-800 px-6 py-5">
+          <div className="flex items-center gap-2 text-brand-primary">
+            <Music className="w-4 h-4" />
+            <p className="text-xs font-semibold uppercase tracking-[0.3em]">
+              Notifications
+            </p>
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+            Notification sound
+          </h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Upload a custom sound (MP3/WAV) that plays when you open notifications.
+          </p>
+        </div>
+
+        <div className="px-6 py-6 space-y-4">
+          <div className="flex items-center justify-between gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+            <div>
+              <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+                Enable notification sound
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Current: {notifSound.currentSoundName}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() =>
+                setNotifSound((prev) => {
+                  const nextEnabled = !prev.enabled;
+                  try {
+                    const raw = localStorage.getItem(NOTIF_SOUND_STORAGE_KEY);
+                    const parsed = raw ? JSON.parse(raw) : {};
+                    localStorage.setItem(
+                      NOTIF_SOUND_STORAGE_KEY,
+                      JSON.stringify({
+                        ...parsed,
+                        enabled: nextEnabled,
+                        name: prev.currentSoundName,
+                        dataUrl: prev.currentSoundDataUrl,
+                      })
+                    );
+                  } catch {
+                    // ignore
+                  }
+                  return { ...prev, enabled: nextEnabled };
+                })
+              }
+              className={`${primaryBtn} ${notifSound.enabled ? "bg-brand-primary" : "bg-gray-200"}`}
+              aria-pressed={notifSound.enabled}
+            >
+              <span
+                className={`inline-block h-5 w-5 transform rounded-full bg-white transition ${
+                  notifSound.enabled ? "translate-x-5" : "translate-x-1"
+                }`}
+              />
+            </button>
+          </div>
+
+          <div className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-6 space-y-3">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Current sound: <span className="font-semibold text-gray-800 dark:text-gray-100">{notifSound.currentSoundName}</span>
+            </p>
+            {notifSound.uploadedSoundDataUrl ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">
+                      {notifSound.uploadedSoundName || "New sound"}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Preview it, then save to apply.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleNotifSoundPreview}
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-brand-primary text-white hover:bg-brand-primaryDark transition-colors text-sm font-semibold"
+                  >
+                    <span aria-hidden="true">▶</span>
+                    Preview
+                  </button>
+                    <button
+                      type="button"
+                      onClick={handleNotifSoundCancel}
+                      className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-lg transition-colors"
+                      title="Cancel"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={handleNotifSoundSave}
+                    className="px-4 py-2 bg-brand-primary text-white rounded-lg hover:bg-brand-primaryDark transition-colors font-semibold text-sm"
+                  >
+                    Save sound
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleNotifSoundReset}
+                    className="px-4 py-2 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors font-semibold text-sm"
+                  >
+                    Reset to default
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center text-center">
+                <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center mb-3">
+                  <Upload className="w-8 h-8 text-gray-400" />
+                </div>
+                <p className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">
+                  Upload a sound file
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+                  MP3/WAV recommended (keep it short)
+                </p>
+                <div className="flex flex-wrap items-center justify-center gap-3">
+                  <label className="cursor-pointer">
+                    <input
+                      type="file"
+                      accept="audio/*"
+                      onChange={handleNotifSoundUpload}
+                      className="hidden"
+                    />
+                    <span className="px-4 py-2 bg-brand-primary text-white rounded-lg hover:bg-brand-primaryDark transition-colors font-semibold text-sm inline-block">
+                      Choose file
+                    </span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleNotifSoundPreview}
+                    disabled={!notifSound.currentSoundDataUrl}
+                    className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <span aria-hidden="true">▶</span>
+                    Preview current
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleNotifSoundReset}
+                    className="px-4 py-2 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors font-semibold text-sm"
+                  >
+                    Reset to default
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </section>
