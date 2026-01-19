@@ -144,8 +144,6 @@ interface EmployeeProfile {
 
 export default function OwnerDashboard() {
   const { data: session} = useSession();
-  const NOTIF_SOUND_STORAGE_KEY = "owner-dashboard-notification-sound-v1";
-  const NOTIF_LAST_ID_STORAGE_KEY = "owner-dashboard-last-notification-id-v1";
   const [sidebar, setSidebar] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [page, setPage] = useState("dashboard");
@@ -157,7 +155,6 @@ export default function OwnerDashboard() {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const notificationButtonRef = useRef<HTMLButtonElement | null>(null);
   const messageButtonRef = useRef<HTMLButtonElement | null>(null);
-  const notificationsHydratedRef = useRef(false);
   const [now, setNow] = useState<Date | null>(null);
   const [modals, setModals] = useState({
     addUnit: false,
@@ -233,9 +230,6 @@ export default function OwnerDashboard() {
     return () => window.clearInterval(id);
   }, []);
 
-  // Notification modal state
-  const [notificationModalOpen, setNotificationModalOpen] = useState(false);
-
   // Fetch havens from database
   const { data: havensData } = useGetHavensQuery({});
   
@@ -248,79 +242,6 @@ export default function OwnerDashboard() {
   };
 
   const allHavens = getAllHavens();
-
-  const notifications = [
-    {
-      id: "1",
-      title: "New booking received",
-      description: "A new booking was created for one of your havens.",
-      timestamp: "2 mins ago",
-      type: "info" as const,
-    },
-    {
-      id: "2",
-      title: "Payout processed",
-      description: "Your latest payout for this week has been processed.",
-      timestamp: "30 mins ago",
-      type: "success" as const,
-    },
-    {
-      id: "3",
-      title: "Upcoming guest arrival",
-      description: "Guest arrival scheduled later today. Review details.",
-      timestamp: "1 hr ago",
-      type: "warning" as const,
-    },
-  ];
-
-  const playSavedNotificationSound = () => {
-    try {
-      const raw = localStorage.getItem(NOTIF_SOUND_STORAGE_KEY);
-      const parsed = raw
-        ? (JSON.parse(raw) as {
-            enabled?: boolean;
-            dataUrl?: string | null;
-          })
-        : null;
-
-      if (parsed?.enabled === false) return;
-      if (!parsed?.dataUrl) return;
-
-      const audio = new Audio(parsed.dataUrl);
-      audio.volume = 1;
-      void audio.play();
-    } catch {
-      // ignore
-    }
-  };
-
-  // Play sound only when a NEW notification is received (not when opening the bell)
-  useEffect(() => {
-    const newestId = notifications[0]?.id;
-    if (!newestId) return;
-
-    // skip first run (page load)
-    if (!notificationsHydratedRef.current) {
-      notificationsHydratedRef.current = true;
-      try {
-        localStorage.setItem(NOTIF_LAST_ID_STORAGE_KEY, newestId);
-      } catch {
-        // ignore
-      }
-      return;
-    }
-
-    try {
-      const lastId = localStorage.getItem(NOTIF_LAST_ID_STORAGE_KEY);
-      if (lastId && lastId !== newestId) {
-        playSavedNotificationSound();
-      }
-      localStorage.setItem(NOTIF_LAST_ID_STORAGE_KEY, newestId);
-    } catch {
-      // ignore
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [notifications]);
 
   // Group havens by name to get unique haven names
   const uniqueHavenNames = Array.from(
@@ -883,18 +804,6 @@ export default function OwnerDashboard() {
         <AdminFooter />
       </div>
 
-      {notificationOpen && (
-        <NotificationModal
-          notifications={notifications}
-          onClose={() => setNotificationOpen(false)}
-          onViewAll={() => {
-            setNotificationOpen(false);
-            setPage("notifications");
-          }}
-          anchorRef={notificationButtonRef}
-        />
-      )}
-
       {/* MODALS */}
       <AddUnitModal
         isOpen={modals.addUnit}
@@ -947,7 +856,7 @@ export default function OwnerDashboard() {
           onClose={() => setNotificationOpen(false)}
           onViewAll={() => {
             setNotificationOpen(false);
-            // You can add a notifications page navigation here
+            // Navigate to notifications page if needed in the future
           }}
           anchorRef={notificationButtonRef}
           userId={userId || undefined}
