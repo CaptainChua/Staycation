@@ -1,9 +1,53 @@
 "use client";
 
 import { Calendar, Clock, ChevronLeft, ChevronRight, MapPin, CheckCircle2 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
+
+interface ScheduleStats {
+  todaysTasks: number;
+  thisWeek: number;
+  thisMonth: number;
+  completed: number;
+}
 
 export default function MySchedulePage() {
+  const { data: session } = useSession();
+  const [stats, setStats] = useState<ScheduleStats>({
+    todaysTasks: 0,
+    thisWeek: 0,
+    thisMonth: 0,
+    completed: 0,
+  });
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      if (!session?.user?.id) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        const response = await fetch(`/api/admin/cleaners/${session.user.id}/schedule-stats`, {
+          method: "GET",
+          cache: "no-store",
+        });
+
+        const payload = await response.json();
+        if (payload.success && payload.data) {
+          setStats(payload.data);
+        }
+      } catch (error) {
+        console.error("Error fetching schedule stats:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchStats();
+  }, [session?.user?.id]);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
 
@@ -63,11 +107,11 @@ export default function MySchedulePage() {
     return scheduleData.find((item) => item.date === selectedDateStr)?.assignments || [];
   };
 
-  const stats = [
-    { label: "Today's Tasks", value: "3", color: "bg-brand-primary" },
-    { label: "This Week", value: "8", color: "bg-blue-500" },
-    { label: "This Month", value: "24", color: "bg-green-500" },
-    { label: "Completed", value: "18", color: "bg-purple-500" },
+  const statsArray = [
+    { label: "Today's Tasks", value: isLoading ? "..." : stats.todaysTasks.toString(), color: "bg-brand-primary" },
+    { label: "This Week", value: isLoading ? "..." : stats.thisWeek.toString(), color: "bg-blue-500" },
+    { label: "This Month", value: isLoading ? "..." : stats.thisMonth.toString(), color: "bg-green-500" },
+    { label: "Completed", value: isLoading ? "..." : stats.completed.toString(), color: "bg-purple-500" },
   ];
 
   return (
@@ -81,7 +125,7 @@ export default function MySchedulePage() {
 
       {/* Stats Overview */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {stats.map((stat, i) => (
+        {statsArray.map((stat, i) => (
           <div
             key={i}
             className={`${stat.color} text-white rounded-lg p-4 shadow dark:shadow-gray-900`}
