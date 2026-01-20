@@ -57,24 +57,39 @@ export async function PATCH(
       let paramIndex = 1;
 
       if (formData.has('haven_id')) {
-        updateFields.push(`haven_id = $${paramIndex++}`);
-        updateValues.push(formData.get('haven_id'));
+        const value = formData.get('haven_id');
+        if (value && typeof value === 'string') {
+          updateFields.push(`haven_id = $${paramIndex++}`);
+          updateValues.push(value);
+        }
       }
       if (formData.has('issue_type')) {
-        updateFields.push(`issue_type = $${paramIndex++}`);
-        updateValues.push(formData.get('issue_type'));
+        const value = formData.get('issue_type');
+        if (value && typeof value === 'string') {
+          updateFields.push(`issue_type = $${paramIndex++}`);
+          updateValues.push(value);
+        }
       }
       if (formData.has('priority_level')) {
-        updateFields.push(`priority_level = $${paramIndex++}`);
-        updateValues.push(formData.get('priority_level'));
+        const value = formData.get('priority_level');
+        if (value && typeof value === 'string') {
+          updateFields.push(`priority_level = $${paramIndex++}`);
+          updateValues.push(value);
+        }
       }
       if (formData.has('specific_location')) {
-        updateFields.push(`specific_location = $${paramIndex++}`);
-        updateValues.push(formData.get('specific_location'));
+        const value = formData.get('specific_location');
+        if (value && typeof value === 'string') {
+          updateFields.push(`specific_location = $${paramIndex++}`);
+          updateValues.push(value);
+        }
       }
       if (formData.has('issue_description')) {
-        updateFields.push(`issue_description = $${paramIndex++}`);
-        updateValues.push(formData.get('issue_description'));
+        const value = formData.get('issue_description');
+        if (value && typeof value === 'string') {
+          updateFields.push(`issue_description = $${paramIndex++}`);
+          updateValues.push(value);
+        }
       }
 
       if (updateFields.length === 0) {
