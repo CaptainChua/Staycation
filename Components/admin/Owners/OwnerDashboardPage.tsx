@@ -725,13 +725,18 @@ export default function OwnerDashboard() {
             {/* Messages */}
             <button
               ref={messageButtonRef}
-              className="relative p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+              className={`relative p-2 rounded-lg transition-colors ${
+                messageModalOpen
+                  ? "bg-brand-primaryLighter text-brand-primary"
+                  : "hover:bg-gray-100 dark:hover:bg-gray-800"
+              }`}
               onClick={() => {
                 setMessageBadge(false);
+                setNotificationOpen(false);
                 setMessageModalOpen((prev) => !prev);
               }}
             >
-              <MessageSquare className="w-6 h-6 text-gray-600 dark:text-gray-300" />
+              <MessageSquare className={`w-6 h-6 ${messageModalOpen ? "text-brand-primary" : "text-gray-600 dark:text-gray-300"}`} />
               {messageBadge && (
                 <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
               )}
@@ -740,10 +745,17 @@ export default function OwnerDashboard() {
             {/* Notifications */}
             <button
               ref={notificationButtonRef}
-              className="relative p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-              onClick={() => setNotificationOpen((prev) => !prev)}
+              className={`relative p-2 rounded-lg transition-colors ${
+                notificationOpen
+                  ? "bg-brand-primaryLighter text-brand-primary"
+                  : "hover:bg-gray-100 dark:hover:bg-gray-800"
+              }`}
+              onClick={() => {
+                setMessageModalOpen(false);
+                setNotificationOpen((prev) => !prev);
+              }}
             >
-              <Bell className="w-6 h-6 text-gray-600 dark:text-gray-300" />
+              <Bell className={`w-6 h-6 ${notificationOpen ? "text-brand-primary" : "text-gray-600 dark:text-gray-300"}`} />
               {unreadCount > 0 && (
                 <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
               )}
