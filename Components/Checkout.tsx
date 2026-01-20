@@ -282,9 +282,9 @@
           // Check if the date falls within any existing booking's date range
           const isBooked = roomBookingsData?.data?.some((booking: Booking) => {
             // Only block dates for approved/confirmed/checked-in bookings
-            // Pending bookings don't block dates until approved
-            const approvedStatuses = ['approved', 'confirmed', 'check_in', 'checked-in'];
-            if (!approvedStatuses.includes(booking.status)) {
+            // Don't block dates for completed, cancelled, pending, rejected bookings
+            const blockingStatuses = ['approved', 'confirmed', 'checked-in'];
+            if (!blockingStatuses.includes(booking.status)) {
               return false;
             }
 
@@ -1466,6 +1466,9 @@
                             className="w-full"
                             classNames={{
                               input: `${errors.checkInDate ? 'border-red-500' : ''}`,
+                              calendar: 'dark:bg-gray-800',
+                              cell: 'dark:hover:bg-gray-700',
+                              selectorButton: 'dark:bg-gray-700 dark:hover:bg-gray-600'
                             }}
                             value={bookingData.checkInDate ? (safeParseDate(bookingData.checkInDate) as any) : null}
                             onChange={(date) => {
@@ -1495,6 +1498,9 @@
                             className="w-full"
                             classNames={{
                               input: `${errors.checkOutDate ? 'border-red-500' : ''}`,
+                              calendar: 'dark:bg-gray-800',
+                              cell: 'dark:hover:bg-gray-700',
+                              selectorButton: 'dark:bg-gray-700 dark:hover:bg-gray-600'
                             }}
                             value={bookingData.checkOutDate ? (safeParseDate(bookingData.checkOutDate) as any) : null}
                             onChange={(date) => {
