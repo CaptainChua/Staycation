@@ -101,7 +101,7 @@
       }, [bookingData.selectedRoom, roomBookingsData]);
 
       // Helper function to safely parse date
-  const safeParseDate = (dateString: string): DateValue | null | undefined => {
+  const safeParseDate = (dateString: string): any => {
     try {
       const parsed = parseDate(dateString);
       // Return the parsed date directly, TypeScript will infer the correct type
@@ -1469,7 +1469,7 @@
                             }}
                             value={
                               bookingData.checkInDate
-                                ? (safeParseDate(bookingData.checkInDate) as DateValue | null | undefined)
+                                ? (safeParseDate(bookingData.checkInDate) as any)
                                 : undefined
                             }
                             onChange={(date) => {
@@ -1502,7 +1502,7 @@
                             }}
                             value={
                               bookingData.checkOutDate
-                                ? (safeParseDate(bookingData.checkOutDate) as DateValue | null | undefined)
+                                ? (safeParseDate(bookingData.checkOutDate) as any)
                                 : undefined
                             }
                             onChange={(date) => {
