@@ -63,7 +63,7 @@ const DatePicker = ({ label, date, onDateChange }: DatePickerProps) => {
       {/* Hidden DatePicker that opens on click */}
       <div className="absolute top-0 left-0 w-full h-full opacity-0">
         <HeroDatePicker
-          value={selectedDate ? (selectedDate as any) : null}
+          value={selectedDate}
           onChange={(newDate) => {
             if (newDate) onDateChange((newDate as DateValue).toString());
           }}

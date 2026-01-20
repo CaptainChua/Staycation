@@ -101,7 +101,7 @@
       }, [bookingData.selectedRoom, roomBookingsData]);
 
       // Helper function to safely parse date
-  const safeParseDate = (dateString: string) => {
+  const safeParseDate = (dateString: string): DateValue | null => {
     try {
       const parsed = parseDate(dateString);
       // Return the parsed date directly, TypeScript will infer the correct type
@@ -1467,7 +1467,7 @@
                             classNames={{
                               input: `${errors.checkInDate ? 'border-red-500' : ''}`,
                             }}
-                            value={bookingData.checkInDate ? (safeParseDate(bookingData.checkInDate) as any) : null}
+                            value={bookingData.checkInDate ? safeParseDate(bookingData.checkInDate) : null}
                             onChange={(date) => {
                               if (date) {
                                 const formattedDate = formatDateToString(date);
@@ -1496,7 +1496,7 @@
                             classNames={{
                               input: `${errors.checkOutDate ? 'border-red-500' : ''}`,
                             }}
-                            value={bookingData.checkOutDate ? (safeParseDate(bookingData.checkOutDate) as any) : null}
+                            value={bookingData.checkOutDate ? safeParseDate(bookingData.checkOutDate) : null}
                             onChange={(date) => {
                               if (date) {
                                 const formattedDate = formatDateToString(date);

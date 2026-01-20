@@ -230,7 +230,7 @@ export default function WebsiteNavigationContent() {
           </li>
           <li className="flex gap-2">
             <span className="text-brand-primary dark:text-brand-primaryLight">→</span>
-            <span>User pages require login - you'll be redirected to sign in first</span>
+            <span>User pages require login - you&apos;ll be redirected to sign in first</span>
           </li>
           <li className="flex gap-2">
             <span className="text-brand-primary dark:text-brand-primaryLight">→</span>

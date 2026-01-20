@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/no-unescaped-entities */
+
 import React from 'react';
 import {
   CloudUpload,
@@ -23,7 +25,7 @@ export default function PushingToGitHubContent() {
         <div className="flex items-start gap-3">
           <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-1" />
           <p className="text-base md:text-lg text-blue-900 dark:text-blue-100">
-            Your commits are currently only on <strong>your computer</strong>. Let's upload them to GitHub
+            Your commits are currently only on <strong>your computer</strong>. Let&apos;s upload them to GitHub
             so your team can see your work and you have a backup in the cloud!
           </p>
         </div>
@@ -174,7 +176,7 @@ export default function PushingToGitHubContent() {
 
       <h2 className="text-xl md:text-2xl font-semibold text-gray-800 dark:text-gray-100 mt-8 mb-4">Real Example</h2>
       <p className="text-sm md:text-base text-gray-700 dark:text-gray-300 leading-relaxed mb-4">
-        Let's say you're on <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-sm">feature-add-contact-form</code>.
+        Let&apos;s say you&apos;re on <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-sm">feature-add-contact-form</code>.
         Here's the complete workflow:
       </p>
 
@@ -340,7 +342,7 @@ export default function PushingToGitHubContent() {
           </li>
           <li className="flex gap-2">
             <X className="w-4 h-4 flex-shrink-0 mt-1" />
-            <span>Forgetting the <code className="bg-white dark:bg-gray-800 px-2 py-1 rounded text-sm">-u</code> flag on first push (you'll get an error)</span>
+            <span>Forgetting the <code className="bg-white dark:bg-gray-800 px-2 py-1 rounded text-sm">-u</code> flag on first push (you&apos;ll get an error)</span>
           </li>
         </ul>
       </div>
@@ -372,7 +374,7 @@ export default function PushingToGitHubContent() {
           <h3 className="text-lg md:text-xl font-semibold text-gray-800 dark:text-white">Branch Pushed Successfully!</h3>
         </div>
         <p className="text-sm md:text-base text-gray-700 dark:text-gray-300 mb-4">
-          Your code is now on GitHub! Next, let's create a Pull Request so your team leader can review your work.
+          Your code is now on GitHub! Next, let&apos;s create a Pull Request so your team leader can review your work.
         </p>
         <a
           href="/documentation/git-workflow/pull-requests"

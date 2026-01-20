@@ -16,8 +16,12 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronsRight,
+  UserPlus,
 } from "lucide-react";
 import { useMemo, useState } from "react";
+import { useGetBookingsQuery } from "@/redux/api/bookingsApi";
+import ViewBookings from "./Modals/ViewBookings";
+import AssignCleanerModal from "./Modals/AssignCleanerModal";
 
 type CleaningStatus = "Unassigned" | "Assigned" | "In Progress" | "Completed";
 
@@ -32,6 +36,62 @@ interface CleanerRow {
   statusColor: string;
 }
 
+interface BookingData {
+  id: string;
+  booking_id: string;
+  guest_first_name: string;
+  guest_last_name: string;
+  guest_email: string;
+  guest_phone: string;
+  guest_gender?: string;
+  room_name: string;
+  check_in_date: string;
+  check_out_date: string;
+  check_in_time: string;
+  check_out_time: string;
+  adults: number;
+  children: number;
+  infants: number;
+  facebook_link?: string;
+  payment_method: string;
+  payment_proof_url?: string;
+  valid_id_url?: string;
+  room_rate: number;
+  security_deposit: number;
+  add_ons_total: number;
+  total_amount: number;
+  down_payment: number;
+  remaining_balance: number;
+  status: string;
+  add_ons?: unknown;
+  additional_guests?: unknown;
+  user_id?: string;
+  created_at?: string;
+  updated_at?: string;
+  cleaning_status?: "pending" | "in-progress" | "cleaned" | "inspected";
+}
+
+const skeletonPulse = "animate-pulse bg-gray-100 dark:bg-gray-700/60";
+
+function mapCleaningStatus(cleaning_status?: BookingData["cleaning_status"]): {
+  status: CleaningStatus;
+  statusColor: string;
+} {
+  switch (cleaning_status) {
+    case "in-progress":
+      return { status: "In Progress", statusColor: "bg-yellow-100 text-yellow-700" };
+    case "cleaned":
+    case "inspected":
+      return { status: "Completed", statusColor: "bg-green-100 text-green-700" };
+    case "pending":
+    default:
+      return {
+        status: "Unassigned",
+        statusColor: "bg-gray-100 text-gray-700 dark:text-gray-200",
+      };
+  }
+}
+
 export default function CleanersPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | CleaningStatus>("all");
@@ -39,59 +99,44 @@ export default function CleanersPage() {
   const [entriesPerPage, setEntriesPerPage] = useState(5);
   const [sortField, setSortField] = useState<keyof CleanerRow | null>(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const [selectedBooking, setSelectedBooking] = useState<BookingData | null>(null);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [assignmentBookingId, setAssignmentBookingId] = useState<string | null>(null);
+  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
 
-  const [rows, setRows] = useState<CleanerRow[]>([
-    {
-      cleaner_id: "CL-001",
-      haven: "Haven 2",
-      booking_id: "BK-001",
-      guest: "John Smith",
-      check_out: "2024-03-20 11:00",
-      assigned_to: "Maria Santos",
-      status: "Assigned",
-      statusColor: "bg-indigo-100 text-indigo-700",
-    },
-    {
-      cleaner_id: "CL-002",
-      haven: "Haven 1",
-      booking_id: "BK-002",
-      guest: "Sarah Johnson",
-      check_out: "2024-03-22 11:00",
-      assigned_to: "Unassigned",
-      status: "Unassigned",
-      statusColor: "bg-gray-100 text-gray-700 dark:text-gray-200",
-    },
-    {
-      cleaner_id: "CL-003",
-      haven: "Haven 3",
-      booking_id: "BK-003",
-      guest: "Mike Wilson",
-      check_out: "2024-03-25 11:00",
-      assigned_to: "Anna Reyes",
-      status: "In Progress",
-      statusColor: "bg-yellow-100 text-yellow-700",
-    },
-    {
-      cleaner_id: "CL-004",
-      haven: "Haven 4",
-      booking_id: "BK-004",
-      guest: "Emily Brown",
-      check_out: "2024-03-27 11:00",
-      assigned_to: "Carlo Dela Cruz",
-      status: "Completed",
-      statusColor: "bg-green-100 text-green-700",
-    },
-    {
-      cleaner_id: "CL-005",
-      haven: "Haven 2",
-      booking_id: "BK-005",
-      guest: "David Lee",
-      check_out: "2024-03-30 11:00",
-      assigned_to: "Maria Santos",
-      status: "Assigned",
-      statusColor: "bg-indigo-100 text-indigo-700",
-    },
-  ]);
+  const {
+    data: bookings = [],
+    isLoading,
+    error,
+  } = useGetBookingsQuery({}) as {
+    data: BookingData[];
+    isLoading: boolean;
+    error: unknown;
+  };
+
+  const rows: CleanerRow[] = useMemo(() => {
+    if (!Array.isArray(bookings)) return [];
+
+    return bookings
+      // Keep only bookings that have a checkout set (cleaning tasks happen after checkout)
+      .filter((b) => Boolean(b?.booking_id))
+      .map((b) => {
+        const guestName = `${b.guest_first_name ?? ""} ${b.guest_last_name ?? ""}`.trim() || "Guest";
+        const checkOut = `${b.check_out_date ?? ""} ${b.check_out_time ?? ""}`.trim() || "Not specified";
+        const { status, statusColor } = mapCleaningStatus(b.cleaning_status);
+
+        return {
+          cleaner_id: b.booking_id ?? "N/A",
+          haven: b.room_name ?? "Not specified",
+          booking_id: b.booking_id ?? "N/A",
+          guest: guestName,
+          check_out: checkOut,
+          assigned_to: status === "Unassigned" ? "Unassigned" : "Assigned",
+          status,
+          statusColor,
+        };
+      });
+  }, [bookings]);
 
   const filteredRows = useMemo(() => {
     return rows.filter((row) => {
@@ -135,18 +180,35 @@ export default function CleanersPage() {
     }
   };
 
-  const setRowStatus = (cleaner_id: string, status: CleaningStatus, statusColor: string) => {
-    setRows((prev) =>
-      prev.map((row) =>
-        row.cleaner_id === cleaner_id
-          ? {
-              ...row,
-              status,
-              statusColor,
-            }
-          : row
-      )
+  const handleViewBooking = (bookingId: string) => {
+    if (!Array.isArray(bookings)) return;
+    const booking = (bookings as BookingData[]).find(
+      (b) => b.booking_id === bookingId
     );
+    if (booking) {
+      setSelectedBooking(booking);
+      setIsViewModalOpen(true);
+    }
+  };
+
+  const handleCloseModal = () => {
+    setIsViewModalOpen(false);
+    setSelectedBooking(null);
+  };
+
+  const handleAssignCleaner = (bookingId: string) => {
+    setAssignmentBookingId(bookingId);
+    setIsAssignModalOpen(true);
+  };
+
+  const handleCloseAssignModal = () => {
+    setIsAssignModalOpen(false);
+    setAssignmentBookingId(null);
+  };
+
+  const handleAssignmentSuccess = () => {
+    // Refetch bookings to update the status
+    // The query will automatically refetch due to invalidation
   };
 
   const totalCount = rows.length;
@@ -156,6 +218,7 @@ export default function CleanersPage() {
   const completedCount = rows.filter((r) => r.status === "Completed").length;
 
   return (
+    <>
     <div className="space-y-6 animate-in fade-in duration-700">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
@@ -165,28 +228,45 @@ export default function CleanersPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {[
-          { label: "Total Tasks", value: String(totalCount), color: "bg-orange-500", icon: Sparkles },
-          { label: "Unassigned", value: String(unassignedCount), color: "bg-gray-500", icon: Users },
-          { label: "Assigned", value: String(assignedCount), color: "bg-indigo-500", icon: ClipboardList },
-          { label: "In Progress", value: String(inProgressCount), color: "bg-yellow-500", icon: Loader2 },
-        ].map((stat, i) => {
-          const IconComponent = stat.icon;
-          return (
+        {isLoading ? (
+          Array.from({ length: 4 }).map((_, i) => (
             <div
-              key={i}
-              className={`${stat.color} text-white rounded-lg p-6 shadow dark:shadow-gray-900 hover:shadow-lg transition-all`}
+              key={`stat-skel-${i}`}
+              className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow dark:shadow-gray-900"
             >
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm opacity-90">{stat.label}</p>
-                  <p className="text-3xl font-bold mt-2">{stat.value}</p>
+                <div className="space-y-3 w-full">
+                  <div className={`h-4 w-24 rounded ${skeletonPulse}`} />
+                  <div className={`h-8 w-16 rounded ${skeletonPulse}`} />
                 </div>
-                <IconComponent className="w-12 h-12 opacity-50" />
+                <div className={`w-12 h-12 rounded ${skeletonPulse}`} />
               </div>
             </div>
-          );
-        })}
+          ))
+        ) : (
+          [
+            { label: "Total Tasks", value: String(totalCount), color: "bg-orange-500", icon: Sparkles },
+            { label: "Unassigned", value: String(unassignedCount), color: "bg-gray-500", icon: Users },
+            { label: "Assigned", value: String(assignedCount), color: "bg-indigo-500", icon: ClipboardList },
+            { label: "In Progress", value: String(inProgressCount), color: "bg-yellow-500", icon: Loader2 },
+          ].map((stat, i) => {
+            const IconComponent = stat.icon;
+            return (
+              <div
+                key={i}
+                className={`${stat.color} text-white rounded-lg p-6 shadow dark:shadow-gray-900 hover:shadow-lg transition-all`}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm opacity-90">{stat.label}</p>
+                    <p className="text-3xl font-bold mt-2">{stat.value}</p>
+                  </div>
+                  <IconComponent className="w-12 h-12 opacity-50" />
+                </div>
+              </div>
+            );
+          })
+        )}
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-4">
@@ -317,74 +397,85 @@ export default function CleanersPage() {
               </tr>
             </thead>
             <tbody>
-              {paginatedRows.map((row) => (
-                <tr key={row.cleaner_id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                  <td className="py-4 px-4">
-                    <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{row.cleaner_id}</span>
-                  </td>
-                  <td className="py-4 px-4">
-                    <div className="flex items-center gap-2">
-                      <MapPin className="w-4 h-4 text-orange-500 flex-shrink-0" />
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-200 whitespace-nowrap">{row.haven}</span>
-                    </div>
-                  </td>
-                  <td className="py-4 px-4">
-                    <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm whitespace-nowrap">{row.booking_id}</span>
-                  </td>
-                  <td className="py-4 px-4">
-                    <div className="flex items-center gap-2 min-w-[180px]">
-                      <User className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                      <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{row.guest}</span>
-                    </div>
-                  </td>
-                  <td className="py-4 px-4">
-                    <span className="text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{row.check_out}</span>
-                  </td>
-                  <td className="py-4 px-4">
-                    <span className="text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">{row.assigned_to}</span>
-                  </td>
-                  <td className="py-4 px-4 text-center">
-                    <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${row.statusColor}`}>
-                      {row.status}
-                    </span>
-                  </td>
-                  <td className="py-4 px-4">
-                    <div className="flex items-center justify-center gap-1">
-                      <button
-                        className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
-                        title="View"
-                        type="button"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                      <button
-                        className="p-2 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors"
-                        title="Mark for Cleaning"
-                        type="button"
-                        onClick={() => setRowStatus(row.cleaner_id, "Assigned", "bg-indigo-100 text-indigo-700")}
-                      >
-                        <ClipboardList className="w-4 h-4" />
-                      </button>
-                      <button
-                        className="p-2 text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-900/30 rounded-lg transition-colors"
-                        title="In Progress"
-                        type="button"
-                        onClick={() => setRowStatus(row.cleaner_id, "In Progress", "bg-yellow-100 text-yellow-700")}
-                      >
-                        <Loader2 className="w-4 h-4" />
-                      </button>
-                      <button
-                        className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg transition-colors"
-                        title="Completed"
-                        type="button"
-                        onClick={() => setRowStatus(row.cleaner_id, "Completed", "bg-green-100 text-green-700")}
-                      >
-                        <CheckCircle className="w-4 h-4" />
-                      </button>
-                    </div>
+              {isLoading ? (
+                Array.from({ length: entriesPerPage }).map((_, idx) => (
+                  <tr key={`row-skel-${idx}`} className="border-b border-gray-100 dark:border-gray-700">
+                    {Array.from({ length: 8 }).map((__, cidx) => (
+                      <td key={`cell-skel-${idx}-${cidx}`} className="py-4 px-4">
+                        <div className={`h-4 w-full max-w-[180px] rounded ${skeletonPulse}`} />
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              ) : error ? (
+                <tr>
+                  <td colSpan={8} className="py-10 px-6 text-center text-sm text-red-600 dark:text-red-400">
+                    Failed to load cleaning tasks. Please refresh.
                   </td>
                 </tr>
-              ))}
+              ) : paginatedRows.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="py-10 px-6 text-center text-sm text-gray-600 dark:text-gray-300">
+                    No cleaning tasks found.
+                  </td>
+                </tr>
+              ) : (
+                paginatedRows.map((row) => (
+                  <tr key={row.cleaner_id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                    <td className="py-4 px-4">
+                      <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{row.cleaner_id}</span>
+                    </td>
+                    <td className="py-4 px-4">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-orange-500 flex-shrink-0" />
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-200 whitespace-nowrap">{row.haven}</span>
+                      </div>
+                    </td>
+                    <td className="py-4 px-4">
+                      <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm whitespace-nowrap">{row.booking_id}</span>
+                    </td>
+                    <td className="py-4 px-4">
+                      <div className="flex items-center gap-2 min-w-[180px]">
+                        <User className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                        <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{row.guest}</span>
+                      </div>
+                    </td>
+                    <td className="py-4 px-4">
+                      <span className="text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{row.check_out}</span>
+                    </td>
+                    <td className="py-4 px-4">
+                      <span className="text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">{row.assigned_to}</span>
+                    </td>
+                    <td className="py-4 px-4 text-center">
+                      <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${row.statusColor}`}>
+                        {row.status}
+                      </span>
+                    </td>
+                    <td className="py-4 px-4">
+                      <div className="flex items-center justify-center gap-1">
+                        <button
+                          className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                          title="View details"
+                          type="button"
+                          onClick={() => handleViewBooking(row.booking_id)}
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        {row.status === "Unassigned" && (
+                          <button
+                            className="p-2 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors"
+                            title="Assign cleaner"
+                            type="button"
+                            onClick={() => handleAssignCleaner(row.booking_id)}
+                          >
+                            <UserPlus className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -474,6 +565,22 @@ export default function CleanersPage() {
           </div>
         </div>
       </div>
+
+      {/* View Booking Modal */}
+      {isViewModalOpen && selectedBooking && (
+        <ViewBookings booking={selectedBooking as any} onClose={handleCloseModal} />
+      )}
+
+      {/* Assign Cleaner Modal */}
+      {assignmentBookingId && (
+        <AssignCleanerModal
+          isOpen={isAssignModalOpen}
+          onClose={handleCloseAssignModal}
+          bookingId={assignmentBookingId}
+          onSuccess={handleAssignmentSuccess}
+        />
+      )}
     </div>
+    </>
   );
 }

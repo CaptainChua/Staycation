@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/no-unescaped-entities */
+
 import React from 'react';
 import {
   GitPullRequest,
@@ -76,7 +78,7 @@ export default function PullRequestsContent() {
 
       <h2 className="text-xl md:text-2xl font-semibold text-gray-800 dark:text-gray-100 mt-8 mb-4">Step 1: Go to GitHub</h2>
       <p className="text-sm md:text-base text-gray-700 dark:text-gray-300 leading-relaxed mb-4">
-        After pushing your branch, go to your repository on GitHub. You'll likely see a yellow banner at the top:
+        After pushing your branch, go to your repository on GitHub. You&apos;ll likely see a yellow banner at the top:
       </p>
 
       <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-700 rounded-lg p-4 md:p-5 mb-6">
@@ -111,7 +113,7 @@ export default function PullRequestsContent() {
 
       <h2 className="text-xl md:text-2xl font-semibold text-gray-800 dark:text-gray-100 mt-8 mb-4">Step 2: Fill Out the Pull Request Form</h2>
       <p className="text-sm md:text-base text-gray-700 dark:text-gray-300 leading-relaxed mb-4">
-        You'll see a form to describe your changes. Here's what to fill in:
+        You&apos;ll see a form to describe your changes. Here&apos;s what to fill in:
       </p>
 
       <div className="bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-lg p-4 md:p-6 mb-6">
@@ -220,7 +222,7 @@ This PR adds a contact form component to the contact page with email validation.
 
       <h2 className="text-xl md:text-2xl font-semibold text-gray-800 dark:text-gray-100 mt-8 mb-4">Step 4: Assign the Team Leader as Reviewer</h2>
       <p className="text-sm md:text-base text-gray-700 dark:text-gray-300 leading-relaxed mb-4">
-        On the right side of the PR form, you'll see a "Reviewers" section:
+        On the right side of the PR form, you&apos;ll see a &quot;Reviewers&quot; section:
       </p>
 
       <div className="bg-white dark:bg-gray-800 border-2 border-purple-200 dark:border-purple-700 rounded-lg p-4 md:p-6 mb-8">
@@ -292,7 +294,7 @@ This PR adds a contact form component to the contact page with email validation.
           </li>
           <li className="flex gap-2">
             <Check className="w-4 h-4 text-green-600 dark:text-green-400 flex-shrink-0 mt-1" />
-            <span>You'll be notified if they request changes</span>
+            <span>You&apos;ll be notified if they request changes</span>
           </li>
           <li className="flex gap-2">
             <Check className="w-4 h-4 text-green-600 dark:text-green-400 flex-shrink-0 mt-1" />
@@ -439,7 +441,7 @@ This PR adds a contact form component to the contact page with email validation.
           <h3 className="text-lg md:text-xl font-semibold text-gray-800 dark:text-white">Pull Request Created!</h3>
         </div>
         <p className="text-sm md:text-base text-gray-700 dark:text-gray-300 mb-4">
-          Great job! Now let's learn some best practices to make your Git workflow even smoother.
+          Great job! Now let&apos;s learn some best practices to make your Git workflow even smoother.
         </p>
         <a
           href="/documentation/git-workflow/best-practices"
