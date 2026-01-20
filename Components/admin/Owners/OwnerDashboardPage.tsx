@@ -73,10 +73,9 @@ interface User {
 // Placeholder component for Haven Management
 interface HavenManagementPlaceholderProps {
   onAddHavenClick: () => void;
-  onViewAllClick: () => void;
 }
 
-function HavenManagementPlaceholder({ onAddHavenClick, onViewAllClick }: HavenManagementPlaceholderProps) {
+function HavenManagementPlaceholder({ onAddHavenClick }: HavenManagementPlaceholderProps) {
   const sampleHavens = ["Haven 1", "Haven 2", "Haven 3", "Haven 4"];
   
   // Stats cards matching Analytics page style
@@ -96,12 +95,6 @@ function HavenManagementPlaceholder({ onAddHavenClick, onViewAllClick }: HavenMa
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage your property units, availability, pricing, and amenities</p>
         </div>
         <div className="flex gap-3">
-          <button
-            onClick={onViewAllClick}
-            className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
-          >
-            View All Units
-          </button>
           <button
             onClick={onAddHavenClick}
             className="px-4 py-2 bg-brand-primary hover:bg-brand-primaryDark text-white rounded-lg font-medium transition-all"
@@ -220,6 +213,29 @@ export default function OwnerDashboard() {
     });
     return map;
   }, [employees]);
+
+  const userSession = getUserSession();
+
+  // Current owner profile (from employees list for freshest data)
+  const currentEmployee = useMemo(() => {
+    if (!userId) return null;
+    return employees.find((emp: EmployeeProfile) => emp.id === userId) || null;
+  }, [employees, userId]);
+
+  const headerName =
+    (currentEmployee
+      ? `${currentEmployee.first_name ?? ""} ${currentEmployee.last_name ?? ""}`.trim() ||
+        currentEmployee.email ||
+        currentEmployee.employment_id
+      : userSession?.name) || "User";
+
+  const headerRole = userSession?.role || "Owner";
+
+  const headerImage =
+    currentEmployee?.profile_image_url ||
+    userSession?.profile_image_url ||
+    userSession?.image ||
+    "";
 
   // Fetch unread count for notifications badge
   const { data: unreadCount = 0 } = useGetUnreadCountQuery(undefined, {
@@ -399,25 +415,23 @@ export default function OwnerDashboard() {
   ];
 
   // Helper function to get user from session
-  const getUser = (): User | null => {
+  function getUser(): User | null {
     return session?.user || null;
-  };
+  }
 
   // Helper function to get user session with role
-  const getUserSession = (): UserSession | null => {
+  function getUserSession(): UserSession | null {
     const user = getUser();
     if (!user) return null;
-    
+
     return {
       name: user.name,
       email: user.email,
       image: user.image,
       profile_image_url: (user as UserSession)?.profile_image_url,
-      role: (user as UserSession)?.role || "Owner"
+      role: (user as UserSession)?.role || "Owner",
     };
-  };
-
-  const userSession = getUserSession();
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-start">
@@ -581,7 +595,7 @@ export default function OwnerDashboard() {
       </div>
 
       {/* MAIN CONTENT */}
-      <div className="flex-1 flex flex-col h-screen min-w-0 overflow-x-hidden overflow-y-auto">
+      <div className="flex-1 flex flex-col min-h-screen min-w-0 overflow-x-hidden">
         {/* HEADER */}
         <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-6 h-20 min-h-20 flex-shrink-0 flex justify-between items-center sticky top-0 z-10 shadow-sm">
           <div className="flex items-center gap-4">
@@ -673,11 +687,11 @@ export default function OwnerDashboard() {
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-                className="flex items-center gap-2 p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                className="flex items-center gap-3 p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
               >
-                {userSession?.profile_image_url || userSession?.image ? (
+                {headerImage ? (
                   <Image
-                    src={userSession.profile_image_url || userSession.image || ''}
+                    src={headerImage}
                     alt="Profile"
                     width={40}
                     height={40}
@@ -685,9 +699,17 @@ export default function OwnerDashboard() {
                   />
                 ) : (
                   <div className="w-10 h-10 bg-brand-primary rounded-full flex items-center justify-center text-white font-bold">
-                    {userSession?.name?.charAt(0) || "O"}
+                    {headerName?.charAt(0) || "O"}
                   </div>
                 )}
+                <div className="hidden sm:flex flex-col items-start leading-tight">
+                  <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+                    {headerName}
+                  </span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    {headerRole}
+                  </span>
+                </div>
                 <ChevronDown className={`w-4 h-4 text-gray-600 dark:text-gray-300 transition-transform ${profileDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
 
@@ -697,9 +719,9 @@ export default function OwnerDashboard() {
                   {/* User Info */}
                   <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
                     <div className="flex items-center gap-3">
-                      {userSession?.profile_image_url || userSession?.image ? (
+                      {headerImage ? (
                         <Image
-                          src={userSession.profile_image_url || userSession.image || ''}
+                          src={headerImage}
                           alt="Profile"
                           width={48}
                           height={48}
@@ -707,15 +729,15 @@ export default function OwnerDashboard() {
                         />
                       ) : (
                         <div className="w-12 h-12 bg-brand-primary rounded-full flex items-center justify-center text-white font-bold text-lg">
-                          {userSession?.name?.charAt(0) || "O"}
+                          {headerName?.charAt(0) || "O"}
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">
-                          {userSession?.name || "User"}
+                          {headerName}
                         </p>
                         <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                          {userSession?.role || "Owner"}
+                          {headerRole}
                         </p>
                       </div>
                     </div>
@@ -778,19 +800,18 @@ export default function OwnerDashboard() {
                   setBookingDateModal({
                     isOpen: true,
                     selectedDate: date,
-                    havenName: haven.haven_name || haven.name || 'Unknown Haven',
+                    havenName: haven.haven_name || haven.name || "Unknown Haven",
                   });
                 }}
               />
             )}
-            {page === "havens" && havenView === "overview" && (
-              <HavenManagementPlaceholder
-                onAddHavenClick={() => openModal("addHaven")}
-                onViewAllClick={() => setHavenView("list")}
-              />
-            )}
-            {page === "havens" && havenView === "list" && (
-              <ViewAllUnits onAddUnitClick={() => openModal("addHaven")} />
+            {page === "havens" && (
+              <div className="space-y-6">
+                <HavenManagementPlaceholder
+                  onAddHavenClick={() => openModal("addHaven")}
+                />
+                <ViewAllUnits onAddUnitClick={() => openModal("addHaven")} hideHeader={true} />
+              </div>
             )}
             {page === "analytics" && <AnalyticsPage />}
             {page === "reservations" && <ReservationsPage />}
@@ -877,7 +898,7 @@ export default function OwnerDashboard() {
           onClose={() => setNotificationOpen(false)}
           onViewAll={() => {
             setNotificationOpen(false);
-            // You can add a notifications page navigation here
+            // Navigate to notifications page if needed in the future
           }}
           anchorRef={notificationButtonRef}
           userId={userId || undefined}
@@ -907,4 +928,4 @@ export default function OwnerDashboard() {
       )}
     </div>
   );
-}
+} 
