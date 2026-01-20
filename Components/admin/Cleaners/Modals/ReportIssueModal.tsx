@@ -13,6 +13,15 @@ interface ReportIssueModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  reportId?: string;
+  initialData?: {
+    haven?: string;
+    issueType?: string;
+    priority?: string;
+    description?: string;
+    location?: string;
+    images?: Array<{ image_url: string; cloudinary_public_id?: string }>;
+  };
 }
 
 export default function ReportIssueModal({ isOpen, onClose, onSuccess, reportId, initialData }: ReportIssueModalProps) {
