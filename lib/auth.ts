@@ -1,5 +1,6 @@
 import { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
+import FacebookProvider from "next-auth/providers/facebook";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { upsertUser } from "@/backend/controller/userController";
 import pool from "@/backend/config/db";
@@ -11,6 +12,11 @@ export const authOptions: NextAuthOptions = {
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    }),
+    // Facebook login
+    FacebookProvider({
+      clientId: process.env.FACEBOOK_CLIENT_ID!,
+      clientSecret: process.env.FACEBOOK_CLIENT_SECRET!,
     }),
     // Credentials login
     CredentialsProvider({
@@ -152,11 +158,27 @@ export const authOptions: NextAuthOptions = {
             email: user.email!,
             name: user.name || undefined,
             picture: user.image || undefined,
+            registerAs: "google",
           });
-          console.log("✅ User saved to database:", user.email);
-        } else {
-          // Handle regular credential sign-ins
-          console.log("🔐 Processing credentials login for:", credentials?.email);
+          console.log("✅ Google user saved to database:", user.email);
+          return true;
+        }
+        
+        // Handle Facebook sign-ins
+        if (account?.provider === "facebook" && profile?.id) {
+          await upsertUser({
+            facebookId: profile.id,
+            email: user.email!,
+            name: user.name || undefined,
+            picture: user.image || undefined,
+            registerAs: "facebook",
+          });
+          console.log("✅ Facebook user saved to database:", user.email);
+          return true;
+        }
+        
+        // Handle regular credential sign-ins
+        console.log("🔐 Processing credentials login for:", credentials?.email);
 
           // Check regular users table (not employees)
           console.log("📊 Querying users table...");
