@@ -79,13 +79,8 @@ export async function findUserByEmail(email: string): Promise<User | null> {
 export async function createUser(userData: GoogleUserData): Promise<User> {
   try {
     const result = await pool.query(
-<<<<<<< HEAD
       `INSERT INTO users (google_id, facebook_id, email, name, picture, last_login)
        VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
-=======
-      `INSERT INTO users (google_id, facebook_id, email, name, picture, register_as, last_login)
-       VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)
->>>>>>> 26aac59 (Update userController changes)
        RETURNING *`,
       [
         userData.googleId || null,
@@ -93,10 +88,6 @@ export async function createUser(userData: GoogleUserData): Promise<User> {
         userData.email,
         userData.name || null,
         userData.picture || null,
-<<<<<<< HEAD
-=======
-        userData.registerAs || null
->>>>>>> 26aac59 (Update userController changes)
       ]
     );
 

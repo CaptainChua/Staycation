@@ -178,7 +178,8 @@ export const authOptions: NextAuthOptions = {
         }
         
         // Handle regular credential sign-ins
-        console.log("🔐 Processing credentials login for:", credentials?.email);
+        if (credentials?.email) {
+          console.log("🔐 Processing credentials login for:", credentials?.email);
 
           // Check regular users table (not employees)
           console.log("📊 Querying users table...");
@@ -192,14 +193,14 @@ export const authOptions: NextAuthOptions = {
             throw new Error("Invalid email or password");
           }
 
-          const user = userResult.rows[0];
-          console.log("✅ User found:", user.email, "- Role:", user.user_role);
+          const credentialUser = userResult.rows[0];
+          console.log("✅ User found:", credentialUser.email, "- Role:", credentialUser.user_role);
 
           // Verify password
           console.log("🔒 Verifying password...");
           const isValid = await bcrypt.compare(
             String(credentials?.password || ''), 
-            String(user.password)
+            String(credentialUser.password)
           );
 
           if (!isValid) {
@@ -215,10 +216,10 @@ export const authOptions: NextAuthOptions = {
               `INSERT INTO staff_activity_logs (user_id, action_type, action, details, created_at)
                VALUES ($1, $2, $3, $4, NOW())`,
               [
-                user.user_id,
+                credentialUser.user_id,
                 'login',
                 'Logged into system',
-                `${user.name} logged in successfully via NextAuth`
+                `${credentialUser.name} logged in successfully via NextAuth`
               ]
             );
             console.log('✅ Activity log created for user login');
@@ -236,7 +237,7 @@ export const authOptions: NextAuthOptions = {
           try {
             await pool.query(
               "UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE user_id = $1",
-              [user.user_id]
+              [credentialUser.user_id]
             );
             console.log("✅ Updated last_login for user");
           } catch (updateError) {
@@ -244,7 +245,7 @@ export const authOptions: NextAuthOptions = {
           }
 
           // Return true to allow sign in
-          console.log("✅ Credentials authentication successful for:", user.email);
+          console.log("✅ Credentials authentication successful for:", credentialUser.email);
           return true;
         }
         return true;
