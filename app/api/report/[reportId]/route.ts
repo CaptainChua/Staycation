@@ -53,7 +53,7 @@ export async function PATCH(
 
       // Build update query dynamically based on provided fields
       const updateFields: string[] = [];
-      const updateValues: any[] = [];
+      const updateValues: (string | number | null)[] = [];
       let paramIndex = 1;
 
       if (formData.has('haven_id')) {

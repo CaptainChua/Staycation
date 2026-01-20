@@ -25,7 +25,6 @@ export async function GET(
 
     try {
       let query = '';
-      let dateFormat = '';
 
       switch (period) {
         case 'weekly':
@@ -41,7 +40,6 @@ export async function GET(
             ORDER BY period DESC
             LIMIT 12
           `;
-          dateFormat = 'week';
           break;
         case 'monthly':
           query = `
@@ -56,7 +54,6 @@ export async function GET(
             ORDER BY DATE_TRUNC('month', created_at) DESC
             LIMIT 12
           `;
-          dateFormat = 'month';
           break;
         case 'yearly':
           query = `
@@ -71,7 +68,6 @@ export async function GET(
             ORDER BY period DESC
             LIMIT 5
           `;
-          dateFormat = 'year';
           break;
         default:
           query = `
@@ -90,9 +86,15 @@ export async function GET(
 
       const result = await client.query(query, [employeeId]);
 
-      const workHistory = result.rows.map((row: any) => ({
-        period: row.period.trim(),
-        tasks: parseInt(row.tasks || '0'),
+      interface WorkHistoryRow {
+        period: string | number;
+        tasks: string | number;
+        rating: number;
+      }
+
+      const workHistory = result.rows.map((row: WorkHistoryRow) => ({
+        period: String(row.period).trim(),
+        tasks: parseInt(String(row.tasks || '0'), 10),
         rating: parseFloat((row.rating || 0).toFixed(1)),
       }));
 
