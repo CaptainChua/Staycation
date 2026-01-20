@@ -76,10 +76,10 @@ const PricingManagementModal = ({ isOpen, onClose, onSave, initialData }: Pricin
     e.preventDefault();
     if (validateForm()) {
       onSave({
-        six_hour_rate: parseFloat(formData.six_hour_rate.toString()),
-        ten_hour_rate: parseFloat(formData.ten_hour_rate.toString()),
-        weekday_rate: parseFloat(formData.weekday_rate.toString()),
-        weekend_rate: parseFloat(formData.weekend_rate.toString()),
+        six_hour_rate: parseFloat((formData.six_hour_rate ?? "").toString()),
+        ten_hour_rate: parseFloat((formData.ten_hour_rate ?? "").toString()),
+        weekday_rate: parseFloat((formData.weekday_rate ?? "").toString()),
+        weekend_rate: parseFloat((formData.weekend_rate ?? "").toString()),
       });
       toast.success("Pricing updated successfully!");
       onClose();
