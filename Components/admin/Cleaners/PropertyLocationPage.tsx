@@ -57,9 +57,17 @@ export default function PropertyLocationPage() {
       // Fetch Tower data (aggregated)
       const resTowers = await fetch('/api/admin/cleaners/properties');
       if (!resTowers.ok) throw new Error('Failed to fetch towers');
-      const dataTowers = await resTowers.json();
       
-      const mappedBuildings: Building[] = dataTowers.map((item: any) => {
+      interface PropertyTowerData {
+        id: string;
+        name: string;
+        total_units: number;
+        available_units: number;
+      }
+
+      const dataTowers: PropertyTowerData[] = await resTowers.json();
+      
+      const mappedBuildings: Building[] = dataTowers.map((item: PropertyTowerData) => {
         let status: "available" | "limited" | "full" = "available";
         // Logic can be adjusted based on real occupancy data
         if (item.available_units === 0) status = "full";
@@ -90,11 +98,11 @@ export default function PropertyLocationPage() {
       // Fetch Individual Havens
       const resHavens = await fetch('/api/admin/cleaners/havens');
       if (!resHavens.ok) throw new Error('Failed to fetch havens');
-      const dataHavens = await resHavens.json();
+      const dataHavens: HavenUnit[] = await resHavens.json();
       setHavens(dataHavens);
 
       setLastUpdated(new Date());
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error fetching properties:", error);
       // Only toast on error if not initial load to avoid spamming on recurring errors
       if (isLoading) toast.error("Could not load property data");
