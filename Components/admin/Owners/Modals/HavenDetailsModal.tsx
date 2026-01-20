@@ -64,8 +64,8 @@ const HavenDetailsModal = ({ isOpen, onClose, onSave, initialData }: HavenDetail
     e.preventDefault();
     if (validateForm()) {
       onSave({
-        capacity: parseInt(formData.capacity.toString()),
-        room_size: parseFloat(formData.room_size.toString()),
+        capacity: parseInt((formData.capacity ?? "").toString()),
+        room_size: parseFloat((formData.room_size ?? "").toString()),
         beds: formData.beds,
         description: formData.description,
       });
