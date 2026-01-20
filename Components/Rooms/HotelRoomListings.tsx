@@ -85,7 +85,7 @@ const HotelRoomListings = ({ initialHavens }: HotelRoomListingsProps) => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const router = useRouter();
   const dispatch = useAppDispatch();
-  const ROOMS_PER_PAGE = 5;
+  const ROOMS_PER_PAGE = 12;
   const scrollContainerRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   // Get search parameters from Redux
@@ -163,31 +163,17 @@ const HotelRoomListings = ({ initialHavens }: HotelRoomListingsProps) => {
     youtubeUrl: haven.youtube_url,
   })) ?? [];
 
-  // Group rooms by haven number
-  const groupedRooms = rooms.reduce((acc, room) => {
-    // Extract haven number from room name or location
-    const havenMatch = room.name.match(/Haven (\d+)/) || room.location?.match(/Haven (\d+)/);
-    const havenNumber = havenMatch ? `Haven ${havenMatch[1]}` : 'Other Havens';
-    
-    if (!acc[havenNumber]) {
-      acc[havenNumber] = [];
-    }
-    acc[havenNumber].push(room);
-    return acc;
-  }, {} as Record<string, Room[]>);
+  // Show all rooms without haven grouping
+  const allRooms = rooms;
+  const totalRooms = allRooms.length;
+  const totalPages = Math.ceil(totalRooms / ROOMS_PER_PAGE);
+  const currentPageGlobal = currentPage.global || 1;
+  const startIndex = (currentPageGlobal - 1) * ROOMS_PER_PAGE;
+  const endIndex = startIndex + ROOMS_PER_PAGE;
+  const displayedRooms = allRooms.slice(startIndex, endIndex);
 
-  // Sort haven numbers
-  const sortedHavenNumbers = Object.keys(groupedRooms).sort((a, b) => {
-    const aNum = parseInt(a.replace('Haven ', '')) || 999;
-    const bNum = parseInt(b.replace('Haven ', '')) || 999;
-    return aNum - bNum;
-  });
-
-  const handlePageChange = (havenNumber: string, page: number) => {
-    setCurrentPage(prev => ({
-      ...prev,
-      [havenNumber]: page
-    }));
+  const handlePageChange = (page: number) => {
+    setCurrentPage(prev => ({ ...prev, global: page }));
   };
 
   const handleHavenClick = (havenNumber: string) => {
@@ -196,27 +182,12 @@ const HotelRoomListings = ({ initialHavens }: HotelRoomListingsProps) => {
     router.push(`/havens/${havenId}`);
   };
 
-  // Function to get rooms for current page
-  const getCurrentPageRooms = (havenNumber: string) => {
-    const havenRooms = groupedRooms[havenNumber];
-    const page = currentPage[havenNumber] || 1;
-    const totalPages = Math.ceil(havenRooms.length / ROOMS_PER_PAGE);
-    const startIndex = (page - 1) * ROOMS_PER_PAGE;
-    const endIndex = startIndex + ROOMS_PER_PAGE;
-    
-    return {
-      displayedRooms: havenRooms.slice(startIndex, endIndex),
-      currentPage: page,
-      totalPages: totalPages,
-      hasMoreRooms: havenRooms.length > ROOMS_PER_PAGE,
-      remainingRooms: havenRooms.length - ROOMS_PER_PAGE
-    };
-  };
-
   return (
     <>
       <style jsx>{scrollbarStyles}</style>
-      <div className="min-h-screen bg-white dark:bg-gray-900 py-6 sm:py-8">
+      <div className={`min-h-screen bg-white dark:bg-gray-900 ${
+        totalRooms <= 5 ? 'py-4 sm:py-6' : 'py-6 sm:py-8'
+      }`}>
         <div className="w-full">
           {/* Active Filter Indicator */}
           {isFromSearch && searchLocation && !isLoading && (
@@ -333,168 +304,89 @@ const HotelRoomListings = ({ initialHavens }: HotelRoomListingsProps) => {
             </div>
           )}
 
-          {/* Room Groups by Haven */}
-          {!isLoading && sortedHavenNumbers.map((havenNumber) => {
-            const { displayedRooms, currentPage, totalPages, hasMoreRooms, remainingRooms } = getCurrentPageRooms(havenNumber);
-            
-            // Only show pagination if there are more than 5 rooms
-            const showPagination = hasMoreRooms;
-
-            return (
-              <div key={havenNumber} className="mb-12">
-                {/* Haven Header - Clickable WITH PAGE NUMBER */}
-                <div
-                  className="mb-6 flex items-center justify-between cursor-pointer hover:opacity-80 transition-opacity w-full"
-                  onClick={() => handleHavenClick(havenNumber)}
-                >
-                  <div className="flex items-center gap-3">
-                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                      {havenNumber}
-                    </h2>
-                    <ChevronRight className="w-5 h-5 text-brand-primary" />
+          {/* All Rooms Grid - No Haven Grouping */}
+          {!isLoading && (
+            <>
+              {/* Mobile Layout */}
+              {isMobile ? (
+                <div className="overflow-x-auto scrollbar-hide pb-4">
+                  <div className="flex gap-4" style={{ minWidth: 'max-content' }}>
+                    {displayedRooms.map((room) => (
+                      <div key={room.id} className="flex-shrink-0 w-[200px] sm:w-[240px]">
+                        <RoomCard room={room} mode="browse" compact={true} />
+                      </div>
+                    ))}
                   </div>
-                  
-                  {/* Page info - KEEP THIS */}
-                  {showPagination && (
-                    <div className="text-sm text-gray-600 dark:text-gray-400">
-                      Page {currentPage} of {totalPages}
-                    </div>
-                  )}
                 </div>
-
-                {/* Mobile Layout with Show All Overlay */}
-                {isMobile ? (
-                  <div className="relative">
-                    <div
-                      ref={(el) => { scrollContainerRefs.current[havenNumber] = el; }}
-                      className="overflow-x-auto scrollbar-hide pb-4"
-                    >
-                      <div className="flex gap-4" style={{ minWidth: 'max-content' }}>
-                        {displayedRooms.map((room, index) => (
-                          <div 
-                            key={room.id} 
-                            className="flex-shrink-0 w-[200px] sm:w-[240px] relative"
-                          >
-                            {/* Show All overlay on last room - MOBILE ONLY */}
-                            {hasMoreRooms && index === displayedRooms.length - 1 && (
-                              <div className="absolute top-0 left-0 right-0 h-48 rounded-t-2xl overflow-hidden">
-                                {/* Dark overlay over image */}
-                                <div className="absolute inset-0 bg-black/50 z-10 flex flex-col items-center justify-center p-4">
-                                  <div className="text-center text-white mb-3">
-                                    <Eye className="w-8 h-8 mx-auto mb-1" />
-                                    <p className="font-semibold text-sm">+{remainingRooms} more</p>
-                                    <p className="text-xs opacity-90">View all rooms</p>
-                                  </div>
-                                  <button
-                                    onClick={() => handleHavenClick(havenNumber)}
-                                    className="px-4 py-2 bg-white text-gray-900 font-semibold rounded-lg hover:bg-gray-100 transition-colors text-xs"
-                                  >
-                                    Show All
-                                  </button>
-                                </div>
-                                {/* Keep the image visible but darkened */}
-                                {room.images && room.images[0] && (
-                                  <div className="h-full w-full">
-                                    <Image
-                                      src={room.images[0]}
-                                      alt={room.name}
-                                      width={240}
-                                      height={192}
-                                      className="h-full w-full object-cover"
-                                    />
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                            {/* Pass the room to RoomCard - it will handle the rest */}
-                            <RoomCard room={room} mode="browse" compact={true} />
-                          </div>
-                        ))}
-                      </div>
+              ) : (
+                /* Desktop Layout */
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                  {displayedRooms.map((room) => (
+                    <div key={room.id}>
+                      <RoomCard room={room} mode="browse" compact={false} />
                     </div>
-                    
-                    {/* Scroll indicator for mobile */}
-                    {displayedRooms.length > 2 && (
-                      <div className="mt-2 text-center">
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
-                          Scroll horizontally to view more rooms →
-                        </span>
-                      </div>
-                    )}
+                  ))}
+                </div>
+              )}
+
+              {/* Global Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="flex justify-center items-center gap-3 mt-8">
+                  {/* Previous Button */}
+                  <button
+                    onClick={() => handlePageChange(Math.max(1, currentPageGlobal - 1))}
+                    disabled={currentPageGlobal === 1}
+                    className={`p-2 rounded-full transition-all duration-200 ${
+                      currentPageGlobal === 1
+                        ? 'bg-gray-200 dark:bg-gray-700 cursor-not-allowed opacity-50'
+                        : 'bg-brand-primary hover:bg-brand-primaryDark'
+                    }`}
+                    aria-label="Previous page"
+                  >
+                    <ChevronLeft className={`w-5 h-5 ${
+                      currentPageGlobal === 1
+                        ? 'text-gray-400 dark:text-gray-500'
+                        : 'text-white'
+                    }`} />
+                  </button>
+
+                  {/* Page Dots */}
+                  <div className="flex gap-2 items-center">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                      <button
+                        key={pageNum}
+                        onClick={() => handlePageChange(pageNum)}
+                        className={`transition-all duration-200 rounded-full ${
+                          currentPageGlobal === pageNum
+                            ? 'w-8 h-3 bg-brand-primary'
+                            : 'w-3 h-3 bg-gray-300 dark:bg-gray-600 hover:bg-brand-primary/50 dark:hover:bg-brand-primary/50'
+                        }`}
+                        aria-label={`Go to page ${pageNum}`}
+                      />
+                    ))}
                   </div>
-                ) : (
-                  /* Desktop Layout with Pagination */
-                  <>
-                    {/* Grid layout for desktop/tablet */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                      {displayedRooms.map((room) => (
-                        <div key={room.id}>
-                          <RoomCard room={room} mode="browse" compact={false} />
-                        </div>
-                      ))}
-                    </div>
 
-                    {/* Pagination Controls - Desktop Only (icons only with dots) */}
-                    {showPagination && (
-                      <div className="flex justify-center items-center gap-3 mt-6">
-                        {/* Previous Button */}
-                        <button
-                          onClick={() => handlePageChange(havenNumber, Math.max(1, currentPage - 1))}
-                          disabled={currentPage === 1}
-                          className={`p-2 rounded-full transition-all duration-200 ${
-                            currentPage === 1
-                              ? 'bg-gray-200 dark:bg-gray-700 cursor-not-allowed opacity-50'
-                              : 'bg-brand-primary hover:bg-brand-primaryDark'
-                          }`}
-                          aria-label="Previous page"
-                        >
-                          <ChevronLeft className={`w-5 h-5 ${
-                            currentPage === 1
-                              ? 'text-gray-400 dark:text-gray-500'
-                              : 'text-white'
-                          }`} />
-                        </button>
-
-                        {/* Page Dots */}
-                        <div className="flex gap-2 items-center">
-                          {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
-                            <button
-                              key={pageNum}
-                              onClick={() => handlePageChange(havenNumber, pageNum)}
-                              className={`transition-all duration-200 rounded-full ${
-                                currentPage === pageNum
-                                  ? 'w-8 h-3 bg-brand-primary'
-                                  : 'w-3 h-3 bg-gray-300 dark:bg-gray-600 hover:bg-brand-primary/50 dark:hover:bg-brand-primary/50'
-                              }`}
-                              aria-label={`Go to page ${pageNum}`}
-                            />
-                          ))}
-                        </div>
-
-                        {/* Next Button */}
-                        <button
-                          onClick={() => handlePageChange(havenNumber, Math.min(totalPages, currentPage + 1))}
-                          disabled={currentPage === totalPages}
-                          className={`p-2 rounded-full transition-all duration-200 ${
-                            currentPage === totalPages
-                              ? 'bg-gray-200 dark:bg-gray-700 cursor-not-allowed opacity-50'
-                              : 'bg-brand-primary hover:bg-brand-primaryDark'
-                          }`}
-                          aria-label="Next page"
-                        >
-                          <ChevronRight className={`w-5 h-5 ${
-                            currentPage === totalPages
-                              ? 'text-gray-400 dark:text-gray-500'
-                              : 'text-white'
-                          }`} />
-                        </button>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            );
-          })}
+                  {/* Next Button */}
+                  <button
+                    onClick={() => handlePageChange(Math.min(totalPages, currentPageGlobal + 1))}
+                    disabled={currentPageGlobal === totalPages}
+                    className={`p-2 rounded-full transition-all duration-200 ${
+                      currentPageGlobal === totalPages
+                        ? 'bg-gray-200 dark:bg-gray-700 cursor-not-allowed opacity-50'
+                        : 'bg-brand-primary hover:bg-brand-primaryDark'
+                    }`}
+                    aria-label="Next page"
+                  >
+                    <ChevronRight className={`w-5 h-5 ${
+                      currentPageGlobal === totalPages
+                        ? 'text-gray-400 dark:text-gray-500'
+                        : 'text-white'
+                    }`} />
+                  </button>
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
     </>
