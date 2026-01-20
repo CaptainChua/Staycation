@@ -34,6 +34,7 @@ interface CleanerData {
   employeeId?: string;
   department?: string;
   rating?: number;
+  profileImage?: string;
 }
 
 interface ProfilePageProps {
@@ -400,7 +401,10 @@ export default function ProfilePage({ cleanerData }: ProfilePageProps) {
         profileImage: currentImage || undefined,
       };
     }
-    return cleanerData || {
+    return cleanerData ? {
+      ...cleanerData,
+      profileImage: cleanerData.profileImage || undefined,
+    } : {
       name: "Maria Santos",
       email: "maria.santos@staycation.com",
       phone: "+63 912 345 6789",
