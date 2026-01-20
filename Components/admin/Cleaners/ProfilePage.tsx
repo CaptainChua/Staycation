@@ -531,7 +531,7 @@ export default function ProfilePage({ cleanerData }: ProfilePageProps) {
                   {profilePreview ? (
                     <Image
                       src={profilePreview}
-                      alt={profile.name}
+                      alt={profile.name || "Profile image"}
                       width={96}
                       height={96}
                       className="w-full h-full object-cover"
@@ -539,7 +539,7 @@ export default function ProfilePage({ cleanerData }: ProfilePageProps) {
                   ) : profile.profileImage ? (
                     <Image
                       src={profile.profileImage}
-                      alt={profile.name}
+                      alt={profile.name || "Profile image"}
                       width={96}
                       height={96}
                       className="w-full h-full object-cover"
