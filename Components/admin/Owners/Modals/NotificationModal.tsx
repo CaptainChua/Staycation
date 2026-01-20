@@ -17,6 +17,7 @@ interface NotificationModalProps {
     description: string;
     timestamp: string;
     type: 'info' | 'success' | 'warning';
+    read?: boolean;
   }>;
 }
 

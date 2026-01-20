@@ -238,7 +238,7 @@ export default function ViewBookings({ booking, onClose }: ViewBookingsProps) {
                 <h3 className="text-lg font-semibold text-gray-900">Stay Information</h3>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <InfoField label="Haven/Room" icon={<MapPin className="w-4 h-4" />} value={booking.room_name} />
+                <InfoField label="Haven" icon={<MapPin className="w-4 h-4" />} value={booking.room_name} />
                 <InfoField
                   label="Total Guests"
                   icon={<UsersIcon className="w-4 h-4" />}
@@ -281,7 +281,7 @@ export default function ViewBookings({ booking, onClose }: ViewBookingsProps) {
                 <h3 className="text-lg font-semibold text-gray-900">Billing Summary</h3>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <InfoField label="Room Rate" icon={<DollarSign className="w-4 h-4" />} value={formatCurrency(booking.room_rate)} />
+                <InfoField label="Haven Rate" icon={<DollarSign className="w-4 h-4" />} value={formatCurrency(booking.room_rate)} />
                 <InfoField label="Security Deposit" icon={<DollarSign className="w-4 h-4" />} value={formatCurrency(booking.security_deposit)} />
                 <InfoField label="Add-ons Total" icon={<DollarSign className="w-4 h-4" />} value={formatCurrency(booking.add_ons_total)} />
                 <InfoField
