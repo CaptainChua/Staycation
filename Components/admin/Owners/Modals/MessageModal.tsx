@@ -139,11 +139,9 @@ export default function MessageModal({
   const topConversations = conversations.slice(0, 5);
 
   return createPortal(
-    <>
-      <div className="fixed inset-0 z-[9980]" aria-hidden="true" />
-      <div
-        ref={containerRef}
-        className="fixed z-[9991] w-full max-w-md md:max-w-sm"
+    <div
+      ref={containerRef}
+      className="fixed z-[9991] w-full max-w-md md:max-w-sm"
         style={{
           top: position.top,
           right: position.right,
@@ -295,8 +293,7 @@ export default function MessageModal({
             </button>
           </div>
         </div>
-      </div>
-    </>,
+    </div>,
     document.body
   );
 }

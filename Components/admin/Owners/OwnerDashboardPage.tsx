@@ -155,6 +155,7 @@ export default function OwnerDashboard() {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const notificationButtonRef = useRef<HTMLButtonElement | null>(null);
   const messageButtonRef = useRef<HTMLButtonElement | null>(null);
+  const [havenView, setHavenView] = useState<"overview" | "list">("overview");
   const [now, setNow] = useState<Date | null>(null);
   const [modals, setModals] = useState({
     addUnit: false,
@@ -594,7 +595,7 @@ export default function OwnerDashboard() {
       </div>
 
       {/* MAIN CONTENT */}
-      <div className="flex-1 flex flex-col min-h-screen min-w-0 overflow-x-hidden">
+      <div className="flex-1 flex flex-col h-screen min-w-0 overflow-x-hidden overflow-y-auto">
         {/* HEADER */}
         <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-6 h-20 min-h-20 flex-shrink-0 flex justify-between items-center sticky top-0 z-10 shadow-sm">
           <div className="flex items-center gap-4">
@@ -646,13 +647,18 @@ export default function OwnerDashboard() {
             {/* Messages */}
             <button
               ref={messageButtonRef}
-              className="relative p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+              className={`relative p-2 rounded-lg transition-colors ${
+                messageModalOpen
+                  ? "bg-brand-primaryLighter text-brand-primary"
+                  : "hover:bg-gray-100 dark:hover:bg-gray-800"
+              }`}
               onClick={() => {
                 setMessageBadge(false);
+                setNotificationOpen(false);
                 setMessageModalOpen((prev) => !prev);
               }}
             >
-              <MessageSquare className="w-6 h-6 text-gray-600 dark:text-gray-300" />
+              <MessageSquare className={`w-6 h-6 ${messageModalOpen ? "text-brand-primary" : "text-gray-600 dark:text-gray-300"}`} />
               {messageBadge && (
                 <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
               )}
@@ -661,10 +667,17 @@ export default function OwnerDashboard() {
             {/* Notifications */}
             <button
               ref={notificationButtonRef}
-              className="relative p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-              onClick={() => setNotificationOpen((prev) => !prev)}
+              className={`relative p-2 rounded-lg transition-colors ${
+                notificationOpen
+                  ? "bg-brand-primaryLighter text-brand-primary"
+                  : "hover:bg-gray-100 dark:hover:bg-gray-800"
+              }`}
+              onClick={() => {
+                setMessageModalOpen(false);
+                setNotificationOpen((prev) => !prev);
+              }}
             >
-              <Bell className="w-6 h-6 text-gray-600 dark:text-gray-300" />
+              <Bell className={`w-6 h-6 ${notificationOpen ? "text-brand-primary" : "text-gray-600 dark:text-gray-300"}`} />
               {unreadCount > 0 && (
                 <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
               )}
