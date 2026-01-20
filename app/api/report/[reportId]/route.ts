@@ -128,12 +128,12 @@ export async function PATCH(
               `staycation-haven/reports/${reportId}`
             );
             
-            if (uploadResult.success && uploadResult.public_id && uploadResult.secure_url) {
+            if (uploadResult?.public_id && uploadResult?.url) {
               // Insert image record
               await client.query(
                 `INSERT INTO report_issue_image (report_id, image_url, cloudinary_public_id) 
                  VALUES ($1, $2, $3)`,
-                [reportId, uploadResult.secure_url, uploadResult.public_id]
+                [reportId, uploadResult.url, uploadResult.public_id]
               );
             }
           } catch (uploadError) {
