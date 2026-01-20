@@ -2,6 +2,23 @@ import { NextRequest, NextResponse } from "next/server";
 import pool from "../config/db";
 import { upload_file } from "../utils/cloudinary";
 
+// Add-on item interface
+interface AddOnItem {
+  name: string;
+  price: number;
+  quantity?: number;
+}
+
+// Additional guest interface
+interface AdditionalGuest {
+  firstName: string;
+  lastName: string;
+  age?: number;
+  gender?: string;
+  validId?: string;
+  validIdUrl?: string | null;
+}
+
 export interface Booking {
   id?: string;
   booking_id: string;
@@ -35,7 +52,7 @@ export interface Booking {
     | "checked-in"
     | "completed"
     | "cancelled";
-  add_ons?: any;
+  add_ons?: AddOnItem[];
   created_at?: string;
   updated_at?: string;
 }
@@ -101,7 +118,7 @@ export const createBooking = async (
     let additionalGuestsWithUrls = [];
     if (additional_guests && additional_guests.length > 0) {
       additionalGuestsWithUrls = await Promise.all(
-        additional_guests.map(async (guest: any) => {
+        additional_guests.map(async (guest: AdditionalGuest) => {
           let guestIdUrl = null;
           if (guest.validId) {
             const uploadResult = await upload_file(
@@ -213,12 +230,12 @@ export const createBooking = async (
       },
       { status: 201 }
     );
-  } catch (error: any) {
+  } catch (error) {
     console.log("❌ Error creating booking:", error);
     return NextResponse.json(
       {
         success: false,
-        error: error.message || "Failed to create booking",
+        error: error instanceof Error ? error.message : "Failed to create booking",
       },
       { status: 500 }
     );
@@ -234,7 +251,7 @@ export const getAllBookings = async (
     const status = searchParams.get("status");
 
     let query = "SELECT * FROM bookings";
-    let values: any[] = [];
+    const values: string[] = [];
 
     if (status) {
       query += " WHERE status = $1";
@@ -251,12 +268,12 @@ export const getAllBookings = async (
       data: result.rows,
       count: result.rows.length,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.log("❌ Error getting bookings:", error);
     return NextResponse.json(
       {
         success: false,
-        error: error.message || "Failed to get bookings",
+        error: error instanceof Error ? error.message : "Failed to get bookings",
       },
       { status: 500 }
     );
@@ -311,12 +328,12 @@ export const getBookingById = async (
       success: true,
       data: result.rows[0],
     });
-  } catch (error: any) {
+  } catch (error) {
     console.log("❌ Error getting booking:", error);
     return NextResponse.json(
       {
         success: false,
-        error: error.message || "Failed to get booking",
+        error: error instanceof Error ? error.message : "Failed to get booking",
       },
       { status: 500 }
     );
@@ -430,12 +447,12 @@ export const updateBookingStatus = async (
       data: result.rows[0],
       message: `Booking ${status} successfully`,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.log("❌ Error updating booking status:", error);
     return NextResponse.json(
       {
         success: false,
-        error: error.message || "Failed to update booking status",
+        error: error instanceof Error ? error.message : "Failed to update booking status",
       },
       { status: 500 }
     );
@@ -480,12 +497,12 @@ export const deleteBooking = async (
       data: result.rows[0],
       message: "Booking deleted successfully",
     });
-  } catch (error: any) {
+  } catch (error) {
     console.log("❌ Error deleting booking:", error);
     return NextResponse.json(
       {
         success: false,
-        error: error.message || "Failed to delete booking",
+        error: error instanceof Error ? error.message : "Failed to delete booking",
       },
       { status: 500 }
     );
@@ -518,7 +535,7 @@ export const getUserBookings = async (
       WHERE b.user_id = $1
     `;
 
-    const values: any[] = [userId];
+    const values: string[] = [userId];
 
     // Filter by status if provided
     if (status && status !== "all") {
@@ -543,12 +560,79 @@ export const getUserBookings = async (
       success: true,
       data: result.rows,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.log("❌ Error fetching user bookings:", error);
     return NextResponse.json(
       {
         success: false,
-        error: error.message || "Failed to fetch user bookings",
+        error: error instanceof Error ? error.message : "Failed to fetch user bookings",
+      },
+      { status: 500 }
+    );
+  }
+};
+
+// UPDATE Cleaning Status
+export const updateCleaningStatus = async (
+  req: NextRequest
+): Promise<NextResponse> => {
+  try {
+    const url = new URL(req.url);
+    const segments = url.pathname.split("/");
+    // URL format: /api/bookings/[id]/cleaning
+    const cleaningIndex = segments.indexOf("cleaning");
+    const id = cleaningIndex > 0 ? segments[cleaningIndex - 1] : null;
+
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: "Booking ID is required" },
+        { status: 400 }
+      );
+    }
+
+    const body = await req.json();
+    const { cleaning_status } = body;
+
+    const validCleaningStatuses = ["pending", "in-progress", "cleaned", "inspected"];
+    if (!cleaning_status || !validCleaningStatuses.includes(cleaning_status)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Invalid cleaning status. Must be one of: pending, in-progress, cleaned, inspected",
+        },
+        { status: 400 }
+      );
+    }
+
+    const query = `
+      UPDATE bookings
+      SET cleaning_status = $1, updated_at = NOW()
+      WHERE id = $2
+      RETURNING *
+    `;
+
+    const result = await pool.query(query, [cleaning_status, id]);
+
+    if (result.rows.length === 0) {
+      return NextResponse.json(
+        { success: false, error: "Booking not found" },
+        { status: 404 }
+      );
+    }
+
+    console.log("✅ Cleaning status updated:", result.rows[0]);
+
+    return NextResponse.json({
+      success: true,
+      data: result.rows[0],
+      message: `Cleaning status updated to ${cleaning_status}`,
+    });
+  } catch (error) {
+    console.log("❌ Error updating cleaning status:", error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to update cleaning status",
       },
       { status: 500 }
     );
@@ -598,12 +682,12 @@ export const getRoomBookings = async (
       success: true,
       data: result.rows,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.log("❌ Error fetching room bookings:", error);
     return NextResponse.json(
       {
         success: false,
-        error: error.message || "Failed to fetch room bookings",
+        error: error instanceof Error ? error.message : "Failed to fetch room bookings",
       },
       { status: 500 }
     );
