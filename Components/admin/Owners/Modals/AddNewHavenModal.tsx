@@ -573,7 +573,23 @@ const AddNewHavenModal = ({ isOpen, onClose }: AddNewHavenModalProps) => {
         isOpen={openModal === "amenities"}
         onClose={() => setOpenModal(null)}
         onSave={(data) => {
-          setFormData({ ...formData, amenities: data });
+          setFormData({ 
+            ...formData, 
+            amenities: {
+              wifi: data.wifi ?? false,
+              netflix: data.netflix ?? false,
+              ps4: data.ps4 ?? false,
+              glowBed: data.glowBed ?? false,
+              airConditioning: data.airConditioning ?? false,
+              kitchen: data.kitchen ?? false,
+              balcony: data.balcony ?? false,
+              tv: data.tv ?? false,
+              poolAccess: data.poolAccess ?? false,
+              parking: data.parking ?? false,
+              washerDryer: data.washerDryer ?? false,
+              towels: data.towels ?? false,
+            }
+          });
           setOpenModal(null);
         }}
         initialData={formData.amenities}
