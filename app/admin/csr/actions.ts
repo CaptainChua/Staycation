@@ -120,21 +120,33 @@ export async function getDeposits(): Promise<DepositRecord[]> {
 // I'll add a placeholder action for now.
 
 export async function updateDepositStatus(deposit_id: string, newStatus: string): Promise<void> {
-    // This is tricky without a dedicated column. 
-    // If user clicks "Refund" (Returned), we might mark booking as 'completed' ?
-    // But 'completed' might mean stay is over.
-    // For now, I will NOT modify the DB booking status to avoid side effects on the booking flow, 
-    // unless explicitly asked to map specific actions.
-    // The prompt implies I should map the DB fields.
-    
-    // I will simply return for now to keep UI responsive, 
-    // or log it. Implementing full state change on bookings table might be risky without knowing exact lifecycle.
-    
-    // Wait, prompt: "Action Buttons: ... hooked up to functions that update the Neon DB status in real-time."
-    // I should probably try to map it.
-    // Refund -> 'completed'?
-    // Delete -> maybe separate logic.
-    
-    console.log(`Updating deposit ${deposit_id} to status: ${newStatus}`);
-    return;
+  "use server";
+  const client = await pool.connect();
+  try {
+    // Map UI deposit status to an existing booking status value (bookings.status appears to be lower-case).
+    const mappedStatus: string =
+      (
+        {
+          Pending: "pending",
+          Processing: "confirmed",
+          Returned: "completed",
+          Forfeited: "cancelled",
+        } as Record<string, string>
+      )[newStatus] ?? newStatus;
+
+    // Parameterized query for Neon/Postgres
+    await client.query(
+      `
+      UPDATE bookings
+      SET status = $2
+      WHERE booking_id = $1
+      `,
+      [deposit_id, mappedStatus]
+    );
+  } catch (error) {
+    console.error("Error updating deposit status:", error);
+    throw new Error("Failed to update deposit status");
+  } finally {
+    client.release();
+  }
 }

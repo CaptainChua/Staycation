@@ -142,7 +142,7 @@ export default function DepositPage() {
       
       try {
           await updateDepositStatus(deposit_id, newStatus);
-          toast.success(`Deposit marked as ${newStatus}`);
+          toast.success(`Haven deposit marked as ${newStatus}`);
       } catch (error) {
           setRows(oldRows);
           toast.error("Failed to update status");
