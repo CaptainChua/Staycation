@@ -119,7 +119,7 @@ export async function getDeposits(): Promise<DepositRecord[]> {
 // "Delete" -> maybe remove record?
 // I'll add a placeholder action for now.
 
-export async function updateDepositStatus(bookingId: string, newStatus: string) {
+export async function updateDepositStatus() {
     // This is tricky without a dedicated column. 
     // If user clicks "Refund" (Returned), we might mark booking as 'completed' ?
     // But 'completed' might mean stay is over.
