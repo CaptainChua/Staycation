@@ -85,6 +85,18 @@ export const bookingsApi = createApi({
       },
       providesTags: ['Booking']
     }),
+
+    // Update cleaning status
+    updateCleaningStatus: builder.mutation({
+      query({ id, cleaning_status }) {
+        return {
+          url: `/bookings/${id}/cleaning`,
+          method: "PUT",
+          body: { cleaning_status }
+        };
+      },
+      invalidatesTags: ['Booking']
+    }),
   })
 });
 
@@ -96,4 +108,5 @@ export const {
   useDeleteBookingMutation,
   useGetUserBookingsQuery,
   useGetRoomBookingsQuery,
+  useUpdateCleaningStatusMutation,
 } = bookingsApi;
