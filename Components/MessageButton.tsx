@@ -1,16 +1,68 @@
 "use client";
 
-import { MessageCircle, X, Send, HelpCircle, Calendar } from "lucide-react";
+import { MessageCircle, X, Send, HelpCircle, Calendar, Bot, User } from "lucide-react";
 import { useState } from "react";
+
+interface ChatMessage {
+  id: string;
+  text: string;
+  sender: "user" | "bot";
+  timestamp: Date;
+}
+
+interface Employee {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone?: string;
+  employment_id: string;
+  hire_date: string;
+  role: "Owner" | "CSR" | "Cleaner" | "Partner";
+  department?: string;
+  monthly_salary?: number;
+  street_address?: string;
+  city?: string;
+  zip_code?: string;
+  profile_image_url?: string;
+  created_at?: string;
+  updated_at?: string;
+}
 
 const MessageButton = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [showMessageForm, setShowMessageForm] = useState(false);
   const [showBookingForm, setShowBookingForm] = useState(false);
+  const [showChat, setShowChat] = useState(false);
+  const [showEmployeeSelection, setShowEmployeeSelection] = useState(false);
   const [message, setMessage] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [bookingId, setBookingId] = useState("");
+  const [chatInput, setChatInput] = useState("");
+  const [csrEmployees, setCsrEmployees] = useState<Employee[]>([]);
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [isLoadingEmployees, setIsLoadingEmployees] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
+    {
+      id: "1",
+      text: "Hello! Welcome to Staycation Haven! 👋 How can I assist you today?",
+      sender: "bot",
+      timestamp: new Date(Date.now() - 60000)
+    },
+    {
+      id: "2", 
+      text: "Hi! I'm interested in booking a room for this weekend. What are your available options?",
+      sender: "user",
+      timestamp: new Date(Date.now() - 30000)
+    },
+    {
+      id: "3",
+      text: "Great! We have several beautiful rooms available for this weekend. Would you prefer our Deluxe Suite with a city view or our Premium Room with a garden view? Both come with complimentary breakfast!",
+      sender: "bot",
+      timestamp: new Date()
+    }
+  ]);
   const [bookingData, setBookingData] = useState<{
     booking_id: string;
     status: string;
@@ -42,10 +94,10 @@ const MessageButton = () => {
 
   const quickActions = [
     {
-      title: "Contact Support",
-      description: "Get help from our team",
+      title: "Chat Support",
+      description: "Start a conversation with our team",
       icon: <HelpCircle className="w-5 h-5 text-brand-primary" />,
-      action: () => handleQuickAction("contact")
+      action: () => handleQuickAction("chat")
     },
     {
       title: "Check Booking Status",
@@ -57,14 +109,94 @@ const MessageButton = () => {
 
   const handleQuickAction = (actionType: string) => {
     switch (actionType) {
-      case "contact":
-        setShowMessageForm(true);
-        setShowBookingForm(false);
+      case "chat":
+        // Redirect to the messages page instead of showing inline chat
+        window.location.href = '/messages';
         break;
       case "booking":
         setShowBookingForm(true);
         setShowMessageForm(false);
+        setShowChat(false);
+        setShowEmployeeSelection(false);
         break;
+    }
+  };
+
+  const fetchCsrEmployees = async () => {
+    setIsLoadingEmployees(true);
+    try {
+      const response = await fetch('/api/admin/employees?role=CSR');
+      const data = await response.json();
+      if (data.success) {
+        setCsrEmployees(data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching CSR employees:', error);
+    } finally {
+      setIsLoadingEmployees(false);
+    }
+  };
+
+  const handleEmployeeSelect = (employee: Employee) => {
+    setSelectedEmployee(employee);
+    setShowEmployeeSelection(false);
+    setShowChat(true);
+    // Reset chat messages for new conversation
+    setChatMessages([{
+      id: Date.now().toString(),
+      text: `Hello! You're now connected with ${employee.first_name} ${employee.last_name}. How can I help you today?`,
+      sender: "bot",
+      timestamp: new Date()
+    }]);
+  };
+
+  const createConversationWithEmployee = async (employee: Employee) => {
+    try {
+      // Create a new conversation with the selected employee
+      const conversationResponse = await fetch('/api/messages/conversations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: `Chat with ${employee.first_name} ${employee.last_name}`,
+          type: 'guest',
+          participant_ids: [employee.id] // In a real app, you'd include the user's ID too
+        })
+      });
+
+      if (conversationResponse.ok) {
+        const conversationData = await conversationResponse.json();
+        console.log('Conversation created:', conversationData);
+      }
+    } catch (error) {
+      console.error('Error creating conversation:', error);
+    }
+  };
+
+  const handleChatSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (chatInput.trim()) {
+      const newUserMessage: ChatMessage = {
+        id: Date.now().toString(),
+        text: chatInput,
+        sender: "user",
+        timestamp: new Date()
+      };
+      
+      setChatMessages(prev => [...prev, newUserMessage]);
+      setChatInput("");
+      
+      // Simulate bot response
+      setTimeout(() => {
+        const botResponse: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          text: "Thank you for your message! Our support team will get back to you shortly. Is there anything else I can help you with?",
+          sender: "bot",
+          timestamp: new Date()
+        };
+        setChatMessages(prev => [...prev, botResponse]);
+      }, 1000);
     }
   };
 
@@ -112,6 +244,8 @@ const MessageButton = () => {
     setIsOpen(false);
     setShowMessageForm(false);
     setShowBookingForm(false);
+    setShowChat(false);
+    setShowEmployeeSelection(false);
     setBookingData(null);
     setBookingError("");
     setBookingId("");
@@ -176,7 +310,7 @@ const MessageButton = () => {
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-4 sm:p-5">
-              {!showMessageForm && !showBookingForm ? (
+              {!showMessageForm && !showBookingForm && !showChat && !showEmployeeSelection ? (
                 <div className="space-y-4">
                   {/* Quick Actions */}
                   <div className="space-y-3">
@@ -214,6 +348,138 @@ const MessageButton = () => {
                       Our support team is available 24/7 to assist you with any questions or concerns.
                     </p>
                   </div>
+                </div>
+              ) : showChat ? (
+                /* Chat Interface */
+                <div className="flex flex-col h-full">
+                  {/* Chat Messages */}
+                  <div className="flex-1 overflow-y-auto space-y-3 mb-4 min-h-[300px] max-h-[400px]">
+                    {chatMessages.map((msg) => (
+                      <div
+                        key={msg.id}
+                        className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+                      >
+                        <div className={`flex items-start gap-2 max-w-[80%] ${msg.sender === 'user' ? 'flex-row-reverse' : ''}`}>
+                          <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                            msg.sender === 'user' 
+                              ? 'bg-brand-primary text-white' 
+                              : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                          }`}>
+                            {msg.sender === 'user' ? (
+                              <User className="w-4 h-4" />
+                            ) : (
+                              <Bot className="w-4 h-4" />
+                            )}
+                          </div>
+                          <div className={`px-3 py-2 rounded-lg text-sm ${
+                            msg.sender === 'user'
+                              ? 'bg-brand-primary text-white'
+                              : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100'
+                          }`}>
+                            <p className="break-words">{msg.text}</p>
+                            <p className={`text-xs mt-1 ${
+                              msg.sender === 'user' 
+                                ? 'text-white/70' 
+                                : 'text-gray-500 dark:text-gray-400'
+                            }`}>
+                              {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Chat Input */}
+                  <form onSubmit={handleChatSubmit} className="flex gap-2">
+                    <input
+                      type="text"
+                      value={chatInput}
+                      onChange={(e) => setChatInput(e.target.value)}
+                      placeholder="Type your message..."
+                      className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary dark:bg-gray-700 dark:text-gray-100 text-sm"
+                    />
+                    <button
+                      type="submit"
+                      className="px-4 py-2 bg-brand-primary hover:bg-brand-primaryDark text-white rounded-lg transition-colors flex items-center justify-center"
+                    >
+                      <Send className="w-4 h-4" />
+                    </button>
+                  </form>
+
+                  {/* Back Button */}
+                  <div className="mt-3">
+                    <button
+                      onClick={() => setShowChat(false)}
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm font-medium"
+                    >
+                      Back to Menu
+                    </button>
+                  </div>
+                </div>
+              ) : showEmployeeSelection ? (
+                /* Employee Selection */
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Select a Support Representative</h4>
+                    <button
+                      onClick={() => setShowEmployeeSelection(false)}
+                      className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  {isLoadingEmployees ? (
+                    <div className="flex justify-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-primary"></div>
+                    </div>
+                  ) : csrEmployees.length > 0 ? (
+                    <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                      {csrEmployees.map((employee) => (
+                        <button
+                          key={employee.id}
+                          onClick={() => handleEmployeeSelect(employee)}
+                          className="w-full text-left p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-brand-primary transition-all duration-200 group"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="flex-shrink-0">
+                              {employee.profile_image_url ? (
+                                <img
+                                  src={employee.profile_image_url}
+                                  alt={`${employee.first_name} ${employee.last_name}`}
+                                  className="w-10 h-10 rounded-full object-cover"
+                                />
+                              ) : (
+                                <div className="w-10 h-10 rounded-full bg-brand-primary text-white flex items-center justify-center">
+                                  <User className="w-5 h-5" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900 dark:text-gray-100 group-hover:text-brand-primary transition-colors">
+                                {employee.first_name} {employee.last_name}
+                              </p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                Customer Service Representative
+                              </p>
+                              {employee.department && (
+                                <p className="text-xs text-gray-400 dark:text-gray-500">
+                                  {employee.department}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <p className="text-gray-500 dark:text-gray-400">
+                        No customer service representatives available at the moment.
+                      </p>
+                    </div>
+                  )}
                 </div>
               ) : showBookingForm ? (
                 /* Booking Form */
@@ -518,7 +784,7 @@ const MessageButton = () => {
             </div>
 
             {/* Footer */}
-            {!showMessageForm && !showBookingForm && (
+            {!showMessageForm && !showBookingForm && !showChat && !showEmployeeSelection && (
               <div className="border-t border-gray-200 dark:border-gray-700 p-3 sm:p-4 flex-shrink-0 bg-gray-50 dark:bg-gray-900/50">
                 <button
                   onClick={() => setShowMessageForm(true)}
