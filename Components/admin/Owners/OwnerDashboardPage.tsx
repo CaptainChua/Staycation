@@ -155,7 +155,6 @@ export default function OwnerDashboard() {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const notificationButtonRef = useRef<HTMLButtonElement | null>(null);
   const messageButtonRef = useRef<HTMLButtonElement | null>(null);
-  const notificationsHydratedRef = useRef(false);
   const [havenView, setHavenView] = useState<"overview" | "list">("overview");
   const [now, setNow] = useState<Date | null>(null);
   const [modals, setModals] = useState({
@@ -914,7 +913,7 @@ export default function OwnerDashboard() {
           onClose={() => setNotificationOpen(false)}
           onViewAll={() => {
             setNotificationOpen(false);
-            // You can add a notifications page navigation here
+            // Navigate to notifications page if needed in the future
           }}
           anchorRef={notificationButtonRef}
           userId={userId || undefined}
