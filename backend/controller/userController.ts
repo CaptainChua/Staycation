@@ -88,7 +88,7 @@ export async function createUser(userData: GoogleUserData): Promise<User> {
         userData.email,
         userData.name || null,
         userData.picture || null,
-        userData.registerAs || null,
+        userData.registerAs || null
       ]
     );
 
