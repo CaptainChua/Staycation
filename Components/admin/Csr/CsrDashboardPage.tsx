@@ -586,13 +586,13 @@ export default function CsrDashboard() {
       </div>
       {notificationOpen && (
         <NotificationModal
+          notifications={notifications}
           onClose={() => setNotificationOpen(false)}
           onViewAll={() => {
             setNotificationOpen(false);
             setPage("notifications");
           }}
           anchorRef={notificationButtonRef}
-          userId={userId}
         />
       )}
       {messageModalOpen && (

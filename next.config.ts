@@ -19,10 +19,6 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "lh3.googleusercontent.com",
       },
-      {
-        protocol: "https",
-        hostname: "platform-lookaside.fbsbx.com",
-      },
     ],
   },
 
@@ -33,15 +29,6 @@ const nextConfig: NextConfig = {
   compiler: {
     removeConsole: true,
   },
- 
-  eslint: {
-    ignoreDuringBuilds: true, // Add this line
-  },
-  /* other config options */
-  typescript: {
-    ignoreBuildErrors: true, // Add this line
-  },
-
 };
 
 export default nextConfig;
