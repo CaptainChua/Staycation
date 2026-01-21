@@ -112,10 +112,12 @@ export default function PaymentPage() {
   const getStatusColorClass = (status?: string | null) => {
     const s = (status || "").toLowerCase();
     if (s === "approved" || s === "confirmed")
-      return "bg-green-100 text-green-700";
-    if (s === "pending") return "bg-yellow-100 text-yellow-700";
-    if (s === "rejected" || s === "declined") return "bg-red-100 text-red-700";
-    return "bg-gray-100 text-gray-700";
+      return "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300";
+    if (s === "pending")
+      return "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300";
+    if (s === "rejected" || s === "declined")
+      return "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300";
+    return "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200";
   };
 
   // Local InfoField component mirroring the Booking Details dialog style
@@ -128,15 +130,17 @@ export default function PaymentPage() {
 
   const InfoField = ({ label, value, icon, capitalize }: InfoFieldProps) => (
     <div className="space-y-2">
-      <span className="text-sm font-medium text-gray-600">{label}</span>
+      <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
+        {label}
+      </span>
       <div className="relative">
         {icon && (
-          <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-gray-400">
+          <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-gray-400 dark:text-gray-300">
             {icon}
           </div>
         )}
         <div
-          className={`w-full rounded-2xl border border-gray-200 px-3 py-3 text-sm text-gray-800 ${icon ? "pl-9" : "pl-3"} ${capitalize ? "capitalize" : ""}`}
+          className={`w-full rounded-2xl border border-gray-200 dark:border-gray-700 px-3 py-3 text-sm text-gray-800 dark:text-gray-100 dark:bg-gray-900 ${icon ? "pl-9" : "pl-3"} ${capitalize ? "capitalize" : ""}`}
         >
           {value}
         </div>
@@ -844,9 +848,9 @@ export default function PaymentPage() {
             onClick={handleCloseView}
           />
           <div className="fixed inset-0 flex items-center justify-center px-4 py-8 z-[9999]">
-            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl max-h-[60vh] flex flex-col overflow-hidden">
+            <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-5xl max-h-[60vh] flex flex-col overflow-hidden border border-gray-100 dark:border-gray-700">
               {/* Header (sticky, gradient) */}
-              <div className="sticky top-0 bg-gradient-to-r from-orange-500 to-yellow-500 text-white p-6 rounded-t-3xl flex justify-between items-center">
+              <div className="sticky top-0 bg-gradient-to-r from-orange-500 to-yellow-500 dark:from-orange-600 dark:to-yellow-600 text-white p-6 rounded-t-3xl flex justify-between items-center">
                 <div>
                   <p className="text-sm font-semibold uppercase tracking-[0.2em] opacity-90">
                     Payment Details
@@ -857,7 +861,7 @@ export default function PaymentPage() {
                 </div>
                 <button
                   onClick={handleCloseView}
-                  className="p-2 rounded-full hover:bg-white/20 transition-colors"
+                  className="p-2 rounded-full hover:bg-white/20 dark:hover:bg-white/10 transition-colors"
                 >
                   <X className="w-6 h-6 text-white" />
                 </button>
@@ -866,9 +870,9 @@ export default function PaymentPage() {
               {/* Content */}
               <div className="flex-1 overflow-y-auto px-8 py-6 space-y-8">
                 {/* Guest & Payment Info (status badge moved to the right side of this card header) */}
-                <div className="bg-gray-50 rounded-lg p-6">
+                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 border border-gray-100 dark:border-gray-700">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                    <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
                       <User className="w-5 h-5 text-orange-500" />
                       Payment Information
                     </h3>
@@ -903,12 +907,12 @@ export default function PaymentPage() {
                             href={selectedPayment.payment_proof}
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700"
+                            className="inline-flex items-center gap-2 text-sm font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
                           >
                             <ImageIcon className="w-4 h-4" /> View Proof
                           </a>
                         ) : (
-                          <span className="text-sm text-gray-400">
+                          <span className="text-sm text-gray-400 dark:text-gray-400">
                             No proof
                           </span>
                         )
@@ -925,15 +929,15 @@ export default function PaymentPage() {
                 </div>
 
                 {/* Payment Summary */}
-                <div className="bg-gray-50 rounded-lg p-6">
-                  <h3 className="text-lg font-bold text-gray-800 mb-4">
+                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 border border-gray-100 dark:border-gray-700">
+                  <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4">
                     Payment Summary
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <InfoField
                       label="Total Amount"
                       value={
-                        <span className="text-lg font-bold text-gray-900">
+                        <span className="text-lg font-bold text-gray-900 dark:text-gray-100">
                           {formatCurrency(
                             Number(selectedPayment.booking?.total_amount ?? 0),
                           )}
@@ -943,7 +947,7 @@ export default function PaymentPage() {
                     <InfoField
                       label="Down Payment"
                       value={
-                        <span className="text-green-700 font-semibold">
+                        <span className="text-green-700 dark:text-green-300 font-semibold">
                           {formatCurrency(
                             Number(selectedPayment.booking?.down_payment ?? 0),
                           )}
@@ -953,7 +957,7 @@ export default function PaymentPage() {
                     <InfoField
                       label="Remaining Balance"
                       value={
-                        <span className="text-orange-700 font-semibold">
+                        <span className="text-orange-700 dark:text-orange-300 font-semibold">
                           {formatCurrency(
                             Number(
                               selectedPayment.booking?.remaining_balance ?? 0,
@@ -972,8 +976,8 @@ export default function PaymentPage() {
               </div>
 
               {/* Footer (actions) */}
-              <div className="px-8 py-5 border-t border-gray-100 flex flex-col sm:flex-row justify-between gap-3 bg-white">
-                <p className="text-xs text-gray-500">
+              <div className="px-8 py-5 border-t border-gray-100 dark:border-gray-700 flex flex-col sm:flex-row justify-between gap-3 bg-white dark:bg-gray-900">
+                <p className="text-xs text-gray-500 dark:text-gray-400">
                   Last updated:{" "}
                   {selectedPayment.booking?.updated_at
                     ? formatDate(selectedPayment.booking?.updated_at)
@@ -984,7 +988,7 @@ export default function PaymentPage() {
                   <button
                     type="button"
                     onClick={handleCloseView}
-                    className="px-5 py-2.5 rounded-xl border border-gray-200 text-gray-600 font-semibold hover:bg-gray-50 transition"
+                    className="px-5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-200 font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition"
                   >
                     Close
                   </button>
@@ -995,7 +999,7 @@ export default function PaymentPage() {
                       await handleApprove(selectedPayment);
                       handleCloseView();
                     }}
-                    className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-yellow-500 text-white font-semibold shadow-lg hover:from-orange-600 hover:to-yellow-600 transition inline-flex items-center gap-2"
+                    className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-yellow-500 dark:from-orange-600 dark:to-yellow-600 text-white font-semibold shadow-lg hover:from-orange-600 hover:to-yellow-600 dark:hover:from-orange-700 dark:hover:to-yellow-700 transition inline-flex items-center gap-2"
                   >
                     <CheckCircle className="w-4 h-4" /> Approve
                   </button>
@@ -1006,7 +1010,7 @@ export default function PaymentPage() {
                       openRejectModal(selectedPayment);
                       handleCloseView();
                     }}
-                    className="px-6 py-2.5 rounded-xl bg-red-600 text-white font-semibold hover:bg-red-700 transition inline-flex items-center gap-2"
+                    className="px-6 py-2.5 rounded-xl bg-red-600 dark:bg-red-600 text-white font-semibold hover:bg-red-700 dark:hover:bg-red-700 transition inline-flex items-center gap-2"
                   >
                     <X className="w-4 h-4" /> Reject
                   </button>
@@ -1025,9 +1029,11 @@ export default function PaymentPage() {
             onClick={handleCancelReject}
           />
           <div className="fixed inset-0 flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-6">
-              <h3 className="text-lg font-bold mb-2">Reject Payment</h3>
-              <p className="text-sm text-gray-500 mb-4">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-6 border border-gray-100 dark:border-gray-700">
+              <h3 className="text-lg font-bold mb-2 text-gray-900 dark:text-gray-100">
+                Reject Payment
+              </h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
                 Provide a reason for rejecting the payment (optional).
               </p>
               <textarea
@@ -1041,7 +1047,7 @@ export default function PaymentPage() {
                 <button
                   onClick={handleCancelReject}
                   type="button"
-                  className="px-4 py-2 rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200"
+                  className="px-4 py-2 rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
                 >
                   Cancel
                 </button>
@@ -1049,7 +1055,7 @@ export default function PaymentPage() {
                   onClick={handleConfirmReject}
                   type="button"
                   disabled={updatingBookingId === selectedPayment.id}
-                  className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="px-4 py-2 rounded-lg bg-red-600 dark:bg-red-600 text-white hover:bg-red-700 dark:hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {updatingBookingId === selectedPayment.id ? (
                     <svg
