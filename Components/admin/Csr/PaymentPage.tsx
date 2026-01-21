@@ -5,6 +5,7 @@ import {
   Search,
   Filter,
   Eye,
+  Check,
   CheckCircle,
   X,
   XCircle,
@@ -579,7 +580,7 @@ export default function PaymentPage() {
                       <div className="flex items-center justify-center gap-1">
                         <button
                           onClick={() => handleView(payment)}
-                          className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                          className="p-2 inline-flex items-center justify-center text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
                           title="View"
                           type="button"
                           aria-label={`View ${payment.booking_id}`}
@@ -592,14 +593,14 @@ export default function PaymentPage() {
                           disabled={
                             !payment.id || updatingBookingId === payment.id
                           }
-                          className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="p-2 inline-flex items-center justify-center text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                           title="Approve"
                           type="button"
                           aria-label={`Approve booking ${payment.booking_id}`}
                         >
                           {updatingBookingId === payment.id ? (
                             <svg
-                              className="animate-spin h-4 w-4"
+                              className="animate-spin inline-block align-middle h-4 w-4"
                               xmlns="http://www.w3.org/2000/svg"
                               fill="none"
                               viewBox="0 0 24 24"
@@ -619,7 +620,7 @@ export default function PaymentPage() {
                               />
                             </svg>
                           ) : (
-                            <CheckCircle className="w-4 h-4" />
+                            <Check className="w-4 h-4" />
                           )}
                         </button>
 
@@ -628,12 +629,12 @@ export default function PaymentPage() {
                           disabled={
                             !payment.id || updatingBookingId === payment.id
                           }
-                          className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="p-2 inline-flex items-center justify-center text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                           title="Reject"
                           type="button"
                           aria-label={`Reject booking ${payment.booking_id}`}
                         >
-                          <XCircle className="w-4 h-4" />
+                          <X className="w-4 h-4" />
                         </button>
                       </div>
                     </td>
@@ -713,7 +714,7 @@ export default function PaymentPage() {
             <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-200 dark:border-gray-600">
               <button
                 onClick={() => handleView(payment)}
-                className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                className="p-2 inline-flex items-center justify-center text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
                 title="View"
                 type="button"
                 aria-label={`View ${payment.booking_id}`}
@@ -724,14 +725,14 @@ export default function PaymentPage() {
               <button
                 onClick={() => handleApprove(payment)}
                 disabled={!payment.id || updatingBookingId === payment.id}
-                className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-2 inline-flex items-center justify-center text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Approve"
                 type="button"
                 aria-label={`Approve booking ${payment.booking_id}`}
               >
                 {updatingBookingId === payment.id ? (
                   <svg
-                    className="animate-spin h-5 w-5"
+                    className="animate-spin inline-block align-middle h-5 w-5"
                     xmlns="http://www.w3.org/2000/svg"
                     fill="none"
                     viewBox="0 0 24 24"
@@ -758,12 +759,12 @@ export default function PaymentPage() {
               <button
                 onClick={() => openRejectModal(payment)}
                 disabled={!payment.id || updatingBookingId === payment.id}
-                className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-2 inline-flex items-center justify-center text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Reject"
                 type="button"
                 aria-label={`Reject booking ${payment.booking_id}`}
               >
-                <XCircle className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
           </div>
@@ -1086,11 +1087,11 @@ export default function PaymentPage() {
                   onClick={handleConfirmReject}
                   type="button"
                   disabled={updatingBookingId === selectedPayment.id}
-                  className="px-4 py-2 rounded-lg bg-red-600 dark:bg-red-600 text-white hover:bg-red-700 dark:hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="px-4 py-2 rounded-lg bg-red-600 dark:bg-red-600 text-white hover:bg-red-700 dark:hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center"
                 >
                   {updatingBookingId === selectedPayment.id ? (
                     <svg
-                      className="animate-spin h-4 w-4 inline-block"
+                      className="animate-spin inline-block align-middle h-4 w-4"
                       xmlns="http://www.w3.org/2000/svg"
                       fill="none"
                       viewBox="0 0 24 24"
@@ -1110,7 +1111,7 @@ export default function PaymentPage() {
                       />
                     </svg>
                   ) : (
-                    "Reject Payment"
+                    <span className="font-semibold">Reject</span>
                   )}
                 </button>
               </div>
