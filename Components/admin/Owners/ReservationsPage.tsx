@@ -86,17 +86,20 @@ const ReservationsPage = () => {
 
   const handleCheckIn = async (bookingId: string) => {
     try {
+      // Find the booking details
       const booking = reservations.find((r: Booking) => r.id === bookingId);
       if (!booking) {
         alert("Booking not found");
         return;
       }
 
+      // Update booking status to checked-in
       await updateBookingStatus({
         id: bookingId,
         status: "checked-in",
       }).unwrap();
 
+      // Send check-in email to guest
       try {
         const emailData = {
           firstName: booking.guest_first_name,
@@ -108,7 +111,7 @@ const ReservationsPage = () => {
           checkInTime: booking.check_in_time,
           checkOutDate: formatDateSafe(booking.check_out_date),
           checkOutTime: booking.check_out_time,
-          guests: `${booking.adults} Adults, ${booking.children} Children, ${booking.infants} Infants`,
+          guests: `${booking.adults || 0} Adults, ${booking.children || 0} Children, ${booking.infants || 0} Infants`,
         };
 
         const emailResponse = await fetch("/api/send-checkin-email", {
@@ -134,17 +137,20 @@ const ReservationsPage = () => {
 
   const handleCheckOut = async (bookingId: string) => {
     try {
+      // Find the booking details
       const booking = reservations.find((r: Booking) => r.id === bookingId);
       if (!booking) {
         alert("Booking not found");
         return;
       }
 
+      // Update booking status to completed
       await updateBookingStatus({
         id: bookingId,
         status: "completed",
       }).unwrap();
 
+      // Send check-out email to guest
       try {
         const emailData = {
           firstName: booking.guest_first_name,
@@ -249,6 +255,7 @@ const ReservationsPage = () => {
       {selectedBooking && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
             <div className="sticky top-0 bg-gradient-to-r from-orange-500 to-yellow-500 text-white p-6 rounded-t-2xl flex justify-between items-center">
               <div>
                 <h2 className="text-2xl font-bold">Booking Details</h2>
@@ -264,7 +271,9 @@ const ReservationsPage = () => {
               </button>
             </div>
 
+            {/* Modal Content */}
             <div className="p-6 space-y-6">
+              {/* Status Badge */}
               <div className="flex justify-center">
                 <span
                   className={`px-6 py-2 rounded-full text-sm font-semibold ${getStatusColor(selectedBooking.status ?? "")}`}
@@ -273,6 +282,7 @@ const ReservationsPage = () => {
                 </span>
               </div>
 
+              {/* Guest Information */}
               <div className="bg-gray-50 rounded-lg p-6">
                 <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
                   <User className="w-5 h-5 text-orange-500" />
@@ -298,10 +308,124 @@ const ReservationsPage = () => {
                       {selectedBooking.guest_phone}
                     </p>
                   </div>
+                  {selectedBooking.guest_age && (
+                    <div>
+                      <p className="text-sm text-gray-500">Age</p>
+                      <p className="font-semibold text-gray-800">{selectedBooking.guest_age} years old</p>
+                    </div>
+                  )}
+                  {selectedBooking.guest_gender && (
+                    <div>
+                      <p className="text-sm text-gray-500">Gender</p>
+                      <p className="font-semibold text-gray-800 capitalize">{selectedBooking.guest_gender}</p>
+                    </div>
+                  )}
+                  {selectedBooking.facebook_link && (
+                    <div>
+                      <p className="text-sm text-gray-500">Facebook</p>
+                      <a href={selectedBooking.facebook_link} target="_blank" rel="noopener noreferrer" className="font-semibold text-blue-600 hover:underline">
+                        View Profile
+                      </a>
+                    </div>
+                  )}
                 </div>
+
+                {/* Main Guest Valid ID */}
+                {selectedBooking.valid_id_url && (
+                  <div className="mt-6 pt-6 border-t border-gray-200">
+                    <h4 className="text-md font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                      <CreditCard className="w-4 h-4 text-blue-600" />
+                      Valid ID
+                    </h4>
+                    <div className="relative w-full max-w-md h-64 bg-gray-200 rounded-lg overflow-hidden">
+                      <Image
+                        src={selectedBooking.valid_id_url as string}
+                        alt="Main Guest Valid ID"
+                        fill
+                        className="object-contain"
+                      />
+                    </div>
+                    <a
+                      href={selectedBooking.valid_id_url as string}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2 inline-block text-blue-600 hover:underline text-sm"
+                    >
+                      Open in new tab →
+                    </a>
+                  </div>
+                )}
               </div>
 
-              <div className="flex gap-3 justify-end border-t pt-6">
+              {/* Additional Guests */}
+              {selectedBooking.additional_guests && selectedBooking.additional_guests.length > 0 && (
+                <div className="bg-gray-50 rounded-lg p-6">
+                  <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                    <User className="w-5 h-5 text-orange-500" />
+                    Additional Guests ({selectedBooking.additional_guests.length})
+                  </h3>
+                  <div className="space-y-6">
+                    {selectedBooking.additional_guests.map((guest: AdditionalGuest, index: number) => {
+                      const guestNumber = index + 2;
+                      const isAdult = index < (selectedBooking.adults || 0) - 1;
+                      const guestType = isAdult ? `Adult ${guestNumber}` : `Child ${guestNumber - ((selectedBooking.adults || 0) - 1)}`;
+
+                      return (
+                        <div key={index} className="bg-white rounded-lg p-4 border border-gray-200">
+                          <h4 className="font-semibold text-orange-600 mb-3">{guestType}</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                              <p className="text-sm text-gray-500">Full Name</p>
+                              <p className="font-semibold text-gray-800">{guest.firstName as string} {guest.lastName as string}</p>
+                            </div>
+                            {guest.age && (
+                              <div>
+                                <p className="text-sm text-gray-500">Age</p>
+                                <p className="font-semibold text-gray-800">{guest.age} years old</p>
+                              </div>
+                            )}
+                            {guest.gender && (
+                              <div>
+                                <p className="text-sm text-gray-500">Gender</p>
+                                <p className="font-semibold text-gray-800 capitalize">{guest.gender as string}</p>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Additional Guest Valid ID */}
+                          {guest.validIdUrl && (
+                            <div className="mt-4 pt-4 border-t border-gray-100">
+                              <h5 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                                <CreditCard className="w-4 h-4 text-blue-600" />
+                                Valid ID
+                              </h5>
+                              <div className="relative w-full max-w-sm h-48 bg-gray-200 rounded-lg overflow-hidden">
+                                <Image
+                                  src={guest.validIdUrl as string}
+                                  alt={`${guest.firstName as string} ${guest.lastName as string} Valid ID`}
+                                  fill
+                                  className="object-contain"
+                                />
+                              </div>
+                              <a
+                                href={guest.validIdUrl as string}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="mt-2 inline-block text-blue-600 hover:underline text-sm"
+                              >
+                                Open in new tab →
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 justify-center mt-6">
                 {selectedBooking.status === "pending" && (
                   <>
                     <button
@@ -502,14 +626,14 @@ const ReservationsPage = () => {
           </div>
         </div>
 
-        {/* Compact Table with Horizontal Scroll */}
-        <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
+        {/* Reservations List */}
+        <div className="space-y-4">
           {isLoading ? (
             <div className="flex justify-center items-center py-12">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
             </div>
           ) : filteredReservations.length === 0 ? (
-            <div className="p-12 text-center">
+            <div className="bg-white rounded-2xl shadow-lg p-12 border border-gray-200 text-center">
               <AlertCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-gray-800 mb-2">
                 No Reservations Found
@@ -679,13 +803,43 @@ const ReservationsPage = () => {
                           >
                             <Eye className="w-3.5 h-3.5" />
                           </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                          <button
+                            onClick={() => handleReject(reservation.id)}
+                            className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2"
+                          >
+                            <X className="w-4 h-4" />
+                            Reject
+                          </button>
+                        </>
+                      )}
+                      {(reservation.status === "approved" || reservation.status === "confirmed") && (
+                        <button
+                          onClick={() => handleCheckIn(reservation.id)}
+                          className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                        >
+                          Check In
+                        </button>
+                      )}
+                      {reservation.status === "checked-in" && (
+                        <button
+                          onClick={() => handleCheckOut(reservation.id)}
+                          className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
+                        >
+                          Check Out
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleViewDetails(reservation)}
+                        className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2"
+                      >
+                        <Eye className="w-4 h-4" />
+                        View Details
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))
           )}
         </div>
 

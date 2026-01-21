@@ -254,6 +254,9 @@ export default function OwnerDashboard() {
     return () => window.clearInterval(id);
   }, []);
 
+  // Notification modal state
+  const [notificationModalOpen, setNotificationModalOpen] = useState(false);
+
   // Fetch havens from database
   const { data: havensData } = useGetHavensQuery({});
   
@@ -381,12 +384,6 @@ export default function OwnerDashboard() {
       icon: DollarSign,
       label: "Revenue Management",
       color: "text-emerald-500",
-    },
-    {
-      id: "guest",
-      icon: Users,
-      label: "Guest Assistance",
-      color: "text-teal-500",
     },
     {
       id: "messages",
@@ -846,6 +843,18 @@ export default function OwnerDashboard() {
         <AdminFooter />
       </div>
 
+      {notificationOpen && (
+        <NotificationModal
+          onClose={() => setNotificationOpen(false)}
+          onViewAll={() => {
+            setNotificationOpen(false);
+            setPage("notifications");
+          }}
+          anchorRef={notificationButtonRef}
+          userId={session?.user?.id}
+        />
+      )}
+
       {/* MODALS */}
       <AddUnitModal
         isOpen={modals.addUnit}
@@ -928,4 +937,4 @@ export default function OwnerDashboard() {
       )}
     </div>
   );
-} 
+}

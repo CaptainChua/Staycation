@@ -27,8 +27,6 @@ CREATE TABLE IF NOT EXISTS bookings (
   status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'confirmed', 'checked-in', 'completed', 'cancelled')),
   rejection_reason TEXT,
   add_ons JSONB,
-  cleaning_status VARCHAR(20) DEFAULT 'pending' CHECK (cleaning_status IN ('pending', 'in-progress',
-  'cleaned', 'inspected')),
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
 );
