@@ -17,11 +17,11 @@ module.exports = {
       },
       colors: {
         brand: {
-          primary: "#BA903C",
-          primaryDark: "#9A732D",
-          primaryLight: "#DAB66B",
-          primaryLighter: "#F7E8D0",
-          primarySoft: "#F3E1B8",
+          primary: "#B8860B",
+          primaryDark: "#8B6508",
+          primaryLight: "#DAA520",
+          primaryLighter: "#F0E68C",
+          primarySoft: "#F5DEB3",
         },
       },
       keyframes: {

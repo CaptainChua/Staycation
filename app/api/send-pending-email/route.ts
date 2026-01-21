@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
           }
 
           .header {
-            background: #C5A059;
+            background: #B8860B;
             color: #ffffff;
             padding: 45px 30px;
             text-align: center;
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
           }
 
           .status-badge {
-            background: #C5A059;
+            background: #6B7280;
             color: #FFFFFF;
             padding: 8px 24px;
             border-radius: 4px;
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
 
           .section-title {
             font-size: 15px;
-            color: #C5A059;
+            color: #B8860B;
             font-weight: 700;
             margin: 35px 0 15px 0;
             padding-bottom: 10px;
@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
 
           .info-card {
             background: #F9F6F0;
-            border-left: 4px solid #C5A059;
+            border-left: 4px solid #B8860B;
             padding: 25px;
             margin: 15px 0;
             border-radius: 4px;
@@ -135,7 +135,7 @@ export async function POST(request: NextRequest) {
           .info-label {
             display: table-cell;
             font-weight: 700;
-            color: #C5A059;
+            color: #B8860B;
             width: 40%;
             padding-right: 15px;
             font-size: 12px;
@@ -156,7 +156,7 @@ export async function POST(request: NextRequest) {
             border-radius: 4px;
             margin: 30px 0;
             text-align: center;
-            border: 1px solid #C5A059;
+            border: 1px solid #B8860B;
           }
 
           .price-row {
@@ -170,10 +170,10 @@ export async function POST(request: NextRequest) {
           .price-total {
             margin-top: 20px;
             padding-top: 20px;
-            border-top: 1px solid rgba(197, 160, 89, 0.3);
+            border-top: 1px solid rgba(184, 134, 11, 0.3);
             font-size: 26px;
             font-weight: 700;
-            color: #C5A059;
+            color: #B8860B;
           }
 
           .alert-box {
@@ -186,7 +186,7 @@ export async function POST(request: NextRequest) {
 
           .alert-title {
             font-weight: 700;
-            color: #C5A059;
+            color: #B8860B;
             margin-bottom: 15px;
             font-size: 14px;
             text-transform: uppercase;
@@ -210,7 +210,7 @@ export async function POST(request: NextRequest) {
 
           .cta-button a {
             display: inline-block;
-            background: #C5A059;
+            background: #B8860B;
             color: #FFFFFF;
             padding: 16px 45px;
             text-decoration: none;
@@ -227,7 +227,7 @@ export async function POST(request: NextRequest) {
             color: #5D4037;
             padding: 40px;
             text-align: center;
-            border-top: 1px solid #C5A059;
+            border-top: 1px solid #B8860B;
           }
 
           .footer-info {
@@ -237,7 +237,7 @@ export async function POST(request: NextRequest) {
 
           .footer-divider {
             height: 1px;
-            background: #C5A059;
+            background: #B8860B;
             opacity: 0.2;
             margin: 25px 0;
           }
