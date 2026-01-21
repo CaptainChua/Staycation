@@ -69,6 +69,9 @@ export default function PaymentPage() {
     serverStatusParam ? { status: serverStatusParam } : undefined,
   );
 
+  // Fetch all bookings for summary counts (unfiltered)
+  const { data: bookingsAll } = useGetBookingsQuery();
+
   // bookings memo removed: mapping now uses bookingsRaw directly
 
   // Mutation for approve/reject
@@ -335,10 +338,17 @@ export default function PaymentPage() {
     }
   };
 
-  const totalCount = payments.length;
-  const paidCount = payments.filter((p) => p.status === "Paid").length;
-  const pendingCount = payments.filter((p) => p.status === "Pending").length;
-  const rejectedCount = payments.filter((p) => p.status === "Rejected").length;
+  // Use unfiltered bookings for summary counts so counts don't change with status filter
+  const totalCount = (bookingsAll || []).length;
+  const paidCount = (bookingsAll || []).filter(
+    (b) => mapStatusToUI(b.status) === "Paid",
+  ).length;
+  const pendingCount = (bookingsAll || []).filter(
+    (b) => mapStatusToUI(b.status) === "Pending",
+  ).length;
+  const rejectedCount = (bookingsAll || []).filter(
+    (b) => mapStatusToUI(b.status) === "Rejected",
+  ).length;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-700">
