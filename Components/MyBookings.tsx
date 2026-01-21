@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Calendar, MapPin, Users, ChevronRight } from 'lucide-react';
+import { Calendar, MapPin, Users, ChevronRight, Clock, CheckCircle, XCircle, Loader2, Home, Ban, FileText } from 'lucide-react';
+import SidebarLayout from './SidebarLayout';
 import Link from 'next/link';
 import Image from 'next/image';
 import toast, { Toaster } from 'react-hot-toast';
@@ -115,7 +116,7 @@ const MyBookingsPage = ({ initialData, userId }: MyBookingsPageProps) => {
 
   const getStatusBadge = (status: string) => {
     const badges = {
-      upcoming: "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400",
+      upcoming: "bg-brand-primary/10 text-brand-primary",
       past: "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400",
       cancelled: "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"
     };
@@ -125,13 +126,13 @@ const MyBookingsPage = ({ initialData, userId }: MyBookingsPageProps) => {
   const getBookingStatusBadge = (status: string) => {
     const statusBadges = {
       pending: "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 border border-yellow-300 dark:border-yellow-700",
-      approved: "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-300 dark:border-green-700",
-      confirmed: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-300 dark:border-blue-700",
-      check_in: "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border border-purple-300 dark:border-purple-700",
-      'checked-in': "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border border-purple-300 dark:border-purple-700",
+      approved: "bg-brand-primary/10 text-brand-primary border border-brand-primary/20",
+      confirmed: "bg-brand-primary/10 text-brand-primary border border-brand-primary/20",
+      check_in: "bg-brand-primary/10 text-brand-primary border border-brand-primary/20",
+      'checked-in': "bg-brand-primary/10 text-brand-primary border border-brand-primary/20",
       completed: "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600",
-      cancelled: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border border-red-300 dark:border-red-700",
-      rejected: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border border-red-300 dark:border-red-700"
+      cancelled: "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-300 dark:border-red-700",
+      rejected: "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-300 dark:border-red-700"
     };
     return statusBadges[status as keyof typeof statusBadges] || statusBadges.pending;
   };
@@ -139,22 +140,22 @@ const MyBookingsPage = ({ initialData, userId }: MyBookingsPageProps) => {
   const getStatusIcon = (status: string) => {
     switch(status) {
       case 'pending':
-        return '⏳';
+        return <Clock className="w-3.5 h-3.5" />;
       case 'approved':
-        return '✓';
+        return <CheckCircle className="w-3.5 h-3.5" />;
       case 'confirmed':
-        return '✓✓';
+        return <CheckCircle className="w-3.5 h-3.5" />;
       case 'check_in':
       case 'checked-in':
-        return '🏠';
+        return <Home className="w-3.5 h-3.5" />;
       case 'completed':
-        return '✅';
+        return <CheckCircle className="w-3.5 h-3.5 text-green-500" />;
       case 'cancelled':
-        return '❌';
+        return <XCircle className="w-3.5 h-3.5 text-red-500" />;
       case 'rejected':
-        return '⛔';
+        return <Ban className="w-3.5 h-3.5 text-red-500" />;
       default:
-        return '📋';
+        return <FileText className="w-3.5 h-3.5" />;
     }
   };
 
@@ -173,55 +174,61 @@ const MyBookingsPage = ({ initialData, userId }: MyBookingsPageProps) => {
   };
 
   return (
-    <>
+    <SidebarLayout>
       <Toaster position="top-center" />
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 pt-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-800 dark:text-white mb-2">
+      {/* Hero Section */}
+      <div className="bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white py-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h1 className="text-4xl md:text-5xl font-bold mb-4">
             My Bookings
           </h1>
-          <p className="text-gray-600 dark:text-gray-400">
+          <p className="text-lg md:text-xl opacity-90 max-w-3xl mx-auto">
             View and manage your staycation reservations
           </p>
         </div>
+      </div>
 
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Filter Tabs */}
         <div className="flex flex-wrap gap-3 mb-8">
           {[
-            { label: 'All Bookings', value: 'all' },
-            { label: 'Upcoming', value: 'upcoming' },
-            { label: 'Past', value: 'past' },
-            { label: 'Cancelled', value: 'cancelled' }
+            { label: 'All Bookings', value: 'all', icon: null },
+            { label: 'Upcoming', value: 'upcoming', icon: <Clock className="w-4 h-4" /> },
+            { label: 'Past', value: 'past', icon: <CheckCircle className="w-4 h-4" /> },
+            { label: 'Cancelled', value: 'cancelled', icon: <XCircle className="w-4 h-4" /> }
           ].map((filter) => (
             <button
               key={filter.value}
               onClick={() => setFilterStatus(filter.value)}
-              className={`px-6 py-2.5 rounded-lg font-medium transition-all duration-300 ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-300 ${
                 filterStatus === filter.value
-                  ? 'bg-gradient-to-r from-orange-500 to-yellow-500 text-white shadow-md'
-                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-orange-50 dark:hover:bg-gray-700'
+                  ? 'bg-brand-primary text-white shadow-md'
+                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
               }`}
             >
-              {filter.label}
+              {filter.icon && <span className="flex-shrink-0">{filter.icon}</span>}
+              <span>{filter.label}</span>
             </button>
           ))}
         </div>
 
         {/* Empty State */}
         {bookings.length === 0 ? (
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-12 text-center">
-            <Calendar className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-2">
-              No bookings found
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-12 text-center">
+            <Calendar className="w-16 h-16 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+              No {filterStatus !== 'all' ? filterStatus : ''} bookings found
             </h3>
             <p className="text-gray-600 dark:text-gray-400 mb-6">
-              You don&apos;t have any {filterStatus !== 'all' ? filterStatus : ''} bookings yet.
+              {filterStatus === 'all' 
+                ? "You don't have any bookings yet." 
+                : `You don't have any ${filterStatus} bookings.`}
             </p>
             <Link href="/rooms">
-              <button className="bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white font-semibold px-8 py-3 rounded-lg transition-all duration-300 transform hover:scale-105">
-                Browse Rooms
+              <button className="px-8 py-3 bg-brand-primary hover:bg-brand-primaryDark text-white rounded-lg font-medium transition-colors">
+                Browse Havens
               </button>
             </Link>
           </div>
@@ -238,7 +245,7 @@ const MyBookingsPage = ({ initialData, userId }: MyBookingsPageProps) => {
               return (
                 <div
                   key={booking.id}
-                  className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300"
+                  className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-md transition-all duration-300"
                 >
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-6 p-6">
                     {/* Room Image */}
@@ -272,8 +279,8 @@ const MyBookingsPage = ({ initialData, userId }: MyBookingsPageProps) => {
                             {/* Booking Status Badge */}
                             <div className="flex flex-col gap-1">
                               <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold w-fit ${getBookingStatusBadge(booking.status)}`}>
-                                <span>{getStatusIcon(booking.status)}</span>
-                                <span>{booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}</span>
+                                <span className="text-xs">{getStatusIcon(booking.status)}</span>
+                                <span>{booking.status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}</span>
                               </span>
                               <span className="text-xs text-gray-500 dark:text-gray-400 italic">
                                 {getStatusDescription(booking.status)}
@@ -286,8 +293,10 @@ const MyBookingsPage = ({ initialData, userId }: MyBookingsPageProps) => {
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-                          <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
-                            <Calendar className="w-5 h-5 text-orange-500" />
+                          <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl">
+                            <div className="p-2 rounded-lg bg-brand-primary/10">
+                              <Calendar className="w-5 h-5 text-brand-primary" />
+                            </div>
                             <div>
                               <p className="text-xs text-gray-500 dark:text-gray-400">Check-in</p>
                               <p className="font-semibold text-gray-800 dark:text-white">
@@ -296,8 +305,10 @@ const MyBookingsPage = ({ initialData, userId }: MyBookingsPageProps) => {
                               <p className="text-xs text-gray-500 dark:text-gray-400">{formatTo12Hour(booking.check_in_time)}</p>
                             </div>
                           </div>
-                          <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
-                            <Calendar className="w-5 h-5 text-orange-500" />
+                          <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl">
+                            <div className="p-2 rounded-lg bg-brand-primary/10">
+                              <Calendar className="w-5 h-5 text-brand-primary" />
+                            </div>
                             <div>
                               <p className="text-xs text-gray-500 dark:text-gray-400">Check-out</p>
                               <p className="font-semibold text-gray-800 dark:text-white">
@@ -306,24 +317,26 @@ const MyBookingsPage = ({ initialData, userId }: MyBookingsPageProps) => {
                               <p className="text-xs text-gray-500 dark:text-gray-400">{formatTo12Hour(booking.check_out_time)}</p>
                             </div>
                           </div>
-                          <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
-                            <Users className="w-5 h-5 text-orange-500" />
+                          <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl">
+                            <div className="p-2 rounded-lg bg-brand-primary/10">
+                              <Users className="w-5 h-5 text-brand-primary" />
+                            </div>
                             <div>
                               <p className="text-xs text-gray-500 dark:text-gray-400">Guests</p>
-                              <p className="font-semibold text-gray-800 dark:text-white">{totalGuests} people</p>
+                              <p className="font-semibold text-gray-800 dark:text-white">{totalGuests} {totalGuests === 1 ? 'person' : 'people'}</p>
                             </div>
                           </div>
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700 gap-4">
                         <div>
                           <p className="text-sm text-gray-500 dark:text-gray-400">Total Price</p>
-                          <p className="text-2xl font-bold text-orange-500">₱{booking.total_amount.toLocaleString()}</p>
+                          <p className="text-2xl font-bold text-brand-primary">₱{booking.total_amount.toLocaleString()}</p>
                         </div>
-                        <div className="flex gap-3">
-                          <Link href={`/bookings/${booking.id}`}>
-                            <button className="flex items-center gap-2 px-6 py-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-800 dark:text-white rounded-lg font-medium transition-all duration-300">
+                        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                          <Link href={`/bookings/${booking.id}`} className="w-full sm:w-auto">
+                            <button className="flex items-center justify-center gap-2 px-6 py-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-800 dark:text-white rounded-lg font-medium transition-all duration-300 w-full sm:w-auto">
                               View Details
                               <ChevronRight className="w-4 h-4" />
                             </button>
@@ -332,9 +345,14 @@ const MyBookingsPage = ({ initialData, userId }: MyBookingsPageProps) => {
                             <button
                               onClick={() => handleCancelBooking(booking.id)}
                               disabled={isUpdating}
-                              className="px-6 py-3 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium transition-all duration-300 disabled:opacity-50"
+                              className="flex items-center justify-center gap-2 px-6 py-3 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium transition-all duration-300 disabled:opacity-50 w-full sm:w-auto"
                             >
-                              Cancel Booking
+                              {isUpdating ? (
+                                <>
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                  <span>Cancelling...</span>
+                                </>
+                              ) : 'Cancel Booking'}
                             </button>
                           )}
                         </div>
@@ -348,7 +366,7 @@ const MyBookingsPage = ({ initialData, userId }: MyBookingsPageProps) => {
         )}
         </div>
       </div>
-    </>
+    </SidebarLayout>
   );
 };
 
