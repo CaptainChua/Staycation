@@ -177,6 +177,7 @@ export default function PaymentPage() {
           total_amount: b.total_amount,
           remaining_balance: b.remaining_balance,
           payment_proof_url: b.payment_proof_url,
+          updated_at: b.updated_at,
           status: b.status,
         },
       };
