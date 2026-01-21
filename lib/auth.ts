@@ -149,7 +149,7 @@ export const authOptions: NextAuthOptions = {
   },
 
   callbacks: {
-    async signIn({ user, account, profile, credentials }) {
+    async signIn({ user, account, profile, credentials: creds }) {
       try {
         // Handle Google sign-ins
         if (account?.provider === "google" && profile?.sub) {
@@ -178,13 +178,13 @@ export const authOptions: NextAuthOptions = {
         }
         
         // Handle regular credential sign-ins
-        console.log("🔐 Processing credentials login for:", credentials?.email);
+        console.log("🔐 Processing credentials login for:", creds?.email);
 
         // Check regular users table (not employees)
         console.log("📊 Querying users table...");
         const userResult = await pool.query(
           "SELECT user_id, email, password, user_role, name FROM users WHERE email = $1",
-          [credentials?.email || '']
+          [creds?.email || '']
         );
 
         if (userResult.rows.length === 0) {
@@ -198,7 +198,7 @@ export const authOptions: NextAuthOptions = {
         // Verify password
         console.log("🔒 Verifying password...");
         const isValid = await bcrypt.compare(
-          String(credentials?.password || ''), 
+          String(creds?.password || ''), 
           String(credentialUser.password)
         );
 
