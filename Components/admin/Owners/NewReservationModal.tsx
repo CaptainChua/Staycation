@@ -41,7 +41,7 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
   const [errors, setErrors] = useState<Record<string, string>>({});
   const errorRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-  const [formData, setFormData] = useState({
+  const initialFormData = {
     firstName: "",
     lastName: "",
     age: "",
@@ -64,17 +64,37 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
     paymentProofPreview: "",
     termsAccepted: false,
     paymentMethod: "gcash",
-  });
+  };
 
-  const [additionalGuests, setAdditionalGuests] = useState<GuestInfo[]>([]);
-  const [addOns, setAddOns] = useState<AddOns>({
+  const [formData, setFormData] = useState(initialFormData);
+
+  const initialAddOns = {
     poolPass: 0,
     towels: 0,
     bathRobe: 0,
     extraComforter: 0,
     guestKit: 0,
     extraSlippers: 0,
-  });
+  };
+
+  const [additionalGuests, setAdditionalGuests] = useState<GuestInfo[]>([]);
+  const [addOns, setAddOns] = useState<AddOns>(initialAddOns);
+
+  // Reset function to clear all form data
+  const resetForm = () => {
+    setFormData(initialFormData);
+    setAdditionalGuests([]);
+    setAddOns(initialAddOns);
+    setCurrentStep(1);
+    setCompletedSteps([]);
+    setErrors({});
+  };
+
+  // Reset form when modal opens/closes
+  const handleClose = () => {
+    resetForm();
+    onClose();
+  };
 
   const getRoomRateFromStayType = (): number => {
     if (!formData.stayType) return 0;
@@ -253,6 +273,12 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
     }
 
     setErrors(newErrors);
+    
+    if (Object.keys(newErrors).length > 0) {
+      const errorMessages = Object.values(newErrors);
+      alert(`Please fill in all required fields:\n\n${errorMessages.join('\n')}`);
+    }
+    
     return Object.keys(newErrors).length === 0;
   };
 
@@ -311,6 +337,8 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
     };
 
     onSubmit(bookingData);
+    resetForm(); // Reset form after successful submission
+    onClose(); // Close the modal
   };
 
   if (!isOpen) return null;
@@ -320,7 +348,7 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
     return titles[currentStep - 1];
   };
 
-  const inputClass = "w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent";
+  const inputClass = "w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-[#A1823D] focus:border-transparent";
   const labelClass = "block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300";
   const sectionClass = "border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-xl p-6";
 
@@ -328,12 +356,12 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-5xl w-full max-h-[95vh] flex flex-col">
         {/* Header */}
-        <div className="bg-orange-500 text-white p-6 rounded-t-2xl flex justify-between items-center flex-shrink-0">
+        <div className="text-white p-6 rounded-t-2xl flex justify-between items-center flex-shrink-0" style={{ backgroundColor: '#A1823D' }}>
           <div>
             <h2 className="text-2xl font-bold">{getStepTitle()}</h2>
             <p className="text-sm opacity-90">Step {currentStep} of 4</p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-full transition-colors">
+          <button onClick={handleClose} className="p-2 hover:bg-white/20 rounded-full transition-colors">
             <XIcon className="w-6 h-6" />
           </button>
         </div>
@@ -348,16 +376,16 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                     completedSteps.includes(step) 
                       ? "bg-green-500 text-white" 
                       : currentStep === step 
-                      ? "bg-orange-500 text-white" 
+                      ? "text-white" 
                       : "bg-gray-200 dark:bg-gray-600 text-gray-500 dark:text-gray-400"
-                  }`}>
+                  }`} style={currentStep === step ? { backgroundColor: '#A1823D' } : {}}>
                     {completedSteps.includes(step) ? <CheckCircle className="w-6 h-6" /> : step}
                   </div>
                   <span className={`text-xs font-medium text-center ${
                     completedSteps.includes(step) || currentStep === step 
-                      ? "text-orange-500" 
+                      ? "text-gray-900 dark:text-gray-100" 
                       : "text-gray-500 dark:text-gray-400"
-                  }`}>
+                  }`} style={completedSteps.includes(step) || currentStep === step ? { color: '#A1823D' } : {}}>
                     {["Guest", "Booking", "Add-ons", "Payment"][idx]}
                   </span>
                 </div>
@@ -382,7 +410,7 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                 <div className="space-y-6">
                   <div className={sectionClass}>
                     <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-gray-900 dark:text-gray-100">
-                      <User className="w-5 h-5 text-orange-500" />
+                      <User className="w-5 h-5" style={{ color: '#A1823D' }} />
                       Main Guest Information
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -438,7 +466,7 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
 
                   <div className={sectionClass}>
                     <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-gray-900 dark:text-gray-100">
-                      <Users className="w-5 h-5 text-orange-500" />
+                      <Users className="w-5 h-5" style={{ color: '#A1823D' }} />
                       Number of Guests
                     </h3>
                     <div className="grid grid-cols-3 gap-4">
@@ -460,20 +488,91 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                   {additionalGuests.map((guest, index) => (
                     <div key={index} className={sectionClass}>
                       <h3 className="font-bold mb-4 flex items-center gap-2 text-gray-900 dark:text-gray-100">
-                        <User className="w-5 h-5 text-orange-500" />
+                        <User className="w-5 h-5" style={{ color: '#A1823D' }} />
                         {index < formData.adults - 1 ? `Adult ${index + 2}` : `Child ${index - (formData.adults - 1) + 1}`}
                       </h3>
-                      <div className="grid grid-cols-2 gap-4">
-                        <input type="text" value={guest.firstName} onChange={(e) => handleAdditionalGuestChange(index, 'firstName', e.target.value)} placeholder="First Name" className={inputClass} />
-                        <input type="text" value={guest.lastName} onChange={(e) => handleAdditionalGuestChange(index, 'lastName', e.target.value)} placeholder="Last Name" className={inputClass} />
-                        <input type="number" value={guest.age} onChange={(e) => handleAdditionalGuestChange(index, 'age', e.target.value)} placeholder="Age" className={inputClass} />
-                        <select value={guest.gender} onChange={(e) => handleAdditionalGuestChange(index, 'gender', e.target.value)} className={inputClass}>
-                          <option value="">Select Gender</option>
-                          <option value="male">Male</option>
-                          <option value="female">Female</option>
-                          <option value="other">Other</option>
-                        </select>
+                      <div className="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                          <input 
+                            type="text" 
+                            value={guest.firstName} 
+                            onChange={(e) => handleAdditionalGuestChange(index, 'firstName', e.target.value)} 
+                            placeholder="First Name *" 
+                            className={`${inputClass} ${errors[`guest${index}FirstName`] ? 'border-red-500' : ''}`}
+                          />
+                          {errors[`guest${index}FirstName`] && <p className="text-red-500 text-xs mt-1">{errors[`guest${index}FirstName`]}</p>}
+                        </div>
+                        <div>
+                          <input 
+                            type="text" 
+                            value={guest.lastName} 
+                            onChange={(e) => handleAdditionalGuestChange(index, 'lastName', e.target.value)} 
+                            placeholder="Last Name *" 
+                            className={`${inputClass} ${errors[`guest${index}LastName`] ? 'border-red-500' : ''}`}
+                          />
+                          {errors[`guest${index}LastName`] && <p className="text-red-500 text-xs mt-1">{errors[`guest${index}LastName`]}</p>}
+                        </div>
+                        <div>
+                          <input 
+                            type="number" 
+                            value={guest.age} 
+                            onChange={(e) => handleAdditionalGuestChange(index, 'age', e.target.value)} 
+                            placeholder="Age *" 
+                            className={`${inputClass} ${errors[`guest${index}Age`] ? 'border-red-500' : ''}`}
+                          />
+                          {errors[`guest${index}Age`] && <p className="text-red-500 text-xs mt-1">{errors[`guest${index}Age`]}</p>}
+                        </div>
+                        <div>
+                          <select 
+                            value={guest.gender} 
+                            onChange={(e) => handleAdditionalGuestChange(index, 'gender', e.target.value)} 
+                            className={`${inputClass} ${errors[`guest${index}Gender`] ? 'border-red-500' : ''}`}
+                          >
+                            <option value="">Select Gender *</option>
+                            <option value="male">Male</option>
+                            <option value="female">Female</option>
+                            <option value="other">Other</option>
+                          </select>
+                          {errors[`guest${index}Gender`] && <p className="text-red-500 text-xs mt-1">{errors[`guest${index}Gender`]}</p>}
+                        </div>
                       </div>
+                      
+                      {/* Valid ID Upload for Additional Guest (if age >= 10) */}
+                      {guest.age && parseInt(guest.age) >= 10 && (
+                        <div className="mt-4 p-4 border-2 border-dashed border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                          <h4 className="font-semibold mb-3 flex items-center gap-2 text-gray-900 dark:text-gray-100 text-sm">
+                            <CreditCard className="w-4 h-4 text-blue-600" />
+                            Valid ID Required (10+ years old)
+                          </h4>
+                          <input 
+                            type="file" 
+                            accept="image/*" 
+                            onChange={(e) => handleFileChange(e, 'id', index)} 
+                            className="hidden" 
+                            id={`valid-id-guest-${index}`} 
+                          />
+                          <label 
+                            htmlFor={`valid-id-guest-${index}`} 
+                            className={`cursor-pointer flex flex-col items-center p-6 bg-white dark:bg-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition ${errors[`guest${index}ValidId`] ? 'border-2 border-red-500' : ''}`}
+                          >
+                            <Upload className="w-10 h-10 text-blue-500 mb-2" />
+                            <p className="text-blue-600 dark:text-blue-400 font-medium text-sm">Click to upload ID</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">PNG, JPG up to 10MB</p>
+                          </label>
+                          {errors[`guest${index}ValidId`] && <p className="text-red-500 text-xs mt-2">{errors[`guest${index}ValidId`]}</p>}
+                          {guest.validIdPreview && (
+                            <div className="mt-3">
+                              <Image 
+                                src={guest.validIdPreview} 
+                                alt={`Guest ${index + 2} ID preview`} 
+                                width={200} 
+                                height={130} 
+                                className="max-w-xs mx-auto rounded-lg shadow border border-gray-200 dark:border-gray-600" 
+                              />
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -487,7 +586,20 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                     <div className="space-y-4">
                       <div>
                         <label className={labelClass}>Room/Haven Name *</label>
-                        <input type="text" name="roomName" value={formData.roomName} onChange={handleInputChange} required className={inputClass} placeholder="Enter room/haven name" />
+                        <select 
+                          name="roomName" 
+                          value={formData.roomName} 
+                          onChange={handleInputChange} 
+                          required 
+                          className={inputClass}
+                        >
+                          <option value="">Select Room/Haven</option>
+                          <option value="Haven 1">Haven 1</option>
+                          <option value="Haven 2">Haven 2</option>
+                          <option value="Haven 3">Haven 3</option>
+                          <option value="Haven 4">Haven 4</option>
+                          <option value="Haven 5">Haven 5</option>
+                        </select>
                       </div>
                       <div>
                         <label className={labelClass}>Stay Type *</label>
@@ -552,7 +664,7 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                             </button>
                             <span className="w-8 text-center font-semibold text-gray-900 dark:text-gray-100">{addOns[item.key as keyof AddOns]}</span>
                             <button type="button" onClick={() => handleAddOnChange(item.key as keyof AddOns, true)}
-                              className="w-8 h-8 bg-orange-500 hover:bg-orange-600 text-white rounded-full flex items-center justify-center transition">
+                              className="w-8 h-8 text-white rounded-full flex items-center justify-center transition" style={{ backgroundColor: '#A1823D' }}>
                               <Plus className="w-4 h-4" />
                             </button>
                           </div>
@@ -589,7 +701,7 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                       {addOnsTotal > 0 && <div className="flex justify-between text-gray-700 dark:text-gray-300"><span>Add-ons</span><span>₱{addOnsTotal.toLocaleString()}</span></div>}
                       <div className="flex justify-between pt-2 border-t border-gray-200 dark:border-gray-600 font-bold text-lg">
                         <span className="text-gray-900 dark:text-gray-100">Total</span>
-                        <span className="text-orange-500">₱{totalAmount.toLocaleString()}</span>
+                        <span style={{ color: '#A1823D' }}>₱{totalAmount.toLocaleString()}</span>
                       </div>
                       <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg mt-4 space-y-2 border border-green-200 dark:border-green-800">
                         <div className="flex justify-between text-sm text-gray-900 dark:text-gray-100"><span>Downpayment</span><strong>₱{downPayment.toLocaleString()}</strong></div>
@@ -601,12 +713,12 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                   <div className={sectionClass}>
                     <h3 className="font-bold text-lg mb-4 text-gray-900 dark:text-gray-100">Payment Method</h3>
                     <div className="space-y-3">
-                      <label className="flex items-center gap-3 p-4 border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg cursor-pointer hover:border-orange-500 dark:hover:border-orange-400 transition">
-                        <input type="radio" name="paymentMethod" value="gcash" checked={formData.paymentMethod === "gcash"} onChange={handleInputChange} className="w-4 h-4 text-orange-500 focus:ring-orange-500" />
+                      <label className="flex items-center gap-3 p-4 border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg cursor-pointer transition" style={{ borderColor: formData.paymentMethod === "gcash" ? '#A1823D' : '' }}>
+                        <input type="radio" name="paymentMethod" value="gcash" checked={formData.paymentMethod === "gcash"} onChange={handleInputChange} className="w-4 h-4 focus:ring-[#A1823D]" style={{ accentColor: '#A1823D' }} />
                         <span className="text-gray-900 dark:text-gray-100 font-medium">GCash</span>
                       </label>
-                      <label className="flex items-center gap-3 p-4 border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg cursor-pointer hover:border-orange-500 dark:hover:border-orange-400 transition">
-                        <input type="radio" name="paymentMethod" value="bank" checked={formData.paymentMethod === "bank"} onChange={handleInputChange} className="w-4 h-4 text-orange-500 focus:ring-orange-500" />
+                      <label className="flex items-center gap-3 p-4 border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg cursor-pointer transition" style={{ borderColor: formData.paymentMethod === "bank" ? '#A1823D' : '' }}>
+                        <input type="radio" name="paymentMethod" value="bank" checked={formData.paymentMethod === "bank"} onChange={handleInputChange} className="w-4 h-4 focus:ring-[#A1823D]" style={{ accentColor: '#A1823D' }} />
                         <span className="text-gray-900 dark:text-gray-100 font-medium">Bank Transfer</span>
                       </label>
                     </div>
@@ -614,7 +726,7 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                     <div className="mt-6">
                       <label className={labelClass}>Upload Proof of Payment *</label>
                       <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'payment')} className="hidden" id="payment-proof" />
-                      <label htmlFor="payment-proof" className="cursor-pointer flex flex-col items-center p-8 border-2 border-dashed border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 rounded-lg hover:border-orange-500 dark:hover:border-orange-400 transition">
+                      <label htmlFor="payment-proof" className="cursor-pointer flex flex-col items-center p-8 border-2 border-dashed border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 rounded-lg hover:border-[#A1823D] dark:hover:border-[#A1823D] transition">
                         <Upload className="w-12 h-12 text-gray-400 mb-3" />
                         <p className="font-medium text-gray-600 dark:text-gray-300">Click to upload payment screenshot</p>
                         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">PNG, JPG up to 10MB</p>
@@ -629,7 +741,7 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
 
                   <div className={sectionClass}>
                     <label className="flex items-start gap-3 cursor-pointer">
-                      <input type="checkbox" name="termsAccepted" checked={formData.termsAccepted} onChange={handleInputChange} className="w-5 h-5 mt-1 text-orange-500 focus:ring-orange-500 rounded" />
+                      <input type="checkbox" name="termsAccepted" checked={formData.termsAccepted} onChange={handleInputChange} className="w-5 h-5 mt-1 rounded" style={{ accentColor: '#A1823D' }} />
                       <span className="text-sm text-gray-900 dark:text-gray-100">I agree to the Terms and Conditions and Cancellation Policy</span>
                     </label>
                   </div>
@@ -656,7 +768,8 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
             <button 
               type="button" 
               onClick={handleNext}
-              className="flex-1 flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-semibold py-3 px-6 rounded-lg transition"
+              className="flex-1 flex items-center justify-center gap-2 text-white font-semibold py-3 px-6 rounded-lg transition hover:opacity-90"
+              style={{ backgroundColor: '#A1823D' }}
             >
               Next Step
               <ChevronRight className="w-5 h-5" />

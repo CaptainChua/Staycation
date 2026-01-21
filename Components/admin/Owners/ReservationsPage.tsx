@@ -334,8 +334,8 @@ const ReservationsPage = () => {
       {/* Details Modal */}
       {selectedBooking && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-gradient-to-r from-orange-500 to-yellow-500 text-white p-6 rounded-t-2xl flex justify-between items-center">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-orange-500 text-white p-6 rounded-t-2xl flex justify-between items-center">
               <div>
                 <h2 className="text-2xl font-bold">Booking Details</h2>
                 <p className="text-sm opacity-90">ID: {selectedBooking.booking_id}</p>
@@ -352,28 +352,28 @@ const ReservationsPage = () => {
                 </span>
               </div>
 
-              <div className="bg-gray-50 rounded-lg p-6">
-                <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-6 border border-gray-200 dark:border-gray-600">
+                <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4 flex items-center gap-2">
                   <User className="w-5 h-5 text-orange-500" />
                   Main Guest Information
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <p className="text-sm text-gray-500">Full Name</p>
-                    <p className="font-semibold text-gray-800">{selectedBooking.guest_first_name} {selectedBooking.guest_last_name}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Full Name</p>
+                    <p className="font-semibold text-gray-800 dark:text-gray-100">{selectedBooking.guest_first_name} {selectedBooking.guest_last_name}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">Email</p>
-                    <p className="font-semibold text-gray-800">{selectedBooking.guest_email}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Email</p>
+                    <p className="font-semibold text-gray-800 dark:text-gray-100">{selectedBooking.guest_email}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">Phone</p>
-                    <p className="font-semibold text-gray-800">{selectedBooking.guest_phone}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Phone</p>
+                    <p className="font-semibold text-gray-800 dark:text-gray-100">{selectedBooking.guest_phone}</p>
                   </div>
                 </div>
               </div>
 
-              <div className="flex gap-3 justify-end border-t pt-6">
+              <div className="flex gap-3 justify-end border-t border-gray-200 dark:border-gray-600 pt-6">
                 {selectedBooking.status === "pending" && (
                   <>
                     <button onClick={() => { handleApprove(selectedBooking.id); closeModal(); }} className="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2">
@@ -394,7 +394,7 @@ const ReservationsPage = () => {
                     Check Out Guest
                   </button>
                 )}
-                <button onClick={closeModal} className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+                <button onClick={closeModal} className="px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">
                   Close
                 </button>
               </div>
