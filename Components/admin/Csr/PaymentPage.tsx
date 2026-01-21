@@ -39,7 +39,6 @@ interface PaymentRow {
   payment_proof?: string | null;
   status: PaymentStatus;
   statusColor: string;
-  // original booking payload for actions/modal view (local minimal type to avoid global refactor)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   booking?: any;
 }
@@ -91,13 +90,20 @@ export default function PaymentPage() {
     null,
   );
 
-  // No detail fetch required for the lightweight payment view; we use the row data
+  // Memoize Intl.NumberFormat to avoid re-allocating on every render
+  const currencyFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat("en-PH", {
+        style: "currency",
+        currency: "PHP",
+      }),
+    [],
+  );
 
-  const formatCurrency = (amount: number) =>
-    new Intl.NumberFormat("en-PH", {
-      style: "currency",
-      currency: "PHP",
-    }).format(amount);
+  const formatCurrency = useCallback(
+    (amount: number) => currencyFormatter.format(amount),
+    [currencyFormatter],
+  );
 
   const formatDate = (dateString?: string | null) => {
     if (!dateString) return "—";
@@ -183,7 +189,7 @@ export default function PaymentPage() {
       };
       return row;
     });
-  }, [bookingsRaw, mapStatusToUI, getStatusColorClass]);
+  }, [bookingsRaw, formatCurrency, mapStatusToUI, getStatusColorClass]);
 
   // combined loading flag for UI skeletons
   const isLoadingTable = isBookingsLoading || isBookingsFetching;
@@ -438,7 +444,7 @@ export default function PaymentPage() {
           return (
             <div
               key={i}
-              className={`${stat.color} text-white rounded-lg p-6 shadow dark:shadow-gray-900 hover:shadow-lg transition-all`}
+              className={`${stat.color} text-white rounded-lg p-6 shadow dark:shadow-gray-900 hover:shadow-lg transition-shadow transition-transform duration-200 transform hover:-translate-y-1`}
             >
               <div className="flex items-center justify-between">
                 <div>
@@ -725,7 +731,7 @@ export default function PaymentPage() {
           paginatedPayments.map((payment) => (
             <div
               key={payment.booking_id}
-              className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-4 border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-all"
+              className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-4 border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-shadow transition-transform duration-200 transform hover:-translate-y-1"
             >
               <div className="flex items-start justify-between mb-3 pb-3 border-b border-gray-200 dark:border-gray-600">
                 <div>
