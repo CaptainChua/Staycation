@@ -39,6 +39,36 @@ const Navbar = () => {
 
   const menuItems = ["Havens", "Contacts", "Location", "About"];
 
+  // Define profile dropdown items
+  const profileDropdownItems = [
+    {
+      href: "/profile",
+      label: "My Profile",
+      icon: User,
+      iconColor: "text-brand-primary",
+    },
+    {
+      href: "/my-bookings",
+      label: "My Bookings",
+      icon: Calendar,
+      iconColor: "text-brand-primary",
+    },
+    {
+      href: "/my-wishlist",
+      label: "My Wishlist",
+      icon: Heart,
+      iconColor: "text-brand-primary",
+    },
+  ];
+
+  // Check if a path is active (exact match or starts with for nested routes)
+  const isActivePath = (href: string) => {
+    if (href === "/profile") {
+      return pathname === href || pathname.startsWith("/profile/");
+    }
+    return pathname === href || pathname.startsWith(`${href}/`);
+  };
+
   // Close profile dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -200,29 +230,25 @@ const Navbar = () => {
                   </div>
 
                   <div className="py-1">
-                    <button
-                      onClick={() => handleDropdownNavigation("/profile")}
-                      className="w-full px-4 py-2.5 flex items-center gap-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-150 text-left"
-                    >
-                      <User className="w-4 h-4 text-brand-primary" />
-                      <span className="text-sm font-medium">My Profile</span>
-                    </button>
-
-                    <button
-                      onClick={() => handleDropdownNavigation("/my-bookings")}
-                      className="w-full px-4 py-2.5 flex items-center gap-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-150 text-left"
-                    >
-                      <Calendar className="w-4 h-4 text-brand-primary" />
-                      <span className="text-sm font-medium">My Bookings</span>
-                    </button>
-
-                    <button
-                      onClick={() => handleDropdownNavigation("/my-wishlist")}
-                      className="w-full px-4 py-2.5 flex items-center gap-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-150 text-left"
-                    >
-                      <Heart className="w-4 h-4 text-brand-primary" />
-                      <span className="text-sm font-medium">My Wishlist</span>
-                    </button>
+                    {profileDropdownItems.map((item, index) => {
+                      const Icon = item.icon;
+                      const isActive = isActivePath(item.href);
+                      
+                      return (
+                        <button
+                          key={index}
+                          onClick={() => handleDropdownNavigation(item.href)}
+                          className={`w-full px-4 py-2.5 flex items-center gap-3 transition-colors duration-150 text-left ${
+                            isActive
+                              ? "bg-brand-primary/10 dark:bg-brand-primary/20 text-brand-primary dark:text-brand-primary font-medium border-l-2 border-brand-primary"
+                              : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          }`}
+                        >
+                          <Icon className={`w-4 h-4 ${isActive ? "text-brand-primary" : item.iconColor}`} />
+                          <span className="text-sm">{item.label}</span>
+                        </button>
+                      );
+                    })}
                   </div>
 
                   <div className="border-t border-gray-200 dark:border-gray-600 py-1">
@@ -323,29 +349,25 @@ const Navbar = () => {
                   </div>
 
                   <div className="py-1">
-                    <button
-                      onClick={() => handleDropdownNavigation("/profile")}
-                      className="w-full px-4 py-2.5 flex items-center gap-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-150 text-left"
-                    >
-                      <User className="w-4 h-4 text-brand-primary" />
-                      <span className="text-sm font-medium">My Profile</span>
-                    </button>
-
-                    <button
-                      onClick={() => handleDropdownNavigation("/my-bookings")}
-                      className="w-full px-4 py-2.5 flex items-center gap-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-150 text-left"
-                    >
-                      <Calendar className="w-4 h-4 text-brand-primary" />
-                      <span className="text-sm font-medium">My Bookings</span>
-                    </button>
-
-                    <button
-                      onClick={() => handleDropdownNavigation("/my-wishlist")}
-                      className="w-full px-4 py-2.5 flex items-center gap-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-150 text-left"
-                    >
-                      <Heart className="w-4 h-4 text-brand-primary" />
-                      <span className="text-sm font-medium">My Wishlist</span>
-                    </button>
+                    {profileDropdownItems.map((item, index) => {
+                      const Icon = item.icon;
+                      const isActive = isActivePath(item.href);
+                      
+                      return (
+                        <button
+                          key={index}
+                          onClick={() => handleDropdownNavigation(item.href)}
+                          className={`w-full px-4 py-2.5 flex items-center gap-3 transition-colors duration-150 text-left ${
+                            isActive
+                              ? "bg-brand-primary/10 dark:bg-brand-primary/20 text-brand-primary dark:text-brand-primary font-medium border-l-2 border-brand-primary"
+                              : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          }`}
+                        >
+                          <Icon className={`w-4 h-4 ${isActive ? "text-brand-primary" : item.iconColor}`} />
+                          <span className="text-sm">{item.label}</span>
+                        </button>
+                      );
+                    })}
                   </div>
 
                   <div className="border-t border-gray-200 dark:border-gray-600 py-1">
@@ -478,39 +500,30 @@ const Navbar = () => {
                     </p>
                   </div>
                 </div>
-                {/* Profile Button */}
-                <button
-                  onClick={() => {
-                    setIsMenuOpen(false);
-                    router.push("/profile");
-                  }}
-                  className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-brand-primary hover:bg-brand-primaryDark text-white rounded-lg font-medium transition-all duration-300 shadow-md"
-                >
-                  <User className="w-5 h-5" />
-                  <span>My Profile</span>
-                </button>
-                {/* My Bookings Button */}
-                <button
-                  onClick={() => {
-                    setIsMenuOpen(false);
-                    router.push("/my-bookings");
-                  }}
-                  className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-brand-primary hover:bg-brand-primaryDark text-white rounded-lg font-medium transition-all duration-300 shadow-md"
-                >
-                  <Calendar className="w-5 h-5" />
-                  <span>My Bookings</span>
-                </button>
-                {/* My Wishlist Button */}
-                <button
-                  onClick={() => {
-                    setIsMenuOpen(false);
-                    router.push("/my-wishlist");
-                  }}
-                  className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-brand-primary hover:bg-brand-primaryDark text-white rounded-lg font-medium transition-all duration-300 shadow-md"
-                >
-                  <Heart className="w-5 h-5" />
-                  <span>My Wishlist</span>
-                </button>
+                
+                {/* Profile Dropdown Items */}
+                {profileDropdownItems.map((item, index) => {
+                  const Icon = item.icon;
+                  const isActive = isActivePath(item.href);
+                  
+                  return (
+                    <button
+                      key={index}
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        router.push(item.href);
+                      }}
+                      className={`w-full flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-medium transition-all duration-300 shadow-md ${
+                        isActive
+                          ? "bg-brand-primary/20 text-brand-primary border-2 border-brand-primary"
+                          : "bg-brand-primary hover:bg-brand-primaryDark text-white"
+                      }`}
+                    >
+                      <Icon className="w-5 h-5" />
+                      <span>{item.label}</span>
+                    </button>
+                  );
+                })}
 
                 {/* Sign Out Button */}
                 <button
