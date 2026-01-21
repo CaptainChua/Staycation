@@ -4,26 +4,22 @@ import {
   Calendar,
   User,
   MapPin,
-  Phone,
-  Mail,
   Check,
   X,
   AlertCircle,
   Eye,
   XCircle,
-  CreditCard,
   Package,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
 } from "lucide-react";
-import { useState, useRef } from "react";
+import { useState } from "react";
 import {
   useGetBookingsQuery,
   useUpdateBookingStatusMutation,
 } from "@/redux/api/bookingsApi";
-import Image from "next/image";
 
 import { Booking } from "@/types/booking";
 
@@ -73,7 +69,6 @@ const ReservationsPage = () => {
   const handleReject = async (bookingId: string) => {
     const reason = prompt("Please enter rejection reason:");
     if (!reason) return;
-
     try {
       await updateBookingStatus({
         id: bookingId,
@@ -216,8 +211,8 @@ const ReservationsPage = () => {
 
     const q = searchQuery.trim().toLowerCase();
     const bookingId = String(r.booking_id || r.id || "").toLowerCase();
-    const guestFirst = String((r as any).guest_first_name || "").toLowerCase();
-    const guestLast = String((r as any).guest_last_name || "").toLowerCase();
+    const guestFirst = String(r.guest_first_name || "").toLowerCase();
+    const guestLast = String(r.guest_last_name || "").toLowerCase();
     const guestFull = `${guestFirst} ${guestLast}`.trim();
 
     const matchesSearch =
