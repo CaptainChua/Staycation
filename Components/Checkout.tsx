@@ -458,7 +458,7 @@
 
             setFormData((prev) => ({
               ...prev,
-              [name]: isNaN(ageValue) ? "" : ageValue
+              [name]: isNaN(ageValue) ? "" : String(ageValue)
             }));
           }
         } else if (name === "email") {
@@ -486,7 +486,7 @@
           }));
         } else if (name === "infants") {
           if (value === "") {
-            setFormData(prev => ({ ...prev, [name]: "" }));
+            setFormData(prev => ({ ...prev, [name]: 0 }));
           } else {
             setFormData(prev => ({ ...prev, [name]: parseInt(value) }));
           }
