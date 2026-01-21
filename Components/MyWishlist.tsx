@@ -99,7 +99,6 @@ const MyWishlistPage = ({ initialData, userId }: MyWishlistPageProps) => {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Loading Skeleton */}
         {isLoading ? (
           <div className="space-y-12">
             {[1, 2, 3].map((skeletonGroup) => (
@@ -153,7 +152,7 @@ const MyWishlistPage = ({ initialData, userId }: MyWishlistPageProps) => {
                       room={{
                         id: item.haven_id,
                         uuid_id: item.haven_id,
-                        name: item.room_name, // Fix property name mismatch
+                        name: item.room_name,
                         price: `₱${item.price}`,
                         pricePerNight: "per 6 hours",
                         images: item.images || [],
@@ -183,7 +182,7 @@ const MyWishlistPage = ({ initialData, userId }: MyWishlistPageProps) => {
                       room={{
                         id: item.haven_id,
                         uuid_id: item.haven_id,
-                        name: item.room_name, // Fix property name mismatch
+                        name: item.room_name,
                         price: `₱${item.price}`,
                         pricePerNight: "per 6 hours",
                         images: item.images || [],
