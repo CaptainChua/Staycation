@@ -73,10 +73,9 @@ interface User {
 // Placeholder component for Haven Management
 interface HavenManagementPlaceholderProps {
   onAddHavenClick: () => void;
-  onViewAllClick: () => void;
 }
 
-function HavenManagementPlaceholder({ onAddHavenClick, onViewAllClick }: HavenManagementPlaceholderProps) {
+function HavenManagementPlaceholder({ onAddHavenClick }: HavenManagementPlaceholderProps) {
   const sampleHavens = ["Haven 1", "Haven 2", "Haven 3", "Haven 4"];
   
   // Stats cards matching Analytics page style
@@ -96,12 +95,6 @@ function HavenManagementPlaceholder({ onAddHavenClick, onViewAllClick }: HavenMa
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage your property units, availability, pricing, and amenities</p>
         </div>
         <div className="flex gap-3">
-          <button
-            onClick={onViewAllClick}
-            className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
-          >
-            View All Units
-          </button>
           <button
             onClick={onAddHavenClick}
             className="px-4 py-2 bg-brand-primary hover:bg-brand-primaryDark text-white rounded-lg font-medium transition-all"
@@ -151,8 +144,6 @@ interface EmployeeProfile {
 
 export default function OwnerDashboard() {
   const { data: session} = useSession();
-  const NOTIF_SOUND_STORAGE_KEY = "owner-dashboard-notification-sound-v1";
-  const NOTIF_LAST_ID_STORAGE_KEY = "owner-dashboard-last-notification-id-v1";
   const [sidebar, setSidebar] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [page, setPage] = useState("dashboard");
@@ -164,7 +155,6 @@ export default function OwnerDashboard() {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const notificationButtonRef = useRef<HTMLButtonElement | null>(null);
   const messageButtonRef = useRef<HTMLButtonElement | null>(null);
-  const notificationsHydratedRef = useRef(false);
   const [havenView, setHavenView] = useState<"overview" | "list">("overview");
   const [now, setNow] = useState<Date | null>(null);
   const [modals, setModals] = useState({
@@ -224,6 +214,29 @@ export default function OwnerDashboard() {
     return map;
   }, [employees]);
 
+  const userSession = getUserSession();
+
+  // Current owner profile (from employees list for freshest data)
+  const currentEmployee = useMemo(() => {
+    if (!userId) return null;
+    return employees.find((emp: EmployeeProfile) => emp.id === userId) || null;
+  }, [employees, userId]);
+
+  const headerName =
+    (currentEmployee
+      ? `${currentEmployee.first_name ?? ""} ${currentEmployee.last_name ?? ""}`.trim() ||
+        currentEmployee.email ||
+        currentEmployee.employment_id
+      : userSession?.name) || "User";
+
+  const headerRole = userSession?.role || "Owner";
+
+  const headerImage =
+    currentEmployee?.profile_image_url ||
+    userSession?.profile_image_url ||
+    userSession?.image ||
+    "";
+
   // Fetch unread count for notifications badge
   const { data: unreadCount = 0 } = useGetUnreadCountQuery(undefined, {
     skip: !userId,
@@ -241,6 +254,9 @@ export default function OwnerDashboard() {
     return () => window.clearInterval(id);
   }, []);
 
+  // Notification modal state
+  const [notificationModalOpen, setNotificationModalOpen] = useState(false);
+
   // Fetch havens from database
   const { data: havensData } = useGetHavensQuery({});
   
@@ -253,79 +269,6 @@ export default function OwnerDashboard() {
   };
 
   const allHavens = getAllHavens();
-
-  const notifications = [
-    {
-      id: "1",
-      title: "New booking received",
-      description: "A new booking was created for one of your havens.",
-      timestamp: "2 mins ago",
-      type: "info" as const,
-    },
-    {
-      id: "2",
-      title: "Payout processed",
-      description: "Your latest payout for this week has been processed.",
-      timestamp: "30 mins ago",
-      type: "success" as const,
-    },
-    {
-      id: "3",
-      title: "Upcoming guest arrival",
-      description: "Guest arrival scheduled later today. Review details.",
-      timestamp: "1 hr ago",
-      type: "warning" as const,
-    },
-  ];
-
-  const playSavedNotificationSound = () => {
-    try {
-      const raw = localStorage.getItem(NOTIF_SOUND_STORAGE_KEY);
-      const parsed = raw
-        ? (JSON.parse(raw) as {
-            enabled?: boolean;
-            dataUrl?: string | null;
-          })
-        : null;
-
-      if (parsed?.enabled === false) return;
-      if (!parsed?.dataUrl) return;
-
-      const audio = new Audio(parsed.dataUrl);
-      audio.volume = 1;
-      void audio.play();
-    } catch {
-      // ignore
-    }
-  };
-
-  // Play sound only when a NEW notification is received (not when opening the bell)
-  useEffect(() => {
-    const newestId = notifications[0]?.id;
-    if (!newestId) return;
-
-    // skip first run (page load)
-    if (!notificationsHydratedRef.current) {
-      notificationsHydratedRef.current = true;
-      try {
-        localStorage.setItem(NOTIF_LAST_ID_STORAGE_KEY, newestId);
-      } catch {
-        // ignore
-      }
-      return;
-    }
-
-    try {
-      const lastId = localStorage.getItem(NOTIF_LAST_ID_STORAGE_KEY);
-      if (lastId && lastId !== newestId) {
-        playSavedNotificationSound();
-      }
-      localStorage.setItem(NOTIF_LAST_ID_STORAGE_KEY, newestId);
-    } catch {
-      // ignore
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [notifications]);
 
   // Group havens by name to get unique haven names
   const uniqueHavenNames = Array.from(
@@ -443,12 +386,6 @@ export default function OwnerDashboard() {
       color: "text-emerald-500",
     },
     {
-      id: "guest",
-      icon: Users,
-      label: "Guest Assistance",
-      color: "text-teal-500",
-    },
-    {
       id: "messages",
       icon: MessageSquare,
       label: "Messages",
@@ -475,25 +412,23 @@ export default function OwnerDashboard() {
   ];
 
   // Helper function to get user from session
-  const getUser = (): User | null => {
+  function getUser(): User | null {
     return session?.user || null;
-  };
+  }
 
   // Helper function to get user session with role
-  const getUserSession = (): UserSession | null => {
+  function getUserSession(): UserSession | null {
     const user = getUser();
     if (!user) return null;
-    
+
     return {
       name: user.name,
       email: user.email,
       image: user.image,
       profile_image_url: (user as UserSession)?.profile_image_url,
-      role: (user as UserSession)?.role || "Owner"
+      role: (user as UserSession)?.role || "Owner",
     };
-  };
-
-  const userSession = getUserSession();
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-start">
@@ -709,13 +644,18 @@ export default function OwnerDashboard() {
             {/* Messages */}
             <button
               ref={messageButtonRef}
-              className="relative p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+              className={`relative p-2 rounded-lg transition-colors ${
+                messageModalOpen
+                  ? "bg-brand-primaryLighter text-brand-primary"
+                  : "hover:bg-gray-100 dark:hover:bg-gray-800"
+              }`}
               onClick={() => {
                 setMessageBadge(false);
+                setNotificationOpen(false);
                 setMessageModalOpen((prev) => !prev);
               }}
             >
-              <MessageSquare className="w-6 h-6 text-gray-600 dark:text-gray-300" />
+              <MessageSquare className={`w-6 h-6 ${messageModalOpen ? "text-brand-primary" : "text-gray-600 dark:text-gray-300"}`} />
               {messageBadge && (
                 <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
               )}
@@ -724,10 +664,17 @@ export default function OwnerDashboard() {
             {/* Notifications */}
             <button
               ref={notificationButtonRef}
-              className="relative p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-              onClick={() => setNotificationOpen((prev) => !prev)}
+              className={`relative p-2 rounded-lg transition-colors ${
+                notificationOpen
+                  ? "bg-brand-primaryLighter text-brand-primary"
+                  : "hover:bg-gray-100 dark:hover:bg-gray-800"
+              }`}
+              onClick={() => {
+                setMessageModalOpen(false);
+                setNotificationOpen((prev) => !prev);
+              }}
             >
-              <Bell className="w-6 h-6 text-gray-600 dark:text-gray-300" />
+              <Bell className={`w-6 h-6 ${notificationOpen ? "text-brand-primary" : "text-gray-600 dark:text-gray-300"}`} />
               {unreadCount > 0 && (
                 <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
               )}
@@ -737,11 +684,11 @@ export default function OwnerDashboard() {
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-                className="flex items-center gap-2 p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                className="flex items-center gap-3 p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
               >
-                {userSession?.profile_image_url || userSession?.image ? (
+                {headerImage ? (
                   <Image
-                    src={userSession.profile_image_url || userSession.image || ''}
+                    src={headerImage}
                     alt="Profile"
                     width={40}
                     height={40}
@@ -749,9 +696,17 @@ export default function OwnerDashboard() {
                   />
                 ) : (
                   <div className="w-10 h-10 bg-brand-primary rounded-full flex items-center justify-center text-white font-bold">
-                    {userSession?.name?.charAt(0) || "O"}
+                    {headerName?.charAt(0) || "O"}
                   </div>
                 )}
+                <div className="hidden sm:flex flex-col items-start leading-tight">
+                  <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+                    {headerName}
+                  </span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    {headerRole}
+                  </span>
+                </div>
                 <ChevronDown className={`w-4 h-4 text-gray-600 dark:text-gray-300 transition-transform ${profileDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
 
@@ -761,9 +716,9 @@ export default function OwnerDashboard() {
                   {/* User Info */}
                   <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
                     <div className="flex items-center gap-3">
-                      {userSession?.profile_image_url || userSession?.image ? (
+                      {headerImage ? (
                         <Image
-                          src={userSession.profile_image_url || userSession.image || ''}
+                          src={headerImage}
                           alt="Profile"
                           width={48}
                           height={48}
@@ -771,15 +726,15 @@ export default function OwnerDashboard() {
                         />
                       ) : (
                         <div className="w-12 h-12 bg-brand-primary rounded-full flex items-center justify-center text-white font-bold text-lg">
-                          {userSession?.name?.charAt(0) || "O"}
+                          {headerName?.charAt(0) || "O"}
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">
-                          {userSession?.name || "User"}
+                          {headerName}
                         </p>
                         <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                          {userSession?.role || "Owner"}
+                          {headerRole}
                         </p>
                       </div>
                     </div>
@@ -842,19 +797,18 @@ export default function OwnerDashboard() {
                   setBookingDateModal({
                     isOpen: true,
                     selectedDate: date,
-                    havenName: haven.haven_name || haven.name || 'Unknown Haven',
+                    havenName: haven.haven_name || haven.name || "Unknown Haven",
                   });
                 }}
               />
             )}
-            {page === "havens" && havenView === "overview" && (
-              <HavenManagementPlaceholder
-                onAddHavenClick={() => openModal("addHaven")}
-                onViewAllClick={() => setHavenView("list")}
-              />
-            )}
-            {page === "havens" && havenView === "list" && (
-              <ViewAllUnits onAddUnitClick={() => openModal("addHaven")} />
+            {page === "havens" && (
+              <div className="space-y-6">
+                <HavenManagementPlaceholder
+                  onAddHavenClick={() => openModal("addHaven")}
+                />
+                <ViewAllUnits onAddUnitClick={() => openModal("addHaven")} hideHeader={true} />
+              </div>
             )}
             {page === "analytics" && <AnalyticsPage />}
             {page === "reservations" && <ReservationsPage />}
@@ -889,7 +843,6 @@ export default function OwnerDashboard() {
         <AdminFooter />
       </div>
 
-      {/* NOTIFICATIONS POPUP */}
       {notificationOpen && (
         <NotificationModal
           onClose={() => setNotificationOpen(false)}
@@ -898,7 +851,7 @@ export default function OwnerDashboard() {
             setPage("notifications");
           }}
           anchorRef={notificationButtonRef}
-          userId={user?.id}
+          userId={session?.user?.id}
         />
       )}
 
@@ -954,7 +907,7 @@ export default function OwnerDashboard() {
           onClose={() => setNotificationOpen(false)}
           onViewAll={() => {
             setNotificationOpen(false);
-            // You can add a notifications page navigation here
+            // Navigate to notifications page if needed in the future
           }}
           anchorRef={notificationButtonRef}
           userId={userId || undefined}

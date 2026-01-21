@@ -121,16 +121,14 @@ export default function NotificationModal({ onClose, onViewAll, anchorRef, userI
   if (!isMounted) return null;
 
   return createPortal(
-    <>
-      <div className="fixed inset-0 z-[9980]" aria-hidden="true" />
-      <div
-        ref={containerRef}
-        className="fixed z-[9991] w-full max-w-md md:max-w-sm"
-        style={{
-          top: position.top,
-          right: position.right,
-        }}
-      >
+    <div
+      ref={containerRef}
+      className="fixed z-[9991] w-full max-w-md md:max-w-sm"
+      style={{
+        top: position.top,
+        right: position.right,
+      }}
+    >
         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-h-[80vh] flex flex-col overflow-hidden border border-brand-primary/20 dark:border-gray-800">
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900">
             <div className="flex items-center gap-3">
@@ -294,8 +292,7 @@ export default function NotificationModal({ onClose, onViewAll, anchorRef, userI
             </button>
           </div>
         </div>
-      </div>
-    </>,
+    </div>,
     document.body
   );
 }

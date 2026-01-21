@@ -104,6 +104,36 @@ export const reportApi = createApi({
       invalidatesTags: ['Report']
     }),
 
+    // Update report
+    updateReport: builder.mutation<ReportIssueResponse, { reportId: string } & Partial<ReportIssueRequest>>({
+      query: ({ reportId, ...data }) => {
+        const formData = new FormData();
+        
+        // Add all form fields if provided
+        if (data.haven_id) formData.append('haven_id', data.haven_id);
+        if (data.issue_type) formData.append('issue_type', data.issue_type);
+        if (data.priority_level) formData.append('priority_level', data.priority_level);
+        if (data.specific_location) formData.append('specific_location', data.specific_location);
+        if (data.issue_description) formData.append('issue_description', data.issue_description);
+        if (data.user_id) formData.append('user_id', data.user_id);
+        
+        // Add images if any
+        if (data.images && data.images.length > 0) {
+          data.images.forEach((image, index) => {
+            formData.append(`image_${index}`, image);
+          });
+        }
+        
+        return {
+          url: `/report/${reportId}`,
+          method: "PATCH",
+          body: formData,
+          formData: true
+        };
+      },
+      invalidatesTags: ['Report']
+    }),
+
     // Delete report
     deleteReport: builder.mutation({
       query: (reportId) => ({
@@ -129,6 +159,7 @@ export const {
   useGetReportByIdQuery,
   useUpdateReportStatusMutation,
   useUpdateReportAssignmentMutation,
+  useUpdateReportMutation,
   useDeleteReportMutation,
   useGetUserByIdQuery
 } = reportApi;

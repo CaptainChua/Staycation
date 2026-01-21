@@ -24,9 +24,10 @@ interface HavenUnit {
 
 interface ViewAllUnitsProps {
   onAddUnitClick: () => void;
+  hideHeader?: boolean;
 }
 
-const ViewAllUnits = ({ onAddUnitClick }: ViewAllUnitsProps) => {
+const ViewAllUnits = ({ onAddUnitClick, hideHeader = false }: ViewAllUnitsProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [isEditHavnModal, setIsEditOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -41,15 +42,17 @@ const ViewAllUnits = ({ onAddUnitClick }: ViewAllUnitsProps) => {
     return (
       <div className="space-y-6 animate-in fade-in duration-700">
         {/* Header Skeleton */}
-        <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
-          <div className="flex justify-between items-center">
-            <div className="space-y-2">
-              <div className="h-8 w-48 bg-gray-200 rounded animate-pulse"></div>
-              <div className="h-4 w-64 bg-gray-200 rounded animate-pulse"></div>
+        {!hideHeader && (
+          <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
+            <div className="flex justify-between items-center">
+              <div className="space-y-2">
+                <div className="h-8 w-48 bg-gray-200 rounded animate-pulse"></div>
+                <div className="h-4 w-64 bg-gray-200 rounded animate-pulse"></div>
+              </div>
+              <div className="h-12 w-40 bg-gray-200 rounded-lg animate-pulse"></div>
             </div>
-            <div className="h-12 w-40 bg-gray-200 rounded-lg animate-pulse"></div>
           </div>
-        </div>
+        )}
 
         {/* Search Skeleton */}
         <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
@@ -176,19 +179,21 @@ const ViewAllUnits = ({ onAddUnitClick }: ViewAllUnitsProps) => {
   return (
     <div className="space-y-6 animate-in fade-in duration-700">
       {/* Header - Matching Analytics page style */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">All Haven Units</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage your property units, rates, and availability</p>
+      {!hideHeader && (
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">All Haven Units</h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage your property units, rates, and availability</p>
+          </div>
+          <button
+            onClick={onAddUnitClick}
+            className="flex items-center gap-2 px-4 py-2 bg-brand-primary hover:bg-brand-primaryDark text-white rounded-lg font-medium transition-all"
+          >
+            <Plus className="w-5 h-5" />
+            Add New Haven
+          </button>
         </div>
-        <button
-          onClick={onAddUnitClick}
-          className="flex items-center gap-2 px-4 py-2 bg-brand-primary hover:bg-brand-primaryDark text-white rounded-lg font-medium transition-all"
-        >
-          <Plus className="w-5 h-5" />
-          Add New Haven
-        </button>
-      </div>
+      )}
 
       {/* Table - Matching Analytics page table style */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden">
