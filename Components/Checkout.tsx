@@ -416,16 +416,16 @@
         // Handle guest count validation (adults + children only, infants not counted)
         if (name === "adults" || name === "children") {
           if (value === "") {
-            setFormData(prev => ({ ...prev, [name]: "" }));
-            const curAdults = name === "adults" ? 0 : (formData.adults === "" ? 0 : formData.adults);
-            const curChildren = name === "children" ? 0 : (formData.children === "" ? 0 : formData.children);
+            setFormData(prev => ({ ...prev, [name]: 0 }));
+            const curAdults = name === "adults" ? 0 : formData.adults;
+            const curChildren = name === "children" ? 0 : formData.children;
             updateAdditionalGuests(Number(curAdults), Number(curChildren));
             return;
           }
 
           const newValue = parseInt(value);
-          const currentAdults = name === "adults" ? newValue : (formData.adults === "" ? 0 : formData.adults);
-          const currentChildren = name === "children" ? newValue : (formData.children === "" ? 0 : formData.children);
+          const currentAdults = name === "adults" ? newValue : formData.adults;
+          const currentChildren = name === "children" ? newValue : formData.children;
           const newTotal = Number(currentAdults) + Number(currentChildren);
 
           // Prevent exceeding max 4 guests (excluding infants)
