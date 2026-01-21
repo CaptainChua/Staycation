@@ -851,7 +851,7 @@ export default function OwnerDashboard() {
             setPage("notifications");
           }}
           anchorRef={notificationButtonRef}
-          userId={user?.id}
+          userId={session?.user?.id}
         />
       )}
 
@@ -937,4 +937,4 @@ export default function OwnerDashboard() {
       )}
     </div>
   );
-} 
+}
