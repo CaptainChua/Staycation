@@ -28,6 +28,7 @@ interface BookingRow {
   guest_last_name?: string;
   check_out_date?: string;
   check_out_time?: string;
+  status?: "pending" | "approved" | "rejected" | "confirmed" | "checked-in" | "completed" | "cancelled";
   cleaning_status?: "pending" | "in-progress" | "cleaned" | "inspected";
 }
 

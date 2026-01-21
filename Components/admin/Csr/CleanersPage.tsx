@@ -245,26 +245,26 @@ export default function CleanersPage() {
           ))
         ) : (
           [
-            { label: "Total Tasks", value: String(totalCount), color: "bg-orange-500", icon: Sparkles },
-            { label: "Unassigned", value: String(unassignedCount), color: "bg-gray-500", icon: Users },
-            { label: "Assigned", value: String(assignedCount), color: "bg-indigo-500", icon: ClipboardList },
-            { label: "In Progress", value: String(inProgressCount), color: "bg-yellow-500", icon: Loader2 },
-          ].map((stat, i) => {
-            const IconComponent = stat.icon;
-            return (
-              <div
-                key={i}
-                className={`${stat.color} text-white rounded-lg p-6 shadow dark:shadow-gray-900 hover:shadow-lg transition-all`}
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm opacity-90">{stat.label}</p>
-                    <p className="text-3xl font-bold mt-2">{stat.value}</p>
-                  </div>
-                  <IconComponent className="w-12 h-12 opacity-50" />
+          { label: "Total Tasks", value: String(totalCount), color: "bg-orange-500", icon: Sparkles },
+          { label: "Unassigned", value: String(unassignedCount), color: "bg-gray-500", icon: Users },
+          { label: "Assigned", value: String(assignedCount), color: "bg-indigo-500", icon: ClipboardList },
+          { label: "In Progress", value: String(inProgressCount), color: "bg-yellow-500", icon: Loader2 },
+        ].map((stat, i) => {
+          const IconComponent = stat.icon;
+          return (
+            <div
+              key={i}
+              className={`${stat.color} text-white rounded-lg p-6 shadow dark:shadow-gray-900 hover:shadow-lg transition-all`}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm opacity-90">{stat.label}</p>
+                  <p className="text-3xl font-bold mt-2">{stat.value}</p>
                 </div>
+                <IconComponent className="w-12 h-12 opacity-50" />
               </div>
-            );
+            </div>
+          );
           })
         )}
       </div>
@@ -421,59 +421,59 @@ export default function CleanersPage() {
                 </tr>
               ) : (
                 paginatedRows.map((row) => (
-                  <tr key={row.cleaner_id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                    <td className="py-4 px-4">
-                      <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{row.cleaner_id}</span>
-                    </td>
-                    <td className="py-4 px-4">
-                      <div className="flex items-center gap-2">
-                        <MapPin className="w-4 h-4 text-orange-500 flex-shrink-0" />
-                        <span className="text-sm font-medium text-gray-700 dark:text-gray-200 whitespace-nowrap">{row.haven}</span>
-                      </div>
-                    </td>
-                    <td className="py-4 px-4">
-                      <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm whitespace-nowrap">{row.booking_id}</span>
-                    </td>
-                    <td className="py-4 px-4">
-                      <div className="flex items-center gap-2 min-w-[180px]">
-                        <User className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                        <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{row.guest}</span>
-                      </div>
-                    </td>
-                    <td className="py-4 px-4">
-                      <span className="text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{row.check_out}</span>
-                    </td>
-                    <td className="py-4 px-4">
-                      <span className="text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">{row.assigned_to}</span>
-                    </td>
-                    <td className="py-4 px-4 text-center">
-                      <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${row.statusColor}`}>
-                        {row.status}
-                      </span>
-                    </td>
-                    <td className="py-4 px-4">
-                      <div className="flex items-center justify-center gap-1">
-                        <button
-                          className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                <tr key={row.cleaner_id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                  <td className="py-4 px-4">
+                    <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{row.cleaner_id}</span>
+                  </td>
+                  <td className="py-4 px-4">
+                    <div className="flex items-center gap-2">
+                      <MapPin className="w-4 h-4 text-orange-500 flex-shrink-0" />
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-200 whitespace-nowrap">{row.haven}</span>
+                    </div>
+                  </td>
+                  <td className="py-4 px-4">
+                    <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm whitespace-nowrap">{row.booking_id}</span>
+                  </td>
+                  <td className="py-4 px-4">
+                    <div className="flex items-center gap-2 min-w-[180px]">
+                      <User className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                      <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{row.guest}</span>
+                    </div>
+                  </td>
+                  <td className="py-4 px-4">
+                    <span className="text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{row.check_out}</span>
+                  </td>
+                  <td className="py-4 px-4">
+                    <span className="text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">{row.assigned_to}</span>
+                  </td>
+                  <td className="py-4 px-4 text-center">
+                    <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${row.statusColor}`}>
+                      {row.status}
+                    </span>
+                  </td>
+                  <td className="py-4 px-4">
+                    <div className="flex items-center justify-center gap-1">
+                      <button
+                        className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
                           title="View details"
-                          type="button"
+                        type="button"
                           onClick={() => handleViewBooking(row.booking_id)}
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
                         {row.status === "Unassigned" && (
-                          <button
-                            className="p-2 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors"
+                      <button
+                        className="p-2 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors"
                             title="Assign cleaner"
-                            type="button"
+                        type="button"
                             onClick={() => handleAssignCleaner(row.booking_id)}
-                          >
+                      >
                             <UserPlus className="w-4 h-4" />
-                          </button>
+                      </button>
                         )}
-                      </div>
-                    </td>
-                  </tr>
+                    </div>
+                  </td>
+                </tr>
                 ))
               )}
             </tbody>

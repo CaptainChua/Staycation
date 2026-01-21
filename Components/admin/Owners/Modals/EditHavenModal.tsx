@@ -536,72 +536,72 @@ const EditHavenModal = ({ isOpen, onClose, havenData }: EditHavenModalProps) => 
               </button>
 
               {/* Availability Management */}
-              <button
-                type="button"
+                        <button
+                          type="button"
                 onClick={() => setOpenModal("availability")}
                 className="flex flex-col items-center justify-center p-4 bg-white border-2 border-gray-200 rounded-lg hover:border-amber-600 hover:bg-amber-50 transition-all group text-center"
-              >
+                        >
                 <Calendar className="w-6 h-6 text-gray-500 group-hover:text-amber-600 mb-2" />
                 <h3 className="font-semibold text-sm text-gray-800 mb-1">Availability</h3>
                 <p className="text-xs text-gray-500 leading-tight">Manage blocked dates</p>
-              </button>
+                        </button>
 
               {/* Haven Details */}
-              <button
-                type="button"
+                        <button
+                          type="button"
                 onClick={() => setOpenModal("details")}
                 className="flex flex-col items-center justify-center p-4 bg-white border-2 border-gray-200 rounded-lg hover:border-amber-600 hover:bg-amber-50 transition-all group text-center"
-              >
+                        >
                 <FileText className="w-6 h-6 text-gray-500 group-hover:text-amber-600 mb-2" />
                 <h3 className="font-semibold text-sm text-gray-800 mb-1">Haven Details</h3>
                 <p className="text-xs text-gray-500 leading-tight">Capacity, size, beds, description</p>
-              </button>
+                        </button>
 
               {/* Amenities */}
-              <button
-                type="button"
+                                <button
+                                  type="button"
                 onClick={() => setOpenModal("amenities")}
                 className="flex flex-col items-center justify-center p-4 bg-white border-2 border-gray-200 rounded-lg hover:border-amber-600 hover:bg-amber-50 transition-all group text-center"
-              >
+                                >
                 <Star className="w-6 h-6 text-gray-500 group-hover:text-amber-600 mb-2" />
                 <h3 className="font-semibold text-sm text-gray-800 mb-1">Amenities</h3>
                 <p className="text-xs text-gray-500 leading-tight">Select available amenities</p>
-              </button>
+                                </button>
 
               {/* Haven Images */}
-              <button
-                type="button"
+                                <button
+                                  type="button"
                 onClick={() => setOpenModal("images")}
                 className="flex flex-col items-center justify-center p-4 bg-white border-2 border-gray-200 rounded-lg hover:border-amber-600 hover:bg-amber-50 transition-all group text-center"
-              >
+                                >
                 <ImageIcon className="w-6 h-6 text-gray-500 group-hover:text-amber-600 mb-2" />
                 <h3 className="font-semibold text-sm text-gray-800 mb-1">Haven Images</h3>
                 <p className="text-xs text-gray-500 leading-tight">Upload and manage images</p>
-              </button>
+                                </button>
 
               {/* Photo Tour Management */}
-              <button
-                type="button"
+                <button
+                  type="button"
                 onClick={() => setOpenModal("phototour")}
                 className="flex flex-col items-center justify-center p-4 bg-white border-2 border-gray-200 rounded-lg hover:border-amber-600 hover:bg-amber-50 transition-all group text-center"
-              >
+                >
                 <Images className="w-6 h-6 text-gray-500 group-hover:text-amber-600 mb-2" />
                 <h3 className="font-semibold text-sm text-gray-800 mb-1">Photo Tour</h3>
                 <p className="text-xs text-gray-500 leading-tight">Organize photos by category</p>
-              </button>
+                </button>
 
               {/* YouTube Video */}
-              <button
-                type="button"
+                        <button
+                          type="button"
                 onClick={() => setOpenModal("youtube")}
                 className="flex flex-col items-center justify-center p-4 bg-white border-2 border-gray-200 rounded-lg hover:border-amber-600 hover:bg-amber-50 transition-all group text-center"
-              >
+                        >
                 <Youtube className="w-6 h-6 text-gray-500 group-hover:text-amber-600 mb-2" />
                 <h3 className="font-semibold text-sm text-gray-800 mb-1">YouTube Video</h3>
                 <p className="text-xs text-gray-500 leading-tight">Add YouTube video URL</p>
-              </button>
-            </div>
-          </div>
+                        </button>
+                      </div>
+                  </div>
 
           {/* Footer */}
           <div className="flex justify-end gap-3 p-6 border-t border-gray-200 bg-gray-50 rounded-b-2xl flex-shrink-0">
