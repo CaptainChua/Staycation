@@ -254,8 +254,11 @@ export default function PaymentPage() {
       toast.error("Booking ID not available");
       return;
     }
+    // Keep the selected payment set so the reject modal has context,
+    // and close the view modal before opening the reject modal.
     setSelectedPayment(row);
     setRejectReason("");
+    setIsViewModalOpen(false);
     setIsRejectModalOpen(true);
   }, []);
 
@@ -1025,8 +1028,11 @@ export default function PaymentPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      openRejectModal(selectedPayment);
-                      handleCloseView();
+                      // Close the view modal and open the reject modal without
+                      // clearing `selectedPayment` so the reject modal has its context.
+                      setRejectReason("");
+                      setIsViewModalOpen(false);
+                      setIsRejectModalOpen(true);
                     }}
                     disabled={
                       mapStatusToUI(
