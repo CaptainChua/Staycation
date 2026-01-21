@@ -1011,7 +1011,13 @@ export default function PaymentPage() {
                       await handleApprove(selectedPayment);
                       handleCloseView();
                     }}
-                    className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-yellow-500 dark:from-orange-600 dark:to-yellow-600 text-white font-semibold shadow-lg hover:from-orange-600 hover:to-yellow-600 dark:hover:from-orange-700 dark:hover:to-yellow-700 transition inline-flex items-center gap-2"
+                    disabled={
+                      mapStatusToUI(
+                        selectedPayment.booking?.status ??
+                          selectedPayment.status,
+                      ) === "Paid" || updatingBookingId === selectedPayment.id
+                    }
+                    className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-yellow-500 dark:from-orange-600 dark:to-yellow-600 text-white font-semibold shadow-lg hover:from-orange-600 hover:to-yellow-600 dark:hover:from-orange-700 dark:hover:to-yellow-700 transition inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <CheckCircle className="w-4 h-4" /> Approve
                   </button>
@@ -1022,7 +1028,14 @@ export default function PaymentPage() {
                       openRejectModal(selectedPayment);
                       handleCloseView();
                     }}
-                    className="px-6 py-2.5 rounded-xl bg-red-600 dark:bg-red-600 text-white font-semibold hover:bg-red-700 dark:hover:bg-red-700 transition inline-flex items-center gap-2"
+                    disabled={
+                      mapStatusToUI(
+                        selectedPayment.booking?.status ??
+                          selectedPayment.status,
+                      ) === "Rejected" ||
+                      updatingBookingId === selectedPayment.id
+                    }
+                    className="px-6 py-2.5 rounded-xl bg-red-600 dark:bg-red-600 text-white font-semibold hover:bg-red-700 dark:hover:bg-red-700 transition inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <X className="w-4 h-4" /> Reject
                   </button>
