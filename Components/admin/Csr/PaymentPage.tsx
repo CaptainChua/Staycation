@@ -26,8 +26,6 @@ import {
   useUpdateBookingStatusMutation,
 } from "@/redux/api/bookingsApi";
 
-import useDebouncedValue from "@/hooks/useDebouncedValue";
-
 import type { Booking } from "@/types/booking";
 type PaymentStatus = "Paid" | "Pending" | "Rejected";
 
@@ -284,11 +282,9 @@ export default function PaymentPage() {
     setSearchTerm(value);
   };
 
-  const debouncedSearch = useDebouncedValue(searchTerm, 350);
-
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearch]);
+  }, [searchTerm]);
 
   const openRejectModal = useCallback((row: PaymentRow) => {
     if (!row?.id) {
@@ -335,8 +331,8 @@ export default function PaymentPage() {
   }, []);
 
   const filteredPayments = useMemo(() => {
+    const q = (searchTerm || "").toLowerCase();
     return payments.filter((payment) => {
-      const q = (debouncedSearch || "").toLowerCase();
       const matchesSearch =
         payment.booking_id.toLowerCase().includes(q) ||
         payment.guest.toLowerCase().includes(q);
@@ -346,7 +342,7 @@ export default function PaymentPage() {
 
       return matchesSearch && matchesFilter;
     });
-  }, [filterStatus, payments, debouncedSearch]);
+  }, [filterStatus, payments, searchTerm]);
 
   const sortedPayments = useMemo(() => {
     const copy = [...filteredPayments];
