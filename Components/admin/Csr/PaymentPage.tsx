@@ -687,129 +687,167 @@ export default function PaymentPage() {
         </div>
       </div>
 
-      <div className="lg:hidden space-y-4 bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden">
-        {paginatedPayments.map((payment) => (
-          <div
-            key={payment.booking_id}
-            className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-4 border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-all"
-          >
-            <div className="flex items-start justify-between mb-3 pb-3 border-b border-gray-200 dark:border-gray-600">
-              <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                  Booking ID
-                </p>
-                <p className="font-bold text-gray-800 dark:text-gray-100">
-                  {payment.booking_id}
-                </p>
-              </div>
-              <span
-                className={`px-3 py-1 rounded-full text-xs font-bold ${payment.statusColor}`}
+      <div className="lg:hidden space-y-4 bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden p-4">
+        {isLoadingTable ? (
+          <div className="space-y-4">
+            {Array.from({ length: Math.min(entriesPerPage, 5) }).map((_, i) => (
+              <div
+                key={i}
+                className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 animate-pulse"
               >
-                {payment.status}
-              </span>
-            </div>
+                <div className="flex items-start justify-between mb-3 pb-3 border-b border-gray-200 dark:border-gray-600">
+                  <div>
+                    <div className="h-3 w-24 bg-gray-200 dark:bg-gray-700 rounded mb-2" />
+                    <div className="h-4 w-32 bg-gray-200 dark:bg-gray-700 rounded" />
+                  </div>
+                  <div className="h-4 w-20 bg-gray-200 dark:bg-gray-700 rounded" />
+                </div>
 
-            <div className="mb-3 pb-3 border-b border-gray-200 dark:border-gray-600">
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                Guest
-              </p>
-              <div className="flex items-center gap-2">
-                <User className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm">
-                  {payment.guest}
+                <div className="mb-3 pb-3 border-b border-gray-200 dark:border-gray-600">
+                  <div className="h-3 w-40 bg-gray-200 dark:bg-gray-700 rounded" />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 mb-3 pb-3">
+                  <div className="h-3 w-24 bg-gray-200 dark:bg-gray-700 rounded" />
+                  <div className="h-3 w-24 bg-gray-200 dark:bg-gray-700 rounded" />
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-200 dark:border-gray-600">
+                  <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-full" />
+                  <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-full" />
+                  <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-full" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : paginatedPayments.length === 0 ? (
+          <div className="py-8 text-center text-gray-500 dark:text-gray-400">
+            No payments found
+          </div>
+        ) : (
+          paginatedPayments.map((payment) => (
+            <div
+              key={payment.booking_id}
+              className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-4 border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-all"
+            >
+              <div className="flex items-start justify-between mb-3 pb-3 border-b border-gray-200 dark:border-gray-600">
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                    Booking ID
+                  </p>
+                  <p className="font-bold text-gray-800 dark:text-gray-100">
+                    {payment.booking_id}
+                  </p>
+                </div>
+                <span
+                  className={`px-3 py-1 rounded-full text-xs font-bold ${payment.statusColor}`}
+                >
+                  {payment.status}
                 </span>
               </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-3 mb-3 pb-3 border-b border-gray-200 dark:border-gray-600">
-              <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                  Amount
+              <div className="mb-3 pb-3 border-b border-gray-200 dark:border-gray-600">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                  Guest
                 </p>
-                <p className="font-bold text-gray-800 dark:text-gray-100">
-                  {payment.amount}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                  Payment Proof
-                </p>
-                {payment.payment_proof ? (
-                  <a
-                    href={payment.payment_proof}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700 dark:hover:text-blue-400"
-                  >
-                    <ImageIcon className="w-4 h-4" />
-                    View
-                  </a>
-                ) : (
-                  <span className="text-sm text-gray-400 dark:text-gray-500">
-                    No proof
+                <div className="flex items-center gap-2">
+                  <User className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                  <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm">
+                    {payment.guest}
                   </span>
-                )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 mb-3 pb-3">
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                    Amount
+                  </p>
+                  <p className="font-bold text-gray-800 dark:text-gray-100">
+                    {payment.amount}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                    Payment Proof
+                  </p>
+                  {payment.payment_proof ? (
+                    <a
+                      href={payment.payment_proof}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700 dark:hover:text-blue-400"
+                    >
+                      <ImageIcon className="w-4 h-4" />
+                      View
+                    </a>
+                  ) : (
+                    <span className="text-sm text-gray-400 dark:text-gray-500">
+                      No proof
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-200 dark:border-gray-600">
+                <button
+                  onClick={() => handleView(payment)}
+                  className="p-2 inline-flex items-center justify-center text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                  title="View"
+                  type="button"
+                  aria-label={`View ${payment.booking_id}`}
+                >
+                  <Eye className="w-4 h-4" />
+                </button>
+
+                <button
+                  onClick={() => handleApprove(payment)}
+                  disabled={!payment.id || updatingBookingId === payment.id}
+                  className="p-2 inline-flex items-center justify-center text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Approve"
+                  type="button"
+                  aria-label={`Approve booking ${payment.booking_id}`}
+                >
+                  {updatingBookingId === payment.id ? (
+                    <svg
+                      className="animate-spin inline-block align-middle h-5 w-5"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                      />
+                    </svg>
+                  ) : (
+                    <CheckCircle className="w-5 h-5" />
+                  )}
+                </button>
+
+                <button
+                  onClick={() => openRejectModal(payment)}
+                  disabled={!payment.id || updatingBookingId === payment.id}
+                  className="p-2 inline-flex items-center justify-center text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Reject"
+                  type="button"
+                  aria-label={`Reject booking ${payment.booking_id}`}
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
             </div>
-
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-200 dark:border-gray-600">
-              <button
-                onClick={() => handleView(payment)}
-                className="p-2 inline-flex items-center justify-center text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
-                title="View"
-                type="button"
-                aria-label={`View ${payment.booking_id}`}
-              >
-                <Eye className="w-4 h-4" />
-              </button>
-
-              <button
-                onClick={() => handleApprove(payment)}
-                disabled={!payment.id || updatingBookingId === payment.id}
-                className="p-2 inline-flex items-center justify-center text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Approve"
-                type="button"
-                aria-label={`Approve booking ${payment.booking_id}`}
-              >
-                {updatingBookingId === payment.id ? (
-                  <svg
-                    className="animate-spin inline-block align-middle h-5 w-5"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                    />
-                  </svg>
-                ) : (
-                  <CheckCircle className="w-5 h-5" />
-                )}
-              </button>
-
-              <button
-                onClick={() => openRejectModal(payment)}
-                disabled={!payment.id || updatingBookingId === payment.id}
-                className="p-2 inline-flex items-center justify-center text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Reject"
-                type="button"
-                aria-label={`Reject booking ${payment.booking_id}`}
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden">
