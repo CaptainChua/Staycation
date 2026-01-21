@@ -892,13 +892,13 @@ export default function OwnerDashboard() {
       {/* NOTIFICATIONS POPUP */}
       {notificationOpen && (
         <NotificationModal
-          notifications={notifications}
           onClose={() => setNotificationOpen(false)}
           onViewAll={() => {
             setNotificationOpen(false);
             setPage("notifications");
           }}
           anchorRef={notificationButtonRef}
+          userId={user?.id}
         />
       )}
 
