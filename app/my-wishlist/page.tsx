@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import MyWishlistClient from "@/Components/MyWishlist";
+import Footer from "@/Components/Footer";
 
 export const metadata = {
   title: "My Wishlist - Staycation Haven"

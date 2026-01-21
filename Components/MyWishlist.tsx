@@ -1,10 +1,16 @@
 'use client';
 
-import { Heart, MapPin } from 'lucide-react';
+import { Heart, MapPin, Star, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import toast, { Toaster } from 'react-hot-toast';
 import { useGetUserWishlistQuery, useRemoveFromWishlistMutation } from '@/redux/api/wishlistApi';
+import Footer from '@/Components/Footer';
+import SidebarLayout from '@/Components/SidebarLayout';
+import RoomCardSkeleton from '@/Components/Rooms/RoomCardSkeleton';
+import RoomCard from '@/Components/Rooms/RoomCard'; // Added missing import
+import RoomImageGallery from '@/Components/Rooms/RoomImageGallery';
+import { useState, useEffect } from 'react';
 
 interface WishlistItem {
   id: string;
@@ -24,13 +30,46 @@ interface MyWishlistPageProps {
 }
 
 const MyWishlistPage = ({ initialData, userId }: MyWishlistPageProps) => {
-  // RTK Query hooks - skip if we have initial data on first render
-  const { data: wishlistData, refetch } = useGetUserWishlistQuery(userId);
-
+  // RTK Query hooks
+  const { data: wishlistData, isLoading, refetch } = useGetUserWishlistQuery(userId);
   const [removeFromWishlist, { isLoading: isRemoving }] = useRemoveFromWishlistMutation();
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isMobile, setIsMobile] = useState(false);
+  const ROOMS_PER_PAGE = 12;
+
+  // Set responsive behavior
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    // Initial check
+    checkMobile();
+
+    // Add event listener for window resize
+    window.addEventListener('resize', checkMobile);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('resize', checkMobile);
+    };
+  }, []);
 
   // Use SSR data if RTK Query hasn't loaded yet, otherwise use RTK Query data
   const wishlistItems = (wishlistData?.data || initialData?.data || []);
+  
+  // Pagination logic
+  const totalRooms = wishlistItems.length;
+  const totalPages = Math.ceil(totalRooms / ROOMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ROOMS_PER_PAGE;
+  const endIndex = startIndex + ROOMS_PER_PAGE;
+  const displayedRooms = wishlistItems.slice(startIndex, endIndex);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
 
   const handleRemoveFromWishlist = async (wishlistId: string) => {
     try {
@@ -44,103 +83,189 @@ const MyWishlistPage = ({ initialData, userId }: MyWishlistPageProps) => {
   };
 
   return (
-    <>
+    <SidebarLayout>
       <Toaster position="top-center" />
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 pt-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-4xl font-bold text-gray-800 dark:text-white mb-2">
-              My Wishlist
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400">
-              {wishlistItems.length} saved {wishlistItems.length === 1 ? 'room' : 'rooms'}
-            </p>
-          </div>
+      {/* Hero Section */}
+      <div className="bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white py-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h1 className="text-4xl md:text-5xl font-bold mb-4">
+            My Wishlist
+          </h1>
+          <p className="text-lg md:text-xl opacity-90 max-w-3xl mx-auto">
+            {wishlistItems.length} saved {wishlistItems.length === 1 ? 'haven' : 'havens'}
+          </p>
+        </div>
+      </div>
 
-          {/* Empty State */}
-          {wishlistItems.length === 0 ? (
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-12 text-center">
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {/* Loading Skeleton */}
+        {isLoading ? (
+          <div className="space-y-12">
+            {[1, 2, 3].map((skeletonGroup) => (
+              <div key={skeletonGroup}>
+                {/* Mobile Layout Skeleton */}
+                {isMobile ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+                    {[1, 2, 3, 4, 5].map((skeleton) => (
+                      <div key={skeleton} className="flex-shrink-0">
+                        <RoomCardSkeleton compact={true} />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  /* Desktop Layout Skeleton */
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                    {[1, 2, 3, 4, 5].map((skeleton) => (
+                      <div key={skeleton}>
+                        <RoomCardSkeleton compact={false} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : wishlistItems.length === 0 ? (
+          /* Empty State */
+          <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
             <Heart className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-2">
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">
               Your wishlist is empty
             </h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">
-              Start adding rooms you love to your wishlist!
+            <p className="text-gray-600 mb-6">
+              Start adding havens you love to your wishlist!
             </p>
             <Link href="/rooms">
-              <button className="bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white font-semibold px-8 py-3 rounded-lg transition-all duration-300 transform hover:scale-105">
-                Browse Rooms
+              <button className="px-8 py-3 bg-brand-primary hover:bg-brand-primaryDark text-white rounded-lg font-medium transition-colors">
+                Browse Havens
               </button>
             </Link>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {wishlistItems.map((item: WishlistItem) => {
-              const firstImage = Array.isArray(item.images) && item.images.length > 0
-                ? item.images[0]
-                : '/Images/bg.jpg';
-
-              return (
-                <div
-                  key={item.id}
-                  className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 group"
-                >
-                  {/* Room Image */}
-                  <div className="relative h-64">
-                    <Image
-                      src={firstImage}
-                      alt={item.room_name}
-                      width={400}
-                      height={300}
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+          <>
+            {/* Mobile Layout */}
+            {isMobile ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+                {displayedRooms.map((item: WishlistItem) => (
+                  <div key={item.id} className="flex-shrink-0">
+                    <RoomCard 
+                      room={{
+                        id: item.haven_id,
+                        uuid_id: item.haven_id,
+                        name: item.room_name, // Fix property name mismatch
+                        price: `₱${item.price}`,
+                        pricePerNight: "per 6 hours",
+                        images: item.images || [],
+                        rating: 4.5,
+                        reviews: 0,
+                        capacity: 2,
+                        amenities: [],
+                        description: "",
+                        tower: item.tower,
+                        floor: "",
+                        roomSize: "",
+                        location: item.tower || "Quezon City",
+                        youtubeUrl: ""
+                      }} 
+                      mode="browse" 
+                      compact={true} 
                     />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              /* Desktop Layout */
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                {displayedRooms.map((item: WishlistItem) => (
+                  <div key={item.id}>
+                    <RoomCard 
+                      room={{
+                        id: item.haven_id,
+                        uuid_id: item.haven_id,
+                        name: item.room_name, // Fix property name mismatch
+                        price: `₱${item.price}`,
+                        pricePerNight: "per 6 hours",
+                        images: item.images || [],
+                        rating: 4.5,
+                        reviews: 0,
+                        capacity: 2,
+                        amenities: [],
+                        description: "",
+                        tower: item.tower,
+                        floor: "",
+                        roomSize: "",
+                        location: item.tower || "Quezon City",
+                        youtubeUrl: ""
+                      }} 
+                      mode="browse" 
+                      compact={false} 
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Global Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex justify-center items-center gap-3 mt-8">
+                {/* Previous Button */}
+                <button
+                  onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                  disabled={currentPage === 1}
+                  className={`p-2 rounded-full transition-all duration-200 ${
+                    currentPage === 1
+                      ? 'bg-gray-200 dark:bg-gray-700 cursor-not-allowed opacity-50'
+                      : 'bg-brand-primary hover:bg-brand-primaryDark'
+                  }`}
+                  aria-label="Previous page"
+                >
+                  <ChevronLeft className={`w-5 h-5 ${
+                    currentPage === 1
+                      ? 'text-gray-400 dark:text-gray-500'
+                      : 'text-white'
+                  }`} />
+                </button>
+
+                {/* Page Dots */}
+                <div className="flex gap-2 items-center">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
                     <button
-                      onClick={() => handleRemoveFromWishlist(item.id)}
-                      disabled={isRemoving}
-                      className="absolute top-4 right-4 p-2.5 bg-white dark:bg-gray-800 rounded-full shadow-lg hover:bg-red-50 dark:hover:bg-red-900/30 transition-all duration-300 group/btn disabled:opacity-50"
-                    >
-                      <Heart className="w-5 h-5 fill-red-500 text-red-500 group-hover/btn:scale-110 transition-transform" />
-                    </button>
-                  </div>
-
-                  {/* Room Details */}
-                  <div className="p-6">
-                    {/* Room Name */}
-                    <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-2 line-clamp-1">
-                      {item.room_name}
-                    </h3>
-
-                    {/* Location */}
-                    <div className="flex items-center gap-1 mb-4">
-                      <MapPin className="w-4 h-4 text-orange-500" />
-                      <span className="text-sm text-gray-600 dark:text-gray-400">
-                        {item.tower || 'Quezon City'}
-                      </span>
-                    </div>
-
-                    {/* Price and Button */}
-                    <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
-                      <div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Starting from</p>
-                        <p className="text-2xl font-bold text-orange-500">₱{item.price}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">per 6 hours</p>
-                      </div>
-                      <Link href={`/rooms/${item.haven_id}`}>
-                        <button className="bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white font-semibold px-6 py-3 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-md">
-                          Book Now
-                        </button>
-                      </Link>
-                    </div>
-                  </div>
+                      key={pageNum}
+                      onClick={() => handlePageChange(pageNum)}
+                      className={`transition-all duration-200 rounded-full ${
+                        currentPage === pageNum
+                          ? 'w-8 h-3 bg-brand-primary'
+                          : 'w-3 h-3 bg-gray-300 dark:bg-gray-600 hover:bg-brand-primary/50 dark:hover:bg-brand-primary/50'
+                      }`}
+                      aria-label={`Go to page ${pageNum}`}
+                    />
+                  ))}
                 </div>
-              );
-            })}
-          </div>
+
+                {/* Next Button */}
+                <button
+                  onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
+                  disabled={currentPage === totalPages}
+                  className={`p-2 rounded-full transition-all duration-200 ${
+                    currentPage === totalPages
+                      ? 'bg-gray-200 dark:bg-gray-700 cursor-not-allowed opacity-50'
+                      : 'bg-brand-primary hover:bg-brand-primaryDark'
+                  }`}
+                  aria-label="Next page"
+                >
+                  <ChevronRight className={`w-5 h-5 ${
+                    currentPage === totalPages
+                      ? 'text-gray-400 dark:text-gray-500'
+                      : 'text-white'
+                  }`} />
+                </button>
+              </div>
+            )}
+          </>
         )}
-        </div>
       </div>
-    </>
+    </SidebarLayout>
   );
 };
 
