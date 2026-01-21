@@ -18,13 +18,17 @@ import {
   ChevronsRight,
   Image as ImageIcon,
 } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState, useEffect } from "react";
 import toast from "react-hot-toast";
 
 import {
   useGetBookingsQuery,
   useUpdateBookingStatusMutation,
 } from "@/redux/api/bookingsApi";
+
+import useDebouncedValue from "@/hooks/useDebouncedValue";
+
+import type { Booking } from "@/types/booking";
 type PaymentStatus = "Paid" | "Pending" | "Rejected";
 
 interface PaymentRow {
@@ -106,14 +110,14 @@ export default function PaymentPage() {
     });
   };
 
-  const mapStatusToUI = (status?: string | null): PaymentStatus => {
+  const mapStatusToUI = useCallback((status?: string | null): PaymentStatus => {
     const s = (status || "").toLowerCase();
     if (s === "approved" || s === "confirmed") return "Paid";
     if (s === "rejected" || s === "declined") return "Rejected";
     return "Pending";
-  };
+  }, []);
 
-  const getStatusColorClass = (status?: string | null) => {
+  const getStatusColorClass = useCallback((status?: string | null) => {
     const s = (status || "").toLowerCase();
     if (s === "approved" || s === "confirmed")
       return "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300";
@@ -122,7 +126,7 @@ export default function PaymentPage() {
     if (s === "rejected" || s === "declined")
       return "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300";
     return "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200";
-  };
+  }, []);
 
   // Local InfoField component mirroring the Booking Details dialog style
   interface InfoFieldProps {
@@ -180,7 +184,7 @@ export default function PaymentPage() {
       };
       return row;
     });
-  }, [bookingsRaw]);
+  }, [bookingsRaw, mapStatusToUI, getStatusColorClass]);
 
   // combined loading flag for UI skeletons
   const isLoadingTable = isBookingsLoading || isBookingsFetching;
@@ -229,7 +233,7 @@ export default function PaymentPage() {
   }, []);
 
   const handleApprove = useCallback(
-    async (row: PaymentRow) => {
+    async (row: PaymentRow, options?: { keepOpen?: boolean }) => {
       if (!row?.id) {
         toast.error("Booking ID not available");
         return;
@@ -239,7 +243,33 @@ export default function PaymentPage() {
       try {
         await updateBookingStatus({ id: row.id, status: "approved" }).unwrap();
         toast.success("Payment approved", { id: toastId });
-        refetch();
+
+        // Refresh bookings and optionally update the currently-open modal row
+        const refetchRes = await refetch();
+        const updatedBooking = (refetchRes?.data || []).find(
+          (b: Booking) => b.id === row.id,
+        );
+
+        if (options?.keepOpen && updatedBooking) {
+          setSelectedPayment((prev) =>
+            prev && prev.id === row.id
+              ? {
+                  ...prev,
+                  status: mapStatusToUI(updatedBooking.status),
+                  statusColor: getStatusColorClass(updatedBooking.status),
+                  booking: {
+                    ...prev.booking,
+                    updated_at: updatedBooking.updated_at,
+                    status: updatedBooking.status,
+                    down_payment: updatedBooking.down_payment,
+                    total_amount: updatedBooking.total_amount,
+                    remaining_balance: updatedBooking.remaining_balance,
+                    payment_proof_url: updatedBooking.payment_proof_url,
+                  },
+                }
+              : prev,
+          );
+        }
       } catch (err) {
         console.error("Approve error:", err);
         toast.error("Failed to approve payment", { id: toastId });
@@ -247,8 +277,18 @@ export default function PaymentPage() {
         setUpdatingBookingId(null);
       }
     },
-    [updateBookingStatus, refetch],
+    [updateBookingStatus, refetch, mapStatusToUI, getStatusColorClass],
   );
+
+  const onSearchChange = (value: string) => {
+    setSearchTerm(value);
+  };
+
+  const debouncedSearch = useDebouncedValue(searchTerm, 350);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearch]);
 
   const openRejectModal = useCallback((row: PaymentRow) => {
     if (!row?.id) {
@@ -296,16 +336,17 @@ export default function PaymentPage() {
 
   const filteredPayments = useMemo(() => {
     return payments.filter((payment) => {
+      const q = (debouncedSearch || "").toLowerCase();
       const matchesSearch =
-        payment.booking_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        payment.guest.toLowerCase().includes(searchTerm.toLowerCase());
+        payment.booking_id.toLowerCase().includes(q) ||
+        payment.guest.toLowerCase().includes(q);
 
       const matchesFilter =
         filterStatus === "all" || payment.status === filterStatus;
 
       return matchesSearch && matchesFilter;
     });
-  }, [filterStatus, payments, searchTerm]);
+  }, [filterStatus, payments, debouncedSearch]);
 
   const sortedPayments = useMemo(() => {
     const copy = [...filteredPayments];
@@ -445,7 +486,7 @@ export default function PaymentPage() {
                 type="text"
                 placeholder="Search by booking ID or guest name..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => onSearchChange(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-orange-500"
               />
             </div>
@@ -1012,8 +1053,8 @@ export default function PaymentPage() {
                   <button
                     type="button"
                     onClick={async () => {
-                      await handleApprove(selectedPayment);
-                      handleCloseView();
+                      if (!selectedPayment) return;
+                      await handleApprove(selectedPayment, { keepOpen: true });
                     }}
                     disabled={
                       mapStatusToUI(
