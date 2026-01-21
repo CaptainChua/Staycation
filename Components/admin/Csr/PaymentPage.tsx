@@ -234,13 +234,14 @@ export default function PaymentPage() {
         return;
       }
       setUpdatingBookingId(row.id);
+      const toastId = toast.loading("Approving payment...");
       try {
         await updateBookingStatus({ id: row.id, status: "approved" }).unwrap();
-        toast.success("Payment approved");
+        toast.success("Payment approved", { id: toastId });
         refetch();
       } catch (err) {
         console.error("Approve error:", err);
-        toast.error("Failed to approve payment");
+        toast.error("Failed to approve payment", { id: toastId });
       } finally {
         setUpdatingBookingId(null);
       }
@@ -264,19 +265,20 @@ export default function PaymentPage() {
       return;
     }
     setUpdatingBookingId(selectedPayment.id);
+    const toastId = toast.loading("Rejecting payment...");
     try {
       await updateBookingStatus({
         id: selectedPayment.id,
         status: "rejected",
         rejection_reason: rejectReason || undefined,
       }).unwrap();
-      toast.success("Payment rejected");
+      toast.success("Payment rejected", { id: toastId });
       refetch();
       setIsRejectModalOpen(false);
       setSelectedPayment(null);
     } catch (err) {
       console.error("Reject error:", err);
-      toast.error("Failed to reject payment");
+      toast.error("Failed to reject payment", { id: toastId });
     } finally {
       setUpdatingBookingId(null);
     }
