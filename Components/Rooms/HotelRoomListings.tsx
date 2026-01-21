@@ -22,6 +22,7 @@ const scrollbarStyles = `
 
 interface Room {
   id: string;
+  uuid_id?: string;
   name: string;
   price: string;
   pricePerNight: string;
@@ -136,6 +137,7 @@ const HotelRoomListings = ({ initialHavens }: HotelRoomListingsProps) => {
 
   const rooms: Room[] = filteredHavens.map((haven: Haven) => ({
     id: haven.uuid_id ?? haven.id ?? '',
+    uuid_id: haven.uuid_id,
     name: haven.haven_name ?? haven.name ?? "Unnamed Haven",
     price: `₱${haven.six_hour_rate ?? haven.weekday_rate ?? haven.weekend_rate ?? "N/A"}`,
     pricePerNight: "per night",
@@ -186,7 +188,7 @@ const HotelRoomListings = ({ initialHavens }: HotelRoomListingsProps) => {
     <>
       <style jsx>{scrollbarStyles}</style>
       <div className={`min-h-screen bg-white dark:bg-gray-900 ${
-        totalRooms <= 5 ? 'py-4 sm:py-6' : 'py-6 sm:py-8'
+        totalRooms <= 5 ? 'pt-2 sm:pt-4 pb-0' : 'py-4 sm:py-6'
       }`}>
         <div className="w-full">
           {/* Active Filter Indicator */}
@@ -241,14 +243,12 @@ const HotelRoomListings = ({ initialHavens }: HotelRoomListingsProps) => {
 
                   {/* Mobile Layout Skeleton */}
                   {isMobile ? (
-                    <div className="overflow-x-auto scrollbar-hide pb-4">
-                      <div className="flex gap-4" style={{ minWidth: 'max-content' }}>
-                        {[1, 2, 3, 4, 5].map((skeleton) => (
-                          <div key={skeleton} className="flex-shrink-0 w-[200px] sm:w-[240px]">
-                            <RoomCardSkeleton compact={true} />
-                          </div>
-                        ))}
-                      </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+                      {[1, 2, 3, 4, 5].map((skeleton) => (
+                        <div key={skeleton}>
+                          <RoomCardSkeleton compact={true} />
+                        </div>
+                      ))}
                     </div>
                   ) : (
                     /* Desktop Layout Skeleton */
@@ -309,14 +309,12 @@ const HotelRoomListings = ({ initialHavens }: HotelRoomListingsProps) => {
             <>
               {/* Mobile Layout */}
               {isMobile ? (
-                <div className="overflow-x-auto scrollbar-hide pb-4">
-                  <div className="flex gap-4" style={{ minWidth: 'max-content' }}>
-                    {displayedRooms.map((room) => (
-                      <div key={room.id} className="flex-shrink-0 w-[200px] sm:w-[240px]">
-                        <RoomCard room={room} mode="browse" compact={true} />
-                      </div>
-                    ))}
-                  </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+                  {displayedRooms.map((room) => (
+                    <div key={room.id}>
+                      <RoomCard room={room} mode="browse" compact={true} />
+                    </div>
+                  ))}
                 </div>
               ) : (
                 /* Desktop Layout */
