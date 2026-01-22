@@ -162,9 +162,9 @@ export const authOptions: NextAuthOptions = {
           console.log("✅ User saved to database:", user.email);
         } 
         // Handle Facebook sign-ins
-        else if (account?.provider === "facebook" && profile?.id) {
+        else if (account?.provider === "facebook" && profile?.sub) {
           await upsertFacebookUser({
-            facebookId: profile.id,
+            facebookId: profile.sub,
             email: user.email!,
             name: user.name || undefined,
             picture: user.image || undefined,

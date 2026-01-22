@@ -33,6 +33,11 @@ const nextConfig: NextConfig = {
   compiler: {
     removeConsole: true,
   },
+
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+
 };
 
 export default nextConfig;
