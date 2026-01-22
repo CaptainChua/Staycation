@@ -25,6 +25,8 @@ import AddItem from "./Modals/AddItem";
 import EditItem, { EditInventoryItemInput } from "./Modals/EditItem";
 import ViewItem, { ViewInventoryItem } from "./Modals/ViewItem";
 import DeleteConfirmation from "./Modals/DeleteConfirmation";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 type InventoryStatus = "In Stock" | "Low Stock" | "Out of Stock";
 
@@ -252,7 +254,10 @@ export default function InventoryPage() {
         throw new Error(payload?.error || payload?.message || "Failed to delete item");
       }
       setDeleteSuccess("Item deleted successfully.");
+      setRows([]);
+      setLoading(true);
       await loadInventory();
+      setLoading(false);
       window.setTimeout(() => {
         setDeleteItem(null);
         setDeleteSuccess(null);
@@ -331,96 +336,104 @@ export default function InventoryPage() {
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#039;");
 
-  const handleExportPdf = () => {
-    try {
-      const rowsToExport = getExportRows();
+ const handleExportPdf = () => {
+   try {
+     const rowsToExport = getExportRows();
 
-      if (rowsToExport.length === 0) {
-        alert("No data to export");
-        return;
-      }
+     if (rowsToExport.length === 0) {
+       alert("No data to export");
+       return;
+     }
 
-      const printWindow = window.open("", "_blank", "noopener,noreferrer");
+     const doc = new jsPDF({
+       orientation: "landscape",
+       unit: "mm",
+       format: "a4",
+     });
 
-      if (!printWindow) {
-        alert("Please allow pop-ups for this site to export PDF");
-        return;
-      }
+     doc.setFontSize(18);
+     doc.setFont("helvetica", "bold");
+     doc.text("Inventory Report", doc.internal.pageSize.getWidth() / 2, 15, {
+       align: "center",
+     });
 
-      const tableRows = rowsToExport
-        .map(
-          (row) => `
-            <tr>
-              <td>${escapeHtml(row.item_id)}</td>
-              <td>${escapeHtml(row.item_name)}</td>
-              <td>${escapeHtml(row.category)}</td>
-              <td>${row.current_stock}</td>
-              <td>${row.minimum_stock}</td>
-              <td>${escapeHtml(row.unit_type)}</td>
-              <td>${escapeHtml(row.status)}</td>
-              <td>${escapeHtml(row.last_restocked ? formatDateTime(row.last_restocked) : "-")}</td>
-            </tr>
-          `,
-        )
-        .join("");
+     doc.setFontSize(10);
+     doc.setFont("helvetica", "normal");
+     const generatedDate = new Date().toLocaleString("en-PH", {
+       timeZone: "Asia/Manila",
+     });
+     doc.text(
+       `Generated: ${generatedDate}`,
+       doc.internal.pageSize.getWidth() / 2,
+       22,
+       { align: "center" },
+     );
 
-      const doc = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <meta charset="utf-8" />
-            <title>Inventory Report</title>
-            <style>
-              body { font-family: Arial, sans-serif; padding: 24px; }
-              h1 { text-align: center; margin-bottom: 16px; }
-              table { width: 100%; border-collapse: collapse; font-size: 12px; }
-              th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-              th { background: #f3f4f6; }
-            </style>
-          </head>
-          <body>
-            <h1>Inventory Report</h1>
-            <p>Generated: ${escapeHtml(new Date().toLocaleString("en-PH", { timeZone: "Asia/Manila" }))}</p>
-            <table>
-              <thead>
-                <tr>
-                  <th>Item ID</th>
-                  <th>Item Name</th>
-                  <th>Category</th>
-                  <th>Current Stock</th>
-                  <th>Minimum Stock</th>
-                  <th>Unit Type</th>
-                  <th>Status</th>
-                  <th>Last Restocked</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${tableRows || "<tr><td colspan='8'>No data to display</td></tr>"}
-              </tbody>
-            </table>
-          </body>
-        </html>
-      `;
+     const tableHeaders = [
+       "Item ID",
+       "Item Name",
+       "Category",
+       "Current Stock",
+       "Minimum Stock",
+       "Unit Type",
+       "Status",
+       "Last Restocked",
+     ];
 
-      printWindow.document.write(doc);
-      printWindow.document.close();
+     const tableData = rowsToExport.map((row) => [
+       row.item_id,
+       row.item_name,
+       row.category,
+       row.current_stock.toString(),
+       row.minimum_stock.toString(),
+       row.unit_type,
+       row.status,
+       row.last_restocked ? formatDateTime(row.last_restocked) : "-",
+     ]);
 
-      // Wait for content to load before printing
-      printWindow.onload = () => {
-        printWindow.focus();
-        printWindow.print();
-      };
+     autoTable(doc, {
+       head: [tableHeaders],
+       body: tableData,
+       startY: 28,
+       theme: "grid",
+       styles: {
+         fontSize: 9,
+         cellPadding: 3,
+       },
+       headStyles: {
+         fillColor: [243, 244, 246],
+         textColor: [31, 41, 55],
+         fontStyle: "bold",
+       },
+       columnStyles: {
+         0: { cellWidth: 35 },
+         1: { cellWidth: 45 },
+         2: { cellWidth: 35 },
+         3: { cellWidth: 25, halign: "center" },
+         4: { cellWidth: 25, halign: "center" },
+         5: { cellWidth: 25, halign: "center" },
+         6: { cellWidth: 25, halign: "center" },
+         7: { cellWidth: 45 },
+       },
+     });
 
-      // Fallback if onload doesn't fire
-      setTimeout(() => {
-        printWindow.focus();
-        printWindow.print();
-      }, 250);
-    } catch (error) {
-      console.error("Error exporting PDF:", error);
-      alert("Failed to export PDF. Please check the console for errors.");
-    }
-  };
+     const timestamp = new Intl.DateTimeFormat("en-CA", {
+       year: "numeric",
+       month: "2-digit",
+       day: "2-digit",
+       hour: "2-digit",
+       minute: "2-digit",
+       second: "2-digit",
+     })
+       .format(new Date())
+       .replace(/[^\d]/g, "");
+
+     doc.save(`inventory_report_${timestamp}.pdf`);
+   } catch (error) {
+     console.error("Error exporting PDF:", error);
+     alert("Failed to export PDF. Please check the console for errors.");
+   }
+ };
 
   const showSkeleton = loading && rows.length === 0;
 
@@ -486,7 +499,10 @@ export default function InventoryPage() {
                 </div>
                 <div className="divide-y divide-gray-100 dark:divide-gray-700">
                   {Array.from({ length: 6 }).map((_, idx) => (
-                    <div key={idx} className="px-6 py-4 flex items-center gap-4">
+                    <div
+                      key={idx}
+                      className="px-6 py-4 flex items-center gap-4"
+                    >
                       <Skeleton className="h-4 w-24 rounded" />
                       <Skeleton className="h-4 w-56 rounded" />
                       <Skeleton className="h-4 w-40 rounded" />
@@ -516,7 +532,10 @@ export default function InventoryPage() {
                   <Skeleton className="h-4 w-full rounded" />
                 </div>
                 {Array.from({ length: 4 }).map((_, idx) => (
-                  <div key={idx} className="grid grid-cols-4 gap-4 items-center">
+                  <div
+                    key={idx}
+                    className="grid grid-cols-4 gap-4 items-center"
+                  >
                     <Skeleton className="h-4 w-48 rounded" />
                     <Skeleton className="h-4 w-16 rounded" />
                     <Skeleton className="h-4 w-16 rounded" />
@@ -531,8 +550,12 @@ export default function InventoryPage() {
         <>
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
-              <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Inventory Management</h1>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage items, stock levels, and usage tracking</p>
+              <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
+                Inventory Management
+              </h1>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                Manage items, stock levels, and usage tracking
+              </p>
             </div>
             <button
               type="button"
@@ -552,7 +575,8 @@ export default function InventoryPage() {
                 setError(null);
                 try {
                   const derivedStatus: InventoryStatus =
-                    !Number.isFinite(item.current_stock) || item.current_stock <= 0
+                    !Number.isFinite(item.current_stock) ||
+                    item.current_stock <= 0
                       ? "Out of Stock"
                       : item.current_stock <= 10
                         ? "Low Stock"
@@ -573,18 +597,28 @@ export default function InventoryPage() {
 
                   const payload = await res.json().catch(() => ({}));
                   if (!res.ok) {
-                    throw new Error(payload?.error || payload?.message || `Request failed (${res.status})`);
+                    throw new Error(
+                      payload?.error ||
+                        payload?.message ||
+                        `Request failed (${res.status})`,
+                    );
                   }
 
+                  setRows([]);
+                  setLoading(true);
                   await loadInventory();
-                } finally {
                   setLoading(false);
+                } catch (e: unknown) {
+                  setLoading(false);
+                  throw e;
                 }
               }}
             />
           )}
 
-          {viewItem && <ViewItem item={viewItem} onClose={() => setViewItem(null)} />}
+          {viewItem && (
+            <ViewItem item={viewItem} onClose={() => setViewItem(null)} />
+          )}
           {editItem && (
             <EditItem
               item={editItem}
@@ -597,7 +631,9 @@ export default function InventoryPage() {
                 });
                 const json = await res.json().catch(() => ({}));
                 if (!res.ok) {
-                  throw new Error(json?.error || json?.message || "Failed to update item");
+                  throw new Error(
+                    json?.error || json?.message || "Failed to update item",
+                  );
                 }
                 await loadInventory();
               }}
@@ -621,10 +657,30 @@ export default function InventoryPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {[
-              { label: "Total Items", value: String(totalCount), color: "bg-pink-500", icon: Package },
-              { label: "In Stock", value: String(inStockCount), color: "bg-green-500", icon: TrendingUp },
-              { label: "Low Stock", value: String(lowStockCount), color: "bg-yellow-500", icon: Activity },
-              { label: "Out of Stock", value: String(outOfStockCount), color: "bg-red-500", icon: TrendingDown },
+              {
+                label: "Total Items",
+                value: String(totalCount),
+                color: "bg-pink-500",
+                icon: Package,
+              },
+              {
+                label: "In Stock",
+                value: String(inStockCount),
+                color: "bg-green-500",
+                icon: TrendingUp,
+              },
+              {
+                label: "Low Stock",
+                value: String(lowStockCount),
+                color: "bg-yellow-500",
+                icon: Activity,
+              },
+              {
+                label: "Out of Stock",
+                value: String(outOfStockCount),
+                color: "bg-red-500",
+                icon: TrendingDown,
+              },
             ].map((stat, i) => {
               const IconComponent = stat.icon;
               return (
@@ -648,7 +704,9 @@ export default function InventoryPage() {
             <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
               <div className="flex flex-col sm:flex-row gap-4 flex-1 w-full">
                 <div className="flex items-center gap-2">
-                  <label className="text-sm text-gray-600 whitespace-nowrap">Show</label>
+                  <label className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                    Show
+                  </label>
                   <select
                     value={entriesPerPage}
                     onChange={(e) => {
@@ -662,7 +720,9 @@ export default function InventoryPage() {
                     <option value="25">25</option>
                     <option value="50">50</option>
                   </select>
-                  <label className="text-sm text-gray-600 whitespace-nowrap">entries</label>
+                  <label className="text-sm text-gray-600 whitespace-nowrap">
+                    entries
+                  </label>
                 </div>
 
                 <div className="flex-1 relative">
@@ -683,7 +743,9 @@ export default function InventoryPage() {
                   <select
                     value={filterStatus}
                     onChange={(e) => {
-                      setFilterStatus(e.target.value as "all" | InventoryStatus);
+                      setFilterStatus(
+                        e.target.value as "all" | InventoryStatus,
+                      );
                       setCurrentPage(1);
                     }}
                     className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-brand-primary"
@@ -696,7 +758,9 @@ export default function InventoryPage() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-600 whitespace-nowrap">Category</span>
+                  <span className="text-sm text-gray-600 whitespace-nowrap">
+                    Category
+                  </span>
                   <select
                     value={filterCategory}
                     onChange={(e) => {
@@ -810,13 +874,18 @@ export default function InventoryPage() {
                         <ArrowUpDown className="w-4 h-4 text-gray-400" />
                       </div>
                     </th>
-                    <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">Actions</th>
+                    <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan={8} className="py-10 px-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                      <td
+                        colSpan={8}
+                        className="py-10 px-4 text-center text-sm text-gray-500 dark:text-gray-400"
+                      >
                         <div className="flex items-center justify-center gap-3">
                           <span className="inline-block w-5 h-5 rounded-full border-2 border-gray-300 border-t-gray-600 animate-spin" />
                           Loading inventory...
@@ -825,21 +894,33 @@ export default function InventoryPage() {
                     </tr>
                   ) : paginatedRows.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="py-10 px-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                      <td
+                        colSpan={8}
+                        className="py-10 px-4 text-center text-sm text-gray-500 dark:text-gray-400"
+                      >
                         No inventory items found.
                       </td>
                     </tr>
                   ) : (
                     paginatedRows.map((row) => (
-                      <tr key={row.item_id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                      <tr
+                        key={row.item_id}
+                        className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                      >
                         <td className="py-4 px-4">
-                          <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{row.item_id}</span>
+                          <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm">
+                            {row.item_id}
+                          </span>
                         </td>
                         <td className="py-4 px-4">
-                          <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{row.item_name}</span>
+                          <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm">
+                            {row.item_name}
+                          </span>
                         </td>
                         <td className="py-4 px-4 text-center">
-                          <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">{row.category}</span>
+                          <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                            {row.category}
+                          </span>
                         </td>
                         <td className="py-4 px-4 text-center">
                           <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
@@ -847,7 +928,9 @@ export default function InventoryPage() {
                           </span>
                         </td>
                         <td className="py-4 px-4 text-center">
-                          <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">{row.unit_type}</span>
+                          <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                            {row.unit_type}
+                          </span>
                         </td>
                         <td className="py-4 px-4 text-center">
                           <span className="text-sm font-semibold text-gray-700 dark:text-gray-200 whitespace-nowrap">
@@ -855,7 +938,9 @@ export default function InventoryPage() {
                           </span>
                         </td>
                         <td className="py-4 px-4 text-center">
-                          <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${row.statusColor}`}>
+                          <span
+                            className={`inline-block px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${row.statusColor}`}
+                          >
                             {row.status}
                           </span>
                         </td>
@@ -921,8 +1006,12 @@ export default function InventoryPage() {
             <div className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 px-6 py-4 border-t border-gray-200 dark:border-gray-600">
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                 <p className="text-sm text-gray-600 dark:text-gray-300">
-                  Showing {sortedRows.length === 0 ? 0 : startIndex + 1} to {Math.min(endIndex, sortedRows.length)} of {sortedRows.length} entries
-                  {searchTerm || filterStatus !== "all" ? ` (filtered from ${rows.length} total entries)` : ""}
+                  Showing {sortedRows.length === 0 ? 0 : startIndex + 1} to{" "}
+                  {Math.min(endIndex, sortedRows.length)} of {sortedRows.length}{" "}
+                  entries
+                  {searchTerm || filterStatus !== "all"
+                    ? ` (filtered from ${rows.length} total entries)`
+                    : ""}
                 </p>
                 <div className="flex gap-1">
                   <button
@@ -942,36 +1031,41 @@ export default function InventoryPage() {
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
-                  {Array.from({ length: Math.min(5, totalPages || 1) }, (_, i) => {
-                    let pageNum;
-                    if (totalPages <= 5) {
-                      pageNum = i + 1;
-                    } else if (currentPage <= 3) {
-                      pageNum = i + 1;
-                    } else if (currentPage >= totalPages - 2) {
-                      pageNum = totalPages - 4 + i;
-                    } else {
-                      pageNum = currentPage - 2 + i;
-                    }
+                  {Array.from(
+                    { length: Math.min(5, totalPages || 1) },
+                    (_, i) => {
+                      let pageNum;
+                      if (totalPages <= 5) {
+                        pageNum = i + 1;
+                      } else if (currentPage <= 3) {
+                        pageNum = i + 1;
+                      } else if (currentPage >= totalPages - 2) {
+                        pageNum = totalPages - 4 + i;
+                      } else {
+                        pageNum = currentPage - 2 + i;
+                      }
 
-                    return (
-                      <button
-                        key={pageNum}
-                        onClick={() => setCurrentPage(pageNum)}
-                        className={`px-4 py-2 rounded-lg transition-colors text-sm font-medium ${
-                          currentPage === pageNum
-                            ? "bg-gradient-to-r from-brand-primary to-brand-primaryDark text-white shadow-md"
-                            : "border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-600"
-                        }`}
-                        disabled={totalPages === 0}
-                        type="button"
-                      >
-                        {pageNum}
-                      </button>
-                    );
-                  })}
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => setCurrentPage(pageNum)}
+                          className={`px-4 py-2 rounded-lg transition-colors text-sm font-medium ${
+                            currentPage === pageNum
+                              ? "bg-gradient-to-r from-brand-primary to-brand-primaryDark text-white shadow-md"
+                              : "border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-600"
+                          }`}
+                          disabled={totalPages === 0}
+                          type="button"
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    },
+                  )}
                   <button
-                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                    onClick={() =>
+                      setCurrentPage(Math.min(totalPages, currentPage + 1))
+                    }
                     disabled={currentPage === totalPages || totalPages === 0}
                     className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                     type="button"
@@ -995,8 +1089,12 @@ export default function InventoryPage() {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-6">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">Usage Tracking</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Monitor how frequently inventory items are used</p>
+                <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">
+                  Usage Tracking
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Monitor how frequently inventory items are used
+                </p>
               </div>
             </div>
 
@@ -1004,24 +1102,43 @@ export default function InventoryPage() {
               <table className="w-full min-w-[750px]">
                 <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 border-b-2 border-gray-200 dark:border-gray-600">
                   <tr>
-                    <th className="text-left py-3 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">Item</th>
-                    <th className="text-center py-3 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">Used Today</th>
-                    <th className="text-center py-3 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">Used This Week</th>
-                    <th className="text-center py-3 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">Trend</th>
+                    <th className="text-left py-3 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                      Item
+                    </th>
+                    <th className="text-center py-3 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                      Used Today
+                    </th>
+                    <th className="text-center py-3 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                      Used This Week
+                    </th>
+                    <th className="text-center py-3 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                      Trend
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {usageRows.map((u) => (
-                    <tr key={u.item_id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                    <tr
+                      key={u.item_id}
+                      className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    >
                       <td className="py-3 px-4">
-                        <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">{u.name}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{u.item_id}</p>
+                        <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+                          {u.name}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {u.item_id}
+                        </p>
                       </td>
                       <td className="py-3 px-4 text-center">
-                        <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">{u.used_today}</span>
+                        <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                          {u.used_today}
+                        </span>
                       </td>
                       <td className="py-3 px-4 text-center">
-                        <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">{u.used_week}</span>
+                        <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                          {u.used_week}
+                        </span>
                       </td>
                       <td className="py-3 px-4 text-center">
                         {u.trend === "up" ? (
