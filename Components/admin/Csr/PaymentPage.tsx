@@ -444,7 +444,7 @@ export default function PaymentPage() {
           return (
             <div
               key={i}
-              className={`${stat.color} text-white rounded-lg p-6 shadow dark:shadow-gray-900 hover:shadow-lg transition-shadow transition-transform duration-200 transform hover:-translate-y-1`}
+              className={`${stat.color} text-white rounded-lg p-6 shadow dark:shadow-gray-900 hover:shadow-lg transition-transform duration-200 transform hover:-translate-y-1`}
             >
               <div className="flex items-center justify-between">
                 <div>
@@ -731,7 +731,7 @@ export default function PaymentPage() {
           paginatedPayments.map((payment) => (
             <div
               key={payment.booking_id}
-              className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-4 border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-shadow transition-transform duration-200 transform hover:-translate-y-1"
+              className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-4 border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-transform duration-200 transform hover:-translate-y-1"
             >
               <div className="flex items-start justify-between mb-3 pb-3 border-b border-gray-200 dark:border-gray-600">
                 <div>
