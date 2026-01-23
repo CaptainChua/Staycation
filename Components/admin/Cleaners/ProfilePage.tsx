@@ -405,62 +405,62 @@ export default function ProfilePage({ cleanerData }: ProfilePageProps) {
       ...cleanerData,
       profileImage: cleanerData.profileImage || undefined,
     } : {
-      name: "Maria Santos",
-      email: "maria.santos@staycation.com",
-      phone: "+63 912 345 6789",
-      address: "Manila, Philippines",
-      joinDate: "January 15, 2024",
-      employeeId: "CLN-2024-001",
-      department: "Housekeeping",
+    name: "Maria Santos",
+    email: "maria.santos@staycation.com",
+    phone: "+63 912 345 6789",
+    address: "Manila, Philippines",
+    joinDate: "January 15, 2024",
+    employeeId: "CLN-2024-001",
+    department: "Housekeeping",
       rating: performanceStats?.averageRating || 4.8,
       profileImage: undefined,
-    };
+  };
   }, [employee, cleanerData, profilePreview, profileImage, performanceStats]);
 
   // Dynamic stats from API
   const stats = useMemo(() => {
     if (!performanceStats) {
       return [
-        {
-          label: "Tasks Completed",
+    {
+      label: "Tasks Completed",
           value: "0",
           change: "0%",
-          color: "bg-green-500",
-          icon: CheckCircle,
-        },
-        {
-          label: "Average Rating",
+      color: "bg-green-500",
+      icon: CheckCircle,
+    },
+    {
+      label: "Average Rating",
           value: "0.0",
           change: "0",
-          color: "bg-yellow-500",
-          icon: Star,
-        },
-        {
-          label: "On-Time Rate",
+      color: "bg-yellow-500",
+      icon: Star,
+    },
+    {
+      label: "On-Time Rate",
           value: "0%",
           change: "0%",
-          color: "bg-brand-primary",
-          icon: Clock,
-        },
-        {
-          label: "Performance",
+      color: "bg-brand-primary",
+      icon: Clock,
+    },
+    {
+      label: "Performance",
           value: "Good",
           change: "Top 50%",
-          color: "bg-purple-500",
-          icon: TrendingUp,
-        },
-      ];
+      color: "bg-purple-500",
+      icon: TrendingUp,
+    },
+  ];
     }
 
     return [
-      {
+    {
         label: "Tasks Completed",
         value: performanceStats.tasksCompleted?.toString() || "0",
         change: performanceStats.tasksCompletedChange || "0%",
         color: "bg-green-500",
         icon: CheckCircle,
-      },
-      {
+    },
+    {
         label: "Average Rating",
         value: performanceStats.averageRating?.toFixed(1) || "0.0",
         change: performanceStats.ratingChange || "0",
@@ -472,16 +472,16 @@ export default function ProfilePage({ cleanerData }: ProfilePageProps) {
         value: `${performanceStats.onTimeRate || 0}%`,
         change: performanceStats.onTimeRateChange || "0%",
         color: "bg-brand-primary",
-        icon: Clock,
-      },
-      {
+      icon: Clock,
+    },
+    {
         label: "Performance",
         value: performanceStats.performance || "Good",
         change: performanceStats.performanceChange || "Top 50%",
         color: "bg-purple-500",
         icon: TrendingUp,
-      },
-    ];
+    },
+  ];
   }, [performanceStats]);
 
   // Map achievement icons
@@ -527,9 +527,9 @@ export default function ProfilePage({ cleanerData }: ProfilePageProps) {
         <ProfileSkeleton />
       ) : (
         <>
-          {/* Profile Header */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-6">
-            <div className="flex flex-col md:flex-row items-center gap-6">
+      {/* Profile Header */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-6">
+        <div className="flex flex-col md:flex-row items-center gap-6">
               <div className="relative">
                 <div className="w-24 h-24 bg-brand-primary rounded-full flex items-center justify-center text-white text-3xl font-bold overflow-hidden">
                   {profilePreview ? (
@@ -575,39 +575,39 @@ export default function ProfilePage({ cleanerData }: ProfilePageProps) {
                     <X className="w-3 h-3" />
                   </button>
                 )}
-              </div>
-              <div className="flex-1 text-center md:text-left">
-                <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
-                  {(profile.name || 'Unknown') as string}
-                </h2>
-                <p className="text-brand-primary font-semibold">{profile.department}</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                  Employee ID: {profile.employeeId}
-                </p>
-                <div className="flex items-center justify-center md:justify-start gap-1 mt-2">
-                  {[...Array(5)].map((_, i) => (
-                    <Star
-                      key={i}
-                      className={`w-4 h-4 ${
-                        i < Math.floor((profile.rating || 0) as number)
-                          ? "text-yellow-500 fill-yellow-500"
-                          : "text-gray-300 dark:text-gray-600"
-                      }`}
-                    />
-                  ))}
-                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 ml-2">
-                    {(profile.rating || 0)} / 5.0
-                  </span>
-                </div>
-              </div>
+          </div>
+          <div className="flex-1 text-center md:text-left">
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
+              {(profile.name || 'Unknown') as string}
+            </h2>
+            <p className="text-brand-primary font-semibold">{profile.department}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              Employee ID: {profile.employeeId}
+            </p>
+            <div className="flex items-center justify-center md:justify-start gap-1 mt-2">
+              {[...Array(5)].map((_, i) => (
+                <Star
+                  key={i}
+                  className={`w-4 h-4 ${
+                    i < Math.floor((profile.rating || 0) as number)
+                      ? "text-yellow-500 fill-yellow-500"
+                      : "text-gray-300 dark:text-gray-600"
+                  }`}
+                />
+              ))}
+              <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 ml-2">
+                {(profile.rating || 0)} / 5.0
+              </span>
+            </div>
+          </div>
               {!isEditing ? (
                 <button 
                   onClick={() => setIsEditing(true)}
                   className="bg-amber-600 hover:bg-amber-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors flex items-center gap-2"
                 >
                   <Edit2 className="w-4 h-4" />
-                  Edit Profile
-                </button>
+            Edit Profile
+          </button>
               ) : (
                 <div className="flex gap-2">
                   <button 
@@ -627,11 +627,11 @@ export default function ProfilePage({ cleanerData }: ProfilePageProps) {
                   </button>
                 </div>
               )}
-            </div>
-          </div>
+        </div>
+      </div>
 
-          {/* Performance Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Performance Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {isLoadingStats ? (
               Array.from({ length: 4 }).map((_, i) => (
                 <div key={i} className="bg-gray-200 dark:bg-gray-700 rounded-lg p-6 animate-pulse">
@@ -642,27 +642,27 @@ export default function ProfilePage({ cleanerData }: ProfilePageProps) {
               ))
             ) : (
               stats.map((stat, i) => {
-                const IconComponent = stat.icon;
-                return (
-                  <div
-                    key={i}
-                    className={`${stat.color} text-white rounded-lg p-6 shadow dark:shadow-gray-900 hover:shadow-lg transition-all`}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <IconComponent className="w-8 h-8 opacity-50" />
-                      <span className="text-xs font-semibold bg-white/20 px-2 py-1 rounded">
-                        {stat.change}
-                      </span>
-                    </div>
-                    <p className="text-3xl font-bold">{stat.value}</p>
-                    <p className="text-sm opacity-90 mt-1">{stat.label}</p>
-                  </div>
-                );
+          const IconComponent = stat.icon;
+          return (
+            <div
+              key={i}
+              className={`${stat.color} text-white rounded-lg p-6 shadow dark:shadow-gray-900 hover:shadow-lg transition-all`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <IconComponent className="w-8 h-8 opacity-50" />
+                <span className="text-xs font-semibold bg-white/20 px-2 py-1 rounded">
+                  {stat.change}
+                </span>
+              </div>
+              <p className="text-3xl font-bold">{stat.value}</p>
+              <p className="text-sm opacity-90 mt-1">{stat.label}</p>
+            </div>
+          );
               })
             )}
-          </div>
+      </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Contact Information */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-6">
           <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4">
@@ -737,44 +737,44 @@ export default function ProfilePage({ cleanerData }: ProfilePageProps) {
               </div>
             </div>
           ) : (
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="bg-brand-primary/10 p-3 rounded-lg">
-                  <Mail className="w-5 h-5 text-brand-primary" />
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Email</p>
-                  <p className="font-semibold text-gray-800 dark:text-gray-100">{profile.email}</p>
-                </div>
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="bg-brand-primary/10 p-3 rounded-lg">
+                <Mail className="w-5 h-5 text-brand-primary" />
               </div>
-              <div className="flex items-center gap-3">
-                <div className="bg-brand-primary/10 p-3 rounded-lg">
-                  <Phone className="w-5 h-5 text-brand-primary" />
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Phone</p>
-                  <p className="font-semibold text-gray-800 dark:text-gray-100">{profile.phone}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="bg-brand-primary/10 p-3 rounded-lg">
-                  <MapPin className="w-5 h-5 text-brand-primary" />
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Address</p>
-                  <p className="font-semibold text-gray-800 dark:text-gray-100">{profile.address}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="bg-brand-primary/10 p-3 rounded-lg">
-                  <Calendar className="w-5 h-5 text-brand-primary" />
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Joined</p>
-                  <p className="font-semibold text-gray-800 dark:text-gray-100">{profile.joinDate}</p>
-                </div>
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Email</p>
+                <p className="font-semibold text-gray-800 dark:text-gray-100">{profile.email}</p>
               </div>
             </div>
+            <div className="flex items-center gap-3">
+              <div className="bg-brand-primary/10 p-3 rounded-lg">
+                <Phone className="w-5 h-5 text-brand-primary" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Phone</p>
+                <p className="font-semibold text-gray-800 dark:text-gray-100">{profile.phone}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="bg-brand-primary/10 p-3 rounded-lg">
+                <MapPin className="w-5 h-5 text-brand-primary" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Address</p>
+                <p className="font-semibold text-gray-800 dark:text-gray-100">{profile.address}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="bg-brand-primary/10 p-3 rounded-lg">
+                <Calendar className="w-5 h-5 text-brand-primary" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Joined</p>
+                <p className="font-semibold text-gray-800 dark:text-gray-100">{profile.joinDate}</p>
+              </div>
+            </div>
+          </div>
           )}
         </div>
 
@@ -802,32 +802,32 @@ export default function ProfilePage({ cleanerData }: ProfilePageProps) {
               <p className="text-gray-500 dark:text-gray-400">No achievements yet</p>
             </div>
           ) : (
-            <div className="space-y-3">
+          <div className="space-y-3">
               {achievements.map((achievement, index) => {
                 const AchievementIcon = getAchievementIcon(achievement.icon);
-                return (
-                  <div
-                    key={index}
-                    className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
-                  >
-                    <div className="bg-brand-primary text-white p-2 rounded-lg">
-                      <AchievementIcon className="w-5 h-5" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-bold text-gray-800 dark:text-gray-100">
-                        {achievement.title}
-                      </h3>
-                      <p className="text-xs text-gray-600 dark:text-gray-400">
-                        {achievement.description}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                        {achievement.date}
-                      </p>
-                    </div>
+              return (
+                <div
+                  key={index}
+                  className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
+                >
+                  <div className="bg-brand-primary text-white p-2 rounded-lg">
+                    <AchievementIcon className="w-5 h-5" />
                   </div>
-                );
-              })}
-            </div>
+                  <div className="flex-1">
+                    <h3 className="font-bold text-gray-800 dark:text-gray-100">
+                      {achievement.title}
+                    </h3>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">
+                      {achievement.description}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                      {achievement.date}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
           )}
         </div>
       </div>
@@ -836,8 +836,8 @@ export default function ProfilePage({ cleanerData }: ProfilePageProps) {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
           <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">
-            Work History
-          </h2>
+          Work History
+        </h2>
           <div className="relative">
             <select
               value={workHistoryPeriod}
@@ -869,34 +869,34 @@ export default function ProfilePage({ cleanerData }: ProfilePageProps) {
             <p className="text-gray-500 dark:text-gray-400">No work history available</p>
           </div>
         ) : (
-          <div className="space-y-3">
+        <div className="space-y-3">
             {workHistory.map((period, index) => (
-              <div
-                key={index}
-                className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 rounded-full bg-brand-primary"></div>
-                  <span className="font-semibold text-gray-800 dark:text-gray-100">
+            <div
+              key={index}
+              className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-2 h-2 rounded-full bg-brand-primary"></div>
+                <span className="font-semibold text-gray-800 dark:text-gray-100">
                     {period.period}
-                  </span>
-                </div>
-                <div className="flex items-center gap-6">
-                  <div className="text-right">
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Tasks</p>
+                </span>
+              </div>
+              <div className="flex items-center gap-6">
+                <div className="text-right">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Tasks</p>
                     <p className="font-bold text-gray-800 dark:text-gray-100">{period.tasks}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Rating</p>
-                    <div className="flex items-center gap-1">
-                      <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                </div>
+                <div className="text-right">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Rating</p>
+                  <div className="flex items-center gap-1">
+                    <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
                       <p className="font-bold text-gray-800 dark:text-gray-100">{period.rating}</p>
-                    </div>
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
+        </div>
         )}
       </div>
         </>

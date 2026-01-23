@@ -425,7 +425,7 @@ export const getBookingById = async (
           FILTER (WHERE hi.id IS NOT NULL),
           '[]'
         ) as room_images
-      FROM bookings b
+      FROM booking b
       LEFT JOIN havens h ON b.room_name = h.haven_name
       LEFT JOIN haven_images hi ON h.uuid_id = hi.haven_id
       WHERE b.id = $1
@@ -466,33 +466,113 @@ export const updateBookingStatus = async (
 ): Promise<NextResponse> => {
   try {
     const body = await req.json();
-    const { id, status, rejection_reason } = body;
+    const {
+      id,
+      status,
+      rejection_reason,
+      // editable fields (CSR edit modal)
+      guest_first_name,
+      guest_last_name,
+      guest_age,
+      guest_gender,
+      guest_email,
+      guest_phone,
+      facebook_link,
+      room_name,
+      check_in_date,
+      check_out_date,
+      check_in_time,
+      check_out_time,
+      adults,
+      children,
+      infants,
+      payment_method,
+      room_rate,
+      security_deposit,
+      add_ons_total,
+      total_amount,
+      down_payment,
+      remaining_balance,
+      add_ons,
+      additional_guests,
+      payment_proof, // base64 (optional)
+      valid_id, // base64 (optional)
+    } = body;
 
-    if (!id || !status) {
+    if (!id) {
       return NextResponse.json(
         {
           success: false,
-          error: "Booking ID and status are required",
+          error: "Booking ID is required",
         },
         { status: 400 }
       );
     }
 
-    const validStatuses = [
-      "pending",
-      "approved",
-      "rejected",
-      "confirmed",
-      "checked-in",
-      "completed",
-      "cancelled",
-    ];
-    if (!validStatuses.includes(status)) {
+    // If status is provided, validate it. (Edit modal may update without changing status.)
+    const validStatuses = ["pending", "approved", "rejected", "confirmed", "checked-in", "completed", "cancelled"];
+    if (typeof status !== "undefined" && status !== null) {
+      if (typeof status !== "string" || !validStatuses.includes(status)) {
+        return NextResponse.json(
+          { success: false, error: "Invalid status" },
+          { status: 400 }
+        );
+      }
+    }
+
+    const updateFields: string[] = [];
+    const values: any[] = [];
+    let i = 1;
+
+    const pushField = (field: string, value: unknown) => {
+      if (typeof value === "undefined") return;
+      updateFields.push(`${field} = $${i++}`);
+      values.push(value);
+    };
+
+    // Core editable fields
+    pushField("guest_first_name", guest_first_name);
+    pushField("guest_last_name", guest_last_name);
+    pushField("guest_age", guest_age);
+    pushField("guest_gender", guest_gender);
+    pushField("guest_email", guest_email);
+    pushField("guest_phone", guest_phone);
+    pushField("facebook_link", facebook_link);
+    pushField("room_name", room_name);
+    pushField("check_in_date", check_in_date);
+    pushField("check_out_date", check_out_date);
+    pushField("check_in_time", check_in_time);
+    pushField("check_out_time", check_out_time);
+    pushField("adults", adults);
+    pushField("children", children);
+    pushField("infants", infants);
+    pushField("payment_method", payment_method);
+    pushField("room_rate", room_rate);
+    pushField("security_deposit", security_deposit);
+    pushField("add_ons_total", add_ons_total);
+    pushField("total_amount", total_amount);
+    pushField("down_payment", down_payment);
+    pushField("remaining_balance", remaining_balance);
+    pushField("add_ons", typeof add_ons === "undefined" ? undefined : JSON.stringify(add_ons));
+    pushField("additional_guests", typeof additional_guests === "undefined" ? undefined : JSON.stringify(additional_guests));
+
+    // Status/rejection reason
+    pushField("status", status);
+    pushField("rejection_reason", rejection_reason ?? null);
+
+    // Optional uploads
+    if (payment_proof) {
+      const uploadResult = await upload_file(payment_proof, "staycation-haven/payment-proofs");
+      pushField("payment_proof_url", uploadResult.url);
+    }
+    if (valid_id) {
+      const uploadResult = await upload_file(valid_id, "staycation-haven/valid-ids");
+      pushField("valid_id_url", uploadResult.url);
+    }
+
+    if (updateFields.length === 0) {
       return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid status",
-        },
+        { success: false, error: "No fields provided to update" },
         { status: 400 }
       );
     }
@@ -504,11 +584,8 @@ export const updateBookingStatus = async (
       RETURNING *
     `;
 
-    const result = await pool.query(query, [
-      status,
-      rejection_reason || null,
-      id,
-    ]);
+    values.push(id);
+    const result = await pool.query(query, values);
 
     if (result.rows.length === 0) {
       return NextResponse.json(
@@ -587,7 +664,7 @@ export const updateBookingStatus = async (
     return NextResponse.json({
       success: true,
       data: result.rows[0],
-      message: `Booking ${status} successfully`,
+      message: typeof status === "string" ? `Booking ${status} successfully` : "Booking updated successfully",
     });
   } catch (error) {
     console.log("❌ Error updating booking status:", error);
@@ -619,7 +696,7 @@ export const deleteBooking = async (
       );
     }
 
-    const query = `DELETE FROM bookings WHERE id = $1 RETURNING *`;
+    const query = `DELETE FROM booking WHERE id = $1 RETURNING *`;
     const result = await pool.query(query, [id]);
 
     if (result.rows.length === 0) {
@@ -671,7 +748,7 @@ export const getUserBookings = async (
           FILTER (WHERE hi.id IS NOT NULL),
           '[]'
         ) as room_images
-      FROM bookings b
+      FROM booking b
       LEFT JOIN havens h ON b.room_name = h.haven_name
       LEFT JOIN haven_images hi ON h.uuid_id = hi.haven_id
       WHERE b.user_id = $1

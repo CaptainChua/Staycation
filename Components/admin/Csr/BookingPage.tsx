@@ -6,6 +6,7 @@ import ViewBookings from "./Modals/ViewBookings";
 import NewBookings from "./Modals/NewBookings";
 import { useGetBookingsQuery, useDeleteBookingMutation } from "@/redux/api/bookingsApi";
 import toast from "react-hot-toast";
+import DeleteConfirmation from "./Modals/DeleteConfirmation";
 
 interface BookingData {
   id: string;
@@ -51,10 +52,14 @@ export default function BookingsPage() {
   const [selectedBooking, setSelectedBooking] = useState<BookingData | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isNewBookingModalOpen, setIsNewBookingModalOpen] = useState(false);
+  const [isEditBookingModalOpen, setIsEditBookingModalOpen] = useState(false);
+  const [editingBooking, setEditingBooking] = useState<BookingData | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [bookingToDelete, setBookingToDelete] = useState<BookingData | null>(null);
 
   // Fetch bookings from API
   const { data: bookings = [], isLoading, error } = useGetBookingsQuery({}) as { data: BookingData[]; isLoading: boolean; error: unknown };
-  const [deleteBooking] = useDeleteBookingMutation();
+  const [deleteBooking, { isLoading: isDeletingBooking }] = useDeleteBookingMutation();
 
   // Get status color
   const getStatusColor = (status: string) => {
@@ -181,12 +186,33 @@ export default function BookingsPage() {
     setSelectedBooking(null);
   };
 
-  const handleDeleteBooking = async (bookingId: string) => {
-    if (!confirm("Are you sure you want to delete this booking?")) return;
+  const handleEditBooking = (booking: BookingData) => {
+    setEditingBooking(booking);
+    setIsEditBookingModalOpen(true);
+  };
 
+  const handleCloseEditModal = () => {
+    setIsEditBookingModalOpen(false);
+    setEditingBooking(null);
+  };
+
+  const openDeleteModal = (booking: BookingData) => {
+    setBookingToDelete(booking);
+    setIsDeleteModalOpen(true);
+  };
+
+  const closeDeleteModal = () => {
+    if (isDeletingBooking) return;
+    setIsDeleteModalOpen(false);
+    setBookingToDelete(null);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!bookingToDelete?.id) return;
     try {
-      await deleteBooking(bookingId).unwrap();
+      await deleteBooking(bookingToDelete.id).unwrap();
       toast.success("Booking deleted successfully");
+      closeDeleteModal();
     } catch (error) {
       toast.error("Failed to delete booking");
       console.error(error);
@@ -482,13 +508,19 @@ export default function BookingsPage() {
                           >
                             <Eye className="w-4 h-4" />
                           </button>
-                          <button className="p-2 text-brand-primary hover:bg-brand-primaryLighter rounded-lg transition-colors" title="Edit">
+                          <button
+                            onClick={() => handleEditBooking(booking)}
+                            className="p-2 text-brand-primary hover:bg-brand-primaryLighter rounded-lg transition-colors"
+                            title="Edit"
+                            type="button"
+                          >
                             <Edit className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => handleDeleteBooking(booking.id)}
+                            onClick={() => openDeleteModal(booking)}
                             className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                             title="Delete"
+                            type="button"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -613,13 +645,19 @@ export default function BookingsPage() {
                 >
                   <Eye className="w-5 h-5" />
                 </button>
-                <button className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors" title="Edit">
+                <button
+                  onClick={() => handleEditBooking(booking)}
+                  className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+                  title="Edit"
+                  type="button"
+                >
                   <Edit className="w-5 h-5" />
                 </button>
                 <button
-                  onClick={() => handleDeleteBooking(booking.id)}
+                  onClick={() => openDeleteModal(booking)}
                   className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                   title="Delete"
+                  type="button"
                 >
                   <Trash2 className="w-5 h-5" />
                 </button>
@@ -717,6 +755,28 @@ export default function BookingsPage() {
 
       {isNewBookingModalOpen && (
         <NewBookings onClose={() => setIsNewBookingModalOpen(false)} />
+      )}
+
+      {isEditBookingModalOpen && editingBooking && (
+        <NewBookings
+          onClose={handleCloseEditModal}
+          initialBooking={editingBooking}
+          onSuccess={() => {
+            toast.success("Booking updated");
+          }}
+        />
+      )}
+
+      {isDeleteModalOpen && bookingToDelete && (
+        <DeleteConfirmation
+          title="Delete Booking"
+          itemName="booking"
+          itemId={bookingToDelete.booking_id}
+          onCancel={closeDeleteModal}
+          onConfirm={handleConfirmDelete}
+          isDeleting={isDeletingBooking}
+          confirmLabel="Delete booking"
+        />
       )}
 
     </div>

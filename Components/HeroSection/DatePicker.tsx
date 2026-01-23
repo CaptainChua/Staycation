@@ -4,7 +4,6 @@ import { useState, useMemo } from "react";
 import { DatePicker as HeroDatePicker } from "@nextui-org/date-picker";
 import { parseDate } from "@internationalized/date";
 import { Calendar } from "lucide-react";
-import type { DateValue } from "@internationalized/date";
 import { formatDateWithYear } from "@/lib/dateUtils";
 
 interface DatePickerProps {
@@ -17,11 +16,11 @@ const DatePicker = ({ label, date, onDateChange }: DatePickerProps) => {
   const [isHovered, setIsHovered] = useState(false);
 
   // Update selectedDate whenever `date` prop changes
-  const selectedDate = useMemo(() => {
+  const selectedDate = useMemo<any>(() => {
     if (date) {
       try {
         const parsed = parseDate(date);
-        return parsed;
+        return parsed as any;
       } catch (error) {
         console.error('[DatePicker] Error parsing date:', date, error);
         return null;
@@ -63,9 +62,9 @@ const DatePicker = ({ label, date, onDateChange }: DatePickerProps) => {
       {/* Hidden DatePicker that opens on click */}
       <div className="absolute top-0 left-0 w-full h-full opacity-0">
         <HeroDatePicker
-          value={selectedDate ? (selectedDate as any) : null}
+          value={selectedDate as any}
           onChange={(newDate) => {
-            if (newDate) onDateChange((newDate as DateValue).toString());
+            if (newDate) onDateChange((newDate as any).toString());
           }}
           className="w-full h-full"
           classNames={{
