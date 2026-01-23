@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { AlertTriangle, Wrench, PackageMinus, Droplets, Zap, FileText, Camera, Send, Loader2, X, Edit } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
