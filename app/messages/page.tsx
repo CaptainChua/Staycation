@@ -123,7 +123,6 @@ export default function MessagesPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const hasInitializedActiveId = useRef(false);
-  const hasProcessedInitialConversationId = useRef(false);
 
   // Fetch conversations (using a guest user ID for demo purposes)
   const {
@@ -164,8 +163,8 @@ export default function MessagesPage() {
   }, [employees]);
 
   // Filter employees to show only CSRs
-  const csrEmployees = useMemo(() => {
-    return employees.filter((emp) => emp.email?.toLowerCase().includes("csr") || emp.employment_id?.toLowerCase().includes("csr"));
+  const csrEmployees: Employee[] = useMemo(() => {
+    return employees.filter((emp: Employee) => emp.email?.toLowerCase().includes("csr") || emp.employment_id?.toLowerCase().includes("csr"));
   }, [employees]);
 
   // Compute initial active conversation ID
@@ -182,11 +181,12 @@ export default function MessagesPage() {
     if (conversations.length > 0 && !hasInitializedActiveId.current) {
       const initialActiveId = getInitialActiveId();
       if (initialActiveId !== activeId) {
-        setActiveId(initialActiveId);
+        // Use setTimeout to avoid calling setState synchronously within effect
+        setTimeout(() => setActiveId(initialActiveId), 0);
       }
       hasInitializedActiveId.current = true;
     }
-  }, [conversations.length, activeId, getInitialActiveId]);
+  }, [conversations.length, getInitialActiveId]);
 
   // Fetch messages for active conversation
   const {
@@ -492,7 +492,7 @@ export default function MessagesPage() {
                       Select a customer service representative to start a conversation
                     </p>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {csrEmployees.map((employee) => (
+                      {csrEmployees.map((employee: Employee) => (
                         <button
                           key={employee.id}
                           onClick={() => handleNewChatWithEmployee(employee)}
