@@ -1467,7 +1467,6 @@
                             classNames={{
                               input: `${errors.checkInDate ? 'border-red-500' : ''}`,
                               calendar: 'dark:bg-gray-800',
-                              cell: 'dark:hover:bg-gray-700',
                               selectorButton: 'dark:bg-gray-700 dark:hover:bg-gray-600'
                             }}
                             value={bookingData.checkInDate ? (safeParseDate(bookingData.checkInDate) as any) : null}
@@ -1499,7 +1498,6 @@
                             classNames={{
                               input: `${errors.checkOutDate ? 'border-red-500' : ''}`,
                               calendar: 'dark:bg-gray-800',
-                              cell: 'dark:hover:bg-gray-700',
                               selectorButton: 'dark:bg-gray-700 dark:hover:bg-gray-600'
                             }}
                             value={bookingData.checkOutDate ? (safeParseDate(bookingData.checkOutDate) as any) : null}
