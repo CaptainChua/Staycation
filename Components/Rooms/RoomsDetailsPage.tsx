@@ -28,6 +28,7 @@ import { useSession } from "next-auth/react";
 import { useCheckWishlistStatusQuery, useAddToWishlistMutation, useRemoveFromWishlistMutation } from "@/redux/api/wishlistApi";
 import toast from "react-hot-toast";
 import AmenityBadge from "./AmenityBadge";
+import RoomCard from "./RoomCard";
 import dynamic from "next/dynamic";
 import Footer from "../Footer";
 
@@ -82,9 +83,10 @@ interface Room {
 interface RoomsDetailsPageProps {
   room: Room;
   onBack: () => void;
+  recommendedRooms?: Room[];
 }
 
-const RoomsDetailsPage = ({ room, onBack }: RoomsDetailsPageProps) => {
+const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsPageProps) => {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const { data: session } = useSession();
@@ -635,6 +637,50 @@ const RoomsDetailsPage = ({ room, onBack }: RoomsDetailsPageProps) => {
             </div>
           </div>
         </div>
+
+          {/* Recommended Rooms Section */}
+          {recommendedRooms.length > 0 && (
+            <div className="mt-8 sm:mt-12">
+              <div className="flex items-center justify-between mb-4 sm:mb-6">
+                <div>
+                  <h2 className="text-xl sm:text-2xl font-bold text-gray-800 dark:text-white">
+                    You May Also Like
+                  </h2>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                    Explore other havens that might interest you
+                  </p>
+                </div>
+                <button
+                  onClick={() => router.push('/rooms')}
+                  className="text-sm text-brand-primary hover:text-brand-primaryDark font-medium transition-colors hidden sm:block"
+                >
+                  View All Rooms →
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
+                {recommendedRooms.slice(0, 5).map((recRoom) => (
+                  <RoomCard
+                    key={recRoom.id}
+                    room={{
+                      ...recRoom,
+                      uuid_id: recRoom.id,
+                    }}
+                    mode="browse"
+                    compact={false}
+                  />
+                ))}
+              </div>
+
+              {/* Mobile View All Button */}
+              <button
+                onClick={() => router.push('/rooms')}
+                className="w-full mt-4 py-2.5 text-sm text-brand-primary border border-brand-primary rounded-lg font-medium hover:bg-brand-primary hover:text-white transition-colors sm:hidden"
+              >
+                View All Rooms
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
