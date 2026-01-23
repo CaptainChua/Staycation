@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
           }
 
           .status-badge {
-            background: #10B981;
+            background: #B8860B;
             color: white;
             padding: 8px 20px;
             border-radius: 20px;

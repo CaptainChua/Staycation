@@ -11,6 +11,14 @@ interface NotificationModalProps {
   onViewAll?: () => void;
   anchorRef?: RefObject<HTMLElement | null>;
   userId?: string;
+  notifications: Array<{
+    id: string;
+    title: string;
+    description: string;
+    timestamp: string;
+    type: 'info' | 'success' | 'warning';
+    read?: boolean;
+  }>;
 }
 
 const iconMap: Record<string, ReactNode> = {
@@ -34,7 +42,7 @@ const typeStyles: Record<NonNullable<Notification["type"]>, { wrapper: string; i
   },
 };
 
-export default function NotificationModal({ onClose, onViewAll, anchorRef, userId }: NotificationModalProps) {
+export default function NotificationModal({ onClose, onViewAll, anchorRef, userId, notifications: propNotifications }: NotificationModalProps) {
   const [isMounted, setIsMounted] = useState(false);
   const [position, setPosition] = useState({ top: 96, right: 16 });
   const [filter, setFilter] = useState<"all" | "unread">("all");
@@ -42,13 +50,16 @@ export default function NotificationModal({ onClose, onViewAll, anchorRef, userI
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Fetch notifications from API
-  const { data: notifications = [], isLoading, error, refetch } = useGetNotificationsQuery(
+  const { data: apiNotifications = [], isLoading, error, refetch } = useGetNotificationsQuery(
     { limit: 50 },
     { 
       pollingInterval: 30000, // Refresh every 30 seconds
       skip: !userId 
     }
   );
+
+  // Use prop notifications if userId is not provided (mock/fallback behavior)
+  const notifications = userId ? apiNotifications : propNotifications;
 
   const [updateNotifications] = useUpdateNotificationsMutation();
   const [markAllAsRead] = useMarkAllAsReadMutation();

@@ -5,8 +5,6 @@ import {
   Trash2,
   Clock,
   User,
-  Users,
-  UsersRound,
   LogIn,
   LogOut,
   Edit,
@@ -15,8 +13,6 @@ import {
   Search,
   Loader2,
 } from "lucide-react";
-
-
 import { useState } from "react";
 import { useGetEmployeesQuery, useDeleteEmployeeMutation } from "@/redux/api/employeeApi";
 import { useGetActivityLogsQuery, useGetActivityStatsQuery } from "@/redux/api/activityLogApi";
@@ -53,12 +49,8 @@ interface StaffActivityPageProps {
   onEditClick: (employee: Employee) => void;
 }
 
-
-
-/*main component*/
-
 const StaffActivityPage = ({ onCreateClick, onEditClick }: StaffActivityPageProps) => {
-  //const [tab, setTab] = useState("activity");//
+  const [tab, setTab] = useState("activity");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState<string>("all");
 
@@ -69,29 +61,11 @@ const StaffActivityPage = ({ onCreateClick, onEditClick }: StaffActivityPageProp
   // Fetch activity logs and stats from API
   const { data: activityLogsData, isLoading: isLoadingLogs } = useGetActivityLogsQuery({
     action_type: filterType !== "all" ? filterType : undefined,
-    limit: 30,
+    limit: 50,
   });
   const { data: statsData, isLoading: isLoadingStats } = useGetActivityStatsQuery({});
 
   const employees = employeesData?.data || [];
-      const filteredEmployees = employees.filter((user: Employee) => {
-        const query = searchQuery.toLowerCase();
-
-        const fullName = `${user.first_name} ${user.last_name}`.toLowerCase();
-        const email = user.email?.toLowerCase() || "";
-        const role = user.role?.toLowerCase() || "";
-        const phone = user.phone?.toLowerCase() || "";
-        const id = user.id?.toLowerCase() || "";
-
-        return (
-          fullName.includes(query) ||
-          email.includes(query) ||
-          role.includes(query) ||
-          phone.includes(query) ||
-          id.includes(query)
-        );
-      });
-
   const activityLogs = activityLogsData?.data || [];
   const stats = statsData?.data || { active_csr: 0, active_cleaners: 0, logged_out: 0, total: 0 };
 
@@ -150,168 +124,237 @@ const StaffActivityPage = ({ onCreateClick, onEditClick }: StaffActivityPageProp
     }
   };
 
-  const statCards = [
-  {
-    title: "Active CSR",
-    count: stats.active_csr,
-    color: "from-pink-500 to-pink-400",
-    icon: <User className="w-10 h-10 text-white/40" />,
-  },
-  {
-    title: "Active Cleaners",
-    count: stats.active_cleaners,
-    color: "from-green-500 to-green-400",
-    icon: <Users className="w-10 h-10 text-white/40" />,
-  },
-  {
-    title: "Logged Out",
-    count: stats.logged_out,
-    color: "from-yellow-500 to-yellow-400",
-    icon: <LogOut className="w-10 h-10 text-white/40" />,
-  },
-  {
-    title: "Total Staff",
-    count: stats.total,
-    color: "from-red-500 to-red-400",
-    icon: <UsersRound className="w-10 h-10 text-white/40" />,
-  },
-];
-
-
   return (
     <div className="space-y-6 animate-in fade-in duration-700">
-    {/* Header */}
-<div className="flex justify-between items-center">
-    <div className="flex flex-col">
-    <h2 className="text-3xl font-bold">Staff Management</h2>
-    <span className="text-gray-500 mt-1">
-      Manage staff accounts, roles, and monitor activity logs
-    </span>
-    </div>
-
-  <button
-    onClick={onCreateClick}
-    className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg flex items-center gap-2"
-  >
-    <Plus className="w-5 h-5" />
-    Create Employee
-  </button>
-</div>
-
-
-    {/* STATS */}
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-  {isLoadingStats ? (
-    <div className="col-span-4 flex justify-center py-12">
-      <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
-    </div>
-  ) : (
-    statCards.map((stat, i) => (
-      <div
-        key={i}
-        className={`relative rounded-xl p-6 text-white shadow-lg bg-gradient-to-r ${stat.color}`}
-      >
-        <p className="text-sm font-semibold opacity-90">{stat.title}</p>
-        <p className="text-4xl font-bold mt-2">{stat.count}</p>
-
-        <div className="absolute right-4 top-1/2 -translate-y-1/2">
-          {stat.icon}
-        </div>
+      <div className="flex justify-between items-center">
+        <h2 className="text-3xl font-bold">Staff Management</h2>
+        <button
+          onClick={onCreateClick}
+          className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+        >
+          <Plus className="w-5 h-5" />
+          Create Employee
+        </button>
       </div>
-    ))
-  )}
-</div>
 
+      <div className="flex gap-4 border-b border-gray-200 overflow-x-auto">
+        <button
+          onClick={() => setTab("activity")}
+          className={`pb-3 font-semibold whitespace-nowrap ${
+            tab === "activity"
+              ? "text-orange-600 border-b-2 border-orange-600"
+              : "text-gray-600"
+          }`}
+        >
+          Activity
+        </button>
+        <button
+          onClick={() => setTab("users")}
+          className={`pb-3 font-semibold whitespace-nowrap ${
+            tab === "users"
+              ? "text-orange-600 border-b-2 border-orange-600"
+              : "text-gray-600"
+          }`}
+        >
+          Users
+        </button>
+        <button
+          onClick={() => setTab("logs")}
+          className={`pb-3 font-semibold whitespace-nowrap ${
+            tab === "logs"
+              ? "text-orange-600 border-b-2 border-orange-600"
+              : "text-gray-600"
+          }`}
+        >
+          Activity Log
+        </button>
+      </div>
 
-{/* Search */}
-<div className="bg-white rounded-xl shadow p-4">
-  <div className="relative">
-    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-    <input
-      type="text"
-      placeholder="Search by name, email, role..."
-      value={searchQuery}
-      onChange={(e) => setSearchQuery(e.target.value)}
-      className="w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-orange-500"
-    />
-  </div>
-</div>
-
-{/* Users Table */}
-<div className="bg-white rounded-xl shadow overflow-x-auto">
-  <table className="w-full">
-    <thead className="bg-gray-50">
-      <tr>
-        <th className="px-6 py-4 text-left text-sm font-semibold">User</th>
-        <th className="px-6 py-4 text-left text-sm font-semibold">Role</th>
-        <th className="px-6 py-4 text-left text-sm font-semibold">Email</th>
-        <th className="px-6 py-4 text-left text-sm font-semibold">Number</th>
-        <th className="px-6 py-4 text-center text-sm font-semibold">Status</th>
-        <th className="px-6 py-4 text-center text-sm font-semibold">Actions</th>
-      </tr>
-    </thead>
-    <tbody>
-      {filteredEmployees.map((user: Employee) => (
-        <tr key={user.id} className="border-t hover:bg-orange-50">
-    <td className="px-6 py-4 flex items-center gap-3">
-              {user.profile_image_url ? (
-    <div className="relative w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
-            <Image
-                src={user.profile_image_url}
-                alt={`${user.first_name} ${user.last_name}`}
-                fill
-                className="object-cover"/>
-    </div>
-      ) : (
-        <div className="w-10 h-10 rounded-full bg-orange-500 text-white flex items-center justify-center font-bold flex-shrink-0">
-            {user.first_name?.[0] ?? "U"}
+      {tab === "activity" && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {isLoadingStats ? (
+            <div className="col-span-4 flex justify-center items-center py-12">
+              <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
+            </div>
+          ) : (
+            [
+              { title: "Active CSR", count: stats.active_csr },
+              { title: "Active Cleaners", count: stats.active_cleaners },
+              { title: "Logged Out", count: stats.logged_out },
+              { title: "Total", count: stats.total },
+            ].map((stat, i) => (
+              <div
+                key={i}
+                className="bg-gradient-to-br from-orange-100 to-yellow-100 rounded-lg p-6 text-center animate-in fade-in slide-in-from-bottom duration-500"
+                style={{ animationDelay: `${i * 100}ms` }}
+              >
+                <p className="text-sm font-semibold text-gray-700 mb-2">
+                  {stat.title}
+                </p>
+                <p className="text-4xl font-bold text-orange-600">{stat.count}</p>
+              </div>
+            ))
+          )}
         </div>
       )}
 
-        <div className="flex flex-col">
-          <span className="font-medium">
-            {user.first_name} {user.last_name}
-          </span>
-            <span className="text-xs text-gray-500">
-              ID: {user.id}
-            </span>
-        </div>
-    </td>
+      {tab === "users" && (
+        <div className="space-y-4">
+          {/* Search Bar */}
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search by name, email, or role..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
+              />
+            </div>
+          </div>
 
-          <td className="px-6 py-4">{user.role}</td>
-          <td className="px-6 py-4">{user.email}</td>
-          <td className="px-6 py-4">
-            {user.phone ? (
-              <span className="text-gray-800">{user.phone}</span>
+          <div className="bg-white rounded-lg shadow p-6">
+            {isLoadingEmployees ? (
+              <div className="flex justify-center items-center py-12">
+                <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
+              </div>
+            ) : employees.length === 0 ? (
+              <div className="text-center py-12">
+                <User className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                <p className="text-gray-600 font-medium">No employees found</p>
+                <p className="text-sm text-gray-500 mt-1">
+                  Click &quot;Create Employee&quot; to add your first team member
+                </p>
+              </div>
             ) : (
-              <span className="text-gray-800 text-sm">N/A</span>
+              <div className="space-y-3">
+              {employees
+                .filter((user: Employee) =>
+                  user.first_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                  user.last_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                  user.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                  user.role?.toLowerCase().includes(searchQuery.toLowerCase())
+                )
+                .map((user: Employee, i: number) => (
+                  <div
+                    key={user.id}
+                    className="border border-gray-200 rounded-lg p-4 flex justify-between items-center hover:border-orange-300 transition-colors animate-in fade-in duration-500"
+                    style={{ animationDelay: `${i * 100}ms` }}
+                  >
+                    <div className="flex items-center gap-4">
+                      {user.profile_image_url ? (
+                        <div className="relative w-12 h-12 rounded-full overflow-hidden">
+                          <Image
+                            src={user.profile_image_url}
+                            alt={`${user.first_name} ${user.last_name}`}
+                            fill
+                            className="object-cover"
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-orange-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
+                          {user.first_name?.charAt(0)}{user.last_name?.charAt(0)}
+                        </div>
+                      )}
+                      <div>
+                        <p className="font-bold text-gray-800">
+                          {user.first_name} {user.last_name}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {user.role} • {user.email}
+                        </p>
+                        {user.phone && (
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            📱 {user.phone}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`text-xs font-bold px-3 py-1 rounded-full ${
+                          user.status === "active"
+                            ? "bg-green-100 text-green-700"
+                            : "bg-gray-100 text-gray-700"
+                        }`}
+                      >
+                        {user.status === "active" ? "Active" : "Inactive"}
+                      </span>
+                      <button
+                        onClick={() => {
+                          onEditClick(user);
+                        }}
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        title="Edit Employee"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={async () => {
+                          if (window.confirm(`Are you sure you want to delete ${user.first_name} ${user.last_name}?`)) {
+                            try {
+                              await deleteEmployee(user.id).unwrap();
+                              toast.success(`Successfully deleted ${user.first_name} ${user.last_name}`);
+                            } catch (error: unknown) {
+                              const errorMessage =
+                                error && typeof error === 'object' && 'data' in error &&
+                                error.data && typeof error.data === 'object' && 'error' in error.data &&
+                                typeof error.data.error === 'string'
+                                ? error.data.error
+                                : "Failed to delete employee";
+                              toast.error(errorMessage);
+                            }
+                          }
+                        }}
+                        disabled={isDeleting}
+                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                        title="Delete Employee"
+                      >
+                        {isDeleting ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
-          </td>
-          <td className="px-6 py-4 text-center">
-            <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-              user.status === "active"
-                ? "bg-green-100 text-green-700"
-                : "bg-gray-100 text-gray-600"
-            }`}>
-              {user.status}
-            </span>
-          </td>
-          <td className="px-6 py-4 text-center flex justify-center gap-2">
-            <button onClick={() => onEditClick(user)} className="text-blue-600">
-              <Edit size={16} />
-            </button>
-            <button onClick={() => deleteEmployee(user.id)} className="text-red-600">
-              <Trash2 size={16} />
-            </button>
-          </td>
-        </tr>
-      ))}
-    </tbody>
-  </table>
-</div>
+          </div>
+        </div>
+      )}
 
-        <h3 className="text-xl font-bold mt-10">Activity Logs</h3>
-          <div className="bg-white rounded-xl shadow overflow-hidden">
+      {tab === "logs" && (
+        <div className="space-y-4">
+          {/* Search and Filter Section */}
+          <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search by staff name, action, or details..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
+                />
+              </div>
+              <select
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value)}
+                className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
+              >
+                <option value="all">All Activities</option>
+                <option value="login">Logins</option>
+                <option value="logout">Logouts</option>
+                <option value="task_complete">Tasks Completed</option>
+                <option value="task_pending">Tasks Pending</option>
+                <option value="update">Updates</option>
+              </select>
+            </div>
+          </div>
 
           {/* Activity Log Table */}
           <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
@@ -453,8 +496,9 @@ const StaffActivityPage = ({ onCreateClick, onEditClick }: StaffActivityPageProp
             </div>
           </div>
         </div>
-      </div>
-    );
- };
+      )}
+    </div>
+  );
+};
 
 export default StaffActivityPage;

@@ -31,7 +31,7 @@ const delete_file = async (file: string): Promise<boolean> => {
     const res = await cloudinary.v2.uploader.destroy(file);
 
     if (res?.result === "ok") {
-        return false;
+        return true;
     }
     return false;
 }

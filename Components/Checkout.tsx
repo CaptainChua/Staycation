@@ -1,8 +1,8 @@
     "use client";
 
-    import { useState, useEffect, useRef, useMemo } from "react";
+    import { useState, useEffect, useRef, useMemo, useCallback } from "react";
     import { useAppSelector, useAppDispatch } from "@/redux/hooks";
-    import { setCheckInDate, setCheckOutDate } from "@/redux/slices/bookingSlice";
+    import { setCheckInDate, setCheckOutDate, setSelectedRoom } from "@/redux/slices/bookingSlice";
     import { useRouter } from "next/navigation";
     import { useSession } from "next-auth/react";
     import { DatePicker } from "@nextui-org/date-picker";
@@ -177,6 +177,74 @@
         extraSlippers: 0,
       });
 
+      // Persistence Key
+      const STORAGE_KEY = 'staycation_checkout_data';
+
+      // Load from storage on mount
+      useEffect(() => {
+        const savedData = localStorage.getItem(STORAGE_KEY);
+        if (savedData) {
+          try {
+            const parsed = JSON.parse(savedData);
+            
+            // Restore formData (excluding files)
+            if (parsed.formData) {
+              setFormData(prev => ({ ...prev, ...parsed.formData }));
+            }
+            
+            // Restore additionalGuests (excluding files)
+            if (parsed.additionalGuests) {
+              setAdditionalGuests(parsed.additionalGuests);
+            }
+            
+            // Restore AddOns
+            if (parsed.addOns) {
+              setAddOns(parsed.addOns);
+            }
+            
+            // Restore Step
+            if (parsed.currentStep && typeof parsed.currentStep === 'number' && parsed.currentStep <= 4) {
+               setCurrentStep(parsed.currentStep);
+               setCompletedSteps(Array.from({length: parsed.currentStep - 1}, (_, i) => i + 1));
+            }
+
+            // Restore Booking Data (Redux)
+            if (parsed.bookingData) {
+                if (parsed.bookingData.checkInDate) dispatch(setCheckInDate(parsed.bookingData.checkInDate));
+                if (parsed.bookingData.checkOutDate) dispatch(setCheckOutDate(parsed.bookingData.checkOutDate));
+                if (parsed.bookingData.selectedRoom) dispatch(setSelectedRoom(parsed.bookingData.selectedRoom));
+            }
+
+          } catch (e) {
+            console.error("Failed to restore checkout data", e);
+          }
+        }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      }, []);
+
+      // Save to storage on change
+      useEffect(() => {
+        // Filter out File objects and Previews from formData
+        const { validId, validIdPreview, paymentProof, paymentProofPreview, ...cleanFormData } = formData;
+        
+        // Filter out File objects from additionalGuests
+        const cleanAdditionalGuests = additionalGuests.map(g => {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { validId: _v, validIdPreview: _vp, ...rest } = g;
+          return rest;
+        });
+
+        const dataToSave = {
+          formData: cleanFormData,
+          additionalGuests: cleanAdditionalGuests,
+          addOns,
+          currentStep,
+          bookingData // Save Redux state
+        };
+
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+      }, [formData, additionalGuests, addOns, currentStep, bookingData]);
+
       // Calculate number of days for multi-day stay
       const calculateNumberOfDays = (): number => {
         if (!bookingData.checkInDate || !bookingData.checkOutDate) return 0;
@@ -273,43 +341,72 @@
       // eslint-disable-next-line react-hooks/exhaustive-deps
       }, [bookingData.isFromSearch, bookingData.guests]);
 
+      // Helper function to check overlap with existing bookings
+      const checkOverlap = useCallback((userStart: Date, userEnd: Date) => {
+        return roomBookingsData?.data?.some((booking: any) => {
+          const approvedStatuses = ['approved', 'confirmed', 'check_in', 'checked-in'];
+          if (!approvedStatuses.includes(booking.status)) return false;
+
+          const bStart = new Date(booking.check_in_date);
+          if (booking.check_in_time) {
+             const [h, m] = booking.check_in_time.split(':');
+             bStart.setHours(parseInt(h), parseInt(m), 0, 0);
+          } else {
+             bStart.setHours(14, 0, 0, 0); 
+          }
+
+          const bEnd = new Date(booking.check_out_date);
+          if (booking.check_out_time) {
+             const [h, m] = booking.check_out_time.split(':');
+             bEnd.setHours(parseInt(h), parseInt(m), 0, 0);
+          } else {
+             if (booking.stay_type === "10 Hours - ₱1,599") {
+                bEnd.setHours(24, 0, 0, 0); 
+                if (bEnd.getTime() <= bStart.getTime()) bEnd.setDate(bEnd.getDate() + 1);
+             } else {
+                bEnd.setHours(11, 0, 0, 0); 
+             }
+          }
+
+          return userStart < bEnd && userEnd > bStart;
+        });
+      }, [roomBookingsData]);
+
       // Create a function to check if a date is unavailable (booked or blocked)
       const isDateUnavailable = useMemo(() => {
         return (date: DateValue) => {
-          const checkDate = new Date(date.year, date.month - 1, date.day);
-          checkDate.setHours(0, 0, 0, 0);
+          const checkDateStart = new Date(date.year, date.month - 1, date.day);
+          
+          // Determine User's Intended Time Window based on Stay Type
+          const userStart = new Date(checkDateStart);
+          userStart.setHours(14, 0, 0, 0); // Default start 2:00 PM
 
-          // Check if the date falls within any existing booking's date range
-          const isBooked = roomBookingsData?.data?.some((booking: Booking) => {
-            // Only block dates for approved/confirmed/checked-in bookings
-            // Pending bookings don't block dates until approved
-            const approvedStatuses = ['approved', 'confirmed', 'check_in', 'checked-in'];
-            if (!approvedStatuses.includes(booking.status)) {
-              return false;
-            }
+          const userEnd = new Date(userStart);
+          if (formData.stayType === "10 Hours - ₱1,599") {
+            userEnd.setHours(24, 0, 0, 0); // Next day 00:00
+          } else if (formData.stayType && formData.stayType.includes("21 Hours")) {
+            userEnd.setDate(userEnd.getDate() + 1);
+            userEnd.setHours(11, 0, 0, 0);
+          } else {
+            // Default/Multi-Day start check: Assume at least 1 night for blocking safety
+            userEnd.setDate(userEnd.getDate() + 1);
+            userEnd.setHours(11, 0, 0, 0);
+          }
 
-            const bookingCheckIn = new Date(booking.check_in_date);
-            bookingCheckIn.setHours(0, 0, 0, 0);
-
-            const bookingCheckOut = new Date(booking.check_out_date);
-            bookingCheckOut.setHours(0, 0, 0, 0);
-
-            // A date is unavailable if it falls between check-in and check-out (inclusive)
-            return checkDate >= bookingCheckIn && checkDate <= bookingCheckOut;
-          });
+          const isBooked = checkOverlap(userStart, userEnd);
 
           // Check if the date is in blocked_dates from the room
           const isBlocked = bookingData.selectedRoom?.blocked_dates?.some((blocked: BlockedDate) => {
-            const fromDate = new Date(blocked.from_date);
-            fromDate.setHours(0, 0, 0, 0);
-            const toDate = new Date(blocked.to_date);
-            toDate.setHours(0, 0, 0, 0);
-            return checkDate >= fromDate && checkDate <= toDate;
+            const blockStart = new Date(blocked.from_date);
+            blockStart.setHours(0, 0, 0, 0);
+            const blockEnd = new Date(blocked.to_date);
+            blockEnd.setHours(23, 59, 59, 999);
+            return userStart < blockEnd && userEnd > blockStart;
           });
 
           return isBooked || isBlocked;
         };
-      }, [roomBookingsData, bookingData.selectedRoom]);
+      }, [checkOverlap, bookingData.selectedRoom, formData.stayType]);
 
       const handleInputChange = (
         e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -318,10 +415,18 @@
 
         // Handle guest count validation (adults + children only, infants not counted)
         if (name === "adults" || name === "children") {
-          const newValue = parseInt(value) || 0;
+          if (value === "") {
+            setFormData(prev => ({ ...prev, [name]: 0 }));
+            const curAdults = name === "adults" ? 0 : formData.adults;
+            const curChildren = name === "children" ? 0 : formData.children;
+            updateAdditionalGuests(Number(curAdults), Number(curChildren));
+            return;
+          }
+
+          const newValue = parseInt(value);
           const currentAdults = name === "adults" ? newValue : formData.adults;
           const currentChildren = name === "children" ? newValue : formData.children;
-          const newTotal = currentAdults + currentChildren;
+          const newTotal = Number(currentAdults) + Number(currentChildren);
 
           // Prevent exceeding max 4 guests (excluding infants)
           if (newTotal > 4) {
@@ -329,16 +434,62 @@
             return;
           }
 
-          // Update formData
-          const updatedFormData = {
-            ...formData,
-            [name]: type === "number" ? newValue : value,
-          };
+          setFormData(prev => ({
+            ...prev,
+            [name]: newValue,
+          }));
 
-          setFormData(updatedFormData);
+          updateAdditionalGuests(Number(currentAdults), Number(currentChildren));
+        } else if (name === "age") {
+          if (value === "") {
+            setErrors(prev => ({...prev, age: ''}));
+            setFormData((prev) => ({
+              ...prev,
+              [name]: ""
+            }));
+          } else {
+            const ageValue = parseInt(value);
+            
+            if (!isNaN(ageValue) && ageValue < 18) {
+              setErrors(prev => ({...prev, age: 'Main guest must be at least 18 years old to book'}));
+            } else {
+              setErrors(prev => ({...prev, age: ''}));
+            }
 
-          // Update additionalGuests directly
-          updateAdditionalGuests(currentAdults, currentChildren);
+            setFormData((prev) => ({
+              ...prev,
+              [name]: isNaN(ageValue) ? "" : String(ageValue)
+            }));
+          }
+        } else if (name === "email") {
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (value && !emailRegex.test(value)) {
+            setErrors(prev => ({...prev, email: 'Please enter a valid email address'}));
+          } else {
+            setErrors(prev => ({...prev, email: ''}));
+          }
+          setFormData((prev) => ({
+            ...prev,
+            [name]: value
+          }));
+        } else if (name === "phone") {
+          // Allow international formats: +, spaces, dashes, digits, length 7-20
+          const phoneRegex = /^\+?[0-9\s-]{7,20}$/;
+          if (value && !phoneRegex.test(value)) {
+            setErrors(prev => ({...prev, phone: 'Please enter a valid phone number'}));
+          } else {
+            setErrors(prev => ({...prev, phone: ''}));
+          }
+          setFormData((prev) => ({
+            ...prev,
+            [name]: value
+          }));
+        } else if (name === "infants") {
+          if (value === "") {
+            setFormData(prev => ({ ...prev, [name]: 0 }));
+          } else {
+            setFormData(prev => ({ ...prev, [name]: parseInt(value) }));
+          }
         } else {
           setFormData((prev) => ({
             ...prev,
@@ -456,10 +607,22 @@
         // Validate Step 1 - Main Guest
         if (!formData.firstName) newErrors.firstName = "First name is required";
         if (!formData.lastName) newErrors.lastName = "Last name is required";
-        if (!formData.age) newErrors.age = "Age is required";
+        if (!formData.age) {
+          newErrors.age = "Age is required";
+        } else if (Number(formData.age) < 18) {
+          newErrors.age = "Main guest must be at least 18 years old to book";
+        }
         if (!formData.gender) newErrors.gender = "Please select a gender";
-        if (!formData.email) newErrors.email = "Email is required";
-        if (!formData.phone) newErrors.phone = "Phone number is required";
+        if (!formData.email) {
+          newErrors.email = "Email is required";
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+          newErrors.email = "Please enter a valid email address";
+        }
+        if (!formData.phone) {
+          newErrors.phone = "Phone number is required";
+        } else if (!/^\+?[0-9\s-]{7,20}$/.test(formData.phone)) {
+          newErrors.phone = "Please enter a valid phone number";
+        }
 
         // Validate ID for main guest if 10+ years old
         if (formData.age && parseInt(formData.age) >= 10 && !formData.validId) {
@@ -512,6 +675,29 @@
         // Validate check-in/out times
         if (!formData.checkInTime) newErrors.checkInTime = "Check-in time is required";
         if (!formData.checkOutTime) newErrors.checkOutTime = "Check-out time is required";
+
+        // Real-time overlap check
+        if (!newErrors.checkInDate && !newErrors.checkOutDate && bookingData.checkInDate && bookingData.checkOutDate) {
+           const start = new Date(bookingData.checkInDate);
+           if (formData.checkInTime) {
+              const [h, m] = formData.checkInTime.split(':');
+              start.setHours(parseInt(h), parseInt(m), 0, 0);
+           } else {
+              start.setHours(14, 0, 0, 0);
+           }
+
+           const end = new Date(bookingData.checkOutDate);
+           if (formData.checkOutTime) {
+              const [h, m] = formData.checkOutTime.split(':');
+              end.setHours(parseInt(h), parseInt(m), 0, 0);
+           } else {
+              end.setHours(11, 0, 0, 0);
+           }
+
+           if (checkOverlap(start, end)) {
+              newErrors.checkInDate = "Selected time overlaps with an existing booking.";
+           }
+        }
 
         setErrors(newErrors);
 
@@ -580,6 +766,12 @@
 
     const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
+
+      // Validate booking dates from Redux store
+      if (!bookingData.checkInDate || !bookingData.checkOutDate) {
+        toast.error("Missing booking dates. Please return to Step 2 and select your dates.");
+        return;
+      }
 
       if (!validateStep4()) {
         return;
@@ -905,7 +1097,6 @@
 
                     {/* Main Guest Header */}
                     <div className="flex items-center gap-2 mb-4 text-brand-primary dark:text-brand-primary">
-                      <User className="w-5 h-5" />
                       <h3 className="font-semibold text-sm sm:text-base">Adult 1 (Main Guest)</h3>
                     </div>
 
@@ -970,15 +1161,12 @@
                           type="number"
                           name="age"
                           value={formData.age}
-                          onChange={(e) => {
-                            handleInputChange(e);
-                            setErrors(prev => ({...prev, age: ''}));
-                          }}
+                          onChange={(e) => handleInputChange(e)}
                           required
                           min="1"
                           max="120"
-                          className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
-                            errors.age ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-gray-600'
+                          className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary transition-colors bg-white dark:bg-gray-700 ${
+                            errors.age ? 'border-red-500 focus:ring-red-500 text-red-600 dark:text-red-500' : 'border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white'
                           }`}
                           placeholder="Enter age"
                         />
@@ -1027,13 +1215,10 @@
                           type="email"
                           name="email"
                           value={formData.email}
-                          onChange={(e) => {
-                            handleInputChange(e);
-                            setErrors(prev => ({...prev, email: ''}));
-                          }}
+                          onChange={(e) => handleInputChange(e)}
                           required
-                          className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 ${
-                            errors.email ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-gray-600'
+                          className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary transition-colors bg-white dark:bg-gray-700 placeholder-gray-400 dark:placeholder-gray-500 ${
+                            errors.email ? 'border-red-500 focus:ring-red-500 text-red-600 dark:text-red-500' : 'border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white'
                           }`}
                           placeholder="Enter email"
                         />
@@ -1053,15 +1238,12 @@
                           type="tel"
                           name="phone"
                           value={formData.phone}
-                          onChange={(e) => {
-                            handleInputChange(e);
-                            setErrors(prev => ({...prev, phone: ''}));
-                          }}
+                          onChange={(e) => handleInputChange(e)}
                           required
-                          className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 ${
-                            errors.phone ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-gray-600'
+                          className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary transition-colors bg-white dark:bg-gray-700 placeholder-gray-400 dark:placeholder-gray-500 ${
+                            errors.phone ? 'border-red-500 focus:ring-red-500 text-red-600 dark:text-red-500' : 'border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white'
                           }`}
-                          placeholder="e.g., 182918212"
+                          placeholder="e.g., +63 912 345 6789 or 09123456789"
                         />
                         {errors.phone && (
                           <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
@@ -1112,19 +1294,21 @@
                           className="hidden"
                           id="valid-id"
                         />
-                        <label
-                          htmlFor="valid-id"
-                          className="cursor-pointer inline-flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors border-2 border-gray-200 dark:border-gray-600"
-                        >
-                          <Upload className="w-12 h-12 text-blue-500 dark:text-blue-400 mb-3" />
-                          <p className="text-blue-600 dark:text-blue-400 font-medium mb-1">
-                            Click to upload ID photo
-                          </p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">PNG, JPG, JPEG up to 5MB</p>
-                        </label>
+                        {!formData.validIdPreview && (
+                          <label
+                            htmlFor="valid-id"
+                            className="cursor-pointer inline-flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors border-2 border-gray-200 dark:border-gray-600"
+                          >
+                            <Upload className="w-12 h-12 text-blue-500 dark:text-blue-400 mb-3" />
+                            <p className="text-blue-600 dark:text-blue-400 font-medium mb-1">
+                              Click to upload ID photo
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">PNG, JPG, JPEG up to 5MB</p>
+                          </label>
+                        )}
 
                         {formData.validIdPreview && (
-                          <div className="mt-4">
+                          <div className="mt-4 flex flex-col items-center">
                             <Image
                               src={formData.validIdPreview}
                               alt="Valid ID preview"
@@ -1132,6 +1316,30 @@
                               height={200}
                               className="max-w-xs mx-auto rounded-lg shadow-md border-2 border-green-500"
                             />
+                            
+                            <div className="mt-3 flex flex-col items-center gap-2">
+                                <p className="text-xs text-yellow-600 dark:text-yellow-400 font-medium flex items-center gap-1">
+                                    <Info className="w-3 h-3" />
+                                    Photo should not be blurred and always clear
+                                </p>
+                                
+                                <div className="flex gap-2">
+                                    <label
+                                      htmlFor="valid-id"
+                                      className="cursor-pointer px-3 py-1 bg-blue-100 text-blue-700 rounded-md text-sm hover:bg-blue-200 transition-colors"
+                                    >
+                                      Change
+                                    </label>
+                                    <button
+                                      type="button"
+                                      onClick={() => setFormData(prev => ({ ...prev, validId: null, validIdPreview: '' }))}
+                                      className="px-3 py-1 bg-red-100 text-red-700 rounded-md text-sm hover:bg-red-200 transition-colors"
+                                    >
+                                      Remove
+                                    </button>
+                                </div>
+                            </div>
+
                             <p className="text-sm text-green-600 dark:text-green-400 mt-2 font-medium flex items-center justify-center gap-1">
                               <CheckCircle className="w-4 h-4" />
                               ID uploaded successfully
@@ -1350,19 +1558,21 @@
                               className="hidden"
                               id={`valid-id-${index}`}
                             />
-                            <label
-                              htmlFor={`valid-id-${index}`}
-                              className="cursor-pointer inline-flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors border-2 border-gray-200 dark:border-gray-600"
-                            >
-                              <Upload className="w-12 h-12 text-blue-500 dark:text-blue-400 mb-3" />
-                              <p className="text-blue-600 dark:text-blue-400 font-medium mb-1">
-                                Click to upload ID photo
-                              </p>
-                              <p className="text-xs text-gray-500 dark:text-gray-400">PNG, JPG, JPEG up to 5MB</p>
-                            </label>
+                            {!guest.validIdPreview && (
+                              <label
+                                htmlFor={`valid-id-${index}`}
+                                className="cursor-pointer inline-flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors border-2 border-gray-200 dark:border-gray-600"
+                              >
+                                <Upload className="w-12 h-12 text-blue-500 dark:text-blue-400 mb-3" />
+                                <p className="text-blue-600 dark:text-blue-400 font-medium mb-1">
+                                  Click to upload ID photo
+                                </p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">PNG, JPG, JPEG up to 5MB</p>
+                              </label>
+                            )}
 
                             {guest.validIdPreview && (
-                              <div className="mt-4">
+                              <div className="mt-4 flex flex-col items-center">
                                 <Image
                                   src={guest.validIdPreview}
                                   alt={`Guest ${guestNumber} Valid ID preview`}
@@ -1370,6 +1580,35 @@
                                   height={200}
                                   className="max-w-xs mx-auto rounded-lg shadow-md border-2 border-green-500"
                                 />
+                                
+                                <div className="mt-3 flex flex-col items-center gap-2">
+                                    <p className="text-xs text-yellow-600 dark:text-yellow-400 font-medium flex items-center gap-1">
+                                        <Info className="w-3 h-3" />
+                                        Photo should not be blurred and always clear
+                                    </p>
+                                    
+                                    <div className="flex gap-2">
+                                        <label
+                                          htmlFor={`valid-id-${index}`}
+                                          className="cursor-pointer px-3 py-1 bg-blue-100 text-blue-700 rounded-md text-sm hover:bg-blue-200 transition-colors"
+                                        >
+                                          Change
+                                        </label>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                              const updated = [...additionalGuests];
+                                              updated[index].validId = null;
+                                              updated[index].validIdPreview = '';
+                                              setAdditionalGuests(updated);
+                                          }}
+                                          className="px-3 py-1 bg-red-100 text-red-700 rounded-md text-sm hover:bg-red-200 transition-colors"
+                                        >
+                                          Remove
+                                        </button>
+                                    </div>
+                                </div>
+
                                 <p className="text-sm text-green-600 dark:text-green-400 mt-2 font-medium flex items-center justify-center gap-1">
                                   <CheckCircle className="w-4 h-4" />
                                   ID uploaded successfully
@@ -1393,7 +1632,12 @@
                     <button
                       type="button"
                       onClick={handleNext}
-                      className="flex items-center gap-2 bg-brand-primary hover:bg-brand-primaryDark text-white font-bold py-3 px-8 rounded-lg shadow-lg"
+                      disabled={!!errors.age || Number(formData.age || 0) < 18}
+                      className={`flex items-center gap-2 font-bold py-3 px-8 rounded-lg shadow-lg ${
+                        !!errors.age || Number(formData.age || 0) < 18
+                          ? 'bg-gray-400 cursor-not-allowed text-white'
+                          : 'bg-brand-primary hover:bg-brand-primaryDark text-white'
+                      }`}
                     >
                       Next Step
                       <ChevronRight className="w-5 h-5" />
@@ -1537,6 +1781,7 @@
                       <div ref={(el) => { errorRefs.current.checkInTime = el; }}>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                           Check-in Time *
+                          {bookingData.checkInDate && <span className="text-xs text-gray-500 dark:text-gray-400 font-normal ml-2">({bookingData.checkInDate})</span>}
                         </label>
                         <input
                           type="time"
@@ -1562,6 +1807,7 @@
                       <div ref={(el) => { errorRefs.current.checkOutTime = el; }}>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                           Check-out Time *
+                          {bookingData.checkOutDate && <span className="text-xs text-gray-500 dark:text-gray-400 font-normal ml-2">({bookingData.checkOutDate})</span>}
                         </label>
                         <input
                           type="time"
@@ -1867,9 +2113,17 @@
                           value="gcash"
                           checked={formData.paymentMethod === "gcash"}
                           onChange={handleInputChange}
-                          className="w-4 h-4 text-brand-primary accent-brand-primary"
+                          className="w-4 h-4 text-blue-600 accent-blue-600"
                         />
-                        <span className="font-medium text-gray-900 dark:text-white">GCash</span>
+                        <div className="relative w-32 h-10">
+                          <Image
+                            src="/6553cc4c-gcash-logo-svg.avif"
+                            alt="GCash Logo"
+                            fill
+                            className="object-contain"
+                            sizes="(max-width: 768px) 100vw, 128px"
+                          />
+                        </div>
                       </label>
 
                       <label className="flex items-center gap-3 p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:border-brand-primary dark:hover:border-brand-primary transition-colors bg-white dark:bg-gray-700">
@@ -1879,7 +2133,7 @@
                           value="bank"
                           checked={formData.paymentMethod === "bank"}
                           onChange={handleInputChange}
-                          className="w-4 h-4 text-brand-primary accent-brand-primary"
+                          className="w-4 h-4 text-blue-600 accent-blue-600"
                         />
                         <span className="font-medium text-gray-900 dark:text-white">Bank Transfer</span>
                       </label>
@@ -2008,15 +2262,18 @@
                           className="hidden"
                           id="payment-proof"
                         />
-                        <label htmlFor="payment-proof" className="cursor-pointer">
-                          <Upload className={`w-12 h-12 mx-auto mb-4 ${errors.paymentProof ? 'text-red-400' : 'text-gray-400 dark:text-gray-500'}`} />
-                          <p className={`font-medium mb-2 ${errors.paymentProof ? 'text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-gray-300'}`}>
-                            Click to upload payment screenshot
-                          </p>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">PNG, JPG, JPEG up to 5MB</p>
-                        </label>
+                        {!formData.paymentProofPreview && (
+                          <label htmlFor="payment-proof" className="cursor-pointer">
+                            <Upload className={`w-12 h-12 mx-auto mb-4 ${errors.paymentProof ? 'text-red-400' : 'text-gray-400 dark:text-gray-500'}`} />
+                            <p className={`font-medium mb-2 ${errors.paymentProof ? 'text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-gray-300'}`}>
+                              Click to upload payment screenshot
+                            </p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">PNG, JPG, JPEG up to 5MB</p>
+                          </label>
+                        )}
+
                         {formData.paymentProofPreview && (
-                          <div className="mt-4">
+                          <div className="mt-4 flex flex-col items-center">
                             <Image
                               src={formData.paymentProofPreview}
                               alt="Payment proof preview"
@@ -2024,6 +2281,30 @@
                               height={200}
                               className="max-w-xs mx-auto rounded-lg shadow-md"
                             />
+                            
+                            <div className="mt-3 flex flex-col items-center gap-2">
+                                <p className="text-xs text-yellow-600 dark:text-yellow-400 font-medium flex items-center gap-1">
+                                    <Info className="w-3 h-3" />
+                                    Photo should not be blurred and always clear
+                                </p>
+                                
+                                <div className="flex gap-2">
+                                    <label
+                                      htmlFor="payment-proof"
+                                      className="cursor-pointer px-3 py-1 bg-blue-100 text-blue-700 rounded-md text-sm hover:bg-blue-200 transition-colors"
+                                    >
+                                      Change
+                                    </label>
+                                    <button
+                                      type="button"
+                                      onClick={() => setFormData(prev => ({ ...prev, paymentProof: null, paymentProofPreview: '' }))}
+                                      className="px-3 py-1 bg-red-100 text-red-700 rounded-md text-sm hover:bg-red-200 transition-colors"
+                                    >
+                                      Remove
+                                    </button>
+                                </div>
+                            </div>
+
                             <p className="text-sm text-green-600 dark:text-green-400 mt-2 flex items-center justify-center gap-1">
                               <CheckCircle className="w-4 h-4" />
                               File uploaded
@@ -2072,15 +2353,25 @@
                           handleInputChange(e);
                           setErrors(prev => ({...prev, termsAccepted: ''}));
                         }}
-                        className={`w-5 h-5 mt-1 ${errors.termsAccepted ? 'accent-red-500' : 'accent-brand-primary'}`}
+                        className={`w-5 h-5 mt-1 ${errors.termsAccepted ? 'accent-red-500' : 'accent-blue-600'}`}
                       />
                       <span className={`text-sm ${errors.termsAccepted ? 'text-red-700 dark:text-red-400' : 'text-gray-700 dark:text-gray-300'}`}>
                         I agree to the{" "}
-                        <a href="#" className="text-brand-primary dark:text-brand-primary hover:underline">
+                        <a 
+                          href="/terms-of-service" 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="text-blue-600 dark:text-blue-400 hover:underline"
+                        >
                           Terms and Conditions
                         </a>{" "}
                         and{" "}
-                        <a href="#" className="text-brand-primary dark:text-brand-primary hover:underline">
+                        <a 
+                          href="/cancellation-policy" 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="text-blue-600 dark:text-blue-400 hover:underline"
+                        >
                           Cancellation Policy
                         </a>
                       </span>

@@ -1,6 +1,6 @@
 "use client";
 
-import { LogOut, Menu, X, Home, Users, MessageSquare, Settings, Bell, UserCircle, ChevronDown, BarChart3, Calendar, DollarSign, Wrench, Star, Shield, TrendingUp, TrendingDown, Building2, Sparkles } from "lucide-react";
+import { LogOut, Menu, X, Home, Users, MessageSquare, Settings, Bell, UserCircle, ChevronDown, BarChart3, Calendar, DollarSign, Wrench, Star, Shield, TrendingUp, TrendingDown, Building2, Sparkles, Headphones } from "lucide-react";
 import DashboardPage, { Haven } from "./DashboardPage";
 import GuestAssistancePage from "./GuestAssistancePage";
 import AddUnitModal from "./Modals/AddUnitModal";
@@ -254,6 +254,9 @@ export default function OwnerDashboard() {
     return () => window.clearInterval(id);
   }, []);
 
+  // Notification modal state
+  const [notificationModalOpen, setNotificationModalOpen] = useState(false);
+
   // Fetch havens from database
   const { data: havensData } = useGetHavensQuery({});
   
@@ -353,6 +356,12 @@ export default function OwnerDashboard() {
       color: "text-indigo-500",
     },
     {
+      id: "guest",
+      icon: Headphones,
+      label: "Guest Assistance",
+      color: "text-pink-500",
+    },
+    {
       id: "havens",
       icon: Home,
       label: "Haven Management",
@@ -381,12 +390,6 @@ export default function OwnerDashboard() {
       icon: DollarSign,
       label: "Revenue Management",
       color: "text-emerald-500",
-    },
-    {
-      id: "guest",
-      icon: Users,
-      label: "Guest Assistance",
-      color: "text-teal-500",
     },
     {
       id: "messages",
@@ -846,6 +849,8 @@ export default function OwnerDashboard() {
         <AdminFooter />
       </div>
 
+
+
       {/* MODALS */}
       <AddUnitModal
         isOpen={modals.addUnit}
@@ -895,6 +900,7 @@ export default function OwnerDashboard() {
       {/* Notification Modal */}
       {notificationOpen && (
         <NotificationModal
+          notifications={[]} // Required prop, handled internally by API if userId is present
           onClose={() => setNotificationOpen(false)}
           onViewAll={() => {
             setNotificationOpen(false);
@@ -928,4 +934,4 @@ export default function OwnerDashboard() {
       )}
     </div>
   );
-} 
+}
