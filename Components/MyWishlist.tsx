@@ -37,7 +37,7 @@ const MyWishlistPage = ({ initialData, userId }: MyWishlistPageProps) => {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [isMobile, setIsMobile] = useState(false);
-  const ROOMS_PER_PAGE = 12;
+  const ROOMS_PER_PAGE = 5;
 
   // Set responsive behavior
   useEffect(() => {
@@ -112,30 +112,34 @@ const MyWishlistPage = ({ initialData, userId }: MyWishlistPageProps) => {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {isLoading ? (
-          <div className="space-y-12">
-            {[1, 2, 3].map((skeletonGroup) => (
-              <div key={skeletonGroup}>
-                {/* Mobile Layout Skeleton */}
-                {isMobile ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+          <div>
+            {/* Mobile Layout Skeleton - Horizontal Scroll */}
+            {isMobile ? (
+              <div>
+                {/* Scroll hint skeleton */}
+                <div className="h-4 w-48 bg-gray-200 dark:bg-gray-700 rounded mb-2 animate-pulse"></div>
+                <div className="overflow-x-auto pb-2 -mx-4 px-4">
+                  <div className="flex gap-3" style={{ width: 'max-content' }}>
                     {[1, 2, 3, 4, 5].map((skeleton) => (
-                      <div key={skeleton} className="flex-shrink-0">
-                        <RoomCardSkeleton compact={true} />
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  /* Desktop Layout Skeleton */
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                    {[1, 2, 3, 4, 5].map((skeleton) => (
-                      <div key={skeleton}>
+                      <div key={skeleton} className="flex-shrink-0 w-40">
                         <RoomCardSkeleton compact={false} />
+                        <div className="w-full mt-2 h-8 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse"></div>
                       </div>
                     ))}
                   </div>
-                )}
+                </div>
               </div>
-            ))}
+            ) : (
+              /* Desktop Layout Skeleton */
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                {[1, 2, 3, 4, 5].map((skeleton) => (
+                  <div key={skeleton}>
+                    <RoomCardSkeleton compact={false} />
+                    <div className="w-full mt-2 h-10 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse"></div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         ) : wishlistItems.length === 0 ? (
           /* Empty State */
@@ -155,42 +159,58 @@ const MyWishlistPage = ({ initialData, userId }: MyWishlistPageProps) => {
           </div>
         ) : (
           <>
-            {/* Mobile Layout */}
+            {/* Mobile Layout - Horizontal Scroll */}
             {isMobile ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
-                {displayedRooms.map((item: WishlistItem) => (
-                  <div key={item.id} className="flex-shrink-0">
-                    <RoomCard 
-                      room={{
-                        id: item.haven_id,
-                        uuid_id: item.haven_id,
-                        name: item.room_name,
-                        price: `₱${item.price}`,
-                        pricePerNight: "per 6 hours",
-                        images: item.images || [],
-                        rating: 4.5,
-                        reviews: 0,
-                        capacity: 2,
-                        amenities: [],
-                        description: "",
-                        tower: item.tower,
-                        floor: "",
-                        roomSize: "",
-                        location: item.tower || "Quezon City",
-                        youtubeUrl: ""
-                      }} 
-                      mode="browse" 
-                      compact={true} 
-                    />
+              <div>
+                {/* Scroll hint */}
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 flex items-center gap-1">
+                  <ChevronRight className="w-3 h-3" />
+                  <span>Scroll right to see more rooms</span>
+                </p>
+                <div className="overflow-x-auto pb-2 -mx-4 px-4">
+                  <div className="flex gap-3" style={{ width: 'max-content' }}>
+                    {displayedRooms.map((item: WishlistItem) => (
+                      <div key={item.id} className="flex-shrink-0 w-40">
+                        <RoomCard
+                          room={{
+                            id: item.haven_id,
+                            uuid_id: item.haven_id,
+                            name: item.room_name,
+                            price: `₱${item.price}`,
+                            pricePerNight: "per 6 hours",
+                            images: item.images || [],
+                            rating: 4.5,
+                            reviews: 0,
+                            capacity: 2,
+                            amenities: [],
+                            description: "",
+                            tower: item.tower,
+                            floor: "",
+                            roomSize: "",
+                            location: item.tower || "Quezon City",
+                            youtubeUrl: ""
+                          }}
+                          mode="browse"
+                          compact={false}
+                        />
+                        <button
+                          onClick={() => handleRemoveFromWishlist(item.id)}
+                          disabled={isRemoving}
+                          className="w-full mt-2 py-1.5 text-xs font-medium border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:border-red-500 hover:text-red-500 dark:hover:border-red-500 dark:hover:text-red-500 transition-colors disabled:opacity-50"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                </div>
               </div>
             ) : (
               /* Desktop Layout */
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                 {displayedRooms.map((item: WishlistItem) => (
                   <div key={item.id}>
-                    <RoomCard 
+                    <RoomCard
                       room={{
                         id: item.haven_id,
                         uuid_id: item.haven_id,
@@ -208,10 +228,17 @@ const MyWishlistPage = ({ initialData, userId }: MyWishlistPageProps) => {
                         roomSize: "",
                         location: item.tower || "Quezon City",
                         youtubeUrl: ""
-                      }} 
-                      mode="browse" 
-                      compact={false} 
+                      }}
+                      mode="browse"
+                      compact={false}
                     />
+                    <button
+                      onClick={() => handleRemoveFromWishlist(item.id)}
+                      disabled={isRemoving}
+                      className="w-full mt-2 py-2 text-sm font-medium border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:border-red-500 hover:text-red-500 dark:hover:border-red-500 dark:hover:text-red-500 transition-colors disabled:opacity-50"
+                    >
+                      Remove from Wishlist
+                    </button>
                   </div>
                 ))}
               </div>
