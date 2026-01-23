@@ -12,10 +12,15 @@ import {
   Calendar,
   Heart,
   HelpCircle,
+  Moon,
+  Sun,
 } from "lucide-react";
 import HelpSidebar from "./HelpSidebar";
+import { useGetUserBookingsQuery } from "@/redux/api/bookingsApi";
+import { useGetUserWishlistQuery } from "@/redux/api/wishlistApi";
 
-interface User {
+interface UserData {
+  id?: string;
   name?: string;
   email?: string;
   image?: string;
@@ -27,19 +32,48 @@ const Navbar = () => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isHelpSidebarOpen, setIsHelpSidebarOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
   useEffect(() => {
     setMounted(true);
+    // Initialize dark mode from localStorage or system preference
+    const saved = localStorage.getItem("theme");
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    setIsDarkMode(saved === "dark" || (!saved && prefersDark));
   }, []);
+
+  useEffect(() => {
+    if (mounted) {
+      document.documentElement.classList.toggle("dark", isDarkMode);
+      localStorage.setItem("theme", isDarkMode ? "dark" : "light");
+    }
+  }, [isDarkMode, mounted]);
 
   const pathname = usePathname();
   const router = useRouter();
   const { data: session, status } = useSession();
   const profileContainerRef = useRef<HTMLDivElement>(null);
 
+  // Get user ID for API calls
+  const userId = (session?.user as UserData)?.id || null;
+
+  // Fetch user bookings and wishlist counts
+  const { data: userBookings } = useGetUserBookingsQuery(
+    { userId },
+    { skip: !userId }
+  );
+  const { data: userWishlist } = useGetUserWishlistQuery(
+    userId,
+    { skip: !userId }
+  );
+
+  // Calculate counts with better error handling
+  const bookingsCount = Array.isArray(userBookings) ? userBookings.length : (userBookings?.data?.length || 0);
+  const wishlistCount = Array.isArray(userWishlist) ? userWishlist.length : (userWishlist?.data?.length || 0);
+
   const menuItems = ["Havens", "Contacts", "Location", "About"];
 
-  // Define profile dropdown items
+  // Define profile dropdown items with dynamic counts
   const profileDropdownItems = [
     {
       href: "/profile",
@@ -52,12 +86,14 @@ const Navbar = () => {
       label: "My Bookings",
       icon: Calendar,
       iconColor: "text-brand-primary",
+      count: bookingsCount,
     },
     {
       href: "/my-wishlist",
       label: "My Wishlist",
       icon: Heart,
       iconColor: "text-brand-primary",
+      count: wishlistCount,
     },
   ];
 
@@ -102,10 +138,11 @@ const Navbar = () => {
   };
 
   // Hide navbar on certain pages (not on admin login, only on admin dashboards)
-  const shouldHideNavbar = pathname === "/admin/owners" ||
-                           pathname === "/admin/csr" ||
-                           pathname === "/admin/partners" ||
-                           pathname === "/admin/cleaners";
+  const shouldHideNavbar =
+    pathname === "/admin/owners" ||
+    pathname === "/admin/csr" ||
+    pathname === "/admin/partners" ||
+    pathname === "/admin/cleaners";
 
   if (!mounted || shouldHideNavbar) return null;
 
@@ -122,7 +159,9 @@ const Navbar = () => {
               height={24}
               className="w-5 h-5 sm:w-6 sm:h-6 object-contain"
             />
-            <span className="text-xl sm:text-2xl font-display text-brand-primary dark:text-brand-primary">taycation Haven</span>
+            <span className="text-xl sm:text-2xl font-display text-brand-primary dark:text-brand-primary">
+              taycation Haven
+            </span>
           </div>
         </Link>
 
@@ -132,7 +171,6 @@ const Navbar = () => {
             let href = "/";
             if (item === "Contacts") href = "/contacts";
             else if (item === "Location") href = "/location";
-            else if (item === "Login") href = "/login";
             else if (item === "Havens") href = "/rooms";
             else if (item === "About") href = "/about";
 
@@ -173,12 +211,15 @@ const Navbar = () => {
                 onClick={toggleProfileDropdown}
                 className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-brand-primary dark:hover:border-brand-primary transition-colors duration-200"
               >
-                {(session.user as User).profile_image_url ||
-                (session.user as User).image ? (
+                {(session.user as UserData).profile_image_url ||
+                (session.user as UserData).image ? (
                   <Image
-                    src={(session.user as User).profile_image_url ||
-                    (session.user as User).image || ''}
-                    alt={(session.user as User).name || "User"}
+                    src={
+                      (session.user as UserData).profile_image_url ||
+                      (session.user as UserData).image ||
+                      "/default-avatar.png"
+                    }
+                    alt={(session.user as UserData).name || "User"}
                     width={32}
                     height={32}
                     className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover ring-2 ring-brand-primary"
@@ -189,7 +230,7 @@ const Navbar = () => {
                   </div>
                 )}
                 <span className="hidden sm:block font-medium text-gray-800 dark:text-gray-100 max-w-20 sm:max-w-32 truncate text-sm">
-                  {(session.user as User).name}
+                  {(session.user as UserData).name || "User"}
                 </span>
                 <ChevronDown
                   className={`w-4 h-4 text-gray-500 dark:text-gray-400 transition-transform duration-200 ${
@@ -200,15 +241,18 @@ const Navbar = () => {
 
               {/* Profile Dropdown */}
               {isProfileOpen && (
-                <div className="absolute right-0 mt-2 w-52 sm:w-56 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden z-50 animate-slide-down">
+                <div className="absolute right-0 mt-2 w-52 sm:w-56 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden z-50">
                   <div className="p-4 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-600">
                     <div className="flex items-center gap-3">
-                      {(session.user as User).profile_image_url ||
-                      (session.user as User).image ? (
+                      {(session.user as UserData).profile_image_url ||
+                      (session.user as UserData).image ? (
                         <Image
-                          src={(session.user as User).profile_image_url ||
-                          (session.user as User).image || ''}
-                          alt={(session.user as User).name || "User"}
+                          src={
+                            (session.user as UserData).profile_image_url ||
+                            (session.user as UserData).image ||
+                            "/default-avatar.png"
+                          }
+                          alt={(session.user as UserData).name || "User"}
                           width={40}
                           height={40}
                           className="w-10 h-10 rounded-full object-cover ring-2 ring-brand-primary"
@@ -220,10 +264,10 @@ const Navbar = () => {
                       )}
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-gray-900 dark:text-gray-100 truncate text-sm">
-                          {session.user.name}
+                          {(session.user as UserData).name || "User"}
                         </p>
                         <p className="text-xs text-gray-600 dark:text-gray-400 truncate">
-                          {session.user.email}
+                          {(session.user as UserData).email || ""}
                         </p>
                       </div>
                     </div>
@@ -233,19 +277,30 @@ const Navbar = () => {
                     {profileDropdownItems.map((item, index) => {
                       const Icon = item.icon;
                       const isActive = isActivePath(item.href);
-                      
+
                       return (
                         <button
                           key={index}
                           onClick={() => handleDropdownNavigation(item.href)}
-                          className={`w-full px-4 py-2.5 flex items-center gap-3 transition-colors duration-150 text-left ${
+                          className={`w-full px-4 py-2.5 flex items-center justify-between gap-3 transition-colors duration-150 text-left ${
                             isActive
-                              ? "bg-brand-primary/10 dark:bg-brand-primary/20 text-brand-primary dark:text-brand-primary font-medium border-l-2 border-brand-primary"
-                              : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                              ? "bg-red-500/10 dark:bg-red-500/20 text-red-600 dark:text-red-400 font-medium border-l-2 border-red-500"
+                              : "text-gray-700 dark:text-gray-300 hover:bg-red-50 dark:hover:bg-red-900/20"
                           }`}
                         >
-                          <Icon className={`w-4 h-4 ${isActive ? "text-brand-primary" : item.iconColor}`} />
-                          <span className="text-sm">{item.label}</span>
+                          <div className="flex items-center gap-3">
+                            <Icon
+                              className={`w-4 h-4 ${
+                                isActive ? "text-brand-primary" : item.iconColor
+                              }`}
+                            />
+                            <span className="text-sm">{item.label}</span>
+                          </div>
+                          {item.count !== undefined && (
+                            <span className="bg-red-500 text-white text-xs  px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
+                              {item.count}
+                            </span>
+                          )}
                         </button>
                       );
                     })}
@@ -295,12 +350,15 @@ const Navbar = () => {
                 onClick={toggleProfileDropdown}
                 className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-brand-primary dark:hover:border-brand-primary transition-colors duration-200"
               >
-                {(session.user as User).profile_image_url ||
-                (session.user as User).image ? (
+                {(session.user as UserData).profile_image_url ||
+                (session.user as UserData).image ? (
                   <Image
-                    src={(session.user as User).profile_image_url ||
-                    (session.user as User).image || ''}
-                    alt={(session.user as User).name || "User"}
+                    src={
+                      (session.user as UserData).profile_image_url ||
+                      (session.user as UserData).image ||
+                      "/default-avatar.png"
+                    }
+                    alt={(session.user as UserData).name || "User"}
                     width={28}
                     height={28}
                     className="w-7 h-7 rounded-full object-cover ring-2 ring-brand-primary"
@@ -319,15 +377,18 @@ const Navbar = () => {
 
               {/* Profile Dropdown */}
               {isProfileOpen && (
-                <div className="absolute right-0 mt-2 w-52 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden z-50 animate-slide-down">
+                <div className="absolute right-0 mt-2 w-52 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden z-50">
                   <div className="p-4 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-600">
                     <div className="flex items-center gap-3">
-                      {(session.user as User).profile_image_url ||
-                      (session.user as User).image ? (
+                      {(session.user as UserData).profile_image_url ||
+                      (session.user as UserData).image ? (
                         <Image
-                          src={(session.user as User).profile_image_url ||
-                          (session.user as User).image || ''}
-                          alt={(session.user as User).name || "User"}
+                          src={
+                            (session.user as UserData).profile_image_url ||
+                            (session.user as UserData).image ||
+                            "/default-avatar.png"
+                          }
+                          alt={(session.user as UserData).name || "User"}
                           width={40}
                           height={40}
                           className="w-10 h-10 rounded-full object-cover ring-2 ring-brand-primary"
@@ -339,10 +400,10 @@ const Navbar = () => {
                       )}
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-gray-900 dark:text-gray-100 truncate text-sm">
-                          {session.user.name}
+                          {(session.user as UserData).name || "User"}
                         </p>
                         <p className="text-xs text-gray-600 dark:text-gray-400 truncate">
-                          {session.user.email}
+                          {(session.user as UserData).email || ""}
                         </p>
                       </div>
                     </div>
@@ -352,19 +413,30 @@ const Navbar = () => {
                     {profileDropdownItems.map((item, index) => {
                       const Icon = item.icon;
                       const isActive = isActivePath(item.href);
-                      
+
                       return (
                         <button
                           key={index}
                           onClick={() => handleDropdownNavigation(item.href)}
-                          className={`w-full px-4 py-2.5 flex items-center gap-3 transition-colors duration-150 text-left ${
+                          className={`w-full px-4 py-2.5 flex items-center justify-between gap-3 transition-colors duration-150 text-left ${
                             isActive
-                              ? "bg-brand-primary/10 dark:bg-brand-primary/20 text-brand-primary dark:text-brand-primary font-medium border-l-2 border-brand-primary"
-                              : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                              ? "bg-red-500/10 dark:bg-red-500/20 text-red-600 dark:text-red-400 font-medium border-l-2 border-red-500"
+                              : "text-gray-700 dark:text-gray-300 hover:bg-red-50 dark:hover:bg-red-900/20"
                           }`}
                         >
-                          <Icon className={`w-4 h-4 ${isActive ? "text-brand-primary" : item.iconColor}`} />
-                          <span className="text-sm">{item.label}</span>
+                          <div className="flex items-center gap-3">
+                            <Icon
+                              className={`w-4 h-4 ${
+                                isActive ? "text-brand-primary" : item.iconColor
+                              }`}
+                            />
+                            <span className="text-sm">{item.label}</span>
+                          </div>
+                          {item.count !== undefined && (
+                            <span className="bg-red-500 text-white text-xs  px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
+                              {item.count}
+                            </span>
+                          )}
                         </button>
                       );
                     })}
@@ -421,7 +493,7 @@ const Navbar = () => {
       {/* Mobile Menu Dropdown */}
       <div
         className={`md:hidden absolute top-16 left-0 w-full bg-white dark:bg-gray-800 shadow-lg overflow-hidden transition-all duration-300 ease-in-out z-50 ${
-          isMenuOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
+          isMenuOpen ? "max-h-[1000px] opacity-100" : "max-h-0 opacity-0"
         }`}
       >
         <div className="px-6 py-4 space-y-4">
@@ -429,7 +501,6 @@ const Navbar = () => {
             let href = "/";
             if (item === "Contacts") href = "/contacts";
             else if (item === "Location") href = "/location";
-            else if (item === "Login") href = "/login";
             else if (item === "Havens") href = "/rooms";
             else if (item === "About") href = "/about";
 
@@ -476,12 +547,15 @@ const Navbar = () => {
               <div className="space-y-3">
                 {/* User Info */}
                 <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
-                  {(session.user as User).profile_image_url ||
-                  (session.user as User).image ? (
+                  {(session.user as UserData).profile_image_url ||
+                  (session.user as UserData).image ? (
                     <Image
-                      src={(session.user as User).profile_image_url ||
-                      (session.user as User).image || ''}
-                      alt={(session.user as User).name || "User"}
+                      src={
+                        (session.user as UserData).profile_image_url ||
+                        (session.user as UserData).image ||
+                        "/default-avatar.png"
+                      }
+                      alt={(session.user as UserData).name || "User"}
                       width={48}
                       height={48}
                       className="w-12 h-12 rounded-full object-cover ring-2 ring-brand-primary"
@@ -493,19 +567,19 @@ const Navbar = () => {
                   )}
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-gray-800 dark:text-gray-100 truncate">
-                      {session.user.name}
+                      {(session.user as UserData).name || "User"}
                     </p>
                     <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
-                      {session.user.email}
+                      {(session.user as UserData).email || ""}
                     </p>
                   </div>
                 </div>
-                
+
                 {/* Profile Dropdown Items */}
                 {profileDropdownItems.map((item, index) => {
                   const Icon = item.icon;
                   const isActive = isActivePath(item.href);
-                  
+
                   return (
                     <button
                       key={index}
@@ -513,14 +587,21 @@ const Navbar = () => {
                         setIsMenuOpen(false);
                         router.push(item.href);
                       }}
-                      className={`w-full flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-medium transition-all duration-300 shadow-md ${
+                      className={`w-full flex items-center justify-between px-4 py-3 rounded-lg font-medium transition-all duration-300 ${
                         isActive
-                          ? "bg-brand-primary/20 text-brand-primary border-2 border-brand-primary"
-                          : "bg-brand-primary hover:bg-brand-primaryDark text-white"
+                          ? "bg-red-500/20 text-red-600 border border-red-500"
+                          : "bg-gray-100 dark:bg-gray-700 hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-800 dark:text-gray-200"
                       }`}
                     >
-                      <Icon className="w-5 h-5" />
-                      <span>{item.label}</span>
+                      <div className="flex items-center gap-2">
+                        <Icon className="w-5 h-5" />
+                        <span>{item.label}</span>
+                      </div>
+                      {item.count !== undefined && (
+                        <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full min-w-[20px] text-center flex items-center justify-center">
+                          {item.count}
+                        </span>
+                      )}
                     </button>
                   );
                 })}
@@ -531,15 +612,27 @@ const Navbar = () => {
                     setIsMenuOpen(false);
                     await signOut({ callbackUrl: "/" });
                   }}
-                  className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium transition-all duration-300 shadow-md"
+                  className="w-full flex items-center gap-2 px-4 py-3 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium transition-all duration-300"
                 >
                   <LogOut className="w-5 h-5" />
                   <span>Sign Out</span>
                 </button>
+
+                {/* Small Theme Toggle */}
+                <button
+                  onClick={() => setIsDarkMode(!isDarkMode)}
+                  className="w-full flex items-center justify-center gap-1 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors duration-150"
+                >
+                  {isDarkMode ? (
+                    <Sun className="w-3 h-3 text-gray-600 dark:text-gray-400" />
+                  ) : (
+                    <Moon className="w-3 h-3 text-gray-600 dark:text-gray-400" />
+                  )}
+                </button>
               </div>
             ) : (
               <Link href="/login">
-                <button 
+                <button
                   onClick={() => setIsMenuOpen(false)}
                   className="w-full bg-brand-primary hover:bg-brand-primaryDark text-white px-6 py-3 rounded-lg font-medium transform hover:scale-105 transition-all duration-300 shadow-md"
                 >
@@ -566,6 +659,16 @@ const Navbar = () => {
           }
           to {
             opacity: 1;
+          }
+        }
+        @keyframes slide-down {
+          from {
+            opacity: 0;
+            transform: translateY(-10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
           }
         }
         .animate-fade-in {
