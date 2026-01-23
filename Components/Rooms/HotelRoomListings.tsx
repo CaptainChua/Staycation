@@ -247,14 +247,20 @@ const HotelRoomListings = ({ initialHavens }: HotelRoomListingsProps) => {
                     <div className="h-7 bg-gray-300 dark:bg-gray-700 rounded w-32 animate-pulse"></div>
                   </div>
 
-                  {/* Mobile Layout Skeleton */}
+                  {/* Mobile Layout Skeleton - Horizontal Scroll */}
                   {isMobile ? (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
-                      {[1, 2, 3, 4, 5].map((skeleton) => (
-                        <div key={skeleton}>
-                          <RoomCardSkeleton compact={true} />
+                    <div>
+                      {/* Scroll hint skeleton */}
+                      <div className="h-4 w-48 bg-gray-200 dark:bg-gray-700 rounded mb-2 animate-pulse"></div>
+                      <div className="overflow-x-auto pb-2 -mx-4 px-4">
+                        <div className="flex gap-3" style={{ width: 'max-content' }}>
+                          {[1, 2, 3, 4, 5].map((skeleton) => (
+                            <div key={skeleton} className="flex-shrink-0 w-40">
+                              <RoomCardSkeleton compact={false} />
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                      </div>
                     </div>
                   ) : (
                     /* Desktop Layout Skeleton */
@@ -313,14 +319,31 @@ const HotelRoomListings = ({ initialHavens }: HotelRoomListingsProps) => {
           {/* All Rooms Grid - No Haven Grouping */}
           {!isLoading && (
             <>
-              {/* Mobile Layout */}
+              {/* Mobile Layout - Horizontal Scroll (5 rooms per row) */}
               {isMobile ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
-                  {displayedRooms.map((room) => (
-                    <div key={room.id}>
-                      <RoomCard room={room} mode="browse" compact={true} />
-                    </div>
-                  ))}
+                <div className="space-y-6">
+                  {/* Split rooms into groups of 5 for horizontal scroll rows */}
+                  {Array.from({ length: Math.ceil(displayedRooms.length / 5) }, (_, rowIndex) => {
+                    const rowRooms = displayedRooms.slice(rowIndex * 5, (rowIndex + 1) * 5);
+                    return (
+                      <div key={rowIndex}>
+                        {/* Scroll hint */}
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 flex items-center gap-1">
+                          <ChevronRight className="w-3 h-3" />
+                          <span>Scroll right to see more rooms</span>
+                        </p>
+                        <div className="overflow-x-auto pb-2 -mx-4 px-4">
+                          <div className="flex gap-3" style={{ width: 'max-content' }}>
+                            {rowRooms.map((room) => (
+                              <div key={room.id} className="flex-shrink-0 w-40">
+                                <RoomCard room={room} mode="browse" compact={false} />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
                 /* Desktop Layout */
