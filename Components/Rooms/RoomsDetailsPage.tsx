@@ -463,9 +463,8 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
                 Location
               </h2>
               <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-4">
-                {room.tower && <span className="font-semibold">{room.tower}</span>}
-                {room.tower && room.location && <span>, </span>}
-                {room.location || 'Quezon City, Metro Manila'}
+                <span className="font-semibold">Staycation Haven PH Quezon City</span>
+                {room.tower && <span>, {room.tower}</span>}
               </p>
               <RoomMap
                 roomName={room.name}
@@ -626,11 +625,11 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
                   disabled={isLoadingWishlist}
                   className={`w-full border-2 font-medium py-2 sm:py-2.5 rounded-lg transition-colors flex items-center justify-center gap-1.5 text-xs sm:text-sm ${
                     isInWishlist
-                      ? 'bg-brand-primary border-brand-primary text-white hover:bg-brand-primaryDark hover:border-brand-primaryDark'
-                      : 'border-gray-300 dark:border-gray-600 hover:border-brand-primary dark:hover:border-brand-primary text-gray-800 dark:text-gray-300 hover:text-brand-primary dark:hover:text-brand-primary'
+                      ? 'border-brand-primary bg-white text-brand-primary hover:bg-brand-primary/10'
+                      : 'border-brand-primary bg-white text-brand-primary hover:bg-brand-primary/10'
                   } ${isLoadingWishlist ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
-                  <Heart className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isInWishlist ? 'fill-white' : ''}`} />
+                  <Heart className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isInWishlist ? 'fill-brand-primary text-brand-primary' : 'fill-brand-primary text-brand-primary'}`} />
                   <span className="truncate">{isLoadingWishlist ? 'Loading...' : isInWishlist ? 'Remove from Wishlist' : 'Add to Wishlist'}</span>
                 </button>
               </div>
