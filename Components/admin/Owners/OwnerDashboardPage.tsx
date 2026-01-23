@@ -849,17 +849,7 @@ export default function OwnerDashboard() {
         <AdminFooter />
       </div>
 
-      {notificationOpen && (
-        <NotificationModal
-          onClose={() => setNotificationOpen(false)}
-          onViewAll={() => {
-            setNotificationOpen(false);
-            setPage("notifications");
-          }}
-          anchorRef={notificationButtonRef}
-          userId={session?.user?.id}
-        />
-      )}
+
 
       {/* MODALS */}
       <AddUnitModal
