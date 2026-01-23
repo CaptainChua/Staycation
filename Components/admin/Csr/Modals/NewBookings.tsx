@@ -79,7 +79,7 @@ export default function NewBookingModal({ onClose }: NewBookingModalProps) {
 
   if (!isMounted) return null;
 
-  const calculateRoomRate = (selectedHaven?: Haven, checkInDate?: string, checkOutDate?: string) => {
+  const calculateHavenRate = (selectedHaven?: Haven, checkInDate?: string, checkOutDate?: string) => {
     if (!selectedHaven) return "";
     if (!checkInDate || !checkOutDate) {
       return selectedHaven.ten_hour_rate?.toString() ?? "";
@@ -116,7 +116,7 @@ export default function NewBookingModal({ onClose }: NewBookingModalProps) {
 
       if (["roomName", "checkInDate", "checkOutDate"].includes(name)) {
         const selectedHaven = havens.find((h) => h.haven_name === updatedForm.roomName);
-        const calculatedRate = calculateRoomRate(selectedHaven, updatedForm.checkInDate, updatedForm.checkOutDate);
+        const calculatedRate = calculateHavenRate(selectedHaven, updatedForm.checkInDate, updatedForm.checkOutDate);
         updatedForm.roomRate = calculatedRate;
       }
 
@@ -278,7 +278,7 @@ export default function NewBookingModal({ onClose }: NewBookingModalProps) {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <span className="text-sm font-medium text-gray-600">Select Haven/Room</span>
+                  <span className="text-sm font-medium text-gray-600">Select Haven</span>
                   <select
                     name="roomName"
                     value={form.roomName}
@@ -396,7 +396,7 @@ export default function NewBookingModal({ onClose }: NewBookingModalProps) {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <LabeledInput
-                  label="Room Rate (₱)"
+                  label="Haven Rate (₱)"
                   name="roomRate"
                   type="number"
                   min={0}

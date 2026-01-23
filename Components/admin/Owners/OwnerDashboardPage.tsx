@@ -910,6 +910,7 @@ export default function OwnerDashboard() {
       {/* Notification Modal */}
       {notificationOpen && (
         <NotificationModal
+          notifications={[]}
           onClose={() => setNotificationOpen(false)}
           onViewAll={() => {
             setNotificationOpen(false);
