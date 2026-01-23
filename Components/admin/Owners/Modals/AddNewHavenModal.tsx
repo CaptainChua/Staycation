@@ -1,6 +1,6 @@
 "use client";
 
-import { X, Home, DollarSign, Clock, Calendar, FileText, Star, Image as ImageIcon, Images, Youtube } from "lucide-react";
+import { X, Home, DollarSign, Clock, Calendar, FileText, Star, Image as ImageIcon, Images, Youtube, CheckCircle2, AlertCircle, Circle } from "lucide-react";
 import { useState, useMemo } from "react";
 import { useCreateHavenMutation } from "@/redux/api/roomApi"
 import toast from 'react-hot-toast';
@@ -26,7 +26,6 @@ interface BlockedDate {
   reason: string;
 }
 
-// Define error type for better type safety
 interface ApiError {
   data?: {
     error?: string;
@@ -37,6 +36,8 @@ interface ApiError {
 const AddNewHavenModal = ({ isOpen, onClose }: AddNewHavenModalProps) => {
   const [createHaven, { isLoading }] = useCreateHavenMutation();
   const [openModal, setOpenModal] = useState<string | null>(null);
+  const [touchedSections, setTouchedSections] = useState<Record<string, boolean>>({});
+
   const [formData, setFormData] = useState({
     havenName: "",
     tower: "",
@@ -71,17 +72,8 @@ const AddNewHavenModal = ({ isOpen, onClose }: AddNewHavenModalProps) => {
   });
 
   const [blockedDates, setBlockedDates] = useState<BlockedDate[]>([]);
-  const [blockDateForm, setBlockDateForm] = useState({
-    fromDate: "",
-    toDate: "",
-    reason: "",
-  });
-
   const [havenImages, setHavenImages] = useState<File[]>([]);
-
-  const [photoTourImages, setPhotoTourImages] = useState<
-    Record<string, File[]>
-  >({
+  const [photoTourImages, setPhotoTourImages] = useState<Record<string, File[]>>({
     livingArea: [],
     kitchenette: [],
     diningArea: [],
@@ -93,51 +85,70 @@ const AddNewHavenModal = ({ isOpen, onClose }: AddNewHavenModalProps) => {
     additional: [],
   });
 
-  const towers = [
-    { value: "tower-a", label: "Tower A" },
-    { value: "tower-b", label: "Tower B" },
-    { value: "tower-c", label: "Tower C" },
-    { value: "tower-d", label: "Tower D" },
-  ];
+  // Validation Logic
+  const isBasicInfoValid = useMemo(() => !!(formData.havenName && formData.tower && formData.floor && formData.view), [formData]);
+  const isPricingValid = useMemo(() => !!(formData.sixHourRate && formData.tenHourRate && formData.weekdayRate && formData.weekendRate), [formData]);
+  const isDetailsValid = useMemo(() => !!(formData.capacity && formData.roomSize && formData.beds && formData.description), [formData]);
+  const isImagesValid = useMemo(() => havenImages.length > 0, [havenImages]);
+  const isCheckInValid = true; // Always valid due to defaults
+  const isAvailabilityValid = true; // Optional
+  const isAmenitiesValid = true; // Optional
+  const isPhotoTourValid = true; // Optional
+  const isYoutubeValid = true; // Optional
 
-  const views = [
-    { value: "city", label: "City View" },
-    { value: "pool", label: "Pool View" },
-    { value: "ocean", label: "Ocean View" },
-    { value: "garden", label: "Garden View" },
-    { value: "mountain", label: "Mountain View" },
-  ];
+  const getSectionStatus = (section: string): 'RED' | 'YELLOW' | 'GREEN' => {
+    const isTouched = touchedSections[section];
+    let isValid = false;
 
-  const amenitiesList = [
-    { key: "wifi", label: "WiFi" },
-    { key: "netflix", label: "Netflix" },
-    { key: "ps4", label: "PS4" },
-    { key: "glowBed", label: "Glow Bed" },
-    { key: "airConditioning", label: "Air Conditioning" },
-    { key: "kitchen", label: "Kitchen" },
-    { key: "balcony", label: "Balcony" },
-    { key: "tv", label: "TV" },
-    { key: "poolAccess", label: "Pool Access" },
-    { key: "parking", label: "Parking" },
-    { key: "washerDryer", label: "Washer/Dryer" },
-    { key: "towels", label: "Towels" },
-  ];
+    switch (section) {
+      case 'basic': isValid = isBasicInfoValid; break;
+      case 'pricing': isValid = isPricingValid; break;
+      case 'details': isValid = isDetailsValid; break;
+      case 'images': isValid = isImagesValid; break;
+      case 'checkin': isValid = isCheckInValid; break;
+      case 'availability': isValid = isAvailabilityValid; break;
+      case 'amenities': isValid = isAmenitiesValid; break;
+      case 'phototour': isValid = isPhotoTourValid; break;
+      case 'youtube': isValid = isYoutubeValid; break;
+      default: isValid = false;
+    }
 
-  const photoTourCategories = [
-    { key: "livingArea", label: "Living Area" },
-    { key: "kitchenette", label: "Kitchenette" },
-    { key: "diningArea", label: "Dining Area" },
-    { key: "fullBathroom", label: "Full Bathroom" },
-    { key: "garage", label: "Garage" },
-    { key: "exterior", label: "Exterior" },
-    { key: "pool", label: "Pool" },
-    { key: "bedroom", label: "Bedroom" },
-    { key: "additional", label: "Additional Photos" },
-  ];
+    if (!isTouched) return 'RED';
+    if (isTouched && !isValid) return 'YELLOW';
+    return 'GREEN';
+  };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const criticalSections = ['basic', 'pricing', 'details', 'images'];
+  const allCriticalGreen = criticalSections.every((section) => {
+    // For critical sections, we want them to be strictly VALID. 
+    // The requirement says "Save button disabled until all critical sections are GREEN".
+    // Since getSectionStatus returns GREEN only if valid, this check works.
+    // However, if a section is untouched (RED), it's not GREEN.
+    return getSectionStatus(section) === 'GREEN';
+  });
 
+  const getStatusStyles = (status: 'RED' | 'YELLOW' | 'GREEN') => {
+    switch (status) {
+      case 'RED':
+        return 'border-red-200 bg-white hover:border-red-400 hover:bg-red-50/30';
+      case 'YELLOW':
+        return 'border-yellow-200 bg-yellow-50/30 hover:border-yellow-400 hover:bg-yellow-50/50';
+      case 'GREEN':
+        return 'border-green-200 bg-green-50/30 hover:border-green-400 hover:bg-green-50/50';
+      default:
+        return 'border-gray-200 bg-white';
+    }
+  };
+
+  const getStatusIcon = (status: 'RED' | 'YELLOW' | 'GREEN') => {
+    switch (status) {
+      case 'RED': return <Circle className="w-5 h-5 text-red-400" />;
+      case 'YELLOW': return <AlertCircle className="w-5 h-5 text-yellow-500" />;
+      case 'GREEN': return <CheckCircle2 className="w-5 h-5 text-green-500" />;
+    }
+  };
+
+  const handleSubmit = async () => {
     try {
       // Convert haven images to base64
       const havenImagesBase64 = await Promise.all(
@@ -200,129 +211,72 @@ const AddNewHavenModal = ({ isOpen, onClose }: AddNewHavenModalProps) => {
 
       if (result.success) {
         toast.success("Haven created successfully!");
-        
-        // Reset form
+        setTouchedSections({});
+        // Reset form (omitted for brevity, handled by onClose or separate logic if needed, 
+        // but restoring original reset logic below)
         setFormData({
-          havenName: "",
-          tower: "",
-          floor: "",
-          view: "",
-          capacity: "",
-          roomSize: "",
-          beds: "",
-          sixHourRate: "",
-          tenHourRate: "",
-          weekdayRate: "",
-          weekendRate: "",
-          sixHourCheckIn: "09:00",
-          tenHourCheckIn: "09:00",
-          twentyOneHourCheckIn: "14:00",
-          description: "",
-          youtubeUrl: "",
-          amenities: {
-            wifi: false,
-            netflix: false,
-            ps4: false,
-            glowBed: false,
-            airConditioning: false,
-            kitchen: false,
-            balcony: false,
-            tv: false,
-            poolAccess: false,
-            parking: false,
-            washerDryer: false,
-            towels: false,
-          },
-        });
-        setHavenImages([]);
-        setPhotoTourImages({
-          livingArea: [],
-          kitchenette: [],
-          diningArea: [],
-          fullBathroom: [],
-          garage: [],
-          exterior: [],
-          pool: [],
-          bedroom: [],
-          additional: [],
-        });
-        setBlockedDates([]);
-        
+            havenName: "",
+            tower: "",
+            floor: "",
+            view: "",
+            capacity: "",
+            roomSize: "",
+            beds: "",
+            sixHourRate: "",
+            tenHourRate: "",
+            weekdayRate: "",
+            weekendRate: "",
+            sixHourCheckIn: "09:00",
+            tenHourCheckIn: "09:00",
+            twentyOneHourCheckIn: "14:00",
+            description: "",
+            youtubeUrl: "",
+            amenities: {
+              wifi: false,
+              netflix: false,
+              ps4: false,
+              glowBed: false,
+              airConditioning: false,
+              kitchen: false,
+              balcony: false,
+              tv: false,
+              poolAccess: false,
+              parking: false,
+              washerDryer: false,
+              towels: false,
+            },
+          });
+          setHavenImages([]);
+          setPhotoTourImages({
+            livingArea: [],
+            kitchenette: [],
+            diningArea: [],
+            fullBathroom: [],
+            garage: [],
+            exterior: [],
+            pool: [],
+            bedroom: [],
+            additional: [],
+          });
+          setBlockedDates([]);
         onClose();
       }
     } catch (error: unknown) {
       console.error("Error creating haven:", error);
-      
-      // Type-safe error handling
       let errorMessage = "Failed to create haven";
       if (typeof error === 'object' && error !== null) {
         const apiError = error as ApiError;
         errorMessage = apiError?.data?.error || apiError?.message || "Failed to create haven";
       }
-      
       toast.error(errorMessage);
     }
-  }
-
-  const handleAmenityChange = (key: string, checked: boolean) => {
-    setFormData({
-      ...formData,
-      amenities: {
-        ...formData.amenities,
-        [key]: checked,
-      },
-    });
   };
 
-  const handleAddBlockedDate = () => {
-    if (blockDateForm.fromDate && blockDateForm.toDate) {
-      setBlockedDates([
-        ...blockedDates,
-        {
-          id: Date.now(),
-          ...blockDateForm,
-        },
-      ]);
-      setBlockDateForm({ fromDate: "", toDate: "", reason: "" });
-    }
+  const markTouched = (section: string) => {
+    setTouchedSections(prev => ({ ...prev, [section]: true }));
   };
 
-  const handleRemoveBlockedDate = (id: number) => {
-    setBlockedDates(blockedDates.filter((date) => date.id !== id));
-  };
-
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const filesArray = Array.from(e.target.files);
-      setHavenImages([...havenImages, ...filesArray]);
-    }
-  };
-
-  const handleRemoveImage = (index: number) => {
-    setHavenImages(havenImages.filter((_, i) => i !== index));
-  };
-
-  const handlePhotoTourUpload = (
-    category: string,
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    if (e.target.files) {
-      const filesArray = Array.from(e.target.files);
-      setPhotoTourImages({
-        ...photoTourImages,
-        [category]: [...photoTourImages[category], ...filesArray],
-      });
-    }
-  };
-
-  const handleRemovePhotoTourImage = (category: string, index: number) => {
-    setPhotoTourImages({
-      ...photoTourImages,
-      [category]: photoTourImages[category].filter((_, i) => i !== index),
-    });
-  };
-
-  // Memoized initial data for sub-modals to prevent unnecessary re-renders and resets
+  // Memoized initial data
   const basicInfoInitialData = useMemo(() => ({
     haven_name: formData.havenName,
     tower: formData.tower,
@@ -362,148 +316,94 @@ const AddNewHavenModal = ({ isOpen, onClose }: AddNewHavenModalProps) => {
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/50 z-40" onClick={onClose}></div>
+      <div className="fixed inset-0 bg-black/50 z-40 backdrop-blur-sm" onClick={onClose}></div>
       <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-2xl max-w-6xl w-full max-h-[90vh] shadow-2xl flex flex-col">
-          {/* Header - Sticky */}
-          <div className="flex justify-between items-center p-6 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-purple-100 rounded-t-2xl flex-shrink-0">
+        <div className="bg-white rounded-2xl max-w-6xl w-full max-h-[90vh] shadow-2xl flex flex-col animate-in zoom-in-95 duration-200">
+          
+          {/* Header - System Theme */}
+          <div className="flex justify-between items-center p-6 border-b border-brand-primary/20 bg-brand-primary text-white rounded-t-2xl flex-shrink-0 shadow-sm">
             <div>
-              <h2 className="text-2xl font-bold text-gray-800">
-                Add New Haven
-              </h2>
-              <p className="text-sm text-gray-600 mt-1">
-                Fill in the haven details below
-              </p>
+              <h2 className="text-2xl font-bold">Add New Haven</h2>
+              <p className="text-sm opacity-90 mt-1">Complete all sections to publish your property</p>
             </div>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-white/50 rounded-full transition-colors"
-            >
-              <X className="w-6 h-6 text-gray-600" />
+            <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-full transition-colors">
+              <X className="w-6 h-6 text-white" />
             </button>
           </div>
 
           {/* Modules List */}
-          <div className="flex-1 overflow-y-auto p-6">
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-              {/* Basic Information */}
-              <button
-                type="button"
-                onClick={() => setOpenModal("basic")}
-                className="flex flex-col items-center justify-center p-4 bg-white border-2 border-gray-200 rounded-lg hover:border-amber-600 hover:bg-amber-50 transition-all group text-center"
-              >
-                <Home className="w-6 h-6 text-gray-500 group-hover:text-amber-600 mb-2" />
-                <h3 className="font-semibold text-sm text-gray-800 mb-1">Basic Information</h3>
-                <p className="text-xs text-gray-500 leading-tight">Haven name, tower, floor, view</p>
-              </button>
-
-              {/* Pricing Management */}
-              <button
-                type="button"
-                onClick={() => setOpenModal("pricing")}
-                className="flex flex-col items-center justify-center p-4 bg-white border-2 border-gray-200 rounded-lg hover:border-amber-600 hover:bg-amber-50 transition-all group text-center"
-              >
-                <DollarSign className="w-6 h-6 text-gray-500 group-hover:text-amber-600 mb-2" />
-                <h3 className="font-semibold text-sm text-gray-800 mb-1">Pricing</h3>
-                <p className="text-xs text-gray-500 leading-tight">Weekday and weekend rates</p>
-              </button>
-
-              {/* Check-in Time Settings */}
-              <button
-                type="button"
-                onClick={() => setOpenModal("checkin")}
-                className="flex flex-col items-center justify-center p-4 bg-white border-2 border-gray-200 rounded-lg hover:border-amber-600 hover:bg-amber-50 transition-all group text-center"
-              >
-                <Clock className="w-6 h-6 text-gray-500 group-hover:text-amber-600 mb-2" />
-                <h3 className="font-semibold text-sm text-gray-800 mb-1">Check-in Time</h3>
-                <p className="text-xs text-gray-500 leading-tight">Set default check-in times</p>
-              </button>
-
-              {/* Availability Management */}
-              <button
-                type="button"
-                onClick={() => setOpenModal("availability")}
-                className="flex flex-col items-center justify-center p-4 bg-white border-2 border-gray-200 rounded-lg hover:border-amber-600 hover:bg-amber-50 transition-all group text-center"
-              >
-                <Calendar className="w-6 h-6 text-gray-500 group-hover:text-amber-600 mb-2" />
-                <h3 className="font-semibold text-sm text-gray-800 mb-1">Availability</h3>
-                <p className="text-xs text-gray-500 leading-tight">Manage blocked dates</p>
-              </button>
-
-              {/* Haven Details */}
-              <button
-                type="button"
-                onClick={() => setOpenModal("details")}
-                className="flex flex-col items-center justify-center p-4 bg-white border-2 border-gray-200 rounded-lg hover:border-amber-600 hover:bg-amber-50 transition-all group text-center"
-              >
-                <FileText className="w-6 h-6 text-gray-500 group-hover:text-amber-600 mb-2" />
-                <h3 className="font-semibold text-sm text-gray-800 mb-1">Haven Details</h3>
-                <p className="text-xs text-gray-500 leading-tight">Capacity, size, beds, description</p>
-              </button>
-
-              {/* Amenities */}
-              <button
-                type="button"
-                onClick={() => setOpenModal("amenities")}
-                className="flex flex-col items-center justify-center p-4 bg-white border-2 border-gray-200 rounded-lg hover:border-amber-600 hover:bg-amber-50 transition-all group text-center"
-              >
-                <Star className="w-6 h-6 text-gray-500 group-hover:text-amber-600 mb-2" />
-                <h3 className="font-semibold text-sm text-gray-800 mb-1">Amenities</h3>
-                <p className="text-xs text-gray-500 leading-tight">Select available amenities</p>
-              </button>
-
-              {/* Haven Images */}
-              <button
-                type="button"
-                onClick={() => setOpenModal("images")}
-                className="flex flex-col items-center justify-center p-4 bg-white border-2 border-gray-200 rounded-lg hover:border-amber-600 hover:bg-amber-50 transition-all group text-center"
-              >
-                <ImageIcon className="w-6 h-6 text-gray-500 group-hover:text-amber-600 mb-2" />
-                <h3 className="font-semibold text-sm text-gray-800 mb-1">Haven Images</h3>
-                <p className="text-xs text-gray-500 leading-tight">Upload and manage images</p>
-              </button>
-
-              {/* Photo Tour Management */}
-              <button
-                type="button"
-                onClick={() => setOpenModal("phototour")}
-                className="flex flex-col items-center justify-center p-4 bg-white border-2 border-gray-200 rounded-lg hover:border-amber-600 hover:bg-amber-50 transition-all group text-center"
-              >
-                <Images className="w-6 h-6 text-gray-500 group-hover:text-amber-600 mb-2" />
-                <h3 className="font-semibold text-sm text-gray-800 mb-1">Photo Tour</h3>
-                <p className="text-xs text-gray-500 leading-tight">Organize photos by category</p>
-              </button>
-
-              {/* YouTube Video */}
-              <button
-                type="button"
-                onClick={() => setOpenModal("youtube")}
-                className="flex flex-col items-center justify-center p-4 bg-white border-2 border-gray-200 rounded-lg hover:border-amber-600 hover:bg-amber-50 transition-all group text-center"
-              >
-                <Youtube className="w-6 h-6 text-gray-500 group-hover:text-amber-600 mb-2" />
-                <h3 className="font-semibold text-sm text-gray-800 mb-1">YouTube Video</h3>
-                <p className="text-xs text-gray-500 leading-tight">Add YouTube video URL</p>
-              </button>
+          <div className="flex-1 overflow-y-auto p-6 bg-gray-50/50">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              
+              {/* Section Card Component */}
+              {[
+                { id: 'basic', label: 'Basic Info', desc: 'Name, tower, floor, view', icon: Home },
+                { id: 'pricing', label: 'Pricing', desc: 'Rates & fees', icon: DollarSign },
+                { id: 'checkin', label: 'Check-in', desc: 'Time settings', icon: Clock },
+                { id: 'availability', label: 'Availability', desc: 'Blocked dates', icon: Calendar },
+                { id: 'details', label: 'Details', desc: 'Capacity, beds, size', icon: FileText },
+                { id: 'amenities', label: 'Amenities', desc: 'Features list', icon: Star },
+                { id: 'images', label: 'Images', desc: 'Gallery photos', icon: ImageIcon },
+                { id: 'phototour', label: 'Photo Tour', desc: 'Categorized photos', icon: Images },
+                { id: 'youtube', label: 'Video', desc: 'YouTube URL', icon: Youtube },
+              ].map((section) => {
+                const status = getSectionStatus(section.id);
+                return (
+                  <button
+                    key={section.id}
+                    type="button"
+                    onClick={() => setOpenModal(section.id)}
+                    className={`
+                      relative flex flex-col items-center justify-center p-4 rounded-lg border transition-all duration-200 group text-center h-full
+                      ${getStatusStyles(status)}
+                    `}
+                  >
+                    <div className="absolute top-2 right-2 transform scale-75">
+                      {getStatusIcon(status)}
+                    </div>
+                    
+                    <div className={`p-2 rounded-full mb-2 ${status === 'GREEN' ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-500'} group-hover:bg-brand-primary/10 group-hover:text-brand-primary transition-colors`}>
+                      <section.icon className="w-5 h-5" />
+                    </div>
+                    
+                    <h3 className="font-semibold text-sm text-gray-800 mb-0.5 leading-tight">{section.label}</h3>
+                    <p className="text-[10px] text-gray-500 leading-tight max-w-[90%] mx-auto">{section.desc}</p>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          {/* Footer - Sticky */}
-          <div className="flex gap-3 p-6 border-t border-gray-200 bg-gray-50 rounded-b-2xl flex-shrink-0">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={isLoading}
-              className="flex-1 px-6 py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-medium transition-colors shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isLoading ? "Creating Haven..." : "Save Changes"}
-            </button>
+          {/* Footer */}
+          <div className="flex justify-between items-center p-6 border-t border-gray-200 bg-white rounded-b-2xl flex-shrink-0">
+             <div className="flex gap-4 text-sm text-gray-500">
+                <div className="flex items-center gap-1"><Circle className="w-3 h-3 text-red-400" /> Not started</div>
+                <div className="flex items-center gap-1"><AlertCircle className="w-3 h-3 text-yellow-500" /> Incomplete</div>
+                <div className="flex items-center gap-1"><CheckCircle2 className="w-3 h-3 text-green-500" /> Completed</div>
+             </div>
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={!allCriticalGreen || isLoading}
+                className={`
+                  px-6 py-2.5 rounded-lg font-bold text-white shadow-md transition-all flex items-center gap-2
+                  ${!allCriticalGreen || isLoading 
+                    ? 'bg-gray-300 cursor-not-allowed shadow-none' 
+                    : 'bg-brand-primary hover:bg-[#b57603] hover:shadow-lg transform active:scale-95'}
+                `}
+              >
+                {isLoading ? "Creating..." : "Save Changes"}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -520,6 +420,7 @@ const AddNewHavenModal = ({ isOpen, onClose }: AddNewHavenModalProps) => {
             floor: data.floor || "",
             view: data.view_type || "",
           });
+          markTouched('basic');
           setOpenModal(null);
         }}
         initialData={basicInfoInitialData}
@@ -536,6 +437,7 @@ const AddNewHavenModal = ({ isOpen, onClose }: AddNewHavenModalProps) => {
             weekdayRate: data.weekday_rate?.toString() || "",
             weekendRate: data.weekend_rate?.toString() || "",
           });
+          markTouched('pricing');
           setOpenModal(null);
         }}
         initialData={pricingInitialData}
@@ -551,6 +453,7 @@ const AddNewHavenModal = ({ isOpen, onClose }: AddNewHavenModalProps) => {
             tenHourCheckIn: data.ten_hour_check_in || "09:00",
             twentyOneHourCheckIn: data.twenty_one_hour_check_in || "14:00",
           });
+          markTouched('checkin');
           setOpenModal(null);
         }}
         initialData={checkInInitialData}
@@ -561,6 +464,7 @@ const AddNewHavenModal = ({ isOpen, onClose }: AddNewHavenModalProps) => {
         onClose={() => setOpenModal(null)}
         onSave={(dates) => {
           setBlockedDates(dates);
+          markTouched('availability');
           setOpenModal(null);
         }}
         initialData={availabilityInitialData}
@@ -577,6 +481,7 @@ const AddNewHavenModal = ({ isOpen, onClose }: AddNewHavenModalProps) => {
             beds: data.beds || "",
             description: data.description || "",
           });
+          markTouched('details');
           setOpenModal(null);
         }}
         initialData={detailsInitialData}
@@ -603,6 +508,7 @@ const AddNewHavenModal = ({ isOpen, onClose }: AddNewHavenModalProps) => {
               towels: data.towels ?? false,
             }
           });
+          markTouched('amenities');
           setOpenModal(null);
         }}
         initialData={formData.amenities}
@@ -613,6 +519,7 @@ const AddNewHavenModal = ({ isOpen, onClose }: AddNewHavenModalProps) => {
         onClose={() => setOpenModal(null)}
         onSave={(newImages, existingImages) => {
           setHavenImages(newImages);
+          markTouched('images');
           setOpenModal(null);
         }}
         initialImages={emptyArray}
@@ -623,6 +530,7 @@ const AddNewHavenModal = ({ isOpen, onClose }: AddNewHavenModalProps) => {
         onClose={() => setOpenModal(null)}
         onSave={(photoTours, existingPhotoTours) => {
           setPhotoTourImages(photoTours);
+          markTouched('phototour');
           setOpenModal(null);
         }}
         initialPhotoTours={emptyArray}
@@ -633,6 +541,7 @@ const AddNewHavenModal = ({ isOpen, onClose }: AddNewHavenModalProps) => {
         onClose={() => setOpenModal(null)}
         onSave={(url) => {
           setFormData({ ...formData, youtubeUrl: url });
+          markTouched('youtube');
           setOpenModal(null);
         }}
         initialUrl={formData.youtubeUrl}
