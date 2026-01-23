@@ -379,19 +379,10 @@
           checkDate.setHours(0, 0, 0, 0);
 
           // Check if the date falls within any existing booking's date range
-          const isBooked = roomBookingsData?.data?.some((booking: Booking) => {
-            // Only block dates for approved/confirmed/checked-in bookings
-            // Don't block dates for completed, cancelled, pending, rejected bookings
-            const blockingStatuses = ['approved', 'confirmed', 'checked-in'];
-            if (!blockingStatuses.includes(booking.status)) {
-              return false;
-            }
-
-            const bookingCheckIn = new Date(booking.check_in_date);
-            bookingCheckIn.setHours(0, 0, 0, 0);
-
-            const bookingCheckOut = new Date(booking.check_out_date);
-            bookingCheckOut.setHours(0, 0, 0, 0);
+          const userStart = new Date(checkDate);
+          userStart.setHours(0, 0, 0, 0);
+          const userEnd = new Date(checkDate);
+          userEnd.setHours(23, 59, 59, 999);
 
           const isBooked = checkOverlap(userStart, userEnd);
 
@@ -405,7 +396,7 @@
           });
 
           return isBooked || isBlocked;
-        };
+        }
       }, [checkOverlap, bookingData.selectedRoom, formData.stayType]);
 
       const handleInputChange = (
