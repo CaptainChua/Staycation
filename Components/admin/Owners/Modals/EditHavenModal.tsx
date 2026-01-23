@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useUpdateHavenMutation } from "@/redux/api/roomApi";
 import { X, Home, DollarSign, Clock, Calendar, FileText, Star, Image as ImageIcon, Images, Youtube } from "lucide-react";
@@ -361,6 +361,40 @@ const EditHavenModal = ({ isOpen, onClose, havenData }: EditHavenModalProps) => 
     setExistingPhotoTours(existingPhotoTours.filter((_, i) => i !== photoIndex));
   };
 
+  // Memoized initial data for sub-modals to prevent unnecessary re-renders and resets
+  const basicInfoInitialData = useMemo(() => ({
+    haven_name: formData.haven_name,
+    tower: formData.tower,
+    floor: formData.floor,
+    view_type: formData.view_type,
+  }), [formData.haven_name, formData.tower, formData.floor, formData.view_type]);
+
+  const pricingInitialData = useMemo(() => ({
+    six_hour_rate: formData.six_hour_rate ? parseFloat(formData.six_hour_rate) : undefined,
+    ten_hour_rate: formData.ten_hour_rate ? parseFloat(formData.ten_hour_rate) : undefined,
+    weekday_rate: formData.weekday_rate ? parseFloat(formData.weekday_rate) : undefined,
+    weekend_rate: formData.weekend_rate ? parseFloat(formData.weekend_rate) : undefined,
+  }), [formData.six_hour_rate, formData.ten_hour_rate, formData.weekday_rate, formData.weekend_rate]);
+
+  const checkInInitialData = useMemo(() => ({
+    six_hour_check_in: formData.six_hour_check_in,
+    ten_hour_check_in: formData.ten_hour_check_in,
+    twenty_one_hour_check_in: formData.twenty_one_hour_check_in,
+  }), [formData.six_hour_check_in, formData.ten_hour_check_in, formData.twenty_one_hour_check_in]);
+
+  const availabilityInitialData = useMemo(() => blockedDates.map(date => ({
+    from_date: date.fromDate,
+    to_date: date.toDate,
+    reason: date.reason,
+  })), [blockedDates]);
+
+  const detailsInitialData = useMemo(() => ({
+    capacity: formData.capacity ? parseInt(formData.capacity) : undefined,
+    room_size: formData.room_size ? parseFloat(formData.room_size) : undefined,
+    beds: formData.beds,
+    description: formData.description,
+  }), [formData.capacity, formData.room_size, formData.beds, formData.description]);
+
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
 
@@ -536,72 +570,72 @@ const EditHavenModal = ({ isOpen, onClose, havenData }: EditHavenModalProps) => 
               </button>
 
               {/* Availability Management */}
-              <button
-                type="button"
+                        <button
+                          type="button"
                 onClick={() => setOpenModal("availability")}
                 className="flex flex-col items-center justify-center p-4 bg-white border-2 border-gray-200 rounded-lg hover:border-amber-600 hover:bg-amber-50 transition-all group text-center"
-              >
+                        >
                 <Calendar className="w-6 h-6 text-gray-500 group-hover:text-amber-600 mb-2" />
                 <h3 className="font-semibold text-sm text-gray-800 mb-1">Availability</h3>
                 <p className="text-xs text-gray-500 leading-tight">Manage blocked dates</p>
-              </button>
+                        </button>
 
               {/* Haven Details */}
-              <button
-                type="button"
+                        <button
+                          type="button"
                 onClick={() => setOpenModal("details")}
                 className="flex flex-col items-center justify-center p-4 bg-white border-2 border-gray-200 rounded-lg hover:border-amber-600 hover:bg-amber-50 transition-all group text-center"
-              >
+                        >
                 <FileText className="w-6 h-6 text-gray-500 group-hover:text-amber-600 mb-2" />
                 <h3 className="font-semibold text-sm text-gray-800 mb-1">Haven Details</h3>
                 <p className="text-xs text-gray-500 leading-tight">Capacity, size, beds, description</p>
-              </button>
+                        </button>
 
               {/* Amenities */}
-              <button
-                type="button"
+                                <button
+                                  type="button"
                 onClick={() => setOpenModal("amenities")}
                 className="flex flex-col items-center justify-center p-4 bg-white border-2 border-gray-200 rounded-lg hover:border-amber-600 hover:bg-amber-50 transition-all group text-center"
-              >
+                                >
                 <Star className="w-6 h-6 text-gray-500 group-hover:text-amber-600 mb-2" />
                 <h3 className="font-semibold text-sm text-gray-800 mb-1">Amenities</h3>
                 <p className="text-xs text-gray-500 leading-tight">Select available amenities</p>
-              </button>
+                                </button>
 
               {/* Haven Images */}
-              <button
-                type="button"
+                                <button
+                                  type="button"
                 onClick={() => setOpenModal("images")}
                 className="flex flex-col items-center justify-center p-4 bg-white border-2 border-gray-200 rounded-lg hover:border-amber-600 hover:bg-amber-50 transition-all group text-center"
-              >
+                                >
                 <ImageIcon className="w-6 h-6 text-gray-500 group-hover:text-amber-600 mb-2" />
                 <h3 className="font-semibold text-sm text-gray-800 mb-1">Haven Images</h3>
                 <p className="text-xs text-gray-500 leading-tight">Upload and manage images</p>
-              </button>
+                                </button>
 
               {/* Photo Tour Management */}
-              <button
-                type="button"
+                <button
+                  type="button"
                 onClick={() => setOpenModal("phototour")}
                 className="flex flex-col items-center justify-center p-4 bg-white border-2 border-gray-200 rounded-lg hover:border-amber-600 hover:bg-amber-50 transition-all group text-center"
-              >
+                >
                 <Images className="w-6 h-6 text-gray-500 group-hover:text-amber-600 mb-2" />
                 <h3 className="font-semibold text-sm text-gray-800 mb-1">Photo Tour</h3>
                 <p className="text-xs text-gray-500 leading-tight">Organize photos by category</p>
-              </button>
+                </button>
 
               {/* YouTube Video */}
-              <button
-                type="button"
+                        <button
+                          type="button"
                 onClick={() => setOpenModal("youtube")}
                 className="flex flex-col items-center justify-center p-4 bg-white border-2 border-gray-200 rounded-lg hover:border-amber-600 hover:bg-amber-50 transition-all group text-center"
-              >
+                        >
                 <Youtube className="w-6 h-6 text-gray-500 group-hover:text-amber-600 mb-2" />
                 <h3 className="font-semibold text-sm text-gray-800 mb-1">YouTube Video</h3>
                 <p className="text-xs text-gray-500 leading-tight">Add YouTube video URL</p>
-              </button>
-            </div>
-          </div>
+                        </button>
+                      </div>
+                  </div>
 
           {/* Footer */}
           <div className="flex justify-end gap-3 p-6 border-t border-gray-200 bg-gray-50 rounded-b-2xl flex-shrink-0">
@@ -643,12 +677,7 @@ const EditHavenModal = ({ isOpen, onClose, havenData }: EditHavenModalProps) => 
           setFormData({ ...formData, ...data });
           setOpenModal(null);
         }}
-        initialData={{
-          haven_name: formData.haven_name,
-          tower: formData.tower,
-          floor: formData.floor,
-          view_type: formData.view_type,
-        }}
+        initialData={basicInfoInitialData}
       />
       
       <PricingManagementModal
@@ -664,12 +693,7 @@ const EditHavenModal = ({ isOpen, onClose, havenData }: EditHavenModalProps) => 
           });
           setOpenModal(null);
         }}
-        initialData={{
-          six_hour_rate: formData.six_hour_rate ? parseFloat(formData.six_hour_rate) : undefined,
-          ten_hour_rate: formData.ten_hour_rate ? parseFloat(formData.ten_hour_rate) : undefined,
-          weekday_rate: formData.weekday_rate ? parseFloat(formData.weekday_rate) : undefined,
-          weekend_rate: formData.weekend_rate ? parseFloat(formData.weekend_rate) : undefined,
-        }}
+        initialData={pricingInitialData}
       />
       
       <CheckInTimeSettingsModal
@@ -679,11 +703,7 @@ const EditHavenModal = ({ isOpen, onClose, havenData }: EditHavenModalProps) => 
           setFormData({ ...formData, ...data });
           setOpenModal(null);
         }}
-        initialData={{
-          six_hour_check_in: formData.six_hour_check_in,
-          ten_hour_check_in: formData.ten_hour_check_in,
-          twenty_one_hour_check_in: formData.twenty_one_hour_check_in,
-        }}
+        initialData={checkInInitialData}
       />
       
       <AvailabilityManagementModal
@@ -693,11 +713,7 @@ const EditHavenModal = ({ isOpen, onClose, havenData }: EditHavenModalProps) => 
           setBlockedDates(dates);
           setOpenModal(null);
         }}
-        initialData={blockedDates.map(date => ({
-          from_date: date.fromDate,
-          to_date: date.toDate,
-          reason: date.reason,
-        }))}
+        initialData={availabilityInitialData}
       />
       
       <HavenDetailsModal
@@ -713,12 +729,7 @@ const EditHavenModal = ({ isOpen, onClose, havenData }: EditHavenModalProps) => 
           });
           setOpenModal(null);
         }}
-        initialData={{
-          capacity: formData.capacity ? parseInt(formData.capacity) : undefined,
-          room_size: formData.room_size ? parseFloat(formData.room_size) : undefined,
-          beds: formData.beds,
-          description: formData.description,
-        }}
+        initialData={detailsInitialData}
       />
       
       <AmenitiesModal

@@ -1,6 +1,6 @@
 "use client";
 
-import { LogOut, Menu, X, Home, Users, MessageSquare, Settings, Bell, UserCircle, ChevronDown, BarChart3, Calendar, DollarSign, Wrench, Star, Shield, TrendingUp, TrendingDown, Building2, Sparkles } from "lucide-react";
+import { LogOut, Menu, X, Home, Users, MessageSquare, Settings, Bell, UserCircle, ChevronDown, BarChart3, Calendar, DollarSign, Wrench, Star, Shield, TrendingUp, TrendingDown, Building2, Sparkles, Headphones } from "lucide-react";
 import DashboardPage, { Haven } from "./DashboardPage";
 import GuestAssistancePage from "./GuestAssistancePage";
 import AddUnitModal from "./Modals/AddUnitModal";
@@ -354,6 +354,12 @@ export default function OwnerDashboard() {
       icon: Calendar,
       label: "Reservations",
       color: "text-indigo-500",
+    },
+    {
+      id: "guest",
+      icon: Headphones,
+      label: "Guest Assistance",
+      color: "text-pink-500",
     },
     {
       id: "havens",
@@ -843,17 +849,7 @@ export default function OwnerDashboard() {
         <AdminFooter />
       </div>
 
-      {notificationOpen && (
-        <NotificationModal
-          onClose={() => setNotificationOpen(false)}
-          onViewAll={() => {
-            setNotificationOpen(false);
-            setPage("notifications");
-          }}
-          anchorRef={notificationButtonRef}
-          userId={session?.user?.id}
-        />
-      )}
+
 
       {/* MODALS */}
       <AddUnitModal
@@ -904,6 +900,7 @@ export default function OwnerDashboard() {
       {/* Notification Modal */}
       {notificationOpen && (
         <NotificationModal
+          notifications={[]} // Required prop, handled internally by API if userId is present
           onClose={() => setNotificationOpen(false)}
           onViewAll={() => {
             setNotificationOpen(false);

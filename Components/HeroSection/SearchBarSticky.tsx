@@ -29,6 +29,7 @@ interface Location {
   id: number;
   name: string;
   branch: string;
+  uuid_id?: string;
 }
 
 interface Guests {
@@ -68,6 +69,7 @@ const SearchBarSticky = () => {
 
           havens.forEach((haven: {
             id?: number;
+            uuid_id?: string;
             haven_name?: string;
             tower?: string;
           }) => {
@@ -79,7 +81,8 @@ const SearchBarSticky = () => {
                 havenMap.set(havenNumber, {
                   id: haven.id || havenMap.size + 1,
                   name: havenNumber,
-                  branch: '' // Empty branch since we're only showing haven number
+                  branch: '', // Empty branch since we're only showing haven number
+                  uuid_id: haven.uuid_id // Store the uuid_id for direct navigation
                 });
               }
             }
@@ -152,10 +155,15 @@ const SearchBarSticky = () => {
     dispatch(setReduxCheckInDate(checkInDate));
     dispatch(setReduxCheckOutDate(checkOutDate));
     dispatch(setReduxGuests(guests));
-    dispatch(setIsFromSearch(true));
+    dispatch(setIsFromSearch(false)); // Set to false to avoid showing search results
 
-    // Navigate to rooms page with filter applied
-    router.push('/rooms');
+    // If we have a uuid_id, navigate directly to room details page
+    if (selectedLocation.uuid_id) {
+      router.push(`/rooms/${selectedLocation.uuid_id}`);
+    } else {
+      // Fallback to rooms page without search filter
+      router.push('/rooms');
+    }
   }
 
   return (

@@ -3,7 +3,10 @@
 import { Star, Video, X, Heart, Sparkles } from "lucide-react";
 import RoomImageGallery from "./RoomImageGallery";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
+import { useAddToWishlistMutation, useRemoveFromWishlistMutation, useCheckWishlistStatusQuery } from "@/redux/api/wishlistApi";
+import toast from "react-hot-toast";
 
 interface Room {
   id: string;
@@ -25,15 +28,49 @@ interface Room {
   youtubeUrl?: string;
 }
 interface RoomCardsProps {
-  room: Room;
+  room: Room & { uuid_id?: string }; // Add uuid_id for wishlist
   mode?: "select" | "browse"; // 'select' for filtered search, 'browse' for homepage
   compact?: boolean; // Optional compact mode for smaller card display
 }
 const RoomCard = ({ room, mode = "browse", compact = false }: RoomCardsProps) => {
-
   const router = useRouter();
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
-  const [isFavorite, setIsFavorite] = useState(false);
+  const { data: session } = useSession();
+  const userId = (session?.user as { id?: string })?.id;
+
+  // Wishlist mutations and queries
+  const [addToWishlist, { isLoading: isAdding }] = useAddToWishlistMutation();
+  const [removeFromWishlist, { isLoading: isRemoving }] = useRemoveFromWishlistMutation();
+
+  // Check if this room is in user's wishlist
+  const { data: wishlistStatus, isLoading: isCheckingWishlist, error: wishlistError, refetch: refetchWishlistStatus } = useCheckWishlistStatusQuery(
+    { userId: userId || '', havenId: room.uuid_id || room.id },
+    { 
+      skip: !userId || !(room.uuid_id || room.id),
+      // Force refetch on every render to ensure fresh data
+      refetchOnMountOrArgChange: true,
+      refetchOnReconnect: true
+    }
+  );
+
+  // Local state for optimistic updates
+  const [optimisticFavorite, setOptimisticFavorite] = useState(false);
+  const isFavorite = wishlistStatus?.isInWishlist || optimisticFavorite;
+
+  // Sync optimistic state with actual wishlist status when data loads
+  useEffect(() => {
+    if (wishlistStatus?.isInWishlist !== undefined) {
+      setOptimisticFavorite(false); // Reset optimistic state when real data arrives
+    }
+  }, [wishlistStatus?.isInWishlist]);
+
+  // Handle wishlist errors and force refresh if needed
+  useEffect(() => {
+    if (wishlistError) {
+      console.error('Wishlist API Error:', wishlistError);
+      toast.error('Failed to check wishlist status');
+    }
+  }, [wishlistError]);
 
   const handleSelect = () => {
     // Navigate to room details for booking
@@ -43,6 +80,58 @@ const RoomCard = ({ room, mode = "browse", compact = false }: RoomCardsProps) =>
   const handleImageClick = () => {
     // Navigate to room details when image is clicked
     router.push(`/rooms/${room.id}`);
+  };
+
+  const handleHeartClick = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    if (!userId) {
+      toast.error("Please login to add to wishlist");
+      router.push('/login');
+      return;
+    }
+
+    const roomId = room.uuid_id || room.id;
+    if (!roomId) {
+      toast.error("Room ID not found");
+      console.error("Room data:", room);
+      return;
+    }
+
+    // Optimistic update - instantly change heart color
+    const newFavoriteState = !isFavorite;
+    setOptimisticFavorite(newFavoriteState);
+
+    try {
+      if (newFavoriteState) {
+        // Add to wishlist
+        await addToWishlist({
+          user_id: userId,
+          haven_id: roomId
+        }).unwrap();
+        toast.success("Added to wishlist");
+        // Force refetch to update UI immediately
+        refetchWishlistStatus();
+      } else {
+        // Remove from wishlist
+        const wishlistId = wishlistStatus?.wishlistId;
+        if (wishlistId) {
+          await removeFromWishlist(wishlistId).unwrap();
+          toast.success("Removed from wishlist");
+          // Force refetch to update UI immediately
+          refetchWishlistStatus();
+        } else {
+          toast.error("Wishlist item not found");
+          // Revert optimistic update on error
+          setOptimisticFavorite(!newFavoriteState);
+        }
+      }
+    } catch (error: any) {
+      console.error('Wishlist error:', error);
+      toast.error(error?.data?.message || "Failed to update wishlist");
+      // Revert optimistic update on error
+      setOptimisticFavorite(!newFavoriteState);
+    }
   };
 
   const handleVideoClick = () => {
@@ -71,19 +160,21 @@ const RoomCard = ({ room, mode = "browse", compact = false }: RoomCardsProps) =>
 
         {/* Heart icon - top left */}
         <button
-          onClick={(e) => {
-            e.stopPropagation();
-            setIsFavorite(!isFavorite);
-          }}
-          className="absolute top-3 left-3 p-2 rounded-full bg-black/60 dark:bg-gray-900/80 backdrop-blur-sm hover:bg-black/80 dark:hover:bg-gray-800 transition-all duration-200 shadow-lg"
+          onClick={handleHeartClick}
+          disabled={isAdding || isRemoving || isCheckingWishlist}
+          className="absolute top-3 left-3 p-2 rounded-full bg-black/60 dark:bg-gray-900/80 backdrop-blur-sm hover:bg-black/80 dark:hover:bg-gray-800 transition-all duration-200 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
         >
-          <Heart
-            className={`w-5 h-5 transition-all duration-200 ${
-              isFavorite
-                ? "fill-red-500 text-red-500"
-                : "text-white"
-            }`}
-          />
+          {isAdding || isRemoving || isCheckingWishlist ? (
+            <div className="w-5 h-5 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+          ) : (
+            <Heart
+              className={`w-5 h-5 transition-all duration-200 ${
+                isFavorite
+                  ? "fill-red-500 text-red-500"
+                  : "text-white"
+              }`}
+            />
+          )}
         </button>
 
         {/* Video button overlay - shows on hover */}
