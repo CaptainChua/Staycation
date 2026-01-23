@@ -113,10 +113,13 @@ export default function AddItem({ onClose, onAdd }: AddItemProps) {
           if (isSaving) return;
           onClose();
         }}
+        role="button"
+        tabIndex={-1}
+        aria-label="Close modal"
       />
-      <div className="fixed inset-0 flex items-center justify-center px-4 py-8 z-[9999]">
+      <div className="fixed inset-0 flex items-center justify-center px-4 py-8 z-[9999] pointer-events-none">
         <div
-          className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl dark:shadow-gray-900/50 w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden"
+          className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl dark:shadow-gray-900/50 w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden pointer-events-auto"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center justify-between px-8 py-6 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-orange-50 to-yellow-50 dark:from-gray-800 dark:to-gray-700">
@@ -128,8 +131,12 @@ export default function AddItem({ onClose, onAdd }: AddItemProps) {
                 <p className="text-sm font-semibold text-orange-500 uppercase tracking-[0.2em]">
                   Inventory
                 </p>
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">Add New Item</h2>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Create an inventory item and set initial stock.</p>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
+                  Add New Item
+                </h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  Create an inventory item and set initial stock.
+                </p>
               </div>
             </div>
             <button
@@ -141,7 +148,11 @@ export default function AddItem({ onClose, onAdd }: AddItemProps) {
             </button>
           </div>
 
-          <form id="add-item-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-8 py-6 space-y-6">
+          <form
+            id="add-item-form"
+            onSubmit={handleSubmit}
+            className="flex-1 overflow-y-auto px-8 py-6 space-y-6"
+          >
             {success && (
               <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 rounded-lg px-4 py-3 text-sm">
                 {success}
@@ -154,10 +165,14 @@ export default function AddItem({ onClose, onAdd }: AddItemProps) {
             )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Item Name</label>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                  Item Name
+                </label>
                 <input
                   value={form.name}
-                  onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, name: e.target.value }))
+                  }
                   disabled={isSaving}
                   className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                   placeholder="e.g. Bath Towel"
@@ -165,10 +180,17 @@ export default function AddItem({ onClose, onAdd }: AddItemProps) {
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Category</label>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                  Category
+                </label>
                 <select
                   value={form.category}
-                  onChange={(e) => setForm((p) => ({ ...p, category: e.target.value as InventoryCategory }))}
+                  onChange={(e) =>
+                    setForm((p) => ({
+                      ...p,
+                      category: e.target.value as InventoryCategory,
+                    }))
+                  }
                   disabled={isSaving}
                   className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                 >
@@ -181,34 +203,52 @@ export default function AddItem({ onClose, onAdd }: AddItemProps) {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Current Stock</label>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                  Current Stock
+                </label>
                 <input
                   type="number"
                   min={0}
                   value={form.current_stock}
-                  onChange={(e) => setForm((p) => ({ ...p, current_stock: Number(e.target.value) }))}
+                  onChange={(e) =>
+                    setForm((p) => ({
+                      ...p,
+                      current_stock: Number(e.target.value),
+                    }))
+                  }
                   disabled={isSaving}
                   className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Minimum Stock</label>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                  Minimum Stock
+                </label>
                 <input
                   type="number"
                   min={0}
                   value={form.minimum_stock}
-                  onChange={(e) => setForm((p) => ({ ...p, minimum_stock: Number(e.target.value) }))}
+                  onChange={(e) =>
+                    setForm((p) => ({
+                      ...p,
+                      minimum_stock: Number(e.target.value),
+                    }))
+                  }
                   disabled={isSaving}
                   className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                 />
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Unit Type</label>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                  Unit Type
+                </label>
                 <input
                   value={form.unit_type}
-                  onChange={(e) => setForm((p) => ({ ...p, unit_type: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, unit_type: e.target.value }))
+                  }
                   disabled={isSaving}
                   className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                   placeholder="e.g. pcs, bottles, sets"
@@ -216,7 +256,9 @@ export default function AddItem({ onClose, onAdd }: AddItemProps) {
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Status</label>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                  Status
+                </label>
                 <select
                   value={derivedStatus}
                   disabled
@@ -245,7 +287,11 @@ export default function AddItem({ onClose, onAdd }: AddItemProps) {
               disabled={!isValid || isSaving}
               className="px-6 py-2 bg-gradient-to-r from-brand-primary to-brand-primaryDark text-white rounded-lg hover:shadow-lg hover:scale-[1.02] transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={() => {
-                console.log("[AddItem] Add Item button clicked", { isValid, isSaving, form });
+                console.log("[AddItem] Add Item button clicked", {
+                  isValid,
+                  isSaving,
+                  form,
+                });
               }}
             >
               <span className="inline-flex items-center gap-2">
@@ -259,6 +305,6 @@ export default function AddItem({ onClose, onAdd }: AddItemProps) {
         </div>
       </div>
     </>,
-    document.body
+    document.body,
   );
 }
