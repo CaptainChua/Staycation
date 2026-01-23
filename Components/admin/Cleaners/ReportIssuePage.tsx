@@ -103,14 +103,14 @@ export default function ReportIssuePage() {
       } else if (typeof aVal === "string") {
         aVal = aVal.toLowerCase();
         bVal = bVal.toLowerCase();
-      }
-      
+        }
+        
       if (aVal < bVal) return sortDirection === "asc" ? -1 : 1;
       if (aVal > bVal) return sortDirection === "asc" ? 1 : -1;
       return 0;
     });
   }, [filteredReports, sortField, sortDirection]);
-
+      
   // Pagination
   const totalPages = Math.ceil(sortedReports.length / entriesPerPage);
   const startIndex = (currentPage - 1) * entriesPerPage;
@@ -303,13 +303,13 @@ export default function ReportIssuePage() {
                   setCurrentPage(1);
                 }}
                 className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-brand-primary text-sm"
-              >
+                      >
                 <option value="all">All Types</option>
                 {issueTypes.map((type) => (
                   <option key={type.value} value={type.value}>
                     {type.label}
                   </option>
-                ))}
+                  ))}
               </select>
                 </div>
               </div>
@@ -434,7 +434,7 @@ export default function ReportIssuePage() {
                       <tr
                 key={report.id}
                         className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                      >
+              >
                         <td className="py-4 px-4">
                           <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm">
                             {report.report_id.slice(0, 8)}...

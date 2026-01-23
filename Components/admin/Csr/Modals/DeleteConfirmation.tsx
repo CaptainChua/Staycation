@@ -12,6 +12,8 @@ interface DeleteConfirmationProps {
   isDeleting?: boolean;
   error?: string | null;
   success?: string | null;
+  confirmLabel?: string;
+  title?: string;
 }
 
 export default function DeleteConfirmation({
@@ -22,6 +24,8 @@ export default function DeleteConfirmation({
   isDeleting = false,
   error = null,
   success = null,
+  confirmLabel,
+  title,
 }: DeleteConfirmationProps) {
   const [isMounted] = useState(true);
 
@@ -51,11 +55,9 @@ export default function DeleteConfirmation({
               </div>
               <div>
                 <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                  Confirm Deletion
+                  {title || "Confirm Deletion"}
                 </h2>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                  This action cannot be undone
-                </p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">This action cannot be undone</p>
               </div>
             </div>
             <button
@@ -80,31 +82,21 @@ export default function DeleteConfirmation({
             )}
             <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg px-4 py-3">
               <p className="text-sm text-red-800 dark:text-red-300">
-                <strong>Warning:</strong> You are about to permanently delete
-                this inventory item.
+                <strong>Warning:</strong> You are about to permanently delete this {itemName}.
               </p>
             </div>
             <div className="space-y-2">
               <div className="flex items-start gap-2">
-                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 min-w-[80px]">
-                  Item Name:
-                </span>
-                <span className="text-sm text-gray-900 dark:text-gray-100 font-medium">
-                  {itemName}
-                </span>
+                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 min-w-[95px]">Item:</span>
+                <span className="text-sm text-gray-900 dark:text-gray-100 font-medium">{itemName}</span>
               </div>
               <div className="flex items-start gap-2">
-                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 min-w-[80px]">
-                  Item ID:
-                </span>
-                <span className="text-sm text-gray-600 dark:text-gray-400 font-mono">
-                  {itemId}
-                </span>
+                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 min-w-[95px]">ID:</span>
+                <span className="text-sm text-gray-600 dark:text-gray-400 font-mono">{itemId}</span>
               </div>
             </div>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Are you sure you want to delete this item? This will permanently
-              remove it from the inventory system.
+              Are you sure you want to delete this {itemName}? This will permanently remove it.
             </p>
           </div>
 
@@ -127,7 +119,7 @@ export default function DeleteConfirmation({
                 {isDeleting && (
                   <span className="inline-block w-4 h-4 rounded-full border-2 border-white/60 border-t-white animate-spin" />
                 )}
-                {isDeleting ? "Deleting..." : "Delete Item"}
+                {isDeleting ? "Deleting..." : (confirmLabel || "Delete")}
               </span>
             </button>
           </div>

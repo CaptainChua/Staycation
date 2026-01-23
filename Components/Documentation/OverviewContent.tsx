@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/no-unescaped-entities */
+
 import React from 'react';
 import {
   Target,
@@ -63,7 +65,7 @@ export default function OverviewContent() {
             <h3 className="text-lg md:text-xl font-semibold text-blue-700 dark:text-blue-400">develop (Testing)</h3>
           </div>
           <p className="text-sm md:text-base text-gray-700 dark:text-gray-300">
-            This is where all completed features come together for testing. You'll <strong>start here</strong> when
+            This is where all completed features come together for testing. You&apos;ll <strong>start here</strong> when
             creating new features. After your feature is reviewed and approved, it gets merged into develop.
           </p>
         </div>
@@ -74,7 +76,7 @@ export default function OverviewContent() {
             <h3 className="text-lg md:text-xl font-semibold text-purple-700 dark:text-purple-400">feature-your-feature-name (Your Work)</h3>
           </div>
           <p className="text-sm md:text-base text-gray-700 dark:text-gray-300">
-            This is <strong>your personal workspace</strong>. You'll create a new feature branch for each task.
+            This is <strong>your personal workspace</strong>. You&apos;ll create a new feature branch for each task.
             You can experiment, make mistakes, and fix them without affecting anyone else's work!
           </p>
         </div>
@@ -82,7 +84,7 @@ export default function OverviewContent() {
 
       <h2 className="text-xl md:text-2xl font-semibold text-gray-800 dark:text-gray-100 mt-8 mb-4">The Workflow in Simple Steps</h2>
       <p className="text-sm md:text-base text-gray-700 dark:text-gray-300 leading-relaxed mb-4">
-        Here's what you'll do every time you work on a new feature:
+        Here&apos;s what you&apos;ll do every time you work on a new feature:
       </p>
 
       <ol className="space-y-4 mb-8">

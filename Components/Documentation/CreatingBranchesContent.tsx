@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/no-unescaped-entities */
+
 import React from 'react';
 import {
   GitBranch,
@@ -21,7 +23,7 @@ export default function CreatingBranchesContent() {
         <div className="flex items-start gap-3">
           <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-1" />
           <p className="text-base md:text-lg text-blue-900 dark:text-blue-100">
-            A feature branch is your personal workspace for a specific task. Let's learn how to create one properly!
+            A feature branch is your personal workspace for a specific task. Let&apos;s learn how to create one properly!
           </p>
         </div>
       </div>
@@ -155,7 +157,7 @@ export default function CreatingBranchesContent() {
 
       <h2 className="text-xl md:text-2xl font-semibold text-gray-800 dark:text-gray-100 mt-8 mb-4">Real Example</h2>
       <p className="text-sm md:text-base text-gray-700 dark:text-gray-300 leading-relaxed mb-4">
-        Let's say your task is to "Add a contact form to the contact page". Here's what you'd do:
+        Let&apos;s say your task is to &quot;Add a contact form to the contact page&quot;. Here&apos;s what you&apos;d do:
       </p>
 
       <div className="bg-white dark:bg-gray-800 border-2 border-blue-200 dark:border-blue-700 rounded-lg p-4 md:p-6 mb-8">
@@ -265,7 +267,7 @@ export default function CreatingBranchesContent() {
           <h3 className="text-lg md:text-xl font-semibold text-gray-800 dark:text-white">Branch Created!</h3>
         </div>
         <p className="text-sm md:text-base text-gray-700 dark:text-gray-300 mb-4">
-          Now you have your own workspace to code freely. Let's learn how to work on your feature branch!
+          Now you have your own workspace to code freely. Let&apos;s learn how to work on your feature branch!
         </p>
         <a
           href="/documentation/git-workflow/working-on-features"
