@@ -14,7 +14,9 @@ import {
   HelpCircle,
   Moon,
   Sun,
+  Monitor,
 } from "lucide-react";
+import { useTheme } from "next-themes";
 import HelpSidebar from "./HelpSidebar";
 import { useGetUserBookingsQuery } from "@/redux/api/bookingsApi";
 import { useGetUserWishlistQuery } from "@/redux/api/wishlistApi";
@@ -27,27 +29,16 @@ interface UserData {
   profile_image_url?: string;
 }
 
-const Navbar = () => {
+  const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isHelpSidebarOpen, setIsHelpSidebarOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const { theme, setTheme } = useTheme();
 
   useEffect(() => {
     setMounted(true);
-    // Initialize dark mode from localStorage or system preference
-    const saved = localStorage.getItem("theme");
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    setIsDarkMode(saved === "dark" || (!saved && prefersDark));
   }, []);
-
-  useEffect(() => {
-    if (mounted) {
-      document.documentElement.classList.toggle("dark", isDarkMode);
-      localStorage.setItem("theme", isDarkMode ? "dark" : "light");
-    }
-  }, [isDarkMode, mounted]);
 
   const pathname = usePathname();
   const router = useRouter();
@@ -306,7 +297,58 @@ const Navbar = () => {
                     })}
                   </div>
 
-                  <div className="border-t border-gray-200 dark:border-gray-600 py-1">
+                  {/* Theme Toggle */}
+                  <div className="flex justify-center py-2 border-t border-b border-gray-200 dark:border-gray-600">
+                    <div className="flex items-center gap-0.5 bg-gray-100 dark:bg-gray-700 rounded-full p-0.5">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setTheme('dark');
+                        }}
+                        className={`p-1 rounded-full transition-all duration-200 ${
+                          theme === 'dark'
+                            ? 'bg-white dark:bg-gray-600 text-brand-primary shadow-sm'
+                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                        }`}
+                        aria-label="Dark mode"
+                        title="Dark"
+                      >
+                        <Moon className="w-3 h-3" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setTheme('light');
+                        }}
+                        className={`p-1 rounded-full transition-all duration-200 ${
+                          theme === 'light'
+                            ? 'bg-white dark:bg-gray-600 text-brand-primary shadow-sm'
+                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                        }`}
+                        aria-label="Light mode"
+                        title="Light"
+                      >
+                        <Sun className="w-3 h-3" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setTheme('system');
+                        }}
+                        className={`p-1 rounded-full transition-all duration-200 ${
+                          theme === 'system'
+                            ? 'bg-white dark:bg-gray-600 text-brand-primary shadow-sm'
+                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                        }`}
+                        aria-label="System mode"
+                        title="System"
+                      >
+                        <Monitor className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="py-1">
                     <button
                       onClick={async () => {
                         setIsProfileOpen(false);
@@ -443,6 +485,57 @@ const Navbar = () => {
                   </div>
 
                   <div className="border-t border-gray-200 dark:border-gray-600 py-1">
+                    {/* Theme Toggle */}
+                    <div className="flex justify-center py-2">
+                      <div className="flex items-center gap-0.5 bg-gray-100 dark:bg-gray-700 rounded-full p-0.5">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setTheme('dark');
+                          }}
+                          className={`p-1 rounded-full transition-all duration-200 ${
+                            theme === 'dark'
+                              ? 'bg-white dark:bg-gray-600 text-brand-primary shadow-sm'
+                              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                          }`}
+                          aria-label="Dark mode"
+                          title="Dark"
+                        >
+                          <Moon className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setTheme('light');
+                          }}
+                          className={`p-1 rounded-full transition-all duration-200 ${
+                            theme === 'light'
+                              ? 'bg-white dark:bg-gray-600 text-brand-primary shadow-sm'
+                              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                          }`}
+                          aria-label="Light mode"
+                          title="Light"
+                        >
+                          <Sun className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setTheme('system');
+                          }}
+                          className={`p-1 rounded-full transition-all duration-200 ${
+                            theme === 'system'
+                              ? 'bg-white dark:bg-gray-600 text-brand-primary shadow-sm'
+                              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                          }`}
+                          aria-label="System mode"
+                          title="System"
+                        >
+                          <Monitor className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+
                     <button
                       onClick={async () => {
                         setIsProfileOpen(false);
@@ -618,17 +711,45 @@ const Navbar = () => {
                   <span>Sign Out</span>
                 </button>
 
-                {/* Small Theme Toggle */}
-                <button
-                  onClick={() => setIsDarkMode(!isDarkMode)}
-                  className="w-full flex items-center justify-center gap-1 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors duration-150"
-                >
-                  {isDarkMode ? (
-                    <Sun className="w-3 h-3 text-gray-600 dark:text-gray-400" />
-                  ) : (
-                    <Moon className="w-3 h-3 text-gray-600 dark:text-gray-400" />
-                  )}
-                </button>
+                {/* Theme Toggle */}
+                <div className="flex items-center justify-center gap-0.5 bg-gray-100 dark:bg-gray-700 rounded-full p-0.5">
+                  <button
+                    onClick={() => setTheme('dark')}
+                    className={`p-1 rounded-full transition-all duration-200 ${
+                      theme === 'dark'
+                        ? 'bg-white dark:bg-gray-600 text-brand-primary shadow-sm'
+                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                    }`}
+                    aria-label="Dark mode"
+                    title="Dark"
+                  >
+                    <Moon className="w-3 h-3" />
+                  </button>
+                  <button
+                    onClick={() => setTheme('light')}
+                    className={`p-1 rounded-full transition-all duration-200 ${
+                      theme === 'light'
+                        ? 'bg-white dark:bg-gray-600 text-brand-primary shadow-sm'
+                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                    }`}
+                    aria-label="Light mode"
+                    title="Light"
+                  >
+                    <Sun className="w-3 h-3" />
+                  </button>
+                  <button
+                    onClick={() => setTheme('system')}
+                    className={`p-1 rounded-full transition-all duration-200 ${
+                      theme === 'system'
+                        ? 'bg-white dark:bg-gray-600 text-brand-primary shadow-sm'
+                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                    }`}
+                    aria-label="System mode"
+                    title="System"
+                  >
+                    <Monitor className="w-3 h-3" />
+                  </button>
+                </div>
               </div>
             ) : (
               <Link href="/login">
