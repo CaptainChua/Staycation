@@ -126,6 +126,7 @@
 
 .scrollbar-thin::-webkit-scrollbar {
     width: 6px;
+    height: 8px;
 }
 
 .scrollbar-thin::-webkit-scrollbar-track {
