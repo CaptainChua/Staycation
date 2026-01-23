@@ -212,15 +212,37 @@ const getRoomById = async (id: string) => {
   return res.json();
 }
 
+const getAllHavens = async () => {
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || '';
+  const res = await fetch(`${baseUrl}/api/haven`, {
+    cache: 'no-cache'
+  });
+
+  if (!res.ok) {
+    return null;
+  }
+
+  return res.json();
+}
+
 const RoomDetailsPageRoute = async ({ params }: { params: Promise<{ id: string }> }) => {
   const { id } = await params;
-  const response =  await getRoomById(id);
+
+  // Fetch room and all havens in parallel
+  const [response, allHavensResponse] = await Promise.all([
+    getRoomById(id),
+    getAllHavens()
+  ]);
 
   if (!response?.success || !response?.data) {
     return notFound();
   }
 
-  return <RoomDetailsClient room={response.data} />
+  // Filter out the current room and get recommendations (5 rooms)
+  const allHavens = allHavensResponse?.data || [];
+  const recommendedRooms = allHavens.filter((haven: { uuid_id: string }) => haven.uuid_id !== id).slice(0, 5);
+
+  return <RoomDetailsClient room={response.data} recommendedRooms={recommendedRooms} />
 }
 
 export default RoomDetailsPageRoute;
