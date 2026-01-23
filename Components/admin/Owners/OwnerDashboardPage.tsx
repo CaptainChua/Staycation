@@ -849,17 +849,7 @@ export default function OwnerDashboard() {
         <AdminFooter />
       </div>
 
-      {notificationOpen && (
-        <NotificationModal
-          onClose={() => setNotificationOpen(false)}
-          onViewAll={() => {
-            setNotificationOpen(false);
-            setPage("notifications");
-          }}
-          anchorRef={notificationButtonRef}
-          userId={session?.user?.id}
-        />
-      )}
+
 
       {/* MODALS */}
       <AddUnitModal
@@ -910,6 +900,7 @@ export default function OwnerDashboard() {
       {/* Notification Modal */}
       {notificationOpen && (
         <NotificationModal
+          notifications={[]} // Required prop, handled internally by API if userId is present
           onClose={() => setNotificationOpen(false)}
           onViewAll={() => {
             setNotificationOpen(false);

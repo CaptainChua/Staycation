@@ -94,6 +94,20 @@ export const createBooking = async (
       add_ons,
     } = body;
 
+    // Validate required fields
+    if (!check_in_date || check_in_date === "") {
+      return NextResponse.json(
+        { error: "Check-in date is required" },
+        { status: 400 }
+      );
+    }
+    if (!check_out_date || check_out_date === "") {
+      return NextResponse.json(
+        { error: "Check-out date is required" },
+        { status: 400 }
+      );
+    }
+
     // Upload payment proof to Cloudinary
     let paymentProofUrl = null;
     if (payment_proof) {
