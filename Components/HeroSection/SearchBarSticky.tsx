@@ -155,13 +155,13 @@ const SearchBarSticky = () => {
     dispatch(setReduxCheckInDate(checkInDate));
     dispatch(setReduxCheckOutDate(checkOutDate));
     dispatch(setReduxGuests(guests));
-    dispatch(setIsFromSearch(true));
+    dispatch(setIsFromSearch(false)); // Set to false to avoid showing search results
 
     // If we have a uuid_id, navigate directly to room details page
     if (selectedLocation.uuid_id) {
       router.push(`/rooms/${selectedLocation.uuid_id}`);
     } else {
-      // Fallback to rooms page with filter applied
+      // Fallback to rooms page without search filter
       router.push('/rooms');
     }
   }
