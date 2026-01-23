@@ -187,8 +187,8 @@ const HotelRoomListings = ({ initialHavens }: HotelRoomListingsProps) => {
   return (
     <>
       <style jsx>{scrollbarStyles}</style>
-      <div className={`min-h-screen bg-white dark:bg-gray-900 ${
-        totalRooms <= 5 ? 'pt-2 sm:pt-4 pb-0' : 'py-4 sm:py-6'
+      <div className={`bg-white dark:bg-gray-900 ${
+        totalRooms <= 5 ? 'pt-2 sm:pt-4 pb-8' : 'py-4 sm:py-6'
       }`}>
         <div className="w-full">
           {/* Active Filter Indicator */}
