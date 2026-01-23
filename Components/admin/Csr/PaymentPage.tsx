@@ -165,8 +165,6 @@ export default function PaymentPage() {
   // Fetch all bookings for summary counts (unfiltered)
   const { data: bookingsAll } = useGetBookingsQuery();
 
-  // bookings memo removed: mapping now uses bookingsRaw directly
-
   // Mutation for approve/reject
   const [updateBookingStatus] = useUpdateBookingStatusMutation();
 
