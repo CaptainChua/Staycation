@@ -72,6 +72,68 @@ function InfoField({ label, value, icon, capitalize }: InfoFieldProps) {
   );
 }
 
+const currencyFormatter = new Intl.NumberFormat("en-PH", {
+  style: "currency",
+  currency: "PHP",
+});
+
+const formatCurrency = (amount: number) => currencyFormatter.format(amount);
+
+const formatDate = (dateString?: string | null) => {
+  if (!dateString) return "—";
+  return new Date(dateString).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+};
+
+const mapStatusToUI = (status?: string | null): PaymentStatus => {
+  const s = (status || "").toLowerCase();
+  if (s === "approved" || s === "confirmed") return "Paid";
+  if (s === "rejected" || s === "declined") return "Rejected";
+  return "Pending";
+};
+
+const getStatusColorClass = (status?: string | null) => {
+  const s = (status || "").toLowerCase();
+  if (s === "approved" || s === "confirmed")
+    return "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300";
+  if (s === "pending")
+    return "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300";
+  if (s === "rejected" || s === "declined")
+    return "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300";
+  return "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200";
+};
+
+// Small table skeleton rows (used while bookings are loading)
+const TableSkeleton = ({ rows = 5 }: { rows?: number }) => (
+  <tbody>
+    {Array.from({ length: rows }).map((_, i) => (
+      <tr key={i} className="border-b border-gray-100 dark:border-gray-700">
+        <td className="py-4 px-4">
+          <div className="h-4 w-28 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+        </td>
+        <td className="py-4 px-4">
+          <div className="h-4 w-40 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+        </td>
+        <td className="py-4 px-4 text-right">
+          <div className="h-4 w-16 mx-auto bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+        </td>
+        <td className="py-4 px-4 text-center">
+          <div className="h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded mx-auto animate-pulse" />
+        </td>
+        <td className="py-4 px-4 text-center">
+          <div className="h-4 w-20 bg-gray-200 dark:bg-gray-700 rounded mx-auto animate-pulse" />
+        </td>
+        <td className="py-4 px-4">
+          <div className="h-8 w-32 bg-gray-200 dark:bg-gray-700 rounded mx-auto animate-pulse" />
+        </td>
+      </tr>
+    ))}
+  </tbody>
+);
+
 export default function PaymentPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | PaymentStatus>(
@@ -119,48 +181,6 @@ export default function PaymentPage() {
     null,
   );
 
-  // Memoize Intl.NumberFormat to avoid re-allocating on every render
-  const currencyFormatter = useMemo(
-    () =>
-      new Intl.NumberFormat("en-PH", {
-        style: "currency",
-        currency: "PHP",
-      }),
-    [],
-  );
-
-  const formatCurrency = useCallback(
-    (amount: number) => currencyFormatter.format(amount),
-    [currencyFormatter],
-  );
-
-  const formatDate = (dateString?: string | null) => {
-    if (!dateString) return "—";
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-  };
-
-  const mapStatusToUI = useCallback((status?: string | null): PaymentStatus => {
-    const s = (status || "").toLowerCase();
-    if (s === "approved" || s === "confirmed") return "Paid";
-    if (s === "rejected" || s === "declined") return "Rejected";
-    return "Pending";
-  }, []);
-
-  const getStatusColorClass = useCallback((status?: string | null) => {
-    const s = (status || "").toLowerCase();
-    if (s === "approved" || s === "confirmed")
-      return "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300";
-    if (s === "pending")
-      return "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300";
-    if (s === "rejected" || s === "declined")
-      return "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300";
-    return "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200";
-  }, []);
-
   const payments = useMemo<PaymentRow[]>(() => {
     return (bookingsRaw || []).map((b) => {
       const amountValue = Number(b.down_payment ?? b.total_amount ?? 0);
@@ -192,38 +212,10 @@ export default function PaymentPage() {
       };
       return row;
     });
-  }, [bookingsRaw, formatCurrency, mapStatusToUI, getStatusColorClass]);
+  }, [bookingsRaw]);
 
   // combined loading flag for UI skeletons
   const isLoadingTable = isBookingsLoading || isBookingsFetching;
-
-  // Small table skeleton rows (used while bookings are loading)
-  const TableSkeleton = ({ rows = 5 }: { rows?: number }) => (
-    <tbody>
-      {Array.from({ length: rows }).map((_, i) => (
-        <tr key={i} className="border-b border-gray-100 dark:border-gray-700">
-          <td className="py-4 px-4">
-            <div className="h-4 w-28 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-          </td>
-          <td className="py-4 px-4">
-            <div className="h-4 w-40 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-          </td>
-          <td className="py-4 px-4 text-right">
-            <div className="h-4 w-16 mx-auto bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-          </td>
-          <td className="py-4 px-4 text-center">
-            <div className="h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded mx-auto animate-pulse" />
-          </td>
-          <td className="py-4 px-4 text-center">
-            <div className="h-4 w-20 bg-gray-200 dark:bg-gray-700 rounded mx-auto animate-pulse" />
-          </td>
-          <td className="py-4 px-4">
-            <div className="h-8 w-32 bg-gray-200 dark:bg-gray-700 rounded mx-auto animate-pulse" />
-          </td>
-        </tr>
-      ))}
-    </tbody>
-  );
 
   // Handlers
   const handleView = useCallback((row: PaymentRow) => {
@@ -285,7 +277,7 @@ export default function PaymentPage() {
         setUpdatingBookingId(null);
       }
     },
-    [updateBookingStatus, refetch, mapStatusToUI, getStatusColorClass],
+    [updateBookingStatus, refetch],
   );
 
   const onSearchChange = (value: string) => {
