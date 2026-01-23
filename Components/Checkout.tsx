@@ -375,23 +375,14 @@
       // Create a function to check if a date is unavailable (booked or blocked)
       const isDateUnavailable = useMemo(() => {
         return (date: DateValue) => {
-          const checkDateStart = new Date(date.year, date.month - 1, date.day);
-          
-          // Determine User's Intended Time Window based on Stay Type
-          const userStart = new Date(checkDateStart);
-          userStart.setHours(14, 0, 0, 0); // Default start 2:00 PM
+          const checkDate = new Date(date.year, date.month - 1, date.day);
+          checkDate.setHours(0, 0, 0, 0);
 
-          const userEnd = new Date(userStart);
-          if (formData.stayType === "10 Hours - ₱1,599") {
-            userEnd.setHours(24, 0, 0, 0); // Next day 00:00
-          } else if (formData.stayType && formData.stayType.includes("21 Hours")) {
-            userEnd.setDate(userEnd.getDate() + 1);
-            userEnd.setHours(11, 0, 0, 0);
-          } else {
-            // Default/Multi-Day start check: Assume at least 1 night for blocking safety
-            userEnd.setDate(userEnd.getDate() + 1);
-            userEnd.setHours(11, 0, 0, 0);
-          }
+          // Check if the date falls within any existing booking's date range
+          const userStart = new Date(checkDate);
+          userStart.setHours(0, 0, 0, 0);
+          const userEnd = new Date(checkDate);
+          userEnd.setHours(23, 59, 59, 999);
 
           const isBooked = checkOverlap(userStart, userEnd);
 
@@ -405,7 +396,7 @@
           });
 
           return isBooked || isBlocked;
-        };
+        }
       }, [checkOverlap, bookingData.selectedRoom, formData.stayType]);
 
       const handleInputChange = (
@@ -1710,6 +1701,8 @@
                             className="w-full"
                             classNames={{
                               input: `${errors.checkInDate ? 'border-red-500' : ''}`,
+                              calendar: 'dark:bg-gray-800',
+                              selectorButton: 'dark:bg-gray-700 dark:hover:bg-gray-600'
                             }}
                             value={
                               bookingData.checkInDate
@@ -1743,6 +1736,8 @@
                             className="w-full"
                             classNames={{
                               input: `${errors.checkOutDate ? 'border-red-500' : ''}`,
+                              calendar: 'dark:bg-gray-800',
+                              selectorButton: 'dark:bg-gray-700 dark:hover:bg-gray-600'
                             }}
                             value={
                               bookingData.checkOutDate

@@ -2,6 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import pool from "../config/db";
 import { upload_file } from "../utils/cloudinary";
 
+// Add-on prices
+const ADD_ON_PRICES = {
+  poolPass: 100,
+  towels: 50,
+  bathRobe: 150,
+  extraComforter: 100,
+  guestKit: 75,
+  extraSlippers: 30,
+};
+
 // Add-on item interface
 interface AddOnItem {
   name: string;
@@ -61,7 +71,10 @@ export interface Booking {
 export const createBooking = async (
   req: NextRequest
 ): Promise<NextResponse> => {
+  const client = await pool.connect();
   try {
+    await client.query('BEGIN');
+    
     const body = await req.json();
     const {
       booking_id,
@@ -94,31 +107,34 @@ export const createBooking = async (
       add_ons,
     } = body;
 
-    // Validate required fields
-    if (!check_in_date || check_in_date === "") {
-      return NextResponse.json(
-        { error: "Check-in date is required" },
-        { status: 400 }
-      );
-    }
-    if (!check_out_date || check_out_date === "") {
-      return NextResponse.json(
-        { error: "Check-out date is required" },
-        { status: 400 }
-      );
-    }
+    // Step 1: Create main booking record
+    const bookingQuery = `
+      INSERT INTO booking (
+        booking_id, user_id, room_name, check_in_date, check_out_date, 
+        check_in_time, check_out_time, adults, children, infants, status,
+        created_at, updated_at
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'pending', NOW(), NOW())
+      RETURNING id
+    `;
 
-    // Upload payment proof to Cloudinary
-    let paymentProofUrl = null;
-    if (payment_proof) {
-      const uploadResult = await upload_file(
-        payment_proof,
-        "staycation-haven/payment-proofs"
-      );
-      paymentProofUrl = uploadResult.url;
-    }
+    const bookingValues = [
+      booking_id,
+      user_id || null, // NULL for guest bookings
+      room_name,
+      check_in_date,
+      check_out_date,
+      check_in_time,
+      check_out_time,
+      adults,
+      children,
+      infants,
+    ];
 
-    // Upload main guest valid ID to Cloudinary
+    const bookingResult = await client.query(bookingQuery, bookingValues);
+    const bookingId = bookingResult.rows[0].id;
+
+    // Step 2: Create main guest record
     let validIdUrl = null;
     if (valid_id) {
       const uploadResult = await upload_file(
@@ -128,63 +144,78 @@ export const createBooking = async (
       validIdUrl = uploadResult.url;
     }
 
-    // Upload additional guests' valid IDs to Cloudinary
-    let additionalGuestsWithUrls = [];
-    if (additional_guests && additional_guests.length > 0) {
-      additionalGuestsWithUrls = await Promise.all(
-        additional_guests.map(async (guest: AdditionalGuest) => {
-          let guestIdUrl = null;
-          if (guest.validId) {
-            const uploadResult = await upload_file(
-              guest.validId,
-              "staycation-haven/valid-ids"
-            );
-            guestIdUrl = uploadResult.url;
-          }
-          return {
-            firstName: guest.firstName,
-            lastName: guest.lastName,
-            age: guest.age,
-            gender: guest.gender,
-            validIdUrl: guestIdUrl,
-          };
-        })
-      );
-    }
-
-    const query = `
-      INSERT INTO booking (
-        booking_id, user_id, guest_first_name, guest_last_name, guest_age, guest_gender,
-        guest_email, guest_phone, valid_id_url, additional_guests,
-        room_name, check_in_date, check_out_date, check_in_time, check_out_time,
-        adults, children, infants, facebook_link, payment_method, payment_proof_url,
-        room_rate, security_deposit, add_ons_total, total_amount, down_payment,
-        remaining_balance, status, add_ons, created_at, updated_at
+    const mainGuestQuery = `
+      INSERT INTO booking_guests (
+        booking_id, first_name, last_name, email, phone, facebook_link, valid_id_url
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, NOW(), NOW())
-      RETURNING *
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
     `;
 
-    const values = [
-      booking_id,
-      user_id || null, // NULL for guest bookings
+    const mainGuestValues = [
+      bookingId,
       guest_first_name,
       guest_last_name,
-      guest_age,
-      guest_gender,
       guest_email,
       guest_phone,
+      facebook_link || null,
       validIdUrl,
-      JSON.stringify(additionalGuestsWithUrls),
-      room_name,
-      check_in_date,
-      check_out_date,
-      check_in_time,
-      check_out_time,
-      adults,
-      children,
-      infants,
-      facebook_link,
+    ];
+
+    await client.query(mainGuestQuery, mainGuestValues);
+
+    // Step 3: Create additional guests records
+    if (additional_guests && additional_guests.length > 0) {
+      for (const guest of additional_guests) {
+        let guestIdUrl = null;
+        if (guest.validId) {
+          const uploadResult = await upload_file(
+            guest.validId,
+            "staycation-haven/valid-ids"
+          );
+          guestIdUrl = uploadResult.url;
+        }
+
+        const additionalGuestQuery = `
+          INSERT INTO booking_guests (
+            booking_id, first_name, last_name, email, phone, facebook_link, valid_id_url
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `;
+
+        const additionalGuestValues = [
+          bookingId,
+          guest.firstName,
+          guest.lastName,
+          guest.email || guest_email, // Use main guest email if not provided
+          guest.phone || guest_phone, // Use main guest phone if not provided
+          null, // Facebook link for additional guests
+          guestIdUrl,
+        ];
+
+        await client.query(additionalGuestQuery, additionalGuestValues);
+      }
+    }
+
+    // Step 4: Create payment record
+    let paymentProofUrl = null;
+    if (payment_proof) {
+      const uploadResult = await upload_file(
+        payment_proof,
+        "staycation-haven/payment-proofs"
+      );
+      paymentProofUrl = uploadResult.url;
+    }
+
+    const paymentQuery = `
+      INSERT INTO booking_payments (
+        booking_id, payment_method, payment_proof_url, room_rate, 
+        security_deposit, add_ons_total, total_amount, down_payment, remaining_balance
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    `;
+
+    const paymentValues = [
+      bookingId,
       payment_method,
       paymentProofUrl,
       room_rate,
@@ -193,21 +224,74 @@ export const createBooking = async (
       total_amount,
       down_payment,
       remaining_balance,
-      "pending", // Default status
-      JSON.stringify(add_ons),
     ];
 
-    const result = await pool.query(query, values);
-    console.log("✅ Booking Created:", result.rows[0]);
+    await client.query(paymentQuery, paymentValues);
+
+    // Step 5: Create add-ons records
+    if (add_ons && Object.keys(add_ons).length > 0) {
+      for (const [name, quantity] of Object.entries(add_ons)) {
+        const quantityNum = Number(quantity);
+        if (quantityNum > 0) {
+          const addOnPrice = ADD_ON_PRICES[name as keyof typeof ADD_ON_PRICES] || 0;
+          
+          const addOnQuery = `
+            INSERT INTO booking_add_ons (booking_id, name, price, quantity)
+            VALUES ($1, $2, $3, $4)
+          `;
+
+          const addOnValues = [
+            bookingId,
+            name,
+            addOnPrice,
+            quantityNum,
+          ];
+
+          await client.query(addOnQuery, addOnValues);
+        }
+      }
+    }
+
+    // Step 6: Create cleaning record
+    const cleaningQuery = `
+      INSERT INTO booking_cleaning (booking_id, cleaning_status)
+      VALUES ($1, 'pending')
+    `;
+
+    await client.query(cleaningQuery, [bookingId]);
+
+    await client.query('COMMIT');
+
+    // Get the complete booking data for response
+    const completeBookingQuery = `
+      SELECT 
+        b.*,
+        bg.first_name,
+        bg.last_name,
+        bg.email,
+        bg.phone,
+        bg.valid_id_url,
+        bp.payment_method,
+        bp.total_amount,
+        bp.down_payment
+      FROM booking b
+      JOIN booking_guests bg ON b.id = bg.booking_id
+      JOIN booking_payments bp ON b.id = bp.booking_id
+      WHERE b.id = $1
+      LIMIT 1
+    `;
+
+    const completeResult = await client.query(completeBookingQuery, [bookingId]);
+    console.log("✅ Booking Created with separated tables:", completeResult.rows[0]);
 
     // Send pending approval email to guest
     try {
-      const booking = result.rows[0];
+      const booking = completeResult.rows[0];
 
       const emailData = {
-        firstName: booking.guest_first_name,
-        lastName: booking.guest_last_name,
-        email: booking.guest_email,
+        firstName: booking.first_name,
+        lastName: booking.last_name,
+        email: booking.email,
         bookingId: booking.booking_id,
         roomName: booking.room_name,
         checkInDate: new Date(booking.check_in_date).toLocaleDateString(),
@@ -229,7 +313,7 @@ export const createBooking = async (
       if (!emailResponse.ok) {
         console.error('❌ Failed to send pending approval email');
       } else {
-        console.log('✅ Pending approval email sent to:', booking.guest_email);
+        console.log('✅ Pending approval email sent to:', booking.email);
       }
     } catch (emailError) {
       console.error('❌ Email sending error:', emailError);
@@ -239,12 +323,13 @@ export const createBooking = async (
     return NextResponse.json(
       {
         success: true,
-        data: result.rows[0],
+        data: completeResult.rows[0],
         message: "Booking created successfully. Waiting for admin approval.",
       },
       { status: 201 }
     );
   } catch (error) {
+    await client.query('ROLLBACK');
     console.log("❌ Error creating booking:", error);
     return NextResponse.json(
       {
@@ -253,6 +338,8 @@ export const createBooking = async (
       },
       { status: 500 }
     );
+  } finally {
+    client.release();
   }
 };
 
@@ -264,18 +351,37 @@ export const getAllBookings = async (
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status");
 
-    let query = "SELECT * FROM booking";
-    let values: any[] = [];
+    let query = `
+      SELECT 
+        b.*,
+        bg.first_name,
+        bg.last_name,
+        bg.email,
+        bg.phone,
+        bg.valid_id_url,
+        bp.payment_method,
+        bp.total_amount,
+        bp.down_payment,
+        bc.cleaning_status
+      FROM booking b
+      LEFT JOIN booking_guests bg ON b.id = bg.booking_id
+      LEFT JOIN booking_payments bp ON b.id = bp.booking_id
+      LEFT JOIN booking_cleaning bc ON b.id = bc.booking_id
+      WHERE bg.id = (
+        SELECT MIN(id) FROM booking_guests WHERE booking_id = b.id
+      )
+    `;
+    const values: string[] = [];
 
     if (status) {
-      query += " WHERE status = $1";
+      query += " AND b.status = $1";
       values.push(status);
     }
 
-    query += " ORDER BY created_at DESC";
+    query += " ORDER BY b.created_at DESC";
 
     const result = await pool.query(query, values);
-    console.log(`✅ Retrieved ${result.rows.length} bookings`);
+    console.log(`✅ Retrieved ${result.rows.length} bookings from separated tables`);
 
     return NextResponse.json({
       success: true,
@@ -473,8 +579,8 @@ export const updateBookingStatus = async (
 
     const query = `
       UPDATE booking
-      SET ${updateFields.join(", ")}, updated_at = NOW()
-      WHERE id = $${i}
+      SET status = $1, rejection_reason = $2, updated_at = NOW()
+      WHERE id = $3
       RETURNING *
     `;
 
@@ -493,16 +599,38 @@ export const updateBookingStatus = async (
 
     console.log("✅ Booking status updated:", result.rows[0]);
 
+    // Get booking details with guest info for email
+    const bookingDetailsQuery = `
+      SELECT 
+        b.*,
+        bg.first_name,
+        bg.last_name,
+        bg.email,
+        bg.valid_id_url,
+        bp.payment_method,
+        bp.total_amount,
+        bp.down_payment
+      FROM booking b
+      JOIN booking_guests bg ON b.id = bg.booking_id
+      JOIN booking_payments bp ON b.id = bp.booking_id
+      WHERE b.id = $1 AND bg.id = (
+        SELECT MIN(id) FROM booking_guests WHERE booking_id = b.id
+      )
+      LIMIT 1
+    `;
+
+    const bookingDetailsResult = await pool.query(bookingDetailsQuery, [id]);
+
     // Send confirmation email when booking is approved
-    if (status === 'approved') {
+    if (status === 'approved' && bookingDetailsResult.rows.length > 0) {
       try {
-        const booking = result.rows[0];
+        const booking = bookingDetailsResult.rows[0];
 
         // Prepare email data
         const emailData = {
-          firstName: booking.guest_first_name,
-          lastName: booking.guest_last_name,
-          email: booking.guest_email,
+          firstName: booking.first_name,
+          lastName: booking.last_name,
+          email: booking.email,
           bookingId: booking.booking_id,
           roomName: booking.room_name,
           checkInDate: new Date(booking.check_in_date).toLocaleDateString(),
@@ -525,7 +653,7 @@ export const updateBookingStatus = async (
         if (!emailResponse.ok) {
           console.error('❌ Failed to send confirmation email');
         } else {
-          console.log('✅ Confirmation email sent to:', booking.guest_email);
+          console.log('✅ Confirmation email sent to:', booking.email);
         }
       } catch (emailError) {
         console.error('❌ Email sending error:', emailError);
@@ -695,27 +823,54 @@ export const updateCleaningStatus = async (
       );
     }
 
-    const query = `
-      UPDATE bookings
-      SET cleaning_status = $1, updated_at = NOW()
-      WHERE id = $2
+    // Update the cleaning status in the booking_cleaning table
+    const cleaningQuery = `
+      UPDATE booking_cleaning
+      SET cleaning_status = $1,
+          cleaned_at = CASE WHEN $1 = 'cleaned' THEN NOW() ELSE cleaned_at END,
+          inspected_at = CASE WHEN $1 = 'inspected' THEN NOW() ELSE inspected_at END
+      WHERE booking_id = $2
       RETURNING *
     `;
 
-    const result = await pool.query(query, [cleaning_status, id]);
+    const cleaningResult = await pool.query(cleaningQuery, [cleaning_status, id]);
 
-    if (result.rows.length === 0) {
+    if (cleaningResult.rows.length === 0) {
       return NextResponse.json(
-        { success: false, error: "Booking not found" },
+        { success: false, error: "Booking cleaning record not found" },
         { status: 404 }
       );
     }
 
-    console.log("✅ Cleaning status updated:", result.rows[0]);
+    // Get the complete booking data for response
+    const bookingQuery = `
+      SELECT 
+        b.*,
+        bg.first_name,
+        bg.last_name,
+        bg.email,
+        bg.phone,
+        bg.valid_id_url,
+        bp.payment_method,
+        bp.total_amount,
+        bc.cleaning_status
+      FROM booking b
+      JOIN booking_guests bg ON b.id = bg.booking_id
+      JOIN booking_payments bp ON b.id = bp.booking_id
+      JOIN booking_cleaning bc ON b.id = bc.booking_id
+      WHERE b.id = $1 AND bg.id = (
+        SELECT MIN(id) FROM booking_guests WHERE booking_id = b.id
+      )
+      LIMIT 1
+    `;
+
+    const bookingResult = await pool.query(bookingQuery, [id]);
+
+    console.log("✅ Cleaning status updated:", cleaningResult.rows[0]);
 
     return NextResponse.json({
       success: true,
-      data: result.rows[0],
+      data: bookingResult.rows[0],
       message: `Cleaning status updated to ${cleaning_status}`,
     });
   } catch (error) {
@@ -751,8 +906,10 @@ export const getRoomBookings = async (
 
     const roomName = havenResult.rows[0].haven_name.trim();
 
-    // Get all active bookings for this room (exclude cancelled and rejected)
+    // Get all active bookings for this room from the new booking table
     // Use TRIM to handle any whitespace issues in room_name
+    // Only block dates for bookings with status: approved, confirmed, checked-in
+    // Don't block dates for pending, rejected, cancelled, completed bookings
     const query = `
       SELECT
         id,
@@ -763,7 +920,7 @@ export const getRoomBookings = async (
         room_name
       FROM booking
       WHERE TRIM(room_name) = $1
-        AND status NOT IN ('cancelled', 'rejected')
+        AND status IN ('approved', 'confirmed', 'checked-in')
       ORDER BY check_in_date ASC
     `;
 

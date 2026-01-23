@@ -26,9 +26,10 @@ interface HavenData {
 
 interface RoomDetailsClientProps {
   room: HavenData;
+  recommendedRooms?: HavenData[];
 }
 
-export default function RoomDetailsClient({ room: haven }: RoomDetailsClientProps) {
+export default function RoomDetailsClient({ room: haven, recommendedRooms = [] }: RoomDetailsClientProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
 
@@ -48,35 +49,41 @@ export default function RoomDetailsClient({ room: haven }: RoomDetailsClientProp
     return <RoomDetailsSkeleton />;
   }
 
-  // Transform haven data to room format expected by RoomsDetailsPage
-  const room = {
-    id: haven.uuid_id,
-    name: haven.haven_name,
-    price: `₱${haven.six_hour_rate}`,
+  // Helper function to transform haven data to room format
+  const transformHavenToRoom = (havenData: HavenData) => ({
+    id: havenData.uuid_id,
+    name: havenData.haven_name,
+    price: `₱${havenData.six_hour_rate}`,
     pricePerNight: 'per night',
-    images: haven.images?.map((img) => img.url) ?? [],
-    rating: haven.rating ?? 4.5,
-    reviews: haven.review_count ?? 0,
-    capacity: haven.capacity,
-    amenities: Object.entries(haven.amenities || {})
+    images: havenData.images?.map((img) => img.url) ?? [],
+    rating: havenData.rating ?? 4.5,
+    reviews: havenData.review_count ?? 0,
+    capacity: havenData.capacity,
+    amenities: Object.entries(havenData.amenities || {})
       .filter(([, value]) => value === true)
       .map(([key]) => key),
-    description: haven.description,
-    fullDescription: haven.full_description || haven.description,
-    beds: haven.beds,
-    roomSize: haven.room_size,
-    location: haven.location,
-    tower: haven.tower,
-    photoTour: haven.photo_tours
-      ? haven.photo_tours.reduce((acc: Record<string, string[]>, item) => {
+    description: havenData.description,
+    fullDescription: havenData.full_description || havenData.description,
+    beds: havenData.beds,
+    roomSize: havenData.room_size,
+    location: havenData.location,
+    tower: havenData.tower,
+    photoTour: havenData.photo_tours
+      ? havenData.photo_tours.reduce((acc: Record<string, string[]>, item) => {
           acc[item.category] = acc[item.category] || [];
           acc[item.category].push(item.url);
           return acc;
         }, {} as Record<string, string[]>)
       : {},
-    youtubeUrl: haven.youtube_url,
-  };
+    youtubeUrl: havenData.youtube_url,
+  });
 
-  return <RoomsDetailsPage room={room} onBack={handleBack} />;
+  // Transform haven data to room format expected by RoomsDetailsPage
+  const room = transformHavenToRoom(haven);
+
+  // Transform recommended rooms
+  const recommendations = recommendedRooms.map(transformHavenToRoom);
+
+  return <RoomsDetailsPage room={room} onBack={handleBack} recommendedRooms={recommendations} />;
 }
 
