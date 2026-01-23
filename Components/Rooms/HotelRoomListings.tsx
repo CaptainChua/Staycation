@@ -135,6 +135,12 @@ const HotelRoomListings = ({ initialHavens }: HotelRoomListingsProps) => {
     return initialHavens;
   }, [searchLocation, isFromSearch, initialHavens]);
 
+  // Helper function to extract haven number for sorting
+  const extractHavenNumber = (name: string): number => {
+    const match = name.match(/Haven\s+(\d+)/i);
+    return match ? parseInt(match[1], 10) : 999;
+  };
+
   const rooms: Room[] = filteredHavens.map((haven: Haven) => ({
     id: haven.uuid_id ?? haven.id ?? '',
     uuid_id: haven.uuid_id,
@@ -163,7 +169,7 @@ const HotelRoomListings = ({ initialHavens }: HotelRoomListingsProps) => {
         }, {} as Record<string, string[]>)
       : {},
     youtubeUrl: haven.youtube_url,
-  })) ?? [];
+  })).sort((a, b) => extractHavenNumber(a.name) - extractHavenNumber(b.name)) ?? [];
 
   // Show all rooms without haven grouping
   const allRooms = rooms;
