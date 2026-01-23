@@ -43,6 +43,35 @@ interface PaymentRow {
   booking?: any;
 }
 
+interface InfoFieldProps {
+  label: string;
+  value: React.ReactNode;
+  icon?: React.ReactNode;
+  capitalize?: boolean;
+}
+
+function InfoField({ label, value, icon, capitalize }: InfoFieldProps) {
+  return (
+    <div className="space-y-2">
+      <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
+        {label}
+      </span>
+      <div className="relative">
+        {icon && (
+          <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-gray-400 dark:text-gray-300">
+            {icon}
+          </div>
+        )}
+        <div
+          className={`w-full rounded-2xl border border-gray-200 dark:border-gray-700 px-3 py-3 text-sm text-gray-800 dark:text-gray-100 dark:bg-gray-900 ${icon ? "pl-9" : "pl-3"} ${capitalize ? "capitalize" : ""}`}
+        >
+          {value}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function PaymentPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | PaymentStatus>(
@@ -131,34 +160,6 @@ export default function PaymentPage() {
       return "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300";
     return "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200";
   }, []);
-
-  // Local InfoField component mirroring the Booking Details dialog style
-  interface InfoFieldProps {
-    label: string;
-    value: React.ReactNode;
-    icon?: React.ReactNode;
-    capitalize?: boolean;
-  }
-
-  const InfoField = ({ label, value, icon, capitalize }: InfoFieldProps) => (
-    <div className="space-y-2">
-      <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
-        {label}
-      </span>
-      <div className="relative">
-        {icon && (
-          <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-gray-400 dark:text-gray-300">
-            {icon}
-          </div>
-        )}
-        <div
-          className={`w-full rounded-2xl border border-gray-200 dark:border-gray-700 px-3 py-3 text-sm text-gray-800 dark:text-gray-100 dark:bg-gray-900 ${icon ? "pl-9" : "pl-3"} ${capitalize ? "capitalize" : ""}`}
-        >
-          {value}
-        </div>
-      </div>
-    </div>
-  );
 
   const payments = useMemo<PaymentRow[]>(() => {
     return (bookingsRaw || []).map((b) => {
