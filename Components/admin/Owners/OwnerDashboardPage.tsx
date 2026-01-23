@@ -900,7 +900,7 @@ export default function OwnerDashboard() {
       {/* Notification Modal */}
       {notificationOpen && (
         <NotificationModal
-          notifications={[]}
+          notifications={[]} // Required prop, handled internally by API if userId is present
           onClose={() => setNotificationOpen(false)}
           onViewAll={() => {
             setNotificationOpen(false);
