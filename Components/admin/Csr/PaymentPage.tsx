@@ -186,6 +186,7 @@ export default function PaymentPage() {
           payment_method: b.payment_method,
           updated_at: b.updated_at,
           status: b.status,
+          rejection_reason: b.rejection_reason,
         },
       };
       return row;
@@ -1024,6 +1025,13 @@ export default function PaymentPage() {
                         selectedPayment.guest
                       }
                     />
+                    {selectedPayment.booking?.status === "rejected" &&
+                      selectedPayment.booking?.rejection_reason && (
+                        <InfoField
+                          label="Rejection Reason"
+                          value={selectedPayment.booking.rejection_reason}
+                        />
+                      )}
                   </div>
                 </div>
 
