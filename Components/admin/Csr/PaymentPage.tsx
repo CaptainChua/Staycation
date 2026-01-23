@@ -183,7 +183,7 @@ export default function PaymentPage() {
 
   const payments = useMemo<PaymentRow[]>(() => {
     return (bookingsRaw || []).map((b) => {
-      const amountValue = Number(b.down_payment ?? b.total_amount ?? 0);
+      const amountValue = Number(b.total_amount ?? 0);
       const row: PaymentRow = {
         id: b.id,
         booking_id: b.booking_id!,
