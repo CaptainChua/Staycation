@@ -170,7 +170,7 @@ const ProfilePage = () => {
             <p className="text-gray-600 dark:text-gray-300 mb-6">Manage your account settings and preferences</p>
             <Link 
               href="/profile/settings"
-              className="inline-block px-6 py-2 bg-brand-primary/10 hover:bg-brand-primary/20 text-brand-primary font-medium rounded-lg transition-colors"
+              className="inline-block px-6 py-2 boo4g-brand-primary/10 hover:bg-brand-primary/20 text-brand-primary font-medium rounded-lg transition-colors"
             >
               Manage Settings
             </Link>
