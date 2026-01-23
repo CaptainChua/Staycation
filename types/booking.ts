@@ -64,7 +64,7 @@ export interface Booking extends BookingListItem {
   security_deposit: number;
   add_ons_total: number;
   add_ons?: unknown;
-  additional_guests?: AdditionalGuest[] | string | null;
+  additional_guests?: AdditionalGuest[] | null;
 
   // Full date/time fields
   check_in_time: string;
