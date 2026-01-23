@@ -1,31 +1,32 @@
-import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import { Booking } from "@/types/booking";
+import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 
 export const bookingsApi = createApi({
   reducerPath: "bookingsApi",
-  baseQuery: fetchBaseQuery({ baseUrl: "/api"}),
-  tagTypes: ['Booking'],
+  baseQuery: fetchBaseQuery({ baseUrl: "/api" }),
+  tagTypes: ["Booking"],
   endpoints: (builder) => ({
-    getBookings: builder.query({
-      query(params) {
+    getBookings: builder.query<Booking[], { status?: string } | void>({
+      query(params?: { status?: string }) {
         return {
           url: "/bookings",
-          params
+          params,
         };
       },
-      transformResponse: (response: { success: boolean; data: unknown[] }) => {
+      transformResponse: (response: { success: boolean; data: Booking[] }) => {
         return response.data || [];
       },
-      providesTags: ['Booking']
+      providesTags: ["Booking"],
     }),
 
     // Get booking by ID
     getBookingById: builder.query({
       query(id) {
         return {
-          url: `/bookings/${id}`
+          url: `/bookings/${id}`,
         };
       },
-      providesTags: ['Booking']
+      providesTags: ["Booking"],
     }),
 
     // Create booking
@@ -34,10 +35,10 @@ export const bookingsApi = createApi({
         return {
           url: "/bookings",
           method: "POST",
-          body
-        }
+          body,
+        };
       },
-      invalidatesTags: ['Booking']
+      invalidatesTags: ["Booking"],
     }),
 
     // Update booking status
@@ -47,10 +48,10 @@ export const bookingsApi = createApi({
         return {
           url: `/bookings/${id}`,
           method: "PUT",
-          body
-        }
+          body,
+        };
       },
-      invalidatesTags: ['Booking']
+      invalidatesTags: ["Booking"],
     }),
 
     // Delete booking
@@ -59,10 +60,10 @@ export const bookingsApi = createApi({
         return {
           url: `/bookings`,
           method: "DELETE",
-          params: { id }
-        }
+          params: { id },
+        };
       },
-      invalidatesTags: ['Booking']
+      invalidatesTags: ["Booking"],
     }),
 
     // Get user's bookings
@@ -70,20 +71,20 @@ export const bookingsApi = createApi({
       query({ userId, status }) {
         return {
           url: `/bookings/user/${userId}`,
-          params: status ? { status } : {}
+          params: status ? { status } : {},
         };
       },
-      providesTags: ['Booking']
+      providesTags: ["Booking"],
     }),
 
     // Get bookings for a specific room/haven
     getRoomBookings: builder.query({
       query(havenId) {
         return {
-          url: `/bookings/room/${havenId}`
+          url: `/bookings/room/${havenId}`,
         };
       },
-      providesTags: ['Booking']
+      providesTags: ["Booking"],
     }),
 
     // Update cleaning status
@@ -92,12 +93,12 @@ export const bookingsApi = createApi({
         return {
           url: `/bookings/${id}/cleaning`,
           method: "PUT",
-          body: { cleaning_status }
+          body: { cleaning_status },
         };
       },
-      invalidatesTags: ['Booking']
+      invalidatesTags: ["Booking"],
     }),
-  })
+  }),
 });
 
 export const {
