@@ -139,8 +139,8 @@ interface UserData {
   if (!mounted || shouldHideNavbar) return null;
 
   return (
-    <nav className="fixed w-full h-14 sm:h-16 px-3 sm:px-6 bg-white dark:bg-gray-900 z-50">
-      <div className="h-full flex items-center justify-between max-w-7xl mx-auto">
+    <nav className="fixed w-full h-14 sm:h-16 bg-white dark:bg-gray-900 z-50">
+      <div className="h-full flex items-center justify-between max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Logo */}
         <Link href={"/"}>
           <div className="flex items-center gap-1 cursor-pointer">
