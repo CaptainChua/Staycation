@@ -198,7 +198,7 @@ const MyBookingsPage = ({ initialData, userId }: MyBookingsPageProps) => {
         closeReviewModal();
         refetch();
       } else {
-        toast.error(result.error || 'Failed to submit review');
+        toast.error(result.message || 'Failed to submit review');
       }
     } catch (error: any) {
       console.error('Error submitting review:', error);
