@@ -56,6 +56,9 @@ const RoomCard = ({ room, mode = "browse", compact = false }: RoomCardsProps) =>
   // Local state for optimistic updates
   const [optimisticFavorite, setOptimisticFavorite] = useState(false);
   const isFavorite = wishlistStatus?.isInWishlist || optimisticFavorite;
+  
+  // Disable wishlist functionality if API is not available
+  const isWishlistDisabled = !!wishlistError && 'status' in wishlistError && wishlistError.status === 404;
 
   // Sync optimistic state with actual wishlist status when data loads
   useEffect(() => {
@@ -64,11 +67,14 @@ const RoomCard = ({ room, mode = "browse", compact = false }: RoomCardsProps) =>
     }
   }, [wishlistStatus?.isInWishlist]);
 
-  // Handle wishlist errors and force refresh if needed
+  // Handle wishlist errors - only show toast for critical errors
   useEffect(() => {
     if (wishlistError) {
       console.error('Wishlist API Error:', wishlistError);
-      toast.error('Failed to check wishlist status');
+      // Only show toast for non-404 errors (404 means wishlist endpoint doesn't exist yet)
+      if (!('status' in wishlistError) || wishlistError.status !== 404) {
+        toast.error('Failed to check wishlist status');
+      }
     }
   }, [wishlistError]);
 
@@ -161,8 +167,9 @@ const RoomCard = ({ room, mode = "browse", compact = false }: RoomCardsProps) =>
         {/* Heart icon - top left */}
         <button
           onClick={handleHeartClick}
-          disabled={isAdding || isRemoving || isCheckingWishlist}
+          disabled={isAdding || isRemoving || isCheckingWishlist || isWishlistDisabled}
           className="absolute top-3 left-3 p-2 rounded-full bg-black/60 dark:bg-gray-900/80 backdrop-blur-sm hover:bg-black/80 dark:hover:bg-gray-800 transition-all duration-200 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+          title={isWishlistDisabled ? "Wishlist feature temporarily unavailable" : userId ? "Add to wishlist" : "Login to add to wishlist"}
         >
           {isAdding || isRemoving || isCheckingWishlist ? (
             <div className="w-5 h-5 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
