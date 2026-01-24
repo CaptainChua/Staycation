@@ -493,7 +493,7 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
                       </div>
                       <div>
                         <p className="text-sm font-medium text-gray-900 dark:text-white">{room.beds}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Sleeping</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Bed</p>
                       </div>
                     </div>
                   )}
