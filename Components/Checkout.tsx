@@ -102,12 +102,12 @@
       }, [bookingData.selectedRoom, roomBookingsData]);
 
       // Helper function to safely parse date
-  const safeParseDate = (dateString: string): DateValue | null => {
+  const safeParseDate = (dateString: string): DateValue | null | undefined => {
     try {
       const parsed = parseDate(dateString);
       return parsed;
     } catch (error) {
-      console.error('[Checkout] Error parsing date:', dateString, error);
+      console.error('[Checkout] Error parsing date:', error);
       return null;
     }
   };
@@ -1715,7 +1715,7 @@
                             }}
                             value={
                               bookingData.checkInDate
-                                ? safeParseDate(bookingData.checkInDate) ?? undefined
+                                ? (safeParseDate(bookingData.checkInDate) as DateValue | null | undefined) ?? undefined
                                 : undefined
                             }
                             onChange={(date) => {
@@ -1750,7 +1750,7 @@
                             }}
                             value={
                               bookingData.checkOutDate
-                                ? safeParseDate(bookingData.checkOutDate) ?? undefined
+                                ? (safeParseDate(bookingData.checkOutDate) as DateValue | null | undefined) ?? undefined
                                 : undefined
                             }
                             onChange={(date) => {
@@ -1764,7 +1764,7 @@
                               }
                             }}
                             minValue={bookingData.checkInDate ? (() => {
-                              const parsedDate = safeParseDate(bookingData.checkInDate);
+                              const parsedDate = safeParseDate(bookingData.checkInDate) as DateValue | null | undefined;
                               return parsedDate ? parsedDate.add({days: 1}) : today(getLocalTimeZone()).add({days: 1});
                             })() : today(getLocalTimeZone()).add({days: 1})}
                             isInvalid={!!errors.checkOutDate}
