@@ -13,19 +13,39 @@ const RoomImageGallery = ({ images, hoverInterval = 1500 }: RoomImageGalleryProp
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
   const [isNavHovered, setIsNavHovered] = useState(false); // Track when hovering on nav buttons
+  const [failedImages, setFailedImages] = useState<Set<number>>(new Set());
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Filter out failed images
+  const validImages = images.filter((_, index) => !failedImages.has(index));
+  
+  // If no valid images, show fallback
+  if (validImages.length === 0) {
+    return (
+      <div className="relative w-full h-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-gray-300 dark:bg-gray-600 rounded-full mx-auto mb-2 flex items-center justify-center">
+            <svg className="w-8 h-8 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <p className="text-gray-500 dark:text-gray-400 text-sm">No images available</p>
+        </div>
+      </div>
+    );
+  }
 
   const nextImage = useCallback((e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    setCurrentImageIndex((prev) => (prev + 1) % images.length);
-  }, [images.length]);
+    setCurrentImageIndex((prev) => (prev + 1) % validImages.length);
+  }, [validImages.length]);
 
   const prevImage = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     setCurrentImageIndex((prev) =>
-      prev === 0 ? images.length - 1 : prev - 1
+      prev === 0 ? validImages.length - 1 : prev - 1
     );
-  }, [images.length]);
+  }, [validImages.length]);
 
   // Continuously cycle images while hovering (but not when hovering on nav buttons)
   useEffect(() => {
@@ -50,28 +70,37 @@ const RoomImageGallery = ({ images, hoverInterval = 1500 }: RoomImageGalleryProp
       onMouseLeave={() => setIsHovered(false)}
     >
       {/* Images Slider */}
-      <div
-        className="w-full h-full flex transition-transform duration-500 ease-in-out"
-        style={{ transform: `translateX(-${currentImageIndex * 100}%)` }}
-      >
-        {images.map((image, index) => (
-          <div
-            key={index}
-            className="w-full h-full flex-shrink-0 relative"
-          >
-            <Image
-              src={image}
-              alt={`Room ${index + 1}`}
-              fill
-              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-              className="object-cover"
-            />
-          </div>
-        ))}
+      <div className="relative w-full h-full overflow-hidden">
+        {validImages.map((image, originalIndex) => {
+          const actualIndex = images.indexOf(image);
+          return (
+            <div
+              key={actualIndex}
+              className={`w-full h-full flex-shrink-0 relative ${
+                currentImageIndex === originalIndex ? 'block' : 'hidden'
+              }`}
+            >
+              <Image
+                src={image}
+                alt={`Room ${actualIndex + 1}`}
+                fill
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                className="object-cover"
+                onError={(e) => {
+                  console.error('Image failed to load:', image);
+                  setFailedImages(prev => new Set(prev).add(actualIndex));
+                }}
+                onLoad={() => {
+                  console.log('Image loaded successfully:', image);
+                }}
+              />
+            </div>
+          );
+        })}
       </div>
 
       {/* Navigations Arrows */}
-      {images.length > 1 && (
+      {validImages.length > 1 && (
         <>
           <button
             onClick={prevImage}
@@ -98,7 +127,7 @@ const RoomImageGallery = ({ images, hoverInterval = 1500 }: RoomImageGalleryProp
         onMouseEnter={() => setIsNavHovered(true)}
         onMouseLeave={() => setIsNavHovered(false)}
       >
-        {images.map((_, index) => (
+        {validImages.map((_, index) => (
           <button
             key={index}
             onClick={(e) => {
@@ -118,7 +147,7 @@ const RoomImageGallery = ({ images, hoverInterval = 1500 }: RoomImageGalleryProp
 
       {/* Image Counter */}
       <div className="absolute top-3 right-3 bg-black/50 text-white px-3 py-1 rounded-full text-xs sm:text-sm font-semibold">
-        {currentImageIndex + 1} / {images.length}
+        {currentImageIndex + 1} / {validImages.length}
       </div>
     </div>
   );
