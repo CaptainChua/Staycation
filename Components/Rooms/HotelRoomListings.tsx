@@ -214,25 +214,51 @@ const HotelRoomListings = ({ initialHavens }: HotelRoomListingsProps) => {
             </div>
           )}
 
-          {/* Header Section - Airbnb style */}
+          {/* Filter Section */}
           {!isLoading && (
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-              {/* Results Count */}
-              <h2 className="text-sm text-gray-600 dark:text-gray-400">
-                {rooms.length} {rooms.length === 1 ? 'haven' : 'havens'}
-                {isFromSearch && searchLocation && (
-                  <span className="ml-1">
-                    in {searchLocation.name} - {searchLocation.branch}
-                  </span>
-                )}
-              </h2>
+            <div className="mb-6">
+              <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+                {/* Filter Pills */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300 mr-2">Filter by:</span>
+                  
+                  {/* Price Range Filter */}
+                  <button className="px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-full hover:border-brand-primary dark:hover:border-brand-primary transition-colors text-sm">
+                    Price Range
+                  </button>
+                  
+                  {/* Capacity Filter */}
+                  <button className="px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-full hover:border-brand-primary dark:hover:border-brand-primary transition-colors text-sm">
+                    Capacity
+                  </button>
+                  
+                  {/* Amenities Filter */}
+                  <button className="px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-full hover:border-brand-primary dark:hover:border-brand-primary transition-colors text-sm">
+                    Amenities
+                  </button>
+                  
+                  {/* Rating Filter */}
+                  <button className="px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-full hover:border-brand-primary dark:hover:border-brand-primary transition-colors text-sm">
+                    4+ Stars
+                  </button>
+                  
+                  {/* Tower Filter */}
+                  <button className="px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-full hover:border-brand-primary dark:hover:border-brand-primary transition-colors text-sm">
+                    Tower
+                  </button>
+                </div>
 
-              {/* Filter Dropdown - Airbnb style */}
-              <div className="flex items-center gap-3">
-                <button className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl hover:border-gray-400 dark:hover:border-gray-500">
-                  <SlidersHorizontal className="w-4 h-4 text-gray-700 dark:text-gray-300" />
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Filters</span>
-                </button>
+                {/* Sort Dropdown */}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Sort:</span>
+                  <select className="px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:border-brand-primary">
+                    <option>Recommended</option>
+                    <option>Price: Low to High</option>
+                    <option>Price: High to Low</option>
+                    <option>Rating</option>
+                    <option>Capacity</option>
+                  </select>
+                </div>
               </div>
             </div>
           )}

@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { Metadata } from "next";
 import RoomDetailsClient from "./RoomDetailsClient";
 
 
@@ -210,6 +211,23 @@ const getRoomById = async (id: string) => {
   }
 
   return res.json();
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const response = await getRoomById(id);
+
+  if (!response?.success || !response?.data) {
+    return {
+      title: "Staycation Haven | Room Not Found",
+    };
+  }
+
+  const room = response.data;
+  return {
+    title: `Staycation Haven | ${room.description}`,
+    description: room.full_description || room.description,
+  };
 }
 
 const getAllHavens = async () => {

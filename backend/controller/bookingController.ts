@@ -420,6 +420,32 @@ export const getBookingById = async (
       SELECT
         b.*,
         h.tower,
+        h.uuid_id as haven_id,
+        bp.total_amount,
+        bp.down_payment,
+        bp.remaining_balance,
+        bp.payment_method,
+        bp.room_rate,
+        bp.security_deposit,
+        bp.add_ons_total,
+        bg.first_name as guest_first_name,
+        bg.last_name as guest_last_name,
+        bg.email as guest_email,
+        bg.phone as guest_phone,
+        (
+          SELECT COALESCE(
+            json_agg(
+              json_build_object(
+                'name', ba.name,
+                'price', ba.price,
+                'quantity', ba.quantity
+              ) ORDER BY ba.id
+            ),
+            '[]'
+          ) as add_ons
+          FROM booking_add_ons ba 
+          WHERE ba.booking_id = b.id
+        ) as add_ons,
         COALESCE(
           json_agg(hi.image_url ORDER BY hi.display_order)
           FILTER (WHERE hi.id IS NOT NULL),
@@ -428,8 +454,10 @@ export const getBookingById = async (
       FROM booking b
       LEFT JOIN havens h ON b.room_name = h.haven_name
       LEFT JOIN haven_images hi ON h.uuid_id = hi.haven_id
+      LEFT JOIN booking_payments bp ON b.id = bp.booking_id
+      LEFT JOIN booking_guests bg ON b.id = bg.booking_id
       WHERE b.id = $1
-      GROUP BY b.id, h.tower
+      GROUP BY b.id, h.tower, h.uuid_id, bp.total_amount, bp.down_payment, bp.remaining_balance, bp.payment_method, bp.room_rate, bp.security_deposit, bp.add_ons_total, bg.first_name, bg.last_name, bg.email, bg.phone
       LIMIT 1
     `;
 
@@ -743,6 +771,18 @@ export const getUserBookings = async (
       SELECT
         b.*,
         h.tower,
+        h.uuid_id as haven_id,
+        bp.total_amount,
+        bp.down_payment,
+        bp.remaining_balance,
+        bp.payment_method,
+        bp.room_rate,
+        bp.security_deposit,
+        bp.add_ons_total,
+        EXISTS(SELECT 1 FROM reviews r WHERE r.booking_id = b.id) as has_reviewed,
+        bg.first_name as guest_first_name,
+        bg.last_name as guest_last_name,
+        bg.email as guest_email,
         COALESCE(
           json_agg(hi.image_url ORDER BY hi.display_order)
           FILTER (WHERE hi.id IS NOT NULL),
@@ -751,6 +791,8 @@ export const getUserBookings = async (
       FROM booking b
       LEFT JOIN havens h ON b.room_name = h.haven_name
       LEFT JOIN haven_images hi ON h.uuid_id = hi.haven_id
+      LEFT JOIN booking_payments bp ON b.id = bp.booking_id
+      LEFT JOIN booking_guests bg ON b.id = bg.booking_id
       WHERE b.user_id = $1
     `;
 
@@ -770,10 +812,11 @@ export const getUserBookings = async (
       }
     }
 
-    query += ` GROUP BY b.id, h.tower ORDER BY b.created_at DESC`;
+    query += ` GROUP BY b.id, h.tower, h.uuid_id, bp.total_amount, bp.down_payment, bp.remaining_balance, bp.payment_method, bp.room_rate, bp.security_deposit, bp.add_ons_total, bg.first_name, bg.last_name, bg.email ORDER BY b.created_at DESC`;
 
     const result = await pool.query(query, values);
     console.log(`✅ Retrieved ${result.rows.length} bookings for user ${userId}`);
+    console.log('Sample booking data with guest info:', result.rows[0]); // Debug: Log first booking to see structure
 
     return NextResponse.json({
       success: true,

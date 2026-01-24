@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { User, Mail, Calendar, Shield, Edit } from "lucide-react";
 import SidebarLayout from "@/Components/SidebarLayout";
-import LoadingAnimation from "@/Components/LoadingAnimation";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -20,7 +19,14 @@ const ProfilePage = () => {
   }, [status, router]);
 
   if (status === "loading") {
-    return <LoadingAnimation />;
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-primary mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
   }
 
   if (!session?.user) {
@@ -53,20 +59,11 @@ const ProfilePage = () => {
   return (
     <SidebarLayout>
       {/* Hero Section */}
-      <div className="relative bg-gradient-to-br from-gray-100 via-gray-50 to-orange-50 dark:from-gray-800 dark:via-gray-700 dark:to-gray-800 text-gray-900 dark:text-white py-16 overflow-hidden border-b border-gray-200 dark:border-gray-700 shadow-sm">
-        {/* Decorative Background Elements */}
-        <div className="absolute inset-0 opacity-10 dark:opacity-5">
-          <div className="absolute top-0 left-0 w-72 h-72 bg-brand-primary rounded-full -translate-x-1/2 -translate-y-1/2"></div>
-          <div className="absolute bottom-0 right-0 w-96 h-96 bg-brand-primary rounded-full translate-x-1/3 translate-y-1/3"></div>
-          <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-orange-400 rounded-full -translate-x-1/2 -translate-y-1/2"></div>
-        </div>
-
+      <div className="relative bg-gradient-to-br from-gray-100 via-gray-50 to-orange-50 dark:from-gray-800 dark:via-gray-700 dark:to-gray-800 text-gray-900 dark:text-white py-12 overflow-hidden border-b border-gray-200 dark:border-gray-700">
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          {/* Icon */}
           <div className="inline-flex items-center justify-center w-16 h-16 bg-brand-primary/10 dark:bg-brand-primary/20 backdrop-blur-sm rounded-full mb-6 border border-brand-primary/20 dark:border-brand-primary/30">
             <User className="w-8 h-8 text-brand-primary" />
           </div>
-
           <h1 className="text-4xl md:text-5xl font-bold mb-4">
             My Profile
           </h1>
