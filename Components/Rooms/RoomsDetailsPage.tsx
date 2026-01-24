@@ -23,13 +23,14 @@ import {
   Sparkles,
 } from "lucide-react";
 import Image from "next/image";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { setSelectedRoom } from "@/redux/slices/bookingSlice";
 import { formatDateSafe } from "@/lib/dateUtils";
 import { useSession } from "next-auth/react";
 import { useCheckWishlistStatusQuery, useAddToWishlistMutation, useRemoveFromWishlistMutation } from "@/redux/api/wishlistApi";
+import { useGetHavenReviewsQuery } from "@/redux/api/reviewsApi";
 import toast from "react-hot-toast";
 import AmenityBadge from "./AmenityBadge";
 import RoomCard from "./RoomCard";
@@ -109,15 +110,33 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
   const userId = (session?.user as SessionUser)?.id || null;
 
   // RTK Query hooks
-  const { data: wishlistStatus } = useCheckWishlistStatusQuery(
+  const { data: wishlistStatus, error: wishlistError } = useCheckWishlistStatusQuery(
     { userId: userId, havenId: room.id },
     { skip: !userId }
   );
   const [addToWishlist, { isLoading: isAdding }] = useAddToWishlistMutation();
   const [removeFromWishlist, { isLoading: isRemoving }] = useRemoveFromWishlistMutation();
+  
+  // Fetch reviews for this haven
+  const { data: reviewsResponse, isLoading: isLoadingReviews } = useGetHavenReviewsQuery({ haven_id: room.id });
+  const reviewsData = reviewsResponse?.success ? reviewsResponse : { reviews: [], total: 0, hasMore: false };
+
+  // Handle wishlist errors - only show toast for critical errors
+  useEffect(() => {
+    if (wishlistError) {
+      console.error('Wishlist API Error:', wishlistError);
+      // Only show toast for non-404 errors (404 means wishlist endpoint doesn't exist yet)
+      if (!('status' in wishlistError) || wishlistError.status !== 404) {
+        toast.error('Failed to check wishlist status');
+      }
+    }
+  }, [wishlistError]);
 
   const isInWishlist = wishlistStatus?.isInWishlist || false;
   const isLoadingWishlist = isAdding || isRemoving;
+  
+  // Disable wishlist functionality if API is not available
+  const isWishlistDisabled = !!wishlistError && 'status' in wishlistError && wishlistError.status === 404;
 
   // Safe defaults
   const images = Array.isArray(room.images) ? room.images : [];
@@ -240,8 +259,9 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
                 </button>
                 <button
                   onClick={handleWishlistToggle}
-                  disabled={isLoadingWishlist}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  disabled={isLoadingWishlist || isWishlistDisabled}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title={isWishlistDisabled ? "Wishlist feature temporarily unavailable" : userId ? "Add to wishlist" : "Login to add to wishlist"}
                 >
                   <Heart className={`w-4 h-4 ${isInWishlist ? 'fill-red-500 text-red-500' : ''}`} />
                   <span className="hidden sm:inline">{isInWishlist ? 'Saved' : 'Save'}</span>
@@ -383,7 +403,7 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
                   <div className="flex items-center gap-1">
                     <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
                     <span className="font-semibold text-gray-900 dark:text-white">{room.rating}</span>
-                    <span className="text-gray-500 dark:text-gray-400">({room.reviews} reviews)</span>
+                    <span className="text-gray-500 dark:text-gray-400">({reviewsData?.total || room.reviews} reviews)</span>
                   </div>
                   <span className="text-gray-300 dark:text-gray-600">|</span>
                   <div className="flex items-center gap-1 text-gray-600 dark:text-gray-400">
@@ -573,7 +593,7 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
                         <span className="text-2xl font-bold text-gray-900 dark:text-white">{room.rating}</span>
                       </div>
                       <span className="text-gray-300 dark:text-gray-600">•</span>
-                      <span className="text-lg text-gray-600 dark:text-gray-400">{room.reviews} reviews</span>
+                      <span className="text-lg text-gray-600 dark:text-gray-400">{reviewsData?.total || room.reviews} reviews</span>
                     </div>
 
                     {/* Rating Breakdown */}
@@ -603,75 +623,90 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
 
                     {/* Reviews List */}
                     <div className="space-y-6">
-                      {[
-                        {
-                          name: "Maria S*****s",
-                          avatar: "MS",
-                          date: "December 2024",
-                          rating: 5,
-                          comment: "Amazing stay! The place was spotless and exactly as described. The host was very responsive and helpful. Would definitely book again!",
-                        },
-                        {
-                          name: "John D**",
-                          avatar: "JD",
-                          date: "November 2024",
-                          rating: 5,
-                          comment: "Perfect location and beautiful unit. Everything we needed was provided. The check-in process was smooth and hassle-free.",
-                        },
-                        {
-                          name: "Angela R***s",
-                          avatar: "AR",
-                          date: "November 2024",
-                          rating: 4,
-                          comment: "Great value for money! The amenities were complete and the place was very comfortable. Highly recommended for families.",
-                        },
-                        {
-                          name: "Mark T**",
-                          avatar: "MT",
-                          date: "October 2024",
-                          rating: 5,
-                          comment: "Exceeded our expectations! The room was spacious and well-maintained. The pool area was a nice bonus. Will definitely come back!",
-                        },
-                        {
-                          name: "Sarah L**",
-                          avatar: "SL",
-                          date: "October 2024",
-                          rating: 5,
-                          comment: "One of the best staycation experiences we've had. The host went above and beyond to make our stay comfortable. Thank you!",
-                        },
-                      ].slice(0, showAllReviews ? undefined : 3).map((review, index) => (
-                        <div key={index} className="pb-6 border-b border-gray-200 dark:border-gray-700 last:border-0">
-                          <div className="flex items-start gap-4">
-                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-brand-primary to-orange-400 flex items-center justify-center flex-shrink-0">
-                              <span className="text-sm font-bold text-white">{review.avatar}</span>
-                            </div>
-                            <div className="flex-1">
-                              <div className="flex items-center justify-between mb-1">
-                                <h4 className="font-semibold text-gray-900 dark:text-white">{review.name}</h4>
-                                <div className="flex items-center gap-1">
-                                  {[...Array(5)].map((_, i) => (
-                                    <Star
-                                      key={i}
-                                      className={`w-3.5 h-3.5 ${i < review.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300 dark:text-gray-600'}`}
-                                    />
-                                  ))}
+                      {isLoadingReviews ? (
+                        // Loading skeleton
+                        [1, 2, 3].map((index) => (
+                          <div key={index} className="pb-6 border-b border-gray-200 dark:border-gray-700 last:border-0">
+                            <div className="flex items-start gap-4">
+                              <div className="w-12 h-12 rounded-full bg-gray-200 dark:bg-gray-700 animate-pulse flex-shrink-0"></div>
+                              <div className="flex-1">
+                                <div className="flex items-center justify-between mb-1">
+                                  <div className="h-4 w-32 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                                  <div className="flex gap-1">
+                                    {[...Array(5)].map((_, i) => (
+                                      <div key={i} className="w-3.5 h-3.5 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                                    ))}
+                                  </div>
                                 </div>
+                                <div className="h-3 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mb-2"></div>
+                                <div className="h-4 w-full bg-gray-200 dark:bg-gray-700 rounded animate-pulse mb-1"></div>
+                                <div className="h-4 w-3/4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
                               </div>
-                              <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">{review.date}</p>
-                              <p className="text-gray-600 dark:text-gray-300 leading-relaxed">{review.comment}</p>
                             </div>
                           </div>
+                        ))
+                      ) : reviewsData?.reviews?.length > 0 ? (
+                        reviewsData.reviews
+                          .slice(0, showAllReviews ? undefined : 3)
+                          .map((review) => (
+                            <div key={review.id} className="pb-6 border-b border-gray-200 dark:border-gray-700 last:border-0">
+                              <div className="flex items-start gap-4">
+                                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-brand-primary to-orange-400 flex items-center justify-center flex-shrink-0">
+                                  <span className="text-sm font-bold text-white">
+                                    {review.guest_first_name?.[0]}{review.guest_last_name?.[0]}
+                                  </span>
+                                </div>
+                                <div className="flex-1">
+                                  <div className="flex items-center justify-between mb-1">
+                                    <h4 className="font-semibold text-gray-900 dark:text-white">
+                                      {review.guest_first_name} {review.guest_last_name?.[0]}***
+                                    </h4>
+                                    <div className="flex items-center gap-1">
+                                      {[...Array(5)].map((_, i) => (
+                                        <Star
+                                          key={i}
+                                          className={`w-3.5 h-3.5 ${i < Math.round(review.overall_rating) ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300 dark:text-gray-600'}`}
+                                        />
+                                      ))}
+                                    </div>
+                                  </div>
+                                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+                                    {new Date(review.created_at).toLocaleDateString('en-US', { 
+                                      year: 'numeric', 
+                                      month: 'long' 
+                                    })}
+                                  </p>
+                                  {review.comment && (
+                                    <p className="text-gray-600 dark:text-gray-300 leading-relaxed">{review.comment}</p>
+                                  )}
+                                  {review.is_verified && (
+                                    <div className="flex items-center gap-1 mt-2">
+                                      <Shield className="w-3 h-3 text-green-600" />
+                                      <span className="text-xs text-green-600 font-medium">Verified Review</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                      ) : (
+                        <div className="text-center py-8">
+                          <MessageCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                          <p className="text-gray-600 dark:text-gray-400">No reviews yet</p>
+                          <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">Be the first to share your experience!</p>
                         </div>
-                      ))}
+                      )}
                     </div>
 
                     {/* Show More Reviews Button */}
-                    <button
-                      onClick={() => setShowAllReviews(!showAllReviews)}
-                      className="w-full mt-6 flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                    >
-                      {showAllReviews ? 'Show less' : `Show all ${room.reviews} reviews`}
-                    </button>
+                    {(reviewsData?.reviews?.length > 3 || (reviewsData?.total || 0) > 3) && (
+                      <button
+                        onClick={() => setShowAllReviews(!showAllReviews)}
+                        className="w-full mt-6 flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                      >
+                        {showAllReviews ? 'Show less' : `Show all ${reviewsData?.total || room.reviews} reviews`}
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -720,7 +755,7 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
                   <div className="flex items-center gap-2 mb-6">
                     <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
                     <span className="font-medium text-gray-900 dark:text-white">{room.rating}</span>
-                    <span className="text-gray-500 dark:text-gray-400">({room.reviews} reviews)</span>
+                    <span className="text-gray-500 dark:text-gray-400">({reviewsData?.total || room.reviews} reviews)</span>
                   </div>
 
                   {/* Booking Info */}
@@ -769,8 +804,9 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
                   {/* Wishlist Button */}
                   <button
                     onClick={handleWishlistToggle}
-                    disabled={isLoadingWishlist}
-                    className="w-full mt-3 flex items-center justify-center gap-2 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    disabled={isLoadingWishlist || isWishlistDisabled}
+                    className="w-full mt-3 flex items-center justify-center gap-2 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    title={isWishlistDisabled ? "Wishlist feature temporarily unavailable" : userId ? "Add to wishlist" : "Login to add to wishlist"}
                   >
                     <Heart className={`w-4 h-4 ${isInWishlist ? 'fill-red-500 text-red-500' : ''}`} />
                     <span className="text-sm font-medium">
