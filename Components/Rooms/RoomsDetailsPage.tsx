@@ -121,14 +121,11 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
   const { data: reviewsResponse, isLoading: isLoadingReviews } = useGetHavenReviewsQuery({ haven_id: room.id });
   const reviewsData = reviewsResponse?.success ? reviewsResponse : { reviews: [], total: 0, hasMore: false };
 
-  // Handle wishlist errors - only show toast for critical errors
+  // Handle wishlist errors - log only, no toast notifications
   useEffect(() => {
     if (wishlistError) {
       console.error('Wishlist API Error:', wishlistError);
-      // Only show toast for non-404 errors (404 means wishlist endpoint doesn't exist yet)
-      if (!('status' in wishlistError) || wishlistError.status !== 404) {
-        toast.error('Failed to check wishlist status');
-      }
+      // No toast notification - handle errors silently
     }
   }, [wishlistError]);
 
