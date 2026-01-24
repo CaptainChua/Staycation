@@ -20,6 +20,7 @@ interface HavenData {
   room_size?: string;
   location?: string;
   tower?: string;
+  floor?: string;
   photo_tours?: Array<{ category: string; url: string }>;
   youtube_url?: string;
 }
@@ -52,6 +53,7 @@ export default function RoomDetailsClient({ room: haven, recommendedRooms = [] }
   // Helper function to transform haven data to room format
   const transformHavenToRoom = (havenData: HavenData) => ({
     id: havenData.uuid_id,
+    uuid_id: havenData.uuid_id,
     name: havenData.haven_name,
     price: `₱${havenData.six_hour_rate}`,
     pricePerNight: 'per night',
@@ -68,6 +70,7 @@ export default function RoomDetailsClient({ room: haven, recommendedRooms = [] }
     roomSize: havenData.room_size,
     location: havenData.location,
     tower: havenData.tower,
+    floor: havenData.floor,
     photoTour: havenData.photo_tours
       ? havenData.photo_tours.reduce((acc: Record<string, string[]>, item) => {
           acc[item.category] = acc[item.category] || [];
