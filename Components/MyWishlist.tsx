@@ -168,7 +168,7 @@ const MyWishlistPage = ({ initialData, userId }: MyWishlistPageProps) => {
                             uuid_id: item.haven_id,
                             name: item.room_name,
                             price: `₱${item.price}`,
-                            pricePerNight: "per 6 hours",
+                            pricePerNight: "per night",
                             images: item.images || [],
                             rating: 4.5,
                             reviews: 0,
