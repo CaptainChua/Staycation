@@ -19,6 +19,8 @@ import {
   Clock,
   Award,
   MessageCircle,
+  LayoutGrid,
+  Sparkles,
 } from "lucide-react";
 import Image from "next/image";
 import { useState } from "react";
@@ -54,6 +56,7 @@ const RoomMap = dynamic(() => import("./RoomMap"), {
 
 interface Room {
   id: string;
+  uuid_id?: string;
   name: string;
   price: string;
   pricePerNight: string;
@@ -65,9 +68,10 @@ interface Room {
   description: string;
   fullDescription?: string;
   beds?: string;
-  roomSize?: string;  
+  roomSize?: string;
   location?: string;
   tower?: string;
+  floor?: string;
   photoTour?: {
     livingArea?: string[];
     kitchenette?: string[];
@@ -98,7 +102,8 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [showAllAmenities, setShowAllAmenities] = useState(false);
   const [showFullDescription, setShowFullDescription] = useState(false);
-  const [activeTab, setActiveTab] = useState<"overview" | "amenities" | "location">("overview");
+  const [showAllReviews, setShowAllReviews] = useState(false);
+  const [activeTab, setActiveTab] = useState<"overview" | "amenities" | "location" | "reviews">("overview");
 
   // Type-safe user id extraction
   const userId = (session?.user as SessionUser)?.id || null;
@@ -383,7 +388,7 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
                   <span className="text-gray-300 dark:text-gray-600">|</span>
                   <div className="flex items-center gap-1 text-gray-600 dark:text-gray-400">
                     <MapPin className="w-4 h-4" />
-                    <span>Quezon City{room.tower && `, ${room.tower}`}</span>
+                    <span>Staycation Haven PH, Quezon City{room.tower && `, ${room.tower}`}</span>
                   </div>
                 </div>
               </div>
@@ -436,21 +441,23 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
 
               {/* Tabs Navigation */}
               <div className="border-b border-gray-200 dark:border-gray-700">
-                <div className="flex gap-8">
+                <div className="flex gap-8 overflow-x-auto scrollbar-hide">
                   {[
-                    { id: "overview", label: "Overview" },
-                    { id: "amenities", label: "Amenities" },
-                    { id: "location", label: "Location" },
+                    { id: "overview", label: "Overview", icon: <LayoutGrid className="w-4 h-4" /> },
+                    { id: "amenities", label: "Amenities", icon: <Sparkles className="w-4 h-4" /> },
+                    { id: "location", label: "Location", icon: <MapPin className="w-4 h-4" /> },
+                    { id: "reviews", label: "Reviews", icon: <Star className="w-4 h-4" /> },
                   ].map((tab) => (
                     <button
                       key={tab.id}
                       onClick={() => setActiveTab(tab.id as typeof activeTab)}
-                      className={`py-4 text-sm font-medium border-b-2 transition-colors ${
+                      className={`flex items-center gap-2 py-4 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                         activeTab === tab.id
                           ? "border-brand-primary text-brand-primary"
                           : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                       }`}
                     >
+                      {tab.icon}
                       {tab.label}
                     </button>
                   ))}
@@ -523,7 +530,7 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
                     <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
                       What this place offers
                     </h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="flex flex-wrap gap-2">
                       {displayedAmenities.map((amenity, index) => (
                         <AmenityBadge key={index} amenity={amenity} />
                       ))}
@@ -531,7 +538,7 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
                     {amenities.length > 6 && (
                       <button
                         onClick={() => setShowAllAmenities(!showAllAmenities)}
-                        className="mt-4 px-6 py-2.5 border border-gray-900 dark:border-gray-300 text-gray-900 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                        className="mt-4 flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                       >
                         {showAllAmenities ? 'Show less' : `Show all ${amenities.length} amenities`}
                       </button>
@@ -554,6 +561,117 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
                         location={room.location}
                       />
                     </div>
+                  </div>
+                )}
+
+                {activeTab === "reviews" && (
+                  <div>
+                    {/* Reviews Header */}
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="flex items-center gap-2">
+                        <Star className="w-6 h-6 fill-yellow-400 text-yellow-400" />
+                        <span className="text-2xl font-bold text-gray-900 dark:text-white">{room.rating}</span>
+                      </div>
+                      <span className="text-gray-300 dark:text-gray-600">•</span>
+                      <span className="text-lg text-gray-600 dark:text-gray-400">{room.reviews} reviews</span>
+                    </div>
+
+                    {/* Rating Breakdown */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                      {[
+                        { label: "Cleanliness", rating: 4.9 },
+                        { label: "Communication", rating: 5.0 },
+                        { label: "Check-in", rating: 4.8 },
+                        { label: "Accuracy", rating: 4.9 },
+                        { label: "Location", rating: 4.7 },
+                        { label: "Value", rating: 4.8 },
+                      ].map((item) => (
+                        <div key={item.label} className="flex items-center justify-between gap-4">
+                          <span className="text-sm text-gray-600 dark:text-gray-400">{item.label}</span>
+                          <div className="flex items-center gap-2 flex-1 max-w-[150px]">
+                            <div className="flex-1 h-1 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-gray-900 dark:bg-white rounded-full"
+                                style={{ width: `${(item.rating / 5) * 100}%` }}
+                              />
+                            </div>
+                            <span className="text-sm font-medium text-gray-900 dark:text-white w-8">{item.rating}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Reviews List */}
+                    <div className="space-y-6">
+                      {[
+                        {
+                          name: "Maria S*****s",
+                          avatar: "MS",
+                          date: "December 2024",
+                          rating: 5,
+                          comment: "Amazing stay! The place was spotless and exactly as described. The host was very responsive and helpful. Would definitely book again!",
+                        },
+                        {
+                          name: "John D**",
+                          avatar: "JD",
+                          date: "November 2024",
+                          rating: 5,
+                          comment: "Perfect location and beautiful unit. Everything we needed was provided. The check-in process was smooth and hassle-free.",
+                        },
+                        {
+                          name: "Angela R***s",
+                          avatar: "AR",
+                          date: "November 2024",
+                          rating: 4,
+                          comment: "Great value for money! The amenities were complete and the place was very comfortable. Highly recommended for families.",
+                        },
+                        {
+                          name: "Mark T**",
+                          avatar: "MT",
+                          date: "October 2024",
+                          rating: 5,
+                          comment: "Exceeded our expectations! The room was spacious and well-maintained. The pool area was a nice bonus. Will definitely come back!",
+                        },
+                        {
+                          name: "Sarah L**",
+                          avatar: "SL",
+                          date: "October 2024",
+                          rating: 5,
+                          comment: "One of the best staycation experiences we've had. The host went above and beyond to make our stay comfortable. Thank you!",
+                        },
+                      ].slice(0, showAllReviews ? undefined : 3).map((review, index) => (
+                        <div key={index} className="pb-6 border-b border-gray-200 dark:border-gray-700 last:border-0">
+                          <div className="flex items-start gap-4">
+                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-brand-primary to-orange-400 flex items-center justify-center flex-shrink-0">
+                              <span className="text-sm font-bold text-white">{review.avatar}</span>
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between mb-1">
+                                <h4 className="font-semibold text-gray-900 dark:text-white">{review.name}</h4>
+                                <div className="flex items-center gap-1">
+                                  {[...Array(5)].map((_, i) => (
+                                    <Star
+                                      key={i}
+                                      className={`w-3.5 h-3.5 ${i < review.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300 dark:text-gray-600'}`}
+                                    />
+                                  ))}
+                                </div>
+                              </div>
+                              <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">{review.date}</p>
+                              <p className="text-gray-600 dark:text-gray-300 leading-relaxed">{review.comment}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Show More Reviews Button */}
+                    <button
+                      onClick={() => setShowAllReviews(!showAllReviews)}
+                      className="w-full mt-6 flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                    >
+                      {showAllReviews ? 'Show less' : `Show all ${room.reviews} reviews`}
+                    </button>
                   </div>
                 )}
               </div>
@@ -689,10 +807,7 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
                   {recommendedRooms.slice(0, 5).map((recRoom) => (
                     <div key={recRoom.id} className="w-[200px] sm:w-[220px] lg:w-[240px] flex-shrink-0">
                       <RoomCard
-                        room={{
-                          ...recRoom,
-                          uuid_id: recRoom.id,
-                        }}
+                        room={recRoom}
                         mode="browse"
                         compact={false}
                       />
