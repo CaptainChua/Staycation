@@ -1,5 +1,6 @@
 "use client";
 
+import Skeleton from "@/Components/common/Skeleton";
 import {
   CheckCircle2,
   Circle,
@@ -31,13 +32,12 @@ export default function CleaningChecklistPage() {
   const [selectedHavenName, setSelectedHavenName] = useState<string | null>(
     null,
   );
+  const [isHavensLoading, setIsHavensLoading] = useState<boolean>(true);
 
   const [checklist, setChecklist] = useState<Category[]>([]);
   const [checklistId, setChecklistId] = useState<string | null>(null);
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [isSaving, setIsSaving] = useState<boolean>(false);
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   const iconMap = {
     Bedroom: BedDouble,
@@ -52,6 +52,7 @@ export default function CleaningChecklistPage() {
     let mounted = true;
 
     const fetchHavens = async () => {
+      setIsHavensLoading(true);
       try {
         const res = await fetch("/api/admin/cleaners/havens", {
           cache: "no-store",
@@ -70,6 +71,8 @@ export default function CleaningChecklistPage() {
       } catch (err) {
         console.error("Error loading havens", err);
         toast.error("Failed to load havens");
+      } finally {
+        setIsHavensLoading(false);
       }
     };
 
@@ -184,77 +187,13 @@ export default function CleaningChecklistPage() {
     }
   };
 
-  const saveProgress = useCallback(async () => {
-    if (!checklistId) {
-      toast.error("No checklist selected");
-      return;
-    }
-    setIsSaving(true);
-    try {
-      const tasksPayload = checklist.flatMap((cat: Category) =>
-        cat.tasks.map((t: Task) => ({ id: t.id, completed: t.completed })),
-      );
+  // saveProgress removed: toggles update the DB immediately when toggled,
+  // so an explicit 'Save Progress' action is no longer necessary.
 
-      const res = await fetch("/api/admin/cleaners", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "save",
-          checklist_id: checklistId,
-          tasks: tasksPayload,
-        }),
-      });
-
-      const payload = await res.json();
-      if (!res.ok) {
-        const message = payload?.error || "Failed to save progress";
-        throw new Error(message);
-      }
-      toast.success(payload?.message || "Progress saved");
-
-      // Refresh the checklist after saving to ensure UI matches server state
-      if (selectedHavenId) {
-        await fetchChecklist(selectedHavenId);
-      }
-    } catch (err) {
-      console.error("Save progress failed:", err);
-      const message = err instanceof Error ? err.message : String(err);
-      toast.error(message || "Failed to save progress");
-    } finally {
-      setIsSaving(false);
-    }
-  }, [checklistId, checklist, selectedHavenId, fetchChecklist]);
-
-  const submitChecklist = useCallback(async () => {
-    if (!checklistId) {
-      toast.error("No checklist selected");
-      return;
-    }
-    setIsSubmitting(true);
-    try {
-      const res = await fetch("/api/admin/cleaners", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "submit", checklist_id: checklistId }),
-      });
-      const payload = await res.json();
-      if (!res.ok) {
-        throw new Error(payload?.error || "Failed to submit checklist");
-      }
-
-      toast.success(payload?.message || "Checklist submitted");
-      // Refresh after successful submission
-      if (selectedHavenId) {
-        fetchChecklist(selectedHavenId);
-      }
-    } catch (err) {
-      console.error("Submit failed:", err);
-      const message = err instanceof Error ? err.message : String(err);
-      toast.error(message || "Failed to submit checklist");
-    } finally {
-      setIsSubmitting(false);
-    }
-  }, [checklistId, selectedHavenId, fetchChecklist]);
+  // submitChecklist removed — checklist changes are saved automatically when you toggle tasks.
+  // If you'd like a final 'Submit' action that does additional business work
+  // (e.g., update a booking's cleaning status or send notifications), tell me what
+  // you want Submit to do and I will implement that behavior here.
 
   const totalTasks = checklist.reduce((acc, cat) => acc + cat.tasks.length, 0);
   const completedTasks = checklist.reduce(
@@ -281,18 +220,25 @@ export default function CleaningChecklistPage() {
           <label htmlFor="haven-select" className="sr-only">
             Select haven
           </label>
-          <select
-            id="haven-select"
-            value={selectedHavenId ?? ""}
-            onChange={(e) => setSelectedHavenId(e.target.value || null)}
-            className="w-full rounded-lg border-gray-200 bg-white dark:bg-gray-800 text-sm py-2 px-3"
-          >
-            {havens.map((h) => (
-              <option key={h.id} value={h.id}>
-                {h.name}
-              </option>
-            ))}
-          </select>
+          {isHavensLoading ? (
+            <Skeleton
+              className="h-9 w-full rounded-lg"
+              label="Loading havens"
+            />
+          ) : (
+            <select
+              id="haven-select"
+              value={selectedHavenId ?? ""}
+              onChange={(e) => setSelectedHavenId(e.target.value || null)}
+              className="w-full rounded-lg border-gray-200 bg-white dark:bg-gray-800 text-sm py-2 px-3"
+            >
+              {havens.map((h) => (
+                <option key={h.id} value={h.id}>
+                  {h.name}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
       </div>
 
@@ -322,8 +268,81 @@ export default function CleaningChecklistPage() {
       {/* Checklist by Category */}
       <div className="space-y-4">
         {isLoading && (
-          <div className="p-6 bg-white dark:bg-gray-800 rounded-lg text-center">
-            Loading checklist...
+          <div aria-busy="true" aria-live="polite" className="space-y-4">
+            {/* Progress skeleton */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <Skeleton
+                    className="h-5 w-40 rounded mb-2"
+                    label="Loading progress title"
+                  />
+                  <Skeleton
+                    className="h-3 w-28 rounded"
+                    label="Loading progress detail"
+                  />
+                </div>
+                <Skeleton
+                  className="h-10 w-14 rounded"
+                  label="Loading progress number"
+                />
+              </div>
+              <div className="w-full">
+                <Skeleton
+                  className="h-3 w-3/5 rounded-full"
+                  label="Loading progress bar"
+                />
+              </div>
+            </div>
+
+            {/* Category skeletons */}
+            {[1, 2, 3].map((i) => (
+              <div
+                key={i}
+                className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <Skeleton
+                      className="w-10 h-10 rounded-lg"
+                      label="Loading category icon"
+                    />
+                    <div>
+                      <Skeleton
+                        className="h-4 w-32 rounded mb-1"
+                        label="Loading category name"
+                      />
+                      <Skeleton
+                        className="h-3 w-20 rounded"
+                        label="Loading category meta"
+                      />
+                    </div>
+                  </div>
+                  <Skeleton
+                    className="h-6 w-12 rounded"
+                    label="Loading category stat"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  {[1, 2, 3, 4].map((t) => (
+                    <div
+                      key={t}
+                      className="flex items-center gap-3 p-3 rounded-lg"
+                    >
+                      <Skeleton
+                        className="w-5 h-5 rounded-full"
+                        label="Loading task icon"
+                      />
+                      <Skeleton
+                        className="h-4 w-full rounded"
+                        label="Loading task"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         )}
         {!isLoading &&
@@ -396,30 +415,11 @@ export default function CleaningChecklistPage() {
           })}
       </div>
 
-      {/* Action Buttons */}
+      {/* Action / Status */}
       <div className="flex gap-3">
-        <button
-          onClick={submitChecklist}
-          disabled={isSubmitting || isLoading || progress < 100}
-          className={`flex-1 bg-brand-primary hover:bg-brand-primaryDark text-white py-3 rounded-lg font-semibold transition-colors ${isSubmitting || isLoading || progress < 100 ? "opacity-60 cursor-not-allowed" : ""}`}
-          title={
-            isLoading
-              ? "Loading checklist..."
-              : progress < 100
-                ? "Complete all tasks before submitting"
-                : undefined
-          }
-        >
-          {isSubmitting ? "Submitting..." : "Submit Checklist"}
-        </button>
-        <button
-          onClick={saveProgress}
-          disabled={isSaving || isLoading}
-          className={`flex-1 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-100 py-3 rounded-lg font-semibold transition-colors ${isSaving || isLoading ? "opacity-60 cursor-not-allowed" : ""}`}
-          title={isLoading ? "Loading checklist..." : undefined}
-        >
-          {isSaving ? "Saving..." : "Save Progress"}
-        </button>
+        <div className="flex-1 flex items-center justify-center text-sm text-gray-500">
+          Changes are saved automatically
+        </div>
       </div>
 
       {progress < 100 && (
