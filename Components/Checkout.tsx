@@ -13,6 +13,8 @@
       Calendar,
       Users,
       User,
+      Mail,
+      Phone,
       ArrowLeft,
       Upload,
       Plus,
@@ -48,9 +50,6 @@
       status: string;
       check_in_date: string;
       check_out_date: string;
-      check_in_time?: string;
-      check_out_time?: string;
-      stay_type?: string;
     }
 
     interface BlockedDate {
@@ -102,12 +101,13 @@
       }, [bookingData.selectedRoom, roomBookingsData]);
 
       // Helper function to safely parse date
-  const safeParseDate = (dateString: string): DateValue | null | undefined => {
+  const safeParseDate = (dateString: string): any => {
     try {
       const parsed = parseDate(dateString);
+      // Return the parsed date directly, TypeScript will infer the correct type
       return parsed;
     } catch (error) {
-      console.error('[Checkout] Error parsing date:', error);
+      console.error('[Checkout] Error parsing date:', dateString, error);
       return null;
     }
   };
@@ -131,15 +131,6 @@
         console.log('[Checkout] Check-in date changed:', bookingData.checkInDate);
         console.log('[Checkout] Check-out date changed:', bookingData.checkOutDate);
       }, [bookingData.checkInDate, bookingData.checkOutDate]);
-
-      // Update document title with selected room name
-      useEffect(() => {
-        if (bookingData.selectedRoom?.name) {
-          document.title = `Staycation Haven | Checkout ${bookingData.selectedRoom.name}`;
-        } else {
-          document.title = 'Staycation Haven | Checkout';
-        }
-      }, [bookingData.selectedRoom?.name]);
 
       // RTK Query mutation for creating bookings
       const [createBooking] = useCreateBookingMutation();
@@ -352,7 +343,7 @@
 
       // Helper function to check overlap with existing bookings
       const checkOverlap = useCallback((userStart: Date, userEnd: Date) => {
-        return roomBookingsData?.data?.some((booking: Booking) => {
+        return roomBookingsData?.data?.some((booking: any) => {
           const approvedStatuses = ['approved', 'confirmed', 'check_in', 'checked-in'];
           if (!approvedStatuses.includes(booking.status)) return false;
 
@@ -1715,7 +1706,7 @@
                             }}
                             value={
                               bookingData.checkInDate
-                                ? (safeParseDate(bookingData.checkInDate) as DateValue | null | undefined) ?? undefined
+                                ? (safeParseDate(bookingData.checkInDate) as any)
                                 : undefined
                             }
                             onChange={(date) => {
@@ -1750,7 +1741,7 @@
                             }}
                             value={
                               bookingData.checkOutDate
-                                ? (safeParseDate(bookingData.checkOutDate) as DateValue | null | undefined) ?? undefined
+                                ? (safeParseDate(bookingData.checkOutDate) as any)
                                 : undefined
                             }
                             onChange={(date) => {
@@ -1764,7 +1755,7 @@
                               }
                             }}
                             minValue={bookingData.checkInDate ? (() => {
-                              const parsedDate = safeParseDate(bookingData.checkInDate) as DateValue | null | undefined;
+                              const parsedDate = safeParseDate(bookingData.checkInDate);
                               return parsedDate ? parsedDate.add({days: 1}) : today(getLocalTimeZone()).add({days: 1});
                             })() : today(getLocalTimeZone()).add({days: 1})}
                             isInvalid={!!errors.checkOutDate}
