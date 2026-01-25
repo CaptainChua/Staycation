@@ -54,7 +54,7 @@ export async function PATCH(request: NextRequest, { params }: RouteContext): Pro
       SET
     `;
     const updateFields: string[] = [];
-    const params_arr: any[] = [];
+    const params_arr: string[] = [];
     let paramCount = 1;
 
     if (cleaning_status !== undefined) {

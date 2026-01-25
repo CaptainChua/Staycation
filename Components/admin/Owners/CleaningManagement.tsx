@@ -168,7 +168,7 @@ const CleaningManagement = () => {
   const statCards = [
     {
       id: "total",
-      label: "Total Tasks",
+      label: "Total Rooms",
       value: totalTasks,
       color: "bg-blue-500",
       Icon: Home,
@@ -197,6 +197,15 @@ const CleaningManagement = () => {
   ];
 
   const handleCleaningStatusUpdate = async (recordId: string, newStatus: string) => {
+    // Optimistically update local state
+    const originalData = cleaningData.map(r => ({ ...r }));
+    const updatedData = cleaningData.map((record) =>
+      record.id === recordId
+        ? { ...record, cleaningStatus: newStatus as CleaningRecord["cleaningStatus"] }
+        : record
+    );
+    setCleaningData(updatedData);
+
     try {
       const response = await fetch(`/api/bookings/${recordId}`, {
         method: "PATCH",
@@ -210,9 +219,9 @@ const CleaningManagement = () => {
       });
 
       if (!response.ok) throw new Error("Failed to update status");
-      await fetchCleaningData();
     } catch (err) {
       console.error("Error updating cleaning status:", err);
+      setCleaningData(originalData);
       alert("Failed to update cleaning status");
     }
   };
@@ -227,7 +236,6 @@ const CleaningManagement = () => {
       return;
     }
     try {
-      // Find the booking record for this cleaning task
       const cleaningRecord = cleaningData.find(r => r.id === selectedCleaningId);
       if (!cleaningRecord) {
         throw new Error("Cleaning record not found");
@@ -239,7 +247,19 @@ const CleaningManagement = () => {
         recordId: selectedCleaningId 
       });
 
-      // Update the cleaning record with the assigned cleaner and move to in-progress
+      // Optimistically update local state
+      const updatedData = cleaningData.map((record) =>
+        record.id === selectedCleaningId
+          ? { ...record, assignedCleaner: cleanerName, cleaningStatus: "in-progress" as const }
+          : record
+      );
+      setCleaningData(updatedData);
+      setShowAssignModal(false);
+      setCleanerName("");
+      setSelectedCleaningId(null);
+      setModalError(null);
+
+      // Then make the API call
       const response = await fetch(`/api/bookings/${cleaningRecord.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -256,14 +276,11 @@ const CleaningManagement = () => {
       if (!response.ok) {
         throw new Error(responseData.error || "Failed to assign cleaner");
       }
-      await fetchCleaningData();
-      setShowAssignModal(false);
-      setCleanerName("");
-      setSelectedCleaningId(null);
-      setModalError(null);
     } catch (err) {
       console.error("Error assigning cleaner:", err);
       setModalError(err instanceof Error ? err.message : "Failed to assign cleaner");
+      setShowAssignModal(true);
+      await fetchCleaningData();
     }
   };
 
@@ -435,7 +452,7 @@ const CleaningManagement = () => {
                             }}
                             className="p-2 rounded-md border border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-900/50 dark:text-blue-300 dark:hover:bg-blue-900/30 transition-colors"
                             aria-label="Assign cleaner"
-                            title="Assign Cleaner (Required before starting)"
+                            title="Assign Cleaner - Required before starting"
                           >
                             <UserPlus className="w-4 h-4" />
                             <span className="sr-only">Assign Cleaner</span>

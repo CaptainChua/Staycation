@@ -545,7 +545,7 @@ export const updateBookingStatus = async (
     }
 
     const updateFields: string[] = [];
-    const values: any[] = [];
+    const values: (string | number | boolean | null | object)[] = [];
     let i = 1;
 
     const pushField = (field: string, value: unknown) => {
@@ -603,8 +603,8 @@ export const updateBookingStatus = async (
 
     const query = `
       UPDATE booking
-      SET status = $1, rejection_reason = $2, updated_at = NOW()
-      WHERE id = $3
+      SET ${updateFields.join(", ")}, updated_at = NOW()
+      WHERE id = $${i}
       RETURNING *
     `;
 
@@ -808,7 +808,7 @@ export const getUserBookings = async (
       }
     }
 
-    query += ` GROUP BY b.id, h.tower, h.uuid_id, bp.total_amount, bp.down_payment, bp.remaining_balance, bp.payment_method, bp.room_rate, bp.security_deposit, bp.add_ons_total, bg.first_name, bg.last_name, bg.email ORDER BY b.created_at DESC`;
+    query += ` GROUP BY b.id, h.tower, h.uuid_id, bp.total_amount, bp.down_payment, bp.remaining_balance, bp.payment_method, bp.room_rate, bp.security_deposit, bp.add_ons_total, bg.first_name, bg.last_name, bg.email, bg.id ORDER BY b.created_at DESC`;
 
     const result = await pool.query(query, values);
     console.log(`✅ Retrieved ${result.rows.length} bookings for user ${userId}`);
