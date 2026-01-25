@@ -1,9 +1,317 @@
 import { NextRequest, NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
+import QRCode from 'qrcode';
+import jsPDF from 'jspdf';
+
+// Generate PDF receipt
+async function generateReceiptPDF(bookingData: Record<string, unknown>): Promise<Buffer> {
+  const qrCodeDataURL = await QRCode.toDataURL(bookingData.bookingId as string, {
+    width: 300,
+    margin: 1,
+    color: { dark: '#B8860B', light: '#FFFFFF' }
+  });
+
+  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const margin = 20;
+  const contentWidth = pageWidth - (margin * 2);
+
+  // Colors
+  const primaryColor: [number, number, number] = [184, 134, 11];
+  const primaryDark: [number, number, number] = [139, 101, 8];
+  const primarySoft: [number, number, number] = [245, 222, 179];
+  const white: [number, number, number] = [255, 255, 255];
+  const black: [number, number, number] = [33, 33, 33];
+  const gray: [number, number, number] = [107, 114, 128];
+  const lightGray: [number, number, number] = [249, 250, 251];
+  const green: [number, number, number] = [34, 139, 34];
+  const red: [number, number, number] = [220, 53, 69];
+
+  let yPos = margin;
+
+  // Header
+  pdf.setFillColor(...primaryColor);
+  pdf.rect(0, 0, pageWidth, 60, 'F');
+  pdf.setTextColor(...white);
+  pdf.setFontSize(10);
+  pdf.setFont('helvetica', 'normal');
+  pdf.text('STAYCATION', margin, 16);
+  pdf.setFontSize(26);
+  pdf.setFont('helvetica', 'bold');
+  pdf.text('Haven', margin, 28);
+  pdf.setFontSize(10);
+  pdf.setFont('helvetica', 'normal');
+  pdf.text('Your Perfect Getaway Awaits', margin, 38);
+
+  // QR Code
+  if (qrCodeDataURL) {
+    const qrSize = 32;
+    const qrX = pageWidth - margin - qrSize;
+    const qrY = 8;
+    pdf.setFillColor(...white);
+    pdf.roundedRect(qrX - 3, qrY - 3, qrSize + 6, qrSize + 6, 2, 2, 'F');
+    pdf.addImage(qrCodeDataURL, 'PNG', qrX, qrY, qrSize, qrSize);
+    pdf.setTextColor(...white);
+    pdf.setFontSize(7);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('SCAN FOR CHECK-IN', qrX + qrSize/2, qrY + qrSize + 8, { align: 'center' });
+  }
+
+  // Receipt badge
+  pdf.setFillColor(...white);
+  pdf.roundedRect(margin, 48, 45, 14, 2, 2, 'F');
+  pdf.setTextColor(...primaryColor);
+  pdf.setFontSize(8);
+  pdf.setFont('helvetica', 'bold');
+  pdf.text('OFFICIAL RECEIPT', margin + 22.5, 57, { align: 'center' });
+
+  yPos = 72;
+
+  // Receipt info bar
+  pdf.setFillColor(...lightGray);
+  pdf.rect(margin, yPos, contentWidth, 10, 'F');
+  pdf.setTextColor(...gray);
+  pdf.setFontSize(8);
+  pdf.setFont('helvetica', 'normal');
+  pdf.text(`Receipt #: ${bookingData.bookingId}`, margin + 4, yPos + 7);
+  pdf.text(`Date: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`, pageWidth - margin - 4, yPos + 7, { align: 'right' });
+
+  yPos += 18;
+
+  // Guest Information
+  pdf.setTextColor(...primaryDark);
+  pdf.setFontSize(10);
+  pdf.setFont('helvetica', 'bold');
+  pdf.text('GUEST INFORMATION', margin, yPos);
+  pdf.setDrawColor(...primaryColor);
+  pdf.setLineWidth(0.4);
+  pdf.line(margin, yPos + 1.5, margin + 40, yPos + 1.5);
+
+  yPos += 10;
+  const col1X = margin;
+  const col2X = pageWidth / 2 + 5;
+
+  pdf.setTextColor(...gray);
+  pdf.setFontSize(8);
+  pdf.setFont('helvetica', 'normal');
+  pdf.text('Guest Name', col1X, yPos);
+  pdf.setTextColor(...black);
+  pdf.setFontSize(10);
+  pdf.setFont('helvetica', 'bold');
+  pdf.text(`${bookingData.firstName} ${bookingData.lastName || ''}`, col1X, yPos + 5);
+
+  pdf.setTextColor(...gray);
+  pdf.setFontSize(8);
+  pdf.setFont('helvetica', 'normal');
+  pdf.text('Email Address', col2X, yPos);
+  pdf.setTextColor(...black);
+  pdf.setFontSize(10);
+  pdf.setFont('helvetica', 'bold');
+  pdf.text((bookingData.email as string) || 'N/A', col2X, yPos + 5);
+
+  yPos += 14;
+
+  pdf.setTextColor(...gray);
+  pdf.setFontSize(8);
+  pdf.setFont('helvetica', 'normal');
+  pdf.text('Phone Number', col1X, yPos);
+  pdf.setTextColor(...black);
+  pdf.setFontSize(10);
+  pdf.setFont('helvetica', 'bold');
+  pdf.text((bookingData.phone as string) || 'N/A', col1X, yPos + 5);
+
+  pdf.setTextColor(...gray);
+  pdf.setFontSize(8);
+  pdf.setFont('helvetica', 'normal');
+  pdf.text('Number of Guests', col2X, yPos);
+  pdf.setTextColor(...black);
+  pdf.setFontSize(10);
+  pdf.setFont('helvetica', 'bold');
+  pdf.text((bookingData.guests as string) || 'N/A', col2X, yPos + 5);
+
+  yPos += 16;
+
+  // Booking Details
+  pdf.setTextColor(...primaryDark);
+  pdf.setFontSize(10);
+  pdf.setFont('helvetica', 'bold');
+  pdf.text('BOOKING DETAILS', margin, yPos);
+  pdf.setDrawColor(...primaryColor);
+  pdf.line(margin, yPos + 1.5, margin + 38, yPos + 1.5);
+
+  yPos += 8;
+
+  pdf.setFillColor(...primarySoft);
+  pdf.roundedRect(margin, yPos, contentWidth, 32, 2, 2, 'F');
+
+  const cardPadding = 6;
+  const cardY = yPos + cardPadding;
+
+  pdf.setTextColor(...primaryDark);
+  pdf.setFontSize(8);
+  pdf.setFont('helvetica', 'bold');
+  pdf.text('ROOM', margin + cardPadding, cardY + 2);
+  pdf.setTextColor(...black);
+  pdf.setFontSize(11);
+  pdf.text((bookingData.roomName as string) || 'N/A', margin + cardPadding, cardY + 9);
+
+  if (bookingData.stayType) {
+    pdf.setTextColor(...gray);
+    pdf.setFontSize(7);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(bookingData.stayType as string, margin + cardPadding, cardY + 15);
+  }
+
+  const dividerX = margin + contentWidth/3;
+  pdf.setDrawColor(...primaryColor);
+  pdf.setLineWidth(0.2);
+  pdf.line(dividerX, yPos + 4, dividerX, yPos + 28);
+
+  pdf.setTextColor(...primaryDark);
+  pdf.setFontSize(8);
+  pdf.setFont('helvetica', 'bold');
+  pdf.text('CHECK-IN', dividerX + 8, cardY + 2);
+  pdf.setTextColor(...black);
+  pdf.setFontSize(10);
+  pdf.setFont('helvetica', 'normal');
+  pdf.text((bookingData.checkInDate as string) || 'N/A', dividerX + 8, cardY + 9);
+  if (bookingData.checkInTime) {
+    pdf.setTextColor(...gray);
+    pdf.setFontSize(8);
+    pdf.text(bookingData.checkInTime as string, dividerX + 8, cardY + 15);
+  }
+
+  const dividerX2 = margin + (contentWidth/3) * 2;
+  pdf.setDrawColor(...primaryColor);
+  pdf.line(dividerX2, yPos + 4, dividerX2, yPos + 28);
+
+  pdf.setTextColor(...primaryDark);
+  pdf.setFontSize(8);
+  pdf.setFont('helvetica', 'bold');
+  pdf.text('CHECK-OUT', dividerX2 + 8, cardY + 2);
+  pdf.setTextColor(...black);
+  pdf.setFontSize(10);
+  pdf.setFont('helvetica', 'normal');
+  pdf.text((bookingData.checkOutDate as string) || 'N/A', dividerX2 + 8, cardY + 9);
+  if (bookingData.checkOutTime) {
+    pdf.setTextColor(...gray);
+    pdf.setFontSize(8);
+    pdf.text(bookingData.checkOutTime as string, dividerX2 + 8, cardY + 15);
+  }
+
+  pdf.setTextColor(...gray);
+  pdf.setFontSize(7);
+  pdf.text(`Booking ID: ${bookingData.bookingId}`, margin + cardPadding, yPos + 26);
+
+  yPos += 40;
+
+  // Payment Summary
+  pdf.setTextColor(...primaryDark);
+  pdf.setFontSize(10);
+  pdf.setFont('helvetica', 'bold');
+  pdf.text('PAYMENT SUMMARY', margin, yPos);
+  pdf.setDrawColor(...primaryColor);
+  pdf.line(margin, yPos + 1.5, margin + 40, yPos + 1.5);
+
+  yPos += 8;
+
+  const rowHeight = 8;
+  pdf.setFillColor(...primaryColor);
+  pdf.rect(margin, yPos, contentWidth, rowHeight, 'F');
+  pdf.setTextColor(...white);
+  pdf.setFontSize(8);
+  pdf.setFont('helvetica', 'bold');
+  pdf.text('Description', margin + 4, yPos + 5.5);
+  pdf.text('Amount', pageWidth - margin - 4, yPos + 5.5, { align: 'right' });
+
+  yPos += rowHeight;
+
+  const totalAmount = Number(bookingData.totalAmount) || 0;
+  const downPayment = Number(bookingData.downPayment) || 0;
+  const remainingBalance = totalAmount - downPayment;
+
+  // Total row
+  pdf.setFillColor(...white);
+  pdf.rect(margin, yPos, contentWidth, rowHeight, 'F');
+  pdf.setTextColor(...black);
+  pdf.setFontSize(9);
+  pdf.setFont('helvetica', 'normal');
+  pdf.text('Total Amount', margin + 4, yPos + 5.5);
+  pdf.text(`₱${totalAmount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`, pageWidth - margin - 4, yPos + 5.5, { align: 'right' });
+  yPos += rowHeight;
+
+  // Down Payment row
+  pdf.setFillColor(...lightGray);
+  pdf.rect(margin, yPos, contentWidth, rowHeight, 'F');
+  pdf.setTextColor(...black);
+  pdf.text('Down Payment (Paid)', margin + 4, yPos + 5.5);
+  pdf.setTextColor(...green);
+  pdf.setFont('helvetica', 'bold');
+  pdf.text(`- ₱${downPayment.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`, pageWidth - margin - 4, yPos + 5.5, { align: 'right' });
+  yPos += rowHeight;
+
+  // Remaining Balance row
+  pdf.setFillColor(...white);
+  pdf.rect(margin, yPos, contentWidth, rowHeight, 'F');
+  pdf.setTextColor(...black);
+  pdf.setFont('helvetica', 'normal');
+  pdf.text('Remaining Balance (Due at Check-in)', margin + 4, yPos + 5.5);
+  const balanceColor = remainingBalance > 0 ? red : green;
+  pdf.setTextColor(balanceColor[0], balanceColor[1], balanceColor[2]);
+  pdf.setFont('helvetica', 'bold');
+  pdf.text(`₱${remainingBalance.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`, pageWidth - margin - 4, yPos + 5.5, { align: 'right' });
+  yPos += rowHeight + 2;
+
+  // Amount Paid box
+  pdf.setFillColor(...primarySoft);
+  pdf.roundedRect(margin, yPos, contentWidth, 16, 2, 2, 'F');
+  pdf.setTextColor(...primaryDark);
+  pdf.setFontSize(10);
+  pdf.setFont('helvetica', 'bold');
+  pdf.text('AMOUNT PAID', margin + 4, yPos + 10);
+  pdf.setTextColor(...primaryColor);
+  pdf.setFontSize(13);
+  pdf.text(`₱${downPayment.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`, pageWidth - margin - 4, yPos + 10, { align: 'right' });
+
+  yPos += 26;
+
+  // Important Notes
+  pdf.setFillColor(...lightGray);
+  pdf.roundedRect(margin, yPos, contentWidth, 28, 2, 2, 'F');
+  pdf.setTextColor(...primaryDark);
+  pdf.setFontSize(8);
+  pdf.setFont('helvetica', 'bold');
+  pdf.text('Important Notes:', margin + 4, yPos + 6);
+  pdf.setTextColor(...gray);
+  pdf.setFontSize(7);
+  pdf.setFont('helvetica', 'normal');
+  pdf.text('• Please present this receipt and a valid ID during check-in.', margin + 4, yPos + 12);
+  pdf.text('• Standard check-in: 2:00 PM | Standard check-out: 12:00 PM', margin + 4, yPos + 17);
+  pdf.text('• Security deposit will be refunded upon check-out if no damages.', margin + 4, yPos + 22);
+
+  // Footer
+  pdf.setDrawColor(...primaryColor);
+  pdf.setLineWidth(0.8);
+  pdf.line(margin, pageHeight - 22, pageWidth - margin, pageHeight - 22);
+  pdf.setTextColor(...primaryColor);
+  pdf.setFontSize(11);
+  pdf.setFont('helvetica', 'bold');
+  pdf.text('Thank you for choosing Staycation Haven!', pageWidth / 2, pageHeight - 15, { align: 'center' });
+  pdf.setTextColor(...gray);
+  pdf.setFontSize(7);
+  pdf.setFont('helvetica', 'normal');
+  pdf.text('This is a computer-generated receipt. No signature required.', pageWidth / 2, pageHeight - 9, { align: 'center' });
+
+  return Buffer.from(pdf.output('arraybuffer'));
+}
 
 export async function POST(request: NextRequest) {
   try {
     const bookingData = await request.json();
+
+    // Generate PDF receipt
+    const pdfBuffer = await generateReceiptPDF(bookingData);
 
     // Create transporter with your Gmail credentials
     const transporter = nodemailer.createTransport({
@@ -417,6 +725,20 @@ export async function POST(request: NextRequest) {
               </div>
             </div>
 
+            <!-- Receipt Attachment Notice -->
+            <div class="alert-box" style="background-color: #FEF3C7; border-left-color: #F59E0B;">
+              <div class="alert-title" style="color: #D97706;">
+                <i class="fas fa-file-pdf"></i>
+                <span>Your Booking Receipt is Attached</span>
+              </div>
+              <ul>
+                <li><strong>Please download and save the attached PDF receipt</strong></li>
+                <li><strong style="color: #B8860B;">IMPORTANT: Bring this receipt (printed or digital) when you check-in</strong></li>
+                <li>You will also need to present a valid government ID</li>
+                <li>The receipt contains your booking QR code for quick check-in</li>
+              </ul>
+            </div>
+
             <!-- Important Information -->
             <div class="alert-box">
               <div class="alert-title">
@@ -427,7 +749,7 @@ export async function POST(request: NextRequest) {
                 <li>Our team will review your booking request and payment proof</li>
                 <li>You will receive a confirmation email once your booking is approved</li>
                 <li>This usually takes 12-24 hours during business days</li>
-                <li>Keep this email for your records</li>
+                <li>Keep this email and the attached receipt for your records</li>
                 <li>If you have any questions, feel free to contact us</li>
                 <li>Please ensure your payment proof is clear and complete</li>
               </ul>
@@ -474,12 +796,19 @@ export async function POST(request: NextRequest) {
       </html>
     `;
 
-    // Send email
+    // Send email with PDF attachment
     const mailOptions = {
       from: `"Staycation Haven" <${process.env.EMAIL_USER}>`,
       to: bookingData.email,
       subject: `Booking Pending Approval - ${bookingData.bookingId}`,
       html: emailHtml,
+      attachments: [
+        {
+          filename: `Staycation-Receipt-${bookingData.bookingId}.pdf`,
+          content: pdfBuffer,
+          contentType: 'application/pdf',
+        },
+      ],
     };
 
     await transporter.sendMail(mailOptions);

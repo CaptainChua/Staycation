@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             line-height: 1.6;
             color: #1F2937;
-            background-color: #F9F6F0;
+            background-color: #F5DEB3;
             padding: 20px;
             min-height: 100vh;
           }
@@ -44,12 +44,12 @@ export async function POST(request: NextRequest) {
             background: #ffffff;
             border-radius: 12px;
             overflow: hidden;
-            box-shadow: 0 4px 20px rgba(184, 134, 11, 0.1);
-            border: 1px solid rgba(184, 134, 11, 0.1);
+            box-shadow: 0 4px 20px rgba(184, 134, 11, 0.15);
+            border: 1px solid rgba(184, 134, 11, 0.2);
           }
 
           .header {
-            background-color: #8B5CF6;
+            background: linear-gradient(135deg, #B8860B 0%, #8B6508 100%);
             color: #ffffff;
             padding: 40px 30px;
             text-align: center;
@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
 
           .thank-you-message {
             font-size: 28px;
-            color: #8B5CF6;
+            color: #B8860B;
             margin-bottom: 20px;
             font-weight: 700;
             font-family: 'Poppins', 'Inter', sans-serif;
@@ -107,24 +107,24 @@ export async function POST(request: NextRequest) {
           }
 
           .info-card {
-            background-color: #F5F3FF;
-            border-left: 4px solid #8B5CF6;
+            background-color: #F5DEB3;
+            border-left: 4px solid #B8860B;
             padding: 25px 30px;
             margin: 20px 0;
             border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(139, 92, 246, 0.08);
+            box-shadow: 0 2px 8px rgba(184, 134, 11, 0.15);
             transition: transform 0.2s ease;
           }
 
           .info-card:hover {
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.12);
+            box-shadow: 0 4px 12px rgba(184, 134, 11, 0.25);
           }
 
           .card-title {
             font-family: 'Poppins', 'Inter', sans-serif;
             font-size: 18px;
-            color: #7C3AED;
+            color: #8B6508;
             font-weight: 600;
             margin-bottom: 20px;
             display: flex;
@@ -137,7 +137,7 @@ export async function POST(request: NextRequest) {
             justify-content: space-between;
             align-items: center;
             padding: 12px 0;
-            border-bottom: 1px solid rgba(139, 92, 246, 0.1);
+            border-bottom: 1px solid rgba(184, 134, 11, 0.1);
           }
 
           .info-row:last-child {
@@ -202,6 +202,66 @@ export async function POST(request: NextRequest) {
             color: #059669;
           }
 
+          .qr-card {
+            background-color: #F0E68C;
+            border: 1px solid #DAA520;
+            padding: 30px;
+            margin: 30px 0;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(218, 165, 32, 0.15);
+          }
+
+          .qr-title {
+            font-family: 'Poppins', 'Inter', sans-serif;
+            font-size: 20px;
+            color: #8B6508;
+            font-weight: 600;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+          }
+
+          .qr-subtitle {
+            color: #B8860B;
+            font-size: 16px;
+            margin-bottom: 20px;
+            line-height: 1.6;
+          }
+
+          .qr-code {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            display: inline-block;
+            margin: 0 auto;
+            border: 2px solid #DAA520;
+          }
+
+          .download-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: linear-gradient(135deg, #B8860B 0%, #8B6508 100%);
+            color: white;
+            padding: 14px 35px;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 15px;
+            box-shadow: 0 4px 12px rgba(184, 134, 11, 0.3);
+            transition: all 0.3s ease;
+            margin: 20px 10px;
+          }
+
+          .download-button:hover {
+            background: linear-gradient(135deg, #8B6508 0%, #B8860B 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(184, 134, 11, 0.4);
+          }
+
           .feedback-card {
             background-color: #FEF3C7;
             border: 1px solid #F59E0B;
@@ -253,32 +313,32 @@ export async function POST(request: NextRequest) {
           }
 
           .come-back-card {
-            background-color: #E0E7FF;
-            border: 1px solid #818CF8;
+            background-color: #F5DEB3;
+            border: 1px solid #B8860B;
             padding: 30px;
             margin: 30px 0;
             border-radius: 8px;
             text-align: center;
-            box-shadow: 0 2px 8px rgba(129, 140, 248, 0.15);
+            box-shadow: 0 2px 8px rgba(184, 134, 11, 0.15);
           }
 
           .come-back-title {
             font-family: 'Poppins', 'Inter', sans-serif;
             font-size: 24px;
-            color: #4338CA;
+            color: #8B6508;
             font-weight: 700;
             margin-bottom: 15px;
           }
 
           .come-back-subtitle {
-            color: #6366F1;
+            color: #B8860B;
             font-size: 16px;
             font-weight: 500;
           }
 
           .footer {
-            background-color: #1F2937;
-            color: #D1D5DB;
+            background-color: #F5DEB3;
+            color: #8B6508;
             padding: 35px 30px;
             text-align: center;
           }
@@ -294,13 +354,13 @@ export async function POST(request: NextRequest) {
 
           .footer-divider {
             height: 1px;
-            background-color: #374151;
+            background-color: #B8860B;
             margin: 20px 0;
           }
 
           .footer-copyright {
             font-size: 13px;
-            color: #9CA3AF;
+            color: #8B6508;
             margin-top: 15px;
           }
 
@@ -399,52 +459,35 @@ export async function POST(request: NextRequest) {
               ` : ''}
             </div>
 
-            <!-- Payment Information -->
-            ${bookingData.remainingBalance > 0 ? `
-            <div class="payment-card">
-              <div class="payment-title payment-owed-title">
-                <i class="fas fa-credit-card"></i>
-                <span>Payment Notice</span>
+            <!-- QR Code Section -->
+            <div class="qr-card">
+              <div class="qr-title">
+                <i class="fas fa-qrcode"></i>
+                <span>Your Booking Reference QR Code</span>
               </div>
-              <p class="intro-text" style="margin: 0; color: #991B1B;">
-                You have a remaining balance of <strong style="color: #DC2626;">₱${bookingData.remainingBalance}</strong>.
-                Please settle this amount at your earliest convenience.
+              <p class="qr-subtitle">
+                Show this QR code at the reception for quick check-in on your next visit
               </p>
-            </div>
-            ` : `
-            <div class="payment-complete">
-              <div class="payment-title payment-complete-title">
-                <i class="fas fa-check-circle"></i>
-                <span>Payment Complete</span>
+              <div class="qr-code">
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(bookingData.bookingId)}&color=${encodeURIComponent('8B6508')}&bgcolor=${encodeURIComponent('FFFFFF')}" 
+                     alt="Booking QR Code" 
+                     style="width: 150px; height: 150px; border: 2px solid #DAA520; border-radius: 8px;">
+                <div style="margin-top: 10px; font-family: monospace; font-size: 14px; font-weight: bold; color: #8B6508;">
+                  ${bookingData.bookingId}
+                </div>
               </div>
-              <p class="intro-text" style="margin: 0; color: #065F46;">
-                All payments have been settled. Thank you for your prompt payment!
-              </p>
-            </div>
-            `}
-
-            <!-- Feedback Request -->
-            <div class="feedback-card">
-              <div class="feedback-title">
-                <i class="fas fa-star"></i>
-                <span>Share Your Experience</span>
-              </div>
-              <p class="feedback-subtitle">
-                We would love to hear about your stay! Your feedback helps us improve our service.
-              </p>
-              <a href="#" class="feedback-button">
-                <span>Leave a Review</span>
-                <i class="fas fa-arrow-right"></i>
-              </a>
-            </div>
-
-            <!-- Come Back Message -->
-            <div class="come-back-card">
-              <div class="come-back-title">
-                <i class="fas fa-heart"></i> We Hope to See You Again! <i class="fas fa-heart"></i>
-              </div>
-              <div class="come-back-subtitle">
-                Thank you for choosing Staycation Haven. Safe travels!
+              <div style="margin-top: 20px;">
+                <button class="download-button" onclick="fetchReceiptPDF()">
+                  <i class="fas fa-download"></i>
+                  <span>Download Receipt as PDF</span>
+                </button>
+                <a href="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(bookingData.bookingId)}&color=${encodeURIComponent('8B6508')}&bgcolor=${encodeURIComponent('FFFFFF')}" 
+                   class="download-button"
+                   download="qr-${bookingData.bookingId}.png"
+                   target="_blank">
+                  <i class="fas fa-mobile-alt"></i>
+                  <span>Save QR Code</span>
+                </a>
               </div>
             </div>
           </div>
@@ -471,6 +514,37 @@ export async function POST(request: NextRequest) {
             </div>
           </div>
         </div>
+
+        <script>
+          function fetchReceiptPDF() {
+            const bookingData = ${JSON.stringify(bookingData)};
+            
+            fetch(window.location.origin + '/api/generate-receipt-pdf', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(bookingData)
+            })
+            .then(response => response.json())
+            .then(data => {
+              if (data.success) {
+                const link = document.createElement('a');
+                link.href = data.pdfData;
+                link.download = 'receipt-${bookingData.bookingId}.pdf';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+              } else {
+                alert('Failed to generate PDF receipt');
+              }
+            })
+            .catch(error => {
+              console.error('Error generating PDF:', error);
+              alert('Error generating PDF receipt');
+            });
+          }
+        </script>
       </body>
       </html>
     `;

@@ -1001,7 +1001,6 @@ const Checkout = () => {
           : undefined;
         toast.error(errorMessage || 'An error occurred. Please try again or contact support.');
       }
-
     } catch (error) {
       setIsLoading(false);
       console.error('Booking error:', error);
