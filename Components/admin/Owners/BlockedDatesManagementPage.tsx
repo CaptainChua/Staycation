@@ -111,9 +111,7 @@ const BlockedDatesManagementPage = () => {
     useDeleteBlockedDateMutation();
 
   const blockedDates = blockedDatesData?.data || [];
-  const havens: Haven[] = Array.isArray(havensData)
-    ? havensData
-    : havensData?.data || [];
+  const havens: Haven[] = (havensData as Haven[]) || [];
 
   // Get unique havens for filter dropdown
   const uniqueHavens = Array.from(
