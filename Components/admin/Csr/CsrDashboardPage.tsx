@@ -592,7 +592,6 @@ export default function CsrDashboard() {
 
       {messageModalOpen && (
         <MessageModal
-          isOpen={messageModalOpen}
           onClose={() => setMessageModalOpen(false)}
           conversations={headerConversationsData?.data || []}
           employeeNameById={employeeNameById}
