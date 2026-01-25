@@ -22,49 +22,89 @@ export async function PATCH(request: NextRequest, { params }: RouteContext): Pro
   try {
     const { id } = await params;
     const body = await request.json();
-    const { cleaning_status, assigned_to } = body;
+    const { cleaning_status, assigned_to, cleaned_at, inspected_at, cleaning_time_in } = body;
 
-    if (!id || !cleaning_status) {
+    if (!id) {
       return NextResponse.json(
         {
           success: false,
-          error: "Booking ID and cleaning_status are required",
+          error: "Booking ID is required",
         },
         { status: 400 }
       );
     }
 
-    const validStatuses = ["pending", "in-progress", "cleaned", "inspected"];
-    if (!validStatuses.includes(cleaning_status)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid cleaning status",
-        },
-        { status: 400 }
-      );
+    // If cleaning_status is provided, validate it
+    if (cleaning_status) {
+      const validStatuses = ["pending", "in-progress", "cleaned", "inspected"];
+      if (!validStatuses.includes(cleaning_status)) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Invalid cleaning status",
+          },
+          { status: 400 }
+        );
+      }
     }
 
-    let query: string;
-    let params_arr: any[];
+    // Update the booking_cleaning table instead of bookings
+    let query = `
+      UPDATE booking_cleaning
+      SET
+    `;
+    const updateFields: string[] = [];
+    const params_arr: any[] = [];
+    let paramCount = 1;
+
+    if (cleaning_status !== undefined) {
+      updateFields.push(`cleaning_status = $${paramCount}`);
+      params_arr.push(cleaning_status);
+      paramCount++;
+    }
 
     if (assigned_to !== undefined) {
-      query = `
-        UPDATE bookings
-        SET cleaning_status = $1, assigned_to = $2, updated_at = NOW()
-        WHERE id = $3
-        RETURNING *
-      `;
-      params_arr = [cleaning_status, assigned_to, id];
-    } else {
-      query = `
-        UPDATE bookings
-        SET cleaning_status = $1, updated_at = NOW()
-        WHERE id = $2
-        RETURNING *
-      `;
-      params_arr = [cleaning_status, id];
+      updateFields.push(`assigned_to = $${paramCount}`);
+      params_arr.push(assigned_to);
+      paramCount++;
     }
+
+    if (cleaning_time_in !== undefined) {
+      updateFields.push(`cleaning_time_in = $${paramCount}`);
+      params_arr.push(cleaning_time_in);
+      paramCount++;
+    }
+
+    if (cleaned_at !== undefined) {
+      updateFields.push(`cleaned_at = $${paramCount}`);
+      params_arr.push(cleaned_at);
+      paramCount++;
+    }
+
+    if (inspected_at !== undefined) {
+      updateFields.push(`inspected_at = $${paramCount}`);
+      params_arr.push(inspected_at);
+      paramCount++;
+    }
+
+    if (updateFields.length === 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "No fields to update",
+        },
+        { status: 400 }
+      );
+    }
+
+    query += updateFields.join(", ");
+    query += ` WHERE booking_id = $${paramCount}
+      RETURNING *
+    `;
+    params_arr.push(id);
+
+    console.log("Executing query:", query);
+    console.log("With params:", params_arr);
 
     const result = await pool.query(query, params_arr);
 
@@ -72,25 +112,27 @@ export async function PATCH(request: NextRequest, { params }: RouteContext): Pro
       return NextResponse.json(
         {
           success: false,
-          error: "Booking not found",
+          error: "Cleaning record not found for this booking",
         },
         { status: 404 }
       );
     }
 
+    console.log("Update successful:", result.rows[0]);
+
     return NextResponse.json(
       {
         success: true,
-        booking: result.rows[0],
+        data: result.rows[0],
       },
       { status: 200 }
     );
   } catch (error) {
-    console.error("Error updating cleaning status:", error);
+    console.error("Error updating cleaning record:", error);
     return NextResponse.json(
       {
         success: false,
-        error: "Failed to update cleaning status",
+        error: error instanceof Error ? error.message : "Failed to update cleaning record",
       },
       { status: 500 }
     );
