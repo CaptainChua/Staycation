@@ -21,6 +21,7 @@ import {
   MessageCircle,
   LayoutGrid,
   Sparkles,
+  Calendar,
 } from "lucide-react";
 import Image from "next/image";
 import { useState, useEffect } from "react";
@@ -36,6 +37,13 @@ import AmenityBadge from "./AmenityBadge";
 import RoomCard from "./RoomCard";
 import dynamic from "next/dynamic";
 import Footer from "../Footer";
+import DateRangePicker from "../HeroSection/DateRangePicker";
+import GuestSelector from "../HeroSection/GuestSelector";
+import {
+  setCheckInDate as setReduxCheckInDate,
+  setCheckOutDate as setReduxCheckOutDate,
+  setGuests as setReduxGuests,
+} from '@/redux/slices/bookingSlice'
 
 // Define proper type for session user
 interface SessionUser {
@@ -105,6 +113,15 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [showAllReviews, setShowAllReviews] = useState(false);
   const [activeTab, setActiveTab] = useState<"overview" | "amenities" | "location" | "reviews">("overview");
+  
+  // Local state for date and guest selection
+  const [localCheckInDate, setLocalCheckInDate] = useState(bookingData.checkInDate || "");
+  const [localCheckOutDate, setLocalCheckOutDate] = useState(bookingData.checkOutDate || "");
+  const [localGuests, setLocalGuests] = useState(bookingData.guests || {
+    adults: 1,
+    children: 0,
+    infants: 0,
+  });
 
   // Type-safe user id extraction
   const userId = (session?.user as SessionUser)?.id || null;
@@ -120,6 +137,41 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
   // Fetch reviews for this haven
   const { data: reviewsResponse, isLoading: isLoadingReviews } = useGetHavenReviewsQuery({ haven_id: room.id });
   const reviewsData = reviewsResponse?.success ? reviewsResponse : { reviews: [], total: 0, hasMore: false };
+
+  // Initialize local state with booking data when component mounts or booking data changes
+  useEffect(() => {
+    if (bookingData.checkInDate) setLocalCheckInDate(bookingData.checkInDate);
+    if (bookingData.checkOutDate) setLocalCheckOutDate(bookingData.checkOutDate);
+    if (bookingData.guests) setLocalGuests(bookingData.guests);
+  }, [bookingData.checkInDate, bookingData.checkOutDate, bookingData.guests]);
+
+  // Handle click outside to close dropdowns
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      const dateDropdown = document.getElementById('mobile-date-dropdown');
+      const guestDropdown = document.getElementById('mobile-guest-dropdown');
+      
+      // Check if click is outside both dropdowns and not on the trigger buttons
+      if (dateDropdown && !dateDropdown.contains(target) && 
+          guestDropdown && !guestDropdown.contains(target) &&
+          !target.closest('[data-dropdown-trigger="date"]') &&
+          !target.closest('[data-dropdown-trigger="guest"]')) {
+        
+        // Hide both dropdowns
+        dateDropdown.classList.add('hidden');
+        guestDropdown.classList.add('hidden');
+      }
+    };
+
+    // Add event listener when component mounts
+    document.addEventListener('mousedown', handleClickOutside);
+    
+    // Clean up event listener when component unmounts
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   // Handle wishlist errors - log only, no toast notifications
   useEffect(() => {
@@ -200,6 +252,11 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
   };
 
   const handleBookNow = () => {
+    // Update Redux store with current selections
+    dispatch(setReduxCheckInDate(localCheckInDate));
+    dispatch(setReduxCheckOutDate(localCheckOutDate));
+    dispatch(setReduxGuests(localGuests));
+    
     dispatch(
       setSelectedRoom({
         id: room.id,
@@ -211,6 +268,13 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
       })
     );
     router.push("/checkout");
+  };
+
+  const handleGuestChange = (type: keyof typeof localGuests, value: number) => {
+    setLocalGuests((prev) => ({
+      ...prev,
+      [type]: value,
+    }));
   };
 
   const handleShare = async () => {
@@ -429,7 +493,7 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
                       </div>
                       <div>
                         <p className="text-sm font-medium text-gray-900 dark:text-white">{room.beds}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Sleeping</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Bed</p>
                       </div>
                     </div>
                   )}
@@ -740,7 +804,7 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
 
             {/* Right Column - Booking Card (Desktop) */}
             <div className="hidden lg:block">
-              <div className="sticky top-32">
+              <div className="sticky top-32" data-booking-card>
                 <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6">
                   {/* Price */}
                   <div className="flex items-baseline gap-1 mb-4">
@@ -755,27 +819,57 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
                     <span className="text-gray-500 dark:text-gray-400">({reviewsData?.total || room.reviews} reviews)</span>
                   </div>
 
+                  {/* Date and Guest Selection */}
+                  <div className="space-y-3 mb-6">
+                    {/* Date Range Picker */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Select Dates
+                      </label>
+                      <DateRangePicker
+                        checkInDate={localCheckInDate}
+                        checkOutDate={localCheckOutDate}
+                        onCheckInChange={setLocalCheckInDate}
+                        onCheckOutChange={setLocalCheckOutDate}
+                      />
+                    </div>
+                    
+                    {/* Guest Selector */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Number of Guests
+                      </label>
+                      <GuestSelector
+                        guests={localGuests}
+                        onGuestChange={handleGuestChange}
+                      />
+                    </div>
+                  </div>
+
                   {/* Booking Info */}
-                  {bookingData.isFromSearch && (
-                    <div className="border border-gray-200 dark:border-gray-700 rounded-lg mb-4 overflow-hidden">
-                      <div className="grid grid-cols-2 divide-x divide-gray-200 dark:divide-gray-700">
-                        <div className="p-3">
+                  {bookingData.isFromSearch && (localCheckInDate || localCheckOutDate) && (
+                    <div className="border border-gray-200 dark:border-gray-700 rounded-lg mb-4 p-3 bg-gray-50 dark:bg-gray-700/50">
+                      <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
+                        Previously selected from search:
+                      </p>
+                      <div className="grid grid-cols-2 divide-x divide-gray-200 dark:divide-gray-600">
+                        <div className="p-2">
                           <p className="text-[10px] uppercase tracking-wider text-gray-500 dark:text-gray-400">Check-in</p>
                           <p className="text-sm font-medium text-gray-900 dark:text-white">
-                            {bookingData.checkInDate ? formatDateSafe(bookingData.checkInDate, { month: 'short', day: 'numeric' }) : 'Select date'}
+                            {localCheckInDate ? formatDateSafe(localCheckInDate, { month: 'short', day: 'numeric' }) : 'Select date'}
                           </p>
                         </div>
-                        <div className="p-3">
+                        <div className="p-2">
                           <p className="text-[10px] uppercase tracking-wider text-gray-500 dark:text-gray-400">Check-out</p>
                           <p className="text-sm font-medium text-gray-900 dark:text-white">
-                            {bookingData.checkOutDate ? formatDateSafe(bookingData.checkOutDate, { month: 'short', day: 'numeric' }) : 'Select date'}
+                            {localCheckOutDate ? formatDateSafe(localCheckOutDate, { month: 'short', day: 'numeric' }) : 'Select date'}
                           </p>
                         </div>
                       </div>
-                      <div className="border-t border-gray-200 dark:border-gray-700 p-3">
+                      <div className="border-t border-gray-200 dark:border-gray-600 p-2 mt-2">
                         <p className="text-[10px] uppercase tracking-wider text-gray-500 dark:text-gray-400">Guests</p>
                         <p className="text-sm font-medium text-gray-900 dark:text-white">
-                          {bookingData.guests ? `${bookingData.guests.adults + (bookingData.guests.children || 0)} guests` : 'Select guests'}
+                          {localGuests.adults + localGuests.children + localGuests.infants} guests
                         </p>
                       </div>
                     </div>
@@ -860,27 +954,135 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
         </div>
       </div>
 
+      {/* Mobile Dropdown Container - Appears at Top */}
+      <div className="lg:hidden fixed top-20 left-0 right-0 z-50 px-4 py-2">
+        {/* Date Dropdown */}
+        <div id="mobile-date-dropdown" className="hidden bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-4 mb-2">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Select Dates</h3>
+            <button 
+              onClick={() => {
+                const dropdown = document.getElementById('mobile-date-dropdown');
+                dropdown?.classList.add('hidden');
+              }}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+            >
+              <X className="w-5 h-5 text-gray-500" />
+            </button>
+          </div>
+          <DateRangePicker
+            checkInDate={localCheckInDate}
+            checkOutDate={localCheckOutDate}
+            onCheckInChange={setLocalCheckInDate}
+            onCheckOutChange={setLocalCheckOutDate}
+          />
+        </div>
+
+        {/* Guest Dropdown */}
+        <div id="mobile-guest-dropdown" className="hidden bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-4">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Number of Guests</h3>
+            <button 
+              onClick={() => {
+                const dropdown = document.getElementById('mobile-guest-dropdown');
+                dropdown?.classList.add('hidden');
+              }}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+            >
+              <X className="w-5 h-5 text-gray-500" />
+            </button>
+          </div>
+          <GuestSelector
+            guests={localGuests}
+            onGuestChange={handleGuestChange}
+          />
+        </div>
+      </div>
+
       {/* Mobile Bottom Bar */}
       <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-4 py-3 z-40">
-        <div className="flex flex-col items-center gap-2 max-w-7xl mx-auto">
-          <div className="flex items-center gap-3">
-            <div className="flex items-baseline gap-1">
-              <span className="text-lg font-bold text-gray-900 dark:text-white">{room.price}</span>
-              <span className="text-sm text-gray-500 dark:text-gray-400">/ {room.pricePerNight}</span>
+        <div className="flex flex-col gap-3 max-w-7xl mx-auto">
+          {/* Price and Rating */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex items-baseline gap-1">
+                <span className="text-lg font-bold text-gray-900 dark:text-white">{room.price}</span>
+                <span className="text-sm text-gray-500 dark:text-gray-400">/ {room.pricePerNight}</span>
+              </div>
+              <div className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
+                <Star className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400" />
+                <span>{room.rating}</span>
+              </div>
             </div>
-            <span className="text-gray-300 dark:text-gray-600">|</span>
-            <div className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
-              <Star className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400" />
-              <span>{room.rating}</span>
-            </div>
-            <span className="text-gray-300 dark:text-gray-600">|</span>
             <span className="text-xs text-brand-primary font-medium">₱500 down payment</span>
           </div>
+          
+          {/* Date and Guest Selection Buttons */}
+          <div className="grid grid-cols-2 gap-2">
+            {/* Date Button */}
+            <button
+              data-dropdown-trigger="date"
+              onClick={() => {
+                // Close guest dropdown if open
+                const guestDropdown = document.getElementById('mobile-guest-dropdown');
+                guestDropdown?.classList.add('hidden');
+                
+                // Toggle date dropdown
+                const dateDropdown = document.getElementById('mobile-date-dropdown');
+                dateDropdown?.classList.toggle('hidden');
+              }}
+              className="flex items-center gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:border-brand-primary transition-colors"
+            >
+              <Calendar className="w-4 h-4 text-gray-500" />
+              <div className="flex-1 text-left">
+                <p className="text-xs text-gray-500 dark:text-gray-400">Dates</p>
+                <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                  {localCheckInDate && localCheckOutDate 
+                    ? `${formatDateSafe(localCheckInDate, { month: 'short', day: 'numeric' })} - ${formatDateSafe(localCheckOutDate, { month: 'short', day: 'numeric' })}`
+                    : localCheckInDate 
+                    ? formatDateSafe(localCheckInDate, { month: 'short', day: 'numeric' })
+                    : 'Add dates'
+                  }
+                </p>
+              </div>
+            </button>
+            
+            {/* Guest Button */}
+            <button
+              data-dropdown-trigger="guest"
+              onClick={() => {
+                // Close date dropdown if open
+                const dateDropdown = document.getElementById('mobile-date-dropdown');
+                dateDropdown?.classList.add('hidden');
+                
+                // Toggle guest dropdown
+                const guestDropdown = document.getElementById('mobile-guest-dropdown');
+                guestDropdown?.classList.toggle('hidden');
+              }}
+              className="flex items-center gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:border-brand-primary transition-colors"
+            >
+              <Users className="w-4 h-4 text-gray-500" />
+              <div className="flex-1 text-left">
+                <p className="text-xs text-gray-500 dark:text-gray-400">Guests</p>
+                <p className="text-sm font-medium text-gray-900 dark:text-white">
+                  {localGuests.adults + localGuests.children + localGuests.infants} guests
+                </p>
+              </div>
+            </button>
+          </div>
+          
+          {/* Booking Info from Search */}
+          {bookingData.isFromSearch && (localCheckInDate || localCheckOutDate) && (
+            <div className="text-xs text-blue-600 dark:text-blue-400 text-center">
+              📅 Previously selected from search
+            </div>
+          )}
+          
           <button
             onClick={handleBookNow}
-            className="w-1/2 py-2.5 bg-brand-primary hover:bg-brand-primaryDark text-white font-semibold rounded-lg shadow-md"
+            className="w-full py-2.5 bg-brand-primary hover:bg-brand-primaryDark text-white font-semibold rounded-lg shadow-md"
           >
-            Book
+            Book Now
           </button>
         </div>
       </div>
