@@ -1,6 +1,6 @@
 "use client";
 
-import { LogOut, Menu, X, Home, Users, MessageSquare, Settings, Bell, UserCircle, ChevronDown, BarChart3, Calendar, DollarSign, Wrench, Star, Shield, TrendingUp, TrendingDown, Building2, Sparkles, Headphones } from "lucide-react";
+import { LogOut, Menu, X, Home, Users, MessageSquare, Settings, Bell, UserCircle, ChevronDown, BarChart3, Calendar, DollarSign, Wrench, Star, Shield, TrendingUp, TrendingDown, Building2, Sparkles, Headphones, CalendarOff, UsersRound } from "lucide-react";
 import DashboardPage, { Haven } from "./DashboardPage";
 import GuestAssistancePage from "./GuestAssistancePage";
 import AddUnitModal from "./Modals/AddUnitModal";
@@ -25,6 +25,8 @@ import SettingsPage from "./SettingsPage";
 import AuditLogsPage from "./AuditLogsPage";
 import MessagesPage from "./MessagesPage";
 import RoomManagement from "./CleaningManagement";
+import BlockedDatesManagementPage from "./BlockedDatesManagementPage";
+import UserManagementPage from "./UserManagementPage";
 import AdminFooter from "../AdminFooter";
 import toast from 'react-hot-toast';
 import { useState, useEffect, useRef, useMemo } from "react";
@@ -341,79 +343,57 @@ export default function OwnerDashboard() {
     }
   }
 
-  const navItems = [
-    { id: "dashboard", icon: Home, label: "Dashboard", color: "text-blue-500" },
+  // Navigation items organized by category for better discoverability
+  const navCategories = [
     {
-      id: "analytics",
-      icon: BarChart3,
-      label: "Analytics & Reports",
-      color: "text-cyan-500",
+      category: "Overview",
+      items: [
+        { id: "dashboard", icon: Home, label: "Dashboard", color: "text-blue-500" },
+        { id: "analytics", icon: BarChart3, label: "Analytics & Reports", color: "text-cyan-500" },
+      ],
     },
     {
-      id: "reservations",
-      icon: Calendar,
-      label: "Reservations",
-      color: "text-indigo-500",
+      category: "Bookings",
+      items: [
+        { id: "reservations", icon: Calendar, label: "Reservations", color: "text-indigo-500" },
+        { id: "blockedDates", icon: CalendarOff, label: "Blocked Dates", color: "text-red-500" },
+      ],
     },
     {
-      id: "guest",
-      icon: Headphones,
-      label: "Guest Assistance",
-      color: "text-pink-500",
+      category: "Property",
+      items: [
+        { id: "havens", icon: Building2, label: "Haven Management", color: "text-purple-500" },
+        { id: "maintenance", icon: Wrench, label: "Maintenance", color: "text-amber-500" },
+        { id: "roomManagement", icon: Sparkles, label: "Cleaning Management", color: "text-orange-500" },
+      ],
     },
     {
-      id: "havens",
-      icon: Home,
-      label: "Haven Management",
-      color: "text-purple-500",
+      category: "Finance",
+      items: [
+        { id: "revenue", icon: DollarSign, label: "Revenue Management", color: "text-emerald-500" },
+      ],
     },
     {
-      id: "maintenance",
-      icon: Wrench,
-      label: "Maintenance",
-      color: "text-amber-500",
+      category: "Communication",
+      items: [
+        { id: "guest", icon: Headphones, label: "Guest Assistance", color: "text-pink-500" },
+        { id: "messages", icon: MessageSquare, label: "Messages", color: "text-green-500" },
+        { id: "reviews", icon: Star, label: "Reviews & Feedback", color: "text-yellow-500" },
+      ],
     },
     {
-      id: "roomManagement",
-      icon: Sparkles,
-      label: "Cleaning Management",
-      color: "text-orange-500",
+      category: "Team",
+      items: [
+        { id: "staff", icon: Users, label: "Staff Management", color: "text-brand-primary" },
+        { id: "userManagement", icon: UsersRound, label: "User Management", color: "text-teal-500" },
+      ],
     },
     {
-      id: "reviews",
-      icon: Star,
-      label: "Reviews & Feedback",
-      color: "text-yellow-500",
-    },
-    {
-      id: "revenue",
-      icon: DollarSign,
-      label: "Revenue Management",
-      color: "text-emerald-500",
-    },
-    {
-      id: "messages",
-      icon: MessageSquare,
-      label: "Messages",
-      color: "text-green-500",
-    },
-    {
-      id: "staff",
-      icon: Users,
-      label: "Staff Management",
-      color: "text-brand-primary",
-    },
-    {
-      id: "settings",
-      icon: Settings,
-      label: "Settings",
-      color: "text-gray-500",
-    },
-    {
-      id: "audit",
-      icon: Shield,
-      label: "Audit Logs",
-      color: "text-red-500",
+      category: "System",
+      items: [
+        { id: "settings", icon: Settings, label: "Settings", color: "text-gray-500" },
+        { id: "audit", icon: Shield, label: "Audit Logs", color: "text-rose-500" },
+      ],
     },
   ];
 
@@ -495,41 +475,56 @@ export default function OwnerDashboard() {
         </div>
 
         {/* Navigation */}
-        <nav className={`flex-1 p-4 space-y-2 overflow-y-auto ${
-          !sidebar 
-            ? "[&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]" 
+        <nav className={`flex-1 p-4 space-y-1 overflow-y-auto ${
+          !sidebar
+            ? "[&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
             : ""
         }`}>
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <button
-                key={item.id}
-                onClick={() => {
-                  setPage(item.id);
-                  setMobileMenuOpen(false);
-                }}
-                className={`w-full flex items-center ${sidebar ? "gap-4 px-4" : "justify-center px-2"} py-3.5 rounded-xl transition-all duration-200 group ${
-                  page === item.id
-                    ? "bg-brand-primary text-white shadow-lg shadow-md"
-                    : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:shadow-md"
-                }`}
-              >
-                <Icon
-                  className={`w-5 h-5 ${
-                    page === item.id
-                      ? "text-white"
-                      : `${item.color} group-hover:scale-110 transition-transform`
-                  }`}
-                />
-                {sidebar && (
-                  <span className="text-sm font-semibold truncate">
-                    {item.label}
+          {navCategories.map((category, categoryIndex) => (
+            <div key={category.category} className={categoryIndex > 0 ? "pt-2" : ""}>
+              {/* Category Header - only show when sidebar is expanded */}
+              {sidebar && (
+                <div className="px-3 py-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                    {category.category}
                   </span>
-                )}
-              </button>
-            );
-          })}
+                </div>
+              )}
+              {/* Category Items */}
+              <div className="space-y-1">
+                {category.items.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        setPage(item.id);
+                        setMobileMenuOpen(false);
+                      }}
+                      className={`w-full flex items-center ${sidebar ? "gap-4 px-4" : "justify-center px-2"} py-3 rounded-xl transition-all duration-200 group ${
+                        page === item.id
+                          ? "bg-brand-primary text-white shadow-lg shadow-md"
+                          : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:shadow-md"
+                      }`}
+                    >
+                      <Icon
+                        className={`w-5 h-5 ${
+                          page === item.id
+                            ? "text-white"
+                            : `${item.color} group-hover:scale-110 transition-transform`
+                        }`}
+                      />
+                      {sidebar && (
+                        <span className="text-sm font-semibold truncate">
+                          {item.label}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
 
         {/* User Profile & Logout */}
@@ -816,6 +811,8 @@ export default function OwnerDashboard() {
                 <ViewAllUnits onAddUnitClick={() => openModal("addHaven")} hideHeader={true} />
               </div>
             )}
+            {page === "blockedDates" && <BlockedDatesManagementPage />}
+            {page === "userManagement" && <UserManagementPage />}
             {page === "analytics" && <AnalyticsPage />}
             {page === "reservations" && <ReservationsPage />}
             {page === "revenue" && <RevenueManagementPage />}
