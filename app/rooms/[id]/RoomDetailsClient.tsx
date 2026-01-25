@@ -50,42 +50,58 @@ export default function RoomDetailsClient({ room: haven, recommendedRooms = [] }
     return <RoomDetailsSkeleton />;
   }
 
-  // Helper function to transform haven data to room format
-  const transformHavenToRoom = (havenData: HavenData) => ({
-    id: havenData.uuid_id,
-    uuid_id: havenData.uuid_id,
-    name: havenData.haven_name,
-    price: `₱${havenData.six_hour_rate}`,
-    pricePerNight: 'per night',
-    images: havenData.images?.map((img) => img.url) ?? [],
-    rating: havenData.rating ?? 4.5,
-    reviews: havenData.review_count ?? 0,
-    capacity: havenData.capacity,
-    amenities: Object.entries(havenData.amenities || {})
-      .filter(([, value]) => value === true)
-      .map(([key]) => key),
-    description: havenData.description,
-    fullDescription: havenData.full_description || havenData.description,
-    beds: havenData.beds,
-    roomSize: havenData.room_size,
-    location: havenData.location,
-    tower: havenData.tower,
-    floor: havenData.floor,
-    photoTour: havenData.photo_tours
-      ? havenData.photo_tours.reduce((acc: Record<string, string[]>, item) => {
-          acc[item.category] = acc[item.category] || [];
-          acc[item.category].push(item.url);
-          return acc;
-        }, {} as Record<string, string[]>)
-      : {},
-    youtubeUrl: havenData.youtube_url,
-  });
+  // Debug logging
+  console.log("🏠 Room data received:", haven);
+  console.log("🖼️ Raw images data:", haven.images);
+  console.log("🖼️ Mapped images:", haven.images?.map((img: any) => img.url) ?? []);
 
   // Transform haven data to room format expected by RoomsDetailsPage
-  const room = transformHavenToRoom(haven);
+  const room = {
+    id: haven.uuid_id,
+    uuid_id: haven.uuid_id,
+    name: haven.haven_name,
+    price: `₱${haven.six_hour_rate}`,
+    pricePerNight: 'per night',
+    images: haven.images?.map((img: any) => img.url) ?? [],
+    rating: haven.rating ?? 4.5,
+    reviews: haven.review_count ?? 0,
+    capacity: haven.capacity,
+    amenities: Object.entries(haven.amenities || {})
+      .filter(([, value]) => value === true)
+      .map(([key]) => key),
+    description: haven.description,
+    fullDescription: haven.full_description || haven.description,
+    beds: haven.beds,
+    roomSize: haven.room_size,
+    location: haven.location,
+    tower: haven.tower,
+    floor: haven.floor,
+    photoTour: haven.photo_tours
+  };
 
   // Transform recommended rooms
-  const recommendations = recommendedRooms.map(transformHavenToRoom);
+  const recommendations = recommendedRooms.map((rec) => ({
+    id: rec.uuid_id,
+    uuid_id: rec.uuid_id,
+    name: rec.haven_name,
+    price: `₱${rec.six_hour_rate}`,
+    pricePerNight: 'per night',
+    images: rec.images?.map((img: any) => img.url) ?? [],
+    rating: rec.rating ?? 4.5,
+    reviews: rec.review_count ?? 0,
+    capacity: rec.capacity,
+    amenities: Object.entries(rec.amenities || {})
+      .filter(([, value]) => value === true)
+      .map(([key]) => key),
+    description: rec.description,
+    fullDescription: rec.full_description || rec.description,
+    beds: rec.beds,
+    roomSize: rec.room_size,
+    location: rec.location,
+    tower: rec.tower,
+    floor: rec.floor,
+    photoTour: rec.photo_tours
+  }));
 
   return <RoomsDetailsPage room={room} onBack={handleBack} recommendedRooms={recommendations} />;
 }
