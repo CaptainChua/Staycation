@@ -53,7 +53,22 @@ export default function RoomDetailsClient({ room: haven, recommendedRooms = [] }
   // Debug logging
   console.log("🏠 Room data received:", haven);
   console.log("🖼️ Raw images data:", haven.images);
-  console.log("🖼️ Mapped images:", haven.images?.map((img: any) => img.url) ?? []);
+  console.log("🖼️ Mapped images:", haven.images?.map((img: { url: string }) => img.url) ?? []);
+
+  // Transform photo_tours array to photoTour object format
+  const transformPhotoTours = (photoTours?: Array<{ category: string; url: string }>) => {
+    if (!photoTours || photoTours.length === 0) return undefined;
+
+    const photoTourObj: Record<string, string[]> = {};
+    photoTours.forEach(({ category, url }) => {
+      const key = category.toLowerCase().replace(/\s+/g, '');
+      if (!photoTourObj[key]) {
+        photoTourObj[key] = [];
+      }
+      photoTourObj[key].push(url);
+    });
+    return photoTourObj;
+  };
 
   // Transform haven data to room format expected by RoomsDetailsPage
   const room = {
@@ -62,7 +77,7 @@ export default function RoomDetailsClient({ room: haven, recommendedRooms = [] }
     name: haven.haven_name,
     price: `₱${haven.six_hour_rate}`,
     pricePerNight: 'per night',
-    images: haven.images?.map((img: any) => img.url) ?? [],
+    images: haven.images?.map((img: { url: string }) => img.url) ?? [],
     rating: haven.rating ?? 4.5,
     reviews: haven.review_count ?? 0,
     capacity: haven.capacity,
@@ -76,7 +91,7 @@ export default function RoomDetailsClient({ room: haven, recommendedRooms = [] }
     location: haven.location,
     tower: haven.tower,
     floor: haven.floor,
-    photoTour: haven.photo_tours
+    photoTour: transformPhotoTours(haven.photo_tours)
   };
 
   // Transform recommended rooms
@@ -86,7 +101,7 @@ export default function RoomDetailsClient({ room: haven, recommendedRooms = [] }
     name: rec.haven_name,
     price: `₱${rec.six_hour_rate}`,
     pricePerNight: 'per night',
-    images: rec.images?.map((img: any) => img.url) ?? [],
+    images: rec.images?.map((img: { url: string }) => img.url) ?? [],
     rating: rec.rating ?? 4.5,
     reviews: rec.review_count ?? 0,
     capacity: rec.capacity,
@@ -100,7 +115,7 @@ export default function RoomDetailsClient({ room: haven, recommendedRooms = [] }
     location: rec.location,
     tower: rec.tower,
     floor: rec.floor,
-    photoTour: rec.photo_tours
+    photoTour: transformPhotoTours(rec.photo_tours)
   }));
 
   return <RoomsDetailsPage room={room} onBack={handleBack} recommendedRooms={recommendations} />;
