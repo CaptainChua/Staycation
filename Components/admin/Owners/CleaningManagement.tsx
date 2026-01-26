@@ -83,6 +83,10 @@ const CleaningManagement = () => {
   const [roomStatusFilter, setRoomStatusFilter] = useState<"all" | "occupied" | "available" | "checkout-pending">("all");
   const [cleaningStatusFilter, setCleaningStatusFilter] = useState<"all" | "pending" | "in-progress" | "cleaned" | "inspected">("all");
   const [searchTerm, setSearchTerm] = useState("");
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [cleanerName, setCleanerName] = useState("");
+  const [selectedCleaningId, setSelectedCleaningId] = useState<string | null>(null);
+  const [modalError, setModalError] = useState<string | null>(null);
 
   // Process bookings to get room data with statuses
   const roomData = useMemo(() => {
@@ -261,7 +265,7 @@ const CleaningManagement = () => {
     {
       id: "total",
       label: "Total Rooms",
-      value: totalRooms,
+      value: totalTasks,
       color: "bg-blue-500",
       Icon: Home,
     },
@@ -320,7 +324,7 @@ const CleaningManagement = () => {
   }
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-700 min-h-screen">
+    <div className="space-y-6 animate-in fade-in duration-700">
       {/* Header */}
       <div className="space-y-4">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
@@ -334,6 +338,12 @@ const CleaningManagement = () => {
           </div>
         </div>
       </div>
+
+      {dataError && (
+        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/50 rounded-lg text-red-700 dark:text-red-300">
+          {dataError}
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
@@ -353,7 +363,7 @@ const CleaningManagement = () => {
         ))}
       </div>
 
-      {/* Room Table */}
+      {/* Cleaning Table */}
       <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden">
         {/* Search and Filter Bar */}
         <div className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4">
@@ -549,7 +559,52 @@ const CleaningManagement = () => {
       </div>
 
       {/* Summary Section */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 pb-6">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 pb-6">
+        <div className="bg-white dark:bg-gray-900 rounded-lg shadow dark:shadow-gray-900 overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-800 bg-gradient-to-r from-amber-50 to-amber-100 dark:from-amber-900/40 dark:to-amber-900/20">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              Checkout Today - Needs Cleaning
+            </h2>
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              Rooms checking out today that require cleaning
+            </p>
+          </div>
+          <div className="divide-y divide-gray-100 dark:divide-gray-800">
+            {filteredRecords
+              .filter((r: CleaningRecord) => r.cleaningStatus === "pending")
+              .slice(0, 5)
+              .map((room: CleaningRecord) => (
+                <div
+                  key={room.id}
+                  className="px-6 py-4 flex items-center justify-between"
+                >
+                  <div>
+                    <p className="font-semibold text-gray-800 dark:text-gray-100">
+                      {room.roomName}
+                    </p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Guest: {room.guestName}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setSelectedCleaningId(room.id);
+                      setShowAssignModal(true);
+                    }}
+                    className="px-3 py-1.5 text-xs font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 rounded-full hover:bg-blue-200 dark:hover:bg-blue-900/60 transition-colors"
+                  >
+                    Assign Cleaner
+                  </button>
+                </div>
+              ))}
+            {filteredRecords.filter((r: CleaningRecord) => r.cleaningStatus === "pending").length === 0 && (
+              <div className="px-6 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
+                No pending cleaning tasks
+              </div>
+            )}
+          </div>
+        </div>
+
         <div className="bg-white dark:bg-gray-900 rounded-lg shadow dark:shadow-gray-900 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-800 bg-gradient-to-r from-amber-50 to-amber-100 dark:from-amber-900/40 dark:to-amber-900/20">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
@@ -716,6 +771,63 @@ const CleaningManagement = () => {
           </div>
         </div>
       </div>
+
+      {/* Assign Cleaner Modal */}
+      {showAssignModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-900 rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Assign Cleaner</h3>
+            </div>
+            <div className="px-6 py-4 space-y-4">
+              {modalError && (
+                <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded text-sm text-red-700 dark:text-red-300">
+                  {modalError}
+                </div>
+              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Cleaner Name
+                </label>
+                <input
+                  type="text"
+                  value={cleanerName}
+                  onChange={(e) => setCleanerName(e.target.value)}
+                  placeholder="Enter cleaner name"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      handleAssignCleaner();
+                    }
+                  }}
+                  autoFocus
+                />
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex gap-2 justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAssignModal(false);
+                  setCleanerName("");
+                  setSelectedCleaningId(null);
+                  setModalError(null);
+                }}
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleAssignCleaner}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+              >
+                Assign
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
