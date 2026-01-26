@@ -1,16 +1,24 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import type {
   BookingPayment,
+  BookingPaymentsListResponse,
+  BookingPaymentItemResponse,
   CreateBookingPaymentPayload,
   UpdateBookingPaymentPayload,
 } from "@/types/bookingPayment";
 
+/**
+ * bookingPaymentsApi
+ *
+ * Direct API for `booking_payments` table. No fallbacks to bookings,
+ * fully typed transforms using the shared BookingPayment types.
+ */
 export const bookingPaymentsApi = createApi({
   reducerPath: "bookingPaymentsApi",
   baseQuery: fetchBaseQuery({ baseUrl: "/api" }),
   tagTypes: ["BookingPayment"],
   endpoints: (builder) => ({
-    // List / query booking payments (optional status param)
+    // GET /api/booking-payments?status=...
     getBookingPayments: builder.query<
       BookingPayment[],
       { status?: string } | void
@@ -21,28 +29,36 @@ export const bookingPaymentsApi = createApi({
           params,
         };
       },
-      transformResponse: (response: {
-        success: boolean;
-        data: BookingPayment[];
-      }) => {
-        return response.data || [];
+      transformResponse: (response: BookingPaymentsListResponse) => {
+        // Server contract: { success: boolean, data: BookingPayment[] }
+        return response.data ?? [];
       },
-      providesTags: ["BookingPayment"],
+      providesTags: (result) =>
+        result
+          ? [
+              ...result.map(({ id }) => ({
+                type: "BookingPayment" as const,
+                id,
+              })),
+              { type: "BookingPayment" as const, id: "LIST" },
+            ]
+          : [{ type: "BookingPayment" as const, id: "LIST" }],
     }),
 
-    // Get single booking payment by id
+    // GET /api/booking-payments/:id
     getBookingPaymentById: builder.query<BookingPayment, string>({
       query(id: string) {
         return { url: `/booking-payments/${id}` };
       },
-      transformResponse: (response: {
-        success: boolean;
-        data: BookingPayment;
-      }) => response.data,
-      providesTags: ["BookingPayment"],
+      transformResponse: (response: BookingPaymentItemResponse) => {
+        return response.data;
+      },
+      providesTags: (_result, _error, id) => [
+        { type: "BookingPayment" as const, id },
+      ],
     }),
 
-    // Create a new booking payment
+    // POST /api/booking-payments
     createBookingPayment: builder.mutation<
       BookingPayment,
       CreateBookingPaymentPayload
@@ -54,26 +70,30 @@ export const bookingPaymentsApi = createApi({
           body,
         };
       },
-      invalidatesTags: ["BookingPayment"],
+      invalidatesTags: [{ type: "BookingPayment", id: "LIST" }],
     }),
 
-    // Update a booking payment (approve/reject/other edits)
+    // PUT /api/booking-payments/:id
     updateBookingPayment: builder.mutation<
       BookingPayment,
-      UpdateBookingPaymentPayload
+      UpdateBookingPaymentPayload & { id: string }
     >({
-      query(body: UpdateBookingPaymentPayload & { id: string }) {
-        const { id, ...rest } = body;
+      query(payload) {
+        const { id, ...rest } = payload;
         return {
           url: `/booking-payments/${id}`,
           method: "PUT",
           body: rest,
         };
       },
-      invalidatesTags: ["BookingPayment"],
+      // Invalidate the specific payment and the list
+      invalidatesTags: (_result, _error, { id }) => [
+        { type: "BookingPayment" as const, id },
+        { type: "BookingPayment" as const, id: "LIST" },
+      ],
     }),
 
-    // Delete a booking payment
+    // DELETE /api/booking-payments/:id
     deleteBookingPayment: builder.mutation<{ success: boolean }, string>({
       query(id: string) {
         return {
@@ -81,7 +101,10 @@ export const bookingPaymentsApi = createApi({
           method: "DELETE",
         };
       },
-      invalidatesTags: ["BookingPayment"],
+      invalidatesTags: (_result, _error, id) => [
+        { type: "BookingPayment" as const, id },
+        { type: "BookingPayment" as const, id: "LIST" },
+      ],
     }),
   }),
 });
