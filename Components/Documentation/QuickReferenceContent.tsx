@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/no-unescaped-entities */
+
 import React from 'react';
 import { Rocket, Save, Cloud, RefreshCw, AlertTriangle, Terminal, BookOpen, Target, ArrowRight, Check } from 'lucide-react';
 
@@ -10,7 +12,7 @@ export default function QuickReferenceContent() {
 
       <div className="bg-blue-50 border-l-4 border-blue-500 p-6 mb-8">
         <p className="text-lg text-blue-900">
-          A handy cheat sheet of all the Git commands you'll need for your daily work. Bookmark this page!
+          A handy cheat sheet of all the Git commands you&apos;ll need for your daily work. Bookmark this page!
         </p>
       </div>
 

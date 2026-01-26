@@ -112,9 +112,9 @@ export const createBooking = async (
       INSERT INTO booking (
         booking_id, user_id, room_name, check_in_date, check_out_date, 
         check_in_time, check_out_time, adults, children, infants, status,
-        created_at, updated_at
+        has_security_deposit, created_at, updated_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'pending', NOW(), NOW())
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'pending', $11, NOW(), NOW())
       RETURNING id
     `;
 
@@ -129,6 +129,7 @@ export const createBooking = async (
       adults,
       children,
       infants,
+      security_deposit > 0, // has_security_deposit flag
     ];
 
     const bookingResult = await client.query(bookingQuery, bookingValues);
@@ -196,7 +197,7 @@ export const createBooking = async (
       }
     }
 
-    // Step 4: Create payment record
+    // Step 4: Create payment record (without security deposit)
     let paymentProofUrl = null;
     if (payment_proof) {
       const uploadResult = await upload_file(
@@ -206,12 +207,16 @@ export const createBooking = async (
       paymentProofUrl = uploadResult.url;
     }
 
+    // Calculate payment amounts (security deposit is handled separately during checkout)
+    const paymentTotalAmount = total_amount; // Full amount during booking (security deposit handled at checkout)
+    const paymentRemainingBalance = paymentTotalAmount - down_payment;
+
     const paymentQuery = `
       INSERT INTO booking_payments (
         booking_id, payment_method, payment_proof_url, room_rate, 
-        security_deposit, add_ons_total, total_amount, down_payment, remaining_balance
+        add_ons_total, total_amount, down_payment, remaining_balance
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
     `;
 
     const paymentValues = [
@@ -219,14 +224,27 @@ export const createBooking = async (
       payment_method,
       paymentProofUrl,
       room_rate,
-      security_deposit,
       add_ons_total,
-      total_amount,
+      paymentTotalAmount,
       down_payment,
-      remaining_balance,
+      paymentRemainingBalance,
     ];
 
     await client.query(paymentQuery, paymentValues);
+
+    // Step 4.5: Create security deposit record (always create with 0 amount during booking)
+    const depositQuery = `
+      INSERT INTO booking_security_deposits (
+        booking_id, amount, deposit_status, held_at
+      )
+      VALUES ($1, 0, 'pending', NOW())
+    `;
+
+    const depositValues = [
+      bookingId
+    ];
+
+    await client.query(depositQuery, depositValues);
 
     // Step 5: Create add-ons records
     if (add_ons && Object.keys(add_ons).length > 0) {
@@ -352,32 +370,36 @@ export const getAllBookings = async (
     const status = searchParams.get("status");
 
     let query = `
-      WITH first_guests AS (
-        SELECT DISTINCT ON (booking_id) booking_id, first_name, last_name
-        FROM booking_guests
-        ORDER BY booking_id, id ASC
-      )
       SELECT 
         b.*,
-        bc.cleaning_status,
-        bc.assigned_to,
-        fg.first_name as guest_first_name,
-        fg.last_name as guest_last_name
+        bg.first_name,
+        bg.last_name,
+        bg.email,
+        bg.phone,
+        bg.valid_id_url,
+        bp.payment_method,
+        bp.total_amount,
+        bp.down_payment,
+        bc.cleaning_status
       FROM booking b
+      LEFT JOIN booking_guests bg ON b.id = bg.booking_id
+      LEFT JOIN booking_payments bp ON b.id = bp.booking_id
       LEFT JOIN booking_cleaning bc ON b.id = bc.booking_id
-      LEFT JOIN first_guests fg ON b.id = fg.booking_id
+      WHERE bg.id = (
+        SELECT MIN(id) FROM booking_guests WHERE booking_id = b.id
+      )
     `;
     const values: string[] = [];
 
     if (status) {
-      query += " WHERE b.status = $1";
+      query += " AND b.status = $1";
       values.push(status);
     }
 
     query += " ORDER BY b.created_at DESC";
 
     const result = await pool.query(query, values);
-    console.log(`✅ Retrieved ${result.rows.length} bookings`);
+    console.log(`✅ Retrieved ${result.rows.length} bookings from separated tables`);
 
     return NextResponse.json({
       success: true,
@@ -422,8 +444,8 @@ export const getBookingById = async (
         bp.remaining_balance,
         bp.payment_method,
         bp.room_rate,
-        bp.security_deposit,
         bp.add_ons_total,
+        COALESCE(bd.amount, 0) as security_deposit,
         bg.first_name as guest_first_name,
         bg.last_name as guest_last_name,
         bg.email as guest_email,
@@ -452,8 +474,9 @@ export const getBookingById = async (
       LEFT JOIN haven_images hi ON h.uuid_id = hi.haven_id
       LEFT JOIN booking_payments bp ON b.id = bp.booking_id
       LEFT JOIN booking_guests bg ON b.id = bg.booking_id
+      LEFT JOIN booking_security_deposits bd ON b.id = bd.booking_id
       WHERE b.id = $1
-      GROUP BY b.id, h.tower, h.uuid_id, bp.total_amount, bp.down_payment, bp.remaining_balance, bp.payment_method, bp.room_rate, bp.security_deposit, bp.add_ons_total, bg.first_name, bg.last_name, bg.email, bg.phone
+      GROUP BY b.id, h.tower, h.uuid_id, bp.total_amount, bp.down_payment, bp.remaining_balance, bp.payment_method, bp.room_rate, bp.add_ons_total, bg.first_name, bg.last_name, bg.email, bg.phone, bd.amount
       LIMIT 1
     `;
 
@@ -545,7 +568,7 @@ export const updateBookingStatus = async (
     }
 
     const updateFields: string[] = [];
-    const values: (string | number | boolean | null | object)[] = [];
+    const values: any[] = [];
     let i = 1;
 
     const pushField = (field: string, value: unknown) => {
@@ -603,8 +626,8 @@ export const updateBookingStatus = async (
 
     const query = `
       UPDATE booking
-      SET ${updateFields.join(", ")}, updated_at = NOW()
-      WHERE id = $${i}
+      SET status = $1, rejection_reason = $2, updated_at = NOW()
+      WHERE id = $3
       RETURNING *
     `;
 
@@ -773,8 +796,8 @@ export const getUserBookings = async (
         bp.remaining_balance,
         bp.payment_method,
         bp.room_rate,
-        bp.security_deposit,
         bp.add_ons_total,
+        COALESCE(bd.amount, 0) as security_deposit,
         EXISTS(SELECT 1 FROM reviews r WHERE r.booking_id = b.id) as has_reviewed,
         bg.first_name as guest_first_name,
         bg.last_name as guest_last_name,
@@ -789,6 +812,7 @@ export const getUserBookings = async (
       LEFT JOIN haven_images hi ON h.uuid_id = hi.haven_id
       LEFT JOIN booking_payments bp ON b.id = bp.booking_id
       LEFT JOIN booking_guests bg ON b.id = bg.booking_id
+      LEFT JOIN booking_security_deposits bd ON b.id = bd.booking_id
       WHERE b.user_id = $1
     `;
 
@@ -808,7 +832,7 @@ export const getUserBookings = async (
       }
     }
 
-    query += ` GROUP BY b.id, h.tower, h.uuid_id, bp.total_amount, bp.down_payment, bp.remaining_balance, bp.payment_method, bp.room_rate, bp.security_deposit, bp.add_ons_total, bg.first_name, bg.last_name, bg.email, bg.id ORDER BY b.created_at DESC`;
+    query += ` GROUP BY b.id, h.tower, h.uuid_id, bp.total_amount, bp.down_payment, bp.remaining_balance, bp.payment_method, bp.room_rate, bp.add_ons_total, bg.first_name, bg.last_name, bg.email, bd.amount ORDER BY b.created_at DESC`;
 
     const result = await pool.query(query, values);
     console.log(`✅ Retrieved ${result.rows.length} bookings for user ${userId}`);

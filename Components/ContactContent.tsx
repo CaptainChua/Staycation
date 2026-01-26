@@ -12,11 +12,16 @@ const ContactContent = ({ className = "" }: ContactContentProps) => {
     <SidebarLayout>
       <div className={className}>
         {/* Hero Section */}
-        <div className="bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white py-16">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <h1 className="text-4xl md:text-5xl font-bold mb-4">Get In Touch</h1>
-            <p className="text-lg md:text-xl opacity-90 max-w-3xl mx-auto">
-              We&apos;d love to hear from you. Send us a message and we&apos;ll respond as soon as possible.
+        <div className="relative bg-gradient-to-br from-gray-100 via-gray-50 to-orange-50 dark:from-gray-800 dark:via-gray-700 dark:to-gray-800 text-gray-900 dark:text-white py-12 overflow-hidden border-b border-gray-200 dark:border-gray-700">
+          <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-brand-primary/10 dark:bg-brand-primary/20 backdrop-blur-sm rounded-full mb-6 border border-brand-primary/20 dark:border-brand-primary/30">
+              <Mail className="w-8 h-8 text-brand-primary" />
+            </div>
+            <h1 className="text-4xl md:text-5xl font-bold mb-4">
+              Get In Touch
+            </h1>
+            <p className="text-lg md:text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
+              We'd love to hear from you. Send us a message and we'll respond as soon as possible.
             </p>
           </div>
         </div>
@@ -84,7 +89,7 @@ const ContactContent = ({ className = "" }: ContactContentProps) => {
 
                 <button
                   type="submit"
-                  className="w-full bg-brand-primary hover:bg-brand-primaryDark text-white font-bold py-4 rounded-lg transition-all duration-300 flex items-center justify-center gap-2"
+                  className="w-full bg-brand-primary hover:bg-brand-primaryDark text-white font-semibold py-2 px-4 rounded-lg transition-all duration-300 flex items-center justify-center gap-2"
                 >
                   <Send className="w-3 h-3 sm:w-4 sm:h-4" />
                   <span>Send Message</span>

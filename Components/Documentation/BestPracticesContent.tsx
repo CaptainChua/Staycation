@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/no-unescaped-entities */
+
 import React from 'react';
 import { Check, X, Lightbulb, RefreshCw, TestTube, HelpCircle, Target, BookOpen, ArrowRight } from 'lucide-react';
 
@@ -359,7 +361,7 @@ export default function BestPracticesContent() {
       <div className="mt-12 p-6 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200">
         <h3 className="text-xl font-semibold text-gray-800 mb-3 flex items-center gap-2"><BookOpen className="w-5 h-5" /> Need a Quick Reference?</h3>
         <p className="text-gray-700 mb-4">
-          Check out our quick reference guide for a handy cheat sheet of all the Git commands you'll need!
+          Check out our quick reference guide for a handy cheat sheet of all the Git commands you&apos;ll need!
         </p>
         <a
           href="/documentation/git-workflow/quick-reference"

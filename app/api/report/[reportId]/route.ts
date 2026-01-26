@@ -1,11 +1,171 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Pool } from 'pg';
 import { delete_file } from '@/backend/utils/cloudinary';
+import { upload_image_from_form } from '@/backend/utils/fileUpload';
 
 // Database connection
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ reportId: string }> }
+) {
+  try {
+    const { reportId } = await params;
+
+    if (!reportId) {
+      return NextResponse.json(
+        { success: false, message: 'Report ID is required' },
+        { status: 400 }
+      );
+    }
+
+    const formData = await request.formData();
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      // Get current report to check status
+      const currentReportQuery = `SELECT status FROM report_issue WHERE report_id = $1`;
+      const currentReportResult = await client.query(currentReportQuery, [reportId]);
+
+      if (currentReportResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return NextResponse.json(
+          { success: false, message: 'Report not found' },
+          { status: 404 }
+        );
+      }
+
+      const currentStatus = currentReportResult.rows[0].status;
+      
+      // Only allow editing if status is "Open" or "Pending"
+      if (currentStatus !== 'Open' && currentStatus !== 'Pending') {
+        await client.query('ROLLBACK');
+        return NextResponse.json(
+          { success: false, message: 'Only reports with Open or Pending status can be edited' },
+          { status: 403 }
+        );
+      }
+
+      // Build update query dynamically based on provided fields
+      const updateFields: string[] = [];
+      const updateValues: (string | number | null)[] = [];
+      let paramIndex = 1;
+
+      if (formData.has('haven_id')) {
+        const value = formData.get('haven_id');
+        if (value && typeof value === 'string') {
+          updateFields.push(`haven_id = $${paramIndex++}`);
+          updateValues.push(value);
+        }
+      }
+      if (formData.has('issue_type')) {
+        const value = formData.get('issue_type');
+        if (value && typeof value === 'string') {
+          updateFields.push(`issue_type = $${paramIndex++}`);
+          updateValues.push(value);
+        }
+      }
+      if (formData.has('priority_level')) {
+        const value = formData.get('priority_level');
+        if (value && typeof value === 'string') {
+          updateFields.push(`priority_level = $${paramIndex++}`);
+          updateValues.push(value);
+        }
+      }
+      if (formData.has('specific_location')) {
+        const value = formData.get('specific_location');
+        if (value && typeof value === 'string') {
+          updateFields.push(`specific_location = $${paramIndex++}`);
+          updateValues.push(value);
+        }
+      }
+      if (formData.has('issue_description')) {
+        const value = formData.get('issue_description');
+        if (value && typeof value === 'string') {
+          updateFields.push(`issue_description = $${paramIndex++}`);
+          updateValues.push(value);
+        }
+      }
+
+      if (updateFields.length === 0) {
+        await client.query('ROLLBACK');
+        return NextResponse.json(
+          { success: false, message: 'No fields to update' },
+          { status: 400 }
+        );
+      }
+
+      // Add report_id to values
+      updateValues.push(reportId);
+      const updateQuery = `
+        UPDATE report_issue 
+        SET ${updateFields.join(', ')}, updated_at = NOW()
+        WHERE report_id = $${paramIndex}
+        RETURNING *
+      `;
+
+      const updateResult = await client.query(updateQuery, updateValues);
+
+      // Handle image uploads if any
+      const imageFiles: File[] = [];
+      for (const [key, value] of formData.entries()) {
+        if (key.startsWith('image_') && value instanceof File) {
+          imageFiles.push(value);
+        }
+      }
+
+      if (imageFiles.length > 0) {
+        // Upload new images to Cloudinary
+        for (const imageFile of imageFiles) {
+          try {
+            const uploadResult = await upload_image_from_form(
+              imageFile,
+              `staycation-haven/reports/${reportId}`
+            );
+            
+            if (uploadResult?.public_id && uploadResult?.url) {
+              // Insert image record
+              await client.query(
+                `INSERT INTO report_issue_image (report_id, image_url, cloudinary_public_id) 
+                 VALUES ($1, $2, $3)`,
+                [reportId, uploadResult.url, uploadResult.public_id]
+              );
+            }
+          } catch (uploadError) {
+            console.error('Error uploading image:', uploadError);
+            // Continue with other images even if one fails
+          }
+        }
+      }
+
+      await client.query('COMMIT');
+
+      return NextResponse.json({
+        success: true,
+        message: 'Report updated successfully',
+        data: updateResult.rows[0]
+      });
+
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+
+  } catch (error) {
+    console.error('Error updating report:', error);
+    return NextResponse.json(
+      { success: false, message: error instanceof Error ? error.message : 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
 
 export async function DELETE(
   request: NextRequest,

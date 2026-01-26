@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth';
 import MyWishlistClient from "@/Components/MyWishlist";
 
 export const metadata = {
-  title: "My Wishlist - Staycation Haven"
+  title: "Staycation Haven | My Wishlist"
 }
 
 const getWishlist = async (userId: string) => {

@@ -1,7 +1,8 @@
 import { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
+import FacebookProvider from "next-auth/providers/facebook";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { upsertUser } from "@/backend/controller/userController";
+import { upsertUser, upsertFacebookUser } from "@/backend/controller/userController";
 import pool from "@/backend/config/db";
 import bcrypt from "bcryptjs";
 
@@ -11,6 +12,11 @@ export const authOptions: NextAuthOptions = {
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    }),
+    // Facebook login
+    FacebookProvider({
+      clientId: process.env.FACEBOOK_CLIENT_ID!,
+      clientSecret: process.env.FACEBOOK_CLIENT_SECRET!,
     }),
     // Credentials login
     CredentialsProvider({
@@ -154,7 +160,18 @@ export const authOptions: NextAuthOptions = {
             picture: user.image || undefined,
           });
           console.log("✅ User saved to database:", user.email);
-        } else {
+        } 
+        // Handle Facebook sign-ins
+        else if (account?.provider === "facebook" && profile?.sub) {
+          await upsertFacebookUser({
+            facebookId: profile.sub,
+            email: user.email!,
+            name: user.name || undefined,
+            picture: user.image || undefined,
+          });
+          console.log("✅ Facebook user saved to database:", user.email);
+        } 
+        else {
           // Handle regular credential sign-ins
           console.log("🔐 Processing credentials login for:", credentials?.email);
 
@@ -243,20 +260,28 @@ export const authOptions: NextAuthOptions = {
     
     async session({ session, token }) {
       if (session.user) {
-        // For Google users, fetch the actual database UUID
+        // For Google and Facebook users, fetch the actual database UUID
         if (token.sub && !token.role) {
           try {
-            // Query users table to get the UUID by google_id
-            const result = await pool.query(
+            // Query users table to get the UUID by google_id or facebook_id
+            let result = await pool.query(
               "SELECT user_id FROM users WHERE google_id = $1",
               [token.sub]
             );
 
+            // If not found as Google user, try Facebook
+            if (!result.rows[0]) {
+              result = await pool.query(
+                "SELECT user_id FROM users WHERE facebook_id = $1",
+                [token.sub]
+              );
+            }
+
             if (result.rows[0]) {
               session.user.id = String(result.rows[0].user_id);
-              console.log("✅ Google user session created with DB ID:", result.rows[0].user_id);
+              console.log("✅ OAuth user session created with DB ID:", result.rows[0].user_id);
             } else {
-              // Fallback to Google ID if user not found in DB
+              // Fallback to token sub if user not found in DB
               session.user.id = token.sub!;
             }
           } catch (error) {
