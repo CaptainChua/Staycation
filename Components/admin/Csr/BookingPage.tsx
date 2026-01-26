@@ -1,12 +1,13 @@
 "use client";
 
-import { Calendar, Search, Filter, Plus, Eye, Edit, Trash2, MapPin, User, Phone, Mail, CheckCircle, Clock, LogIn, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUpDown } from "lucide-react";
-import { useState, useMemo } from "react";
+import { Calendar, Search, Filter, Plus, Eye, Edit, Trash2, MapPin, User, Phone, Mail, CheckCircle, Clock, LogIn, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUpDown, Download, FileSpreadsheet } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import ViewBookings from "./Modals/ViewBookings";
 import NewBookings from "./Modals/NewBookings";
 import { useGetBookingsQuery, useDeleteBookingMutation } from "@/redux/api/bookingsApi";
 import toast from "react-hot-toast";
 import DeleteConfirmation from "./Modals/DeleteConfirmation";
+import ExportBookingsModal from "./Modals/ExportBookingsModal";
 
 interface BookingData {
   id: string;
@@ -45,6 +46,9 @@ interface BookingData {
 export default function BookingsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [dateFilter, setDateFilter] = useState<"all" | "weekly" | "monthly" | "yearly">("all");
+  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1); // 1-12
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [currentPage, setCurrentPage] = useState(1);
   const [entriesPerPage, setEntriesPerPage] = useState(5);
   const [sortField, setSortField] = useState<string | null>(null);
@@ -56,10 +60,38 @@ export default function BookingsPage() {
   const [editingBooking, setEditingBooking] = useState<BookingData | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [bookingToDelete, setBookingToDelete] = useState<BookingData | null>(null);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [liveSheetAutoSync, setLiveSheetAutoSync] = useState(false);
 
   // Fetch bookings from API
   const { data: bookings = [], isLoading, error } = useGetBookingsQuery({}) as { data: BookingData[]; isLoading: boolean; error: unknown };
   const [deleteBooking, { isLoading: isDeletingBooking }] = useDeleteBookingMutation();
+
+  useEffect(() => {
+    if (!liveSheetAutoSync) return;
+
+    let stopped = false;
+    const tick = async () => {
+      try {
+        const res = await fetch("/api/admin/sync-sheets", { method: "POST" });
+        if (!res.ok) return;
+      } catch {
+        // ignore
+      }
+    };
+
+    tick();
+    const t = setInterval(() => {
+      if (stopped) return;
+      if (document.visibilityState !== "visible") return;
+      tick();
+    }, 5000);
+
+    return () => {
+      stopped = true;
+      clearInterval(t);
+    };
+  }, [liveSheetAutoSync]);
 
   // Get status color
   const getStatusColor = (status: string) => {
@@ -107,8 +139,77 @@ export default function BookingsPage() {
     };
   }, [bookings]);
 
+  // Date filter helper function
+  const getDateRange = (filterType: "all" | "weekly" | "monthly" | "yearly") => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    switch (filterType) {
+      case "weekly": {
+        const weekStart = new Date(today);
+        weekStart.setDate(today.getDate() - today.getDay()); // Start of week (Sunday)
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 6); // End of week (Saturday)
+        weekEnd.setHours(23, 59, 59, 999);
+        return { start: weekStart, end: weekEnd };
+      }
+      case "monthly": {
+        // Use selected month and year (month is 1-12, but Date uses 0-11)
+        const monthStart = new Date(selectedYear, selectedMonth - 1, 1);
+        const monthEnd = new Date(selectedYear, selectedMonth, 0); // Last day of selected month
+        monthEnd.setHours(23, 59, 59, 999);
+        return { start: monthStart, end: monthEnd };
+      }
+      case "yearly": {
+        // Use selected year
+        const yearStart = new Date(selectedYear, 0, 1);
+        const yearEnd = new Date(selectedYear, 11, 31);
+        yearEnd.setHours(23, 59, 59, 999);
+        return { start: yearStart, end: yearEnd };
+      }
+      default:
+        return null;
+    }
+  };
+
+  // Generate year options (current year and 5 years back)
+  const currentYear = new Date().getFullYear();
+  const yearOptions = Array.from({ length: 6 }, (_, i) => currentYear - i);
+  
+  // Month names
+  const monthNames = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ];
+
+  const openLiveSheet = async () => {
+    try {
+      const syncRes = await fetch("/api/admin/sync-sheets", { method: "POST" });
+      const syncData = (await syncRes.json()) as { success: boolean; error?: string; appended?: number; skipped?: number };
+      if (!syncRes.ok || !syncData.success) {
+        toast.error(syncData.error || "Failed to sync bookings to Google Sheet.");
+        return;
+      }
+
+      const res = await fetch("/api/admin/spreadsheet-url", { cache: "no-store" });
+      const data = (await res.json()) as { success: boolean; url?: string; error?: string };
+
+      if (!res.ok || !data.success || !data.url) {
+        toast.error(data.error || "Spreadsheet link is not configured.");
+        return;
+      }
+
+      window.open(data.url, "_blank");
+      setLiveSheetAutoSync(true);
+    } catch {
+      toast.error("Failed to sync/open spreadsheet.");
+    }
+  };
+
   const filteredBookings = useMemo(() => {
     if (!Array.isArray(bookings)) return [];
+
+    const dateRange = dateFilter !== "all" ? getDateRange(dateFilter) : null;
 
     return bookings.filter((booking: BookingData) => {
       const guestName = `${booking.guest_first_name || ''} ${booking.guest_last_name || ''}`;
@@ -123,9 +224,24 @@ export default function BookingsPage() {
       const normalizedFilterStatus = filterStatus.toLowerCase();
       const matchesFilter = filterStatus === "all" || normalizedBookingStatus === normalizedFilterStatus;
 
-      return matchesSearch && matchesFilter;
+      // Date filter: check if booking's created_at or check_in_date falls within the range
+      let matchesDate = true;
+      if (dateRange && dateFilter !== "all") {
+        const bookingDate = booking.created_at 
+          ? new Date(booking.created_at)
+          : booking.check_in_date 
+          ? new Date(booking.check_in_date)
+          : null;
+        
+        if (bookingDate) {
+          bookingDate.setHours(0, 0, 0, 0);
+          matchesDate = bookingDate >= dateRange.start && bookingDate <= dateRange.end;
+        }
+      }
+
+      return matchesSearch && matchesFilter && matchesDate;
     });
-  }, [bookings, searchTerm, filterStatus]);
+  }, [bookings, searchTerm, filterStatus, dateFilter, selectedMonth, selectedYear]);
 
   // Sort bookings
   const sortedBookings = useMemo(() => {
@@ -316,13 +432,82 @@ export default function BookingsPage() {
             </div>
           </div>
 
-          {/* Filter */}
-          <div className="flex items-center gap-2">
+          {/* Filters */}
+          <div className="flex items-center gap-2 flex-wrap">
             <Filter className="w-5 h-5 text-gray-600 dark:text-gray-400" />
             <select
+              value={dateFilter}
+              onChange={(e) => {
+                setDateFilter(e.target.value as "all" | "weekly" | "monthly" | "yearly");
+                setCurrentPage(1);
+              }}
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-brand-primary text-sm"
+            >
+              <option value="all">All Time</option>
+              <option value="weekly">This Week</option>
+              <option value="monthly">Monthly</option>
+              <option value="yearly">Yearly</option>
+            </select>
+            
+            {/* Month selector - shown when monthly filter is selected */}
+            {dateFilter === "monthly" && (
+              <>
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => {
+                    setSelectedMonth(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-brand-primary text-sm"
+                >
+                  {monthNames.map((month, index) => (
+                    <option key={index} value={index + 1}>
+                      {month}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={selectedYear}
+                  onChange={(e) => {
+                    setSelectedYear(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-brand-primary text-sm"
+                >
+                  {yearOptions.map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
+              </>
+            )}
+
+            {/* Year selector - shown when yearly filter is selected */}
+            {dateFilter === "yearly" && (
+              <select
+                value={selectedYear}
+                onChange={(e) => {
+                  setSelectedYear(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-brand-primary text-sm"
+              >
+                {yearOptions.map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            <select
               value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-brand-primary"
+              onChange={(e) => {
+                setFilterStatus(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-brand-primary text-sm"
             >
               <option value="all">All Status</option>
               <option value="pending">Pending</option>
@@ -333,6 +518,20 @@ export default function BookingsPage() {
               <option value="cancelled">Cancelled</option>
               <option value="completed">Completed</option>
             </select>
+            <button
+              onClick={openLiveSheet}
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors text-sm font-medium"
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              View Live Sheet
+            </button>
+            <button
+              onClick={() => setIsExportModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors text-sm font-medium"
+            >
+              <Download className="w-4 h-4" />
+              Export
+            </button>
           </div>
         </div>
       </div>
@@ -776,6 +975,14 @@ export default function BookingsPage() {
           onConfirm={handleConfirmDelete}
           isDeleting={isDeletingBooking}
           confirmLabel="Delete booking"
+        />
+      )}
+
+      {isExportModalOpen && (
+        <ExportBookingsModal
+          isOpen={isExportModalOpen}
+          onClose={() => setIsExportModalOpen(false)}
+          bookings={filteredBookings}
         />
       )}
 

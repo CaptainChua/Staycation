@@ -484,6 +484,19 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
     e.preventDefault();
     if (!validateStep4()) return;
 
+    const getApiErrorMessage = (err: unknown) => {
+      if (!err || typeof err !== "object") return null;
+      const anyErr = err as any;
+      const data = anyErr?.data;
+      if (data && typeof data === "object") {
+        const msg = (data.error || data.message) as unknown;
+        if (typeof msg === "string" && msg.trim()) return msg;
+      }
+      const msg = anyErr?.error as unknown;
+      if (typeof msg === "string" && msg.trim()) return msg;
+      return null;
+    };
+
     try {
 
       // Convert files to base64
@@ -533,7 +546,7 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
         user_id: null,
         guest_first_name: formData.firstName,
         guest_last_name: formData.lastName,
-        guest_age: formData.age,
+        guest_age: Number(formData.age),
         guest_gender: formData.gender,
         guest_email: formData.email,
         guest_phone: formData.phone,
@@ -575,7 +588,8 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
       onSuccess?.();
       onClose();
     } catch (error) {
-      toast.error(isEditMode ? "Failed to update booking" : "Failed to create booking");
+      const message = getApiErrorMessage(error);
+      toast.error(message || (isEditMode ? "Failed to update booking" : "Failed to create booking"));
       console.error(error);
     }
   };
@@ -1486,8 +1500,8 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                       <input
                         type="radio"
                         name="paymentMethod"
-                        value="bank"
-                        checked={formData.paymentMethod === "bank"}
+                        value="bank-transfer"
+                        checked={formData.paymentMethod === "bank-transfer"}
                         onChange={handleInputChange}
                         className="w-4 h-4 text-brand-primary accent-brand-primary"
                       />

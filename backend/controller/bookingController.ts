@@ -57,6 +57,19 @@ export interface Booking {
   updated_at?: string;
 }
 
+ let ensureBookingsColumnsPromise: Promise<void> | null = null;
+
+ const ensureBookingsColumns = async (): Promise<void> => {
+   if (ensureBookingsColumnsPromise) return ensureBookingsColumnsPromise;
+   ensureBookingsColumnsPromise = (async () => {
+     await pool.query(`ALTER TABLE booking ADD COLUMN IF NOT EXISTS guest_age INTEGER`);
+     await pool.query(`ALTER TABLE booking ADD COLUMN IF NOT EXISTS guest_gender VARCHAR(20)`);
+     await pool.query(`ALTER TABLE booking ADD COLUMN IF NOT EXISTS valid_id_url TEXT`);
+     await pool.query(`ALTER TABLE booking ADD COLUMN IF NOT EXISTS additional_guests JSONB`);
+   })();
+   return ensureBookingsColumnsPromise;
+ };
+
 // CREATE Booking
 export const createBooking = async (
   req: NextRequest
@@ -94,24 +107,73 @@ export const createBooking = async (
       add_ons,
     } = body;
 
+    const missing: string[] = [];
+    if (!booking_id) missing.push("booking_id");
+    if (!guest_first_name) missing.push("guest_first_name");
+    if (!guest_last_name) missing.push("guest_last_name");
+    if (!guest_email) missing.push("guest_email");
+    if (!guest_phone) missing.push("guest_phone");
+    if (!check_in_date) missing.push("check_in_date");
+    if (!check_out_date) missing.push("check_out_date");
+    if (!check_in_time) missing.push("check_in_time");
+    if (!check_out_time) missing.push("check_out_time");
+    if (!payment_method) missing.push("payment_method");
+    if (room_rate === null || typeof room_rate === "undefined") missing.push("room_rate");
+    if (total_amount === null || typeof total_amount === "undefined") missing.push("total_amount");
+    if (down_payment === null || typeof down_payment === "undefined") missing.push("down_payment");
+    if (remaining_balance === null || typeof remaining_balance === "undefined") missing.push("remaining_balance");
+
+    if (missing.length > 0) {
+      return NextResponse.json(
+        { success: false, error: `Missing required fields: ${missing.join(", ")}` },
+        { status: 400 }
+      );
+    }
+
+     await ensureBookingsColumns();
+
     // Upload payment proof to Cloudinary
     let paymentProofUrl = null;
     if (payment_proof) {
-      const uploadResult = await upload_file(
-        payment_proof,
-        "staycation-haven/payment-proofs"
-      );
-      paymentProofUrl = uploadResult.url;
+      try {
+        const uploadResult = await upload_file(
+          payment_proof,
+          "staycation-haven/payment-proofs"
+        );
+        paymentProofUrl = uploadResult.url;
+      } catch (err: unknown) {
+        const e = err as { message?: string; http_code?: number; name?: string };
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Failed to upload payment proof.",
+            details: { message: e?.message, name: e?.name, http_code: e?.http_code },
+          },
+          { status: 500 }
+        );
+      }
     }
 
     // Upload main guest valid ID to Cloudinary
     let validIdUrl = null;
     if (valid_id) {
-      const uploadResult = await upload_file(
-        valid_id,
-        "staycation-haven/valid-ids"
-      );
-      validIdUrl = uploadResult.url;
+      try {
+        const uploadResult = await upload_file(
+          valid_id,
+          "staycation-haven/valid-ids"
+        );
+        validIdUrl = uploadResult.url;
+      } catch (err: unknown) {
+        const e = err as { message?: string; http_code?: number; name?: string };
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Failed to upload valid ID.",
+            details: { message: e?.message, name: e?.name, http_code: e?.http_code },
+          },
+          { status: 500 }
+        );
+      }
     }
 
     // Upload additional guests' valid IDs to Cloudinary
@@ -167,15 +229,15 @@ export const createBooking = async (
       check_out_date,
       check_in_time,
       check_out_time,
-      adults,
-      children,
-      infants,
+      typeof adults === "undefined" || adults === null ? 1 : adults,
+      typeof children === "undefined" || children === null ? 0 : children,
+      typeof infants === "undefined" || infants === null ? 0 : infants,
       facebook_link,
       payment_method,
       paymentProofUrl,
       room_rate,
-      security_deposit,
-      add_ons_total,
+      typeof security_deposit === "undefined" || security_deposit === null ? 0 : security_deposit,
+      typeof add_ons_total === "undefined" || add_ons_total === null ? 0 : add_ons_total,
       total_amount,
       down_payment,
       remaining_balance,
@@ -232,10 +294,25 @@ export const createBooking = async (
     );
   } catch (error) {
     console.log("❌ Error creating booking:", error);
+    const e = error as {
+      message?: string;
+      code?: string;
+      detail?: string;
+      constraint?: string;
+      table?: string;
+      column?: string;
+    };
     return NextResponse.json(
       {
         success: false,
         error: error instanceof Error ? error.message : "Failed to create booking",
+        details: {
+          code: e?.code,
+          detail: e?.detail,
+          constraint: e?.constraint,
+          table: e?.table,
+          column: e?.column,
+        },
       },
       { status: 500 }
     );
@@ -345,6 +422,7 @@ export const updateBookingStatus = async (
   req: NextRequest
 ): Promise<NextResponse> => {
   try {
+    await ensureBookingsColumns();
     const body = await req.json();
     const {
       id,
@@ -682,7 +760,7 @@ export const updateCleaningStatus = async (
     }
 
     const query = `
-      UPDATE bookings
+      UPDATE booking
       SET cleaning_status = $1, updated_at = NOW()
       WHERE id = $2
       RETURNING *

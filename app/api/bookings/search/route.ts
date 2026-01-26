@@ -14,7 +14,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     }
 
     const query = `
-      SELECT * FROM bookings
+      SELECT * FROM booking
       WHERE booking_id = $1
     `;
 

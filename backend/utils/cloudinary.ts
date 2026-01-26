@@ -18,10 +18,18 @@ const upload_file = (
                 folder: folder,
             },
             (error, result: any) => {
+                if (error) {
+                    reject(error);
+                    return;
+                }
+                if (!result || !result.public_id || !result.url) {
+                    reject(new Error("Cloudinary upload failed"));
+                    return;
+                }
                 resolve({
                     public_id: result.public_id,
                     url: result.url,
-                })
+                });
             }
         )
     });
