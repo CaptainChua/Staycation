@@ -485,7 +485,7 @@ export default function CsrDashboard() {
                   )}
                 </div>
                 <div className="hidden sm:block text-left">
-                  <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate max-w-[120px]">
+                  <div className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate max-w-[120px]">
                     {isLoading ? (
                       <div className="h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
                     ) : employee ? (
@@ -493,7 +493,7 @@ export default function CsrDashboard() {
                     ) : (
                       session?.user?.name || "User"
                     )}
-                  </p>
+                  </div>
                   <p className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[120px]">
                     {employee?.role || "CSR"}
                   </p>
