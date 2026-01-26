@@ -20,13 +20,12 @@ import {
 } from "lucide-react";
 import { useCallback, useMemo, useState, useEffect } from "react";
 import toast from "react-hot-toast";
-
 import {
-  useGetBookingsQuery,
-  useUpdateBookingStatusMutation,
-} from "@/redux/api/bookingsApi";
+  useGetBookingPaymentsQuery,
+  useUpdateBookingPaymentMutation,
+} from "@/redux/api/bookingPaymentsApi";
 
-import type { Booking } from "@/types/booking";
+import type { BookingPayment } from "@/types/bookingPayment";
 type PaymentStatus = "Paid" | "Pending" | "Rejected";
 
 interface PaymentRow {
@@ -152,21 +151,21 @@ export default function PaymentPage() {
         ? "approved"
         : filterStatus.toLowerCase();
 
-  // Fetch bookings from backend (use status query when a specific filter is selected)
+  // Fetch payments from backend (use status query when a specific filter is selected)
   const {
-    data: bookingsRaw = [],
-    isLoading: isBookingsLoading,
-    isFetching: isBookingsFetching,
+    data: paymentsRaw = [],
+    isLoading: isPaymentsLoading,
+    isFetching: isPaymentsFetching,
     refetch,
-  } = useGetBookingsQuery(
+  } = useGetBookingPaymentsQuery(
     serverStatusParam ? { status: serverStatusParam } : undefined,
   );
 
-  // Fetch all bookings for summary counts (unfiltered)
-  const { data: bookingsAll } = useGetBookingsQuery();
+  // Fetch all payments for summary counts (unfiltered)
+  const { data: paymentsAll } = useGetBookingPaymentsQuery();
 
   // Mutation for approve/reject
-  const [updateBookingStatus] = useUpdateBookingStatusMutation();
+  const [updateBookingPayment] = useUpdateBookingPaymentMutation();
 
   // Local UI state for modals and actions (local types used; avoid global booking types for now)
   const [selectedPayment, setSelectedPayment] = useState<PaymentRow | null>(
@@ -175,50 +174,50 @@ export default function PaymentPage() {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
-  const [updatingBookingId, setUpdatingBookingId] = useState<string | null>(
+  const [updatingPaymentId, setUpdatingPaymentId] = useState<string | null>(
     null,
   );
 
   const payments = useMemo<PaymentRow[]>(() => {
-    return (bookingsRaw || []).map((b) => {
-      const amountValue = Number(b.total_amount ?? 0);
+    return (paymentsRaw || []).map((p) => {
+      const amountValue = Number(p.total_amount ?? 0);
       const row: PaymentRow = {
-        id: b.id,
-        booking_id: b.booking_id!,
-        guest: `${b.guest_first_name ?? ""} ${b.guest_last_name ?? ""}`.trim(),
+        id: p.id,
+        booking_id: p.booking_id ?? String(p.booking_fk ?? ""),
+        guest: `${p.guest_first_name ?? ""} ${p.guest_last_name ?? ""}`.trim(),
         amount: formatCurrency(amountValue),
         amountValue,
-        payment_proof: b.payment_proof_url ?? undefined,
-        status: mapStatusToUI(b.status),
-        statusColor: getStatusColorClass(b.status),
+        payment_proof: p.payment_proof_url ?? undefined,
+        status: mapStatusToUI(p.payment_status),
+        statusColor: getStatusColorClass(p.payment_status),
         booking: {
-          id: b.id,
-          booking_id: b.booking_id,
-          guest_first_name: b.guest_first_name!,
-          guest_last_name: b.guest_last_name!,
-          guest_email: b.guest_email!,
-          guest_phone: b.guest_phone!,
-          down_payment: b.down_payment,
-          total_amount: b.total_amount,
-          remaining_balance: b.remaining_balance,
-          payment_proof_url: b.payment_proof_url,
-          payment_method: b.payment_method,
-          updated_at: b.updated_at,
-          status: b.status,
-          rejection_reason: b.rejection_reason,
+          id: p.booking_fk,
+          booking_id: p.booking_id,
+          guest_first_name: p.guest_first_name ?? undefined,
+          guest_last_name: p.guest_last_name ?? undefined,
+          guest_email: p.guest_email ?? undefined,
+          guest_phone: p.guest_phone ?? undefined,
+          down_payment: p.down_payment,
+          total_amount: p.total_amount,
+          remaining_balance: p.remaining_balance,
+          payment_proof_url: p.payment_proof_url,
+          payment_method: p.payment_method,
+          updated_at: p.reviewed_at ?? p.created_at,
+          status: p.payment_status ?? undefined,
+          rejection_reason: p.rejection_reason,
         },
       };
       return row;
     });
-  }, [bookingsRaw]);
+  }, [paymentsRaw]);
 
   // combined loading flag for UI skeletons
-  const isLoadingTable = isBookingsLoading || isBookingsFetching;
+  const isLoadingTable = isPaymentsLoading || isPaymentsFetching;
 
   // Handlers
   const handleView = useCallback((row: PaymentRow) => {
     if (!row?.id) {
-      toast.error("Booking ID not available");
+      toast.error("Payment ID not available");
       return;
     }
     setSelectedPayment(row);
@@ -233,36 +232,42 @@ export default function PaymentPage() {
   const handleApprove = useCallback(
     async (row: PaymentRow, options?: { keepOpen?: boolean }) => {
       if (!row?.id) {
-        toast.error("Booking ID not available");
+        toast.error("Payment ID not available");
         return;
       }
-      setUpdatingBookingId(row.id);
+      setUpdatingPaymentId(row.id);
       const toastId = toast.loading("Approving payment...");
       try {
-        await updateBookingStatus({ id: row.id, status: "approved" }).unwrap();
+        await updateBookingPayment({
+          id: row.id,
+          payment_status: "approved",
+        }).unwrap();
         toast.success("Payment approved", { id: toastId });
 
-        // Refresh bookings and optionally update the currently-open modal row
+        // Refresh payments and optionally update the currently-open modal row
         const refetchRes = await refetch();
-        const updatedBooking = (refetchRes?.data || []).find(
-          (b: Booking) => b.id === row.id,
+        const updatedPayment = (refetchRes?.data || []).find(
+          (p: BookingPayment) => p.id === row.id,
         );
 
-        if (options?.keepOpen && updatedBooking) {
+        if (options?.keepOpen && updatedPayment) {
           setSelectedPayment((prev) =>
             prev && prev.id === row.id
               ? {
                   ...prev,
-                  status: mapStatusToUI(updatedBooking.status),
-                  statusColor: getStatusColorClass(updatedBooking.status),
+                  status: mapStatusToUI(updatedPayment.payment_status),
+                  statusColor: getStatusColorClass(
+                    updatedPayment.payment_status,
+                  ),
                   booking: {
                     ...prev.booking,
-                    updated_at: updatedBooking.updated_at,
-                    status: updatedBooking.status,
-                    down_payment: updatedBooking.down_payment,
-                    total_amount: updatedBooking.total_amount,
-                    remaining_balance: updatedBooking.remaining_balance,
-                    payment_proof_url: updatedBooking.payment_proof_url,
+                    updated_at:
+                      updatedPayment.reviewed_at ?? updatedPayment.created_at,
+                    status: updatedPayment.payment_status,
+                    down_payment: updatedPayment.down_payment,
+                    total_amount: updatedPayment.total_amount,
+                    remaining_balance: updatedPayment.remaining_balance,
+                    payment_proof_url: updatedPayment.payment_proof_url,
                   },
                 }
               : prev,
@@ -272,10 +277,10 @@ export default function PaymentPage() {
         console.error("Approve error:", err);
         toast.error("Failed to approve payment", { id: toastId });
       } finally {
-        setUpdatingBookingId(null);
+        setUpdatingPaymentId(null);
       }
     },
-    [updateBookingStatus, refetch],
+    [updateBookingPayment, refetch],
   );
 
   const onSearchChange = (value: string) => {
@@ -288,7 +293,7 @@ export default function PaymentPage() {
 
   const openRejectModal = useCallback((row: PaymentRow) => {
     if (!row?.id) {
-      toast.error("Booking ID not available");
+      toast.error("Payment ID not available");
       return;
     }
     // Keep the selected payment set so the reject modal has context,
@@ -301,15 +306,15 @@ export default function PaymentPage() {
 
   const handleConfirmReject = useCallback(async () => {
     if (!selectedPayment?.id) {
-      toast.error("Booking ID not available");
+      toast.error("Payment ID not available");
       return;
     }
-    setUpdatingBookingId(selectedPayment.id);
+    setUpdatingPaymentId(selectedPayment.id);
     const toastId = toast.loading("Rejecting payment...");
     try {
-      await updateBookingStatus({
+      await updateBookingPayment({
         id: selectedPayment.id,
-        status: "rejected",
+        payment_status: "rejected",
         rejection_reason: rejectReason || undefined,
       }).unwrap();
       toast.success("Payment rejected", { id: toastId });
@@ -320,9 +325,9 @@ export default function PaymentPage() {
       console.error("Reject error:", err);
       toast.error("Failed to reject payment", { id: toastId });
     } finally {
-      setUpdatingBookingId(null);
+      setUpdatingPaymentId(null);
     }
-  }, [selectedPayment, rejectReason, updateBookingStatus, refetch]);
+  }, [selectedPayment, rejectReason, updateBookingPayment, refetch]);
 
   const handleCancelReject = useCallback(() => {
     setRejectReason("");
@@ -381,16 +386,16 @@ export default function PaymentPage() {
     }
   };
 
-  // Use unfiltered bookings for summary counts so counts don't change with status filter
-  const totalCount = (bookingsAll || []).length;
-  const paidCount = (bookingsAll || []).filter(
-    (b) => mapStatusToUI(b.status) === "Paid",
+  // Use unfiltered payments for summary counts so counts don't change with status filter
+  const totalCount = (paymentsAll || []).length;
+  const paidCount = (paymentsAll || []).filter(
+    (p) => mapStatusToUI(p.payment_status) === "Paid",
   ).length;
-  const pendingCount = (bookingsAll || []).filter(
-    (b) => mapStatusToUI(b.status) === "Pending",
+  const pendingCount = (paymentsAll || []).filter(
+    (p) => mapStatusToUI(p.payment_status) === "Pending",
   ).length;
-  const rejectedCount = (bookingsAll || []).filter(
-    (b) => mapStatusToUI(b.status) === "Rejected",
+  const rejectedCount = (paymentsAll || []).filter(
+    (p) => mapStatusToUI(p.payment_status) === "Rejected",
   ).length;
 
   return (
@@ -628,14 +633,14 @@ export default function PaymentPage() {
                         <button
                           onClick={() => handleApprove(payment)}
                           disabled={
-                            !payment.id || updatingBookingId === payment.id
+                            !payment.id || updatingPaymentId === payment.id
                           }
                           className="p-2 inline-flex items-center justify-center text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                           title="Approve"
                           type="button"
                           aria-label={`Approve booking ${payment.booking_id}`}
                         >
-                          {updatingBookingId === payment.id ? (
+                          {updatingPaymentId === payment.id ? (
                             <svg
                               className="animate-spin inline-block align-middle h-4 w-4"
                               xmlns="http://www.w3.org/2000/svg"
@@ -664,7 +669,7 @@ export default function PaymentPage() {
                         <button
                           onClick={() => openRejectModal(payment)}
                           disabled={
-                            !payment.id || updatingBookingId === payment.id
+                            !payment.id || updatingPaymentId === payment.id
                           }
                           className="p-2 inline-flex items-center justify-center text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                           title="Reject"
@@ -798,13 +803,13 @@ export default function PaymentPage() {
 
                 <button
                   onClick={() => handleApprove(payment)}
-                  disabled={!payment.id || updatingBookingId === payment.id}
+                  disabled={!payment.id || updatingPaymentId === payment.id}
                   className="p-2 inline-flex items-center justify-center text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   title="Approve"
                   type="button"
                   aria-label={`Approve booking ${payment.booking_id}`}
                 >
-                  {updatingBookingId === payment.id ? (
+                  {updatingPaymentId === payment.id ? (
                     <svg
                       className="animate-spin inline-block align-middle h-5 w-5"
                       xmlns="http://www.w3.org/2000/svg"
@@ -832,7 +837,7 @@ export default function PaymentPage() {
 
                 <button
                   onClick={() => openRejectModal(payment)}
-                  disabled={!payment.id || updatingBookingId === payment.id}
+                  disabled={!payment.id || updatingPaymentId === payment.id}
                   className="p-2 inline-flex items-center justify-center text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   title="Reject"
                   type="button"
@@ -1101,7 +1106,7 @@ export default function PaymentPage() {
                       mapStatusToUI(
                         selectedPayment.booking?.status ??
                           selectedPayment.status,
-                      ) === "Paid" || updatingBookingId === selectedPayment.id
+                      ) === "Paid" || updatingPaymentId === selectedPayment.id
                     }
                     className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-yellow-500 dark:from-orange-600 dark:to-yellow-600 text-white font-semibold shadow-lg hover:from-orange-600 hover:to-yellow-600 dark:hover:from-orange-700 dark:hover:to-yellow-700 transition inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
@@ -1122,7 +1127,7 @@ export default function PaymentPage() {
                         selectedPayment.booking?.status ??
                           selectedPayment.status,
                       ) === "Rejected" ||
-                      updatingBookingId === selectedPayment.id
+                      updatingPaymentId === selectedPayment.id
                     }
                     className="px-6 py-2.5 rounded-xl bg-red-600 dark:bg-red-600 text-white font-semibold hover:bg-red-700 dark:hover:bg-red-700 transition inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
@@ -1168,10 +1173,10 @@ export default function PaymentPage() {
                 <button
                   onClick={handleConfirmReject}
                   type="button"
-                  disabled={updatingBookingId === selectedPayment.id}
+                  disabled={updatingPaymentId === selectedPayment.id}
                   className="px-4 py-2 rounded-lg bg-red-600 dark:bg-red-600 text-white hover:bg-red-700 dark:hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center"
                 >
-                  {updatingBookingId === selectedPayment.id ? (
+                  {updatingPaymentId === selectedPayment.id ? (
                     <svg
                       className="animate-spin inline-block align-middle h-4 w-4"
                       xmlns="http://www.w3.org/2000/svg"
