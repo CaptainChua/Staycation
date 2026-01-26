@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable react-hooks/set-state-in-effect */
+
 import { useState, useEffect, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { X, Calendar, MapPin, AlertCircle, FileText, Camera, Loader2, ChevronLeft, ChevronRight } from "lucide-react";

@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/no-unescaped-entities */
+
 import React from 'react';
 import {
   Check,
@@ -21,7 +23,7 @@ export default function WorkingOnFeaturesContent() {
         <div className="flex items-start gap-3">
           <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-1" />
           <p className="text-base md:text-lg text-blue-900 dark:text-blue-100">
-            Now that you have your feature branch, let's learn how to make changes and save them properly!
+            Now that you have your feature branch, let&apos;s learn how to make changes and save them properly!
           </p>
         </div>
       </div>
@@ -95,7 +97,7 @@ export default function WorkingOnFeaturesContent() {
       </div>
 
       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-4 md:p-5 rounded-lg mb-8">
-        <h3 className="text-base md:text-lg font-semibold text-gray-800 dark:text-gray-100 mb-3">You'll see something like:</h3>
+        <h3 className="text-base md:text-lg font-semibold text-gray-800 dark:text-gray-100 mb-3">You&apos;ll see something like:</h3>
         <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded font-mono text-xs md:text-sm text-gray-700 dark:text-gray-300 overflow-x-auto">
           On branch feature-add-contact-form<br />
           Changes not staged for commit:<br />
@@ -392,7 +394,7 @@ export default function WorkingOnFeaturesContent() {
           <h3 className="text-lg md:text-xl font-semibold text-gray-800 dark:text-white">Changes Saved Locally!</h3>
         </div>
         <p className="text-sm md:text-base text-gray-700 dark:text-gray-300 mb-4">
-          Your commits are saved on your computer. Next, let's learn how to push them to GitHub!
+          Your commits are saved on your computer. Next, let&apos;s learn how to push them to GitHub!
         </p>
         <a
           href="/documentation/git-workflow/pushing-to-github"

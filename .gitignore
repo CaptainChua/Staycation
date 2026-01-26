@@ -40,3 +40,9 @@ database.sql
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# documentation
+COMPLETION_SUMMARY.md
+FACEBOOK_LOGIN_CHECKLIST.md
+FACEBOOK_LOGIN_IMPLEMENTATION.md
+FACEBOOK_LOGIN_QUICK_REFERENCE.md
