@@ -493,14 +493,14 @@ export default function DepositPage() {
         // Save the PDF
         doc.save('deposits-report.pdf');
         toast.success('PDF generated successfully', { id: loadingToast });
-      }).catch((error) => {
+      }).catch((error: Error) => {
         console.error('Error generating PDF:', error);
         toast.error('Failed to generate PDF. Please try again.', { id: loadingToast });
         if (cleanTableContainer && document.body.contains(cleanTableContainer)) {
           document.body.removeChild(cleanTableContainer);
         }
       });
-    }).catch((error) => {
+    }).catch((error: Error) => {
       console.error('Error loading PDF libraries:', error);
       toast.error('Failed to load PDF generator');
     });
