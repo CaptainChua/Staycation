@@ -1,6 +1,7 @@
 'use server';
 
-import pool from '@/backend/config/db';
+import pool from "@/backend/config/db";
+import { headers } from "next/headers";
 
 export interface DepositRecord {
   id: string; // UUID from booking_security_deposits
@@ -68,7 +69,7 @@ export async function getDeposits(): Promise<DepositRecord[]> {
 
     const result = await client.query(query);
 
-    return result.rows.map((row) => {
+    return result.rows.map((row: any) => {
       // Format Amount
       const amount = parseFloat(row.amount) || 0;
       const formattedAmount = new Intl.NumberFormat('en-PH', {
@@ -153,9 +154,18 @@ export async function getDeposits(): Promise<DepositRecord[]> {
 }
 
 // Update deposit status in booking_security_deposits table
-export async function updateDepositStatus(depositId: string, newStatus: string): Promise<void> {
+export async function updateDepositStatus(
+  depositId: string, 
+  newStatus: string,
+  employeeId?: string,
+  notes?: string
+): Promise<void> {
   const client = await pool.connect();
   try {
+    // Get IP address and user agent from headers
+    const requestHeaders = await headers();
+    const ipAddress = requestHeaders.get('x-forwarded-for') || requestHeaders.get('x-real-ip') || 'unknown';
+    const userAgent = requestHeaders.get('user-agent') || 'unknown';
     // Map UI status to database deposit_status values
     const statusMap: Record<string, string> = {
       'Pending': 'pending',
@@ -172,16 +182,32 @@ export async function updateDepositStatus(depositId: string, newStatus: string):
     if (dbStatus === 'returned') {
       await client.query(
         `UPDATE booking_security_deposits
-         SET deposit_status = $2, returned_at = $3
+         SET deposit_status = $2, returned_at = $3, processed_by = $4, notes = COALESCE($5, notes)
          WHERE id = $1`,
-        [depositId, dbStatus, now]
+        [depositId, dbStatus, now, employeeId, notes]
       );
     } else {
       await client.query(
         `UPDATE booking_security_deposits
-         SET deposit_status = $2
+         SET deposit_status = $2, processed_by = $3, notes = COALESCE($4, notes)
          WHERE id = $1`,
-        [depositId, dbStatus]
+        [depositId, dbStatus, employeeId, notes]
+      );
+    }
+
+    // Log activity if employeeId is provided
+    if (employeeId) {
+      await client.query(
+        `SELECT log_employee_activity($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          employeeId,
+          'UPDATE_DEPOSIT_STATUS',
+          `Updated deposit status to ${newStatus}${notes ? ` - Notes: ${notes}` : ''}`,
+          'deposit',
+          depositId,
+          ipAddress,
+          userAgent
+        ]
       );
     }
   } catch (error) {
@@ -192,16 +218,134 @@ export async function updateDepositStatus(depositId: string, newStatus: string):
   }
 }
 
+// Test function to check database connection
+export async function testDatabaseConnection(): Promise<string> {
+  console.log('Testing database connection...');
+  const client = await pool.connect();
+  try {
+    const result = await client.query('SELECT NOW() as current_time');
+    console.log('Database connection successful:', result.rows[0]);
+    return `Database connection successful: ${result.rows[0].current_time}`;
+  } catch (error) {
+    console.error('Database connection failed:', error);
+    throw new Error('Database connection failed');
+  } finally {
+    client.release();
+  }
+}
+
 // Process partial refund
 export async function processPartialRefund(
   depositId: string,
   refundAmount: number,
-  deductionReason: string
+  deductionReason: string,
+  employeeId?: string
+): Promise<void> {
+  console.log('processPartialRefund called with:', {
+    depositId,
+    refundAmount,
+    deductionReason,
+    employeeId
+  });
+
+  const client = await pool.connect();
+  try {
+    // Get IP address and user agent from headers
+    const requestHeaders = await headers();
+    const ipAddress = requestHeaders.get('x-forwarded-for') || requestHeaders.get('x-real-ip') || 'unknown';
+    const userAgent = requestHeaders.get('user-agent') || 'unknown';
+    
+    const now = new Date();
+
+    // Get the current deposit amount
+    console.log('Fetching deposit amount for:', depositId);
+    const result = await client.query(
+      `SELECT amount FROM booking_security_deposits WHERE id = $1`,
+      [depositId]
+    );
+
+    if (result.rows.length === 0) {
+      console.error('Deposit not found for ID:', depositId);
+      throw new Error('Deposit not found');
+    }
+
+    console.log('Found deposit amount:', result.rows[0].amount);
+    const totalAmount = parseFloat(result.rows[0].amount);
+    const forfeitedAmount = totalAmount - refundAmount;
+
+    console.log('Updating deposit with:', {
+      depositId,
+      refundAmount,
+      forfeitedAmount,
+      totalAmount,
+      employeeId,
+      deductionReason
+    });
+
+    await client.query(
+      `UPDATE booking_security_deposits
+       SET deposit_status = 'partial',
+           refunded_amount = $2,
+           forfeited_amount = $3,
+           returned_at = $4,
+           processed_by = $5,
+           notes = $6
+       WHERE id = $1`,
+      [depositId, refundAmount, forfeitedAmount, now, employeeId, deductionReason]
+    );
+
+    console.log('Deposit updated successfully');
+
+    // Log activity if employeeId is provided
+    if (employeeId) {
+      console.log('Logging employee activity...');
+      try {
+        await client.query(
+          `SELECT log_employee_activity($1, $2, $3, $4, $5, $6, $7)`,
+          [
+            employeeId,
+            'PROCESS_PARTIAL_REFUND',
+            `Processed partial refund of ₱${refundAmount.toFixed(2)} with deduction reason: ${deductionReason}`,
+            'deposit',
+            depositId,
+            ipAddress,
+            userAgent
+          ]
+        );
+        console.log('Employee activity logged successfully');
+      } catch (logError) {
+        console.error('Failed to log employee activity:', logError);
+        // Continue without failing the main operation
+      }
+    }
+  } catch (error) {
+    console.error("Error processing partial refund:", error);
+    console.error("Error details:", {
+      depositId,
+      refundAmount,
+      deductionReason,
+      employeeId,
+      errorMessage: error instanceof Error ? error.message : 'Unknown error',
+      errorStack: error instanceof Error ? error.stack : 'No stack trace'
+    });
+    throw new Error("Failed to process partial refund");
+  } finally {
+    client.release();
+  }
+}
+// Process forfeiture
+export async function processForfeiture(
+  depositId: string,
+  forfeitureReason: string,
+  employeeId?: string
 ): Promise<void> {
   const client = await pool.connect();
   try {
-    const now = new Date();
-
+    // Get IP address and user agent from headers
+    const requestHeaders = await headers();
+    const ipAddress = requestHeaders.get('x-forwarded-for') || requestHeaders.get('x-real-ip') || 'unknown';
+    const userAgent = requestHeaders.get('user-agent') || 'unknown';
+    
     // Get the current deposit amount
     const result = await client.query(
       `SELECT amount FROM booking_security_deposits WHERE id = $1`,
@@ -213,21 +357,36 @@ export async function processPartialRefund(
     }
 
     const totalAmount = parseFloat(result.rows[0].amount);
-    const forfeitedAmount = totalAmount - refundAmount;
 
     await client.query(
       `UPDATE booking_security_deposits
-       SET deposit_status = 'partial',
-           refunded_amount = $2,
-           forfeited_amount = $3,
-           returned_at = $4,
-           notes = COALESCE(notes, '') || $5
+       SET deposit_status = 'forfeited',
+           refunded_amount = 0,
+           forfeited_amount = $2,
+           processed_by = $3,
+           notes = $4
        WHERE id = $1`,
-      [depositId, refundAmount, forfeitedAmount, now, deductionReason]
+      [depositId, totalAmount, employeeId, forfeitureReason]
     );
+
+    // Log activity if employeeId is provided
+    if (employeeId) {
+      await client.query(
+        `SELECT log_employee_activity($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          employeeId,
+          'PROCESS_FORFEITURE',
+          `Processed forfeiture of ₱${totalAmount.toFixed(2)} with reason: ${forfeitureReason}`,
+          'deposit',
+          depositId,
+          ipAddress,
+          userAgent
+        ]
+      );
+    }
   } catch (error) {
-    console.error("Error processing partial refund:", error);
-    throw new Error("Failed to process partial refund");
+    console.error("Error processing forfeiture:", error);
+    throw new Error("Failed to process forfeiture");
   } finally {
     client.release();
   }
@@ -235,10 +394,17 @@ export async function processPartialRefund(
 
 // Process full refund
 export async function processFullRefund(
-  depositId: string
+  depositId: string,
+  amount: number = 0,
+  employeeId?: string
 ): Promise<void> {
   const client = await pool.connect();
   try {
+    // Get IP address and user agent from headers
+    const requestHeaders = await headers();
+    const ipAddress = requestHeaders.get('x-forwarded-for') || requestHeaders.get('x-real-ip') || 'unknown';
+    const userAgent = requestHeaders.get('user-agent') || 'unknown';
+    
     const now = new Date();
 
     // Get the current deposit amount
@@ -258,49 +424,30 @@ export async function processFullRefund(
        SET deposit_status = 'returned',
            refunded_amount = $2,
            forfeited_amount = 0,
-           returned_at = $3
+           returned_at = $3,
+           processed_by = $4
        WHERE id = $1`,
-      [depositId, totalAmount, now]
+      [depositId, totalAmount, now, employeeId]
     );
+
+    // Log activity if employeeId is provided
+    if (employeeId) {
+      await client.query(
+        `SELECT log_employee_activity($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          employeeId,
+          'PROCESS_FULL_REFUND',
+          `Processed full refund of ₱${totalAmount.toFixed(2)}`,
+          'deposit',
+          depositId,
+          ipAddress,
+          userAgent
+        ]
+      );
+    }
   } catch (error) {
     console.error("Error processing full refund:", error);
     throw new Error("Failed to process full refund");
-  } finally {
-    client.release();
-  }
-}
-
-// Process forfeiture
-export async function processForfeiture(
-  depositId: string,
-  forfeitureReason: string
-): Promise<void> {
-  const client = await pool.connect();
-  try {
-    // Get the current deposit amount
-    const result = await client.query(
-      `SELECT amount FROM booking_security_deposits WHERE id = $1`,
-      [depositId]
-    );
-
-    if (result.rows.length === 0) {
-      throw new Error('Deposit not found');
-    }
-
-    const totalAmount = parseFloat(result.rows[0].amount);
-
-    await client.query(
-      `UPDATE booking_security_deposits
-       SET deposit_status = 'forfeited',
-           refunded_amount = 0,
-           forfeited_amount = $2,
-           notes = COALESCE(notes, '') || $3
-       WHERE id = $1`,
-      [depositId, totalAmount, forfeitureReason]
-    );
-  } catch (error) {
-    console.error("Error processing forfeiture:", error);
-    throw new Error("Failed to process forfeiture");
   } finally {
     client.release();
   }
@@ -640,7 +787,7 @@ export async function getDeliverables(): Promise<DeliverableRecord[]> {
       const havenDisplay = bookingInfo.room_name ? bookingInfo.room_name.replace(/Room/i, 'Haven') : 'Unknown Haven';
 
       // Process items
-      const deliverableItems: DeliverableItem[] = items.map(item => {
+      const deliverableItems: DeliverableItem[] = items.map((item: any) => {
         if (!item) {
           console.warn('Null item found for booking:', bookingUuid);
           return null;
@@ -683,7 +830,7 @@ export async function getDeliverables(): Promise<DeliverableRecord[]> {
       }
 
       // Determine overall status (priority: Pending > Preparing > Delivered > Cancelled > Refunded)
-      const statuses = deliverableItems.map(item => item.status);
+      const statuses = deliverableItems.map((item: any) => item.status);
       let overallStatus = 'Delivered';
       
       if (statuses.length === 0) {
