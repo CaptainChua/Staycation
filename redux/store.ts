@@ -9,6 +9,9 @@ import { activityLogApi } from "./api/activityLogApi";
 import { analyticsApi } from "./api/analyticsApi";
 import { reportApi } from "./api/reportApi";
 import { notificationsApi } from "./api/notificationsApi";
+import { reviewsApi } from "./api/reviewsApi";
+import { blockedDatesApi } from "./api/blockedDatesApi";
+import { adminUsersApi } from "./api/adminUsersApi";
 
 export const store = configureStore({
     reducer: {
@@ -22,8 +25,23 @@ export const store = configureStore({
         [analyticsApi.reducerPath]: analyticsApi.reducer,
         [reportApi.reducerPath]: reportApi.reducer,
         [notificationsApi.reducerPath]: notificationsApi.reducer,
+        [reviewsApi.reducerPath]: reviewsApi.reducer,
+        [blockedDatesApi.reducerPath]: blockedDatesApi.reducer,
+        [adminUsersApi.reducerPath]: adminUsersApi.reducer,
     },
-    middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(employeeApi.middleware).concat(roomApi.middleware).concat(bookingsApi.middleware).concat(wishlistApi.middleware).concat(messagesApi.middleware).concat(activityLogApi.middleware).concat(analyticsApi.middleware).concat(reportApi.middleware).concat(notificationsApi.middleware),
+    middleware: (getDefaultMiddleware) => getDefaultMiddleware()
+        .concat(employeeApi.middleware)
+        .concat(roomApi.middleware)
+        .concat(bookingsApi.middleware)
+        .concat(wishlistApi.middleware)
+        .concat(messagesApi.middleware)
+        .concat(activityLogApi.middleware)
+        .concat(analyticsApi.middleware)
+        .concat(reportApi.middleware)
+        .concat(notificationsApi.middleware)
+        .concat(reviewsApi.middleware)
+        .concat(blockedDatesApi.middleware)
+        .concat(adminUsersApi.middleware),
 
 });
 
