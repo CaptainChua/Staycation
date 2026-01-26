@@ -133,6 +133,90 @@ const TableSkeleton = ({ rows = 5 }: { rows?: number }) => (
   </tbody>
 );
 
+function RejectModal({
+  isOpen,
+  payment,
+  onCancel,
+  onConfirm,
+  updatingPaymentId,
+}: {
+  isOpen: boolean;
+  payment: PaymentRow | null;
+  onCancel: () => void;
+  onConfirm: (id: string, reason: string) => Promise<void>;
+  updatingPaymentId: string | null;
+}) {
+  const [localReason, setLocalReason] = useState("");
+
+  if (!isOpen || !payment) return null;
+
+  return (
+    <div className="fixed inset-0 z-[9999]">
+      <div
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm"
+        onClick={onCancel}
+      />
+      <div className="fixed inset-0 flex items-center justify-center p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-6 border border-gray-100 dark:border-gray-700">
+          <h3 className="text-lg font-bold mb-2 text-gray-900 dark:text-gray-100">
+            Reject Payment
+          </h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+            Provide a reason for rejecting the payment (optional).
+          </p>
+          <textarea
+            value={localReason}
+            onChange={(e) => setLocalReason(e.target.value)}
+            className="w-full p-3 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 mb-4"
+            rows={4}
+            placeholder="Rejection reason (optional)"
+          />
+          <div className="flex justify-end gap-3">
+            <button
+              onClick={onCancel}
+              type="button"
+              className="px-4 py-2 rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => onConfirm(payment.id!, localReason)}
+              type="button"
+              disabled={updatingPaymentId === payment.id}
+              className="px-4 py-2 rounded-lg bg-red-600 dark:bg-red-600 text-white hover:bg-red-700 dark:hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center"
+            >
+              {updatingPaymentId === payment.id ? (
+                <svg
+                  className="animate-spin inline-block align-middle h-4 w-4"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                  />
+                </svg>
+              ) : (
+                <span className="font-semibold">Reject</span>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function PaymentPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | PaymentStatus>(
@@ -173,7 +257,6 @@ export default function PaymentPage() {
   );
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
-  const [rejectReason, setRejectReason] = useState("");
   const [updatingPaymentId, setUpdatingPaymentId] = useState<string | null>(
     null,
   );
@@ -299,38 +382,39 @@ export default function PaymentPage() {
     // Keep the selected payment set so the reject modal has context,
     // and close the view modal before opening the reject modal.
     setSelectedPayment(row);
-    setRejectReason("");
     setIsViewModalOpen(false);
     setIsRejectModalOpen(true);
   }, []);
 
-  const handleConfirmReject = useCallback(async () => {
-    if (!selectedPayment?.id) {
-      toast.error("Payment ID not available");
-      return;
-    }
-    setUpdatingPaymentId(selectedPayment.id);
-    const toastId = toast.loading("Rejecting payment...");
-    try {
-      await updateBookingPayment({
-        id: selectedPayment.id,
-        payment_status: "rejected",
-        rejection_reason: rejectReason || undefined,
-      }).unwrap();
-      toast.success("Payment rejected", { id: toastId });
-      refetch();
-      setIsRejectModalOpen(false);
-      setSelectedPayment(null);
-    } catch (err) {
-      console.error("Reject error:", err);
-      toast.error("Failed to reject payment", { id: toastId });
-    } finally {
-      setUpdatingPaymentId(null);
-    }
-  }, [selectedPayment, rejectReason, updateBookingPayment, refetch]);
+  const handleConfirmReject = useCallback(
+    async (id: string, reason: string) => {
+      if (!id) {
+        toast.error("Payment ID not available");
+        return;
+      }
+      setUpdatingPaymentId(id);
+      const toastId = toast.loading("Rejecting payment...");
+      try {
+        await updateBookingPayment({
+          id,
+          payment_status: "rejected",
+          rejection_reason: reason || undefined,
+        }).unwrap();
+        toast.success("Payment rejected", { id: toastId });
+        refetch();
+        setIsRejectModalOpen(false);
+        setSelectedPayment(null);
+      } catch (err) {
+        console.error("Reject error:", err);
+        toast.error("Failed to reject payment", { id: toastId });
+      } finally {
+        setUpdatingPaymentId(null);
+      }
+    },
+    [updateBookingPayment, refetch],
+  );
 
   const handleCancelReject = useCallback(() => {
-    setRejectReason("");
     setIsRejectModalOpen(false);
     setSelectedPayment(null);
   }, []);
@@ -1118,7 +1202,6 @@ export default function PaymentPage() {
                     onClick={() => {
                       // Close the view modal and open the reject modal without
                       // clearing `selectedPayment` so the reject modal has its context.
-                      setRejectReason("");
                       setIsViewModalOpen(false);
                       setIsRejectModalOpen(true);
                     }}
@@ -1140,72 +1223,14 @@ export default function PaymentPage() {
         </>
       )}
 
-      {/* Reject Booking Modal (uses selectedPayment) */}
-      {isRejectModalOpen && selectedPayment && (
-        <div className="fixed inset-0 z-[9999]">
-          <div
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm"
-            onClick={handleCancelReject}
-          />
-          <div className="fixed inset-0 flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-6 border border-gray-100 dark:border-gray-700">
-              <h3 className="text-lg font-bold mb-2 text-gray-900 dark:text-gray-100">
-                Reject Payment
-              </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                Provide a reason for rejecting the payment (optional).
-              </p>
-              <textarea
-                value={rejectReason}
-                onChange={(e) => setRejectReason(e.target.value)}
-                className="w-full p-3 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 mb-4"
-                rows={4}
-                placeholder="Rejection reason (optional)"
-              />
-              <div className="flex justify-end gap-3">
-                <button
-                  onClick={handleCancelReject}
-                  type="button"
-                  className="px-4 py-2 rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleConfirmReject}
-                  type="button"
-                  disabled={updatingPaymentId === selectedPayment.id}
-                  className="px-4 py-2 rounded-lg bg-red-600 dark:bg-red-600 text-white hover:bg-red-700 dark:hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center"
-                >
-                  {updatingPaymentId === selectedPayment.id ? (
-                    <svg
-                      className="animate-spin inline-block align-middle h-4 w-4"
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      />
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                      />
-                    </svg>
-                  ) : (
-                    <span className="font-semibold">Reject</span>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <RejectModal
+        key={selectedPayment?.id}
+        isOpen={isRejectModalOpen}
+        payment={selectedPayment}
+        onCancel={handleCancelReject}
+        onConfirm={handleConfirmReject}
+        updatingPaymentId={updatingPaymentId}
+      />
     </div>
   );
 }
