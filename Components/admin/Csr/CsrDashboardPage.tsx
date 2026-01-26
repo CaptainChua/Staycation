@@ -235,7 +235,7 @@ export default function CsrDashboard() {
       category: "Finance",
       items: [
         { id: "payments", icon: DollarSign, label: "Payment Management", color: "text-purple-500" },
-        { id: "deposits", icon: Wallet, label: "Deposit Management", color: "text-indigo-500" },
+        { id: "deposits", icon: Wallet, label: "Security Deposit", color: "text-indigo-500" },
       ],
     },
     {
@@ -249,7 +249,6 @@ export default function CsrDashboard() {
     {
       category: "Communication",
       items: [
-        { id: "guest", icon: Headphones, label: "Guest Assistance", color: "text-pink-500" },
         { id: "messages", icon: MessageSquare, label: "Messages", color: "text-green-500" },
       ],
     },
