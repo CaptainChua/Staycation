@@ -265,7 +265,7 @@ const CleaningManagement = () => {
     {
       id: "total",
       label: "Total Rooms",
-      value: totalTasks,
+      value: totalRooms,
       color: "bg-blue-500",
       Icon: Home,
     },
