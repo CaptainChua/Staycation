@@ -1,9 +1,10 @@
 "use client";
 
-import { Menu, X, Home, Calendar, DollarSign, FileText, Users, Wallet, Package, Settings, Bell, ChevronDown, User, MessageSquare, BarChart3, Headphones } from "lucide-react";
+import { Menu, X, Home, Calendar, DollarSign, FileText, Users, Wallet, Package, Settings, Bell, ChevronDown, User, MessageSquare, BarChart3, Headphones, Moon, Sun, Monitor } from "lucide-react";
 import Image from "next/image";
 import { useMemo, useState, useEffect, useRef } from "react";
 import { useSession, signOut } from "next-auth/react";
+import { useTheme } from "next-themes";
 import DashboardPage, {
   BookingsPage,
   PaymentsPage,
@@ -65,6 +66,7 @@ export default function CsrDashboard() {
   const notificationButtonRef = useRef<HTMLButtonElement | null>(null);
   const messageButtonRef = useRef<HTMLButtonElement | null>(null);
   const { data: session } = useSession();
+  const { theme, setTheme } = useTheme();
 
   const userId = (session?.user as AdminUser)?.id;
   const {
@@ -427,13 +429,18 @@ export default function CsrDashboard() {
             {/* Messages */}
             <button
               ref={messageButtonRef}
-              className="relative p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+              className={`relative p-2 rounded-lg transition-colors ${
+                messageModalOpen
+                  ? "bg-brand-primaryLighter text-brand-primary"
+                  : "hover:bg-gray-100 dark:hover:bg-gray-800"
+              }`}
               onClick={() => {
                 setMessageBadge(false);
+                setNotificationOpen(false);
                 setMessageModalOpen((prev) => !prev);
               }}
             >
-              <MessageSquare className="w-6 h-6 text-gray-600 dark:text-gray-300" />
+              <MessageSquare className={`w-6 h-6 ${messageModalOpen ? "text-brand-primary" : "text-gray-600 dark:text-gray-300"}`} />
               {messageBadge && (
                 <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
               )}
@@ -442,10 +449,17 @@ export default function CsrDashboard() {
             {/* Notifications */}
             <button
               ref={notificationButtonRef}
-              className="relative p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-              onClick={() => setNotificationOpen((prev) => !prev)}
+              className={`relative p-2 rounded-lg transition-colors ${
+                notificationOpen
+                  ? "bg-brand-primaryLighter text-brand-primary"
+                  : "hover:bg-gray-100 dark:hover:bg-gray-800"
+              }`}
+              onClick={() => {
+                setMessageModalOpen(false);
+                setNotificationOpen((prev) => !prev);
+              }}
             >
-              <Bell className="w-6 h-6 text-gray-600 dark:text-gray-300" />
+              <Bell className={`w-6 h-6 ${notificationOpen ? "text-brand-primary" : "text-gray-600 dark:text-gray-300"}`} />
               <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
             </button>
 
@@ -455,7 +469,7 @@ export default function CsrDashboard() {
                 onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
                 className="flex items-center gap-2 p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
               >
-                <div className="w-10 h-10 bg-brand-primary rounded-full overflow-hidden flex items-center justify-center text-white font-bold cursor-pointer transition-colors">
+                <div className="w-10 h-10 bg-white dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-full overflow-hidden flex items-center justify-center text-gray-700 dark:text-gray-200 font-bold cursor-pointer transition-colors">
                   {isLoading ? (
                     <div className="w-full h-full bg-gray-200 dark:bg-gray-700 animate-pulse" />
                   ) : employee?.profile_image_url ? (
@@ -467,8 +481,22 @@ export default function CsrDashboard() {
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <span>{session?.user?.name ? session?.user?.name.charAt(0).toUpperCase() : 'C'}</span>
+                    <span>{session?.user?.name ? session.user.name.charAt(0).toUpperCase() : 'C'}</span>
                   )}
+                </div>
+                <div className="hidden sm:block text-left">
+                  <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate max-w-[120px]">
+                    {isLoading ? (
+                      <div className="h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                    ) : employee ? (
+                      `${employee.first_name} ${employee.last_name}`.trim() || employee.email || employee.employment_id
+                    ) : (
+                      session?.user?.name || "User"
+                    )}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[120px]">
+                    {employee?.role || "CSR"}
+                  </p>
                 </div>
                 <ChevronDown
                   className={`w-4 h-4 text-gray-600 dark:text-gray-300 transition-transform ${
@@ -528,6 +556,57 @@ export default function CsrDashboard() {
                       <Settings className="w-4 h-4 text-brand-primary" />
                       <span className="text-sm font-medium">Settings</span>
                     </button>
+                  </div>
+
+                  {/* Theme Toggle */}
+                  <div className="flex justify-center py-2 border-t border-b border-gray-200 dark:border-gray-600">
+                    <div className="flex items-center gap-0.5 bg-gray-100 dark:bg-gray-700 rounded-full p-0.5">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setTheme('dark');
+                        }}
+                        className={`p-1 rounded-full transition-all duration-200 ${
+                          theme === 'dark'
+                            ? 'bg-white dark:bg-gray-600 text-brand-primary shadow-sm'
+                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                        }`}
+                        aria-label="Dark mode"
+                        title="Dark"
+                      >
+                        <Moon className="w-3 h-3" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setTheme('light');
+                        }}
+                        className={`p-1 rounded-full transition-all duration-200 ${
+                          theme === 'light'
+                            ? 'bg-white dark:bg-gray-600 text-brand-primary shadow-sm'
+                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                        }`}
+                        aria-label="Light mode"
+                        title="Light"
+                      >
+                        <Sun className="w-3 h-3" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setTheme('system');
+                        }}
+                        className={`p-1 rounded-full transition-all duration-200 ${
+                          theme === 'system'
+                            ? 'bg-white dark:bg-gray-600 text-brand-primary shadow-sm'
+                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                        }`}
+                        aria-label="System mode"
+                        title="System"
+                      >
+                        <Monitor className="w-3 h-3" />
+                      </button>
+                    </div>
                   </div>
 
                   {/* Logout */}
