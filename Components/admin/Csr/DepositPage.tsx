@@ -486,7 +486,7 @@ export default function DepositPage() {
         
         // Update toast
         toast.success('PDF exported successfully!', { id: loadingToast });
-      }).catch((error) => {
+      }).catch((error: unknown) => {
         // Clean up temporary element on error
         if (cleanTableContainer && document.body.contains(cleanTableContainer)) {
           document.body.removeChild(cleanTableContainer);

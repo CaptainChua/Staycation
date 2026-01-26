@@ -166,8 +166,8 @@ export default function DeliverablesPage() {
         aVal = a.overall_status;
         bVal = b.overall_status;
       } else if (sortField in a) {
-        aVal = (a as Record<string, unknown>)[sortField] as string | number | Date;
-        bVal = (b as Record<string, unknown>)[sortField] as string | number | Date;
+        aVal = (a as unknown as Record<string, unknown>)[sortField] as string | number | Date;
+        bVal = (b as unknown as Record<string, unknown>)[sortField] as string | number | Date;
       }
 
       const aSortable = (typeof aVal === 'string' ? aVal : String(aVal)).toLowerCase();
