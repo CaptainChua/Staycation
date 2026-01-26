@@ -8,6 +8,5 @@ interface RouteContext {
 }
 
 export async function GET(request: NextRequest, { params }: RouteContext): Promise<NextResponse> {
-  const { id } = await params;
-  return getHavenById(request, { params: Promise.resolve({ id }) });
+  return getHavenById(request, { params });
 }

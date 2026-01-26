@@ -23,6 +23,8 @@ import dynamic from "next/dynamic";
 import { useGetEmployeesQuery } from "@/redux/api/employeeApi";
 import Image from "next/image";
 
+import { getHavensForCleaning, MappedHaven } from "@/app/admin/cleaners/actions";
+
 // Lazy load Map component to avoid SSR issues with Leaflet
 const CleanerMap = dynamic(
   () => import("./CleanerMap"),
@@ -62,9 +64,22 @@ export default function CleanersManagementPage() {
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [selectedCleanerId, setSelectedCleanerId] = useState<string | null>(null);
   const [mapCenter, setMapCenter] = useState<[number, number]>([14.6760, 121.0437]); // default to Quezon City
+  const [havens, setHavens] = useState<MappedHaven[]>([]);
 
   // Fetch cleaners from API
   const { data: employeesData, isLoading, refetch } = useGetEmployeesQuery({ role: "Cleaner" });
+
+  useEffect(() => {
+    const fetchHavens = async () => {
+      try {
+        const data = await getHavensForCleaning();
+        setHavens(data);
+      } catch (error) {
+        console.error("Failed to fetch havens", error);
+      }
+    };
+    fetchHavens();
+  }, []);
   
   const cleaners: Cleaner[] = useMemo(() => {
     return (employeesData?.data || []).map((emp: any) => ({
@@ -416,6 +431,22 @@ export default function CleanersManagementPage() {
         {/* TODO: Document missing latitude/longitude columns in 'employees' table. 
             Currently these fields are expected by the UI but missing from the Neon PostgreSQL schema.
             Markers will only appear once 'latitude' and 'longitude' (NUMERIC or FLOAT) are added to the table. */}
+      </div>
+
+      {/* Havens Overview Section */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden border border-gray-200 dark:border-gray-700 p-6">
+        <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4">Havens Overview</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {havens.length > 0 ? (
+            havens.map((haven) => (
+              <div key={haven.uuid} className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-700/50">
+                 <p className="text-sm font-medium text-gray-700 dark:text-gray-200">{haven.displayString}</p>
+              </div>
+            ))
+          ) : (
+            <p className="text-gray-500 dark:text-gray-400">Loading havens data...</p>
+          )}
+        </div>
       </div>
       
       {/* TODO: Implement area assignment logic if stored in DB */}

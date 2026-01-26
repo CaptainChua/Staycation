@@ -102,10 +102,13 @@ export default function PropertyMap({ buildings, center, selectedBuildingId, onM
                 <Building2 className="w-5 h-5" />
               </div>
               <h3 className="font-bold text-gray-800 text-sm">{building.name}</h3>
-              <p className="text-xs text-gray-600 mt-1">
-                {building.availableUnits} units available
+              <p className="text-xs font-semibold text-gray-700 mt-2">
+                Total Havens: {building.totalUnits}
               </p>
-              <span className={`inline-block mt-1 px-2 py-0.5 text-[10px] font-bold rounded-full uppercase ${
+              <p className="text-xs text-gray-600">
+                {building.availableUnits} available
+              </p>
+              <span className={`inline-block mt-2 px-2 py-0.5 text-[10px] font-bold rounded-full uppercase ${
                 building.status === 'available' ? 'bg-green-100 text-green-700' : 
                 building.status === 'limited' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
               }`}>

@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { Metadata } from "next";
 import RoomDetailsClient from "./RoomDetailsClient";
 
 
@@ -200,13 +201,58 @@ import RoomDetailsClient from "./RoomDetailsClient";
 // };
 
 const getRoomById = async (id: string) => {
+  console.log("🔍 Server-side fetching haven:", id);
   const baseUrl = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || '';
-  const res = await fetch(`${baseUrl}/api/haven/${id}`, {
+  console.log("🔍 Base URL:", baseUrl);
+  
+  try {
+    const res = await fetch(`${baseUrl}/api/haven/${id}`, {
+      cache: 'no-cache'
+    })
+
+    console.log("🔍 Response status:", res.status);
+    console.log("🔍 Response ok:", res.ok);
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.log("🔍 Error response:", errorText);
+      return null
+    }
+
+    const data = await res.json();
+    console.log("🔍 Success response:", data);
+    return data;
+  } catch (error: any) {
+    console.log("🔍 Fetch error:", error.message);
+    return null;
+  }
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const response = await getRoomById(id);
+
+  if (!response?.success || !response?.data) {
+    return {
+      title: "Staycation Haven | Room Not Found",
+    };
+  }
+
+  const room = response.data;
+  return {
+    title: `Staycation Haven | ${room.description}`,
+    description: room.full_description || room.description,
+  };
+}
+
+const getAllHavens = async () => {
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || '';
+  const res = await fetch(`${baseUrl}/api/haven`, {
     cache: 'no-cache'
-  })
+  });
 
   if (!res.ok) {
-    return null
+    return null;
   }
 
   return res.json();
@@ -214,13 +260,22 @@ const getRoomById = async (id: string) => {
 
 const RoomDetailsPageRoute = async ({ params }: { params: Promise<{ id: string }> }) => {
   const { id } = await params;
-  const response =  await getRoomById(id);
+
+  // Fetch room and all havens in parallel
+  const [response, allHavensResponse] = await Promise.all([
+    getRoomById(id),
+    getAllHavens()
+  ]);
 
   if (!response?.success || !response?.data) {
     return notFound();
   }
 
-  return <RoomDetailsClient room={response.data} />
+  // Filter out the current room and get recommendations (5 rooms)
+  const allHavens = allHavensResponse?.data || [];
+  const recommendedRooms = allHavens.filter((haven: { uuid_id: string }) => haven.uuid_id !== id).slice(0, 5);
+
+  return <RoomDetailsClient room={response.data} recommendedRooms={recommendedRooms} />
 }
 
 export default RoomDetailsPageRoute;
