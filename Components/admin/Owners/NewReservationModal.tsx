@@ -32,7 +32,7 @@ const ADD_ON_PRICES = {
 interface NewReservationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (bookingData: any) => void;
+  onSubmit: (bookingData: any) => Promise<void>;
 }
 
 const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalProps) => {
@@ -336,9 +336,16 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
       remainingBalance: totalAmount - downPayment,
     };
 
-    onSubmit(bookingData);
-    resetForm(); // Reset form after successful submission
-    onClose(); // Close the modal
+    try {
+      // Wait for the async submission to complete
+      await onSubmit(bookingData);
+      // Only reset and close after successful submission
+      resetForm();
+      onClose();
+    } catch (error) {
+      console.error('Submission error:', error);
+      // Don't close modal or reset on error, let parent handle the error message
+    }
   };
 
   if (!isOpen) return null;
@@ -368,10 +375,10 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
 
         {/* Progress Steps */}
         <div className="px-6 py-6 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
-          <div className="flex items-center justify-between max-w-4xl mx-auto">
+          <div className="flex items-center justify-center max-w-4xl mx-auto">
             {[1, 2, 3, 4].map((step, idx) => (
-              <div key={step} className="flex items-center flex-1">
-                <div className="flex flex-col items-center flex-1">
+              <div key={step} className="flex items-center">
+                <div className="flex flex-col items-center">
                   <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-2 transition-all font-semibold ${
                     completedSteps.includes(step) 
                       ? "bg-green-500 text-white" 
@@ -381,7 +388,7 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                   }`} style={currentStep === step ? { backgroundColor: '#A1823D' } : {}}>
                     {completedSteps.includes(step) ? <CheckCircle className="w-6 h-6" /> : step}
                   </div>
-                  <span className={`text-xs font-medium text-center ${
+                  <span className={`text-xs font-medium text-center whitespace-nowrap ${
                     completedSteps.includes(step) || currentStep === step 
                       ? "text-gray-900 dark:text-gray-100" 
                       : "text-gray-500 dark:text-gray-400"
@@ -390,7 +397,7 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                   </span>
                 </div>
                 {idx < 3 && (
-                  <div className={`flex-1 h-1 mx-2 -mt-8 ${
+                  <div className={`w-24 h-1 mx-4 -mt-8 ${
                     completedSteps.includes(step) 
                       ? "bg-green-500" 
                       : "bg-gray-200 dark:bg-gray-600"

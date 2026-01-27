@@ -18,14 +18,14 @@ interface Booking {
   status: string;
   additional_guests?: AdditionalGuest[];
   booking_id?: string;
-  guest_first_name?: string;
-  guest_last_name?: string;
-  guest_email?: string;
-  guest_phone?: string;
+  guest_first_name?: string;  
+  guest_last_name?: string;   
+  guest_email?: string;       
+  guest_phone?: string;       
   room_name?: string;
-  check_in_date: string;    // ← Add this
+  check_in_date: string;
   check_in_time?: string;
-  check_out_date: string;   // ← Add this
+  check_out_date: string;
   check_out_time?: string;
   adults?: number;
   children?: number;
@@ -180,6 +180,8 @@ const ReservationsPage = () => {
 
   const handleNewReservation = async (bookingData: any) => {
     try {
+      console.log("📤 Sending booking data:", bookingData);
+
       let paymentProofBase64 = '';
       if (bookingData.paymentProof) {
         const reader = new FileReader();
@@ -223,11 +225,12 @@ const ReservationsPage = () => {
 
       const bookingId = `BK${Date.now()}`;
 
+      // FIXED: Map the field names to match what the backend expects
       const bookingRequestData = {
         booking_id: bookingId,
         user_id: null,
-        guest_first_name: bookingData.firstName,
-        guest_last_name: bookingData.lastName,
+        guest_first_name: bookingData.firstName,      // ✅ Fixed mapping
+        guest_last_name: bookingData.lastName,         // ✅ Fixed mapping
         guest_age: bookingData.age,
         guest_gender: bookingData.gender,
         guest_email: bookingData.email,
@@ -237,10 +240,10 @@ const ReservationsPage = () => {
         additional_guests: additionalGuestsData,
         room_name: bookingData.roomName,
         stay_type: bookingData.stayType,
-        check_in_date: bookingData.checkInDate,
-        check_out_date: bookingData.checkOutDate,
-        check_in_time: bookingData.checkInTime,
-        check_out_time: bookingData.checkOutTime,
+        check_in_date: bookingData.checkInDate,       // ✅ Fixed mapping
+        check_out_date: bookingData.checkOutDate,     // ✅ Fixed mapping
+        check_in_time: bookingData.checkInTime,       // ✅ Fixed mapping
+        check_out_time: bookingData.checkOutTime,     // ✅ Fixed mapping
         adults: bookingData.adults,
         children: bookingData.children,
         infants: bookingData.infants,
@@ -255,6 +258,8 @@ const ReservationsPage = () => {
         add_ons: bookingData.addOns,
       };
 
+      console.log("📤 Final request data:", bookingRequestData);
+
       const result = await createBooking(bookingRequestData).unwrap();
 
       if (result.success) {
@@ -265,7 +270,7 @@ const ReservationsPage = () => {
         toast.error('Failed to create reservation. Please try again.');
       }
     } catch (error) {
-      console.error('Error creating reservation:', error);
+      console.error('❌ Error creating reservation:', error);
       toast.error('An error occurred while creating the reservation.');
     }
   };
@@ -334,8 +339,9 @@ const ReservationsPage = () => {
       {/* Details Modal */}
       {selectedBooking && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-orange-500 text-white p-6 rounded-t-2xl flex justify-between items-center">
+          <div className="bg-[#1e293b] rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            {/* Header - Using yellow/gold color like Guest Information modal */}
+            <div className="sticky top-0 bg-[#a1823d] text-white p-6 rounded-t-2xl flex justify-between items-center">
               <div>
                 <h2 className="text-2xl font-bold">Booking Details</h2>
                 <p className="text-sm opacity-90">ID: {selectedBooking.booking_id}</p>
@@ -346,55 +352,73 @@ const ReservationsPage = () => {
             </div>
 
             <div className="p-6 space-y-6">
+              {/* Status Badge */}
               <div className="flex justify-center">
                 <span className={`px-6 py-2 rounded-full text-sm font-semibold ${getStatusColor(selectedBooking.status)}`}>
                   {selectedBooking.status.toUpperCase().replace("-", " ")}
                 </span>
               </div>
 
-              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-6 border border-gray-200 dark:border-gray-600">
-                <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4 flex items-center gap-2">
-                  <User className="w-5 h-5 text-orange-500" />
+              {/* Main Guest Information - Matching the dark blue-gray background */}
+              <div className="bg-[#334155] rounded-lg p-6 border border-[#475569]">
+                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                  <User className="w-5 h-5 text-[#d4a574]" />
                   Main Guest Information
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Full Name</p>
-                    <p className="font-semibold text-gray-800 dark:text-gray-100">{selectedBooking.guest_first_name} {selectedBooking.guest_last_name}</p>
+                    <p className="text-sm text-gray-400">Full Name</p>
+                    <p className="font-semibold text-white">{selectedBooking.guest_first_name} {selectedBooking.guest_last_name}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Email</p>
-                    <p className="font-semibold text-gray-800 dark:text-gray-100">{selectedBooking.guest_email}</p>
+                    <p className="text-sm text-gray-400">Email</p>
+                    <p className="font-semibold text-white">{selectedBooking.guest_email}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Phone</p>
-                    <p className="font-semibold text-gray-800 dark:text-gray-100">{selectedBooking.guest_phone}</p>
+                    <p className="text-sm text-gray-400">Phone</p>
+                    <p className="font-semibold text-white">{selectedBooking.guest_phone}</p>
                   </div>
                 </div>
               </div>
 
-              <div className="flex gap-3 justify-end border-t border-gray-200 dark:border-gray-600 pt-6">
+              {/* Action Buttons */}
+              <div className="flex gap-3 justify-end border-t border-[#475569] pt-6">
                 {selectedBooking.status === "pending" && (
                   <>
-                    <button onClick={() => { handleApprove(selectedBooking.id); closeModal(); }} className="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2">
+                    <button 
+                      onClick={() => { handleApprove(selectedBooking.id); closeModal(); }} 
+                      className="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2"
+                    >
                       <Check className="w-5 h-5" /> Approve Booking
                     </button>
-                    <button onClick={() => { handleReject(selectedBooking.id); closeModal(); }} className="px-6 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2">
+                    <button 
+                      onClick={() => { handleReject(selectedBooking.id); closeModal(); }} 
+                      className="px-6 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2"
+                    >
                       <X className="w-5 h-5" /> Reject Booking
                     </button>
                   </>
                 )}
                 {(selectedBooking.status === "approved" || selectedBooking.status === "confirmed") && (
-                  <button onClick={() => { handleCheckIn(selectedBooking.id); closeModal(); }} className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
+                  <button 
+                    onClick={() => { handleCheckIn(selectedBooking.id); closeModal(); }} 
+                    className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                  >
                     Check In Guest
                   </button>
                 )}
                 {selectedBooking.status === "checked-in" && (
-                  <button onClick={() => { handleCheckOut(selectedBooking.id); closeModal(); }} className="px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors">
+                  <button 
+                    onClick={() => { handleCheckOut(selectedBooking.id); closeModal(); }} 
+                    className="px-6 py-3 bg-[#d4a574] text-white rounded-lg hover:bg-[#c89560] transition-colors"
+                  >
                     Check Out Guest
                   </button>
                 )}
-                <button onClick={closeModal} className="px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">
+                <button 
+                  onClick={closeModal} 
+                  className="px-6 py-3 border border-[#475569] text-gray-200 bg-[#334155] rounded-lg hover:bg-[#475569] transition-colors"
+                >
                   Close
                 </button>
               </div>
@@ -407,8 +431,8 @@ const ReservationsPage = () => {
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-gray-800 mb-2">Reservations</h1>
-            <p className="text-gray-600">Manage all your bookings and reservations</p>
+            <h1 className="text-3xl font-bold text-white mb-2">Reservations</h1>
+            <p className="text-white-600">Manage all your bookings and reservations</p>
           </div>
           <button 
             onClick={() => setIsNewReservationModalOpen(true)}
