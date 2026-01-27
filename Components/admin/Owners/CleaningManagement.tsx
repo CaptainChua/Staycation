@@ -88,6 +88,32 @@ const CleaningManagement = () => {
   const [selectedCleaningId, setSelectedCleaningId] = useState<string | null>(null);
   const [modalError, setModalError] = useState<string | null>(null);
 
+  // Handle cleaner assignment
+  const handleAssignCleaner = async () => {
+    if (!selectedCleaningId || !cleanerName.trim()) {
+      setModalError("Please enter a cleaner name");
+      return;
+    }
+
+    try {
+      await updateCleaningStatus({
+        id: selectedCleaningId,
+        cleaning_status: "in-progress",
+        cleaner_name: cleanerName.trim(),
+      });
+      
+      toast.success("Cleaner assigned successfully");
+      setShowAssignModal(false);
+      setCleanerName("");
+      setSelectedCleaningId(null);
+      setModalError(null);
+      refetch();
+    } catch (error) {
+      console.error("Error assigning cleaner:", error);
+      setModalError("Failed to assign cleaner");
+    }
+  };
+
   // Process bookings to get room data with statuses
   const roomData = useMemo(() => {
     const today = new Date();
@@ -339,9 +365,9 @@ const CleaningManagement = () => {
         </div>
       </div>
 
-      {dataError && (
+      {modalError && (
         <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/50 rounded-lg text-red-700 dark:text-red-300">
-          {dataError}
+          {modalError}
         </div>
       )}
 
@@ -570,10 +596,10 @@ const CleaningManagement = () => {
             </p>
           </div>
           <div className="divide-y divide-gray-100 dark:divide-gray-800">
-            {filteredRecords
-              .filter((r: CleaningRecord) => r.cleaningStatus === "pending")
+            {filteredRooms
+              .filter((r) => r.cleaning_status === "pending")
               .slice(0, 5)
-              .map((room: CleaningRecord) => (
+              .map((room) => (
                 <div
                   key={room.id}
                   className="px-6 py-4 flex items-center justify-between"
@@ -597,7 +623,7 @@ const CleaningManagement = () => {
                   </button>
                 </div>
               ))}
-            {filteredRecords.filter((r: CleaningRecord) => r.cleaningStatus === "pending").length === 0 && (
+            {filteredRooms.filter((r) => r.cleaning_status === "pending").length === 0 && (
               <div className="px-6 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
                 No pending cleaning tasks
               </div>
