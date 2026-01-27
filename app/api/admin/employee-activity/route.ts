@@ -19,7 +19,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Get IP address and user agent from request
-    const ip = request.ip || request.headers.get('x-forwarded-for') || '127.0.0.1';
+    const ip = request.headers.get('x-forwarded-for') || 
+               request.headers.get('x-real-ip') || 
+               '127.0.0.1';
     const userAgent = request.headers.get('user-agent') || '';
     
     console.log('🌐 IP and UserAgent:', { ip, userAgent });
