@@ -45,7 +45,7 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" },
         turnstileToken: { label: "Turnstile Token", type: "text" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         try {
           console.log("🔐 Attempting login for:", credentials?.email);
 
@@ -63,10 +63,17 @@ export const authOptions: NextAuthOptions = {
 
           console.log("✅ Turnstile verification passed");
 
+          // Get IP address and user agent from request
+          const ipAddress = req?.headers?.['x-forwarded-for'] as string || 
+                           req?.headers?.['x-real-ip'] as string || 
+                           
+                           'unknown';
+          const userAgent = req?.headers?.['user-agent'] as string || 'unknown';
+
           // First check employee table (for admin/staff users)
           console.log("📊 Querying employees table...");
           const employeeResult = await pool.query(
-            "SELECT id, email, password, role, first_name, last_name FROM employees WHERE email = $1",
+            "SELECT id, email, password, role, first_name, last_name, ip_address, user_agent FROM employees WHERE email = $1",
             [credentials.email]
           );
 
@@ -85,16 +92,37 @@ export const authOptions: NextAuthOptions = {
 
             console.log("✅ Password valid! Employee login successful");
 
-            // Create activity log for employee login
+            // Update employee IP address and user agent if not already set
+            if (!user.ip_address || !user.user_agent) {
+              try {
+                await pool.query(
+                  `UPDATE employees 
+                   SET ip_address = COALESCE($1, ip_address), 
+                       user_agent = COALESCE($2, user_agent),
+                       updated_at = NOW()
+                   WHERE id = $3`,
+                  [ipAddress !== 'unknown' ? ipAddress : null, 
+                   userAgent !== 'unknown' ? userAgent : null, 
+                   user.id]
+                );
+                console.log('✅ Updated employee IP address and user agent');
+              } catch (updateError) {
+                console.error('❌ Failed to update employee IP/user agent:', updateError);
+              }
+            }
+
+            // Create activity log for employee login using the proper function
             try {
               await pool.query(
-                `INSERT INTO staff_activity_logs (employment_id, action_type, action, details, created_at)
-                 VALUES ($1, $2, $3, $4, NOW())`,
+                `SELECT log_employee_activity($1, $2, $3, $4, $5, $6, $7)`,
                 [
                   user.id,
-                  'login',
-                  'Logged into system',
-                  `${user.first_name} ${user.last_name} logged in successfully via NextAuth`
+                  'LOGIN',
+                  `${user.first_name} ${user.last_name} logged into the system`,
+                  null,
+                  null,
+                  ipAddress !== 'unknown' ? ipAddress : null,
+                  userAgent !== 'unknown' ? userAgent : null
                 ]
               );
               console.log('✅ Activity log created for employee login');
@@ -236,7 +264,7 @@ export const authOptions: NextAuthOptions = {
           // Create activity log for regular user login
           try {
             await pool.query(
-              `INSERT INTO staff_activity_logs (user_id, action_type, action, details, created_at)
+              `INSERT INTO employee_activity_logs (user_id, action_type, action, details, created_at)
                VALUES ($1, $2, $3, $4, NOW())`,
               [
                 user.user_id,
