@@ -1,6 +1,26 @@
 "use client";
 
-import { Menu, X, Home, Calendar, DollarSign, FileText, Users, Wallet, Package, Settings, Bell, ChevronDown, User, MessageSquare, BarChart3, Headphones, Moon, Sun, Monitor } from "lucide-react";
+import {
+  Menu,
+  X,
+  Home,
+  Calendar,
+  DollarSign,
+  FileText,
+  Users,
+  Wallet,
+  Package,
+  Settings,
+  Bell,
+  ChevronDown,
+  User,
+  MessageSquare,
+  BarChart3,
+  Headphones,
+  Moon,
+  Sun,
+  Monitor,
+} from "lucide-react";
 import Image from "next/image";
 import { useMemo, useState, useEffect, useRef } from "react";
 import { useSession, signOut } from "next-auth/react";
@@ -57,7 +77,9 @@ export default function CsrDashboard() {
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [messageModalOpen, setMessageModalOpen] = useState(false);
-  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  const [selectedConversationId, setSelectedConversationId] = useState<
+    string | null
+  >(null);
   const [messageBadge, setMessageBadge] = useState(true);
   const [now, setNow] = useState<Date | null>(null);
   const [employee, setEmployee] = useState<EmployeeProfile | null>(null);
@@ -74,7 +96,7 @@ export default function CsrDashboard() {
     isLoading: isLoadingHeaderConversations,
   } = useGetConversationsQuery(
     { userId: userId || "" },
-    { skip: !userId, pollingInterval: 5000 }
+    { skip: !userId, pollingInterval: 5000 },
   );
 
   const { data: employeesData } = useGetEmployeesQuery({});
@@ -124,19 +146,19 @@ export default function CsrDashboard() {
 
   // Prevent back navigation to login page after login
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       // Push current state to history
-      window.history.pushState(null, '', window.location.href);
+      window.history.pushState(null, "", window.location.href);
 
       // Prevent back navigation
       const handlePopState = () => {
-        window.history.pushState(null, '', window.location.href);
+        window.history.pushState(null, "", window.location.href);
       };
 
-      window.addEventListener('popstate', handlePopState);
+      window.addEventListener("popstate", handlePopState);
 
       return () => {
-        window.removeEventListener('popstate', handlePopState);
+        window.removeEventListener("popstate", handlePopState);
       };
     }
   }, []);
@@ -168,11 +190,14 @@ export default function CsrDashboard() {
     const fetchEmployeeData = async () => {
       try {
         setIsLoading(true);
-        const response = await fetch(`/api/admin/employees/${session.user.id}`, {
-          method: "GET",
-          cache: "no-store",
-          signal: controller.signal,
-        });
+        const response = await fetch(
+          `/api/admin/employees/${session.user.id}`,
+          {
+            method: "GET",
+            cache: "no-store",
+            signal: controller.signal,
+          },
+        );
 
         const payload = await response.json().catch(() => ({}));
 
@@ -203,7 +228,10 @@ export default function CsrDashboard() {
   // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
         setProfileDropdownOpen(false);
       }
     }
@@ -222,42 +250,97 @@ export default function CsrDashboard() {
     {
       category: "Overview",
       items: [
-        { id: "dashboard", icon: Home, label: "Dashboard", color: "text-blue-500" },
-        { id: "analytics", icon: BarChart3, label: "Analytics & Reports", color: "text-cyan-500" },
+        {
+          id: "dashboard",
+          icon: Home,
+          label: "Dashboard",
+          color: "text-blue-500",
+        },
+        {
+          id: "analytics",
+          icon: BarChart3,
+          label: "Analytics & Reports",
+          color: "text-cyan-500",
+        },
       ],
     },
     {
       category: "Bookings",
       items: [
-        { id: "bookings", icon: Calendar, label: "Bookings Management", color: "text-green-500" },
-        { id: "reservations", icon: Calendar, label: "Reservations", color: "text-indigo-500" },
+        {
+          id: "bookings",
+          icon: Calendar,
+          label: "Bookings Management",
+          color: "text-green-500",
+        },
+        {
+          id: "reservations",
+          icon: Calendar,
+          label: "Reservations",
+          color: "text-indigo-500",
+        },
       ],
     },
     {
       category: "Finance",
       items: [
-        { id: "payments", icon: DollarSign, label: "Payment Management", color: "text-purple-500" },
-        { id: "deposits", icon: Wallet, label: "Security Deposit", color: "text-indigo-500" },
+        {
+          id: "payments",
+          icon: DollarSign,
+          label: "Payment Management",
+          color: "text-purple-500",
+        },
+        {
+          id: "deposits",
+          icon: Wallet,
+          label: "Security Deposit",
+          color: "text-indigo-500",
+        },
       ],
     },
     {
       category: "Operations",
       items: [
-        { id: "deliverables", icon: FileText, label: "Deliverables Management", color: "text-pink-500" },
-        { id: "cleaners", icon: Users, label: "Cleaners Management", color: "text-brand-primary" },
-        { id: "inventory", icon: Package, label: "Inventory Management", color: "text-teal-500" },
+        {
+          id: "deliverables",
+          icon: FileText,
+          label: "Deliverables Management",
+          color: "text-pink-500",
+        },
+        {
+          id: "cleaners",
+          icon: Users,
+          label: "Cleaners Management",
+          color: "text-brand-primary",
+        },
+        {
+          id: "inventory",
+          icon: Package,
+          label: "Inventory Management",
+          color: "text-teal-500",
+        },
       ],
     },
     {
       category: "Communication",
       items: [
-        { id: "messages", icon: MessageSquare, label: "Messages", color: "text-green-500" },
+        {
+          id: "messages",
+          icon: MessageSquare,
+          label: "Messages",
+          color: "text-green-500",
+        },
       ],
     },
     {
       category: "System",
       items: [
-        { id: "settings", icon: Settings, label: "Settings", color: "text-gray-500" },
+        {
+          id: "settings",
+          icon: Settings,
+          label: "Settings",
+          color: "text-gray-500",
+        },
       ],
     },
   ];
@@ -266,7 +349,7 @@ export default function CsrDashboard() {
     try {
       await signOut({
         callbackUrl: "/admin/login",
-        redirect: true
+        redirect: true,
       });
     } catch (error) {
       console.error("Logout error: ", error);
@@ -315,7 +398,9 @@ export default function CsrDashboard() {
                   <h1 className="font-bold text-lg text-gray-800 dark:text-gray-100">
                     Staycation Haven
                   </h1>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">CSR Portal</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    CSR Portal
+                  </p>
                 </div>
               )}
             </div>
@@ -359,9 +444,7 @@ export default function CsrDashboard() {
                     >
                       <Icon
                         className={`w-5 h-5 flex-shrink-0 ${
-                          page === item.id
-                            ? "text-white"
-                            : `${item.color}`
+                          page === item.id ? "text-white" : `${item.color}`
                         }`}
                       />
                       {sidebar && (
@@ -440,7 +523,9 @@ export default function CsrDashboard() {
                 setMessageModalOpen((prev) => !prev);
               }}
             >
-              <MessageSquare className={`w-6 h-6 ${messageModalOpen ? "text-brand-primary" : "text-gray-600 dark:text-gray-300"}`} />
+              <MessageSquare
+                className={`w-6 h-6 ${messageModalOpen ? "text-brand-primary" : "text-gray-600 dark:text-gray-300"}`}
+              />
               {messageBadge && (
                 <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
               )}
@@ -459,7 +544,9 @@ export default function CsrDashboard() {
                 setNotificationOpen((prev) => !prev);
               }}
             >
-              <Bell className={`w-6 h-6 ${notificationOpen ? "text-brand-primary" : "text-gray-600 dark:text-gray-300"}`} />
+              <Bell
+                className={`w-6 h-6 ${notificationOpen ? "text-brand-primary" : "text-gray-600 dark:text-gray-300"}`}
+              />
               <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
             </button>
 
@@ -475,23 +562,33 @@ export default function CsrDashboard() {
                   ) : employee?.profile_image_url ? (
                     <Image
                       src={employee.profile_image_url}
-                      alt={employee.first_name ? `${employee.first_name} ${employee.last_name}` : "Profile"}
+                      alt={
+                        employee.first_name
+                          ? `${employee.first_name} ${employee.last_name}`
+                          : "Profile"
+                      }
                       width={40}
                       height={40}
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <span>{session?.user?.name ? session.user.name.charAt(0).toUpperCase() : 'C'}</span>
+                    <span>
+                      {session?.user?.name
+                        ? session.user.name.charAt(0).toUpperCase()
+                        : "C"}
+                    </span>
                   )}
                 </div>
                 <div className="hidden sm:block text-left">
                   <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate max-w-[120px]">
                     {isLoading ? (
-                      <div className="h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                      <span className="inline-block h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
                     ) : employee ? (
-                      `${employee.first_name} ${employee.last_name}`.trim() || employee.email || employee.employment_id
+                      `${employee.first_name} ${employee.last_name}`.trim() ||
+                      employee.email ||
+                      employee.employment_id
                     ) : (
-                      session?.user?.name || "User"
+                      "No employee"
                     )}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[120px]">
@@ -513,7 +610,11 @@ export default function CsrDashboard() {
                       {employee?.profile_image_url ? (
                         <Image
                           src={employee.profile_image_url}
-                          alt={employee.first_name ? `${employee.first_name} ${employee.last_name}` : "Profile"}
+                          alt={
+                            employee.first_name
+                              ? `${employee.first_name} ${employee.last_name}`
+                              : "Profile"
+                          }
                           width={40}
                           height={40}
                           className="w-10 h-10 rounded-full object-cover ring-2 ring-brand-primary"
@@ -530,14 +631,14 @@ export default function CsrDashboard() {
                           ) : employee ? (
                             `${employee.first_name} ${employee.last_name}`.trim()
                           ) : (
-                            session?.user?.name || 'CSR Account'
+                            session?.user?.name || "CSR Account"
                           )}
                         </p>
                         <p className="text-xs text-gray-600 dark:text-gray-400 truncate">
                           {isLoading ? (
                             <span className="inline-block h-3 bg-gray-100 rounded animate-pulse w-20 mt-0.5"></span>
                           ) : (
-                            session?.user?.email || 'Loading...'
+                            session?.user?.email || "Loading..."
                           )}
                         </p>
                       </div>
@@ -564,12 +665,12 @@ export default function CsrDashboard() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          setTheme('dark');
+                          setTheme("dark");
                         }}
                         className={`p-1 rounded-full transition-all duration-200 ${
-                          theme === 'dark'
-                            ? 'bg-white dark:bg-gray-600 text-brand-primary shadow-sm'
-                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                          theme === "dark"
+                            ? "bg-white dark:bg-gray-600 text-brand-primary shadow-sm"
+                            : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                         }`}
                         aria-label="Dark mode"
                         title="Dark"
@@ -579,12 +680,12 @@ export default function CsrDashboard() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          setTheme('light');
+                          setTheme("light");
                         }}
                         className={`p-1 rounded-full transition-all duration-200 ${
-                          theme === 'light'
-                            ? 'bg-white dark:bg-gray-600 text-brand-primary shadow-sm'
-                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                          theme === "light"
+                            ? "bg-white dark:bg-gray-600 text-brand-primary shadow-sm"
+                            : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                         }`}
                         aria-label="Light mode"
                         title="Light"
@@ -594,12 +695,12 @@ export default function CsrDashboard() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          setTheme('system');
+                          setTheme("system");
                         }}
                         className={`p-1 rounded-full transition-all duration-200 ${
-                          theme === 'system'
-                            ? 'bg-white dark:bg-gray-600 text-brand-primary shadow-sm'
-                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                          theme === "system"
+                            ? "bg-white dark:bg-gray-600 text-brand-primary shadow-sm"
+                            : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                         }`}
                         aria-label="System mode"
                         title="System"
