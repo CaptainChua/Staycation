@@ -21,12 +21,12 @@ import {
 } from "lucide-react";
 import { useCallback, useMemo, useState, useEffect } from "react";
 import toast from "react-hot-toast";
+import type { UpdateBookingPaymentPayload } from "@/types/bookingPayment";
 import {
   useGetBookingPaymentsQuery,
   useUpdateBookingPaymentMutation,
 } from "@/redux/api/bookingPaymentsApi";
 
-import type { BookingPayment } from "@/types/bookingPayment";
 type PaymentStatus = "Paid" | "Pending" | "Rejected";
 
 interface PaymentRow {
@@ -281,6 +281,204 @@ function RejectModal({
   );
 }
 
+function ApproveModal({
+  isOpen,
+  payment,
+  onCancel,
+  onConfirm,
+  updatingPaymentId,
+}: {
+  isOpen: boolean;
+  payment: PaymentRow | null;
+  onCancel: () => void;
+  onConfirm: (payment: PaymentRow, amount: number) => Promise<void>;
+  updatingPaymentId: string | null;
+}) {
+  const [localAmount, setLocalAmount] = useState<string>("");
+
+  useEffect(() => {
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    if (payment && isOpen) {
+      // input must be empty by default when the modal opens
+      timeoutId = setTimeout(() => {
+        setLocalAmount("");
+      }, 0);
+    }
+    return () => {
+      if (timeoutId !== null) clearTimeout(timeoutId);
+    };
+  }, [payment, isOpen]);
+
+  if (!isOpen || !payment) return null;
+
+  const amountNum = parseFloat(localAmount || "0");
+
+  const handleConfirm = () => {
+    if (isNaN(amountNum) || amountNum < 0) {
+      toast.error("Please enter a valid amount");
+      return;
+    }
+    onConfirm(payment, amountNum);
+  };
+
+  return (
+    <div className="fixed inset-0 z-[9999]">
+      <div
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm"
+        onClick={onCancel}
+      />
+      <div className="fixed inset-0 flex items-center justify-center p-4">
+        <div className="fixed z-[9991] w-full max-w-md max-h-[90vh] bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+          {/* Header */}
+          <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-green-500 rounded-lg">
+                <CheckCircle className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                  Approve Payment
+                </h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Enter the amount to be recorded and approve the payment.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={onCancel}
+              className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
+            >
+              <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+            </button>
+          </div>
+
+          <div className="p-6 space-y-6 max-h-[calc(90vh-200px)] overflow-y-auto">
+            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-3">
+              <div className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                <DollarSign className="w-4 h-4" />
+                Payment Summary
+              </div>
+              <div className="grid grid-cols-2 gap-4 text-sm text-gray-700 dark:text-gray-300">
+                <div>
+                  <div className="text-xs text-gray-500">Total Amount</div>
+                  <div className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                    {formatCurrency(Number(payment.booking?.total_amount ?? 0))}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-gray-500">Remaining Balance</div>
+                  <div className="text-lg font-bold text-orange-700 dark:text-orange-300">
+                    {formatCurrency(
+                      Number(payment.booking?.remaining_balance ?? 0),
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Amount to collect
+              </label>
+              <input
+                type="number"
+                value={localAmount}
+                onChange={(e) => setLocalAmount(e.target.value)}
+                min="0"
+                step="0.01"
+                placeholder=""
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-green-500 focus:border-green-500"
+              />
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="flex justify-end gap-2 p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+            <button
+              onClick={onCancel}
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 font-medium text-sm"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleConfirm}
+              disabled={
+                updatingPaymentId === payment.id ||
+                isNaN(amountNum) ||
+                amountNum < 0
+              }
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center gap-2 text-sm"
+            >
+              {updatingPaymentId === payment.id ? (
+                <>
+                  <div className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-4 h-4" />
+                  Confirm Approve
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ChangeModal({
+  isOpen,
+  amount,
+  onClose,
+}: {
+  isOpen: boolean;
+  amount: number;
+  onClose: () => void;
+}) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[9999]">
+      <div className="fixed inset-0 bg-black/50" onClick={onClose} />
+      <div className="fixed inset-0 flex items-center justify-center p-4">
+        <div className="fixed z-[9991] w-full max-w-md bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden p-6">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-orange-500 rounded-lg">
+              <DollarSign className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                Change
+              </h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Please return the following change to the guest
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-6 text-center">
+            <div className="text-sm text-gray-500">Change Amount</div>
+            <div className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-2">
+              {formatCurrency(amount)}
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 mt-6">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 border border-gray-300 bg-white text-gray-700 rounded-lg"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function PaymentPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | PaymentStatus>(
@@ -324,6 +522,9 @@ export default function PaymentPage() {
   const [updatingPaymentId, setUpdatingPaymentId] = useState<string | null>(
     null,
   );
+  const [isApproveModalOpen, setIsApproveModalOpen] = useState(false);
+  const [isChangeModalOpen, setIsChangeModalOpen] = useState(false);
+  const [changeAmount, setChangeAmount] = useState<number>(0);
 
   const payments = useMemo<PaymentRow[]>(() => {
     return (paymentsRaw || []).map((p) => {
@@ -376,50 +577,41 @@ export default function PaymentPage() {
     setIsViewModalOpen(false);
   }, []);
 
-  const handleApprove = useCallback(
-    async (row: PaymentRow, options?: { keepOpen?: boolean }) => {
-      if (!row?.id) {
+  const handleConfirmApprove = useCallback(
+    async (payment: PaymentRow, amount: number) => {
+      if (!payment?.id) {
         toast.error("Payment ID not available");
         return;
       }
-      setUpdatingPaymentId(row.id);
+
+      setUpdatingPaymentId(payment.id);
       const toastId = toast.loading("Approving payment...");
       try {
-        await updateBookingPayment({
-          id: row.id,
+        const totalAmount = Number(payment.booking?.total_amount ?? NaN);
+        const payload: Partial<UpdateBookingPaymentPayload> & { id: string } = {
+          id: payment.id,
           payment_status: "approved",
-        }).unwrap();
+          down_payment: Number(amount),
+        };
+
+        if (!Number.isNaN(totalAmount)) {
+          payload.remaining_balance = totalAmount - Number(amount);
+        }
+
+        await updateBookingPayment(payload).unwrap();
         toast.success("Payment approved", { id: toastId });
 
-        // Refresh payments and optionally update the currently-open modal row
-        const refetchRes = await refetch();
-        const updatedPayment = (refetchRes?.data || []).find(
-          (p: BookingPayment) => p.id === row.id,
-        );
+        // Refresh payments and update UI
+        await refetch();
 
-        if (options?.keepOpen && updatedPayment) {
-          setSelectedPayment((prev) =>
-            prev && prev.id === row.id
-              ? {
-                  ...prev,
-                  status: mapStatusToUI(updatedPayment.payment_status),
-                  statusColor: getStatusColorClass(
-                    updatedPayment.payment_status,
-                  ),
-                  booking: {
-                    ...prev.booking,
-                    updated_at:
-                      updatedPayment.reviewed_at ?? updatedPayment.created_at,
-                    status: updatedPayment.payment_status,
-                    down_payment: updatedPayment.down_payment,
-                    total_amount: updatedPayment.total_amount,
-                    remaining_balance: updatedPayment.remaining_balance,
-                    payment_proof_url: updatedPayment.payment_proof_url,
-                  },
-                }
-              : prev,
-          );
-        }
+        // Close the approve modal (keeping the view open to show updated data)
+        setIsApproveModalOpen(false);
+
+        // compute and show change modal
+        const prevRemaining = Number(payment.booking?.remaining_balance ?? 0);
+        const changeAmt = Math.max(0, Number(amount) - prevRemaining);
+        setChangeAmount(changeAmt);
+        setIsChangeModalOpen(true);
       } catch (err) {
         console.error("Approve error:", err);
         toast.error("Failed to approve payment", { id: toastId });
@@ -779,7 +971,10 @@ export default function PaymentPage() {
                         </button>
 
                         <button
-                          onClick={() => handleApprove(payment)}
+                          onClick={() => {
+                            setSelectedPayment(payment);
+                            setIsApproveModalOpen(true);
+                          }}
                           disabled={
                             !payment.id || updatingPaymentId === payment.id
                           }
@@ -950,7 +1145,10 @@ export default function PaymentPage() {
                 </button>
 
                 <button
-                  onClick={() => handleApprove(payment)}
+                  onClick={() => {
+                    setSelectedPayment(payment);
+                    setIsApproveModalOpen(true);
+                  }}
                   disabled={!payment.id || updatingPaymentId === payment.id}
                   className="p-2 inline-flex items-center justify-center text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   title="Approve"
@@ -1251,11 +1449,9 @@ export default function PaymentPage() {
 
                   <button
                     type="button"
-                    onClick={async () => {
+                    onClick={() => {
                       if (!selectedPayment) return;
-                      await handleApprove(selectedPayment, {
-                        keepOpen: true,
-                      });
+                      setIsApproveModalOpen(true);
                     }}
                     disabled={
                       mapStatusToUI(
@@ -1286,12 +1482,26 @@ export default function PaymentPage() {
       )}
 
       <RejectModal
-        key={selectedPayment?.id}
+        key={`reject-${selectedPayment?.id}`}
         isOpen={isRejectModalOpen}
         payment={selectedPayment}
         onCancel={handleCancelReject}
         onConfirm={handleConfirmReject}
         updatingPaymentId={updatingPaymentId}
+      />
+      <ApproveModal
+        key={`approve-${selectedPayment?.id}`}
+        isOpen={isApproveModalOpen}
+        payment={selectedPayment}
+        onCancel={() => setIsApproveModalOpen(false)}
+        onConfirm={handleConfirmApprove}
+        updatingPaymentId={updatingPaymentId}
+      />
+      <ChangeModal
+        key={`change-${selectedPayment?.id}`}
+        isOpen={isChangeModalOpen}
+        amount={changeAmount}
+        onClose={() => setIsChangeModalOpen(false)}
       />
     </div>
   );
