@@ -1051,16 +1051,12 @@ export default function PaymentPage() {
                     </td>
                     <td className="py-4 px-4 text-right">
                       <span className="font-bold text-gray-800 dark:text-gray-100 text-sm whitespace-nowrap">
-                        {formatCurrency(
-                          Number(payment.booking?.total_amount ?? 0),
-                        )}
+                        {payment.totalAmount}
                       </span>
                     </td>
                     <td className="py-4 px-4 text-right">
                       <span className="font-bold text-gray-800 dark:text-gray-100 text-sm whitespace-nowrap">
-                        {formatCurrency(
-                          Number(payment.booking?.down_payment ?? 0),
-                        )}
+                        {payment.downPayment}
                       </span>
                     </td>
                     <td className="py-4 px-4 text-right">
@@ -1069,10 +1065,14 @@ export default function PaymentPage() {
                       </span>
                     </td>
                     <td className="py-4 px-4 text-right">
-                      <span className="font-bold text-gray-800 dark:text-gray-100 text-sm whitespace-nowrap">
-                        {formatCurrency(
-                          Math.max(0, payment.remainingValue ?? 0),
-                        )}
+                      <span
+                        className={`font-bold text-sm whitespace-nowrap ${
+                          (payment.remainingValue ?? 0) > 0
+                            ? "text-orange-700 dark:text-orange-300"
+                            : "text-green-700 dark:text-green-300"
+                        }`}
+                      >
+                        {payment.remaining}
                       </span>
                     </td>
                     <td className="py-4 px-4 text-center">
@@ -1249,7 +1249,7 @@ export default function PaymentPage() {
                     Total Amount
                   </p>
                   <p className="font-bold text-gray-800 dark:text-gray-100">
-                    {formatCurrency(Number(payment.booking?.total_amount ?? 0))}
+                    {payment.totalAmount}
                   </p>
                 </div>
                 <div>
@@ -1257,7 +1257,7 @@ export default function PaymentPage() {
                     Down Payment
                   </p>
                   <p className="font-bold text-gray-800 dark:text-gray-100">
-                    {formatCurrency(Number(payment.booking?.down_payment ?? 0))}
+                    {payment.downPayment}
                   </p>
                 </div>
                 <div>
@@ -1278,8 +1278,14 @@ export default function PaymentPage() {
                       <Info className="w-3 h-3" />
                     </span>
                   </p>
-                  <p className="font-bold text-gray-800 dark:text-gray-100">
-                    {formatCurrency(Math.max(0, payment.remainingValue ?? 0))}
+                  <p
+                    className={`font-bold ${
+                      (payment.remainingValue ?? 0) > 0
+                        ? "text-orange-700 dark:text-orange-300"
+                        : "text-green-700 dark:text-green-300"
+                    }`}
+                  >
+                    {payment.remaining}
                   </p>
                 </div>
               </div>
@@ -1597,7 +1603,13 @@ export default function PaymentPage() {
                     <InfoField
                       label="Remaining Balance"
                       value={
-                        <span className="text-orange-700 dark:text-orange-300 font-semibold">
+                        <span
+                          className={`font-semibold ${
+                            Number(selectedPayment.remainingValue ?? 0) > 0
+                              ? "text-orange-700 dark:text-orange-300"
+                              : "text-green-700 dark:text-green-300"
+                          }`}
+                        >
                           {selectedPayment.remaining}
                         </span>
                       }
