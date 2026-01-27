@@ -319,7 +319,21 @@ function ApproveModal({
       // collections (remaining balance prefilled).
       timeoutId = setTimeout(() => {
         const submitted = Number(payment.booking?.down_payment ?? 0);
-        const remaining = Number(payment.booking?.remaining_balance ?? 0);
+        const explicitRemaining = payment.booking?.remaining_balance;
+        const remaining =
+          typeof explicitRemaining !== "undefined" && explicitRemaining !== null
+            ? Number(explicitRemaining)
+            : !Number.isNaN(Number(payment.booking?.total_amount ?? NaN))
+              ? Math.max(
+                  0,
+                  Number(payment.booking?.total_amount ?? 0) -
+                    Number(
+                      payment.booking?.amount_paid ??
+                        payment.booking?.down_payment ??
+                        0,
+                    ),
+                )
+              : 0;
         const defaultAmt = submitted > 0 ? submitted : remaining;
         setLocalAmount(defaultAmt > 0 ? String(defaultAmt) : "");
       }, 0);
@@ -382,15 +396,13 @@ function ApproveModal({
                 <div>
                   <div className="text-xs text-gray-500">Total Amount</div>
                   <div className="text-lg font-bold text-gray-900 dark:text-gray-100">
-                    {formatCurrency(Number(payment.booking?.total_amount ?? 0))}
+                    {payment.totalAmount}
                   </div>
                 </div>
                 <div>
                   <div className="text-xs text-gray-500">Remaining Balance</div>
                   <div className="text-lg font-bold text-orange-700 dark:text-orange-300">
-                    {formatCurrency(
-                      Number(payment.booking?.remaining_balance ?? 0),
-                    )}
+                    {payment.remaining}
                   </div>
                 </div>
               </div>
@@ -550,9 +562,14 @@ export default function PaymentPage() {
     return (paymentsRaw || []).map((p) => {
       const totalAmountValue = Number(p.total_amount ?? 0);
       const downPaymentValue = Number(p.down_payment ?? 0);
-      const amountPaidValue = Number(p.amount_paid ?? 0);
-      // remaining = total - amount_paid
-      const remainingValue = Math.max(0, totalAmountValue - amountPaidValue);
+      // amount_paid may be null for older records — fall back to down_payment
+      const amountPaidValue = Number(p.amount_paid ?? p.down_payment ?? 0);
+      // Prefer an explicit stored remaining_balance if available; otherwise derive it from totals
+      const remainingValue =
+        typeof p.remaining_balance !== "undefined" &&
+        p.remaining_balance !== null
+          ? Math.max(0, Number(p.remaining_balance))
+          : Math.max(0, totalAmountValue - amountPaidValue);
 
       const row: PaymentRow = {
         id: p.id,
@@ -645,9 +662,16 @@ export default function PaymentPage() {
 
         // compute and show change modal (leftover amount to return to guest)
         // determine how much of the entered amount is applied to the remaining balance
-        const prevRemainingForChange = Number(
-          payment.booking?.remaining_balance ?? 0,
-        );
+        const prevRemainingForChange = (() => {
+          const explicit = payment.booking?.remaining_balance;
+          if (typeof explicit !== "undefined" && explicit !== null)
+            return Number(explicit);
+          const totalAmt = Number(payment.booking?.total_amount ?? NaN);
+          const paidAmt = Number(
+            payment.booking?.amount_paid ?? payment.booking?.down_payment ?? 0,
+          );
+          return !Number.isNaN(totalAmt) ? Math.max(0, totalAmt - paidAmt) : 0;
+        })();
         const appliedAmountForChange = Math.min(
           Math.max(Number(amount), 0),
           Math.max(prevRemainingForChange, 0),
@@ -1041,9 +1065,7 @@ export default function PaymentPage() {
                     </td>
                     <td className="py-4 px-4 text-right">
                       <span className="font-bold text-gray-800 dark:text-gray-100 text-sm whitespace-nowrap">
-                        {formatCurrency(
-                          Number(payment.booking?.amount_paid ?? 0),
-                        )}
+                        {payment.amountPaid}
                       </span>
                     </td>
                     <td className="py-4 px-4 text-right">
@@ -1243,7 +1265,7 @@ export default function PaymentPage() {
                     Amount Paid
                   </p>
                   <p className="font-bold text-gray-800 dark:text-gray-100">
-                    {formatCurrency(Number(payment.booking?.amount_paid ?? 0))}
+                    {payment.amountPaid}
                   </p>
                 </div>
                 <div>
@@ -1550,9 +1572,7 @@ export default function PaymentPage() {
                       label="Total Amount"
                       value={
                         <span className="text-lg font-bold text-gray-900 dark:text-gray-100">
-                          {formatCurrency(
-                            Number(selectedPayment.booking?.total_amount ?? 0),
-                          )}
+                          {selectedPayment.totalAmount}
                         </span>
                       }
                     />
@@ -1570,9 +1590,7 @@ export default function PaymentPage() {
                       label="Amount Paid"
                       value={
                         <span className="text-green-700 dark:text-green-300 font-semibold">
-                          {formatCurrency(
-                            Number(selectedPayment.booking?.amount_paid ?? 0),
-                          )}
+                          {selectedPayment.amountPaid}
                         </span>
                       }
                     />
@@ -1580,11 +1598,7 @@ export default function PaymentPage() {
                       label="Remaining Balance"
                       value={
                         <span className="text-orange-700 dark:text-orange-300 font-semibold">
-                          {formatCurrency(
-                            Number(
-                              selectedPayment.booking?.remaining_balance ?? 0,
-                            ),
-                          )}
+                          {selectedPayment.remaining}
                         </span>
                       }
                     />
