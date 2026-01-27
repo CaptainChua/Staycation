@@ -16,6 +16,8 @@ CREATE TABLE employees (
     zip_code VARCHAR(20),
     password TEXT,
     profile_image_url TEXT,
+    ip_address VARCHAR(45) DEFAULT NULL,
+    user_agent TEXT DEFAULT NULL,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
 )
