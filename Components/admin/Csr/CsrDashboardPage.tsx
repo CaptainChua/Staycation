@@ -21,6 +21,7 @@ import NotificationModal from "./Modals/Notification";
 import MessageModal from "./Modals/MessageModal";
 import { useGetConversationsQuery } from "@/redux/api/messagesApi";
 import { useGetEmployeesQuery } from "@/redux/api/employeeApi";
+import { useGetNotificationsQuery } from "@/redux/api/notificationsApi";
 
 interface EmployeeProfile {
   id: string;
@@ -112,29 +113,28 @@ export default function CsrDashboard() {
     });
     return map;
   }, [employees]);
-  const notifications = [
-    {
-      id: "1",
-      title: "New booking pending approval",
-      description: "A new booking for Haven 2 requires CSR confirmation.",
-      timestamp: "2 mins ago",
-      type: "info" as const,
-    },
-    {
-      id: "2",
-      title: "Payment received",
-      description: "₱12,500 from Emily Brown was confirmed.",
-      timestamp: "15 mins ago",
-      type: "success" as const,
-    },
-    {
-      id: "3",
-      title: "Guest check-in reminder",
-      description: "Mike Wilson will arrive today at 3:00 PM.",
-      timestamp: "1 hr ago",
-      type: "warning" as const,
-    },
-  ];
+
+  // Fetch notifications for dynamic count
+  const { data: notifications = [] } = useGetNotificationsQuery(
+    { limit: 50 },
+    { 
+      pollingInterval: 30000, // Refresh every 30 seconds
+      skip: !userId 
+    }
+  );
+
+  // Count unread notifications
+  const unreadCount = notifications.filter((n: any) => !n.read).length;
+
+  // Count unread messages
+  const conversations = headerConversationsData?.data || [];
+  console.log('User ID:', userId);
+  console.log('Conversations for user:', conversations.length);
+  conversations.forEach((conv: any, index: number) => {
+    console.log(`Conv ${index + 1}: ID=${conv.id}, Name=${conv.name}, Unread=${conv.unread_count}`);
+  });
+  const unreadMessageCount = conversations.reduce((sum: number, conv: any) => sum + (conv.unread_count || 0), 0);
+  console.log('Total unread for user:', unreadMessageCount);
 
   // Prevent back navigation to login page after login
   useEffect(() => {
@@ -660,8 +660,10 @@ export default function CsrDashboard() {
               <MessageSquare
                 className={`w-6 h-6 ${messageModalOpen ? "text-brand-primary" : "text-gray-600 dark:text-gray-300"}`}
               />
-              {messageBadge && (
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+              {unreadMessageCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[20px] h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center px-1">
+                  {unreadMessageCount > 99 ? '99+' : unreadMessageCount}
+                </span>
               )}
             </button>
 
@@ -681,7 +683,11 @@ export default function CsrDashboard() {
               <Bell
                 className={`w-6 h-6 ${notificationOpen ? "text-brand-primary" : "text-gray-600 dark:text-gray-300"}`}
               />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[20px] h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center px-1">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
             </button>
 
             {/* User Avatar with Profile Dropdown */}
@@ -895,7 +901,7 @@ export default function CsrDashboard() {
       {/* MODALS */}
       {notificationOpen && (
         <NotificationModal
-          notifications={notifications}
+          userId={userId}
           onClose={() => setNotificationOpen(false)}
           onViewAll={() => {
             setNotificationOpen(false);
