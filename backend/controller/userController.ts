@@ -78,17 +78,20 @@ export async function findUserByEmail(email: string): Promise<User | null> {
  */
 export async function createUser(userData: GoogleUserData): Promise<User> {
   try {
+    console.log('🟢 Creating Google user with data:', { googleId: userData.googleId, email: userData.email });
+    
     const result = await pool.query(
-      `INSERT INTO users (google_id, email, name, picture, last_login)
-       VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
+      `INSERT INTO users (google_id, email, name, picture, register_as, last_login)
+       VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
        RETURNING *`,
-      [userData.googleId, userData.email, userData.name || null, userData.picture || null]
+      [userData.googleId, userData.email, userData.name || null, userData.picture || null, 'google']
     );
 
-    console.log('✅ Created new user:', result.rows[0].email);
+    console.log('✅ Created new Google user:', result.rows[0].email, 'with ID:', result.rows[0].user_id);
+    console.log('✅ Google ID saved:', result.rows[0].google_id);
     return result.rows[0];
   } catch (error) {
-    console.error('Error creating user:', error);
+    console.error('❌ Error creating Google user:', error);
     throw error;
   }
 }
@@ -188,11 +191,19 @@ export async function deleteUser(userId: number): Promise<boolean> {
  */
 export async function findUserByFacebookId(facebookId: string): Promise<User | null> {
   try {
+    console.log('🔍 Searching for Facebook user with ID:', facebookId);
+    
     const result = await pool.query(
       'SELECT * FROM users WHERE facebook_id = $1',
       [facebookId]
     );
 
+    if (result.rows[0]) {
+      console.log('✅ Found existing Facebook user:', result.rows[0].email);
+    } else {
+      console.log('⚠️ No Facebook user found with ID:', facebookId);
+    }
+    
     return result.rows[0] || null;
   } catch (error) {
     console.error('Error finding user by Facebook ID:', error);
@@ -207,17 +218,28 @@ export async function findUserByFacebookId(facebookId: string): Promise<User | n
  */
 export async function createFacebookUser(userData: FacebookUserData): Promise<User> {
   try {
+    console.log('🔵 Creating Facebook user with data:', { facebookId: userData.facebookId, email: userData.email });
+    
     const result = await pool.query(
-      `INSERT INTO users (facebook_id, email, name, picture, user_role, last_login)
-       VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
+      `INSERT INTO users (facebook_id, email, name, picture, register_as, user_role, last_login)
+       VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)
        RETURNING *`,
-      [userData.facebookId, userData.email, userData.name || null, userData.picture || null, 'facebook']
+      [userData.facebookId, userData.email, userData.name || null, userData.picture || null, 'facebook', 'Guest']
     );
 
-    console.log('✅ Created new Facebook user:', result.rows[0].email);
+    console.log('✅ Created new Facebook user:', result.rows[0].email, 'with ID:', result.rows[0].user_id);
+    console.log('✅ Facebook ID saved:', result.rows[0].facebook_id);
+    console.log('✅ Register as:', result.rows[0].register_as);
     return result.rows[0];
-  } catch (error) {
-    console.error('Error creating Facebook user:', error);
+  } catch (error: unknown) {
+    const dbError = error as { message?: string; code?: string; detail?: string; constraint?: string };
+    console.error('❌ Error creating Facebook user:', error);
+    console.error('❌ Error details:', {
+      message: dbError?.message,
+      code: dbError?.code,
+      detail: dbError?.detail,
+      constraint: dbError?.constraint
+    });
     throw error;
   }
 }
@@ -258,18 +280,27 @@ export async function updateFacebookUserLogin(
  */
 export async function upsertFacebookUser(userData: FacebookUserData): Promise<User> {
   try {
+    console.log('🔵 Upserting Facebook user:', userData.email);
+    
     // Try to find existing user
     const existingUser = await findUserByFacebookId(userData.facebookId);
 
     if (existingUser) {
+      console.log('✅ Facebook user already exists, updating login:', userData.email);
       // User exists, update login time and profile
       return await updateFacebookUserLogin(userData.facebookId, userData);
     } else {
+      console.log('🆕 Facebook user not found, creating new user:', userData.email);
       // User doesn't exist, create new one with facebook role
       return await createFacebookUser(userData);
     }
-  } catch (error) {
-    console.error('Error upserting Facebook user:', error);
+  } catch (error: unknown) {
+    const dbError = error as { message?: string; code?: string };
+    console.error('❌ Error upserting Facebook user:', error);
+    console.error('Error details:', {
+      message: dbError?.message,
+      code: dbError?.code
+    });
     throw error;
   }
 }
