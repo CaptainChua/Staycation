@@ -15,6 +15,8 @@ import {
   Moon,
   Sun,
   Monitor,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import HelpSidebar from "./HelpSidebar";
@@ -33,6 +35,8 @@ interface UserData {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isHelpSidebarOpen, setIsHelpSidebarOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [mounted, setMounted] = useState(false);
   const { theme, setTheme } = useTheme();
 
@@ -128,6 +132,38 @@ interface UserData {
     e.stopPropagation();
     setIsProfileOpen(!isProfileOpen);
   };
+
+  // Handle account deletion
+  const handleDeleteAccount = async () => {
+    setIsDeleting(true);
+    try {
+      const response = await fetch('/api/auth/delete-account', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        console.log('✅ Account deleted successfully');
+        setIsDeleteModalOpen(false);
+        setIsProfileOpen(false);
+        // Sign out the user and redirect
+        await signOut({ callbackUrl: '/' });
+      } else {
+        const error = await response.json();
+        console.error('❌ Failed to delete account:', error);
+        alert('Failed to delete account. Please try again.');
+      }
+    } catch (error) {
+      console.error('❌ Error deleting account:', error);
+      alert('An error occurred while deleting your account.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // Toggle profile dropdown with event handling
 
   // Hide navbar on certain pages (not on admin login, only on admin dashboards)
   const shouldHideNavbar =
@@ -350,6 +386,15 @@ interface UserData {
                   </div>
 
                   <div className="py-1">
+                    <button
+                      onClick={() => {
+                        setIsDeleteModalOpen(true);
+                      }}
+                      className="w-full px-4 py-2.5 flex items-center gap-3 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors duration-150 text-left"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      <span className="text-sm font-medium">Delete Account</span>
+                    </button>
                     <button
                       onClick={async () => {
                         setIsProfileOpen(false);
@@ -700,6 +745,18 @@ interface UserData {
                   );
                 })}
 
+                {/* Delete Account Button */}
+                <button
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    setIsDeleteModalOpen(true);
+                  }}
+                  className="w-full flex items-center gap-2 px-4 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium transition-all duration-300"
+                >
+                  <Trash2 className="w-5 h-5" />
+                  <span>Delete Account</span>
+                </button>
+
                 {/* Sign Out Button */}
                 <button
                   onClick={async () => {
@@ -803,6 +860,105 @@ interface UserData {
         isOpen={isHelpSidebarOpen}
         onClose={() => setIsHelpSidebarOpen(false)}
       />
+
+      {/* Delete Account Confirmation Modal */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-sm w-full animate-scale-in">
+            {/* Modal Header */}
+            <div className="bg-red-50 dark:bg-red-900/20 px-6 py-4 border-b border-red-200 dark:border-red-800 flex items-center gap-3">
+              <AlertTriangle className="w-6 h-6 text-red-600 dark:text-red-400 flex-shrink-0" />
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                Delete Account
+              </h2>
+            </div>
+
+            {/* Modal Body */}
+            <div className="px-6 py-4 space-y-4">
+              <p className="text-gray-700 dark:text-gray-300 text-sm">
+                Are you sure you want to delete your account? This action <span className="font-semibold text-red-600 dark:text-red-400">cannot be undone</span>.
+              </p>
+              <div className="bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 rounded-lg p-4 space-y-2">
+                <p className="text-xs font-semibold text-red-700 dark:text-red-400 uppercase">
+                  This will permanently:
+                </p>
+                <ul className="text-xs text-red-600 dark:text-red-400 space-y-1 ml-4">
+                  <li>✓ Delete your account and profile</li>
+                  <li>✓ Remove all your bookings</li>
+                  <li>✓ Delete your wishlist</li>
+                  <li>✓ Remove your reviews and messages</li>
+                  <li>✓ Erase all activity history</li>
+                </ul>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="bg-gray-50 dark:bg-gray-700/30 px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex gap-3 justify-end">
+              <button
+                onClick={() => setIsDeleteModalOpen(false)}
+                disabled={isDeleting}
+                className="px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                disabled={isDeleting}
+                className="px-4 py-2 rounded-lg bg-red-600 dark:bg-red-700 text-white hover:bg-red-700 dark:hover:bg-red-800 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {isDeleting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    Delete Account
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style jsx>{`
+        @keyframes fade-in {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+        @keyframes slide-down {
+          from {
+            opacity: 0;
+            transform: translateY(-10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        @keyframes scale-in {
+          from {
+            opacity: 0;
+            transform: scale(0.95);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+        .animate-fade-in {
+          animation: fade-in 0.3s ease-out;
+        }
+        .animate-scale-in {
+          animation: scale-in 0.2s ease-out;
+        }
+      `}</style>
     </nav>
   );
 };
