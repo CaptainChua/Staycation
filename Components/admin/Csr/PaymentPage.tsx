@@ -17,6 +17,7 @@ import {
   ChevronRight,
   ChevronsRight,
   Image as ImageIcon,
+  CreditCard,
 } from "lucide-react";
 import { useCallback, useMemo, useState, useEffect } from "react";
 import toast from "react-hot-toast";
@@ -157,25 +158,85 @@ function RejectModal({
         onClick={onCancel}
       />
       <div className="fixed inset-0 flex items-center justify-center p-4">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-6 border border-gray-100 dark:border-gray-700">
-          <h3 className="text-lg font-bold mb-2 text-gray-900 dark:text-gray-100">
-            Reject Payment
-          </h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-            Provide a reason for rejecting the payment (optional).
-          </p>
-          <textarea
-            value={localReason}
-            onChange={(e) => setLocalReason(e.target.value)}
-            className="w-full p-3 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 mb-4"
-            rows={4}
-            placeholder="Rejection reason (optional)"
-          />
-          <div className="flex justify-end gap-3">
+        <div className="fixed z-[9991] w-full max-w-md max-h-[90vh] bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+          {/* Header */}
+          <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-red-500 rounded-lg">
+                <XCircle className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                  Reject Payment
+                </h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Provide a reason for rejecting the payment (optional).
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={onCancel}
+              className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
+            >
+              <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+            </button>
+          </div>
+
+          <div className="p-6 space-y-6 max-h-[calc(90vh-200px)] overflow-y-auto">
+            {/* Payment Information */}
+            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-3">
+              <div className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                <User className="w-4 h-4" />
+                Payment Information
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                    Payer:
+                  </span>
+                  <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                    {payment.guest}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                    Payment ID:
+                  </span>
+                  <span className="text-sm font-mono text-gray-900 dark:text-gray-100">
+                    {payment.id}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                    Amount:
+                  </span>
+                  <span className="text-sm text-gray-900 dark:text-gray-100">
+                    {payment.amount}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Rejection Reason (optional)
+              </label>
+              <textarea
+                value={localReason}
+                onChange={(e) => setLocalReason(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                rows={4}
+                placeholder="Rejection reason (optional)"
+              />
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="flex justify-end gap-2 p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
             <button
               onClick={onCancel}
               type="button"
-              className="px-4 py-2 rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 font-medium text-sm"
             >
               Cancel
             </button>
@@ -183,7 +244,7 @@ function RejectModal({
               onClick={() => onConfirm(payment.id!, localReason)}
               type="button"
               disabled={updatingPaymentId === payment.id}
-              className="px-4 py-2 rounded-lg bg-red-600 dark:bg-red-600 text-white hover:bg-red-700 dark:hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center"
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center"
             >
               {updatingPaymentId === payment.id ? (
                 <svg
@@ -207,7 +268,10 @@ function RejectModal({
                   />
                 </svg>
               ) : (
-                <span className="font-semibold">Reject</span>
+                <>
+                  <XCircle className="w-4 h-4" />
+                  <span className="font-semibold ml-1">Reject</span>
+                </>
               )}
             </button>
           </div>
@@ -263,7 +327,7 @@ export default function PaymentPage() {
 
   const payments = useMemo<PaymentRow[]>(() => {
     return (paymentsRaw || []).map((p) => {
-      const amountValue = Number(p.total_amount ?? 0);
+      const amountValue = Number(p.down_payment ?? 0);
       const row: PaymentRow = {
         id: p.id,
         booking_id: p.booking_id ?? String(p.booking_fk ?? ""),
@@ -1029,26 +1093,31 @@ export default function PaymentPage() {
           />
           <div className="fixed inset-0 flex items-center justify-center px-4 py-8 z-[9999]">
             <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-5xl max-h-[60vh] flex flex-col overflow-hidden border border-gray-100 dark:border-gray-700">
-              {/* Header (sticky, gradient) */}
-              <div className="sticky top-0 bg-gradient-to-r from-orange-500 to-yellow-500 dark:from-orange-600 dark:to-yellow-600 text-white p-6 rounded-t-3xl flex justify-between items-center">
-                <div>
-                  <p className="text-sm font-semibold uppercase tracking-[0.2em] opacity-90">
-                    Payment Details
-                  </p>
-                  <h2 className="text-3xl font-bold mt-1">
-                    {selectedPayment.booking_id}
-                  </h2>
+              {/* Header */}
+              <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-orange-500 rounded-lg">
+                    <CreditCard className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                      Payment Details
+                    </h2>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Booking: {selectedPayment.booking_id}
+                    </p>
+                  </div>
                 </div>
                 <button
                   onClick={handleCloseView}
-                  className="p-2 rounded-full hover:bg-white/20 dark:hover:bg-white/10 transition-colors"
+                  className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
                 >
-                  <X className="w-6 h-6 text-white" />
+                  <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
                 </button>
               </div>
 
               {/* Content */}
-              <div className="flex-1 overflow-y-auto px-8 py-6 space-y-8">
+              <div className="p-6 space-y-6 max-h-[calc(90vh-200px)] overflow-y-auto">
                 {/* Guest & Payment Info (status badge moved to the right side of this card header) */}
                 <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 border border-gray-100 dark:border-gray-700">
                   <div className="flex items-center justify-between mb-4">
@@ -1163,7 +1232,7 @@ export default function PaymentPage() {
               </div>
 
               {/* Footer (actions) */}
-              <div className="px-8 py-5 border-t border-gray-100 dark:border-gray-700 flex flex-col sm:flex-row justify-between gap-3 bg-white dark:bg-gray-900">
+              <div className="flex items-center justify-between gap-2 p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
                 <p className="text-xs text-gray-500 dark:text-gray-400">
                   Last updated:{" "}
                   {selectedPayment.booking?.updated_at
@@ -1184,7 +1253,9 @@ export default function PaymentPage() {
                     type="button"
                     onClick={async () => {
                       if (!selectedPayment) return;
-                      await handleApprove(selectedPayment, { keepOpen: true });
+                      await handleApprove(selectedPayment, {
+                        keepOpen: true,
+                      });
                     }}
                     disabled={
                       mapStatusToUI(
@@ -1200,21 +1271,12 @@ export default function PaymentPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      // Close the view modal and open the reject modal without
-                      // clearing `selectedPayment` so the reject modal has its context.
                       setIsViewModalOpen(false);
                       setIsRejectModalOpen(true);
                     }}
-                    disabled={
-                      mapStatusToUI(
-                        selectedPayment.booking?.status ??
-                          selectedPayment.status,
-                      ) === "Rejected" ||
-                      updatingPaymentId === selectedPayment.id
-                    }
-                    className="px-6 py-2.5 rounded-xl bg-red-600 dark:bg-red-600 text-white font-semibold hover:bg-red-700 dark:hover:bg-red-700 transition inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-6 py-2.5 rounded-xl bg-red-600 text-white font-semibold hover:bg-red-700 transition inline-flex items-center gap-2"
                   >
-                    <X className="w-4 h-4" /> Reject
+                    <XCircle className="w-4 h-4" /> Reject
                   </button>
                 </div>
               </div>
