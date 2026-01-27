@@ -666,7 +666,6 @@ export default function PaymentPage() {
       }
 
       setUpdatingPaymentId(payment.id);
-      const toastId = toast.loading("Approving payment...");
 
       // Compute the change amount upfront and show the change modal immediately
       const prevRemainingForChange = (() => {
@@ -691,6 +690,10 @@ export default function PaymentPage() {
       setChangeAmount(changeAmt);
       setIsChangeModalOpen(true);
 
+      // Show an immediate success toast; we'll update it to an
+      // error message if the server rejects the mutation.
+      const toastId = toast.success("Payment approved");
+
       try {
         // amount_paid is maintained server-side via collect_amount.
         const payload: Partial<UpdateBookingPaymentPayload> & {
@@ -703,7 +706,7 @@ export default function PaymentPage() {
         };
 
         await updateBookingPayment(payload).unwrap();
-        toast.success("Payment approved", { id: toastId });
+        // optimistic update — no success toast (UI already reflects change)
 
         // Refresh payments and update UI (server authoritative)
         await refetch();
@@ -731,7 +734,10 @@ export default function PaymentPage() {
         } else if (typeof err === "string") {
           msg = err;
         }
-        toast.error(msg, { id: toastId });
+        toast.error(
+          `Failed to approve payment: ${msg}. Reverting optimistic changes and restoring UI.`,
+          { id: toastId },
+        );
 
         // Roll back UI changes if the mutation failed
         setIsChangeModalOpen(false);
@@ -774,11 +780,14 @@ export default function PaymentPage() {
       const originalSelected = selectedPayment;
 
       setUpdatingPaymentId(id);
-      const toastId = toast.loading("Rejecting payment...");
 
       // Optimistically close modal and clear selection so the UI responds
       setIsRejectModalOpen(false);
       setSelectedPayment(null);
+
+      // Show an immediate success toast; we'll update it if the
+      // server rejects the mutation.
+      const toastId = toast.success("Payment rejected");
 
       try {
         await updateBookingPayment({
@@ -786,11 +795,35 @@ export default function PaymentPage() {
           payment_status: "rejected",
           rejection_reason: reason || undefined,
         }).unwrap();
-        toast.success("Payment rejected", { id: toastId });
+        // optimistic update — no success toast (UI already reflects change)
         refetch();
       } catch (err) {
         console.error("Reject error:", err);
-        toast.error("Failed to reject payment", { id: toastId });
+        let msg = "Failed to reject payment";
+        if (err && typeof err === "object") {
+          const errObj = err as Record<string, unknown>;
+          const data = errObj["data"];
+          if (data && typeof data === "object") {
+            const dataObj = data as Record<string, unknown>;
+            if (typeof dataObj["error"] === "string") {
+              msg = dataObj["error"] as string;
+            } else if (typeof dataObj["message"] === "string") {
+              msg = dataObj["message"] as string;
+            }
+          } else {
+            if (typeof errObj["error"] === "string") {
+              msg = errObj["error"] as string;
+            } else if (typeof errObj["message"] === "string") {
+              msg = errObj["message"] as string;
+            }
+          }
+        } else if (typeof err === "string") {
+          msg = err;
+        }
+        toast.error(
+          `Failed to reject payment: ${msg}. Reverting optimistic changes and restoring UI.`,
+          { id: toastId },
+        );
 
         // Restore selection and reopen the reject modal so the user can retry
         setSelectedPayment(originalSelected);
