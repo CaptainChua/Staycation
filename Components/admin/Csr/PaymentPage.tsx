@@ -11,6 +11,7 @@ import {
   XCircle,
   Clock,
   ArrowUpDown,
+  Info,
   User,
   ChevronsLeft,
   ChevronLeft,
@@ -974,7 +975,13 @@ export default function PaymentPage() {
                   className="text-right py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
                 >
                   <div className="flex items-center justify-end gap-2">
-                    Remaining
+                    Remaining Balance
+                    <span
+                      title="Remaining Balance = Total Amount - Amount Paid"
+                      className="ml-1 text-gray-400 flex items-center"
+                    >
+                      <Info className="w-4 h-4" />
+                    </span>
                     <ArrowUpDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600 dark:text-gray-300 dark:group-hover:text-gray-100" />
                   </div>
                 </th>
@@ -1240,8 +1247,14 @@ export default function PaymentPage() {
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                    Change
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-2">
+                    Remaining Balance
+                    <span
+                      title="Remaining Balance = Total Amount - Amount Paid"
+                      className="text-gray-400 flex items-center"
+                    >
+                      <Info className="w-3 h-3" />
+                    </span>
                   </p>
                   <p className="font-bold text-gray-800 dark:text-gray-100">
                     {formatCurrency(Math.max(0, payment.remainingValue ?? 0))}
