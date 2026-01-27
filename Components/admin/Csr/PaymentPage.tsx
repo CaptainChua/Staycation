@@ -594,43 +594,20 @@ export default function PaymentPage() {
       setUpdatingPaymentId(payment.id);
       const toastId = toast.loading("Approving payment...");
       try {
-        const totalAmount = Number(payment.booking?.total_amount ?? NaN);
-        const prevDown = Number(payment.booking?.down_payment ?? 0);
-        const prevAmountPaid = Number(payment.booking?.amount_paid ?? 0);
-        const prevRemainingRaw = payment.booking?.remaining_balance;
-        const prevRemaining =
-          typeof prevRemainingRaw !== "undefined" && prevRemainingRaw !== null
-            ? Number(prevRemainingRaw)
-            : !Number.isNaN(totalAmount)
-              ? Math.max(0, totalAmount - prevDown)
-              : NaN;
+        // amount_paid is maintained server-side via collect_amount
 
-        // Amount the guest handed to the CSR (clamped to >= 0)
-        const paidAmount = Math.max(0, Number(amount));
+        // No client-side aggregation — send the collect_amount to the server and
+        // let it apply changes atomically (server will clamp and compute the
+        // new down_payment / amount_paid / remaining_balance).
 
-        // appliedAmount is the portion of the paid amount that will actually be applied
-        // to the outstanding remaining balance. We clamp this so that the recorded
-        // down_payment / amount_paid never exceed the total amount due.
-        const appliedAmount = !Number.isNaN(prevRemaining)
-          ? Math.min(paidAmount, Math.max(prevRemaining, 0))
-          : paidAmount;
-
-        const newDown = prevDown + appliedAmount;
-        const newAmountPaid = prevAmountPaid + appliedAmount;
-        const newRemaining = !Number.isNaN(prevRemaining)
-          ? Math.max(0, prevRemaining - appliedAmount)
-          : undefined;
-
-        const payload: Partial<UpdateBookingPaymentPayload> & { id: string } = {
+        const payload: Partial<UpdateBookingPaymentPayload> & {
+          id: string;
+          collect_amount?: number;
+        } = {
           id: payment.id,
           payment_status: "approved",
-          down_payment: newDown,
-          amount_paid: newAmountPaid,
+          collect_amount: Number(amount),
         };
-
-        if (typeof newRemaining !== "undefined") {
-          payload.remaining_balance = newRemaining;
-        }
 
         await updateBookingPayment(payload).unwrap();
         toast.success("Payment approved", { id: toastId });
@@ -642,7 +619,15 @@ export default function PaymentPage() {
         setIsApproveModalOpen(false);
 
         // compute and show change modal (leftover amount to return to guest)
-        const changeAmt = Math.max(0, Number(amount) - appliedAmount);
+        // determine how much of the entered amount is applied to the remaining balance
+        const prevRemainingForChange = Number(
+          payment.booking?.remaining_balance ?? 0,
+        );
+        const appliedAmountForChange = Math.min(
+          Math.max(Number(amount), 0),
+          Math.max(prevRemainingForChange, 0),
+        );
+        const changeAmt = Math.max(0, Number(amount) - appliedAmountForChange);
         setChangeAmount(changeAmt);
         setIsChangeModalOpen(true);
       } catch (err) {

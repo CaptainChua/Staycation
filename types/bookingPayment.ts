@@ -97,6 +97,8 @@ export interface UpdateBookingPaymentPayload {
   remaining_balance?: number;
   // Allows updating the cumulative amount paid (e.g. when collecting during check-in)
   amount_paid?: number;
+  // Collect an amount to be applied atomically server-side (preferred for check-in collections)
+  collect_amount?: number;
 }
 
 /** Standard list response from the API. */
