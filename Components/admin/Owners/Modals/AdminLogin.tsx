@@ -7,7 +7,7 @@ import {
   Lock,
   User,
 } from "lucide-react";
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { toast } from "react-hot-toast";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
@@ -16,23 +16,65 @@ import Image from "next/image";
 import Navbar from "@/Components/Navbar";
 import Footer from "@/Components/Footer";
 
+// TypeScript declaration for Turnstile
+declare global {
+  interface Window {
+    turnstile: {
+      render: (container: string | HTMLElement, params: {
+        sitekey: string;
+        callback?: (token: string) => void;
+        'expired-callback'?: () => void;
+        'error-callback'?: () => void;
+      }) => string;
+      remove: (widgetId: string) => void;
+    };
+  }
+}
+
 interface LoginFormState {
   email: string;
   password: string;
   showPassword: boolean;
   isLoading: boolean;
   error: string | null;
+  turnstileToken: string | null;
 }
 
 const AdminLogin = () => {
   const router = useRouter();
+  const turnstileRef = useRef<HTMLDivElement>(null);
   const [formData, setFormData] = useState<LoginFormState>({
     email: "",
     password: "",
     showPassword: false,
     isLoading: false,
     error: null,
+    turnstileToken: null,
   });
+
+  useEffect(() => {
+    // Initialize Turnstile widget
+    if (turnstileRef.current && window.turnstile) {
+      const widgetId = window.turnstile.render(turnstileRef.current, {
+        sitekey: process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '',
+        callback: (token: string) => {
+          setFormData(prev => ({ ...prev, turnstileToken: token }));
+        },
+        'expired-callback': () => {
+          setFormData(prev => ({ ...prev, turnstileToken: null }));
+        },
+        'error-callback': () => {
+          setFormData(prev => ({ ...prev, turnstileToken: null }));
+        }
+      });
+
+      return () => {
+        if (widgetId && window.turnstile) {
+          window.turnstile.remove(widgetId);
+        }
+      };
+    }
+  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -68,6 +110,15 @@ const AdminLogin = () => {
       return;
     }
 
+    if (!formData.turnstileToken) {
+      setFormData((prev) => ({
+        ...prev,
+        error: "Please complete the security verification",
+      }));
+      toast.error("Please complete the security verification");
+      return;
+    }
+
     setFormData((prev) => ({
       ...prev,
       isLoading: true,
@@ -78,6 +129,7 @@ const AdminLogin = () => {
       const result = await signIn("credentials", {
         email: formData.email,
         password: formData.password,
+        turnstileToken: formData.turnstileToken,
         redirect: false,
       });
 
@@ -124,6 +176,7 @@ const AdminLogin = () => {
           case 'cleaner': 
             router.push("/admin/cleaners");
             break;
+
           default:
             router.push("/admin/owners")
         }
@@ -178,6 +231,7 @@ const AdminLogin = () => {
                   onClick={() => router.push("/")}
                   className="flex items-center gap-1 hover:opacity-80 transition-opacity"
                   aria-label="Go to homepage"
+                  suppressHydrationWarning
                 >
                   <Image
                     src="/haven_logo.png"
@@ -219,11 +273,12 @@ const AdminLogin = () => {
                       onKeyDown={handleKeyDown}
                       placeholder="Enter your email"
                       className="w-full pl-12 pr-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent transition-all duration-300 placeholder-gray-500 dark:placeholder-gray-400"
+                      suppressHydrationWarning
                     />
                   </div>
                 </div>
 
-                {/* Password Fieldd */}
+                {/* Password Field */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                     Password
@@ -238,6 +293,7 @@ const AdminLogin = () => {
                       onKeyDown={handleKeyDown}
                       placeholder="Enter your password"
                       className="w-full pl-12 pr-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent transition-all duration-300 placeholder-gray-500 dark:placeholder-gray-400"
+                      suppressHydrationWarning
                     />
                     <button
                       type="button"
@@ -248,6 +304,7 @@ const AdminLogin = () => {
                         }))
                       }
                       className="absolute right-4 top-3.5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                      suppressHydrationWarning
                     >
                       {formData.showPassword ? (
                         <EyeOff className="w-5 h-5" />
@@ -256,6 +313,11 @@ const AdminLogin = () => {
                       )}
                     </button>
                   </div>
+                </div>
+
+                {/* Turnstile Widget */}
+                <div>
+                  <div ref={turnstileRef} className="flex justify-center" />
                 </div>
 
                 {/* Error Message */}
@@ -273,6 +335,7 @@ const AdminLogin = () => {
                   disabled={formData.isLoading}
                   className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-lg bg-brand-primary hover:bg-brand-primaryDark text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   aria-label="Login"
+                  suppressHydrationWarning
                 >
                   {formData.isLoading ? (
                     <>

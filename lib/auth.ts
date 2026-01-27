@@ -6,6 +6,25 @@ import { upsertUser, upsertFacebookUser } from "@/backend/controller/userControl
 import pool from "@/backend/config/db";
 import bcrypt from "bcryptjs";
 
+// Verify Turnstile token
+const verifyTurnstileToken = async (token: string): Promise<boolean> => {
+  try {
+    const response = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: `secret=${encodeURIComponent(process.env.TURNSTILE_SECRET_KEY || '')}&response=${encodeURIComponent(token)}`,
+    });
+
+    const result = await response.json();
+    return result.success === true;
+  } catch (error) {
+    console.error('Turnstile verification error:', error);
+    return false;
+  }
+};
+
 export const authOptions: NextAuthOptions = {
   providers: [
     // Google login
@@ -24,15 +43,25 @@ export const authOptions: NextAuthOptions = {
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
+        turnstileToken: { label: "Turnstile Token", type: "text" },
       },
       async authorize(credentials) {
         try {
           console.log("🔐 Attempting login for:", credentials?.email);
 
-          if (!credentials?.email || !credentials?.password) {
+          if (!credentials?.email || !credentials?.password || !credentials?.turnstileToken) {
             console.log("❌ Missing credentials");
-            throw new Error("Email and password are required");
+            throw new Error("Email, password, and security verification are required");
           }
+
+          // Verify Turnstile token first
+          const isValidTurnstile = await verifyTurnstileToken(credentials.turnstileToken);
+          if (!isValidTurnstile) {
+            console.log("❌ Invalid Turnstile token");
+            throw new Error("Security verification failed. Please try again.");
+          }
+
+          console.log("✅ Turnstile verification passed");
 
           // First check employee table (for admin/staff users)
           console.log("📊 Querying employees table...");

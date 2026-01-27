@@ -11,7 +11,7 @@ interface NotificationModalProps {
   onViewAll?: () => void;
   anchorRef?: RefObject<HTMLElement | null>;
   userId?: string;
-  notifications: Array<{
+  notifications?: Array<{
     id: string;
     title: string;
     description: string;
@@ -59,7 +59,7 @@ export default function NotificationModal({ onClose, onViewAll, anchorRef, userI
   );
 
   // Use prop notifications if userId is not provided (mock/fallback behavior)
-  const notifications = userId ? apiNotifications : propNotifications;
+  const notifications = userId ? apiNotifications : (propNotifications || []);
 
   const [updateNotifications] = useUpdateNotificationsMutation();
   const [markAllAsRead] = useMarkAllAsReadMutation();
