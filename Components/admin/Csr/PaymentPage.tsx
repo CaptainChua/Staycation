@@ -667,13 +667,32 @@ export default function PaymentPage() {
 
       setUpdatingPaymentId(payment.id);
       const toastId = toast.loading("Approving payment...");
+
+      // Compute the change amount upfront and show the change modal immediately
+      const prevRemainingForChange = (() => {
+        const explicit = payment.booking?.remaining_balance;
+        if (typeof explicit !== "undefined" && explicit !== null)
+          return Number(explicit);
+        const totalAmt = Number(payment.booking?.total_amount ?? NaN);
+        const paidAmt = Number(
+          payment.booking?.amount_paid ?? payment.booking?.down_payment ?? 0,
+        );
+        return !Number.isNaN(totalAmt) ? Math.max(0, totalAmt - paidAmt) : 0;
+      })();
+      const appliedAmountForChange = Math.min(
+        Math.max(Number(amount), 0),
+        Math.max(prevRemainingForChange, 0),
+      );
+      const changeAmt = Math.max(0, Number(amount) - appliedAmountForChange);
+
+      // Optimistically close the approve modal and show the change modal so the
+      // user sees immediate feedback while the server processes the request.
+      setIsApproveModalOpen(false);
+      setChangeAmount(changeAmt);
+      setIsChangeModalOpen(true);
+
       try {
-        // amount_paid is maintained server-side via collect_amount
-
-        // No client-side aggregation — send the collect_amount to the server and
-        // let it apply changes atomically (server will clamp and compute the
-        // new down_payment / amount_paid / remaining_balance).
-
+        // amount_paid is maintained server-side via collect_amount.
         const payload: Partial<UpdateBookingPaymentPayload> & {
           id: string;
           collect_amount?: number;
@@ -686,31 +705,8 @@ export default function PaymentPage() {
         await updateBookingPayment(payload).unwrap();
         toast.success("Payment approved", { id: toastId });
 
-        // Refresh payments and update UI
+        // Refresh payments and update UI (server authoritative)
         await refetch();
-
-        // Close the approve modal (keeping the view open to show updated data)
-        setIsApproveModalOpen(false);
-
-        // compute and show change modal (leftover amount to return to guest)
-        // determine how much of the entered amount is applied to the remaining balance
-        const prevRemainingForChange = (() => {
-          const explicit = payment.booking?.remaining_balance;
-          if (typeof explicit !== "undefined" && explicit !== null)
-            return Number(explicit);
-          const totalAmt = Number(payment.booking?.total_amount ?? NaN);
-          const paidAmt = Number(
-            payment.booking?.amount_paid ?? payment.booking?.down_payment ?? 0,
-          );
-          return !Number.isNaN(totalAmt) ? Math.max(0, totalAmt - paidAmt) : 0;
-        })();
-        const appliedAmountForChange = Math.min(
-          Math.max(Number(amount), 0),
-          Math.max(prevRemainingForChange, 0),
-        );
-        const changeAmt = Math.max(0, Number(amount) - appliedAmountForChange);
-        setChangeAmount(changeAmt);
-        setIsChangeModalOpen(true);
       } catch (err) {
         console.error("Approve error:", err);
         let msg = "Failed to approve payment";
@@ -736,6 +732,11 @@ export default function PaymentPage() {
           msg = err;
         }
         toast.error(msg, { id: toastId });
+
+        // Roll back UI changes if the mutation failed
+        setIsChangeModalOpen(false);
+        setChangeAmount(0);
+        setIsApproveModalOpen(true);
       } finally {
         setUpdatingPaymentId(null);
       }
@@ -769,8 +770,16 @@ export default function PaymentPage() {
         toast.error("Payment ID not available");
         return;
       }
+      // Keep the selected payment so we can restore it if the mutation fails
+      const originalSelected = selectedPayment;
+
       setUpdatingPaymentId(id);
       const toastId = toast.loading("Rejecting payment...");
+
+      // Optimistically close modal and clear selection so the UI responds
+      setIsRejectModalOpen(false);
+      setSelectedPayment(null);
+
       try {
         await updateBookingPayment({
           id,
@@ -779,16 +788,18 @@ export default function PaymentPage() {
         }).unwrap();
         toast.success("Payment rejected", { id: toastId });
         refetch();
-        setIsRejectModalOpen(false);
-        setSelectedPayment(null);
       } catch (err) {
         console.error("Reject error:", err);
         toast.error("Failed to reject payment", { id: toastId });
+
+        // Restore selection and reopen the reject modal so the user can retry
+        setSelectedPayment(originalSelected);
+        setIsRejectModalOpen(true);
       } finally {
         setUpdatingPaymentId(null);
       }
     },
-    [updateBookingPayment, refetch],
+    [updateBookingPayment, refetch, selectedPayment],
   );
 
   const handleCancelReject = useCallback(() => {
