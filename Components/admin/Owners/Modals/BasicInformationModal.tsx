@@ -1,11 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { createPortal } from "react-dom";
-import { X } from "lucide-react";
 import { Input } from "@nextui-org/input";
 import { Select, SelectItem } from "@nextui-org/select";
 import toast from 'react-hot-toast';
+import SubModalWrapper from "./SubModalWrapper";
 
 interface BasicInformationData {
   haven_name?: string;
@@ -77,12 +76,26 @@ const BasicInformationModal = ({ isOpen, onClose, onSave, initialData }: BasicIn
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSave = () => {
     if (validateForm()) {
       onSave(formData);
       toast.success("Basic information saved successfully!");
-      onClose();
+      // Don't close here if parent handles it? The existing code called onClose()
+      // But usually parent closes. I'll call onClose() to match existing behavior.
+      // Actually, wrapper handles onClose logic usually? 
+      // Existing code: toast -> onClose.
+      // SubModalWrapper calls onSave. It does NOT automatically close.
+      // So I should keep logic here. However, `onClose` prop passed to wrapper closes modal.
+      // I need to ensure state reset happens.
+      // I'll call reset logic then onClose passed from parent.
+      setFormData({
+        haven_name: "",
+        tower: "",
+        floor: "",
+        view_type: "",
+      });
+      setErrors({});
+      onClose(); // This will close the modal via parent state
     } else {
       toast.error("Please fix the errors in the form");
     }
@@ -99,110 +112,88 @@ const BasicInformationModal = ({ isOpen, onClose, onSave, initialData }: BasicIn
     onClose();
   };
 
-  if (!isOpen) return null;
-
-  const modalContent = (
-    <>
-      <div className="fixed inset-0 bg-black/50 z-[9998]" onClick={handleClose}></div>
-      <div className="fixed inset-0 flex items-center justify-center z-[9999] p-4">
-        <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl">
-          {/* Header */}
-          <div className="flex justify-between items-center p-6 border-b border-gray-200 bg-gradient-to-r from-orange-50 to-yellow-50 rounded-t-2xl">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-800">Basic Information</h2>
-              <p className="text-sm text-gray-600 mt-1">Update haven basic details</p>
-            </div>
-            <button onClick={handleClose} className="p-2 hover:bg-white/50 rounded-full transition-colors">
-              <X className="w-6 h-6 text-gray-600" />
-            </button>
-          </div>
-
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="p-6">
-            <div className="space-y-4">
-              <Input
-                label="Haven Name"
-                labelPlacement="outside"
-                placeholder="e.g., Haven 1"
-                value={formData.haven_name}
-                onChange={(e) => setFormData({ ...formData, haven_name: e.target.value })}
-                classNames={{ label: "text-sm font-medium text-gray-700" }}
-                isInvalid={!!errors.haven_name}
-                errorMessage={errors.haven_name}
-                isRequired
-              />
-              <Select
-                label="Tower"
-                labelPlacement="outside"
-                placeholder="Select Tower"
-                selectedKeys={formData.tower ? [formData.tower] : []}
-                onSelectionChange={(keys) => {
-                  const value = Array.from(keys)[0] as string;
-                  setFormData({ ...formData, tower: value });
-                }}
-                classNames={{ label: "text-sm font-medium text-gray-700" }}
-                isInvalid={!!errors.tower}
-                errorMessage={errors.tower}
-                isRequired
-              >
-                {towers.map((tower) => (
-                  <SelectItem key={tower.value}>{tower.label}</SelectItem>
-                ))}
-              </Select>
-              <Input
-                label="Floor"
-                labelPlacement="outside"
-                placeholder="e.g., 1"
-                value={formData.floor}
-                onChange={(e) => setFormData({ ...formData, floor: e.target.value })}
-                classNames={{ label: "text-sm font-medium text-gray-700" }}
-                isInvalid={!!errors.floor}
-                errorMessage={errors.floor}
-                isRequired
-              />
-              <Select
-                label="View Type"
-                labelPlacement="outside"
-                placeholder="Select View"
-                selectedKeys={formData.view_type ? [formData.view_type] : []}
-                onSelectionChange={(keys) => {
-                  const value = Array.from(keys)[0] as string;
-                  setFormData({ ...formData, view_type: value });
-                }}
-                classNames={{ label: "text-sm font-medium text-gray-700" }}
-                isInvalid={!!errors.view_type}
-                errorMessage={errors.view_type}
-                isRequired
-              >
-                {views.map((view) => (
-                  <SelectItem key={view.value}>{view.label}</SelectItem>
-                ))}
-              </Select>
-            </div>
-
-            {/* Footer */}
-            <div className="flex justify-end gap-3 mt-6 pt-6 border-t border-gray-200">
-              <button
-                type="button"
-                onClick={handleClose}
-                className="px-6 py-2.5 border-2 border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-100 transition-all"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="px-6 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg transition-all"
-              >
-                Save Changes
-              </button>
-            </div>
-          </form>
-        </div>
+  return (
+    <SubModalWrapper
+      isOpen={isOpen}
+      onClose={handleClose}
+      title="Basic Information"
+      subtitle="Update haven basic details"
+      onSave={handleSave}
+    >
+      <div className="space-y-4">
+        <Input
+          label="Haven Name"
+          labelPlacement="outside"
+          placeholder="e.g., Haven 1"
+          value={formData.haven_name}
+          onChange={(e) => setFormData({ ...formData, haven_name: e.target.value })}
+          classNames={{ 
+            label: "text-sm font-medium text-gray-700",
+            inputWrapper: "border-gray-300 focus-within:!border-brand-primary focus-within:!ring-brand-primary/20 hover:border-brand-primary/50 transition-colors"
+          }}
+          isInvalid={!!errors.haven_name}
+          errorMessage={errors.haven_name}
+          isRequired
+        />
+        <Select
+          label="Tower"
+          labelPlacement="outside"
+          placeholder="Select Tower"
+          selectedKeys={formData.tower ? [formData.tower] : []}
+          onSelectionChange={(keys) => {
+            const value = Array.from(keys)[0] as string;
+            setFormData({ ...formData, tower: value });
+          }}
+          classNames={{ 
+            label: "text-sm font-medium text-gray-700",
+            trigger: "border-gray-300 focus-within:!border-brand-primary focus-within:!ring-brand-primary/20 hover:border-brand-primary/50 transition-colors"
+          }}
+          isInvalid={!!errors.tower}
+          errorMessage={errors.tower}
+          isRequired
+        >
+          {towers.map((tower) => (
+            <SelectItem key={tower.value}>{tower.label}</SelectItem>
+          ))}
+        </Select>
+        <Input
+          label="Floor"
+          labelPlacement="outside"
+          placeholder="e.g., 1"
+          value={formData.floor}
+          onChange={(e) => setFormData({ ...formData, floor: e.target.value })}
+          classNames={{ 
+            label: "text-sm font-medium text-gray-700",
+            inputWrapper: "border-gray-300 focus-within:!border-brand-primary focus-within:!ring-brand-primary/20 hover:border-brand-primary/50 transition-colors"
+          }}
+          isInvalid={!!errors.floor}
+          errorMessage={errors.floor}
+          isRequired
+        />
+        <Select
+          label="View Type"
+          labelPlacement="outside"
+          placeholder="Select View"
+          selectedKeys={formData.view_type ? [formData.view_type] : []}
+          onSelectionChange={(keys) => {
+            const value = Array.from(keys)[0] as string;
+            setFormData({ ...formData, view_type: value });
+          }}
+          classNames={{ 
+            label: "text-sm font-medium text-gray-700",
+            trigger: "border-gray-300 focus-within:!border-brand-primary focus-within:!ring-brand-primary/20 hover:border-brand-primary/50 transition-colors"
+          }}
+          isInvalid={!!errors.view_type}
+          errorMessage={errors.view_type}
+          isRequired
+        >
+          {views.map((view) => (
+            <SelectItem key={view.value}>{view.label}</SelectItem>
+          ))}
+        </Select>
       </div>
-    </>
+    </SubModalWrapper>
   );
-
-  return typeof window !== 'undefined' ? createPortal(modalContent, document.body) : null;
 };
 
 export default BasicInformationModal;

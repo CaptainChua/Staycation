@@ -7,6 +7,7 @@ interface Location {
   id: number;
   name: string;
   branch: string;
+  uuid_id?: string;
 }
 
 interface LocationSelectorProps {

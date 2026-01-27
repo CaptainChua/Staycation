@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Tooltip } from 'react-leaflet';
 import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 
 interface RoomMapProps {
   roomName: string;
@@ -11,8 +12,11 @@ interface RoomMapProps {
 }
 
 const RoomMap = ({ roomName, tower, location }: RoomMapProps) => {
-  // Quezon City coordinates (default location)
-  const defaultPosition: [number, number] = [14.6760, 121.0437];
+  // Correct coordinates for M Place South Triangle Tower D, Panay Ave, Diliman, Quezon City
+  const defaultPosition: [number, number] = [14.6395, 121.0360];
+  
+  // Use the fixed address for all rooms
+  const displayAddress = "M Place South Triangle Tower D, Panay Ave, Diliman, Quezon City, 1103 Metro Manila";
 
   useEffect(() => {
     // Fix for default marker icon issue in Leaflet with Next.js
@@ -38,11 +42,17 @@ const RoomMap = ({ roomName, tower, location }: RoomMapProps) => {
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <Marker position={defaultPosition}>
+          <Tooltip permanent direction="top" offset={[0, -10]}>
+            <div className="text-center">
+              <p className="font-bold text-gray-800">{roomName}</p>
+              <p className="text-sm text-gray-600">{displayAddress}</p>
+            </div>
+          </Tooltip>
           <Popup>
             <div className="text-center">
               <p className="font-bold text-gray-800">{roomName}</p>
               {tower && <p className="text-sm text-gray-600">{tower}</p>}
-              <p className="text-sm text-gray-600">{location || 'Quezon City'}</p>
+              <p className="text-sm text-gray-600">{displayAddress}</p>
             </div>
           </Popup>
         </Marker>

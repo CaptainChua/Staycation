@@ -6,7 +6,7 @@ import { upload_file } from '../utils/cloudinary';
 export type EmployeeRole = 'Owner' | 'Csr' | 'Cleaner' | 'Partner';
 
 export interface Employee {
-  id?: string;
+  id?: number;
   first_name: string;
   last_name: string;
   email: string;
@@ -19,11 +19,6 @@ export interface Employee {
   street_address?: string;
   city?: string;
   zip_code?: string;
-  status?: string;
-  latitude?: number;
-  longitude?: number;
-  // TODO: Add 'assigned_area' field to database if required for cleaner tracking
-  // TODO: Ensure latitude/longitude are updated via geocoding or mobile app integration
   created_at?: string;
   updated_at?: string;
   password: string;
@@ -325,7 +320,7 @@ export const loginEmployee = async (req: NextRequest):Promise <NextResponse> => 
       )
     }
 
-    const findQuery = `SELECT id, first_name, last_name, email, phone, employment_id, hire_date, role, department, monthly_salary, street_address, city, zip_code, password, profile_image_url, emergency_contact_name, emergency_contact_phone, emergency_contact_relation, status, latitude, longitude FROM employees WHERE email = $1 LIMIT 1`;
+    const findQuery = `SELECT id, first_name, last_name, email, phone, employment_id, hire_date, role, department, monthly_salary, street_address, city, zip_code, password, profile_image_url, emergency_contact_name, emergency_contact_phone, emergency_contact_relation FROM employees WHERE email = $1 LIMIT 1`;
 
     const userResult = await pool.query(findQuery, [email]);
 
@@ -400,9 +395,6 @@ export const loginEmployee = async (req: NextRequest):Promise <NextResponse> => 
           street_address: employee.street_address,
           city: employee.city,
           zip_code: employee.zip_code,
-          status: employee.status,
-          latitude: employee.latitude,
-          longitude: employee.longitude,
           profile_image_url: employee.profile_image_url,
           emergency_contact_name: employee.emergency_contact_name,
           emergency_contact_phone: employee.emergency_contact_phone,

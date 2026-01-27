@@ -39,10 +39,13 @@ export default function DeleteConfirmation({
           if (isDeleting) return;
           onCancel();
         }}
+        role="button"
+        tabIndex={-1}
+        aria-label="Close modal"
       />
-      <div className="fixed inset-0 flex items-center justify-center px-4 py-8 z-[9999]">
+      <div className="fixed inset-0 flex items-center justify-center px-4 py-8 z-[9999] pointer-events-none">
         <div
-          className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl dark:shadow-gray-900/50 w-full max-w-md overflow-hidden"
+          className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl dark:shadow-gray-900/50 w-full max-w-md overflow-hidden pointer-events-auto"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center justify-between px-8 py-6 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-red-50 to-orange-50 dark:from-gray-800 dark:to-gray-700">
@@ -82,7 +85,6 @@ export default function DeleteConfirmation({
                 <strong>Warning:</strong> You are about to permanently delete this {itemName}.
               </p>
             </div>
-
             <div className="space-y-2">
               <div className="flex items-start gap-2">
                 <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 min-w-[95px]">Item:</span>
@@ -93,7 +95,6 @@ export default function DeleteConfirmation({
                 <span className="text-sm text-gray-600 dark:text-gray-400 font-mono">{itemId}</span>
               </div>
             </div>
-
             <p className="text-sm text-gray-600 dark:text-gray-400">
               Are you sure you want to delete this {itemName}? This will permanently remove it.
             </p>
@@ -125,6 +126,6 @@ export default function DeleteConfirmation({
         </div>
       </div>
     </>,
-    document.body
+    document.body,
   );
 }
