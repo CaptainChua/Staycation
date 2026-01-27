@@ -33,9 +33,22 @@ interface PaymentRow {
   id?: string;
   booking_id: string;
   guest: string;
-  amount: string;
-  // numeric amount to allow numeric sorting
-  amountValue?: number;
+
+  // Formatted and numeric totals for display/sorting
+  totalAmount: string;
+  totalAmountValue?: number;
+
+  // Original down payment submitted
+  downPayment: string;
+  downPaymentValue?: number;
+
+  // Cumulative amount paid so far (amount_paid)
+  amountPaid: string;
+  amountPaidValue?: number;
+  // Remaining balance (total - amount_paid), non-negative
+  remaining: string;
+  remainingValue?: number;
+
   payment_proof?: string | null;
   status: PaymentStatus;
   statusColor: string;
@@ -211,7 +224,7 @@ function RejectModal({
                     Amount:
                   </span>
                   <span className="text-sm text-gray-900 dark:text-gray-100">
-                    {payment.amount}
+                    {formatCurrency(Number(payment.booking?.down_payment ?? 0))}
                   </span>
                 </div>
               </div>
@@ -304,7 +317,7 @@ function ApproveModal({
       // fast (amount prefilled) while still being convenient for check-in
       // collections (remaining balance prefilled).
       timeoutId = setTimeout(() => {
-        const submitted = Number(payment.amountValue ?? 0);
+        const submitted = Number(payment.booking?.down_payment ?? 0);
         const remaining = Number(payment.booking?.remaining_balance ?? 0);
         const defaultAmt = submitted > 0 ? submitted : remaining;
         setLocalAmount(defaultAmt > 0 ? String(defaultAmt) : "");
@@ -534,13 +547,24 @@ export default function PaymentPage() {
 
   const payments = useMemo<PaymentRow[]>(() => {
     return (paymentsRaw || []).map((p) => {
-      const amountValue = Number(p.down_payment ?? 0);
+      const totalAmountValue = Number(p.total_amount ?? 0);
+      const downPaymentValue = Number(p.down_payment ?? 0);
+      const amountPaidValue = Number(p.amount_paid ?? 0);
+      // remaining = total - amount_paid
+      const remainingValue = Math.max(0, totalAmountValue - amountPaidValue);
+
       const row: PaymentRow = {
         id: p.id,
         booking_id: p.booking_id ?? String(p.booking_fk ?? ""),
         guest: `${p.guest_first_name ?? ""} ${p.guest_last_name ?? ""}`.trim(),
-        amount: formatCurrency(amountValue),
-        amountValue,
+        totalAmount: formatCurrency(totalAmountValue),
+        totalAmountValue,
+        downPayment: formatCurrency(downPaymentValue),
+        downPaymentValue,
+        amountPaid: formatCurrency(amountPaidValue),
+        amountPaidValue,
+        remaining: formatCurrency(remainingValue),
+        remainingValue,
         payment_proof: p.payment_proof_url ?? undefined,
         status: mapStatusToUI(p.payment_status),
         statusColor: getStatusColorClass(p.payment_status),
@@ -711,10 +735,25 @@ export default function PaymentPage() {
     const copy = [...filteredPayments];
     if (!sortField) return copy;
     return copy.sort((a, b) => {
-      // Numeric sort for amount (use amountValue)
-      if (sortField === "amount") {
-        const aNum = a.amountValue ?? 0;
-        const bNum = b.amountValue ?? 0;
+      // Numeric sorts for the new currency columns
+      if (sortField === "totalAmount") {
+        const aNum = a.totalAmountValue ?? 0;
+        const bNum = b.totalAmountValue ?? 0;
+        return sortDirection === "asc" ? aNum - bNum : bNum - aNum;
+      }
+      if (sortField === "downPayment") {
+        const aNum = a.downPaymentValue ?? 0;
+        const bNum = b.downPaymentValue ?? 0;
+        return sortDirection === "asc" ? aNum - bNum : bNum - aNum;
+      }
+      if (sortField === "amountPaid") {
+        const aNum = a.amountPaidValue ?? 0;
+        const bNum = b.amountPaidValue ?? 0;
+        return sortDirection === "asc" ? aNum - bNum : bNum - aNum;
+      }
+      if (sortField === "remaining") {
+        const aNum = a.remainingValue ?? 0;
+        const bNum = b.remainingValue ?? 0;
         return sortDirection === "asc" ? aNum - bNum : bNum - aNum;
       }
       const key = String(sortField);
@@ -899,15 +938,47 @@ export default function PaymentPage() {
                     <ArrowUpDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600 dark:text-gray-300 dark:group-hover:text-gray-100" />
                   </div>
                 </th>
+
                 <th
-                  onClick={() => handleSort("amount")}
+                  onClick={() => handleSort("totalAmount")}
                   className="text-right py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
                 >
                   <div className="flex items-center justify-end gap-2">
-                    Amount
+                    Total Amount
                     <ArrowUpDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600 dark:text-gray-300 dark:group-hover:text-gray-100" />
                   </div>
                 </th>
+
+                <th
+                  onClick={() => handleSort("downPayment")}
+                  className="text-right py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
+                >
+                  <div className="flex items-center justify-end gap-2">
+                    Down Payment
+                    <ArrowUpDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600 dark:text-gray-300 dark:group-hover:text-gray-100" />
+                  </div>
+                </th>
+
+                <th
+                  onClick={() => handleSort("amountPaid")}
+                  className="text-right py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
+                >
+                  <div className="flex items-center justify-end gap-2">
+                    Amount Paid
+                    <ArrowUpDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600 dark:text-gray-300 dark:group-hover:text-gray-100" />
+                  </div>
+                </th>
+
+                <th
+                  onClick={() => handleSort("remaining")}
+                  className="text-right py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
+                >
+                  <div className="flex items-center justify-end gap-2">
+                    Remaining
+                    <ArrowUpDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600 dark:text-gray-300 dark:group-hover:text-gray-100" />
+                  </div>
+                </th>
+
                 <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
                   Payment Proof
                 </th>
@@ -949,7 +1020,30 @@ export default function PaymentPage() {
                     </td>
                     <td className="py-4 px-4 text-right">
                       <span className="font-bold text-gray-800 dark:text-gray-100 text-sm whitespace-nowrap">
-                        {payment.amount}
+                        {formatCurrency(
+                          Number(payment.booking?.total_amount ?? 0),
+                        )}
+                      </span>
+                    </td>
+                    <td className="py-4 px-4 text-right">
+                      <span className="font-bold text-gray-800 dark:text-gray-100 text-sm whitespace-nowrap">
+                        {formatCurrency(
+                          Number(payment.booking?.down_payment ?? 0),
+                        )}
+                      </span>
+                    </td>
+                    <td className="py-4 px-4 text-right">
+                      <span className="font-bold text-gray-800 dark:text-gray-100 text-sm whitespace-nowrap">
+                        {formatCurrency(
+                          Number(payment.booking?.amount_paid ?? 0),
+                        )}
+                      </span>
+                    </td>
+                    <td className="py-4 px-4 text-right">
+                      <span className="font-bold text-gray-800 dark:text-gray-100 text-sm whitespace-nowrap">
+                        {formatCurrency(
+                          Math.max(0, payment.remainingValue ?? 0),
+                        )}
                       </span>
                     </td>
                     <td className="py-4 px-4 text-center">
@@ -1123,32 +1217,56 @@ export default function PaymentPage() {
               <div className="grid grid-cols-2 gap-3 mb-3 pb-3">
                 <div>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                    Amount
+                    Total Amount
                   </p>
                   <p className="font-bold text-gray-800 dark:text-gray-100">
-                    {payment.amount}
+                    {formatCurrency(Number(payment.booking?.total_amount ?? 0))}
                   </p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                    Payment Proof
+                    Down Payment
                   </p>
-                  {payment.payment_proof ? (
-                    <a
-                      href={payment.payment_proof}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700 dark:hover:text-blue-400"
-                    >
-                      <ImageIcon className="w-4 h-4" />
-                      View
-                    </a>
-                  ) : (
-                    <span className="text-sm text-gray-400 dark:text-gray-500">
-                      No proof
-                    </span>
-                  )}
+                  <p className="font-bold text-gray-800 dark:text-gray-100">
+                    {formatCurrency(Number(payment.booking?.down_payment ?? 0))}
+                  </p>
                 </div>
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                    Amount Paid
+                  </p>
+                  <p className="font-bold text-gray-800 dark:text-gray-100">
+                    {formatCurrency(Number(payment.booking?.amount_paid ?? 0))}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                    Change
+                  </p>
+                  <p className="font-bold text-gray-800 dark:text-gray-100">
+                    {formatCurrency(Math.max(0, payment.remainingValue ?? 0))}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mb-3 pb-3 border-b border-gray-200 dark:border-gray-600">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                  Payment Proof
+                </p>
+                {payment.payment_proof ? (
+                  <a
+                    href={payment.payment_proof}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700 dark:hover:text-blue-400"
+                  >
+                    <ImageIcon className="w-4 h-4" /> View
+                  </a>
+                ) : (
+                  <span className="text-sm text-gray-400 dark:text-gray-500">
+                    No proof
+                  </span>
+                )}
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-200 dark:border-gray-600">
@@ -1363,7 +1481,16 @@ export default function PaymentPage() {
                       value={selectedPayment.booking_id}
                     />
                     <InfoField label="Guest" value={selectedPayment.guest} />
-                    <InfoField label="Amount" value={selectedPayment.amount} />
+                    <InfoField
+                      label="Amount"
+                      value={
+                        <span className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                          {formatCurrency(
+                            Number(selectedPayment.booking?.down_payment ?? 0),
+                          )}
+                        </span>
+                      }
+                    />
                     <InfoField
                       label="Payment Proof"
                       value={
