@@ -347,9 +347,37 @@ function ApproveModal({
 
   const amountNum = parseFloat(localAmount || "0");
 
+  // Compute previous remaining (prefer server value, otherwise derive).
+  // We require full settlement when this modal is being used to collect the
+  // remaining balance (i.e. when there is no submitted down payment).
+  const submitted = Number(payment.booking?.down_payment ?? 0);
+  const explicitRemaining = payment.booking?.remaining_balance;
+  const prevRemaining =
+    typeof explicitRemaining !== "undefined" && explicitRemaining !== null
+      ? Number(explicitRemaining)
+      : !Number.isNaN(Number(payment.booking?.total_amount ?? NaN))
+        ? Math.max(
+            0,
+            Number(payment.booking?.total_amount ?? 0) -
+              Number(
+                payment.booking?.amount_paid ??
+                  payment.booking?.down_payment ??
+                  0,
+              ),
+          )
+        : 0;
+
+  // Underpay = this is a direct collection (no submitted down payment) AND
+  // the entered amount is less than the remaining balance.
+  const isUnderpay = submitted <= 0 && amountNum < prevRemaining;
+
   const handleConfirm = () => {
     if (isNaN(amountNum) || amountNum < 0) {
       toast.error("Please enter a valid amount");
+      return;
+    }
+    if (isUnderpay) {
+      toast.error(`Amount must be at least ${formatCurrency(prevRemaining)}`);
       return;
     }
     onConfirm(payment, amountNum);
@@ -421,6 +449,11 @@ function ApproveModal({
                 placeholder=""
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-green-500 focus:border-green-500"
               />
+              {isUnderpay && (
+                <div className="text-sm text-red-600 mt-2">
+                  Amount must be at least {formatCurrency(prevRemaining)}
+                </div>
+              )}
             </div>
           </div>
 
@@ -437,7 +470,8 @@ function ApproveModal({
               disabled={
                 updatingPaymentId === payment.id ||
                 isNaN(amountNum) ||
-                amountNum < 0
+                amountNum < 0 ||
+                isUnderpay
               }
               className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center gap-2 text-sm"
             >
@@ -681,7 +715,29 @@ export default function PaymentPage() {
         setIsChangeModalOpen(true);
       } catch (err) {
         console.error("Approve error:", err);
-        toast.error("Failed to approve payment", { id: toastId });
+        let msg = "Failed to approve payment";
+        // Prefer server-provided message when available and perform safe type checks.
+        if (err && typeof err === "object") {
+          const errObj = err as Record<string, unknown>;
+          const data = errObj["data"];
+          if (data && typeof data === "object") {
+            const dataObj = data as Record<string, unknown>;
+            if (typeof dataObj["error"] === "string") {
+              msg = dataObj["error"] as string;
+            } else if (typeof dataObj["message"] === "string") {
+              msg = dataObj["message"] as string;
+            }
+          } else {
+            if (typeof errObj["error"] === "string") {
+              msg = errObj["error"] as string;
+            } else if (typeof errObj["message"] === "string") {
+              msg = errObj["message"] as string;
+            }
+          }
+        } else if (typeof err === "string") {
+          msg = err;
+        }
+        toast.error(msg, { id: toastId });
       } finally {
         setUpdatingPaymentId(null);
       }

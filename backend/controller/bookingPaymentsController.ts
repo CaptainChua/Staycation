@@ -349,6 +349,22 @@ export const updateBookingPayment = async (
           ? derivedPrevRemaining
           : 0;
 
+      // If collecting less than the outstanding remaining balance, only allow it
+      // when the collected amount matches the submitted down payment (i.e. this
+      // is an approval of a submitted payment). Otherwise, reject as insufficient.
+      if (collectAmount < actualPrevRemaining) {
+        if (Number(cur.down_payment ?? 0) !== collectAmount) {
+          await client.query("ROLLBACK");
+          return NextResponse.json(
+            {
+              success: false,
+              error: `Insufficient amount: remaining balance is ${actualPrevRemaining}`,
+            },
+            { status: 400 },
+          );
+        }
+      }
+
       // appliedAmount is portion of collectAmount that is actually applied to outstanding balance
       const appliedAmount = Math.min(
         Math.max(collectAmount, 0),
