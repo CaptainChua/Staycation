@@ -2,6 +2,7 @@
 
 import pool from "@/backend/config/db";
 import { headers } from "next/headers";
+import { createNotificationsForRoles } from "@/backend/utils/notificationHelper";
 
 export interface DepositRecord {
   id: string; // UUID from booking_security_deposits
@@ -210,6 +211,75 @@ export async function updateDepositStatus(
         ]
       );
     }
+
+    // Create notifications for Owner and CSR roles
+    try {
+      // Get deposit details for notification
+      const depositQuery = `
+        SELECT 
+          sd.id,
+          b.booking_id,
+          bg.first_name,
+          bg.last_name,
+          sd.amount,
+          sd.deposit_status
+        FROM booking_security_deposits sd
+        INNER JOIN booking b ON sd.booking_id = b.id
+        LEFT JOIN booking_guests bg ON b.id = bg.booking_id
+        WHERE sd.id = $1
+      `;
+      
+      const depositResult = await client.query(depositQuery, [depositId]);
+      const deposit = depositResult.rows[0];
+      
+      if (deposit) {
+        const guestName = `${deposit.first_name || ''} ${deposit.last_name || ''}`.trim() || 'Unknown Guest';
+        const amount = parseFloat(deposit.amount) || 0;
+        const formattedAmount = new Intl.NumberFormat('en-PH', {
+          style: 'currency',
+          currency: 'PHP',
+          minimumFractionDigits: 0
+        }).format(amount);
+        
+        // Create notification message based on status
+        let notificationTitle = '';
+        let notificationMessage = '';
+        
+        switch (newStatus) {
+          case 'Held':
+            notificationTitle = 'Security Deposit Held';
+            notificationMessage = `Security deposit of ${formattedAmount} for ${guestName} (Booking: ${deposit.booking_id}) has been held.`;
+            break;
+          case 'Returned':
+            notificationTitle = 'Security Deposit Returned';
+            notificationMessage = `Security deposit of ${formattedAmount} for ${guestName} (Booking: ${deposit.booking_id}) has been returned.`;
+            break;
+          case 'Partial':
+            notificationTitle = 'Security Deposit Partially Refunded';
+            notificationMessage = `Partial refund processed for security deposit of ${guestName} (Booking: ${deposit.booking_id}).${notes ? ` Reason: ${notes}` : ''}`;
+            break;
+          case 'Forfeited':
+            notificationTitle = 'Security Deposit Forfeited';
+            notificationMessage = `Security deposit of ${formattedAmount} for ${guestName} (Booking: ${deposit.booking_id}) has been forfeited.${notes ? ` Reason: ${notes}` : ''}`;
+            break;
+          default:
+            notificationTitle = 'Security Deposit Status Updated';
+            notificationMessage = `Security deposit status for ${guestName} (Booking: ${deposit.booking_id}) updated to ${newStatus}.`;
+        }
+        
+        // Create notifications for Owner and CSR roles
+        await createNotificationsForRoles(['Owner', 'CSR'], {
+          title: notificationTitle,
+          message: notificationMessage,
+          notificationType: 'DepositStatus'
+        });
+        
+        console.log(`✅ Notifications created for deposit status update: ${newStatus}`);
+      }
+    } catch (notificationError) {
+      console.error('Failed to create deposit status notifications:', notificationError);
+      // Don't throw error here as the main operation succeeded
+    }
   } catch (error) {
     console.error("Error updating deposit status:", error);
     throw new Error("Failed to update deposit status");
@@ -318,6 +388,48 @@ export async function processPartialRefund(
         // Continue without failing the main operation
       }
     }
+
+    // Create notifications for Owner and CSR roles
+    try {
+      // Get deposit details for notification
+      const depositQuery = `
+        SELECT 
+          sd.id,
+          b.booking_id,
+          bg.first_name,
+          bg.last_name,
+          sd.amount
+        FROM booking_security_deposits sd
+        INNER JOIN booking b ON sd.booking_id = b.id
+        LEFT JOIN booking_guests bg ON b.id = bg.booking_id
+        WHERE sd.id = $1
+      `;
+      
+      const depositResult = await client.query(depositQuery, [depositId]);
+      const deposit = depositResult.rows[0];
+      
+      if (deposit) {
+        const guestName = `${deposit.first_name || ''} ${deposit.last_name || ''}`.trim() || 'Unknown Guest';
+        const totalAmount = parseFloat(deposit.amount) || 0;
+        const formattedRefundAmount = new Intl.NumberFormat('en-PH', {
+          style: 'currency',
+          currency: 'PHP',
+          minimumFractionDigits: 0
+        }).format(refundAmount);
+        
+        // Create notifications for Owner and CSR roles
+        await createNotificationsForRoles(['Owner', 'CSR'], {
+          title: 'Security Deposit Partially Refunded',
+          message: `Partial refund of ${formattedRefundAmount} processed for ${guestName} (Booking: ${deposit.booking_id}). Reason: ${deductionReason}`,
+          notificationType: 'DepositStatus'
+        });
+        
+        console.log(`✅ Notifications created for partial refund`);
+      }
+    } catch (notificationError) {
+      console.error('Failed to create partial refund notifications:', notificationError);
+      // Don't throw error here as the main operation succeeded
+    }
   } catch (error) {
     console.error("Error processing partial refund:", error);
     console.error("Error details:", {
@@ -384,6 +496,47 @@ export async function processForfeiture(
         ]
       );
     }
+
+    // Create notifications for Owner and CSR roles
+    try {
+      // Get deposit details for notification
+      const depositQuery = `
+        SELECT 
+          sd.id,
+          b.booking_id,
+          bg.first_name,
+          bg.last_name,
+          sd.amount
+        FROM booking_security_deposits sd
+        INNER JOIN booking b ON sd.booking_id = b.id
+        LEFT JOIN booking_guests bg ON b.id = bg.booking_id
+        WHERE sd.id = $1
+      `;
+      
+      const depositResult = await client.query(depositQuery, [depositId]);
+      const deposit = depositResult.rows[0];
+      
+      if (deposit) {
+        const guestName = `${deposit.first_name || ''} ${deposit.last_name || ''}`.trim() || 'Unknown Guest';
+        const formattedAmount = new Intl.NumberFormat('en-PH', {
+          style: 'currency',
+          currency: 'PHP',
+          minimumFractionDigits: 0
+        }).format(totalAmount);
+        
+        // Create notifications for Owner and CSR roles
+        await createNotificationsForRoles(['Owner', 'CSR'], {
+          title: 'Security Deposit Forfeited',
+          message: `Security deposit of ${formattedAmount} for ${guestName} (Booking: ${deposit.booking_id}) has been forfeited. Reason: ${forfeitureReason}`,
+          notificationType: 'DepositStatus'
+        });
+        
+        console.log(`✅ Notifications created for forfeiture`);
+      }
+    } catch (notificationError) {
+      console.error('Failed to create forfeiture notifications:', notificationError);
+      // Don't throw error here as the main operation succeeded
+    }
   } catch (error) {
     console.error("Error processing forfeiture:", error);
     throw new Error("Failed to process forfeiture");
@@ -444,6 +597,47 @@ export async function processFullRefund(
           userAgent
         ]
       );
+    }
+
+    // Create notifications for Owner and CSR roles
+    try {
+      // Get deposit details for notification
+      const depositQuery = `
+        SELECT 
+          sd.id,
+          b.booking_id,
+          bg.first_name,
+          bg.last_name,
+          sd.amount
+        FROM booking_security_deposits sd
+        INNER JOIN booking b ON sd.booking_id = b.id
+        LEFT JOIN booking_guests bg ON b.id = bg.booking_id
+        WHERE sd.id = $1
+      `;
+      
+      const depositResult = await client.query(depositQuery, [depositId]);
+      const deposit = depositResult.rows[0];
+      
+      if (deposit) {
+        const guestName = `${deposit.first_name || ''} ${deposit.last_name || ''}`.trim() || 'Unknown Guest';
+        const formattedAmount = new Intl.NumberFormat('en-PH', {
+          style: 'currency',
+          currency: 'PHP',
+          minimumFractionDigits: 0
+        }).format(totalAmount);
+        
+        // Create notifications for Owner and CSR roles
+        await createNotificationsForRoles(['Owner', 'CSR'], {
+          title: 'Security Deposit Fully Refunded',
+          message: `Security deposit of ${formattedAmount} for ${guestName} (Booking: ${deposit.booking_id}) has been fully refunded.`,
+          notificationType: 'DepositStatus'
+        });
+        
+        console.log(`✅ Notifications created for full refund`);
+      }
+    } catch (notificationError) {
+      console.error('Failed to create full refund notifications:', notificationError);
+      // Don't throw error here as the main operation succeeded
     }
   } catch (error) {
     console.error("Error processing full refund:", error);
