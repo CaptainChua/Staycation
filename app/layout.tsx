@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, Poppins } from "next/font/google";
 import "./globals.css";
 import UIProviders from "@/Components/UIProviders";
@@ -21,6 +21,13 @@ const poppins = Poppins({
 export const metadata: Metadata = {
   title: "Staycation Haven",
   description: "Staycation Haven booking and admin portal",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export default function RootLayout({
