@@ -299,9 +299,15 @@ function ApproveModal({
   useEffect(() => {
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
     if (payment && isOpen) {
-      // input must be empty by default when the modal opens
+      // Default the input to the submitted payment amount (if present), otherwise
+      // fallback to the remaining balance. This makes approving a submitted proof
+      // fast (amount prefilled) while still being convenient for check-in
+      // collections (remaining balance prefilled).
       timeoutId = setTimeout(() => {
-        setLocalAmount("");
+        const submitted = Number(payment.amountValue ?? 0);
+        const remaining = Number(payment.booking?.remaining_balance ?? 0);
+        const defaultAmt = submitted > 0 ? submitted : remaining;
+        setLocalAmount(defaultAmt > 0 ? String(defaultAmt) : "");
       }, 0);
     }
     return () => {
@@ -588,14 +594,38 @@ export default function PaymentPage() {
       const toastId = toast.loading("Approving payment...");
       try {
         const totalAmount = Number(payment.booking?.total_amount ?? NaN);
+        const prevDown = Number(payment.booking?.down_payment ?? 0);
+        const prevRemainingRaw = payment.booking?.remaining_balance;
+        const prevRemaining =
+          typeof prevRemainingRaw !== "undefined" && prevRemainingRaw !== null
+            ? Number(prevRemainingRaw)
+            : !Number.isNaN(totalAmount)
+              ? Math.max(0, totalAmount - prevDown)
+              : NaN;
+
+        // Amount the guest handed to the CSR (clamped to >= 0)
+        const paidAmount = Math.max(0, Number(amount));
+
+        // appliedAmount is the portion of the paid amount that will actually be applied
+        // to the outstanding remaining balance. We clamp this so that the recorded
+        // down_payment never exceeds the total amount.
+        const appliedAmount = !Number.isNaN(prevRemaining)
+          ? Math.min(paidAmount, Math.max(prevRemaining, 0))
+          : paidAmount;
+
+        const newDown = prevDown + appliedAmount;
+        const newRemaining = !Number.isNaN(prevRemaining)
+          ? Math.max(0, prevRemaining - appliedAmount)
+          : undefined;
+
         const payload: Partial<UpdateBookingPaymentPayload> & { id: string } = {
           id: payment.id,
           payment_status: "approved",
-          down_payment: Number(amount),
+          down_payment: newDown,
         };
 
-        if (!Number.isNaN(totalAmount)) {
-          payload.remaining_balance = totalAmount - Number(amount);
+        if (typeof newRemaining !== "undefined") {
+          payload.remaining_balance = newRemaining;
         }
 
         await updateBookingPayment(payload).unwrap();
@@ -607,9 +637,8 @@ export default function PaymentPage() {
         // Close the approve modal (keeping the view open to show updated data)
         setIsApproveModalOpen(false);
 
-        // compute and show change modal
-        const prevRemaining = Number(payment.booking?.remaining_balance ?? 0);
-        const changeAmt = Math.max(0, Number(amount) - prevRemaining);
+        // compute and show change modal (leftover amount to return to guest)
+        const changeAmt = Math.max(0, Number(amount) - appliedAmount);
         setChangeAmount(changeAmt);
         setIsChangeModalOpen(true);
       } catch (err) {
