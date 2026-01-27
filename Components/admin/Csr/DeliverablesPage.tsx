@@ -28,6 +28,7 @@ import {
   ChevronDown
 } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { toast } from "react-hot-toast";
 import { DeliverableRecord, DeliverableItem } from "@/app/admin/csr/actions";
 import ViewPaymentDetailsModal from "./Modals/ViewPaymentDetailsModal";
@@ -49,6 +50,10 @@ const highlightText = (text: string, searchTerm: string) => {
 };
 
 export default function DeliverablesPage() {
+  const { data: session } = useSession();
+  const employeeId = session?.user?.id;
+  
+  console.log('🔑 Session and EmployeeId:', { session, employeeId });
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | string>("all");
   const [filterDate, setFilterDate] = useState<"all" | "today_checkin" | "today_checkout" | "custom_range">("all");
@@ -76,6 +81,41 @@ export default function DeliverablesPage() {
       ...prev,
       [bookingId]: !prev[bookingId]
     }));
+  };
+
+  // Log employee activity
+  const logEmployeeActivity = async (action: string, details: string, entityId?: string) => {
+    console.log('🔍 logEmployeeActivity called:', { employeeId, action, details, entityId });
+    
+    if (!employeeId) {
+      console.log('❌ No employeeId found, skipping logging');
+      return;
+    }
+    
+    try {
+      console.log('📡 Sending request to /api/admin/employee-activity');
+      const response = await fetch('/api/admin/employee-activity', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          employeeId,
+          action,
+          details,
+          entityId,
+        }),
+      });
+      
+      const result = await response.json();
+      console.log('📡 Response from employee-activity API:', result);
+      
+      if (!response.ok) {
+        console.error('❌ API Error:', result);
+      }
+    } catch (error) {
+      console.error('❌ Failed to log employee activity:', error);
+    }
   };
 
   const fetchData = async () => {
@@ -244,6 +284,13 @@ export default function DeliverablesPage() {
       }
 
       toast.success(`Item marked as ${newStatus}`);
+      
+      // Log employee activity
+      await logEmployeeActivity(
+        `UPDATE_ITEM_STATUS`,
+        `Updated item status to ${newStatus} in booking ${rows.find(r => r.id === bookingId)?.deliverable_id}`,
+        bookingId
+      );
     } catch (error) {
       setRows(oldRows);
       toast.error("Failed to update status: " + (error instanceof Error ? error.message : "Unknown error"));
@@ -288,6 +335,13 @@ export default function DeliverablesPage() {
       }
       
       toast.success(`All items marked as ${newStatus}`);
+      
+      // Log employee activity
+      await logEmployeeActivity(
+        `UPDATE_ALL_ITEMS_STATUS`,
+        `Updated all items in booking ${booking.deliverable_id} to ${newStatus} status`,
+        bookingId
+      );
     } catch (error) {
       setRows(oldRows);
       toast.error("Failed to update status: " + (error instanceof Error ? error.message : "Unknown error"));
@@ -330,6 +384,13 @@ export default function DeliverablesPage() {
       }
       
       toast.success("All items marked as delivered");
+      
+      // Log employee activity
+      await logEmployeeActivity(
+        `MARK_ALL_DELIVERED`,
+        `Marked all items in booking ${booking.deliverable_id} as delivered`,
+        bookingId
+      );
     } catch (error) {
       setRows(oldRows);
       toast.error("Failed to mark as delivered: " + (error instanceof Error ? error.message : "Unknown error"));
@@ -372,6 +433,13 @@ export default function DeliverablesPage() {
       }
       
       toast.success("All items cancelled");
+      
+      // Log employee activity
+      await logEmployeeActivity(
+        `CANCEL_ALL_ITEMS`,
+        `Cancelled all items in booking ${booking.deliverable_id}`,
+        bookingId
+      );
     } catch (error) {
       setRows(oldRows);
       toast.error("Failed to cancel items: " + (error instanceof Error ? error.message : "Unknown error"));
@@ -414,6 +482,13 @@ export default function DeliverablesPage() {
       }
       
       toast.success("All items refunded");
+      
+      // Log employee activity
+      await logEmployeeActivity(
+        `REFUND_ALL_ITEMS`,
+        `Refunded all items in booking ${booking.deliverable_id}`,
+        bookingId
+      );
     } catch (error) {
       setRows(oldRows);
       toast.error("Failed to refund items: " + (error instanceof Error ? error.message : "Unknown error"));
@@ -482,6 +557,13 @@ export default function DeliverablesPage() {
       }
 
       toast.success(`Successfully marked ${selectedDeliverables.length} bookings as ${action}`);
+      
+      // Log employee activity
+      await logEmployeeActivity(
+        `BULK_UPDATE_STATUS`,
+        `Bulk updated ${selectedDeliverables.length} bookings to ${action} status`,
+        selectedDeliverables.join(',') // Pass multiple IDs as comma-separated
+      );
       setSelectedDeliverables([]);
     } catch (error) {
       setRows(oldRows);
@@ -521,7 +603,7 @@ export default function DeliverablesPage() {
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 flex-shrink-0">
         {[
-          { label: "Total Deliverables", value: String(totalCount), color: "bg-purple-500", icon: Package },
+          { label: "Total Deliverables", value: String(bookingCount), color: "bg-indigo-500", icon: Package },
           { label: "Pending", value: String(pendingCount), color: "bg-yellow-500", icon: Clock },
           { label: "Preparing", value: String(preparingCount), color: "bg-indigo-500", icon: Loader2 },
           { label: "Delivered", value: String(deliveredCount), color: "bg-green-500", icon: CheckCircle },
@@ -544,7 +626,7 @@ export default function DeliverablesPage() {
         })}
       </div>
 
-      {/* Status Guide */}
+      {/* Status Explanation */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-6 flex-shrink-0 border border-gray-200 dark:border-gray-700">
         <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4">Deliverable Status Guide</h4>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -552,14 +634,14 @@ export default function DeliverablesPage() {
             <div className="w-3 h-3 bg-yellow-500 rounded-full mt-1 flex-shrink-0"></div>
             <div>
               <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">Pending</h5>
-              <p className="text-xs text-gray-600 dark:text-gray-300">Waiting to be prepared</p>
+              <p className="text-xs text-gray-600 dark:text-gray-300">Items waiting to be prepared</p>
             </div>
           </div>
           <div className="flex items-start gap-3">
             <div className="w-3 h-3 bg-indigo-500 rounded-full mt-1 flex-shrink-0"></div>
             <div>
               <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">Preparing</h5>
-              <p className="text-xs text-gray-600 dark:text-gray-300">Currently being prepared</p>
+              <p className="text-xs text-gray-600 dark:text-gray-300">Items currently being prepared</p>
             </div>
           </div>
           <div className="flex items-start gap-3">
@@ -728,13 +810,13 @@ export default function DeliverablesPage() {
         </div>
       </div>
 
-      {/* Table Section */}
+      {/* Table Section - Fixed height and scrollable */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden flex-1 flex flex-col min-h-0 border border-gray-200 dark:border-gray-700">
         <div className="overflow-x-auto overflow-y-auto flex-1 h-[600px] max-h-[600px]">
           <table className="w-full min-w-[1400px]">
             <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 border-b-2 border-gray-200 dark:border-gray-600 sticky top-0 z-10">
               <tr>
-                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap sticky left-0 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 z-20 border-r-2 border-r-gray-300 dark:border-r-gray-600">
+                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
                   <div className="flex items-center gap-2">
                     <input
                       type="checkbox"
@@ -751,7 +833,7 @@ export default function DeliverablesPage() {
                 >
                   <div className="flex items-center gap-2">
                     Deliverable ID
-                    <ArrowUpDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600" />
+                    <ArrowUpDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600 dark:text-gray-300 dark:group-hover:text-gray-100" />
                   </div>
                 </th>
                 <th
@@ -760,7 +842,7 @@ export default function DeliverablesPage() {
                 >
                   <div className="flex items-center gap-2">
                     Haven & Booking
-                    <ArrowUpDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600" />
+                    <ArrowUpDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600 dark:text-gray-300 dark:group-hover:text-gray-100" />
                   </div>
                 </th>
                 <th
@@ -769,7 +851,7 @@ export default function DeliverablesPage() {
                 >
                   <div className="flex items-center gap-2">
                     Guest
-                    <ArrowUpDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600" />
+                    <ArrowUpDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600 dark:text-gray-300 dark:group-hover:text-gray-100" />
                   </div>
                 </th>
                 <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
@@ -783,7 +865,7 @@ export default function DeliverablesPage() {
                 >
                   <div className="flex items-center justify-end gap-2">
                     Total
-                    <ArrowUpDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600" />
+                    <ArrowUpDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600 dark:text-gray-300 dark:group-hover:text-gray-100" />
                   </div>
                 </th>
                 <th
@@ -792,7 +874,7 @@ export default function DeliverablesPage() {
                 >
                   <div className="flex items-center justify-center gap-2">
                     Status
-                    <ArrowUpDown className="w-4 h-4 text-gray-400" />
+                    <ArrowUpDown className="w-4 h-4 text-gray-400 dark:text-gray-300" />
                   </div>
                 </th>
                 <th
@@ -800,24 +882,24 @@ export default function DeliverablesPage() {
                   className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
                 >
                   <div className="flex items-center gap-2">
-                    Check-in / Check-out
-                    <ArrowUpDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600" />
+                    Check-in / Check-out Dates
+                    <ArrowUpDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600 dark:text-gray-300 dark:group-hover:text-gray-100" />
                   </div>
                 </th>
-                <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap border border-gray-200 dark:border-gray-700 sticky right-0 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 z-20 border-l-2 border-l-gray-300 dark:border-l-gray-600 border-r-2 border-r-gray-300 dark:border-r-gray-600">Actions</th>
+                <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap border border-gray-200 dark:border-gray-700">Actions</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={8} className="py-20 text-center border border-gray-200 dark:border-gray-700">
+                  <td colSpan={9} className="py-20 text-center border border-gray-200 dark:border-gray-700">
                     <Loader2 className="w-10 h-10 text-brand-primary animate-spin mx-auto mb-4" />
                     <p className="text-gray-500 dark:text-gray-400 font-medium">Loading deliverables...</p>
                   </td>
                 </tr>
               ) : paginatedRows.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-20 text-center border border-gray-200 dark:border-gray-700">
+                  <td colSpan={9} className="py-20 text-center border border-gray-200 dark:border-gray-700">
                     <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                     <p className="text-gray-500 dark:text-gray-400 font-medium">No deliverables found</p>
                   </td>
@@ -825,7 +907,7 @@ export default function DeliverablesPage() {
               ) : (
                 paginatedRows.map((row) => (
                   <tr key={row.id} className="border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700 sticky left-0 bg-white dark:bg-gray-800 z-10 border-r-2 border-r-gray-300 dark:border-r-gray-600">
+                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
                       <input
                         type="checkbox"
                         checked={selectedDeliverables.includes(row.id)}
@@ -834,9 +916,8 @@ export default function DeliverablesPage() {
                       />
                     </td>
                     <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
-                      <div className="space-y-2">
+                      <div className="flex flex-col gap-1">
                         <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{highlightText(row.deliverable_id, searchTerm)}</span>
-
                         {/* Payment Status Badge */}
                         <div className="mt-2">
                           {row.payment_type === 'full' && row.payment_status === 'approved' ? (
@@ -885,7 +966,7 @@ export default function DeliverablesPage() {
                       </div>
                     </td>
                     <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
-                      <div className="space-y-2">
+                      <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-2">
                           <MapPin className="w-4 h-4 text-orange-500 flex-shrink-0" />
                           <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{highlightText(row.haven, searchTerm)}</span>
@@ -901,7 +982,7 @@ export default function DeliverablesPage() {
                       </div>
                     </td>
                     <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
-                      <div className="space-y-2 min-w-[180px]">
+                      <div className="space-y-2 min-w-[200px]">
                         <div className="flex items-center gap-2">
                           <User className="w-4 h-4 text-gray-400 flex-shrink-0" />
                           <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{highlightText(row.guest, searchTerm)}</span>
@@ -909,7 +990,7 @@ export default function DeliverablesPage() {
                         {row.guest_email && (
                           <div className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-300">
                             <span className="font-medium">Email:</span>
-                            <a href={`mailto:${row.guest_email}`} className="text-blue-600 hover:text-blue-800 underline">
+                            <a href={`mailto:${row.guest_email}`} className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline">
                               {row.guest_email}
                             </a>
                           </div>
@@ -917,7 +998,7 @@ export default function DeliverablesPage() {
                         {row.guest_phone && (
                           <div className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-300">
                             <span className="font-medium">Phone:</span>
-                            <a href={`tel:${row.guest_phone}`} className="text-green-600 hover:text-green-800 underline">
+                            <a href={`tel:${row.guest_phone}`} className="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 underline">
                               {row.guest_phone}
                             </a>
                           </div>
@@ -1004,19 +1085,29 @@ export default function DeliverablesPage() {
                       </div>
                     </td>
                     <td className="py-4 px-4 text-right border border-gray-200 dark:border-gray-700">
-                      <span className="font-bold text-gray-800 dark:text-gray-100 text-sm whitespace-nowrap">{row.formatted_grand_total}</span>
+                      <div className="space-y-1">
+                        <div className="font-bold text-gray-800 dark:text-gray-100 text-sm">
+                          {highlightText(row.formatted_grand_total, searchTerm)}
+                        </div>
+                      </div>
                     </td>
                     <td className="py-4 px-4 text-center border border-gray-200 dark:border-gray-700">
-                      <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${
-                        row.overall_status === "Pending" ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300" :
-                        row.overall_status === "Preparing" ? "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300" :
-                        row.overall_status === "Delivered" ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300" :
-                        row.overall_status === "Cancelled" ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300" :
-                        row.overall_status === "Refunded" ? "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300" :
-                        row.overall_status === "Partial" ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300" :
-                        "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
-                      }`}>
-                        {row.overall_status}
+                      <span
+                        className={`inline-block px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${
+                          row.overall_status === "Pending"
+                            ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300"
+                            : row.overall_status === "Preparing"
+                            ? "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300"
+                            : row.overall_status === "Delivered"
+                            ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+                            : row.overall_status === "Cancelled"
+                            ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
+                            : row.overall_status === "Refunded"
+                            ? "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300"
+                            : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                        }`}
+                      >
+                        {highlightText(row.overall_status, searchTerm)}
                       </span>
                     </td>
                     <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
@@ -1024,16 +1115,16 @@ export default function DeliverablesPage() {
                         <div className="flex items-center gap-2">
                           <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                           <span className="text-xs font-medium text-gray-600 dark:text-gray-300">Check-in:</span>
-                          <span className="text-xs font-semibold text-green-700 dark:text-green-300">{row.checkin_date}</span>
+                          <span className="text-xs font-semibold text-green-700 dark:text-green-300">{highlightText(row.checkin_date, searchTerm)}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <div className="w-2 h-2 bg-red-500 rounded-full"></div>
                           <span className="text-xs font-medium text-gray-600 dark:text-gray-300">Check-out:</span>
-                          <span className="text-xs font-semibold text-red-700 dark:text-red-300">{row.checkout_date}</span>
+                          <span className="text-xs font-semibold text-red-700 dark:text-red-300">{highlightText(row.checkout_date, searchTerm)}</span>
                         </div>
                       </div>
                     </td>
-                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700 sticky right-0 bg-white dark:bg-gray-800 z-10 border-l-2 border-l-gray-300 dark:border-l-gray-600 border-r-2 border-r-gray-300 dark:border-r-gray-600">
+                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
                       <div className="flex items-center justify-center gap-1">
                         <button
                           className="p-2 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors"
