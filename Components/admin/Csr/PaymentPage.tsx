@@ -318,7 +318,6 @@ function ApproveModal({
       // fast (amount prefilled) while still being convenient for check-in
       // collections (remaining balance prefilled).
       timeoutId = setTimeout(() => {
-        const submitted = Number(payment.booking?.down_payment ?? 0);
         const explicitRemaining = payment.booking?.remaining_balance;
         const remaining =
           typeof explicitRemaining !== "undefined" && explicitRemaining !== null
@@ -334,8 +333,7 @@ function ApproveModal({
                     ),
                 )
               : 0;
-        const defaultAmt = submitted > 0 ? submitted : remaining;
-        setLocalAmount(defaultAmt > 0 ? String(defaultAmt) : "");
+        setLocalAmount(remaining > 0 ? String(remaining) : "");
       }, 0);
     }
     return () => {
