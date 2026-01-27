@@ -244,44 +244,6 @@ const CleaningManagement = () => {
     }
   };
 
-  // Assign cleaner to a booking's cleaning record
-  const handleAssignCleaner = async () => {
-    if (!selectedCleaningId) {
-      setModalError("Please select a booking to assign");
-      return;
-    }
-    if (!cleanerName.trim()) {
-      setModalError("Cleaner name is required");
-      return;
-    }
-
-    try {
-      setModalError(null);
-      const res = await fetch(`/api/bookings/${selectedCleaningId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ assigned_to: cleanerName }),
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        const err = json?.error || json?.message || "Failed to assign cleaner";
-        setModalError(err);
-        toast.error(err);
-        return;
-      }
-      toast.success("Cleaner assigned");
-      setShowAssignModal(false);
-      setCleanerName("");
-      setSelectedCleaningId(null);
-      setModalError(null);
-      refetch();
-    } catch (err) {
-      console.error("Assign cleaner failed:", err);
-      setModalError("Failed to assign cleaner");
-      toast.error("Failed to assign cleaner");
-    }
-  };
-
   const getRoomStatusColor = (
     status: "occupied" | "available" | "checkout-pending",
   ) => {
