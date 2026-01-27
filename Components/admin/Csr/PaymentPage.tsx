@@ -552,6 +552,7 @@ export default function PaymentPage() {
           guest_email: p.guest_email ?? undefined,
           guest_phone: p.guest_phone ?? undefined,
           down_payment: p.down_payment,
+          amount_paid: p.amount_paid,
           total_amount: p.total_amount,
           remaining_balance: p.remaining_balance,
           payment_proof_url: p.payment_proof_url,
@@ -595,6 +596,7 @@ export default function PaymentPage() {
       try {
         const totalAmount = Number(payment.booking?.total_amount ?? NaN);
         const prevDown = Number(payment.booking?.down_payment ?? 0);
+        const prevAmountPaid = Number(payment.booking?.amount_paid ?? 0);
         const prevRemainingRaw = payment.booking?.remaining_balance;
         const prevRemaining =
           typeof prevRemainingRaw !== "undefined" && prevRemainingRaw !== null
@@ -608,12 +610,13 @@ export default function PaymentPage() {
 
         // appliedAmount is the portion of the paid amount that will actually be applied
         // to the outstanding remaining balance. We clamp this so that the recorded
-        // down_payment never exceeds the total amount.
+        // down_payment / amount_paid never exceed the total amount due.
         const appliedAmount = !Number.isNaN(prevRemaining)
           ? Math.min(paidAmount, Math.max(prevRemaining, 0))
           : paidAmount;
 
         const newDown = prevDown + appliedAmount;
+        const newAmountPaid = prevAmountPaid + appliedAmount;
         const newRemaining = !Number.isNaN(prevRemaining)
           ? Math.max(0, prevRemaining - appliedAmount)
           : undefined;
@@ -622,6 +625,7 @@ export default function PaymentPage() {
           id: payment.id,
           payment_status: "approved",
           down_payment: newDown,
+          amount_paid: newAmountPaid,
         };
 
         if (typeof newRemaining !== "undefined") {
@@ -1433,6 +1437,16 @@ export default function PaymentPage() {
                         <span className="text-green-700 dark:text-green-300 font-semibold">
                           {formatCurrency(
                             Number(selectedPayment.booking?.down_payment ?? 0),
+                          )}
+                        </span>
+                      }
+                    />
+                    <InfoField
+                      label="Amount Paid"
+                      value={
+                        <span className="text-green-700 dark:text-green-300 font-semibold">
+                          {formatCurrency(
+                            Number(selectedPayment.booking?.amount_paid ?? 0),
                           )}
                         </span>
                       }

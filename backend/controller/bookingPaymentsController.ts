@@ -31,6 +31,7 @@ export const createBookingPayment = async (
       add_ons_total,
       total_amount,
       down_payment,
+      amount_paid,
       remaining_balance,
     } = body;
 
@@ -51,20 +52,25 @@ export const createBookingPayment = async (
       paymentProofUrl = uploadResult.url;
     }
 
-    // Compute remaining balance if not provided
+    // Compute remaining balance if not provided. If an explicit amount_paid was
+    // provided use that as the current paid amount; otherwise default to down_payment.
     const computedTotal = Number(total_amount || 0);
     const computedDown = Number(down_payment || 0);
+    const computedAmountPaid =
+      typeof amount_paid !== "undefined" && amount_paid !== null
+        ? Number(amount_paid)
+        : computedDown;
     const computedRemaining =
       typeof remaining_balance !== "undefined" && remaining_balance !== null
         ? Number(remaining_balance)
-        : computedTotal - computedDown;
+        : computedTotal - computedAmountPaid;
 
     const insertQuery = `
       INSERT INTO booking_payments (
         booking_id, payment_method, payment_proof_url, room_rate,
-        add_ons_total, total_amount, down_payment, remaining_balance, created_at
+        add_ons_total, total_amount, down_payment, amount_paid, remaining_balance, created_at
       )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW())
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW())
       RETURNING *
     `;
 
@@ -76,6 +82,7 @@ export const createBookingPayment = async (
       add_ons_total ?? 0,
       computedTotal,
       computedDown,
+      computedAmountPaid,
       computedRemaining,
     ];
 
@@ -264,6 +271,7 @@ export const updateBookingPayment = async (
       add_ons_total,
       total_amount,
       down_payment,
+      amount_paid,
       remaining_balance,
     } = body || {};
 
@@ -315,6 +323,10 @@ export const updateBookingPayment = async (
     pushField(
       "down_payment",
       typeof down_payment === "undefined" ? undefined : down_payment,
+    );
+    pushField(
+      "amount_paid",
+      typeof amount_paid === "undefined" ? undefined : amount_paid,
     );
     pushField(
       "remaining_balance",
@@ -394,7 +406,8 @@ export const updateBookingPayment = async (
             bg.last_name,
             bg.email,
             bp.total_amount,
-            bp.down_payment
+            bp.down_payment,
+            bp.amount_paid
           FROM booking b
           JOIN booking_guests bg ON b.id = bg.booking_id
           JOIN booking_payments bp ON b.id = bp.booking_id
@@ -428,7 +441,12 @@ export const updateBookingPayment = async (
             guests: `${booking.adults} Adults, ${booking.children} Children, ${booking.infants} Infants`,
             paymentMethod:
               booking.payment_method || updatedPayment.payment_method,
-            downPayment: booking.down_payment || updatedPayment.down_payment,
+            // Prefer amount_paid if present (total paid so far), otherwise fall back to down_payment
+            downPayment:
+              booking.amount_paid ??
+              updatedPayment.amount_paid ??
+              booking.down_payment ??
+              updatedPayment.down_payment,
             totalAmount: booking.total_amount || updatedPayment.total_amount,
           };
 
