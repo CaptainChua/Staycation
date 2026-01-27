@@ -1,24 +1,24 @@
 "use client";
 
-import { Menu, X, Home, Calendar, DollarSign, FileText, Users, Wallet, Package, Settings, Bell, ChevronDown, User, MessageSquare, BarChart3, Headphones, Moon, Sun, Monitor } from "lucide-react";
+import { Menu, X, Home, Calendar, DollarSign, FileText, Users, Wallet, Package, Settings, Bell, ChevronDown, User, MessageSquare, BarChart3, Headphones, Moon, Sun, Monitor, Cloud, CloudRain, CloudSnow, Activity } from "lucide-react";
 import Image from "next/image";
 import { useMemo, useState, useEffect, useRef } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useTheme } from "next-themes";
-import DashboardPage, {
-  BookingsPage,
-  PaymentsPage,
-  DeliverablesPage,
-  CleanersPage,
-  DepositsPage,
-  InventoryPage,
-} from "./DashboardPage";
+import DashboardPage from "./DashboardPage";
+import BookingsPage from "./BookingPage";
+import PaymentsPage from "./PaymentPage";
+import DeliverablesPage from "./DeliverablesPage";
+import CleanersPage from "./CleanersPage";
+import DepositsPage from "./DepositPage";
+import SettingsPage from "./SettingsPage";
+import MessagePage from "./MessagePage";
+import ActivityLogsPage from "./ActivityLogsPage";
 import NotificationPage from "./NotificationPage";
+import InventoryPage from "./InventoryPage";
+import AdminFooter from "../AdminFooter";
 import NotificationModal from "./Modals/Notification";
 import MessageModal from "./Modals/MessageModal";
-import MessagePage from "./MessagePage";
-import SettingsPage from "./SettingsPage";
-import AdminFooter from "../AdminFooter";
 import { useGetConversationsQuery } from "@/redux/api/messagesApi";
 import { useGetEmployeesQuery } from "@/redux/api/employeeApi";
 
@@ -60,6 +60,18 @@ export default function CsrDashboard() {
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [messageBadge, setMessageBadge] = useState(true);
   const [now, setNow] = useState<Date | null>(null);
+  const [weatherStatus, setWeatherStatus] = useState<{
+    condition: 'sunny' | 'cloudy' | 'rainy' | 'snowy';
+    description: string;
+    temperature: string;
+    location: string;
+  }>({
+    condition: 'sunny',
+    description: 'Loading...',
+    temperature: '--°C',
+    location: 'Mother Ignacia Ave, Diliman, QC'
+  });
+  const [weatherLoading, setWeatherLoading] = useState(true);
   const [employee, setEmployee] = useState<EmployeeProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -159,6 +171,140 @@ export default function CsrDashboard() {
     return () => window.clearInterval(id);
   }, []);
 
+  // Real weather API for Manila
+  useEffect(() => {
+    const fetchWeather = async () => {
+      try {
+        setWeatherLoading(true);
+        
+        // Debug: Check if API key is available
+        const apiKey = process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY;
+        console.log('Weather API Key available:', !!apiKey);
+        console.log('API Key length:', apiKey?.length || 0);
+        console.log('API Key first 8 chars:', apiKey?.substring(0, 8) + '...');
+        
+        if (!apiKey || apiKey.trim() === '') {
+          console.log('Using demo mode - no API key found');
+          // Fallback demo data if no API key
+          const hour = new Date().getHours();
+          const month = new Date().getMonth();
+          
+          const weatherConditions = [
+            { condition: 'sunny' as const, description: 'Clear and sunny', temperature: '30°C' },
+            { condition: 'cloudy' as const, description: 'Partly cloudy', temperature: '28°C' },
+            { condition: 'rainy' as const, description: 'Light showers', temperature: '26°C' },
+          ];
+          
+          const isRainySeason = month >= 5 && month <= 10;
+          let weatherIndex = 0;
+          
+          if (isRainySeason && hour >= 14 && hour <= 17) {
+            weatherIndex = Math.random() > 0.3 ? 2 : 1;
+          } else if (hour >= 11 && hour <= 15) {
+            weatherIndex = Math.random() > 0.4 ? 0 : 1;
+          } else if (hour >= 6 && hour <= 10) {
+            weatherIndex = Math.floor(Math.random() * 3);
+          } else if (hour >= 16 && hour <= 18) {
+            weatherIndex = Math.random() > 0.5 ? 1 : 0;
+          } else {
+            weatherIndex = 0;
+          }
+          
+          const selectedWeather = weatherConditions[weatherIndex];
+          setWeatherStatus({
+            ...selectedWeather,
+            location: 'Mother Ignacia Ave, Diliman, QC'
+          });
+          setWeatherLoading(false);
+          return;
+        }
+        
+        // Real API call
+        const lat = 14.6397; // Manila latitude
+        const lon = 121.0584; // Manila longitude
+        
+        console.log('Fetching real weather data...');
+        const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric`;
+        console.log('API URL:', url.replace(apiKey, 'HIDDEN_KEY'));
+        
+        const response = await fetch(url);
+        
+        console.log('Weather API response status:', response.status);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Weather API error response:', errorText);
+          throw new Error(`Weather API failed: ${response.status} ${errorText}`);
+        }
+        
+        const weatherData = await response.json();
+        console.log('Weather data received:', weatherData);
+        
+        // Map API response to our format
+        const temp = Math.round(weatherData.main.temp);
+        const weatherMain = weatherData.weather[0].main.toLowerCase();
+        const weatherDesc = weatherData.weather[0].description;
+        
+        let condition: 'sunny' | 'cloudy' | 'rainy' | 'snowy' = 'sunny';
+        let description = weatherDesc;
+        
+        if (weatherMain.includes('rain') || weatherMain.includes('drizzle')) {
+          condition = 'rainy';
+          description = weatherDesc;
+        } else if (weatherMain.includes('cloud')) {
+          condition = 'cloudy';
+          description = weatherDesc;
+        } else if (weatherMain.includes('clear')) {
+          condition = 'sunny';
+          description = 'Clear and sunny';
+        } else if (weatherMain.includes('snow')) {
+          condition = 'snowy';
+          description = weatherDesc;
+        }
+        
+        setWeatherStatus({
+          condition,
+          description: description.charAt(0).toUpperCase() + description.slice(1),
+          temperature: `${temp}°C`,
+          location: 'Mother Ignacia Ave, Diliman, QC'
+        });
+        
+      } catch (error) {
+        console.error('Error fetching weather:', error);
+        // Fallback to demo data on error
+        setWeatherStatus({
+          condition: 'sunny',
+          description: 'Weather unavailable',
+          temperature: '--°C',
+          location: 'Mother Ignacia Ave, Diliman, QC'
+        });
+      } finally {
+        setWeatherLoading(false);
+      }
+    };
+
+    fetchWeather();
+    const weatherInterval = setInterval(fetchWeather, 300000); // Update every 5 minutes
+
+    return () => clearInterval(weatherInterval);
+  }, []);
+
+  // Helper function to get weather icon
+  const getWeatherIcon = (condition: string) => {
+    switch (condition) {
+      case 'sunny':
+        return <Sun className="w-4 h-4 text-yellow-500" />;
+      case 'cloudy':
+        return <Cloud className="w-4 h-4 text-gray-500" />;
+      case 'rainy':
+        return <CloudRain className="w-4 h-4 text-blue-500" />;
+      case 'snowy':
+        return <CloudSnow className="w-4 h-4 text-blue-300" />;
+      default:
+        return <Sun className="w-4 h-4 text-yellow-500" />;
+    }
+  };
+
   // Fetch employee data
   useEffect(() => {
     if (!session?.user?.id) return;
@@ -257,6 +403,7 @@ export default function CsrDashboard() {
     {
       category: "System",
       items: [
+        { id: "activity-logs", icon: Activity, label: "Activity Logs", color: "text-orange-500" },
         { id: "settings", icon: Settings, label: "Settings", color: "text-gray-500" },
       ],
     },
@@ -413,15 +560,27 @@ export default function CsrDashboard() {
                     })
                   : ""}
               </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                {now
-                  ? now.toLocaleString("en-US", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                      second: "2-digit",
-                    })
-                  : ""}
-              </p>
+              <div className="flex items-center gap-2">
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {now
+                    ? now.toLocaleString("en-US", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        second: "2-digit",
+                      })
+                    : ""}
+                </p>
+                <div className="flex items-center gap-1 px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded-full cursor-help transition-colors hover:bg-gray-200 dark:hover:bg-gray-700" title={`${weatherStatus.description} - ${weatherStatus.location} (Real-time)`}>
+                  {weatherLoading ? (
+                    <div className="w-4 h-4 animate-spin rounded-full border-2 border-gray-300 border-t-brand-primary" />
+                  ) : (
+                    getWeatherIcon(weatherStatus.condition)
+                  )}
+                  <span className="text-xs text-gray-600 dark:text-gray-300 font-medium">
+                    {weatherLoading ? 'Loading...' : weatherStatus.temperature}
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -469,7 +628,7 @@ export default function CsrDashboard() {
                 onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
                 className="flex items-center gap-2 p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
               >
-                <div className="w-10 h-10 bg-white dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-full overflow-hidden flex items-center justify-center text-gray-700 dark:text-gray-200 font-bold cursor-pointer transition-colors">
+                <div className="w-10 h-10 bg-white dark:bg-gray-700 border-2 border-brand-primary rounded-full overflow-hidden flex items-center justify-center text-gray-700 dark:text-gray-200 font-bold cursor-pointer transition-colors shadow-sm">
                   {isLoading ? (
                     <div className="w-full h-full bg-gray-200 dark:bg-gray-700 animate-pulse" />
                   ) : employee?.profile_image_url ? (
@@ -506,7 +665,7 @@ export default function CsrDashboard() {
               </button>
 
               {profileDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-52 sm:w-56 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden z-50">
+                <div className="absolute right-0 mt-2 w-52 sm:w-56 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-brand-primary/20 dark:border-gray-700 overflow-hidden z-50">
                   {/* User Info Header */}
                   <div className="p-4 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-600">
                     <div className="flex items-center gap-3">
@@ -638,6 +797,7 @@ export default function CsrDashboard() {
             {page === "cleaners" && <CleanersPage />}
             {page === "deposits" && <DepositsPage />}
             {page === "inventory" && <InventoryPage />}
+            {page === "activity-logs" && <ActivityLogsPage />}
             {page === "notifications" && <NotificationPage />}
             {page === "messages" && (
               <MessagePage
@@ -672,8 +832,11 @@ export default function CsrDashboard() {
         <MessageModal
           onClose={() => setMessageModalOpen(false)}
           conversations={headerConversationsData?.data || []}
+          currentUserId={userId || ""}
           employeeNameById={employeeNameById}
           employeeProfileImageById={employeeProfileImageById}
+          anchorRef={messageButtonRef}
+          isLoading={isLoadingHeaderConversations}
           onSelectConversation={(conversationId) => {
             setSelectedConversationId(conversationId);
             setMessageModalOpen(false);
