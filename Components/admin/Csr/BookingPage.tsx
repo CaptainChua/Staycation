@@ -2,6 +2,7 @@
 
 import { Calendar, Search, Filter, Plus, Eye, Edit, Trash2, MapPin, User, Phone, Mail, CheckCircle, Clock, LogIn, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUpDown, Download, FileSpreadsheet } from "lucide-react";
 import { useEffect, useMemo, useState, useRef } from "react";
+import { useSession } from "next-auth/react";
 import ViewBookings from "./Modals/ViewBookings";
 import NewBookings from "./Modals/NewBookings";
 import { useGetBookingsQuery, useDeleteBookingMutation } from "@/redux/api/bookingsApi";
@@ -44,6 +45,9 @@ interface BookingData {
 }
 
 export default function BookingsPage() {
+  const { data: session } = useSession();
+  const employeeId = session?.user?.id;
+
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [dateFilter, setDateFilter] = useState<"all" | "weekly" | "monthly" | "yearly">("all");
@@ -64,6 +68,27 @@ export default function BookingsPage() {
   const [liveSheetAutoSync, setLiveSheetAutoSync] = useState(false);
   const [isOpeningLiveSheet, setIsOpeningLiveSheet] = useState(false);
   const liveSheetClickTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const logEmployeeActivity = async (action: string, details: string, bookingId?: string) => {
+    if (!employeeId) return;
+    try {
+      await fetch('/api/admin/employee-activity', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          employeeId,
+          action,
+          details,
+          entityType: 'booking',
+          entityId: bookingId,
+        }),
+      });
+    } catch {
+      // ignore
+    }
+  };
 
   // Fetch bookings from API
   const { data: bookings = [], isLoading, error } = useGetBookingsQuery(
@@ -200,6 +225,7 @@ export default function BookingsPage() {
     }, 1000);
 
     setIsOpeningLiveSheet(true);
+    logEmployeeActivity('OPEN_LIVE_SHEET', 'Opened bookings live sheet');
     try {
       // Run sync and URL fetch in parallel for speed
       const [syncRes, urlRes] = await Promise.allSettled([
@@ -332,6 +358,7 @@ export default function BookingsPage() {
   const handleViewBooking = (booking: BookingData) => {
     setSelectedBooking(booking);
     setIsViewModalOpen(true);
+    logEmployeeActivity('VIEW_BOOKING', `Viewed booking ${booking.booking_id}`, booking.id);
   };
 
   const handleCloseModal = () => {
@@ -342,6 +369,7 @@ export default function BookingsPage() {
   const handleEditBooking = (booking: BookingData) => {
     setEditingBooking(booking);
     setIsEditBookingModalOpen(true);
+    logEmployeeActivity('OPEN_EDIT_BOOKING', `Opened edit for booking ${booking.booking_id}`, booking.id);
   };
 
   const handleCloseEditModal = () => {
@@ -364,6 +392,7 @@ export default function BookingsPage() {
     if (!bookingToDelete?.id) return;
     try {
       await deleteBooking(bookingToDelete.id).unwrap();
+      logEmployeeActivity('DELETE_BOOKING', `Deleted booking ${bookingToDelete.booking_id}`, bookingToDelete.id);
       toast.success("Booking deleted successfully");
       closeDeleteModal();
     } catch (error) {
@@ -398,7 +427,10 @@ export default function BookingsPage() {
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage all customer bookings and reservations</p>
         </div>
         <button
-          onClick={() => setIsNewBookingModalOpen(true)}
+          onClick={() => {
+            setIsNewBookingModalOpen(true);
+            logEmployeeActivity('OPEN_NEW_BOOKING', 'Opened create booking modal');
+          }}
           className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-brand-primary to-brand-primaryDark text-white rounded-lg hover:shadow-lg hover:scale-[1.02] transition-all font-semibold shadow-[rgba(186,144,60,0.35)]"
         >
           <Plus className="w-5 h-5" />
@@ -573,7 +605,10 @@ export default function BookingsPage() {
               )}
             </button>
             <button
-              onClick={() => setIsExportModalOpen(true)}
+              onClick={() => {
+                setIsExportModalOpen(true);
+                logEmployeeActivity('OPEN_EXPORT_BOOKINGS', 'Opened export bookings modal');
+              }}
               className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors text-sm font-medium"
             >
               <Download className="w-4 h-4" />
@@ -1009,6 +1044,7 @@ export default function BookingsPage() {
           initialBooking={editingBooking}
           onSuccess={() => {
             toast.success("Booking updated");
+            logEmployeeActivity('UPDATE_BOOKING', `Updated booking ${editingBooking.booking_id}`, editingBooking.id);
           }}
         />
       )}

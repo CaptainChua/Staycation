@@ -105,13 +105,64 @@ export const getBookingColumnNames = async () => {
   return result.rows.map((r) => String(r.column_name));
 };
 
-export const fetchBookingRecords = async (columnNames: string[]) => {
+const EXTRA_SHEET_COLUMNS = [
+  "guest_first_name",
+  "guest_last_name",
+  "guest_email",
+  "guest_phone",
+  "facebook_link",
+  "payment_method",
+  "total_amount",
+  "payment_proof_url",
+] as const;
+
+const getSheetColumnNames = (bookingColumnNames: string[]) => {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const col of [...bookingColumnNames, ...EXTRA_SHEET_COLUMNS]) {
+    if (seen.has(col)) continue;
+    seen.add(col);
+    out.push(col);
+  }
+  return out;
+};
+
+export const fetchBookingRecords = async (bookingColumnNames: string[]) => {
   const { tableSchema, tableName } = getBookingTableConfig();
-  const orderBy = columnNames.includes("created_at")
-    ? ` ORDER BY ${quoteIdentifier("created_at")} DESC`
+  const schemaQ = quoteIdentifier(tableSchema);
+  const bookingQ = quoteIdentifier(tableName);
+  const guestsQ = quoteIdentifier("booking_guests");
+  const paymentsQ = quoteIdentifier("booking_payments");
+
+  const orderBy = bookingColumnNames.includes("created_at")
+    ? ` ORDER BY b.${quoteIdentifier("created_at")} DESC`
     : "";
 
-  const sql = `SELECT * FROM ${quoteIdentifier(tableSchema)}.${quoteIdentifier(tableName)}${orderBy}`;
+  const sql = `
+    SELECT
+      b.*,
+      bg.first_name as guest_first_name,
+      bg.last_name as guest_last_name,
+      bg.email as guest_email,
+      bg.phone as guest_phone,
+      bg.facebook_link,
+      bp.payment_method,
+      bp.total_amount,
+      bp.payment_proof_url
+    FROM ${schemaQ}.${bookingQ} b
+    LEFT JOIN ${schemaQ}.${guestsQ} bg
+      ON b.id = bg.booking_id
+      AND bg.id = (
+        SELECT id FROM ${schemaQ}.${guestsQ}
+        WHERE booking_id = b.id
+        ORDER BY id
+        LIMIT 1
+      )
+    LEFT JOIN ${schemaQ}.${paymentsQ} bp
+      ON b.id = bp.booking_id
+    ${orderBy}
+  `;
+
   const result = await pool.query(sql);
   return result.rows as Record<string, unknown>[];
 };
@@ -242,15 +293,16 @@ let inFlightSync: Promise<SyncResult> | null = null;
 let rerunRequested = false;
 
 const performSyncBookingsToSheet = async (): Promise<SyncResult> => {
-  const columnNames = await getBookingColumnNames();
-  if (columnNames.length === 0) {
+  const bookingColumnNames = await getBookingColumnNames();
+  if (bookingColumnNames.length === 0) {
     throw new Error("No columns found for booking table.");
   }
 
-  const records = await fetchBookingRecords(columnNames);
+  const sheetColumnNames = getSheetColumnNames(bookingColumnNames);
+  const records = await fetchBookingRecords(bookingColumnNames);
   const { sheets, spreadsheetId, sheetName } = getSheetsClient();
 
-  const desiredHeader = columnNames;
+  const desiredHeader = sheetColumnNames;
   const existingHeader = await getSheetHeader({ sheets, spreadsheetId, sheetName });
   const sheetIsEmpty = existingHeader.length === 0 || existingHeader.every((v) => !String(v).trim());
   if (sheetIsEmpty) {
@@ -268,10 +320,10 @@ const performSyncBookingsToSheet = async (): Promise<SyncResult> => {
 
   const dedupeColumn = (
     process.env.GOOGLE_SHEET_DEDUP_COLUMN ||
-    (columnNames.includes("booking_id") ? "booking_id" : columnNames.includes("id") ? "id" : "")
+    (sheetColumnNames.includes("booking_id") ? "booking_id" : sheetColumnNames.includes("id") ? "id" : "")
   ).trim();
 
-  const keyColumnIndexInSheet = dedupeColumn ? columnNames.indexOf(dedupeColumn) : -1;
+  const keyColumnIndexInSheet = dedupeColumn ? sheetColumnNames.indexOf(dedupeColumn) : -1;
   const existingKeys =
     keyColumnIndexInSheet >= 0
       ? await getExistingKeys({ sheets, spreadsheetId, sheetName, keyColumnIndex: keyColumnIndexInSheet })
@@ -294,7 +346,7 @@ const performSyncBookingsToSheet = async (): Promise<SyncResult> => {
       if (key) existingKeys.add(key);
     }
 
-    rowsToAppend.push(columnNames.map((col) => normalizeCellValue(record[col])));
+    rowsToAppend.push(sheetColumnNames.map((col) => normalizeCellValue(record[col])));
   }
 
   await appendRows({ sheets, spreadsheetId, sheetName, rows: rowsToAppend });

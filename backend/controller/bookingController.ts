@@ -12,6 +12,275 @@ const ADD_ON_PRICES = {
   extraSlippers: 30,
 };
 
+export const updateBookingDetails = async (
+  req: NextRequest,
+): Promise<NextResponse> => {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const body = await req.json();
+    const {
+      id,
+      room_name,
+      check_in_date,
+      check_out_date,
+      check_in_time,
+      check_out_time,
+      adults,
+      children,
+      infants,
+      status,
+      guest_first_name,
+      guest_last_name,
+      guest_email,
+      guest_phone,
+      facebook_link,
+      valid_id,
+      valid_id_url,
+      additional_guests,
+      payment_method,
+      payment_proof,
+      room_rate,
+      add_ons_total,
+      total_amount,
+      down_payment,
+      remaining_balance,
+      add_ons,
+    } = body;
+
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: "Booking ID is required" },
+        { status: 400 },
+      );
+    }
+
+    const validStatuses = [
+      "pending",
+      "approved",
+      "rejected",
+      "confirmed",
+      "checked-in",
+      "completed",
+      "cancelled",
+    ];
+    if (typeof status !== "undefined" && status !== null) {
+      if (typeof status !== "string" || !validStatuses.includes(status)) {
+        return NextResponse.json(
+          { success: false, error: "Invalid status" },
+          { status: 400 },
+        );
+      }
+    }
+
+    await client.query(
+      `
+        UPDATE booking
+        SET room_name = $1,
+            check_in_date = $2,
+            check_out_date = $3,
+            check_in_time = $4,
+            check_out_time = $5,
+            adults = $6,
+            children = $7,
+            infants = $8,
+            status = COALESCE($9, status),
+            updated_at = NOW()
+        WHERE id = $10
+      `,
+      [
+        room_name,
+        check_in_date,
+        check_out_date,
+        check_in_time,
+        check_out_time,
+        adults,
+        children,
+        infants,
+        status ?? null,
+        id,
+      ],
+    );
+
+    let mainValidIdUrl: string | null = null;
+    if (valid_id) {
+      const uploadResult = await upload_file(valid_id, "staycation-haven/valid-ids");
+      mainValidIdUrl = uploadResult.url;
+    } else if (typeof valid_id_url === "string" && valid_id_url.trim()) {
+      mainValidIdUrl = valid_id_url;
+    }
+
+    const allGuests: any[] = [];
+    allGuests.push({
+      firstName: guest_first_name,
+      lastName: guest_last_name,
+      email: guest_email,
+      phone: guest_phone,
+      facebook_link: facebook_link || null,
+      validId: null,
+      valid_id_url: mainValidIdUrl,
+    });
+    if (Array.isArray(additional_guests)) {
+      for (const g of additional_guests) {
+        let guestIdUrl: string | null = null;
+        if (g?.validId) {
+          const uploadResult = await upload_file(g.validId, "staycation-haven/valid-ids");
+          guestIdUrl = uploadResult.url;
+        } else if (typeof g?.valid_id_url === "string" && g.valid_id_url.trim()) {
+          guestIdUrl = g.valid_id_url;
+        }
+        allGuests.push({
+          firstName: g?.firstName,
+          lastName: g?.lastName,
+          email: g?.email || guest_email,
+          phone: g?.phone || guest_phone,
+          facebook_link: null,
+          validId: null,
+          valid_id_url: guestIdUrl,
+        });
+      }
+    }
+
+    await client.query(`DELETE FROM booking_guests WHERE booking_id = $1`, [id]);
+    for (const g of allGuests) {
+      await client.query(
+        `
+          INSERT INTO booking_guests (
+            booking_id, first_name, last_name, email, phone, facebook_link, valid_id_url
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `,
+        [
+          id,
+          g.firstName,
+          g.lastName,
+          g.email,
+          g.phone,
+          g.facebook_link,
+          g.valid_id_url,
+        ],
+      );
+    }
+
+    let paymentProofUrl: string | null = null;
+    if (payment_proof) {
+      const uploadResult = await upload_file(payment_proof, "staycation-haven/payment-proofs");
+      paymentProofUrl = uploadResult.url;
+    }
+
+    const paymentUpdateRes = await client.query(
+      `
+        UPDATE booking_payments
+        SET payment_method = $1,
+            payment_proof_url = COALESCE($2, payment_proof_url),
+            room_rate = $3,
+            add_ons_total = $4,
+            total_amount = $5,
+            down_payment = $6,
+            remaining_balance = $7
+        WHERE booking_id = $8
+        RETURNING id
+      `,
+      [
+        payment_method,
+        paymentProofUrl,
+        room_rate,
+        add_ons_total,
+        total_amount,
+        down_payment,
+        remaining_balance,
+        id,
+      ],
+    );
+
+    if (paymentUpdateRes.rows.length === 0) {
+      await client.query(
+        `
+          INSERT INTO booking_payments (
+            booking_id, payment_method, payment_proof_url, room_rate,
+            add_ons_total, total_amount, down_payment, remaining_balance
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        `,
+        [
+          id,
+          payment_method,
+          paymentProofUrl,
+          room_rate,
+          add_ons_total,
+          total_amount,
+          down_payment,
+          remaining_balance,
+        ],
+      );
+    }
+
+    await client.query(`DELETE FROM booking_add_ons WHERE booking_id = $1`, [id]);
+    if (add_ons && typeof add_ons === "object") {
+      for (const [name, quantity] of Object.entries(add_ons)) {
+        const quantityNum = Number(quantity);
+        if (quantityNum > 0) {
+          const addOnPrice = ADD_ON_PRICES[name as keyof typeof ADD_ON_PRICES] || 0;
+          await client.query(
+            `
+              INSERT INTO booking_add_ons (booking_id, name, price, quantity)
+              VALUES ($1, $2, $3, $4)
+            `,
+            [id, name, addOnPrice, quantityNum],
+          );
+        }
+      }
+    }
+
+    await client.query("COMMIT");
+
+    const refreshed = await pool.query(
+      `
+        SELECT
+          b.*,
+          bg.first_name as guest_first_name,
+          bg.last_name as guest_last_name,
+          bg.email as guest_email,
+          bg.phone as guest_phone,
+          bg.valid_id_url,
+          bp.total_amount,
+          bp.down_payment,
+          bp.remaining_balance,
+          bp.payment_method,
+          bp.payment_proof_url,
+          bp.room_rate,
+          bp.add_ons_total
+        FROM booking b
+        LEFT JOIN booking_guests bg ON b.id = bg.booking_id
+        LEFT JOIN booking_payments bp ON b.id = bp.booking_id
+        WHERE b.id = $1 AND bg.id = (
+          SELECT id FROM booking_guests WHERE booking_id = b.id ORDER BY id LIMIT 1
+        )
+        LIMIT 1
+      `,
+      [id],
+    );
+
+    return NextResponse.json({
+      success: true,
+      data: refreshed.rows[0],
+      message: "Booking updated successfully",
+    });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    return NextResponse.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to update booking",
+      },
+      { status: 500 },
+    );
+  } finally {
+    client.release();
+  }
+};
+
 // Add-on item interface
 interface AddOnItem {
   name: string;
@@ -407,19 +676,24 @@ export const getAllBookings = async (
     let query = `
       SELECT
         b.*,
-        bg.first_name,
-        bg.last_name,
-        bg.email,
-        bg.phone,
-        bg.valid_id_url,
+        bg.first_name as guest_first_name,
+        bg.last_name as guest_last_name,
+        bg.email as guest_email,
+        bg.phone as guest_phone,
+        bg.valid_id_url as valid_id_url,
         bp.payment_method,
+        bp.payment_proof_url,
+        bp.room_rate,
+        bp.add_ons_total,
         bp.total_amount,
         bp.down_payment,
         bp.remaining_balance,
+        COALESCE(bd.amount, 0) as security_deposit,
         bc.cleaning_status
       FROM booking b
       LEFT JOIN booking_guests bg ON b.id = bg.booking_id
       LEFT JOIN booking_payments bp ON b.id = bp.booking_id
+      LEFT JOIN booking_security_deposits bd ON b.id = bd.booking_id
       LEFT JOIN booking_cleaning bc ON b.id = bc.booking_id
       WHERE bg.id = (
         SELECT id FROM booking_guests WHERE booking_id = b.id ORDER BY id LIMIT 1
@@ -482,6 +756,7 @@ export const getBookingById = async (
         bp.down_payment,
         bp.remaining_balance,
         bp.payment_method,
+        bp.payment_proof_url,
         bp.room_rate,
         bp.add_ons_total,
         COALESCE(bd.amount, 0) as security_deposit,
@@ -489,6 +764,24 @@ export const getBookingById = async (
         bg.last_name as guest_last_name,
         bg.email as guest_email,
         bg.phone as guest_phone,
+        bg.valid_id_url,
+        (
+          SELECT COALESCE(
+            json_agg(
+              json_build_object(
+                'firstName', g.first_name,
+                'lastName', g.last_name,
+                'email', g.email,
+                'phone', g.phone,
+                'facebook_link', g.facebook_link,
+                'valid_id_url', g.valid_id_url
+              ) ORDER BY g.id
+            ),
+            '[]'
+          )
+          FROM booking_guests g
+          WHERE g.booking_id = b.id
+        ) as guests,
         (
           SELECT COALESCE(
             json_agg(
@@ -515,7 +808,7 @@ export const getBookingById = async (
       LEFT JOIN booking_guests bg ON b.id = bg.booking_id
       LEFT JOIN booking_security_deposits bd ON b.id = bd.booking_id
       WHERE b.id = $1
-      GROUP BY b.id, h.tower, h.uuid_id, bp.total_amount, bp.down_payment, bp.remaining_balance, bp.payment_method, bp.room_rate, bp.add_ons_total, bg.first_name, bg.last_name, bg.email, bg.phone, bd.amount
+      GROUP BY b.id, h.tower, h.uuid_id, bp.total_amount, bp.down_payment, bp.remaining_balance, bp.payment_method, bp.payment_proof_url, bp.room_rate, bp.add_ons_total, bg.first_name, bg.last_name, bg.email, bg.phone, bg.valid_id_url, bd.amount
       LIMIT 1
     `;
 
