@@ -565,12 +565,10 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
                 )}
                 {isLoading ? "Saving..." : "Save Changes"}
               </button>
-            </div>
-          </form>
-      </div>
-    </>
-  );
-
+                      </div>
+                    </form>
+                </>
+              );
   return (
     <>
       {typeof window !== 'undefined' ? createPortal(modalContent, document.body) : null}
