@@ -487,7 +487,7 @@ export default function CsrDashboard() {
                 <div className="hidden sm:block text-left">
                   <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate max-w-[120px]">
                     {isLoading ? (
-                      <div className="h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                      <span className="inline-block h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
                     ) : employee ? (
                       `${employee.first_name} ${employee.last_name}`.trim() || employee.email || employee.employment_id
                     ) : (

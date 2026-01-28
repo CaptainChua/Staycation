@@ -6,9 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
-    "db:init": "tsx backend/init-db.ts",
-    "db:test": "tsx backend/test-connection.ts"
+    "lint": "eslint"
   },
   "dependencies": {
     "@nextui-org/button": "^2.2.9",

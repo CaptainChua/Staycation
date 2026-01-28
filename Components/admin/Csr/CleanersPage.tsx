@@ -116,7 +116,15 @@ export default function CleanersPage() {
     data: bookings = [],
     isLoading,
     error,
-  } = useGetBookingsQuery({}) as {
+  } = useGetBookingsQuery(
+    {},
+    {
+      pollingInterval: 5000,
+      skipPollingIfUnfocused: true,
+      refetchOnFocus: true,
+      refetchOnReconnect: true,
+    }
+  ) as {
     data: BookingData[];
     isLoading: boolean;
     error: unknown;

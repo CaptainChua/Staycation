@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import pool from "../config/db";
 import { upload_file } from "../utils/cloudinary";
 
+const BOOKING_TABLE = (() => {
+  const raw = (process.env.BOOKING_TABLE_NAME || "booking").trim();
+  if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(raw)) return raw;
+  console.warn("Invalid BOOKING_TABLE_NAME, defaulting to 'booking'");
+  return "booking";
+})();
+
 // Add-on prices
 const ADD_ON_PRICES = {
   poolPass: 100,
@@ -72,11 +79,11 @@ export interface Booking {
  const ensureBookingsColumns = async (): Promise<void> => {
    if (ensureBookingsColumnsPromise) return ensureBookingsColumnsPromise;
    ensureBookingsColumnsPromise = (async () => {
-     await pool.query(`ALTER TABLE booking ADD COLUMN IF NOT EXISTS guest_age INTEGER`);
-     await pool.query(`ALTER TABLE booking ADD COLUMN IF NOT EXISTS guest_gender VARCHAR(20)`);
-     await pool.query(`ALTER TABLE booking ADD COLUMN IF NOT EXISTS valid_id_url TEXT`);
-     await pool.query(`ALTER TABLE booking ADD COLUMN IF NOT EXISTS additional_guests JSONB`);
-   })();
+    await pool.query(`ALTER TABLE ${BOOKING_TABLE} ADD COLUMN IF NOT EXISTS guest_age INTEGER`);
+    await pool.query(`ALTER TABLE ${BOOKING_TABLE} ADD COLUMN IF NOT EXISTS guest_gender VARCHAR(20)`);
+    await pool.query(`ALTER TABLE ${BOOKING_TABLE} ADD COLUMN IF NOT EXISTS valid_id_url TEXT`);
+    await pool.query(`ALTER TABLE ${BOOKING_TABLE} ADD COLUMN IF NOT EXISTS additional_guests JSONB`);
+  })();
    return ensureBookingsColumnsPromise;
  };
 
@@ -143,7 +150,34 @@ export const createBooking = async (
       );
     }
 
-     await ensureBookingsColumns();
+    // Create main booking record
+    const bookingQuery = `
+      INSERT INTO booking (
+        booking_id, user_id, room_name, check_in_date, check_out_date,
+        check_in_time, check_out_time, adults, children, infants,
+        status, has_security_deposit, created_at, updated_at
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
+      RETURNING *
+    `;
+
+    const bookingValues = [
+      booking_id,
+      user_id || null, // NULL for guest bookings
+      room_name,
+      check_in_date,
+      check_out_date,
+      check_in_time,
+      check_out_time,
+      typeof adults === "undefined" || adults === null ? 1 : adults,
+      typeof children === "undefined" || children === null ? 0 : children,
+      typeof infants === "undefined" || infants === null ? 0 : infants,
+      "pending", // Default status
+      typeof security_deposit === "undefined" || security_deposit === null ? false : security_deposit > 0,
+    ];
+
+    const bookingResult = await client.query(bookingQuery, bookingValues);
+    const createdBooking = bookingResult.rows[0];
 
     // Upload payment proof to Cloudinary
     let paymentProofUrl = null;
@@ -167,6 +201,29 @@ export const createBooking = async (
       }
     }
 
+    // Create payment record
+    const paymentQuery = `
+      INSERT INTO booking_payments (
+        booking_id, payment_method, payment_proof_url, room_rate, add_ons_total,
+        total_amount, down_payment, remaining_balance, created_at
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+      RETURNING *
+    `;
+
+    const paymentValues = [
+      createdBooking.id,
+      payment_method,
+      paymentProofUrl,
+      room_rate,
+      typeof add_ons_total === "undefined" || add_ons_total === null ? 0 : add_ons_total,
+      total_amount,
+      down_payment,
+      remaining_balance,
+    ];
+
+    await client.query(paymentQuery, paymentValues);
+
     // Upload main guest valid ID to Cloudinary
     let validIdUrl = null;
     if (valid_id) {
@@ -189,163 +246,116 @@ export const createBooking = async (
       }
     }
 
-    // Upload additional guests' valid IDs to Cloudinary
-    let additionalGuestsWithUrls = [];
+    // Create main guest record
+    const guestQuery = `
+      INSERT INTO booking_guests (
+        booking_id, first_name, last_name, email, phone, facebook_link, valid_id_url
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      RETURNING *
+    `;
+
+    const guestValues = [
+      createdBooking.id,
+      guest_first_name,
+      guest_last_name,
+      guest_email,
+      guest_phone,
+      facebook_link || null,
+      validIdUrl,
+    ];
+
+    await client.query(guestQuery, guestValues);
+
+    // Create additional guest records if any
     if (additional_guests && additional_guests.length > 0) {
-      additionalGuestsWithUrls = await Promise.all(
-        additional_guests.map(async (guest: AdditionalGuest) => {
-          let guestIdUrl = null;
-          if (guest.validId) {
+      for (const guest of additional_guests) {
+        let guestIdUrl = null;
+        if (guest.validId) {
+          try {
             const uploadResult = await upload_file(
               guest.validId,
               "staycation-haven/valid-ids"
             );
             guestIdUrl = uploadResult.url;
+          } catch (err) {
+            console.error("Failed to upload additional guest ID:", err);
           }
-          return {
-            firstName: guest.firstName,
-            lastName: guest.lastName,
-            age: guest.age,
-            gender: guest.gender,
-            validIdUrl: guestIdUrl,
-          };
-        })
-      );
+        }
+
+        const additionalGuestQuery = `
+          INSERT INTO booking_guests (
+            booking_id, first_name, last_name, email, phone, valid_id_url
+          )
+          VALUES ($1, $2, $3, $4, $5, $6)
+        `;
+
+        await client.query(additionalGuestQuery, [
+          createdBooking.id,
+          guest.firstName,
+          guest.lastName,
+          guest.email || guest_email, // Use main guest email if not provided
+          guest.phone || guest_phone, // Use main guest phone if not provided
+          guestIdUrl,
+        ]);
+      }
     }
 
-    const query = `
-      INSERT INTO booking (
-        booking_id, user_id, guest_first_name, guest_last_name, guest_age, guest_gender,
-        guest_email, guest_phone, valid_id_url, additional_guests,
-        room_name, check_in_date, check_out_date, check_in_time, check_out_time,
-        adults, children, infants, facebook_link, payment_method, payment_proof_url,
-        room_rate, security_deposit, add_ons_total, total_amount, down_payment,
-        remaining_balance, status, add_ons, created_at, updated_at
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, NOW(), NOW())
-      RETURNING *
-    `;
-
-    const values = [
-      booking_id,
-      user_id || null, // NULL for guest bookings
-      guest_first_name,
-      guest_last_name,
-      guest_age,
-      guest_gender,
-      guest_email,
-      guest_phone,
-      validIdUrl,
-      JSON.stringify(additionalGuestsWithUrls),
-      room_name,
-      check_in_date,
-      check_out_date,
-      check_in_time,
-      check_out_time,
-      typeof adults === "undefined" || adults === null ? 1 : adults,
-      typeof children === "undefined" || children === null ? 0 : children,
-      typeof infants === "undefined" || infants === null ? 0 : infants,
-      facebook_link,
-      payment_method,
-      paymentProofUrl,
-      room_rate,
-      typeof security_deposit === "undefined" || security_deposit === null ? 0 : security_deposit,
-      typeof add_ons_total === "undefined" || add_ons_total === null ? 0 : add_ons_total,
-      total_amount,
-      down_payment,
-      paymentRemainingBalance,
-    ];
-
-    await client.query(paymentQuery, paymentValues);
-
-    // Step 4.5: Create security deposit record (always create with 0 amount during booking)
-    const depositQuery = `
-      INSERT INTO booking_security_deposits (
-        booking_id, amount, deposit_status, held_at
-      )
-      VALUES ($1, 0, 'pending', NOW())
-    `;
-
-    const depositValues = [
-      bookingId
-    ];
-
-    await client.query(depositQuery, depositValues);
-
-    // Step 5: Create add-ons records
-    if (add_ons && Object.keys(add_ons).length > 0) {
-      for (const [name, quantity] of Object.entries(add_ons)) {
-        const quantityNum = Number(quantity);
-        if (quantityNum > 0) {
-          const addOnPrice = ADD_ON_PRICES[name as keyof typeof ADD_ON_PRICES] || 0;
-          
+    // Create add-on records if any
+    if (add_ons && typeof add_ons === 'object') {
+      for (const [name, item] of Object.entries(add_ons)) {
+        if (item && typeof item === 'object' && 'quantity' in item && (item as any).quantity > 0) {
           const addOnQuery = `
-            INSERT INTO booking_add_ons (booking_id, name, price, quantity)
+            INSERT INTO booking_add_ons (
+              booking_id, name, price, quantity
+            )
             VALUES ($1, $2, $3, $4)
           `;
 
-          const addOnValues = [
-            bookingId,
+          await client.query(addOnQuery, [
+            createdBooking.id,
             name,
-            addOnPrice,
-            quantityNum,
-          ];
-
-          await client.query(addOnQuery, addOnValues);
+            (item as any).price || 0,
+            (item as any).quantity || 1,
+          ]);
         }
       }
     }
 
-    // Step 6: Create cleaning record
-    const cleaningQuery = `
-      INSERT INTO booking_cleaning (booking_id, cleaning_status)
-      VALUES ($1, 'pending')
-    `;
+    // Create security deposit record if applicable
+    if (security_deposit && security_deposit > 0) {
+      const depositQuery = `
+        INSERT INTO booking_security_deposits (
+          booking_id, amount, deposit_status
+        )
+        VALUES ($1, $2, 'pending')
+      `;
 
-    await client.query(cleaningQuery, [bookingId]);
+      await client.query(depositQuery, [
+        createdBooking.id,
+        security_deposit,
+      ]);
+    }
 
     await client.query('COMMIT');
-
-    // Get the complete booking data for response
-    const completeBookingQuery = `
-      SELECT 
-        b.*,
-        bg.first_name,
-        bg.last_name,
-        bg.email,
-        bg.phone,
-        bg.valid_id_url,
-        bp.payment_method,
-        bp.total_amount,
-        bp.down_payment
-      FROM booking b
-      JOIN booking_guests bg ON b.id = bg.booking_id
-      JOIN booking_payments bp ON b.id = bp.booking_id
-      WHERE b.id = $1
-      LIMIT 1
-    `;
-
-    const completeResult = await client.query(completeBookingQuery, [bookingId]);
-    console.log("✅ Booking Created with separated tables:", completeResult.rows[0]);
+    console.log("✅ Booking Created:", createdBooking);
 
     // Send pending approval email to guest
     try {
-      const booking = completeResult.rows[0];
-
       const emailData = {
-        firstName: booking.first_name,
-        lastName: booking.last_name,
-        email: booking.email,
-        bookingId: booking.booking_id,
-        roomName: booking.room_name,
-        checkInDate: new Date(booking.check_in_date).toLocaleDateString(),
-        checkInTime: booking.check_in_time,
-        checkOutDate: new Date(booking.check_out_date).toLocaleDateString(),
-        checkOutTime: booking.check_out_time,
-        guests: `${booking.adults} Adults, ${booking.children} Children, ${booking.infants} Infants`,
-        paymentMethod: booking.payment_method,
-        downPayment: booking.down_payment,
-        totalAmount: booking.total_amount,
+        firstName: guest_first_name,
+        lastName: guest_last_name,
+        email: guest_email,
+        bookingId: booking_id,
+        roomName: room_name,
+        checkInDate: new Date(check_in_date).toLocaleDateString(),
+        checkInTime: check_in_time,
+        checkOutDate: new Date(check_out_date).toLocaleDateString(),
+        checkOutTime: check_out_time,
+        guests: `${adults} Adults, ${children || 0} Children, ${infants || 0} Infants`,
+        paymentMethod: payment_method,
+        downPayment: down_payment,
+        totalAmount: total_amount,
       };
 
       const emailResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/send-pending-email`, {
@@ -355,45 +365,30 @@ export const createBooking = async (
       });
 
       if (!emailResponse.ok) {
-        console.error('❌ Failed to send pending approval email');
+        console.error('Failed to send pending email:', await emailResponse.text());
       } else {
-        console.log('✅ Pending approval email sent to:', booking.email);
+        console.log('✅ Pending approval email sent to:', guest_email);
       }
     } catch (emailError) {
-      console.error('❌ Email sending error:', emailError);
-      // Don't fail the whole request if email fails
+      console.error('Error sending email:', emailError);
     }
+
+    return NextResponse.json({
+      success: true,
+      message: "Booking created successfully!",
+      data: createdBooking,
+    });
+  } catch (error: unknown) {
+    await client.query('ROLLBACK');
+    console.error("❌ Booking Creation Error:", error);
+
+    const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
 
     return NextResponse.json(
       {
-        success: true,
-        data: completeResult.rows[0],
-        message: "Booking created successfully. Waiting for admin approval.",
-      },
-      { status: 201 }
-    );
-  } catch (error) {
-    await client.query('ROLLBACK');
-    console.log("❌ Error creating booking:", error);
-    const e = error as {
-      message?: string;
-      code?: string;
-      detail?: string;
-      constraint?: string;
-      table?: string;
-      column?: string;
-    };
-    return NextResponse.json(
-      {
         success: false,
-        error: error instanceof Error ? error.message : "Failed to create booking",
-        details: {
-          code: e?.code,
-          detail: e?.detail,
-          constraint: e?.constraint,
-          table: e?.table,
-          column: e?.column,
-        },
+        error: "Failed to create booking",
+        details: errorMessage,
       },
       { status: 500 }
     );
@@ -410,37 +405,18 @@ export const getAllBookings = async (
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status");
 
-    let query = `
-      SELECT 
-        b.*,
-        bg.first_name,
-        bg.last_name,
-        bg.email,
-        bg.phone,
-        bg.valid_id_url,
-        bp.payment_method,
-        bp.total_amount,
-        bp.down_payment,
-        bc.cleaning_status
-      FROM booking b
-      LEFT JOIN booking_guests bg ON b.id = bg.booking_id
-      LEFT JOIN booking_payments bp ON b.id = bp.booking_id
-      LEFT JOIN booking_cleaning bc ON b.id = bc.booking_id
-      WHERE bg.id = (
-        SELECT MIN(id) FROM booking_guests WHERE booking_id = b.id
-      )
-    `;
+    let query = `SELECT * FROM ${BOOKING_TABLE}`;
     const values: string[] = [];
 
-    if (status) {
-      query += " AND b.status = $1";
+    if (status && status !== "all") {
+      query += " WHERE status = $1";
       values.push(status);
     }
 
-    query += " ORDER BY b.created_at DESC";
+    query += " ORDER BY created_at DESC";
 
     const result = await pool.query(query, values);
-    console.log(`✅ Retrieved ${result.rows.length} bookings from separated tables`);
+    console.log(`✅ Retrieved ${result.rows.length} bookings from ${BOOKING_TABLE}`);
 
     return NextResponse.json({
       success: true,
@@ -475,51 +451,7 @@ export const getBookingById = async (
       );
     }
 
-    const query = `
-      SELECT
-        b.*,
-        h.tower,
-        h.uuid_id as haven_id,
-        bp.total_amount,
-        bp.down_payment,
-        bp.remaining_balance,
-        bp.payment_method,
-        bp.room_rate,
-        bp.add_ons_total,
-        COALESCE(bd.amount, 0) as security_deposit,
-        bg.first_name as guest_first_name,
-        bg.last_name as guest_last_name,
-        bg.email as guest_email,
-        bg.phone as guest_phone,
-        (
-          SELECT COALESCE(
-            json_agg(
-              json_build_object(
-                'name', ba.name,
-                'price', ba.price,
-                'quantity', ba.quantity
-              ) ORDER BY ba.id
-            ),
-            '[]'
-          ) as add_ons
-          FROM booking_add_ons ba 
-          WHERE ba.booking_id = b.id
-        ) as add_ons,
-        COALESCE(
-          json_agg(hi.image_url ORDER BY hi.display_order)
-          FILTER (WHERE hi.id IS NOT NULL),
-          '[]'
-        ) as room_images
-      FROM booking b
-      LEFT JOIN havens h ON b.room_name = h.haven_name
-      LEFT JOIN haven_images hi ON h.uuid_id = hi.haven_id
-      LEFT JOIN booking_payments bp ON b.id = bp.booking_id
-      LEFT JOIN booking_guests bg ON b.id = bg.booking_id
-      LEFT JOIN booking_security_deposits bd ON b.id = bd.booking_id
-      WHERE b.id = $1
-      GROUP BY b.id, h.tower, h.uuid_id, bp.total_amount, bp.down_payment, bp.remaining_balance, bp.payment_method, bp.room_rate, bp.add_ons_total, bg.first_name, bg.last_name, bg.email, bg.phone, bd.amount
-      LIMIT 1
-    `;
+    const query = `SELECT * FROM ${BOOKING_TABLE} WHERE id = $1 LIMIT 1`;
 
     const result = await pool.query(query, [id]);
 
@@ -666,14 +598,16 @@ export const updateBookingStatus = async (
       );
     }
 
+    const idParamIndex = i++;
+    values.push(id);
+
     const query = `
-      UPDATE booking
-      SET status = $1, rejection_reason = $2, updated_at = NOW()
-      WHERE id = $3
+      UPDATE ${BOOKING_TABLE}
+      SET ${updateFields.join(", ")}, updated_at = NOW()
+      WHERE id = $${idParamIndex}
       RETURNING *
     `;
 
-    values.push(id);
     const result = await pool.query(query, values);
 
     if (result.rows.length === 0) {
@@ -688,38 +622,16 @@ export const updateBookingStatus = async (
 
     console.log("✅ Booking status updated:", result.rows[0]);
 
-    // Get booking details with guest info for email
-    const bookingDetailsQuery = `
-      SELECT 
-        b.*,
-        bg.first_name,
-        bg.last_name,
-        bg.email,
-        bg.valid_id_url,
-        bp.payment_method,
-        bp.total_amount,
-        bp.down_payment
-      FROM booking b
-      JOIN booking_guests bg ON b.id = bg.booking_id
-      JOIN booking_payments bp ON b.id = bp.booking_id
-      WHERE b.id = $1 AND bg.id = (
-        SELECT MIN(id) FROM booking_guests WHERE booking_id = b.id
-      )
-      LIMIT 1
-    `;
-
-    const bookingDetailsResult = await pool.query(bookingDetailsQuery, [id]);
-
     // Send confirmation email when booking is approved
-    if (status === 'approved' && bookingDetailsResult.rows.length > 0) {
+    if (status === 'approved') {
       try {
-        const booking = bookingDetailsResult.rows[0];
+        const booking = result.rows[0];
 
         // Prepare email data
         const emailData = {
-          firstName: booking.first_name,
-          lastName: booking.last_name,
-          email: booking.email,
+          firstName: booking.guest_first_name,
+          lastName: booking.guest_last_name,
+          email: booking.guest_email,
           bookingId: booking.booking_id,
           roomName: booking.room_name,
           checkInDate: new Date(booking.check_in_date).toLocaleDateString(),
@@ -742,7 +654,7 @@ export const updateBookingStatus = async (
         if (!emailResponse.ok) {
           console.error('❌ Failed to send confirmation email');
         } else {
-          console.log('✅ Confirmation email sent to:', booking.email);
+          console.log('✅ Confirmation email sent to:', booking.guest_email);
         }
       } catch (emailError) {
         console.error('❌ Email sending error:', emailError);
@@ -785,7 +697,7 @@ export const deleteBooking = async (
       );
     }
 
-    const query = `DELETE FROM booking WHERE id = $1 RETURNING *`;
+    const query = `DELETE FROM ${BOOKING_TABLE} WHERE id = $1 RETURNING *`;
     const result = await pool.query(query, [id]);
 
     if (result.rows.length === 0) {
@@ -828,53 +740,25 @@ export const getUserBookings = async (
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status"); // upcoming, past, cancelled, all
 
-    let query = `
-      SELECT
-        b.*,
-        h.tower,
-        h.uuid_id as haven_id,
-        bp.total_amount,
-        bp.down_payment,
-        bp.remaining_balance,
-        bp.payment_method,
-        bp.room_rate,
-        bp.add_ons_total,
-        COALESCE(bd.amount, 0) as security_deposit,
-        EXISTS(SELECT 1 FROM reviews r WHERE r.booking_id = b.id) as has_reviewed,
-        bg.first_name as guest_first_name,
-        bg.last_name as guest_last_name,
-        bg.email as guest_email,
-        COALESCE(
-          json_agg(hi.image_url ORDER BY hi.display_order)
-          FILTER (WHERE hi.id IS NOT NULL),
-          '[]'
-        ) as room_images
-      FROM booking b
-      LEFT JOIN havens h ON b.room_name = h.haven_name
-      LEFT JOIN haven_images hi ON h.uuid_id = hi.haven_id
-      LEFT JOIN booking_payments bp ON b.id = bp.booking_id
-      LEFT JOIN booking_guests bg ON b.id = bg.booking_id
-      LEFT JOIN booking_security_deposits bd ON b.id = bd.booking_id
-      WHERE b.user_id = $1
-    `;
+    let query = `SELECT * FROM ${BOOKING_TABLE} WHERE user_id = $1`;
 
     const values: string[] = [userId];
 
     // Filter by status if provided
     if (status && status !== "all") {
       if (status === "upcoming") {
-        query += ` AND b.status IN ('pending', 'approved', 'confirmed') AND b.check_in_date >= CURRENT_DATE`;
+        query += ` AND status IN ('pending', 'approved', 'confirmed') AND check_in_date >= CURRENT_DATE`;
       } else if (status === "past") {
-        query += ` AND (b.status = 'completed' OR b.check_out_date < CURRENT_DATE)`;
+        query += ` AND (status = 'completed' OR check_out_date < CURRENT_DATE)`;
       } else if (status === "cancelled") {
-        query += ` AND b.status = 'cancelled'`;
+        query += ` AND status = 'cancelled'`;
       } else {
-        query += ` AND b.status = $2`;
+        query += ` AND status = $2`;
         values.push(status);
       }
     }
 
-    query += ` GROUP BY b.id, h.tower, h.uuid_id, bp.total_amount, bp.down_payment, bp.remaining_balance, bp.payment_method, bp.room_rate, bp.add_ons_total, bg.first_name, bg.last_name, bg.email, bd.amount ORDER BY b.created_at DESC`;
+    query += ` ORDER BY created_at DESC`;
 
     const result = await pool.query(query, values);
     console.log(`✅ Retrieved ${result.rows.length} bookings for user ${userId}`);
@@ -929,13 +813,13 @@ export const updateCleaningStatus = async (
     }
 
     const query = `
-      UPDATE booking
+      UPDATE ${BOOKING_TABLE}
       SET cleaning_status = $1, updated_at = NOW()
       WHERE id = $2
       RETURNING *
     `;
 
-    const cleaningResult = await pool.query(cleaningQuery, [cleaning_status, id]);
+    const cleaningResult = await pool.query(query, [cleaning_status, id]);
 
     if (cleaningResult.rows.length === 0) {
       return NextResponse.json(
@@ -945,27 +829,7 @@ export const updateCleaningStatus = async (
     }
 
     // Get the complete booking data for response
-    const bookingQuery = `
-      SELECT 
-        b.*,
-        bg.first_name,
-        bg.last_name,
-        bg.email,
-        bg.phone,
-        bg.valid_id_url,
-        bp.payment_method,
-        bp.total_amount,
-        bc.cleaning_status
-      FROM booking b
-      JOIN booking_guests bg ON b.id = bg.booking_id
-      JOIN booking_payments bp ON b.id = bp.booking_id
-      JOIN booking_cleaning bc ON b.id = bc.booking_id
-      WHERE b.id = $1 AND bg.id = (
-        SELECT MIN(id) FROM booking_guests WHERE booking_id = b.id
-      )
-      LIMIT 1
-    `;
-
+    const bookingQuery = `SELECT * FROM ${BOOKING_TABLE} WHERE id = $1 LIMIT 1`;
     const bookingResult = await pool.query(bookingQuery, [id]);
 
     console.log("✅ Cleaning status updated:", cleaningResult.rows[0]);
@@ -1020,7 +884,7 @@ export const getRoomBookings = async (
         check_out_date,
         status,
         room_name
-      FROM booking
+      FROM ${BOOKING_TABLE}
       WHERE TRIM(room_name) = $1
         AND status IN ('approved', 'confirmed', 'checked-in')
       ORDER BY check_in_date ASC

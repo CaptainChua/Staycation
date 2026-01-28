@@ -54,7 +54,15 @@ export default function AssignCleanerModal({ isOpen, onClose, bookingId, onSucce
   const [now, setNow] = useState(() => Date.now());
   
   const { data: employeesData, isLoading: employeesLoading } = useGetEmployeesQuery({ role: "Cleaner" });
-  const { data: bookings = [] } = useGetBookingsQuery({}) as { data: BookingRow[] };
+  const { data: bookings = [] } = useGetBookingsQuery(
+    {},
+    {
+      pollingInterval: 5000,
+      skipPollingIfUnfocused: true,
+      refetchOnFocus: true,
+      refetchOnReconnect: true,
+    }
+  ) as { data: BookingRow[] };
   const [updateBookingStatus, { isLoading: isUpdating }] = useUpdateBookingStatusMutation();
 
   const cleaners = useMemo(() => {

@@ -582,7 +582,7 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
         toast.success("Booking updated successfully!");
       } else {
         await createBooking(bookingData).unwrap();
-        toast.success("Booking created successfully!");
+        toast.success("You've successfully added booking!");
       }
 
       onSuccess?.();

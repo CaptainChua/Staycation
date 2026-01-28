@@ -1,4 +1,5 @@
 import { configureStore } from "@reduxjs/toolkit";
+import { setupListeners } from "@reduxjs/toolkit/query";
 import bookingReducer from './slices/bookingSlice';
 import { employeeApi } from "./api/employeeApi";
 import { roomApi } from "./api/roomApi";
@@ -44,6 +45,8 @@ export const store = configureStore({
         .concat(adminUsersApi.middleware),
 
 });
+
+setupListeners(store.dispatch);
 
 export type RootState = ReturnType<typeof store.getState>;
 export type AppDispatch = typeof store.dispatch;

@@ -76,7 +76,15 @@ const getRoomStatus = (booking: Booking): "occupied" | "available" | "checkout-p
 
 const CleaningManagement = () => {
   // Fetch bookings data
-  const { data: bookings = [], isLoading, refetch } = useGetBookingsQuery({});
+  const { data: bookings = [], isLoading, refetch } = useGetBookingsQuery(
+    {},
+    {
+      pollingInterval: 5000,
+      skipPollingIfUnfocused: true,
+      refetchOnFocus: true,
+      refetchOnReconnect: true,
+    }
+  );
   const [updateCleaningStatus] = useUpdateCleaningStatusMutation();
 
   // Filter states
@@ -87,6 +95,7 @@ const CleaningManagement = () => {
   const [cleanerName, setCleanerName] = useState("");
   const [selectedCleaningId, setSelectedCleaningId] = useState<string | null>(null);
   const [modalError, setModalError] = useState<string | null>(null);
+  const [dataError, setDataError] = useState<string | null>(null);
 
   // Process bookings to get room data with statuses
   const roomData = useMemo(() => {
@@ -158,9 +167,18 @@ const CleaningManagement = () => {
   }, [roomData, roomStatusFilter, cleaningStatusFilter, searchTerm]);
 
   // Handle cleaning status update
-  const handleCleaningStatusUpdate = async (bookingId: string, newStatus: CleaningStatus) => {
+  const handleAssignCleaner = () => {
+    // TODO: Implement assign cleaner logic
+    console.log('Assign cleaner:', cleanerName, 'to room:', selectedCleaningId);
+    setShowAssignModal(false);
+    setCleanerName("");
+    setSelectedCleaningId(null);
+    setModalError(null);
+  };
+
+  const handleCleaningStatusUpdate = async (roomId: string, newStatus: string) => {
     try {
-      await updateCleaningStatus({ id: bookingId, cleaning_status: newStatus }).unwrap();
+      await updateCleaningStatus({ id: roomId, cleaning_status: newStatus }).unwrap();
       toast.success(`Cleaning status updated to ${newStatus}`);
       refetch();
     } catch (error) {
@@ -259,6 +277,7 @@ const CleaningManagement = () => {
   const occupiedCount = filteredRooms.filter((room) => room.roomStatus === "occupied").length;
   const checkoutPendingCount = filteredRooms.filter((room) => room.roomStatus === "checkout-pending").length;
   const cleaningPendingCount = filteredRooms.filter((room) => room.cleaning_status === "pending").length;
+  const totalTasks = filteredRooms.length;
   const cleaningInProgressCount = filteredRooms.filter((room) => room.cleaning_status === "in-progress").length;
 
   const statCards = [
@@ -570,17 +589,17 @@ const CleaningManagement = () => {
             </p>
           </div>
           <div className="divide-y divide-gray-100 dark:divide-gray-800">
-            {filteredRecords
-              .filter((r: CleaningRecord) => r.cleaningStatus === "pending")
+            {filteredRooms
+              .filter((r) => r.cleaning_status === "pending")
               .slice(0, 5)
-              .map((room: CleaningRecord) => (
+              .map((room) => (
                 <div
                   key={room.id}
                   className="px-6 py-4 flex items-center justify-between"
                 >
                   <div>
                     <p className="font-semibold text-gray-800 dark:text-gray-100">
-                      {room.roomName}
+                      {room.room_name}
                     </p>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
                       Guest: {room.guestName}
@@ -597,7 +616,7 @@ const CleaningManagement = () => {
                   </button>
                 </div>
               ))}
-            {filteredRecords.filter((r: CleaningRecord) => r.cleaningStatus === "pending").length === 0 && (
+            {filteredRooms.filter((r) => r.cleaning_status === "pending").length === 0 && (
               <div className="px-6 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
                 No pending cleaning tasks
               </div>

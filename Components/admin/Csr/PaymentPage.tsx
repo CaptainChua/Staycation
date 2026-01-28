@@ -160,10 +160,21 @@ export default function PaymentPage() {
     refetch,
   } = useGetBookingsQuery(
     serverStatusParam ? { status: serverStatusParam } : undefined,
+    {
+      pollingInterval: 5000,
+      skipPollingIfUnfocused: true,
+      refetchOnFocus: true,
+      refetchOnReconnect: true,
+    }
   );
 
   // Fetch all bookings for summary counts (unfiltered)
-  const { data: bookingsAll } = useGetBookingsQuery();
+  const { data: bookingsAll } = useGetBookingsQuery(undefined, {
+    pollingInterval: 5000,
+    skipPollingIfUnfocused: true,
+    refetchOnFocus: true,
+    refetchOnReconnect: true,
+  });
 
   // Mutation for approve/reject
   const [updateBookingStatus] = useUpdateBookingStatusMutation();

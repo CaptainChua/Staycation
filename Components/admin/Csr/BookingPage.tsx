@@ -1,7 +1,7 @@
 "use client";
 
 import { Calendar, Search, Filter, Plus, Eye, Edit, Trash2, MapPin, User, Phone, Mail, CheckCircle, Clock, LogIn, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUpDown, Download, FileSpreadsheet } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import ViewBookings from "./Modals/ViewBookings";
 import NewBookings from "./Modals/NewBookings";
 import { useGetBookingsQuery, useDeleteBookingMutation } from "@/redux/api/bookingsApi";
@@ -62,9 +62,19 @@ export default function BookingsPage() {
   const [bookingToDelete, setBookingToDelete] = useState<BookingData | null>(null);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [liveSheetAutoSync, setLiveSheetAutoSync] = useState(false);
+  const [isOpeningLiveSheet, setIsOpeningLiveSheet] = useState(false);
+  const liveSheetClickTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Fetch bookings from API
-  const { data: bookings = [], isLoading, error } = useGetBookingsQuery({}) as { data: BookingData[]; isLoading: boolean; error: unknown };
+  const { data: bookings = [], isLoading, error } = useGetBookingsQuery(
+    {},
+    {
+      pollingInterval: 5000,
+      skipPollingIfUnfocused: true,
+      refetchOnFocus: true,
+      refetchOnReconnect: true,
+    }
+  ) as { data: BookingData[]; isLoading: boolean; error: unknown };
   const [deleteBooking, { isLoading: isDeletingBooking }] = useDeleteBookingMutation();
 
   useEffect(() => {
@@ -183,26 +193,53 @@ export default function BookingsPage() {
   ];
 
   const openLiveSheet = async () => {
+    // Debounce: ignore rapid clicks
+    if (liveSheetClickTimeoutRef.current) return;
+    liveSheetClickTimeoutRef.current = setTimeout(() => {
+      liveSheetClickTimeoutRef.current = null;
+    }, 1000);
+
+    setIsOpeningLiveSheet(true);
     try {
-      const syncRes = await fetch("/api/admin/sync-sheets", { method: "POST" });
-      const syncData = (await syncRes.json()) as { success: boolean; error?: string; appended?: number; skipped?: number };
-      if (!syncRes.ok || !syncData.success) {
-        toast.error(syncData.error || "Failed to sync bookings to Google Sheet.");
+      // Run sync and URL fetch in parallel for speed
+      const [syncRes, urlRes] = await Promise.allSettled([
+        fetch("/api/admin/sync-sheets", { method: "POST" }),
+        fetch("/api/admin/spreadsheet-url", { cache: "no-store" }),
+      ]);
+
+      // Check sync result
+      if (syncRes.status === "fulfilled") {
+        const syncData = (await syncRes.value.json()) as { success: boolean; error?: string; appended?: number; skipped?: number };
+        if (!syncRes.value.ok || !syncData.success) {
+          toast.error(syncData.error || "Failed to sync bookings to Google Sheet.");
+          setIsOpeningLiveSheet(false);
+          return;
+        }
+      } else {
+        toast.error("Failed to sync bookings to Google Sheet.");
+        setIsOpeningLiveSheet(false);
         return;
       }
 
-      const res = await fetch("/api/admin/spreadsheet-url", { cache: "no-store" });
-      const data = (await res.json()) as { success: boolean; url?: string; error?: string };
-
-      if (!res.ok || !data.success || !data.url) {
-        toast.error(data.error || "Spreadsheet link is not configured.");
+      // Check URL result
+      if (urlRes.status === "fulfilled") {
+        const data = (await urlRes.value.json()) as { success: boolean; url?: string; error?: string };
+        if (!urlRes.value.ok || !data.success || !data.url) {
+          toast.error(data.error || "Spreadsheet link is not configured.");
+          setIsOpeningLiveSheet(false);
+          return;
+        }
+        window.open(data.url, "_blank");
+        setLiveSheetAutoSync(true);
+      } else {
+        toast.error("Failed to fetch spreadsheet link.");
+        setIsOpeningLiveSheet(false);
         return;
       }
-
-      window.open(data.url, "_blank");
-      setLiveSheetAutoSync(true);
     } catch {
       toast.error("Failed to sync/open spreadsheet.");
+    } finally {
+      setIsOpeningLiveSheet(false);
     }
   };
 
@@ -520,10 +557,20 @@ export default function BookingsPage() {
             </select>
             <button
               onClick={openLiveSheet}
-              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors text-sm font-medium"
+              disabled={isOpeningLiveSheet}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-400 disabled:cursor-not-allowed text-white rounded-lg transition-colors text-sm font-medium"
             >
-              <FileSpreadsheet className="w-4 h-4" />
-              View Live Sheet
+              {isOpeningLiveSheet ? (
+                <>
+                  <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                  Opening...
+                </>
+              ) : (
+                <>
+                  <FileSpreadsheet className="w-4 h-4" />
+                  View Live Sheet
+                </>
+              )}
             </button>
             <button
               onClick={() => setIsExportModalOpen(true)}

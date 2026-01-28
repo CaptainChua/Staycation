@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '../config/db';
 
+const BOOKING_TABLE = (() => {
+  const raw = (process.env.BOOKING_TABLE_NAME || "booking").trim();
+  if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(raw)) return raw;
+  console.warn("Invalid BOOKING_TABLE_NAME, defaulting to 'booking'");
+  return "booking";
+})();
+
 export interface AnalyticsSummary {
   total_revenue: number;
   total_bookings: number;
@@ -33,7 +40,7 @@ export async function fetchAnalyticsSummary(period: string = '30'): Promise<Anal
         WHEN user_id IS NOT NULL THEN user_id::text
         ELSE guest_email
       END) as new_guests
-    FROM booking
+    FROM ${BOOKING_TABLE}
     WHERE created_at >= NOW() - INTERVAL '${period} days'
       AND status IN ('approved', 'confirmed', 'checked-in', 'completed')
   `;
@@ -46,7 +53,7 @@ export async function fetchAnalyticsSummary(period: string = '30'): Promise<Anal
         WHEN user_id IS NOT NULL THEN user_id::text
         ELSE guest_email
       END) as new_guests
-    FROM booking
+    FROM ${BOOKING_TABLE}
     WHERE created_at >= NOW() - INTERVAL '${parseInt(period) * 2} days'
       AND created_at < NOW() - INTERVAL '${period} days'
       AND status IN ('approved', 'confirmed', 'checked-in', 'completed')
@@ -58,7 +65,7 @@ export async function fetchAnalyticsSummary(period: string = '30'): Promise<Anal
       SUM(
         check_out_date::date - check_in_date::date
       ) as booked_days
-    FROM booking
+    FROM ${BOOKING_TABLE}
     WHERE created_at >= NOW() - INTERVAL '${period} days'
       AND status IN ('approved', 'confirmed', 'checked-in', 'completed')
   `;
@@ -68,7 +75,7 @@ export async function fetchAnalyticsSummary(period: string = '30'): Promise<Anal
       SUM(
         check_out_date::date - check_in_date::date
       ) as booked_days
-    FROM booking
+    FROM ${BOOKING_TABLE}
     WHERE created_at >= NOW() - INTERVAL '${parseInt(period) * 2} days'
       AND created_at < NOW() - INTERVAL '${period} days'
       AND status IN ('approved', 'confirmed', 'checked-in', 'completed')
@@ -131,7 +138,7 @@ export async function fetchRevenueByRoom(period: string = '30'): Promise<Revenue
       room_name,
       COALESCE(SUM(total_amount), 0) as revenue,
       COUNT(*) as bookings
-    FROM booking
+    FROM ${BOOKING_TABLE}
     WHERE created_at >= NOW() - INTERVAL '${period} days'
       AND status IN ('approved', 'confirmed', 'checked-in', 'completed')
       AND room_name IS NOT NULL
@@ -154,7 +161,7 @@ export async function fetchMonthlyRevenue(months: string = '6'): Promise<Monthly
       TO_CHAR(created_at, 'Mon') as month,
       EXTRACT(MONTH FROM created_at) as month_num,
       COALESCE(SUM(total_amount), 0) as revenue
-    FROM booking
+    FROM ${BOOKING_TABLE}
     WHERE created_at >= NOW() - INTERVAL '${months} months'
       AND status IN ('approved', 'confirmed', 'checked-in', 'completed')
     GROUP BY month, month_num
@@ -184,7 +191,7 @@ export const getAnalyticsSummary = async (req: NextRequest): Promise<NextRespons
           WHEN user_id IS NOT NULL THEN user_id::text
           ELSE guest_email
         END) as new_guests
-      FROM booking
+      FROM ${BOOKING_TABLE}
       WHERE created_at >= NOW() - INTERVAL '${period} days'
         AND status IN ('approved', 'confirmed', 'checked-in', 'completed')
     `;
@@ -198,7 +205,7 @@ export const getAnalyticsSummary = async (req: NextRequest): Promise<NextRespons
           WHEN user_id IS NOT NULL THEN user_id::text
           ELSE guest_email
         END) as new_guests
-      FROM booking
+      FROM ${BOOKING_TABLE}
       WHERE created_at >= NOW() - INTERVAL '${parseInt(period) * 2} days'
         AND created_at < NOW() - INTERVAL '${period} days'
         AND status IN ('approved', 'confirmed', 'checked-in', 'completed')
@@ -210,7 +217,7 @@ export const getAnalyticsSummary = async (req: NextRequest): Promise<NextRespons
         COUNT(DISTINCT room_name) as total_rooms,
         COUNT(*) as total_bookings,
         SUM(check_out_date::date - check_in_date::date) as booked_days
-      FROM booking
+      FROM ${BOOKING_TABLE}
       WHERE created_at >= NOW() - INTERVAL '${period} days'
         AND status IN ('approved', 'confirmed', 'checked-in', 'completed')
     `;
@@ -253,7 +260,7 @@ export const getAnalyticsSummary = async (req: NextRequest): Promise<NextRespons
         SUM(
           check_out_date::date - check_in_date::date
         ) as booked_days
-      FROM booking
+      FROM ${BOOKING_TABLE}
       WHERE created_at >= NOW() - INTERVAL '${parseInt(period) * 2} days'
         AND created_at < NOW() - INTERVAL '${period} days'
         AND status IN ('approved', 'confirmed', 'checked-in', 'completed')
@@ -307,7 +314,7 @@ export const getRevenueByRoom = async (req: NextRequest): Promise<NextResponse> 
         room_name,
         COALESCE(SUM(total_amount), 0) as revenue,
         COUNT(*) as bookings
-      FROM booking
+      FROM ${BOOKING_TABLE}
       WHERE created_at >= NOW() - INTERVAL '${period} days'
         AND status IN ('approved', 'confirmed', 'checked-in', 'completed')
         AND room_name IS NOT NULL
@@ -350,7 +357,7 @@ export const getMonthlyRevenue = async (req: NextRequest): Promise<NextResponse>
         TO_CHAR(created_at, 'Mon') as month,
         EXTRACT(MONTH FROM created_at) as month_num,
         COALESCE(SUM(total_amount), 0) as revenue
-      FROM booking
+      FROM ${BOOKING_TABLE}
       WHERE created_at >= NOW() - INTERVAL '${months} months'
         AND status IN ('approved', 'confirmed', 'checked-in', 'completed')
       GROUP BY month, month_num
