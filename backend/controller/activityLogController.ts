@@ -45,6 +45,7 @@ export const createActivityLog = async (req: NextRequest): Promise<NextResponse>
 
   } catch (error: any) {
     console.log('❌ Error creating activity log:', error);
+    console.log('❌ Request body was:', await req.clone().json().catch(() => 'Could not parse body'));
     return NextResponse.json({
       success: false,
       error: error.message || 'Failed to create activity log',
