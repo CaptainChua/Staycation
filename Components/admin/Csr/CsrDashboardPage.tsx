@@ -736,6 +736,11 @@ export default function CsrDashboard() {
                     {employee?.role || "CSR"}
                   </p>
                 </div>
+                <ChevronDown
+                  className={`w-4 h-4 text-gray-600 dark:text-gray-300 transition-transform ${
+                    profileDropdownOpen ? "rotate-180" : ""
+                  }`}
+                />
               </button>
 
               {profileDropdownOpen && (
