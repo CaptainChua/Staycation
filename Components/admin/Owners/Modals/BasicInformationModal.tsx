@@ -3,8 +3,14 @@
 import { useState, useEffect } from "react";
 import { Input } from "@nextui-org/input";
 import { Select, SelectItem } from "@nextui-org/select";
-import toast from 'react-hot-toast';
-import SubModalWrapper from "./SubModalWrapper";
+import { z } from "zod";
+
+const basicInfoSchema = z.object({
+  haven_name: z.string().min(1, "Haven Name is required"),
+  tower: z.string().min(1, "Tower is required"),
+  floor: z.string().min(1, "Floor is required"),
+  view_type: z.string().min(1, "View Type is required"),
+});
 
 interface BasicInformationData {
   haven_name?: string;
@@ -14,13 +20,16 @@ interface BasicInformationData {
 }
 
 interface BasicInformationModalProps {
-  isOpen: boolean;
-  onClose: () => void;
   onSave: (data: BasicInformationData) => void;
   initialData?: BasicInformationData;
+  isAddMode?: boolean;
 }
 
-const BasicInformationModal = ({ isOpen, onClose, onSave, initialData }: BasicInformationModalProps) => {
+const BasicInformationModal = ({ 
+  onSave, 
+  initialData, 
+  isAddMode = false,
+}: BasicInformationModalProps) => {
   const [formData, setFormData] = useState<BasicInformationData>({
     haven_name: "",
     tower: "",
@@ -28,7 +37,7 @@ const BasicInformationModal = ({ isOpen, onClose, onSave, initialData }: BasicIn
     view_type: "",
   });
 
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
 
   const towers = [
     { value: "tower-a", label: "Tower A" },
@@ -54,85 +63,64 @@ const BasicInformationModal = ({ isOpen, onClose, onSave, initialData }: BasicIn
         view_type: initialData.view_type || "",
       });
     }
-  }, [initialData, isOpen]);
+  }, [initialData]);
 
-  const validateForm = (): boolean => {
-    const newErrors: Record<string, string> = {};
+  const validation = basicInfoSchema.safeParse(formData);
+  const errors = !validation.success 
+    ? validation.error.format() 
+    : null;
 
-    if (!formData.haven_name?.trim()) {
-      newErrors.haven_name = "Haven name is required";
-    }
-    if (!formData.tower) {
-      newErrors.tower = "Tower is required";
-    }
-    if (!formData.floor?.trim()) {
-      newErrors.floor = "Floor is required";
-    }
-    if (!formData.view_type) {
-      newErrors.view_type = "View type is required";
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+  const handleChange = (field: keyof BasicInformationData, value: string) => {
+    const newData = { ...formData, [field]: value };
+    setFormData(newData);
+    setTouched(prev => ({ ...prev, [field]: true }));
+    onSave(newData);
   };
 
-  const handleSave = () => {
-    if (validateForm()) {
-      onSave(formData);
-      toast.success("Basic information saved successfully!");
-      // Don't close here if parent handles it? The existing code called onClose()
-      // But usually parent closes. I'll call onClose() to match existing behavior.
-      // Actually, wrapper handles onClose logic usually? 
-      // Existing code: toast -> onClose.
-      // SubModalWrapper calls onSave. It does NOT automatically close.
-      // So I should keep logic here. However, `onClose` prop passed to wrapper closes modal.
-      // I need to ensure state reset happens.
-      // I'll call reset logic then onClose passed from parent.
-      setFormData({
-        haven_name: "",
-        tower: "",
-        floor: "",
-        view_type: "",
-      });
-      setErrors({});
-      onClose(); // This will close the modal via parent state
-    } else {
-      toast.error("Please fix the errors in the form");
-    }
+  const getInputClasses = (field: keyof BasicInformationData) => {
+    const isFieldTouched = touched[field];
+    const isFieldInvalid = isFieldTouched && errors?.[field];
+    const isFieldValid = isFieldTouched && !errors?.[field];
+
+    let borderClass = "border-gray-300";
+    if (isFieldInvalid) borderClass = "border-red-500 bg-red-50/10";
+    if (isFieldValid) borderClass = "border-green-500 bg-green-50/10";
+
+    return {
+      label: "text-sm font-medium text-gray-700 mb-2",
+      inputWrapper: `bg-white border ${borderClass} hover:border-brand-primary/60 focus-within:!border-brand-primary focus-within:!ring-1 focus-within:!ring-brand-primary/20 shadow-sm transition-all duration-200 rounded-lg h-12`,
+      input: "text-gray-800 placeholder:text-gray-400"
+    };
   };
 
-  const handleClose = () => {
-    setFormData({
-      haven_name: "",
-      tower: "",
-      floor: "",
-      view_type: "",
-    });
-    setErrors({});
-    onClose();
+  const getSelectClasses = (field: keyof BasicInformationData) => {
+    const isFieldTouched = touched[field];
+    const isFieldInvalid = isFieldTouched && errors?.[field];
+    const isFieldValid = isFieldTouched && !errors?.[field];
+
+    let borderClass = "border-gray-300";
+    if (isFieldInvalid) borderClass = "border-red-500 bg-red-50/10";
+    if (isFieldValid) borderClass = "border-green-500 bg-green-50/10";
+
+    return {
+      label: "text-sm font-medium text-gray-700 mb-2",
+      trigger: `bg-white border ${borderClass} hover:border-brand-primary/60 focus-within:!border-brand-primary focus-within:!ring-1 focus-within:!ring-brand-primary/20 shadow-sm transition-all duration-200 rounded-lg h-12`,
+      value: "text-gray-800"
+    };
   };
 
   return (
-    <SubModalWrapper
-      isOpen={isOpen}
-      onClose={handleClose}
-      title="Basic Information"
-      subtitle="Update haven basic details"
-      onSave={handleSave}
-    >
-      <div className="space-y-4">
+    <div className="bg-white border border-gray-200 rounded-3xl p-8 shadow-sm transition-all duration-[250ms] [transition-timing-function:cubic-bezier(0.4,0,0.2,1)] hover:scale-[1.01] hover:shadow-md will-change-transform">
+      <div className="space-y-6">
         <Input
           label="Haven Name"
           labelPlacement="outside"
           placeholder="e.g., Haven 1"
           value={formData.haven_name}
-          onChange={(e) => setFormData({ ...formData, haven_name: e.target.value })}
-          classNames={{ 
-            label: "text-sm font-medium text-gray-700",
-            inputWrapper: "border-gray-300 focus-within:!border-brand-primary focus-within:!ring-brand-primary/20 hover:border-brand-primary/50 transition-colors"
-          }}
-          isInvalid={!!errors.haven_name}
-          errorMessage={errors.haven_name}
+          onChange={(e) => handleChange('haven_name', e.target.value)}
+          classNames={getInputClasses('haven_name')}
+          isInvalid={touched.haven_name && !!errors?.haven_name}
+          errorMessage={touched.haven_name && errors?.haven_name?._errors[0]}
           isRequired
         />
         <Select
@@ -142,18 +130,15 @@ const BasicInformationModal = ({ isOpen, onClose, onSave, initialData }: BasicIn
           selectedKeys={formData.tower ? [formData.tower] : []}
           onSelectionChange={(keys) => {
             const value = Array.from(keys)[0] as string;
-            setFormData({ ...formData, tower: value });
+            handleChange('tower', value);
           }}
-          classNames={{ 
-            label: "text-sm font-medium text-gray-700",
-            trigger: "border-gray-300 focus-within:!border-brand-primary focus-within:!ring-brand-primary/20 hover:border-brand-primary/50 transition-colors"
-          }}
-          isInvalid={!!errors.tower}
-          errorMessage={errors.tower}
+          classNames={getSelectClasses('tower')}
+          isInvalid={touched.tower && !!errors?.tower}
+          errorMessage={touched.tower && errors?.tower?._errors[0]}
           isRequired
         >
           {towers.map((tower) => (
-            <SelectItem key={tower.value}>{tower.label}</SelectItem>
+            <SelectItem key={tower.value} textValue={tower.label}>{tower.label}</SelectItem>
           ))}
         </Select>
         <Input
@@ -161,13 +146,10 @@ const BasicInformationModal = ({ isOpen, onClose, onSave, initialData }: BasicIn
           labelPlacement="outside"
           placeholder="e.g., 1"
           value={formData.floor}
-          onChange={(e) => setFormData({ ...formData, floor: e.target.value })}
-          classNames={{ 
-            label: "text-sm font-medium text-gray-700",
-            inputWrapper: "border-gray-300 focus-within:!border-brand-primary focus-within:!ring-brand-primary/20 hover:border-brand-primary/50 transition-colors"
-          }}
-          isInvalid={!!errors.floor}
-          errorMessage={errors.floor}
+          onChange={(e) => handleChange('floor', e.target.value)}
+          classNames={getInputClasses('floor')}
+          isInvalid={touched.floor && !!errors?.floor}
+          errorMessage={touched.floor && errors?.floor?._errors[0]}
           isRequired
         />
         <Select
@@ -177,22 +159,19 @@ const BasicInformationModal = ({ isOpen, onClose, onSave, initialData }: BasicIn
           selectedKeys={formData.view_type ? [formData.view_type] : []}
           onSelectionChange={(keys) => {
             const value = Array.from(keys)[0] as string;
-            setFormData({ ...formData, view_type: value });
+            handleChange('view_type', value);
           }}
-          classNames={{ 
-            label: "text-sm font-medium text-gray-700",
-            trigger: "border-gray-300 focus-within:!border-brand-primary focus-within:!ring-brand-primary/20 hover:border-brand-primary/50 transition-colors"
-          }}
-          isInvalid={!!errors.view_type}
-          errorMessage={errors.view_type}
+          classNames={getSelectClasses('view_type')}
+          isInvalid={touched.view_type && !!errors?.view_type}
+          errorMessage={touched.view_type && errors?.view_type?._errors[0]}
           isRequired
         >
           {views.map((view) => (
-            <SelectItem key={view.value}>{view.label}</SelectItem>
+            <SelectItem key={view.value} textValue={view.label}>{view.label}</SelectItem>
           ))}
         </Select>
       </div>
-    </SubModalWrapper>
+    </div>
   );
 };
 
