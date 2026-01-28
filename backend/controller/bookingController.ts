@@ -23,27 +23,38 @@ export interface Booking {
     | "completed"
     | "cancelled";
   rejection_reason?: string;
+  has_security_deposit?: boolean;
   created_at?: string;
   updated_at?: string;
 }
 
-// CREATE Booking
-export const createBooking = async (
-  req: NextRequest
-): Promise<NextResponse> => {
+// Helper function to upload image to Cloudinary
+async function uploadToCloudinary(base64Data: string, folder: string): Promise<string | null> {
+  try {
+    if (!base64Data) return null;
+    
+    // If it's already a URL, return it
+    if (base64Data.startsWith('http')) return base64Data;
+    
+    const result = await upload_file(base64Data, folder);
+    return result.url;
+  } catch (error) {
+    console.error('Cloudinary upload error:', error);
+    return null;
+  }
+}
+
+// CREATE Booking with all related tables
+export const createBooking = async (req: NextRequest): Promise<NextResponse> => {
+  const client = await pool.connect();
+  
   try {
     const body = await req.json();
-    console.log("📥 createBooking body:", JSON.stringify(body));
+    console.log("📥 createBooking body received");
+
     const {
       booking_id,
       user_id,
-      guest_first_name,
-      guest_last_name,
-      guest_email,
-      guest_phone,
-      facebook_link,
-      valid_id,
-      additional_guests,
       room_name,
       check_in_date,
       check_out_date,
@@ -52,18 +63,31 @@ export const createBooking = async (
       adults,
       children,
       infants,
+      // Main guest info
+      guest_first_name,
+      guest_last_name,
+      guest_email,
+      guest_phone,
+      guest_age,
+      guest_gender,
+      facebook_link,
+      valid_id, // base64
+      // Additional guests
+      additional_guests = [],
+      // Payment info
       payment_method,
-      payment_proof,
+      payment_proof, // base64
       room_rate,
       security_deposit,
       add_ons_total,
       total_amount,
       down_payment,
       remaining_balance,
-      add_ons,
+      // Add-ons
+      addOns = {},
     } = body;
 
-    // Validate required fields with clearer error messages
+    // Validate required fields
     const missingFields: string[] = [];
     if (!booking_id) missingFields.push('booking_id');
     if (!room_name) missingFields.push('room_name');
@@ -77,128 +101,264 @@ export const createBooking = async (
     if (!guest_phone) missingFields.push('guest_phone');
 
     if (missingFields.length > 0) {
-      const msg = `Missing required fields: ${missingFields.join(', ')}`;
-      console.warn("⚠️ createBooking validation failed:", msg);
       return NextResponse.json(
         {
           success: false,
-          error: msg,
+          error: `Missing required fields: ${missingFields.join(', ')}`,
         },
         { status: 400 }
       );
     }
 
-    // Start a transaction
-    const client = await pool.connect();
-    
-    try {
-      await client.query('BEGIN');
+    await client.query('BEGIN');
 
-      // 1. Insert into booking table (using 'booking' singular as per actual DB schema)
-      const bookingQuery = `
-        INSERT INTO booking (
-          booking_id, user_id, room_name, check_in_date, check_out_date, 
-          check_in_time, check_out_time, adults, children, infants, status,
-          guest_first_name, guest_last_name, guest_email, guest_phone,
-          guest_age, guest_gender, valid_id_url, facebook_link,
-          payment_method, payment_proof_url, room_rate, security_deposit,
-          add_ons_total, total_amount, down_payment, remaining_balance, add_ons
+    // 1. Upload images to Cloudinary
+    console.log("📤 Uploading images to Cloudinary...");
+    const validIdUrl = valid_id ? await uploadToCloudinary(valid_id, 'booking_ids') : null;
+    const paymentProofUrl = payment_proof ? await uploadToCloudinary(payment_proof, 'payment_proofs') : null;
+
+    // 2. Insert main booking record
+    const bookingQuery = `
+      INSERT INTO booking (
+        booking_id, user_id, room_name, 
+        check_in_date, check_out_date, check_in_time, check_out_time,
+        adults, children, infants, 
+        status, has_security_deposit
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      RETURNING *
+    `;
+
+    const bookingValues = [
+      booking_id,
+      user_id || null,
+      room_name,
+      check_in_date,
+      check_out_date,
+      check_in_time,
+      check_out_time,
+      adults || 1,
+      children || 0,
+      infants || 0,
+      'pending',
+      security_deposit > 0,
+    ];
+
+    const bookingResult = await client.query(bookingQuery, bookingValues);
+    const newBooking = bookingResult.rows[0];
+    console.log("✅ Booking created with ID:", newBooking.id);
+
+    // 3. Insert main guest into booking_guests
+    const mainGuestQuery = `
+      INSERT INTO booking_guests (
+        booking_id, first_name, last_name, email, phone, 
+        facebook_link, valid_id_url
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      RETURNING *
+    `;
+
+    const mainGuestValues = [
+      newBooking.id,
+      guest_first_name,
+      guest_last_name,
+      guest_email,
+      guest_phone,
+      facebook_link || null,
+      validIdUrl,
+    ];
+
+    await client.query(mainGuestQuery, mainGuestValues);
+    console.log("✅ Main guest added");
+
+    // 4. Insert additional guests
+    if (additional_guests && additional_guests.length > 0) {
+      for (const guest of additional_guests) {
+        // Upload guest's valid ID if exists
+        const guestIdUrl = guest.validId 
+          ? await uploadToCloudinary(guest.validId, 'booking_ids') 
+          : null;
+
+        const additionalGuestQuery = `
+          INSERT INTO booking_guests (
+            booking_id, first_name, last_name, email, phone, valid_id_url
+          )
+          VALUES ($1, $2, $3, $4, $5, $6)
+        `;
+
+        await client.query(additionalGuestQuery, [
+          newBooking.id,
+          guest.firstName || guest.first_name,
+          guest.lastName || guest.last_name,
+          guest_email, // Use main guest's email for additional guests
+          guest_phone, // Use main guest's phone for additional guests
+          guestIdUrl,
+        ]);
+      }
+      console.log(`✅ ${additional_guests.length} additional guest(s) added`);
+    }
+
+    // 5. Insert payment record
+    const paymentQuery = `
+      INSERT INTO booking_payments (
+        booking_id, payment_method, payment_proof_url,
+        room_rate, add_ons_total, total_amount,
+        down_payment, remaining_balance, payment_status
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      RETURNING *
+    `;
+
+    const paymentValues = [
+      newBooking.id,
+      payment_method || 'gcash',
+      paymentProofUrl,
+      room_rate || 0,
+      add_ons_total || 0,
+      total_amount || 0,
+      down_payment || 0,
+      remaining_balance || 0,
+      'pending',
+    ];
+
+    await client.query(paymentQuery, paymentValues);
+    console.log("✅ Payment record created");
+
+    // 6. Insert security deposit if applicable
+    if (security_deposit > 0) {
+      const depositQuery = `
+        INSERT INTO booking_security_deposits (
+          booking_id, amount, deposit_status,
+          payment_method, payment_proof_url
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28)
+        VALUES ($1, $2, $3, $4, $5)
         RETURNING *
       `;
 
-      const bookingValues = [
-        booking_id,
-        user_id || null,
-        room_name,
-        check_in_date,
-        check_out_date,
-        check_in_time,
-        check_out_time,
-        adults || 1,
-        children || 0,
-        infants || 0,
-        "pending",
-        guest_first_name,
-        guest_last_name,
-        guest_email,
-        guest_phone,
-        guest_age || null,
-        guest_gender || null,
-        valid_id || null,
-        facebook_link || null,
-        payment_method || null,
-        payment_proof || null,
-        room_rate || 0,
-        security_deposit || 0,
-        add_ons_total || 0,
-        total_amount || 0,
-        down_payment || 0,
-        remaining_balance || 0,
-        add_ons || null,
-      ];
-
-      const bookingResult = await client.query(bookingQuery, bookingValues);
-      const newBooking = bookingResult.rows[0];
-      console.log("✅ Booking created:", newBooking.id);
-
-      await client.query('COMMIT');
-      console.log("✅ Booking and Guest Info Created:", newBooking);
-
-      return NextResponse.json(
-        {
-          success: true,
-          data: newBooking,
-          message: "Booking created successfully. Waiting for admin approval.",
-        },
-        { status: 201 }
-      );
-    } catch (error: any) {
-      await client.query('ROLLBACK');
-      console.error('❌ DB transaction error in createBooking:', error.stack || error.message || error);
-      return NextResponse.json(
-        {
-          success: false,
-          error: error.message || 'Database transaction failed',
-        },
-        { status: 500 }
-      );
-    } finally {
-      client.release();
+      await client.query(depositQuery, [
+        newBooking.id,
+        security_deposit,
+        'pending',
+        payment_method || 'gcash',
+        paymentProofUrl,
+      ]);
+      console.log("✅ Security deposit record created");
     }
+
+    // 7. Insert add-ons
+    const addOnMapping: Record<string, string> = {
+      poolPass: 'Pool Pass',
+      towels: 'Towels',
+      bathRobe: 'Bath Robe',
+      extraComforter: 'Extra Comforter',
+      guestKit: 'Guest Kit',
+      extraSlippers: 'Extra Slippers',
+    };
+
+    const addOnPrices: Record<string, number> = {
+      poolPass: 100,
+      towels: 50,
+      bathRobe: 150,
+      extraComforter: 100,
+      guestKit: 75,
+      extraSlippers: 30,
+    };
+
+    if (addOns && typeof addOns === 'object') {
+      for (const [key, quantity] of Object.entries(addOns)) {
+        if (quantity && typeof quantity === 'number' && quantity > 0) {
+          const addOnName = addOnMapping[key] || key;
+          const price = addOnPrices[key] || 0;
+
+          const addOnQuery = `
+            INSERT INTO booking_add_ons (
+              booking_id, name, price, quantity, status
+            )
+            VALUES ($1, $2, $3, $4, $5)
+          `;
+
+          await client.query(addOnQuery, [
+            newBooking.id,
+            addOnName,
+            price,
+            quantity,
+            'pending',
+          ]);
+        }
+      }
+      console.log("✅ Add-ons inserted");
+    }
+
+    // 8. Initialize cleaning record
+    const cleaningQuery = `
+      INSERT INTO booking_cleaning (
+        booking_id, cleaning_status
+      )
+      VALUES ($1, $2)
+    `;
+
+    await client.query(cleaningQuery, [newBooking.id, 'pending']);
+    console.log("✅ Cleaning record initialized");
+
+    await client.query('COMMIT');
+    console.log("✅ Transaction completed successfully");
+
+    return NextResponse.json(
+      {
+        success: true,
+        data: newBooking,
+        message: "Booking created successfully. Waiting for admin approval.",
+      },
+      { status: 201 }
+    );
+
   } catch (error: any) {
-    console.log("❌ Error creating booking:", error.stack || error.message || error);
+    await client.query('ROLLBACK');
+    console.error('❌ Error in createBooking:', error);
     return NextResponse.json(
       {
         success: false,
-        error: error.message || "Failed to create booking",
+        error: error.message || 'Failed to create booking',
       },
       { status: 500 }
     );
+  } finally {
+    client.release();
   }
 };
 
-// GET All Bookings
-export const getAllBookings = async (
-  req: NextRequest
-): Promise<NextResponse> => {
+// GET All Bookings with related data
+export const getAllBookings = async (req: NextRequest): Promise<NextResponse> => {
   try {
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status");
 
     let query = `
-      SELECT * FROM booking
+      SELECT 
+        b.*,
+        -- Get main guest info (first guest record)
+        (SELECT first_name FROM booking_guests WHERE booking_id = b.id LIMIT 1) as guest_first_name,
+        (SELECT last_name FROM booking_guests WHERE booking_id = b.id LIMIT 1) as guest_last_name,
+        (SELECT email FROM booking_guests WHERE booking_id = b.id LIMIT 1) as guest_email,
+        (SELECT phone FROM booking_guests WHERE booking_id = b.id LIMIT 1) as guest_phone,
+        -- Payment info
+        p.total_amount,
+        p.remaining_balance,
+        p.payment_status,
+        -- Add-ons count
+        (SELECT COUNT(*) FROM booking_add_ons WHERE booking_id = b.id) as add_ons_count
+      FROM booking b
+      LEFT JOIN booking_payments p ON b.id = p.booking_id
     `;
     
     let values: any[] = [];
 
     if (status) {
-      query += " WHERE status = $1";
+      query += " WHERE b.status = $1";
       values.push(status);
     }
 
-    query += " ORDER BY created_at DESC";
+    query += " ORDER BY b.created_at DESC";
 
     const result = await pool.query(query, values);
     console.log(`✅ Retrieved ${result.rows.length} bookings`);
@@ -209,7 +369,7 @@ export const getAllBookings = async (
       count: result.rows.length,
     });
   } catch (error: any) {
-    console.log("❌ Error getting bookings:", error);
+    console.error("❌ Error getting bookings:", error);
     return NextResponse.json(
       {
         success: false,
@@ -220,10 +380,8 @@ export const getAllBookings = async (
   }
 };
 
-// GET Booking by ID
-export const getBookingById = async (
-  req: NextRequest
-): Promise<NextResponse> => {
+// GET Booking by ID with ALL related data
+export const getBookingById = async (req: NextRequest): Promise<NextResponse> => {
   try {
     const url = new URL(req.url);
     const segments = url.pathname.split("/");
@@ -236,95 +394,128 @@ export const getBookingById = async (
       );
     }
 
-    const query = `
+    // ✅ FIXED: Added ::uuid casting
+    const bookingQuery = `
       SELECT * FROM booking
-      WHERE id = $1 OR booking_id = $1
+      WHERE id::text = $1 OR booking_id = $1
       LIMIT 1
     `;
+    const bookingResult = await pool.query(bookingQuery, [id]);
 
-    const result = await pool.query(query, [id]);
-
-    if (result.rows.length === 0) {
+    if (bookingResult.rows.length === 0) {
       return NextResponse.json(
         { success: false, error: "Booking not found" },
         { status: 404 }
       );
     }
 
-    console.log(`✅ Retrieved booking ${id}`);
+    const booking = bookingResult.rows[0];
+
+    // Get all guests
+    const guestsQuery = `
+      SELECT * FROM booking_guests
+      WHERE booking_id = $1
+      ORDER BY created_at ASC
+    `;
+    const guestsResult = await pool.query(guestsQuery, [booking.id]);
+
+    // Get payment info
+    const paymentQuery = `
+      SELECT * FROM booking_payments
+      WHERE booking_id = $1
+      LIMIT 1
+    `;
+    const paymentResult = await pool.query(paymentQuery, [booking.id]);
+
+    // Get security deposit
+    const depositQuery = `
+      SELECT * FROM booking_security_deposits
+      WHERE booking_id = $1
+      LIMIT 1
+    `;
+    const depositResult = await pool.query(depositQuery, [booking.id]);
+
+    // Get add-ons
+    const addOnsQuery = `
+      SELECT * FROM booking_add_ons
+      WHERE booking_id = $1
+      ORDER BY name ASC
+    `;
+    const addOnsResult = await pool.query(addOnsQuery, [booking.id]);
+
+    // Get cleaning info
+    const cleaningQuery = `
+      SELECT * FROM booking_cleaning
+      WHERE booking_id = $1
+      LIMIT 1
+    `;
+    const cleaningResult = await pool.query(cleaningQuery, [booking.id]);
+
+    // Combine all data
+    const completeBooking = {
+      ...booking,
+      guests: guestsResult.rows,
+      main_guest: guestsResult.rows[0] || null,
+      additional_guests: guestsResult.rows.slice(1),
+      payment: paymentResult.rows[0] || null,
+      security_deposit: depositResult.rows[0] || null,
+      add_ons: addOnsResult.rows,
+      cleaning: cleaningResult.rows[0] || null,
+    };
+
+    console.log(`✅ Retrieved complete booking data for ${id}`);
 
     return NextResponse.json({
       success: true,
-      data: result.rows[0],
+      data: completeBooking,
     });
   } catch (error: any) {
-    console.log("❌ Error getting booking:", error);
+    console.error("❌ Error getting booking:", error);
     return NextResponse.json(
-      {
-        success: false,
-        error: error.message || "Failed to get booking",
-      },
+      { success: false, error: error.message || "Failed to get booking" },
       { status: 500 }
     );
   }
 };
 
-// UPDATE Booking Status (Approve/Reject)
-export const updateBookingStatus = async (
-  req: NextRequest
-): Promise<NextResponse> => {
+// UPDATE Booking Status
+export const updateBookingStatus = async (req: NextRequest): Promise<NextResponse> => {
   try {
     const body = await req.json();
     const { id, status, rejection_reason } = body;
 
     if (!id || !status) {
       return NextResponse.json(
-        {
-          success: false,
-          error: "Booking ID and status are required",
-        },
+        { success: false, error: "Booking ID and status are required" },
         { status: 400 }
       );
     }
 
     const validStatuses = [
-      "pending",
-      "approved",
-      "rejected",
-      "confirmed",
-      "checked-in",
-      "completed",
-      "cancelled",
+      "pending", "approved", "rejected", "confirmed",
+      "checked-in", "completed", "cancelled",
     ];
+    
     if (!validStatuses.includes(status)) {
       return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid status",
-        },
+        { success: false, error: "Invalid status" },
         { status: 400 }
       );
     }
 
+    // ✅ FIXED: Added ::uuid casting
     const query = `
       UPDATE booking
       SET status = $1, rejection_reason = $2, updated_at = NOW()
-      WHERE id = $3 OR booking_id = $3
+      WHERE id::text = $3 OR booking_id = $3
       RETURNING *
     `;
 
-    const result = await pool.query(query, [
-      status,
-      rejection_reason || null,
-      id,
-    ]);
+    const result = await pool.query(query, [status, rejection_reason || null, id]);
 
     if (result.rows.length === 0) {
       return NextResponse.json(
-        {
-          success: false,
-          error: "Booking not found",
-        },
+        { success: false, error: "Booking not found" },
         { status: 404 }
       );
     }
@@ -337,49 +528,43 @@ export const updateBookingStatus = async (
       message: `Booking ${status} successfully`,
     });
   } catch (error: any) {
-    console.log("❌ Error updating booking status:", error);
+    console.error("❌ Error updating booking status:", error);
     return NextResponse.json(
-      {
-        success: false,
-        error: error.message || "Failed to update booking status",
-      },
+      { success: false, error: error.message || "Failed to update booking status" },
       { status: 500 }
     );
   }
 };
 
-// DELETE Booking
-export const deleteBooking = async (
-  req: NextRequest
-): Promise<NextResponse> => {
+// DELETE Booking (cascades to all related tables)
+export const deleteBooking = async (req: NextRequest): Promise<NextResponse> => {
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
 
     if (!id) {
       return NextResponse.json(
-        {
-          success: false,
-          error: "Booking ID is required",
-        },
+        { success: false, error: "Booking ID is required" },
         { status: 400 }
       );
     }
 
-    const query = `DELETE FROM booking WHERE id = $1 OR booking_id = $1 RETURNING *`;
+    // ✅ FIXED: Added ::uuid casting
+    const query = `
+      DELETE FROM booking 
+      WHERE id::text = $1 OR booking_id = $1 
+      RETURNING *
+    `;
     const result = await pool.query(query, [id]);
 
     if (result.rows.length === 0) {
       return NextResponse.json(
-        {
-          success: false,
-          error: "Booking not found",
-        },
+        { success: false, error: "Booking not found" },
         { status: 404 }
       );
     }
 
-    console.log("✅ Booking deleted:", result.rows[0]);
+    console.log("✅ Booking deleted (cascade):", result.rows[0]);
 
     return NextResponse.json({
       success: true,
@@ -387,12 +572,9 @@ export const deleteBooking = async (
       message: "Booking deleted successfully",
     });
   } catch (error: any) {
-    console.log("❌ Error deleting booking:", error);
+    console.error("❌ Error deleting booking:", error);
     return NextResponse.json(
-      {
-        success: false,
-        error: error.message || "Failed to delete booking",
-      },
+      { success: false, error: error.message || "Failed to delete booking" },
       { status: 500 }
     );
   }
@@ -409,27 +591,35 @@ export const getUserBookings = async (
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status");
 
+    // ✅ FIXED: Added ::uuid casting
     let query = `
-      SELECT * FROM booking
-      WHERE user_id = $1
+      SELECT 
+        b.*,
+        (SELECT first_name FROM booking_guests WHERE booking_id = b.id LIMIT 1) as guest_first_name,
+        (SELECT last_name FROM booking_guests WHERE booking_id = b.id LIMIT 1) as guest_last_name,
+        p.total_amount,
+        p.remaining_balance
+      FROM booking b
+      LEFT JOIN booking_payments p ON b.id = p.booking_id
+      WHERE b.user_id = $1::uuid
     `;
 
     const values: any[] = [userId];
 
     if (status && status !== "all") {
       if (status === "upcoming") {
-        query += ` AND status IN ('pending', 'approved', 'confirmed') AND check_in_date >= CURRENT_DATE`;
+        query += ` AND b.status IN ('pending', 'approved', 'confirmed') AND b.check_in_date >= CURRENT_DATE`;
       } else if (status === "past") {
-        query += ` AND (status = 'completed' OR check_out_date < CURRENT_DATE)`;
+        query += ` AND (b.status = 'completed' OR b.check_out_date < CURRENT_DATE)`;
       } else if (status === "cancelled") {
-        query += ` AND status = 'cancelled'`;
+        query += ` AND b.status = 'cancelled'`;
       } else {
-        query += ` AND status = $2`;
+        query += ` AND b.status = $2`;
         values.push(status);
       }
     }
 
-    query += ` ORDER BY created_at DESC`;
+    query += ` ORDER BY b.created_at DESC`;
 
     const result = await pool.query(query, values);
     console.log(`✅ Retrieved ${result.rows.length} bookings for user ${userId}`);
@@ -439,12 +629,9 @@ export const getUserBookings = async (
       data: result.rows,
     });
   } catch (error: any) {
-    console.log("❌ Error fetching user bookings:", error);
+    console.error("❌ Error fetching user bookings:", error);
     return NextResponse.json(
-      {
-        success: false,
-        error: error.message || "Failed to fetch user bookings",
-      },
+      { success: false, error: error.message || "Failed to fetch user bookings" },
       { status: 500 }
     );
   }
@@ -471,7 +658,7 @@ export const getRoomBookings = async (
 
     const roomName = havenResult.rows[0].haven_name.trim();
 
-    // Get all active bookings for this room (exclude cancelled and rejected)
+    // Get all active bookings for this room
     const query = `
       SELECT
         id,
@@ -493,7 +680,7 @@ export const getRoomBookings = async (
       data: result.rows,
     });
   } catch (error: any) {
-    console.log("❌ Error fetching room bookings:", error);
+    console.error("❌ Error fetching room bookings:", error);
     return NextResponse.json(
       {
         success: false,

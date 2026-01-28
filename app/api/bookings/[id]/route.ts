@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getBookingById, updateBookingStatus, deleteBooking } from "@/backend/controller/bookingController";
+import { getBookingById } from "@/backend/controller/bookingController";
 
 interface RouteContext {
   params: Promise<{
@@ -7,17 +7,7 @@ interface RouteContext {
   }>
 }
 
-export async function GET(request: NextRequest, { params }: RouteContext): Promise<NextResponse> {
-  await params;
+export async function GET(request: NextRequest, context: RouteContext): Promise<NextResponse> {
+  await context.params; // Just await it, we don't need to extract it
   return getBookingById(request);
-}
-
-export async function PUT(request: NextRequest, { params }: RouteContext): Promise<NextResponse> {
-  await params;
-  return updateBookingStatus(request);
-}
-
-export async function DELETE(request: NextRequest, { params }: RouteContext): Promise<NextResponse> {
-  await params;
-  return deleteBooking(request);
 }
