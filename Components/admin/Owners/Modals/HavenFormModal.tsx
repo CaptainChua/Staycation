@@ -566,7 +566,8 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
                 {isLoading ? "Saving..." : "Save Changes"}
               </button>
                       </div>
-                    </form>
+                    </div>
+                  </form>
       </div>
                 </>
               );
