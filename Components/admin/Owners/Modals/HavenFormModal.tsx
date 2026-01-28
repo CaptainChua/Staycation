@@ -567,6 +567,7 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
               </button>
                       </div>
                     </form>
+      </div>
                 </>
               );
   return (
