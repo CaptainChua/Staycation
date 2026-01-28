@@ -190,7 +190,7 @@ export default function ProfilePage({ user, onClose }: ProfilePageProps) {
           if (field === 'monthly_salary' && newValue) {
             updateData[field] = parseFloat(newValue as string);
           } else {
-            updateData[field] = newValue;
+            (updateData as any)[field] = newValue;
           }
         }
       });
