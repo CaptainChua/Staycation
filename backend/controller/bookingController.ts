@@ -69,12 +69,12 @@ export interface Booking {
 
 // CREATE Booking
 export const createBooking = async (
-  req: NextRequest
+  req: NextRequest,
 ): Promise<NextResponse> => {
   const client = await pool.connect();
   try {
-    await client.query('BEGIN');
-    
+    await client.query("BEGIN");
+
     const body = await req.json();
     const {
       booking_id,
@@ -110,11 +110,11 @@ export const createBooking = async (
     // Step 1: Create main booking record
     const bookingQuery = `
       INSERT INTO booking (
-        booking_id, user_id, room_name, check_in_date, check_out_date, 
+        booking_id, user_id, room_name, check_in_date, check_out_date,
         check_in_time, check_out_time, adults, children, infants, status,
-        created_at, updated_at
+        has_security_deposit, created_at, updated_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'pending', NOW(), NOW())
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'pending', $11, NOW(), NOW())
       RETURNING id
     `;
 
@@ -129,6 +129,7 @@ export const createBooking = async (
       adults,
       children,
       infants,
+      security_deposit > 0, // has_security_deposit flag
     ];
 
     const bookingResult = await client.query(bookingQuery, bookingValues);
@@ -139,7 +140,7 @@ export const createBooking = async (
     if (valid_id) {
       const uploadResult = await upload_file(
         valid_id,
-        "staycation-haven/valid-ids"
+        "staycation-haven/valid-ids",
       );
       validIdUrl = uploadResult.url;
     }
@@ -170,7 +171,7 @@ export const createBooking = async (
         if (guest.validId) {
           const uploadResult = await upload_file(
             guest.validId,
-            "staycation-haven/valid-ids"
+            "staycation-haven/valid-ids",
           );
           guestIdUrl = uploadResult.url;
         }
@@ -196,22 +197,26 @@ export const createBooking = async (
       }
     }
 
-    // Step 4: Create payment record
+    // Step 4: Create payment record (without security deposit)
     let paymentProofUrl = null;
     if (payment_proof) {
       const uploadResult = await upload_file(
         payment_proof,
-        "staycation-haven/payment-proofs"
+        "staycation-haven/payment-proofs",
       );
       paymentProofUrl = uploadResult.url;
     }
 
+    // Calculate payment amounts (security deposit is handled separately during checkout)
+    const paymentTotalAmount = total_amount; // Full amount during booking (security deposit handled at checkout)
+    const paymentRemainingBalance = paymentTotalAmount - down_payment;
+
     const paymentQuery = `
       INSERT INTO booking_payments (
-        booking_id, payment_method, payment_proof_url, room_rate, 
-        security_deposit, add_ons_total, total_amount, down_payment, remaining_balance
+        booking_id, payment_method, payment_proof_url, room_rate,
+        add_ons_total, total_amount, down_payment, remaining_balance
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
     `;
 
     const paymentValues = [
@@ -219,33 +224,40 @@ export const createBooking = async (
       payment_method,
       paymentProofUrl,
       room_rate,
-      security_deposit,
       add_ons_total,
-      total_amount,
+      paymentTotalAmount,
       down_payment,
-      remaining_balance,
+      paymentRemainingBalance,
     ];
 
     await client.query(paymentQuery, paymentValues);
+
+    // Step 4.5: Create security deposit record (always create with 0 amount during booking)
+    const depositQuery = `
+      INSERT INTO booking_security_deposits (
+        booking_id, amount, deposit_status, held_at
+      )
+      VALUES ($1, 0, 'pending', NOW())
+    `;
+
+    const depositValues = [bookingId];
+
+    await client.query(depositQuery, depositValues);
 
     // Step 5: Create add-ons records
     if (add_ons && Object.keys(add_ons).length > 0) {
       for (const [name, quantity] of Object.entries(add_ons)) {
         const quantityNum = Number(quantity);
         if (quantityNum > 0) {
-          const addOnPrice = ADD_ON_PRICES[name as keyof typeof ADD_ON_PRICES] || 0;
-          
+          const addOnPrice =
+            ADD_ON_PRICES[name as keyof typeof ADD_ON_PRICES] || 0;
+
           const addOnQuery = `
             INSERT INTO booking_add_ons (booking_id, name, price, quantity)
             VALUES ($1, $2, $3, $4)
           `;
 
-          const addOnValues = [
-            bookingId,
-            name,
-            addOnPrice,
-            quantityNum,
-          ];
+          const addOnValues = [bookingId, name, addOnPrice, quantityNum];
 
           await client.query(addOnQuery, addOnValues);
         }
@@ -260,20 +272,32 @@ export const createBooking = async (
 
     await client.query(cleaningQuery, [bookingId]);
 
-    await client.query('COMMIT');
+    await client.query("COMMIT");
 
-    // Get the complete booking data for response
+    // Get the complete booking data for response (include the booking payment object)
     const completeBookingQuery = `
-      SELECT 
+      SELECT
         b.*,
         bg.first_name,
         bg.last_name,
         bg.email,
         bg.phone,
         bg.valid_id_url,
-        bp.payment_method,
-        bp.total_amount,
-        bp.down_payment
+        json_build_object(
+          'id', bp.id,
+          'payment_method', bp.payment_method,
+          'payment_proof_url', bp.payment_proof_url,
+          'room_rate', bp.room_rate,
+          'add_ons_total', bp.add_ons_total,
+          'total_amount', bp.total_amount,
+          'down_payment', bp.down_payment,
+          'remaining_balance', bp.remaining_balance,
+          'payment_status', bp.payment_status,
+          'rejection_reason', bp.rejection_reason,
+          'reviewed_by', bp.reviewed_by,
+          'reviewed_at', bp.reviewed_at,
+          'created_at', bp.created_at
+        ) AS booking_payment
       FROM booking b
       JOIN booking_guests bg ON b.id = bg.booking_id
       JOIN booking_payments bp ON b.id = bp.booking_id
@@ -281,8 +305,13 @@ export const createBooking = async (
       LIMIT 1
     `;
 
-    const completeResult = await client.query(completeBookingQuery, [bookingId]);
-    console.log("✅ Booking Created with separated tables:", completeResult.rows[0]);
+    const completeResult = await client.query(completeBookingQuery, [
+      bookingId,
+    ]);
+    console.log(
+      "✅ Booking Created with separated tables:",
+      completeResult.rows[0],
+    );
 
     // Send pending approval email to guest
     try {
@@ -304,19 +333,22 @@ export const createBooking = async (
         totalAmount: booking.total_amount,
       };
 
-      const emailResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/send-pending-email`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(emailData),
-      });
+      const emailResponse = await fetch(
+        `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/api/send-pending-email`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(emailData),
+        },
+      );
 
       if (!emailResponse.ok) {
-        console.error('❌ Failed to send pending approval email');
+        console.error("❌ Failed to send pending approval email");
       } else {
-        console.log('✅ Pending approval email sent to:', booking.email);
+        console.log("✅ Pending approval email sent to:", booking.email);
       }
     } catch (emailError) {
-      console.error('❌ Email sending error:', emailError);
+      console.error("❌ Email sending error:", emailError);
       // Don't fail the whole request if email fails
     }
 
@@ -326,17 +358,18 @@ export const createBooking = async (
         data: completeResult.rows[0],
         message: "Booking created successfully. Waiting for admin approval.",
       },
-      { status: 201 }
+      { status: 201 },
     );
   } catch (error) {
-    await client.query('ROLLBACK');
+    await client.query("ROLLBACK");
     console.log("❌ Error creating booking:", error);
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Failed to create booking",
+        error:
+          error instanceof Error ? error.message : "Failed to create booking",
       },
-      { status: 500 }
+      { status: 500 },
     );
   } finally {
     client.release();
@@ -345,14 +378,14 @@ export const createBooking = async (
 
 // GET All Bookings
 export const getAllBookings = async (
-  req: NextRequest
+  req: NextRequest,
 ): Promise<NextResponse> => {
   try {
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status");
 
     let query = `
-      SELECT 
+      SELECT
         b.*,
         bg.first_name,
         bg.last_name,
@@ -368,7 +401,7 @@ export const getAllBookings = async (
       LEFT JOIN booking_payments bp ON b.id = bp.booking_id
       LEFT JOIN booking_cleaning bc ON b.id = bc.booking_id
       WHERE bg.id = (
-        SELECT MIN(id) FROM booking_guests WHERE booking_id = b.id
+        SELECT id FROM booking_guests WHERE booking_id = b.id ORDER BY id LIMIT 1
       )
     `;
     const values: string[] = [];
@@ -381,7 +414,9 @@ export const getAllBookings = async (
     query += " ORDER BY b.created_at DESC";
 
     const result = await pool.query(query, values);
-    console.log(`✅ Retrieved ${result.rows.length} bookings from separated tables`);
+    console.log(
+      `✅ Retrieved ${result.rows.length} bookings from separated tables`,
+    );
 
     return NextResponse.json({
       success: true,
@@ -393,16 +428,17 @@ export const getAllBookings = async (
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Failed to get bookings",
+        error:
+          error instanceof Error ? error.message : "Failed to get bookings",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 };
 
 // GET Booking by ID
 export const getBookingById = async (
-  req: NextRequest
+  req: NextRequest,
 ): Promise<NextResponse> => {
   try {
     const url = new URL(req.url);
@@ -412,7 +448,7 @@ export const getBookingById = async (
     if (!id) {
       return NextResponse.json(
         { success: false, error: "Booking ID is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -420,6 +456,32 @@ export const getBookingById = async (
       SELECT
         b.*,
         h.tower,
+        h.uuid_id as haven_id,
+        bp.total_amount,
+        bp.down_payment,
+        bp.remaining_balance,
+        bp.payment_method,
+        bp.room_rate,
+        bp.add_ons_total,
+        COALESCE(bd.amount, 0) as security_deposit,
+        bg.first_name as guest_first_name,
+        bg.last_name as guest_last_name,
+        bg.email as guest_email,
+        bg.phone as guest_phone,
+        (
+          SELECT COALESCE(
+            json_agg(
+              json_build_object(
+                'name', ba.name,
+                'price', ba.price,
+                'quantity', ba.quantity
+              ) ORDER BY ba.id
+            ),
+            '[]'
+          ) as add_ons
+          FROM booking_add_ons ba
+          WHERE ba.booking_id = b.id
+        ) as add_ons,
         COALESCE(
           json_agg(hi.image_url ORDER BY hi.display_order)
           FILTER (WHERE hi.id IS NOT NULL),
@@ -428,8 +490,11 @@ export const getBookingById = async (
       FROM booking b
       LEFT JOIN havens h ON b.room_name = h.haven_name
       LEFT JOIN haven_images hi ON h.uuid_id = hi.haven_id
+      LEFT JOIN booking_payments bp ON b.id = bp.booking_id
+      LEFT JOIN booking_guests bg ON b.id = bg.booking_id
+      LEFT JOIN booking_security_deposits bd ON b.id = bd.booking_id
       WHERE b.id = $1
-      GROUP BY b.id, h.tower
+      GROUP BY b.id, h.tower, h.uuid_id, bp.total_amount, bp.down_payment, bp.remaining_balance, bp.payment_method, bp.room_rate, bp.add_ons_total, bg.first_name, bg.last_name, bg.email, bg.phone, bd.amount
       LIMIT 1
     `;
 
@@ -438,7 +503,7 @@ export const getBookingById = async (
     if (result.rows.length === 0) {
       return NextResponse.json(
         { success: false, error: "Booking not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -455,14 +520,14 @@ export const getBookingById = async (
         success: false,
         error: error instanceof Error ? error.message : "Failed to get booking",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 };
 
 // UPDATE Booking Status (Approve/Reject)
 export const updateBookingStatus = async (
-  req: NextRequest
+  req: NextRequest,
 ): Promise<NextResponse> => {
   try {
     const body = await req.json();
@@ -505,22 +570,31 @@ export const updateBookingStatus = async (
           success: false,
           error: "Booking ID is required",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     // If status is provided, validate it. (Edit modal may update without changing status.)
-    const validStatuses = ["pending", "approved", "rejected", "confirmed", "checked-in", "completed", "cancelled"];
+    const validStatuses = [
+      "pending",
+      "approved",
+      "rejected",
+      "confirmed",
+      "checked-in",
+      "completed",
+      "cancelled",
+    ];
     if (typeof status !== "undefined" && status !== null) {
       if (typeof status !== "string" || !validStatuses.includes(status)) {
         return NextResponse.json(
           { success: false, error: "Invalid status" },
-          { status: 400 }
+          { status: 400 },
         );
       }
     }
 
     const updateFields: string[] = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const values: any[] = [];
     let i = 1;
 
@@ -553,8 +627,16 @@ export const updateBookingStatus = async (
     pushField("total_amount", total_amount);
     pushField("down_payment", down_payment);
     pushField("remaining_balance", remaining_balance);
-    pushField("add_ons", typeof add_ons === "undefined" ? undefined : JSON.stringify(add_ons));
-    pushField("additional_guests", typeof additional_guests === "undefined" ? undefined : JSON.stringify(additional_guests));
+    pushField(
+      "add_ons",
+      typeof add_ons === "undefined" ? undefined : JSON.stringify(add_ons),
+    );
+    pushField(
+      "additional_guests",
+      typeof additional_guests === "undefined"
+        ? undefined
+        : JSON.stringify(additional_guests),
+    );
 
     // Status/rejection reason
     pushField("status", status);
@@ -562,18 +644,24 @@ export const updateBookingStatus = async (
 
     // Optional uploads
     if (payment_proof) {
-      const uploadResult = await upload_file(payment_proof, "staycation-haven/payment-proofs");
+      const uploadResult = await upload_file(
+        payment_proof,
+        "staycation-haven/payment-proofs",
+      );
       pushField("payment_proof_url", uploadResult.url);
     }
     if (valid_id) {
-      const uploadResult = await upload_file(valid_id, "staycation-haven/valid-ids");
+      const uploadResult = await upload_file(
+        valid_id,
+        "staycation-haven/valid-ids",
+      );
       pushField("valid_id_url", uploadResult.url);
     }
 
     if (updateFields.length === 0) {
       return NextResponse.json(
         { success: false, error: "No fields provided to update" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -593,7 +681,7 @@ export const updateBookingStatus = async (
           success: false,
           error: "Booking not found",
         },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -601,7 +689,7 @@ export const updateBookingStatus = async (
 
     // Get booking details with guest info for email
     const bookingDetailsQuery = `
-      SELECT 
+      SELECT
         b.*,
         bg.first_name,
         bg.last_name,
@@ -614,7 +702,7 @@ export const updateBookingStatus = async (
       JOIN booking_guests bg ON b.id = bg.booking_id
       JOIN booking_payments bp ON b.id = bp.booking_id
       WHERE b.id = $1 AND bg.id = (
-        SELECT MIN(id) FROM booking_guests WHERE booking_id = b.id
+        SELECT id FROM booking_guests WHERE booking_id = b.id ORDER BY id LIMIT 1
       )
       LIMIT 1
     `;
@@ -622,7 +710,7 @@ export const updateBookingStatus = async (
     const bookingDetailsResult = await pool.query(bookingDetailsQuery, [id]);
 
     // Send confirmation email when booking is approved
-    if (status === 'approved' && bookingDetailsResult.rows.length > 0) {
+    if (status === "approved" && bookingDetailsResult.rows.length > 0) {
       try {
         const booking = bookingDetailsResult.rows[0];
 
@@ -644,19 +732,22 @@ export const updateBookingStatus = async (
         };
 
         // Send email via API route
-        const emailResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/send-booking-email`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(emailData),
-        });
+        const emailResponse = await fetch(
+          `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/api/send-booking-email`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(emailData),
+          },
+        );
 
         if (!emailResponse.ok) {
-          console.error('❌ Failed to send confirmation email');
+          console.error("❌ Failed to send confirmation email");
         } else {
-          console.log('✅ Confirmation email sent to:', booking.email);
+          console.log("✅ Confirmation email sent to:", booking.email);
         }
       } catch (emailError) {
-        console.error('❌ Email sending error:', emailError);
+        console.error("❌ Email sending error:", emailError);
         // Don't fail the whole request if email fails
       }
     }
@@ -664,23 +755,29 @@ export const updateBookingStatus = async (
     return NextResponse.json({
       success: true,
       data: result.rows[0],
-      message: typeof status === "string" ? `Booking ${status} successfully` : "Booking updated successfully",
+      message:
+        typeof status === "string"
+          ? `Booking ${status} successfully`
+          : "Booking updated successfully",
     });
   } catch (error) {
     console.log("❌ Error updating booking status:", error);
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Failed to update booking status",
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to update booking status",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 };
 
 // DELETE Booking
 export const deleteBooking = async (
-  req: NextRequest
+  req: NextRequest,
 ): Promise<NextResponse> => {
   try {
     const { searchParams } = new URL(req.url);
@@ -692,7 +789,7 @@ export const deleteBooking = async (
           success: false,
           error: "Booking ID is required",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -705,7 +802,7 @@ export const deleteBooking = async (
           success: false,
           error: "Booking not found",
         },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -721,9 +818,10 @@ export const deleteBooking = async (
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Failed to delete booking",
+        error:
+          error instanceof Error ? error.message : "Failed to delete booking",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 };
@@ -731,7 +829,7 @@ export const deleteBooking = async (
 // GET User's Bookings
 export const getUserBookings = async (
   req: NextRequest,
-  { params }: { params: Promise<{ userId: string }> }
+  { params }: { params: Promise<{ userId: string }> },
 ): Promise<NextResponse> => {
   const { userId } = await params;
 
@@ -743,6 +841,18 @@ export const getUserBookings = async (
       SELECT
         b.*,
         h.tower,
+        h.uuid_id as haven_id,
+        bp.total_amount,
+        bp.down_payment,
+        bp.remaining_balance,
+        bp.payment_method,
+        bp.room_rate,
+        bp.add_ons_total,
+        COALESCE(bd.amount, 0) as security_deposit,
+        EXISTS(SELECT 1 FROM reviews r WHERE r.booking_id = b.id) as has_reviewed,
+        bg.first_name as guest_first_name,
+        bg.last_name as guest_last_name,
+        bg.email as guest_email,
         COALESCE(
           json_agg(hi.image_url ORDER BY hi.display_order)
           FILTER (WHERE hi.id IS NOT NULL),
@@ -751,6 +861,9 @@ export const getUserBookings = async (
       FROM booking b
       LEFT JOIN havens h ON b.room_name = h.haven_name
       LEFT JOIN haven_images hi ON h.uuid_id = hi.haven_id
+      LEFT JOIN booking_payments bp ON b.id = bp.booking_id
+      LEFT JOIN booking_guests bg ON b.id = bg.booking_id
+      LEFT JOIN booking_security_deposits bd ON b.id = bd.booking_id
       WHERE b.user_id = $1
     `;
 
@@ -770,10 +883,13 @@ export const getUserBookings = async (
       }
     }
 
-    query += ` GROUP BY b.id, h.tower ORDER BY b.created_at DESC`;
+    query += ` GROUP BY b.id, h.tower, h.uuid_id, bp.total_amount, bp.down_payment, bp.remaining_balance, bp.payment_method, bp.room_rate, bp.add_ons_total, bg.first_name, bg.last_name, bg.email, bd.amount ORDER BY b.created_at DESC`;
 
     const result = await pool.query(query, values);
-    console.log(`✅ Retrieved ${result.rows.length} bookings for user ${userId}`);
+    console.log(
+      `✅ Retrieved ${result.rows.length} bookings for user ${userId}`,
+    );
+    console.log("Sample booking data with guest info:", result.rows[0]); // Debug: Log first booking to see structure
 
     return NextResponse.json({
       success: true,
@@ -784,16 +900,19 @@ export const getUserBookings = async (
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Failed to fetch user bookings",
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to fetch user bookings",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 };
 
 // UPDATE Cleaning Status
 export const updateCleaningStatus = async (
-  req: NextRequest
+  req: NextRequest,
 ): Promise<NextResponse> => {
   try {
     const url = new URL(req.url);
@@ -805,21 +924,27 @@ export const updateCleaningStatus = async (
     if (!id) {
       return NextResponse.json(
         { success: false, error: "Booking ID is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     const body = await req.json();
     const { cleaning_status } = body;
 
-    const validCleaningStatuses = ["pending", "in-progress", "cleaned", "inspected"];
+    const validCleaningStatuses = [
+      "pending",
+      "in-progress",
+      "cleaned",
+      "inspected",
+    ];
     if (!cleaning_status || !validCleaningStatuses.includes(cleaning_status)) {
       return NextResponse.json(
         {
           success: false,
-          error: "Invalid cleaning status. Must be one of: pending, in-progress, cleaned, inspected",
+          error:
+            "Invalid cleaning status. Must be one of: pending, in-progress, cleaned, inspected",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -833,18 +958,21 @@ export const updateCleaningStatus = async (
       RETURNING *
     `;
 
-    const cleaningResult = await pool.query(cleaningQuery, [cleaning_status, id]);
+    const cleaningResult = await pool.query(cleaningQuery, [
+      cleaning_status,
+      id,
+    ]);
 
     if (cleaningResult.rows.length === 0) {
       return NextResponse.json(
         { success: false, error: "Booking cleaning record not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
     // Get the complete booking data for response
     const bookingQuery = `
-      SELECT 
+      SELECT
         b.*,
         bg.first_name,
         bg.last_name,
@@ -859,7 +987,7 @@ export const updateCleaningStatus = async (
       JOIN booking_payments bp ON b.id = bp.booking_id
       JOIN booking_cleaning bc ON b.id = bc.booking_id
       WHERE b.id = $1 AND bg.id = (
-        SELECT MIN(id) FROM booking_guests WHERE booking_id = b.id
+        SELECT id FROM booking_guests WHERE booking_id = b.id ORDER BY id LIMIT 1
       )
       LIMIT 1
     `;
@@ -878,9 +1006,12 @@ export const updateCleaningStatus = async (
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Failed to update cleaning status",
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to update cleaning status",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 };
@@ -888,7 +1019,7 @@ export const updateCleaningStatus = async (
 // GET Room/Haven Bookings (for checking availability)
 export const getRoomBookings = async (
   req: NextRequest,
-  { params }: { params: Promise<{ havenId: string }> }
+  { params }: { params: Promise<{ havenId: string }> },
 ): Promise<NextResponse> => {
   const { havenId } = await params;
 
@@ -898,10 +1029,13 @@ export const getRoomBookings = async (
     const havenResult = await pool.query(havenQuery, [havenId]);
 
     if (havenResult.rows.length === 0) {
-      return NextResponse.json({
-        success: false,
-        error: "Haven not found",
-      }, { status: 404 });
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Haven not found",
+        },
+        { status: 404 },
+      );
     }
 
     const roomName = havenResult.rows[0].haven_name.trim();
@@ -935,9 +1069,12 @@ export const getRoomBookings = async (
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Failed to fetch room bookings",
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to fetch room bookings",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 };

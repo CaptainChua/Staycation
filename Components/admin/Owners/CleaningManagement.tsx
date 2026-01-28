@@ -15,10 +15,20 @@ import {
   Sparkles,
   ClipboardCheck,
 } from "lucide-react";
-import { useGetBookingsQuery, useUpdateCleaningStatusMutation } from "@/redux/api/bookingsApi";
+import {
+  useGetBookingsQuery,
+  useUpdateCleaningStatusMutation,
+} from "@/redux/api/bookingsApi";
 import toast from "react-hot-toast";
 
-type BookingStatus = "pending" | "approved" | "rejected" | "confirmed" | "checked-in" | "completed" | "cancelled";
+type BookingStatus =
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "confirmed"
+  | "checked-in"
+  | "completed"
+  | "cancelled";
 type CleaningStatus = "pending" | "in-progress" | "cleaned" | "inspected";
 
 interface Booking {
@@ -40,7 +50,9 @@ interface Booking {
 }
 
 // Derive room status from booking status
-const getRoomStatus = (booking: Booking): "occupied" | "available" | "checkout-pending" => {
+const getRoomStatus = (
+  booking: Booking,
+): "occupied" | "available" | "checkout-pending" => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -76,13 +88,65 @@ const getRoomStatus = (booking: Booking): "occupied" | "available" | "checkout-p
 
 const CleaningManagement = () => {
   // Fetch bookings data
-  const { data: bookings = [], isLoading, refetch } = useGetBookingsQuery({});
+  const {
+    data: bookings = [],
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useGetBookingsQuery({});
+  const getApiErrorMessage = (err: unknown): string | null => {
+    if (!err) return null;
+    if (typeof err === "string") return err;
+    if (typeof err === "object" && err !== null) {
+      const e = err as { data?: { error?: string }; message?: string };
+      return e.data?.error ?? e.message ?? JSON.stringify(err);
+    }
+    return String(err);
+  };
+  const dataError = isError ? getApiErrorMessage(error) : null;
   const [updateCleaningStatus] = useUpdateCleaningStatusMutation();
 
   // Filter states
-  const [roomStatusFilter, setRoomStatusFilter] = useState<"all" | "occupied" | "available" | "checkout-pending">("all");
-  const [cleaningStatusFilter, setCleaningStatusFilter] = useState<"all" | "pending" | "in-progress" | "cleaned" | "inspected">("all");
+  const [roomStatusFilter, setRoomStatusFilter] = useState<
+    "all" | "occupied" | "available" | "checkout-pending"
+  >("all");
+  const [cleaningStatusFilter, setCleaningStatusFilter] = useState<
+    "all" | "pending" | "in-progress" | "cleaned" | "inspected"
+  >("all");
   const [searchTerm, setSearchTerm] = useState("");
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [cleanerName, setCleanerName] = useState("");
+  const [selectedCleaningId, setSelectedCleaningId] = useState<string | null>(
+    null,
+  );
+  const [modalError, setModalError] = useState<string | null>(null);
+
+  // Handle cleaner assignment
+  const handleAssignCleaner = async () => {
+    if (!selectedCleaningId || !cleanerName.trim()) {
+      setModalError("Please enter a cleaner name");
+      return;
+    }
+
+    try {
+      await updateCleaningStatus({
+        id: selectedCleaningId,
+        cleaning_status: "in-progress",
+        cleaner_name: cleanerName.trim(),
+      });
+      
+      toast.success("Cleaner assigned successfully");
+      setShowAssignModal(false);
+      setCleanerName("");
+      setSelectedCleaningId(null);
+      setModalError(null);
+      refetch();
+    } catch (error) {
+      console.error("Error assigning cleaner:", error);
+      setModalError("Failed to assign cleaner");
+    }
+  };
 
   // Process bookings to get room data with statuses
   const roomData = useMemo(() => {
@@ -90,34 +154,37 @@ const CleaningManagement = () => {
     today.setHours(0, 0, 0, 0);
 
     // Only include bookings with approved status and dates that are today or sooner
-    const activeBookings = (bookings as Booking[]).filter(
-      (b) => {
-        const checkInDate = new Date(b.check_in_date);
-        const checkOutDate = new Date(b.check_out_date);
-        checkInDate.setHours(0, 0, 0, 0);
-        checkOutDate.setHours(0, 0, 0, 0);
-        
-        const statusMatch = ["approved", "confirmed", "checked-in"].includes(b.status);
-        const checkInMatch = checkInDate <= today;
-        const checkOutMatch = checkOutDate <= today;
-        
-        // Debug logging for troubleshooting
-        if (b.room_name?.includes("experiemnt") || b.booking_id === "BK1768356599516") {
-          console.log("Debug booking:", {
-            room_name: b.room_name,
-            status: b.status,
-            check_in_date: b.check_in_date,
-            check_out_date: b.check_out_date,
-            statusMatch,
-            checkInMatch,
-            checkOutMatch,
-            today: today.toISOString().split('T')[0]
-          });
-        }
-        
-        return statusMatch && checkInMatch && checkOutMatch;
+    const activeBookings = (bookings as Booking[]).filter((b) => {
+      const checkInDate = new Date(b.check_in_date);
+      const checkOutDate = new Date(b.check_out_date);
+      checkInDate.setHours(0, 0, 0, 0);
+      checkOutDate.setHours(0, 0, 0, 0);
+
+      const statusMatch = ["approved", "confirmed", "checked-in"].includes(
+        b.status,
+      );
+      const checkInMatch = checkInDate <= today;
+      const checkOutMatch = checkOutDate <= today;
+
+      // Debug logging for troubleshooting
+      if (
+        b.room_name?.includes("experiemnt") ||
+        b.booking_id === "BK1768356599516"
+      ) {
+        console.log("Debug booking:", {
+          room_name: b.room_name,
+          status: b.status,
+          check_in_date: b.check_in_date,
+          check_out_date: b.check_out_date,
+          statusMatch,
+          checkInMatch,
+          checkOutMatch,
+          today: today.toISOString().split("T")[0],
+        });
       }
-    );
+
+      return statusMatch && checkInMatch && checkOutMatch;
+    });
 
     // Group by room name and get most recent booking for each room
     const roomMap = new Map<string, Booking>();
@@ -127,7 +194,10 @@ const CleaningManagement = () => {
       if (!roomName) return;
 
       const existing = roomMap.get(roomName);
-      if (!existing || new Date(booking.check_in_date) > new Date(existing.check_in_date)) {
+      if (
+        !existing ||
+        new Date(booking.check_in_date) > new Date(existing.check_in_date)
+      ) {
         roomMap.set(roomName, booking);
       }
     });
@@ -142,8 +212,11 @@ const CleaningManagement = () => {
   // Filter rooms based on status and search
   const filteredRooms = useMemo(() => {
     return roomData.filter((room) => {
-      const matchesRoomStatus = roomStatusFilter === "all" || room.roomStatus === roomStatusFilter;
-      const matchesCleaningStatus = cleaningStatusFilter === "all" || room.cleaning_status === cleaningStatusFilter;
+      const matchesRoomStatus =
+        roomStatusFilter === "all" || room.roomStatus === roomStatusFilter;
+      const matchesCleaningStatus =
+        cleaningStatusFilter === "all" ||
+        room.cleaning_status === cleaningStatusFilter;
       const matchesSearch =
         room.room_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         room.guestName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -154,9 +227,15 @@ const CleaningManagement = () => {
   }, [roomData, roomStatusFilter, cleaningStatusFilter, searchTerm]);
 
   // Handle cleaning status update
-  const handleCleaningStatusUpdate = async (bookingId: string, newStatus: CleaningStatus) => {
+  const handleCleaningStatusUpdate = async (
+    bookingId: string,
+    newStatus: CleaningStatus,
+  ) => {
     try {
-      await updateCleaningStatus({ id: bookingId, cleaning_status: newStatus }).unwrap();
+      await updateCleaningStatus({
+        id: bookingId,
+        cleaning_status: newStatus,
+      }).unwrap();
       toast.success(`Cleaning status updated to ${newStatus}`);
       refetch();
     } catch (error) {
@@ -165,7 +244,9 @@ const CleaningManagement = () => {
     }
   };
 
-  const getRoomStatusColor = (status: "occupied" | "available" | "checkout-pending") => {
+  const getRoomStatusColor = (
+    status: "occupied" | "available" | "checkout-pending",
+  ) => {
     switch (status) {
       case "occupied":
         return "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800";
@@ -193,7 +274,9 @@ const CleaningManagement = () => {
     }
   };
 
-  const getRoomStatusIcon = (status: "occupied" | "available" | "checkout-pending") => {
+  const getRoomStatusIcon = (
+    status: "occupied" | "available" | "checkout-pending",
+  ) => {
     switch (status) {
       case "occupied":
         return <Users className="w-4 h-4" />;
@@ -221,7 +304,9 @@ const CleaningManagement = () => {
     }
   };
 
-  const getRoomStatusText = (status: "occupied" | "available" | "checkout-pending") => {
+  const getRoomStatusText = (
+    status: "occupied" | "available" | "checkout-pending",
+  ) => {
     switch (status) {
       case "occupied":
         return "Occupied";
@@ -251,11 +336,21 @@ const CleaningManagement = () => {
 
   // Stats calculations
   const totalRooms = filteredRooms.length;
-  const availableCount = filteredRooms.filter((room) => room.roomStatus === "available").length;
-  const occupiedCount = filteredRooms.filter((room) => room.roomStatus === "occupied").length;
-  const checkoutPendingCount = filteredRooms.filter((room) => room.roomStatus === "checkout-pending").length;
-  const cleaningPendingCount = filteredRooms.filter((room) => room.cleaning_status === "pending").length;
-  const cleaningInProgressCount = filteredRooms.filter((room) => room.cleaning_status === "in-progress").length;
+  const availableCount = filteredRooms.filter(
+    (room) => room.roomStatus === "available",
+  ).length;
+  const occupiedCount = filteredRooms.filter(
+    (room) => room.roomStatus === "occupied",
+  ).length;
+  const checkoutPendingCount = filteredRooms.filter(
+    (room) => room.roomStatus === "checkout-pending",
+  ).length;
+  const cleaningPendingCount = filteredRooms.filter(
+    (room) => room.cleaning_status === "pending",
+  ).length;
+  const cleaningInProgressCount = filteredRooms.filter(
+    (room) => room.cleaning_status === "in-progress",
+  ).length;
 
   const statCards = [
     {
@@ -311,7 +406,10 @@ const CleaningManagement = () => {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
           {[...Array(6)].map((_, i) => (
-            <div key={i} className="h-28 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse"></div>
+            <div
+              key={i}
+              className="h-28 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse"
+            ></div>
           ))}
         </div>
         <div className="h-96 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse"></div>
@@ -320,7 +418,7 @@ const CleaningManagement = () => {
   }
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-700 min-h-screen">
+    <div className="space-y-6 animate-in fade-in duration-700">
       {/* Header */}
       <div className="space-y-4">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
@@ -329,11 +427,18 @@ const CleaningManagement = () => {
               Cleaning Management
             </h1>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              Monitor room readiness, track cleaning status, and manage housekeeping tasks
+              Monitor room readiness, track cleaning status, and manage
+              housekeeping tasks
             </p>
           </div>
         </div>
       </div>
+
+      {modalError && (
+        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/50 rounded-lg text-red-700 dark:text-red-300">
+          {modalError}
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
@@ -353,7 +458,7 @@ const CleaningManagement = () => {
         ))}
       </div>
 
-      {/* Room Table */}
+      {/* Cleaning Table */}
       <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden">
         {/* Search and Filter Bar */}
         <div className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4">
@@ -371,10 +476,16 @@ const CleaningManagement = () => {
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-2">
                 <Filter className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                <span className="text-sm font-medium text-gray-600 dark:text-gray-300">Room:</span>
+                <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                  Room:
+                </span>
                 <select
                   value={roomStatusFilter}
-                  onChange={(e) => setRoomStatusFilter(e.target.value as typeof roomStatusFilter)}
+                  onChange={(e) =>
+                    setRoomStatusFilter(
+                      e.target.value as typeof roomStatusFilter,
+                    )
+                  }
                   className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-brand-primary focus:border-brand-primary/80 transition"
                 >
                   <option value="all">All</option>
@@ -384,10 +495,16 @@ const CleaningManagement = () => {
                 </select>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-gray-600 dark:text-gray-300">Cleaning:</span>
+                <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                  Cleaning:
+                </span>
                 <select
                   value={cleaningStatusFilter}
-                  onChange={(e) => setCleaningStatusFilter(e.target.value as typeof cleaningStatusFilter)}
+                  onChange={(e) =>
+                    setCleaningStatusFilter(
+                      e.target.value as typeof cleaningStatusFilter,
+                    )
+                  }
                   className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-brand-primary focus:border-brand-primary/80 transition"
                 >
                   <option value="all">All</option>
@@ -434,7 +551,10 @@ const CleaningManagement = () => {
             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
               {filteredRooms.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                  <td
+                    colSpan={8}
+                    className="px-6 py-12 text-center text-gray-500 dark:text-gray-400"
+                  >
                     No rooms found matching your criteria
                   </td>
                 </tr>
@@ -470,7 +590,9 @@ const CleaningManagement = () => {
                         className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border ${getCleaningStatusColor(room.cleaning_status)}`}
                       >
                         {getCleaningStatusIcon(room.cleaning_status)}
-                        <span>{getCleaningStatusText(room.cleaning_status)}</span>
+                        <span>
+                          {getCleaningStatusText(room.cleaning_status)}
+                        </span>
                       </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-800 dark:text-gray-100">
@@ -494,7 +616,9 @@ const CleaningManagement = () => {
                         {room.cleaning_status === "pending" && (
                           <button
                             type="button"
-                            onClick={() => handleCleaningStatusUpdate(room.id, "in-progress")}
+                            onClick={() =>
+                              handleCleaningStatusUpdate(room.id, "in-progress")
+                            }
                             className="p-2 rounded-md border border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-900/50 dark:text-blue-300 dark:hover:bg-blue-900/30 transition-colors"
                             title="Start Cleaning"
                           >
@@ -504,7 +628,9 @@ const CleaningManagement = () => {
                         {room.cleaning_status === "in-progress" && (
                           <button
                             type="button"
-                            onClick={() => handleCleaningStatusUpdate(room.id, "cleaned")}
+                            onClick={() =>
+                              handleCleaningStatusUpdate(room.id, "cleaned")
+                            }
                             className="p-2 rounded-md border border-emerald-200 text-emerald-600 hover:bg-emerald-50 dark:border-emerald-900/50 dark:text-emerald-300 dark:hover:bg-emerald-900/30 transition-colors"
                             title="Mark as Cleaned"
                           >
@@ -514,7 +640,9 @@ const CleaningManagement = () => {
                         {room.cleaning_status === "cleaned" && (
                           <button
                             type="button"
-                            onClick={() => handleCleaningStatusUpdate(room.id, "inspected")}
+                            onClick={() =>
+                              handleCleaningStatusUpdate(room.id, "inspected")
+                            }
                             className="p-2 rounded-md border border-purple-200 text-purple-600 hover:bg-purple-50 dark:border-purple-900/50 dark:text-purple-300 dark:hover:bg-purple-900/30 transition-colors"
                             title="Mark as Inspected"
                           >
@@ -524,7 +652,9 @@ const CleaningManagement = () => {
                         {room.cleaning_status === "inspected" && (
                           <button
                             type="button"
-                            onClick={() => handleCleaningStatusUpdate(room.id, "pending")}
+                            onClick={() =>
+                              handleCleaningStatusUpdate(room.id, "pending")
+                            }
                             className="p-2 rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800 transition-colors"
                             title="Reset to Pending"
                           >
@@ -549,7 +679,55 @@ const CleaningManagement = () => {
       </div>
 
       {/* Summary Section */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 pb-6">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 pb-6">
+        <div className="bg-white dark:bg-gray-900 rounded-lg shadow dark:shadow-gray-900 overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-800 bg-gradient-to-r from-amber-50 to-amber-100 dark:from-amber-900/40 dark:to-amber-900/20">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              Checkout Today - Needs Cleaning
+            </h2>
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              Rooms checking out today that require cleaning
+            </p>
+          </div>
+          <div className="divide-y divide-gray-100 dark:divide-gray-800">
+            {filteredRooms
+              .filter((r) => r.cleaning_status === "pending")
+              .slice(0, 5)
+              .map((room) => (
+                <div
+                  key={room.id}
+                  className="px-6 py-4 flex items-center justify-between"
+                >
+                  <div>
+                    <p className="font-semibold text-gray-800 dark:text-gray-100">
+                      {room.room_name}
+                    </p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {room.booking_id} • {room.guestName}
+                    </p>
+                  </div>
+                  <div>
+                    <button
+                      onClick={() => {
+                        setSelectedCleaningId(room.id);
+                        setShowAssignModal(true);
+                      }}
+                      className="px-3 py-1.5 text-xs font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 rounded-full hover:bg-blue-200 dark:hover:bg-blue-900/60 transition-colors"
+                      title="Assign Cleaner"
+                    >
+                      Assign
+                    </button>
+                  </div>
+                </div>
+              ))}
+            {filteredRooms.filter((r) => r.cleaning_status === "pending").length === 0 && (
+              <div className="px-6 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
+                No pending cleaning tasks
+              </div>
+            )}
+          </div>
+        </div>
+
         <div className="bg-white dark:bg-gray-900 rounded-lg shadow dark:shadow-gray-900 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-800 bg-gradient-to-r from-amber-50 to-amber-100 dark:from-amber-900/40 dark:to-amber-900/20">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
@@ -561,7 +739,11 @@ const CleaningManagement = () => {
           </div>
           <div className="divide-y divide-gray-100 dark:divide-gray-800 max-h-80 overflow-y-auto">
             {filteredRooms
-              .filter((r) => r.roomStatus === "checkout-pending" && r.cleaning_status === "pending")
+              .filter(
+                (r) =>
+                  r.roomStatus === "checkout-pending" &&
+                  r.cleaning_status === "pending",
+              )
               .map((room) => (
                 <div
                   key={room.id}
@@ -576,7 +758,9 @@ const CleaningManagement = () => {
                     </p>
                   </div>
                   <button
-                    onClick={() => handleCleaningStatusUpdate(room.id, "in-progress")}
+                    onClick={() =>
+                      handleCleaningStatusUpdate(room.id, "in-progress")
+                    }
                     className="px-3 py-1.5 text-xs font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 rounded-full hover:bg-blue-200 dark:hover:bg-blue-900/60 transition-colors"
                   >
                     Start Cleaning
@@ -584,7 +768,9 @@ const CleaningManagement = () => {
                 </div>
               ))}
             {filteredRooms.filter(
-              (r) => r.roomStatus === "checkout-pending" && r.cleaning_status === "pending"
+              (r) =>
+                r.roomStatus === "checkout-pending" &&
+                r.cleaning_status === "pending",
             ).length === 0 && (
               <div className="px-6 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
                 No rooms checking out today need cleaning
@@ -619,14 +805,17 @@ const CleaningManagement = () => {
                     </p>
                   </div>
                   <button
-                    onClick={() => handleCleaningStatusUpdate(room.id, "cleaned")}
+                    onClick={() =>
+                      handleCleaningStatusUpdate(room.id, "cleaned")
+                    }
                     className="px-3 py-1.5 text-xs font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 rounded-full hover:bg-emerald-200 dark:hover:bg-emerald-900/60 transition-colors"
                   >
                     Mark Cleaned
                   </button>
                 </div>
               ))}
-            {filteredRooms.filter((r) => r.cleaning_status === "in-progress").length === 0 && (
+            {filteredRooms.filter((r) => r.cleaning_status === "in-progress")
+              .length === 0 && (
               <div className="px-6 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
                 No rooms currently being cleaned
               </div>
@@ -660,14 +849,17 @@ const CleaningManagement = () => {
                     </p>
                   </div>
                   <button
-                    onClick={() => handleCleaningStatusUpdate(room.id, "inspected")}
+                    onClick={() =>
+                      handleCleaningStatusUpdate(room.id, "inspected")
+                    }
                     className="px-3 py-1.5 text-xs font-semibold bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 rounded-full hover:bg-purple-200 dark:hover:bg-purple-900/60 transition-colors"
                   >
                     Approve Inspection
                   </button>
                 </div>
               ))}
-            {filteredRooms.filter((r) => r.cleaning_status === "cleaned").length === 0 && (
+            {filteredRooms.filter((r) => r.cleaning_status === "cleaned")
+              .length === 0 && (
               <div className="px-6 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
                 No rooms awaiting inspection
               </div>
@@ -686,7 +878,11 @@ const CleaningManagement = () => {
           </div>
           <div className="divide-y divide-gray-100 dark:divide-gray-800 max-h-80 overflow-y-auto">
             {filteredRooms
-              .filter((r) => r.cleaning_status === "inspected" && r.roomStatus === "available")
+              .filter(
+                (r) =>
+                  r.cleaning_status === "inspected" &&
+                  r.roomStatus === "available",
+              )
               .map((room) => (
                 <div
                   key={room.id}
@@ -707,7 +903,9 @@ const CleaningManagement = () => {
                 </div>
               ))}
             {filteredRooms.filter(
-              (r) => r.cleaning_status === "inspected" && r.roomStatus === "available"
+              (r) =>
+                r.cleaning_status === "inspected" &&
+                r.roomStatus === "available",
             ).length === 0 && (
               <div className="px-6 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
                 No rooms currently ready for guests
@@ -716,6 +914,65 @@ const CleaningManagement = () => {
           </div>
         </div>
       </div>
+
+      {/* Assign Cleaner Modal */}
+      {showAssignModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-900 rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                Assign Cleaner
+              </h3>
+            </div>
+            <div className="px-6 py-4 space-y-4">
+              {modalError && (
+                <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded text-sm text-red-700 dark:text-red-300">
+                  {modalError}
+                </div>
+              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Cleaner Name
+                </label>
+                <input
+                  type="text"
+                  value={cleanerName}
+                  onChange={(e) => setCleanerName(e.target.value)}
+                  placeholder="Enter cleaner name"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      handleAssignCleaner();
+                    }
+                  }}
+                  autoFocus
+                />
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex gap-2 justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAssignModal(false);
+                  setCleanerName("");
+                  setSelectedCleaningId(null);
+                  setModalError(null);
+                }}
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleAssignCleaner}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+              >
+                Assign
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

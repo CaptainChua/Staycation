@@ -19,20 +19,31 @@ import {
   Clock,
   Award,
   MessageCircle,
+  LayoutGrid,
+  Sparkles,
+  Calendar,
 } from "lucide-react";
 import Image from "next/image";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { setSelectedRoom } from "@/redux/slices/bookingSlice";
 import { formatDateSafe } from "@/lib/dateUtils";
 import { useSession } from "next-auth/react";
 import { useCheckWishlistStatusQuery, useAddToWishlistMutation, useRemoveFromWishlistMutation } from "@/redux/api/wishlistApi";
+import { useGetHavenReviewsQuery } from "@/redux/api/reviewsApi";
 import toast from "react-hot-toast";
 import AmenityBadge from "./AmenityBadge";
 import RoomCard from "./RoomCard";
 import dynamic from "next/dynamic";
 import Footer from "../Footer";
+import DateRangePicker from "../HeroSection/DateRangePicker";
+import GuestSelector from "../HeroSection/GuestSelector";
+import {
+  setCheckInDate as setReduxCheckInDate,
+  setCheckOutDate as setReduxCheckOutDate,
+  setGuests as setReduxGuests,
+} from '@/redux/slices/bookingSlice'
 
 // Define proper type for session user
 interface SessionUser {
@@ -54,6 +65,7 @@ const RoomMap = dynamic(() => import("./RoomMap"), {
 
 interface Room {
   id: string;
+  uuid_id?: string;
   name: string;
   price: string;
   pricePerNight: string;
@@ -65,9 +77,10 @@ interface Room {
   description: string;
   fullDescription?: string;
   beds?: string;
-  roomSize?: string;  
+  roomSize?: string;
   location?: string;
   tower?: string;
+  floor?: string;
   photoTour?: {
     livingArea?: string[];
     kitchenette?: string[];
@@ -98,21 +111,81 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [showAllAmenities, setShowAllAmenities] = useState(false);
   const [showFullDescription, setShowFullDescription] = useState(false);
-  const [activeTab, setActiveTab] = useState<"overview" | "amenities" | "location">("overview");
+  const [showAllReviews, setShowAllReviews] = useState(false);
+  const [activeTab, setActiveTab] = useState<"overview" | "amenities" | "location" | "reviews">("overview");
+  
+  // Local state for date and guest selection
+  const [localCheckInDate, setLocalCheckInDate] = useState(bookingData.checkInDate || "");
+  const [localCheckOutDate, setLocalCheckOutDate] = useState(bookingData.checkOutDate || "");
+  const [localGuests, setLocalGuests] = useState(bookingData.guests || {
+    adults: 1,
+    children: 0,
+    infants: 0,
+  });
 
   // Type-safe user id extraction
   const userId = (session?.user as SessionUser)?.id || null;
 
   // RTK Query hooks
-  const { data: wishlistStatus } = useCheckWishlistStatusQuery(
+  const { data: wishlistStatus, error: wishlistError } = useCheckWishlistStatusQuery(
     { userId: userId, havenId: room.id },
     { skip: !userId }
   );
   const [addToWishlist, { isLoading: isAdding }] = useAddToWishlistMutation();
   const [removeFromWishlist, { isLoading: isRemoving }] = useRemoveFromWishlistMutation();
+  
+  // Fetch reviews for this haven
+  const { data: reviewsResponse, isLoading: isLoadingReviews } = useGetHavenReviewsQuery({ haven_id: room.id });
+  const reviewsData = reviewsResponse?.success ? reviewsResponse : { reviews: [], total: 0, hasMore: false };
+
+  // Initialize local state with booking data when component mounts or booking data changes
+  useEffect(() => {
+    if (bookingData.checkInDate) setLocalCheckInDate(bookingData.checkInDate);
+    if (bookingData.checkOutDate) setLocalCheckOutDate(bookingData.checkOutDate);
+    if (bookingData.guests) setLocalGuests(bookingData.guests);
+  }, [bookingData.checkInDate, bookingData.checkOutDate, bookingData.guests]);
+
+  // Handle click outside to close dropdowns
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      const dateDropdown = document.getElementById('mobile-date-dropdown');
+      const guestDropdown = document.getElementById('mobile-guest-dropdown');
+      
+      // Check if click is outside both dropdowns and not on the trigger buttons
+      if (dateDropdown && !dateDropdown.contains(target) && 
+          guestDropdown && !guestDropdown.contains(target) &&
+          !target.closest('[data-dropdown-trigger="date"]') &&
+          !target.closest('[data-dropdown-trigger="guest"]')) {
+        
+        // Hide both dropdowns
+        dateDropdown.classList.add('hidden');
+        guestDropdown.classList.add('hidden');
+      }
+    };
+
+    // Add event listener when component mounts
+    document.addEventListener('mousedown', handleClickOutside);
+    
+    // Clean up event listener when component unmounts
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Handle wishlist errors - log only, no toast notifications
+  useEffect(() => {
+    if (wishlistError) {
+      console.error('Wishlist API Error:', wishlistError);
+      // No toast notification - handle errors silently
+    }
+  }, [wishlistError]);
 
   const isInWishlist = wishlistStatus?.isInWishlist || false;
   const isLoadingWishlist = isAdding || isRemoving;
+  
+  // Disable wishlist functionality if API is not available
+  const isWishlistDisabled = !!wishlistError && 'status' in wishlistError && wishlistError.status === 404;
 
   // Safe defaults
   const images = Array.isArray(room.images) ? room.images : [];
@@ -179,6 +252,11 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
   };
 
   const handleBookNow = () => {
+    // Update Redux store with current selections
+    dispatch(setReduxCheckInDate(localCheckInDate));
+    dispatch(setReduxCheckOutDate(localCheckOutDate));
+    dispatch(setReduxGuests(localGuests));
+    
     dispatch(
       setSelectedRoom({
         id: room.id,
@@ -190,6 +268,13 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
       })
     );
     router.push("/checkout");
+  };
+
+  const handleGuestChange = (type: keyof typeof localGuests, value: number) => {
+    setLocalGuests((prev) => ({
+      ...prev,
+      [type]: value,
+    }));
   };
 
   const handleShare = async () => {
@@ -235,8 +320,9 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
                 </button>
                 <button
                   onClick={handleWishlistToggle}
-                  disabled={isLoadingWishlist}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  disabled={isLoadingWishlist || isWishlistDisabled}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title={isWishlistDisabled ? "Wishlist feature temporarily unavailable" : userId ? "Add to wishlist" : "Login to add to wishlist"}
                 >
                   <Heart className={`w-4 h-4 ${isInWishlist ? 'fill-red-500 text-red-500' : ''}`} />
                   <span className="hidden sm:inline">{isInWishlist ? 'Saved' : 'Save'}</span>
@@ -378,12 +464,12 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
                   <div className="flex items-center gap-1">
                     <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
                     <span className="font-semibold text-gray-900 dark:text-white">{room.rating}</span>
-                    <span className="text-gray-500 dark:text-gray-400">({room.reviews} reviews)</span>
+                    <span className="text-gray-500 dark:text-gray-400">({reviewsData?.total || room.reviews} reviews)</span>
                   </div>
                   <span className="text-gray-300 dark:text-gray-600">|</span>
                   <div className="flex items-center gap-1 text-gray-600 dark:text-gray-400">
                     <MapPin className="w-4 h-4" />
-                    <span>Quezon City{room.tower && `, ${room.tower}`}</span>
+                    <span>Staycation Haven PH, Quezon City{room.tower && `, ${room.tower}`}</span>
                   </div>
                 </div>
               </div>
@@ -407,7 +493,7 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
                       </div>
                       <div>
                         <p className="text-sm font-medium text-gray-900 dark:text-white">{room.beds}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Sleeping</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Bed</p>
                       </div>
                     </div>
                   )}
@@ -436,21 +522,23 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
 
               {/* Tabs Navigation */}
               <div className="border-b border-gray-200 dark:border-gray-700">
-                <div className="flex gap-8">
+                <div className="flex gap-8 overflow-x-auto scrollbar-hide">
                   {[
-                    { id: "overview", label: "Overview" },
-                    { id: "amenities", label: "Amenities" },
-                    { id: "location", label: "Location" },
+                    { id: "overview", label: "Overview", icon: <LayoutGrid className="w-4 h-4" /> },
+                    { id: "amenities", label: "Amenities", icon: <Sparkles className="w-4 h-4" /> },
+                    { id: "location", label: "Location", icon: <MapPin className="w-4 h-4" /> },
+                    { id: "reviews", label: "Reviews", icon: <Star className="w-4 h-4" /> },
                   ].map((tab) => (
                     <button
                       key={tab.id}
                       onClick={() => setActiveTab(tab.id as typeof activeTab)}
-                      className={`py-4 text-sm font-medium border-b-2 transition-colors ${
+                      className={`flex items-center gap-2 py-4 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                         activeTab === tab.id
                           ? "border-brand-primary text-brand-primary"
                           : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                       }`}
                     >
+                      {tab.icon}
                       {tab.label}
                     </button>
                   ))}
@@ -523,7 +611,7 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
                     <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
                       What this place offers
                     </h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="flex flex-wrap gap-2">
                       {displayedAmenities.map((amenity, index) => (
                         <AmenityBadge key={index} amenity={amenity} />
                       ))}
@@ -531,7 +619,7 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
                     {amenities.length > 6 && (
                       <button
                         onClick={() => setShowAllAmenities(!showAllAmenities)}
-                        className="mt-4 px-6 py-2.5 border border-gray-900 dark:border-gray-300 text-gray-900 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                        className="mt-4 flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                       >
                         {showAllAmenities ? 'Show less' : `Show all ${amenities.length} amenities`}
                       </button>
@@ -554,6 +642,132 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
                         location={room.location}
                       />
                     </div>
+                  </div>
+                )}
+
+                {activeTab === "reviews" && (
+                  <div>
+                    {/* Reviews Header */}
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="flex items-center gap-2">
+                        <Star className="w-6 h-6 fill-yellow-400 text-yellow-400" />
+                        <span className="text-2xl font-bold text-gray-900 dark:text-white">{room.rating}</span>
+                      </div>
+                      <span className="text-gray-300 dark:text-gray-600">•</span>
+                      <span className="text-lg text-gray-600 dark:text-gray-400">{reviewsData?.total || room.reviews} reviews</span>
+                    </div>
+
+                    {/* Rating Breakdown */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                      {[
+                        { label: "Cleanliness", rating: 4.9 },
+                        { label: "Communication", rating: 5.0 },
+                        { label: "Check-in", rating: 4.8 },
+                        { label: "Accuracy", rating: 4.9 },
+                        { label: "Location", rating: 4.7 },
+                        { label: "Value", rating: 4.8 },
+                      ].map((item) => (
+                        <div key={item.label} className="flex items-center justify-between gap-4">
+                          <span className="text-sm text-gray-600 dark:text-gray-400">{item.label}</span>
+                          <div className="flex items-center gap-2 flex-1 max-w-[150px]">
+                            <div className="flex-1 h-1 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-gray-900 dark:bg-white rounded-full"
+                                style={{ width: `${(item.rating / 5) * 100}%` }}
+                              />
+                            </div>
+                            <span className="text-sm font-medium text-gray-900 dark:text-white w-8">{item.rating}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Reviews List */}
+                    <div className="space-y-6">
+                      {isLoadingReviews ? (
+                        // Loading skeleton
+                        [1, 2, 3].map((index) => (
+                          <div key={index} className="pb-6 border-b border-gray-200 dark:border-gray-700 last:border-0">
+                            <div className="flex items-start gap-4">
+                              <div className="w-12 h-12 rounded-full bg-gray-200 dark:bg-gray-700 animate-pulse flex-shrink-0"></div>
+                              <div className="flex-1">
+                                <div className="flex items-center justify-between mb-1">
+                                  <div className="h-4 w-32 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                                  <div className="flex gap-1">
+                                    {[...Array(5)].map((_, i) => (
+                                      <div key={i} className="w-3.5 h-3.5 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                                    ))}
+                                  </div>
+                                </div>
+                                <div className="h-3 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mb-2"></div>
+                                <div className="h-4 w-full bg-gray-200 dark:bg-gray-700 rounded animate-pulse mb-1"></div>
+                                <div className="h-4 w-3/4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      ) : reviewsData?.reviews?.length > 0 ? (
+                        reviewsData.reviews
+                          .slice(0, showAllReviews ? undefined : 3)
+                          .map((review) => (
+                            <div key={review.id} className="pb-6 border-b border-gray-200 dark:border-gray-700 last:border-0">
+                              <div className="flex items-start gap-4">
+                                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-brand-primary to-orange-400 flex items-center justify-center flex-shrink-0">
+                                  <span className="text-sm font-bold text-white">
+                                    {review.guest_first_name?.[0]}{review.guest_last_name?.[0]}
+                                  </span>
+                                </div>
+                                <div className="flex-1">
+                                  <div className="flex items-center justify-between mb-1">
+                                    <h4 className="font-semibold text-gray-900 dark:text-white">
+                                      {review.guest_first_name} {review.guest_last_name?.[0]}***
+                                    </h4>
+                                    <div className="flex items-center gap-1">
+                                      {[...Array(5)].map((_, i) => (
+                                        <Star
+                                          key={i}
+                                          className={`w-3.5 h-3.5 ${i < Math.round(review.overall_rating) ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300 dark:text-gray-600'}`}
+                                        />
+                                      ))}
+                                    </div>
+                                  </div>
+                                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+                                    {new Date(review.created_at).toLocaleDateString('en-US', { 
+                                      year: 'numeric', 
+                                      month: 'long' 
+                                    })}
+                                  </p>
+                                  {review.comment && (
+                                    <p className="text-gray-600 dark:text-gray-300 leading-relaxed">{review.comment}</p>
+                                  )}
+                                  {review.is_verified && (
+                                    <div className="flex items-center gap-1 mt-2">
+                                      <Shield className="w-3 h-3 text-green-600" />
+                                      <span className="text-xs text-green-600 font-medium">Verified Review</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                      ) : (
+                        <div className="text-center py-8">
+                          <MessageCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                          <p className="text-gray-600 dark:text-gray-400">No reviews yet</p>
+                          <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">Be the first to share your experience!</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Show More Reviews Button */}
+                    {(reviewsData?.reviews?.length > 3 || (reviewsData?.total || 0) > 3) && (
+                      <button
+                        onClick={() => setShowAllReviews(!showAllReviews)}
+                        className="w-full mt-6 flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                      >
+                        {showAllReviews ? 'Show less' : `Show all ${reviewsData?.total || room.reviews} reviews`}
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -590,7 +804,7 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
 
             {/* Right Column - Booking Card (Desktop) */}
             <div className="hidden lg:block">
-              <div className="sticky top-32">
+              <div className="sticky top-32" data-booking-card>
                 <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6">
                   {/* Price */}
                   <div className="flex items-baseline gap-1 mb-4">
@@ -602,30 +816,60 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
                   <div className="flex items-center gap-2 mb-6">
                     <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
                     <span className="font-medium text-gray-900 dark:text-white">{room.rating}</span>
-                    <span className="text-gray-500 dark:text-gray-400">({room.reviews} reviews)</span>
+                    <span className="text-gray-500 dark:text-gray-400">({reviewsData?.total || room.reviews} reviews)</span>
+                  </div>
+
+                  {/* Date and Guest Selection */}
+                  <div className="space-y-3 mb-6">
+                    {/* Date Range Picker */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Select Dates
+                      </label>
+                      <DateRangePicker
+                        checkInDate={localCheckInDate}
+                        checkOutDate={localCheckOutDate}
+                        onCheckInChange={setLocalCheckInDate}
+                        onCheckOutChange={setLocalCheckOutDate}
+                      />
+                    </div>
+                    
+                    {/* Guest Selector */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Number of Guests
+                      </label>
+                      <GuestSelector
+                        guests={localGuests}
+                        onGuestChange={handleGuestChange}
+                      />
+                    </div>
                   </div>
 
                   {/* Booking Info */}
-                  {bookingData.isFromSearch && (
-                    <div className="border border-gray-200 dark:border-gray-700 rounded-lg mb-4 overflow-hidden">
-                      <div className="grid grid-cols-2 divide-x divide-gray-200 dark:divide-gray-700">
-                        <div className="p-3">
+                  {bookingData.isFromSearch && (localCheckInDate || localCheckOutDate) && (
+                    <div className="border border-gray-200 dark:border-gray-700 rounded-lg mb-4 p-3 bg-gray-50 dark:bg-gray-700/50">
+                      <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
+                        Previously selected from search:
+                      </p>
+                      <div className="grid grid-cols-2 divide-x divide-gray-200 dark:divide-gray-600">
+                        <div className="p-2">
                           <p className="text-[10px] uppercase tracking-wider text-gray-500 dark:text-gray-400">Check-in</p>
                           <p className="text-sm font-medium text-gray-900 dark:text-white">
-                            {bookingData.checkInDate ? formatDateSafe(bookingData.checkInDate, { month: 'short', day: 'numeric' }) : 'Select date'}
+                            {localCheckInDate ? formatDateSafe(localCheckInDate, { month: 'short', day: 'numeric' }) : 'Select date'}
                           </p>
                         </div>
-                        <div className="p-3">
+                        <div className="p-2">
                           <p className="text-[10px] uppercase tracking-wider text-gray-500 dark:text-gray-400">Check-out</p>
                           <p className="text-sm font-medium text-gray-900 dark:text-white">
-                            {bookingData.checkOutDate ? formatDateSafe(bookingData.checkOutDate, { month: 'short', day: 'numeric' }) : 'Select date'}
+                            {localCheckOutDate ? formatDateSafe(localCheckOutDate, { month: 'short', day: 'numeric' }) : 'Select date'}
                           </p>
                         </div>
                       </div>
-                      <div className="border-t border-gray-200 dark:border-gray-700 p-3">
+                      <div className="border-t border-gray-200 dark:border-gray-600 p-2 mt-2">
                         <p className="text-[10px] uppercase tracking-wider text-gray-500 dark:text-gray-400">Guests</p>
                         <p className="text-sm font-medium text-gray-900 dark:text-white">
-                          {bookingData.guests ? `${bookingData.guests.adults + (bookingData.guests.children || 0)} guests` : 'Select guests'}
+                          {localGuests.adults + localGuests.children + localGuests.infants} guests
                         </p>
                       </div>
                     </div>
@@ -651,8 +895,9 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
                   {/* Wishlist Button */}
                   <button
                     onClick={handleWishlistToggle}
-                    disabled={isLoadingWishlist}
-                    className="w-full mt-3 flex items-center justify-center gap-2 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    disabled={isLoadingWishlist || isWishlistDisabled}
+                    className="w-full mt-3 flex items-center justify-center gap-2 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    title={isWishlistDisabled ? "Wishlist feature temporarily unavailable" : userId ? "Add to wishlist" : "Login to add to wishlist"}
                   >
                     <Heart className={`w-4 h-4 ${isInWishlist ? 'fill-red-500 text-red-500' : ''}`} />
                     <span className="text-sm font-medium">
@@ -689,10 +934,7 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
                   {recommendedRooms.slice(0, 5).map((recRoom) => (
                     <div key={recRoom.id} className="w-[200px] sm:w-[220px] lg:w-[240px] flex-shrink-0">
                       <RoomCard
-                        room={{
-                          ...recRoom,
-                          uuid_id: recRoom.id,
-                        }}
+                        room={recRoom}
                         mode="browse"
                         compact={false}
                       />
@@ -712,27 +954,135 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
         </div>
       </div>
 
+      {/* Mobile Dropdown Container - Appears at Top */}
+      <div className="lg:hidden fixed top-20 left-0 right-0 z-50 px-4 py-2">
+        {/* Date Dropdown */}
+        <div id="mobile-date-dropdown" className="hidden bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-4 mb-2">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Select Dates</h3>
+            <button 
+              onClick={() => {
+                const dropdown = document.getElementById('mobile-date-dropdown');
+                dropdown?.classList.add('hidden');
+              }}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+            >
+              <X className="w-5 h-5 text-gray-500" />
+            </button>
+          </div>
+          <DateRangePicker
+            checkInDate={localCheckInDate}
+            checkOutDate={localCheckOutDate}
+            onCheckInChange={setLocalCheckInDate}
+            onCheckOutChange={setLocalCheckOutDate}
+          />
+        </div>
+
+        {/* Guest Dropdown */}
+        <div id="mobile-guest-dropdown" className="hidden bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-4">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Number of Guests</h3>
+            <button 
+              onClick={() => {
+                const dropdown = document.getElementById('mobile-guest-dropdown');
+                dropdown?.classList.add('hidden');
+              }}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+            >
+              <X className="w-5 h-5 text-gray-500" />
+            </button>
+          </div>
+          <GuestSelector
+            guests={localGuests}
+            onGuestChange={handleGuestChange}
+          />
+        </div>
+      </div>
+
       {/* Mobile Bottom Bar */}
       <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-4 py-3 z-40">
-        <div className="flex flex-col items-center gap-2 max-w-7xl mx-auto">
-          <div className="flex items-center gap-3">
-            <div className="flex items-baseline gap-1">
-              <span className="text-lg font-bold text-gray-900 dark:text-white">{room.price}</span>
-              <span className="text-sm text-gray-500 dark:text-gray-400">/ {room.pricePerNight}</span>
+        <div className="flex flex-col gap-3 max-w-7xl mx-auto">
+          {/* Price and Rating */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex items-baseline gap-1">
+                <span className="text-lg font-bold text-gray-900 dark:text-white">{room.price}</span>
+                <span className="text-sm text-gray-500 dark:text-gray-400">/ {room.pricePerNight}</span>
+              </div>
+              <div className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
+                <Star className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400" />
+                <span>{room.rating}</span>
+              </div>
             </div>
-            <span className="text-gray-300 dark:text-gray-600">|</span>
-            <div className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
-              <Star className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400" />
-              <span>{room.rating}</span>
-            </div>
-            <span className="text-gray-300 dark:text-gray-600">|</span>
             <span className="text-xs text-brand-primary font-medium">₱500 down payment</span>
           </div>
+          
+          {/* Date and Guest Selection Buttons */}
+          <div className="grid grid-cols-2 gap-2">
+            {/* Date Button */}
+            <button
+              data-dropdown-trigger="date"
+              onClick={() => {
+                // Close guest dropdown if open
+                const guestDropdown = document.getElementById('mobile-guest-dropdown');
+                guestDropdown?.classList.add('hidden');
+                
+                // Toggle date dropdown
+                const dateDropdown = document.getElementById('mobile-date-dropdown');
+                dateDropdown?.classList.toggle('hidden');
+              }}
+              className="flex items-center gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:border-brand-primary transition-colors"
+            >
+              <Calendar className="w-4 h-4 text-gray-500" />
+              <div className="flex-1 text-left">
+                <p className="text-xs text-gray-500 dark:text-gray-400">Dates</p>
+                <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                  {localCheckInDate && localCheckOutDate 
+                    ? `${formatDateSafe(localCheckInDate, { month: 'short', day: 'numeric' })} - ${formatDateSafe(localCheckOutDate, { month: 'short', day: 'numeric' })}`
+                    : localCheckInDate 
+                    ? formatDateSafe(localCheckInDate, { month: 'short', day: 'numeric' })
+                    : 'Add dates'
+                  }
+                </p>
+              </div>
+            </button>
+            
+            {/* Guest Button */}
+            <button
+              data-dropdown-trigger="guest"
+              onClick={() => {
+                // Close date dropdown if open
+                const dateDropdown = document.getElementById('mobile-date-dropdown');
+                dateDropdown?.classList.add('hidden');
+                
+                // Toggle guest dropdown
+                const guestDropdown = document.getElementById('mobile-guest-dropdown');
+                guestDropdown?.classList.toggle('hidden');
+              }}
+              className="flex items-center gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:border-brand-primary transition-colors"
+            >
+              <Users className="w-4 h-4 text-gray-500" />
+              <div className="flex-1 text-left">
+                <p className="text-xs text-gray-500 dark:text-gray-400">Guests</p>
+                <p className="text-sm font-medium text-gray-900 dark:text-white">
+                  {localGuests.adults + localGuests.children + localGuests.infants} guests
+                </p>
+              </div>
+            </button>
+          </div>
+          
+          {/* Booking Info from Search */}
+          {bookingData.isFromSearch && (localCheckInDate || localCheckOutDate) && (
+            <div className="text-xs text-blue-600 dark:text-blue-400 text-center">
+              📅 Previously selected from search
+            </div>
+          )}
+          
           <button
             onClick={handleBookNow}
-            className="w-1/2 py-2.5 bg-brand-primary hover:bg-brand-primaryDark text-white font-semibold rounded-lg shadow-md"
+            className="w-full py-2.5 bg-brand-primary hover:bg-brand-primaryDark text-white font-semibold rounded-lg shadow-md"
           >
-            Book
+            Book Now
           </button>
         </div>
       </div>

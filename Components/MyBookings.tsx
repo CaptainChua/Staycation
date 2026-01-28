@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Calendar, MapPin, Users, ChevronRight, Clock, CheckCircle, XCircle, Loader2, Home, Ban, FileText } from 'lucide-react';
+import { Calendar, MapPin, Users, ChevronRight, Clock, CheckCircle, XCircle, Loader2, Home, Ban, FileText, Star, X, List, History, MessageSquare, ThumbsUp, Eye } from 'lucide-react';
 import SidebarLayout from './SidebarLayout';
 import Link from 'next/link';
 import Image from 'next/image';
 import toast, { Toaster } from 'react-hot-toast';
 import { useGetUserBookingsQuery, useUpdateBookingStatusMutation } from '@/redux/api/bookingsApi';
+import { useSubmitReviewMutation, useGetHavenReviewsQuery } from '@/redux/api/reviewsApi';
 
 interface Booking {
   id: string;
@@ -18,6 +19,8 @@ interface Booking {
   room_name: string;
   room_images?: string[];
   tower?: string;
+  haven_id?: string;
+  has_reviewed?: boolean;
   check_in_date: string;
   check_out_date: string;
   check_in_time: string;
@@ -39,7 +42,15 @@ interface MyBookingsPageProps {
 }
 
 const MyBookingsPage = ({ initialData, userId }: MyBookingsPageProps) => {
-  const [filterStatus, setFilterStatus] = useState('all'); // all, upcoming, past, cancelled
+  const [filterStatus, setFilterStatus] = useState<'all' | 'upcoming' | 'to_review' | 'past' | 'cancelled'>('all');
+  const [reviewModalOpen, setReviewModalOpen] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [reviewRating, setReviewRating] = useState<{[key: string]: number}>({});
+  const [reviewComment, setReviewComment] = useState('');
+  const [hoveredRating, setHoveredRating] = useState<{[key: string]: number}>({});
+  const [isPublic, setIsPublic] = useState(true);
+  const [isVerified, setIsVerified] = useState(false);
+  const [expandedBooking, setExpandedBooking] = useState<string | null>(null);
 
   const formatTo12Hour = (time24: string) => {
     if (!time24) return '';
@@ -50,17 +61,18 @@ const MyBookingsPage = ({ initialData, userId }: MyBookingsPageProps) => {
     return `${hour12}:${minutes} ${ampm}`;
   };
 
-  // RTK Query hooks - fetch all bookings, filter on client side
+  // RTK Query hooks
   const { data: bookingsData, refetch } = useGetUserBookingsQuery(
-    { userId, status: undefined } // Always fetch all bookings
+    { userId, status: undefined }
   );
 
   const [updateBookingStatus, { isLoading: isUpdating }] = useUpdateBookingStatusMutation();
+  const [submitReview, { isLoading: isSubmittingReview }] = useSubmitReviewMutation();
 
   // Map database status to display status
   const getDisplayStatus = (booking: Booking) => {
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // Reset to start of day for accurate comparison
+    today.setHours(0, 0, 0, 0);
 
     const checkInDate = new Date(booking.check_in_date);
     checkInDate.setHours(0, 0, 0, 0);
@@ -71,126 +83,170 @@ const MyBookingsPage = ({ initialData, userId }: MyBookingsPageProps) => {
     // Cancelled bookings
     if (booking.status === 'cancelled' || booking.status === 'rejected') return 'cancelled';
 
-    // Completed bookings or past check-out date
-    if (booking.status === 'completed' || checkOutDate < today) return 'past';
+    // Completed bookings - eligible for review
+    if (booking.status === 'completed') {
+      if (booking.has_reviewed) return 'past';
+      return 'to_review';
+    }
 
-    // Active/Upcoming bookings (pending, approved, confirmed, check_in, checked-in)
-    if (['pending', 'approved', 'confirmed', 'check_in', 'checked-in'].includes(booking.status)) {
-      // If check-in date is today or in the future, it's upcoming
+    // Past check-out date (not completed status) - also past
+    if (checkOutDate < today) return 'past';
+
+    // Active/Upcoming bookings
+    if (['pending', 'approved', 'confirmed', 'check_in', 'checked_in'].includes(booking.status)) {
       if (checkInDate >= today) return 'upcoming';
-      // If we're between check-in and check-out, it's still upcoming (active stay)
       if (checkInDate <= today && checkOutDate >= today) return 'upcoming';
     }
 
     return 'past';
   };
 
-  // Handle cancel booking
-  const handleCancelBooking = async (bookingId: string) => {
-    if (!confirm('Are you sure you want to cancel this booking?')) return;
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'upcoming': return <Clock className="w-4 h-4" />;
+      case 'completed': return <CheckCircle className="w-4 h-4" />;
+      case 'cancelled': return <XCircle className="w-4 h-4" />;
+      case 'rejected': return <XCircle className="w-4 h-4" />;
+      default: return <Calendar className="w-4 h-4" />;
+    }
+  };
+
+  const getBookingStatusBadge = (status: string) => {
+    switch (status) {
+      case 'upcoming':
+        return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300';
+      case 'completed':
+        return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300';
+      case 'cancelled':
+        return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300';
+      case 'rejected':
+        return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300';
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300';
+      case 'confirmed':
+        return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300';
+      case 'checked-in':
+        return 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300';
+      default:
+        return 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300';
+    }
+  };
+
+  const getStatusDescription = (status: string) => {
+    switch (status) {
+      case 'upcoming': return "Upcoming stay";
+      case 'completed': return "Completed";
+      case 'cancelled': return "Cancelled";
+      case 'rejected': return "Booking rejected by admin";
+      case 'pending': return "Pending approval";
+      case 'confirmed': return "Confirmed";
+      case 'checked-in': return "Currently checked in";
+      default: return status;
+    }
+  };
+
+  // Review modal handlers
+  const openReviewModal = (booking: Booking) => {
+    setSelectedBooking(booking);
+    setReviewRating({});
+    setReviewComment('');
+    setIsPublic(true);
+    setIsVerified(false);
+    setReviewModalOpen(true);
+  };
+
+  const closeReviewModal = () => {
+    setReviewModalOpen(false);
+    setSelectedBooking(null);
+    setReviewRating({});
+    setReviewComment('');
+    setHoveredRating({});
+    setIsPublic(true);
+    setIsVerified(false);
+  };
+
+  const handleSubmitReview = async () => {
+    const hasRatings = Object.keys(reviewRating).length > 0;
+    if (!hasRatings) {
+      toast.error('Please select at least one rating');
+      return;
+    }
+
+    if (!selectedBooking) {
+      toast.error('No booking selected');
+      return;
+    }
 
     try {
-      await updateBookingStatus({
-        id: bookingId,
-        status: 'cancelled'
+      const result = await submitReview({
+        booking_id: selectedBooking.id,
+        haven_id: selectedBooking.haven_id || selectedBooking.id,
+        user_id: userId,
+        comment: reviewComment || undefined,
+        cleanliness_rating: reviewRating.cleanliness || undefined,
+        communication_rating: reviewRating.communication || undefined,
+        checkin_rating: reviewRating.checkIn || undefined,
+        accuracy_rating: reviewRating.accuracy || undefined,
+        location_rating: reviewRating.location || undefined,
+        value_rating: reviewRating.value || undefined,
+        is_public: isPublic,
+        is_verified: isVerified,
       }).unwrap();
+
+      if (result.success) {
+        toast.success('Thank you for your review!');
+        closeReviewModal();
+        refetch();
+      } else {
+        toast.error(result.message || 'Failed to submit review');
+      }
+    } catch (error: any) {
+      console.error('Error submitting review:', error);
+      toast.error(error.data?.error || 'Failed to submit review. Please try again.');
+    }
+  };
+
+  const handleCancelBooking = async (bookingId: string) => {
+    try {
+      await updateBookingStatus({ id: bookingId, status: 'cancelled' }).unwrap();
       toast.success('Booking cancelled successfully');
       refetch();
     } catch (error) {
-      console.error('Error cancelling booking:', error);
       toast.error('Failed to cancel booking');
     }
   };
 
   // Filter bookings based on status
   const bookings = useMemo(() => {
-    // Use RTK Query data if available, otherwise use SSR initialData
-    const dataSource = bookingsData?.data || initialData?.data || [];
-    if (filterStatus === 'all') return dataSource;
-
-    return dataSource.filter((booking: Booking) => {
+    if (!bookingsData?.data) return [];
+    
+    return bookingsData.data.filter((booking: Booking) => {
       const displayStatus = getDisplayStatus(booking);
+      if (filterStatus === 'all') return true;
       return displayStatus === filterStatus;
     });
-  }, [bookingsData, initialData, filterStatus]);
+  }, [bookingsData, filterStatus]);
 
-  const getStatusBadge = (status: string) => {
-    const badges = {
-      upcoming: "bg-brand-primary/10 text-brand-primary",
-      past: "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400",
-      cancelled: "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"
-    };
-    return badges[status as keyof typeof badges] || badges.past;
-  };
-
-  const getBookingStatusBadge = (status: string) => {
-    const statusBadges = {
-      pending: "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 border border-yellow-300 dark:border-yellow-700",
-      approved: "bg-brand-primary/10 text-brand-primary border border-brand-primary/20",
-      confirmed: "bg-brand-primary/10 text-brand-primary border border-brand-primary/20",
-      check_in: "bg-brand-primary/10 text-brand-primary border border-brand-primary/20",
-      'checked-in': "bg-brand-primary/10 text-brand-primary border border-brand-primary/20",
-      completed: "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600",
-      cancelled: "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-300 dark:border-red-700",
-      rejected: "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-300 dark:border-red-700"
-    };
-    return statusBadges[status as keyof typeof statusBadges] || statusBadges.pending;
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch(status) {
-      case 'pending':
-        return <Clock className="w-3.5 h-3.5" />;
-      case 'approved':
-        return <CheckCircle className="w-3.5 h-3.5" />;
-      case 'confirmed':
-        return <CheckCircle className="w-3.5 h-3.5" />;
-      case 'check_in':
-      case 'checked-in':
-        return <Home className="w-3.5 h-3.5" />;
-      case 'completed':
-        return <CheckCircle className="w-3.5 h-3.5 text-green-500" />;
-      case 'cancelled':
-        return <XCircle className="w-3.5 h-3.5 text-red-500" />;
-      case 'rejected':
-        return <Ban className="w-3.5 h-3.5 text-red-500" />;
-      default:
-        return <FileText className="w-3.5 h-3.5" />;
-    }
-  };
-
-  const getStatusDescription = (status: string) => {
-    const descriptions = {
-      pending: "Waiting for admin approval",
-      approved: "Booking approved by admin",
-      confirmed: "Booking confirmed - Ready for check-in",
-      check_in: "Currently checked in - Enjoy your stay!",
-      'checked-in': "Currently checked in - Enjoy your stay!",
-      completed: "Stay completed",
-      cancelled: "Booking cancelled",
-      rejected: "Booking rejected by admin"
-    };
-    return descriptions[status as keyof typeof descriptions] || "";
-  };
+  // Review categories
+  const reviewCategories = [
+    { key: 'cleanliness', label: 'Cleanliness' },
+    { key: 'communication', label: 'Communication' },
+    { key: 'checkIn', label: 'Check-in' },
+    { key: 'accuracy', label: 'Accuracy' },
+    { key: 'location', label: 'Location' },
+    { key: 'value', label: 'Value' }
+  ];
 
   return (
     <SidebarLayout>
       <Toaster position="top-center" />
+      
       {/* Hero Section */}
-      <div className="relative bg-gradient-to-br from-gray-100 via-gray-50 to-orange-50 dark:from-gray-800 dark:via-gray-700 dark:to-gray-800 text-gray-900 dark:text-white py-16 overflow-hidden border-b border-gray-200 dark:border-gray-700 shadow-sm">
-        {/* Decorative Background Elements */}
-        <div className="absolute inset-0 opacity-10 dark:opacity-5">
-          <div className="absolute top-0 left-0 w-72 h-72 bg-brand-primary rounded-full -translate-x-1/2 -translate-y-1/2"></div>
-          <div className="absolute bottom-0 right-0 w-96 h-96 bg-brand-primary rounded-full translate-x-1/3 translate-y-1/3"></div>
-          <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-orange-400 rounded-full -translate-x-1/2 -translate-y-1/2"></div>
-        </div>
-
+      <div className="relative bg-gradient-to-br from-gray-100 via-gray-50 to-orange-50 dark:from-gray-800 dark:via-gray-700 dark:to-gray-800 text-gray-900 dark:text-white py-12 overflow-hidden border-b border-gray-200 dark:border-gray-700">
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          {/* Icon */}
           <div className="inline-flex items-center justify-center w-16 h-16 bg-brand-primary/10 dark:bg-brand-primary/20 backdrop-blur-sm rounded-full mb-6 border border-brand-primary/20 dark:border-brand-primary/30">
             <Calendar className="w-8 h-8 text-brand-primary" />
           </div>
-
           <h1 className="text-4xl md:text-5xl font-bold mb-4">
             My Bookings
           </h1>
@@ -201,183 +257,417 @@ const MyBookingsPage = ({ initialData, userId }: MyBookingsPageProps) => {
       </div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Filter Tabs */}
-        <div className="flex flex-wrap gap-3 mb-8">
-          {[
-            { label: 'All Bookings', value: 'all', icon: null },
-            { label: 'Upcoming', value: 'upcoming', icon: <Clock className="w-4 h-4" /> },
-            { label: 'Past', value: 'past', icon: <CheckCircle className="w-4 h-4" /> },
-            { label: 'Cancelled', value: 'cancelled', icon: <XCircle className="w-4 h-4" /> }
-          ].map((filter) => (
-            <button
-              key={filter.value}
-              onClick={() => setFilterStatus(filter.value)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-300 ${
-                filterStatus === filter.value
-                  ? 'bg-brand-primary text-white shadow-md'
-                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-              }`}
-            >
-              {filter.icon && <span className="flex-shrink-0">{filter.icon}</span>}
-              <span>{filter.label}</span>
-            </button>
-          ))}
+        <div className="border-b border-gray-200 dark:border-gray-700 mb-6 sm:mb-8">
+          <div className="flex gap-4 sm:gap-8 overflow-x-auto scrollbar-hide pb-2">
+            {[
+              { label: 'All', value: 'all', icon: <List className="w-4 h-4" /> },
+              { label: 'Upcoming', value: 'upcoming', icon: <Clock className="w-4 h-4" /> },
+              { label: 'To Review', value: 'to_review', icon: <Star className="w-4 h-4" /> },
+              { label: 'Past', value: 'past', icon: <History className="w-4 h-4" /> },
+              { label: 'Cancelled', value: 'cancelled', icon: <XCircle className="w-4 h-4" /> }
+            ].map((tab) => (
+              <button
+                key={tab.value}
+                onClick={() => setFilterStatus(tab.value as typeof filterStatus)}
+                className={`flex items-center gap-1.5 sm:gap-2 py-3 sm:py-4 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap flex-shrink-0 ${
+                  filterStatus === tab.value
+                    ? 'border-brand-primary text-brand-primary'
+                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                }`}
+              >
+                {tab.icon}
+                <span className="hidden sm:inline">{tab.label}</span>
+                <span className="sm:hidden">{tab.label.split(' ')[0]}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Empty State */}
         {bookings.length === 0 ? (
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-12 text-center">
-            <Calendar className="w-16 h-16 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+            {filterStatus === 'to_review' ? (
+              <Star className="w-16 h-16 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+            ) : (
+              <Calendar className="w-16 h-16 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+            )}
             <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-              No {filterStatus !== 'all' ? filterStatus : ''} bookings found
+              {filterStatus === 'to_review'
+                ? 'No bookings to review'
+                : filterStatus !== 'all'
+                  ? `No ${filterStatus} bookings found`
+                  : 'No bookings found'}
             </h3>
             <p className="text-gray-600 dark:text-gray-400 mb-6">
-              {filterStatus === 'all' 
-                ? "You don't have any bookings yet." 
-                : `You don't have any ${filterStatus} bookings.`}
+              {filterStatus === 'all'
+                ? "You don't have any bookings yet."
+                : filterStatus === 'to_review'
+                  ? "Complete a stay to leave a review."
+                  : `You don't have any ${filterStatus} bookings.`}
             </p>
             <Link href="/rooms">
-              <button className="px-8 py-3 bg-brand-primary hover:bg-brand-primaryDark text-white rounded-lg font-medium transition-colors">
+              <button className="px-6 py-2.5 bg-brand-primary hover:bg-brand-primaryDark text-white rounded-lg font-medium transition-colors text-sm">
                 Browse Havens
               </button>
             </Link>
           </div>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-4">
             {bookings.map((booking: Booking) => {
               const displayStatus = getDisplayStatus(booking);
-              // Get first image from room_images array, fallback to default
               const firstImage = Array.isArray(booking.room_images) && booking.room_images.length > 0
                 ? booking.room_images[0]
                 : '/Images/bg.jpg';
               const totalGuests = booking.adults + booking.children + booking.infants;
+              const isExpanded = expandedBooking === booking.id;
 
               return (
                 <div
                   key={booking.id}
-                  className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-md transition-all duration-300"
+                  className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-lg transition-all duration-300"
                 >
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-6 p-6">
-                    {/* Room Image */}
-                    <div className="md:col-span-1">
-                      <Image
-                        src={firstImage}
-                        alt={booking.room_name}
-                        width={400}
-                        height={300}
-                        className="w-full h-48 md:h-full object-cover rounded-lg"
-                      />
-                    </div>
+                  {/* Compact Booking Header */}
+                  <div className="p-3 sm:p-4">
+                    <div className="flex items-start gap-3 sm:gap-4">
+                      {/* Room Image */}
+                      <div className="flex-shrink-0">
+                        <Image
+                          src={firstImage}
+                          alt={booking.room_name}
+                          width={80}
+                          height={80}
+                          className="w-16 h-16 sm:w-20 sm:h-20 object-cover rounded-lg"
+                        />
+                      </div>
 
-                    {/* Booking Details */}
-                    <div className="md:col-span-3 flex flex-col justify-between">
-                      <div>
-                        <div className="flex items-start justify-between mb-4">
-                          <div className="flex-1">
-                            <h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">
+                      {/* Booking Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="min-w-0 flex-1 pr-2">
+                            <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white truncate">
                               {booking.room_name}
                             </h3>
-                            <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">
-                              Booking Ref: <span className="font-mono font-semibold">{booking.booking_id}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400 mb-3">
-                              <MapPin className="w-4 h-4" />
-                              <span className="text-sm">
-                                {booking.tower || 'Quezon City'}
-                              </span>
-                            </div>
-                            {/* Booking Status Badge */}
-                            <div className="flex flex-col gap-1">
-                              <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold w-fit ${getBookingStatusBadge(booking.status)}`}>
-                                <span className="text-xs">{getStatusIcon(booking.status)}</span>
-                                <span>{booking.status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}</span>
-                              </span>
-                              <span className="text-xs text-gray-500 dark:text-gray-400 italic">
-                                {getStatusDescription(booking.status)}
-                              </span>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                              Ref: {booking.booking_id}
                             </div>
                           </div>
-                          <span className={`px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap ${getStatusBadge(displayStatus)}`}>
-                            {displayStatus.charAt(0).toUpperCase() + displayStatus.slice(1)}
+                          <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold flex-shrink-0 ${getBookingStatusBadge(booking.status)}`}>
+                            {getStatusIcon(booking.status)}
+                            <span className="hidden sm:inline">{getStatusDescription(booking.status)}</span>
+                            <span className="sm:hidden">{booking.status}</span>
                           </span>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-                          <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl">
-                            <div className="p-2 rounded-lg bg-brand-primary/10">
-                              <Calendar className="w-5 h-5 text-brand-primary" />
-                            </div>
-                            <div>
-                              <p className="text-xs text-gray-500 dark:text-gray-400">Check-in</p>
-                              <p className="font-semibold text-gray-800 dark:text-white">
-                                {new Date(booking.check_in_date).toLocaleDateString()}
-                              </p>
-                              <p className="text-xs text-gray-500 dark:text-gray-400">{formatTo12Hour(booking.check_in_time)}</p>
-                            </div>
+                        {/* Quick Details */}
+                        <div className="grid grid-cols-1 sm:flex sm:items-center sm:gap-4 gap-2 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                          <div className="flex items-center gap-1">
+                            <Calendar className="w-3 h-3" />
+                            <span className="truncate">
+                              {new Date(booking.check_in_date).toLocaleDateString()} - {new Date(booking.check_out_date).toLocaleDateString()}
+                            </span>
                           </div>
-                          <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl">
-                            <div className="p-2 rounded-lg bg-brand-primary/10">
-                              <Calendar className="w-5 h-5 text-brand-primary" />
-                            </div>
-                            <div>
-                              <p className="text-xs text-gray-500 dark:text-gray-400">Check-out</p>
-                              <p className="font-semibold text-gray-800 dark:text-white">
-                                {new Date(booking.check_out_date).toLocaleDateString()}
-                              </p>
-                              <p className="text-xs text-gray-500 dark:text-gray-400">{formatTo12Hour(booking.check_out_time)}</p>
-                            </div>
+                          <div className="flex items-center gap-1">
+                            <Users className="w-3 h-3" />
+                            <span>{totalGuests} guests</span>
                           </div>
-                          <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl">
-                            <div className="p-2 rounded-lg bg-brand-primary/10">
-                              <Users className="w-5 h-5 text-brand-primary" />
-                            </div>
-                            <div>
-                              <p className="text-xs text-gray-500 dark:text-gray-400">Guests</p>
-                              <p className="font-semibold text-gray-800 dark:text-white">{totalGuests} {totalGuests === 1 ? 'person' : 'people'}</p>
-                            </div>
+                          <div className="flex items-center gap-1">
+                            <MapPin className="w-3 h-3" />
+                            <span className="truncate">{booking.tower || 'QC'}</span>
+                          </div>
+                          <div className="font-semibold text-brand-primary">
+                            ₱{(booking.total_amount ?? 0).toLocaleString()}
                           </div>
                         </div>
                       </div>
 
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700 gap-4">
+                      {/* Expand/Collapse Button */}
+                      <button
+                        onClick={() => setExpandedBooking(isExpanded ? null : booking.id)}
+                        className="flex-shrink-0 p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors mt-1"
+                      >
+                        <ChevronRight className={`w-5 h-5 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Expanded Content */}
+                  {isExpanded && (
+                    <div className="border-t border-gray-200 dark:border-gray-700 p-3 sm:p-4 bg-gray-50 dark:bg-gray-900/50">
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+                        {/* Booking Details */}
                         <div>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">Total Price</p>
-                          <p className="text-2xl font-bold text-brand-primary">₱{booking.total_amount.toLocaleString()}</p>
+                          <h4 className="font-semibold text-gray-900 dark:text-white mb-3 text-sm sm:text-base">Booking Details</h4>
+                          <div className="space-y-2 text-xs sm:text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-gray-600 dark:text-gray-400">Check-in:</span>
+                              <span className="text-gray-900 dark:text-white text-right">
+                                {new Date(booking.check_in_date).toLocaleDateString()} at {formatTo12Hour(booking.check_in_time)}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600 dark:text-gray-400">Check-out:</span>
+                              <span className="text-gray-900 dark:text-white text-right">
+                                {new Date(booking.check_out_date).toLocaleDateString()} at {formatTo12Hour(booking.check_out_time)}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600 dark:text-gray-400">Guests:</span>
+                              <span className="text-gray-900 dark:text-white text-right">
+                                {booking.adults} adults, {booking.children} children, {booking.infants} infants
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-start">
+                              <span className="text-gray-600 dark:text-gray-400">Guest:</span>
+                              <div className="text-right">
+                                <div className="text-gray-900 dark:text-white font-medium">
+                                  {booking.guest_first_name} {booking.guest_last_name}
+                                </div>
+                                <div className="text-gray-900 dark:text-white text-sm break-all">
+                                  {booking.guest_email}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-                          <Link href={`/bookings/${booking.id}`} className="w-full sm:w-auto">
-                            <button className="flex items-center justify-center gap-2 px-6 py-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-800 dark:text-white rounded-lg font-medium transition-all duration-300 w-full sm:w-auto">
+
+                        {/* Review Section */}
+                        <div>
+                          <h4 className="font-semibold text-gray-900 dark:text-white mb-3 text-sm sm:text-base">Review Status</h4>
+                          {booking.has_reviewed ? (
+                            <div className="space-y-3">
+                              <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                                <Star className="w-4 h-4 fill-current" />
+                                <span className="text-sm font-medium">Review Submitted</span>
+                              </div>
+                              <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                                Your review has been submitted and is helping other guests make informed decisions.
+                              </div>
+                              <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-500">
+                                <Eye className="w-3 h-3" />
+                                <span>Public review - visible to other guests</span>
+                              </div>
+                            </div>
+                          ) : displayStatus === 'to_review' ? (
+                            <div className="space-y-3">
+                              <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+                                <MessageSquare className="w-4 h-4" />
+                                <span className="text-sm font-medium">Review Your Stay</span>
+                              </div>
+                              <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                                Share your experience to help other guests choose the perfect stay.
+                              </div>
+                              <button
+                                onClick={() => openReviewModal(booking)}
+                                className="w-full px-4 py-2 bg-brand-primary hover:bg-brand-primaryDark text-white rounded-lg font-medium transition-colors text-sm"
+                              >
+                                Write Review
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+                              Reviews are available for completed stays.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-gray-200 dark:border-gray-700">
+                        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                          <Link href={`/bookings/${booking.id}`} className="flex-1">
+                            <button className="w-full px-3 sm:px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-800 dark:text-white rounded-lg font-medium transition-colors text-xs sm:text-sm">
                               View Details
-                              <ChevronRight className="w-4 h-4" />
                             </button>
                           </Link>
                           {displayStatus === 'upcoming' && booking.status === 'pending' && (
                             <button
                               onClick={() => handleCancelBooking(booking.id)}
                               disabled={isUpdating}
-                              className="flex items-center justify-center gap-2 px-6 py-3 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium transition-all duration-300 disabled:opacity-50 w-full sm:w-auto"
+                              className="flex-1 px-3 sm:px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50 text-xs sm:text-sm"
                             >
-                              {isUpdating ? (
-                                <>
-                                  <Loader2 className="w-4 h-4 animate-spin" />
-                                  <span>Cancelling...</span>
-                                </>
-                              ) : 'Cancel Booking'}
+                              {isUpdating ? 'Cancelling...' : 'Cancel Booking'}
                             </button>
                           )}
                         </div>
                       </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               );
             })}
           </div>
         )}
-        </div>
       </div>
+
+      {/* Review Modal */}
+      {reviewModalOpen && selectedBooking && (
+        <div
+          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+          onClick={closeReviewModal}
+        >
+          <div
+            className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-md shadow-xl overflow-hidden max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="p-5 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                  Write Your Review
+                </h2>
+                <button
+                  onClick={closeReviewModal}
+                  className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 space-y-6">
+              {/* Room Info */}
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0">
+                  <Image
+                    src={Array.isArray(selectedBooking.room_images) && selectedBooking.room_images.length > 0
+                      ? selectedBooking.room_images[0]
+                      : '/Images/bg.jpg'}
+                    alt={selectedBooking.room_name}
+                    width={48}
+                    height={48}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 dark:text-white">
+                    {selectedBooking.room_name}
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {new Date(selectedBooking.check_in_date).toLocaleDateString()} - {new Date(selectedBooking.check_out_date).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+
+              {/* Rating Categories */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
+                  Rate your experience
+                </label>
+                <div className="space-y-3">
+                  {reviewCategories.map((category) => (
+                    <div key={category.key} className="flex items-center justify-between">
+                      <span className="text-sm text-gray-700 dark:text-gray-300">
+                        {category.label}
+                      </span>
+                      <div className="flex gap-1">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            key={star}
+                            onClick={() => setReviewRating(prev => ({...prev, [category.key]: star}))}
+                            onMouseEnter={() => setHoveredRating(prev => ({...prev, [category.key]: star}))}
+                            onMouseLeave={() => setHoveredRating(prev => ({...prev, [category.key]: 0}))}
+                            className="p-0.5 transition-transform hover:scale-110"
+                          >
+                            <Star
+                              className={`w-4 h-4 transition-colors ${
+                                star <= (hoveredRating[category.key] || reviewRating[category.key] || 0)
+                                  ? 'fill-yellow-400 text-yellow-400'
+                                  : 'text-gray-300 dark:text-gray-600'
+                              }`}
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Comment Section */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Share your experience (optional)
+                </label>
+                <textarea
+                  value={reviewComment}
+                  onChange={(e) => setReviewComment(e.target.value)}
+                  placeholder="Tell us about your stay..."
+                  rows={3}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-brand-primary focus:border-brand-primary dark:focus:border-brand-primary resize-none transition-all"
+                />
+              </div>
+
+              {/* Review Options */}
+              <div className="space-y-3">
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Review Options</p>
+                
+                <div className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    id="isPublic"
+                    checked={isPublic}
+                    onChange={(e) => setIsPublic(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 text-brand-primary border-gray-300 rounded focus:ring-brand-primary focus:ring-2"
+                  />
+                  <div className="flex-1">
+                    <label htmlFor="isPublic" className="text-sm font-medium text-gray-900 dark:text-white cursor-pointer">
+                      Make this review public
+                    </label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Your review will be visible to other guests on the room page
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    id="isVerified"
+                    checked={isVerified}
+                    onChange={(e) => setIsVerified(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 text-brand-primary border-gray-300 rounded focus:ring-brand-primary focus:ring-2"
+                  />
+                  <div className="flex-1">
+                    <label htmlFor="isVerified" className="text-sm font-medium text-gray-900 dark:text-white cursor-pointer">
+                      Verify this review
+                    </label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Confirm this is a genuine review based on your actual stay
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="sticky bottom-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-5 py-4 flex gap-3">
+              <button
+                onClick={closeReviewModal}
+                className="flex-1 px-4 py-2 text-sm border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmitReview}
+                disabled={Object.keys(reviewRating).length === 0 || isSubmittingReview}
+                className="flex-1 px-4 py-2 text-sm bg-brand-primary hover:bg-brand-primaryDark text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {isSubmittingReview ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>Submitting...</span>
+                  </>
+                ) : (
+                  'Submit Review'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </SidebarLayout>
   );
 };

@@ -252,6 +252,9 @@ export const getHavenById = async (
     const params = await ctx.params;
     const { id } = params;
 
+    console.log("🔍 Getting haven by ID:", id);
+    console.log("🔍 DATABASE_URL exists:", !!process.env.DATABASE_URL);
+
     if (!id) {
       return NextResponse.json(
         {
@@ -262,46 +265,85 @@ export const getHavenById = async (
       );
     }
 
-    const query = `
-      SELECT h.*,
-        json_agg(DISTINCT jsonb_build_object('id', hi.id, 'url', hi.image_url, 'display_order', hi.display_order))
-          FILTER (WHERE hi.id IS NOT NULL) as images,
-        json_agg(DISTINCT jsonb_build_object('category', pti.category, 'url', pti.image_url, 'display_order', pti.display_order))
-          FILTER (WHERE pti.id IS NOT NULL) as photo_tours,
-        json_agg(DISTINCT jsonb_build_object('from_date', bd.from_date, 'to_date', bd.to_date, 'reason', bd.reason))
-          FILTER (WHERE bd.id IS NOT NULL) as blocked_dates
-      FROM havens h
-      LEFT JOIN haven_images hi ON h.uuid_id = hi.haven_id
-      LEFT JOIN photo_tour_images pti ON h.uuid_id = pti.haven_id
-      LEFT JOIN blocked_dates bd ON h.uuid_id = bd.haven_id
-      WHERE h.uuid_id = $1
-      GROUP BY h.uuid_id
-    `;
+    // Test database connection first
+    try {
+      console.log("📝 Testing database connection...");
+      const testResult = await pool.query('SELECT 1 as test');
+      console.log("✅ Database connection test:", testResult.rows[0]);
+    } catch (dbError: any) {
+      console.log("❌ Database connection error:", dbError.message);
+      throw new Error(`Database connection failed: ${dbError.message}`);
+    }
 
-    const result = await pool.query(query, [id]);
+    // Start with a simple query to test the connection
+    let result;
+    try {
+      console.log("📝 Testing simple query first...");
+      const simpleQuery = `SELECT uuid_id, haven_name FROM havens WHERE uuid_id = $1 LIMIT 1`;
+      result = await pool.query(simpleQuery, [id]);
+      console.log("📊 Simple query result:", result.rows);
+      
+      if (result.rows.length === 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Haven not found",
+          },
+          { status: 404 }
+        );
+      }
 
-    if (result.rows.length === 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Haven not found",
-        },
-        { status: 404 }
-      );
+      // Get full haven data with images (matching getAllHavens pattern)
+      console.log("📝 Getting full haven data...");
+      const fullQuery = `
+        SELECT h.*,
+          json_agg(DISTINCT jsonb_build_object('id', hi.id, 'url', hi.image_url, 'display_order', hi.display_order))
+            FILTER (WHERE hi.id IS NOT NULL) as images,
+          0 as rating,
+          0 as review_count
+        FROM havens h
+        LEFT JOIN haven_images hi ON h.uuid_id = hi.haven_id
+        WHERE h.uuid_id = $1
+        GROUP BY h.uuid_id
+      `;
+      
+      console.log("📝 Executing full query:", fullQuery);
+      result = await pool.query(fullQuery, [id]);
+      console.log("📊 Full query result rows:", result.rows.length);
+      console.log("📊 Full query result:", result.rows[0]);
+      
+    } catch (queryError: any) {
+      console.log("❌ Query error:", queryError.message);
+      console.log("❌ Query error details:", queryError);
+      console.log("❌ Query error stack:", queryError.stack);
+      throw queryError;
     }
 
     console.log("✅ Retrieved haven:", result.rows[0]);
+    console.log("🖼️ Images field:", result.rows[0].images);
+    console.log("🖼️ Images type:", typeof result.rows[0].images);
+
+    // Handle null images array
+    const havenData = result.rows[0];
+    if (!havenData.images) {
+      havenData.images = [];
+    }
 
     return NextResponse.json({
       success: true,
-      data: result.rows[0],
+      data: havenData,
     });
   } catch (error: any) {
     console.log("❌ Error getting haven:", error);
+    console.log("❌ Error stack:", error.stack);
+    
+    // Return detailed error info for debugging
     return NextResponse.json(
       {
         success: false,
         error: error.message || "Failed to get haven",
+        details: error.stack || "No stack trace available",
+        timestamp: new Date().toISOString()
       },
       { status: 500 }
     );

@@ -1,6 +1,6 @@
 "use client";
 
-import { Star, Video, X, Heart, Sparkles } from "lucide-react";
+import { Star, Video, X, Heart, Sparkles, MapPin } from "lucide-react";
 import RoomImageGallery from "./RoomImageGallery";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
@@ -47,7 +47,6 @@ const RoomCard = ({ room, mode = "browse", compact = false }: RoomCardsProps) =>
     { userId: userId || '', havenId: room.uuid_id || room.id },
     { 
       skip: !userId || !(room.uuid_id || room.id),
-      // Force refetch on every render to ensure fresh data
       refetchOnMountOrArgChange: true,
       refetchOnReconnect: true
     }
@@ -56,6 +55,9 @@ const RoomCard = ({ room, mode = "browse", compact = false }: RoomCardsProps) =>
   // Local state for optimistic updates
   const [optimisticFavorite, setOptimisticFavorite] = useState(false);
   const isFavorite = wishlistStatus?.isInWishlist || optimisticFavorite;
+  
+  // Disable wishlist functionality if API is not available
+  const isWishlistDisabled = !!wishlistError && 'status' in wishlistError && wishlistError.status === 404;
 
   // Sync optimistic state with actual wishlist status when data loads
   useEffect(() => {
@@ -64,11 +66,11 @@ const RoomCard = ({ room, mode = "browse", compact = false }: RoomCardsProps) =>
     }
   }, [wishlistStatus?.isInWishlist]);
 
-  // Handle wishlist errors and force refresh if needed
+  // Handle wishlist errors - log only, no toast notifications
   useEffect(() => {
     if (wishlistError) {
       console.error('Wishlist API Error:', wishlistError);
-      toast.error('Failed to check wishlist status');
+      // No toast notification - handle errors silently
     }
   }, [wishlistError]);
 
@@ -161,14 +163,15 @@ const RoomCard = ({ room, mode = "browse", compact = false }: RoomCardsProps) =>
         {/* Heart icon - top left */}
         <button
           onClick={handleHeartClick}
-          disabled={isAdding || isRemoving || isCheckingWishlist}
+          disabled={isAdding || isRemoving || isCheckingWishlist || isWishlistDisabled}
           className="absolute top-3 left-3 p-2 rounded-full bg-black/60 dark:bg-gray-900/80 backdrop-blur-sm hover:bg-black/80 dark:hover:bg-gray-800 transition-all duration-200 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+          title={isWishlistDisabled ? "Wishlist feature temporarily unavailable" : userId ? "Add to wishlist" : "Login to add to wishlist"}
         >
           {isAdding || isRemoving || isCheckingWishlist ? (
-            <div className="w-5 h-5 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+            <div className="w-4 h-4 sm:w-5 sm:h-5 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
           ) : (
             <Heart
-              className={`w-5 h-5 transition-all duration-200 ${
+              className={`w-4 h-4 sm:w-5 sm:h-5 transition-all duration-200 ${
                 isFavorite
                   ? "fill-red-500 text-red-500"
                   : "text-white"
@@ -184,49 +187,66 @@ const RoomCard = ({ room, mode = "browse", compact = false }: RoomCardsProps) =>
               e.stopPropagation();
               handleVideoClick();
             }}
-            className="absolute bottom-3 right-3 bg-white/90 dark:bg-gray-700/90 backdrop-blur-sm px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center gap-1.5"
+            className="absolute bottom-3 right-3 bg-white/95 dark:bg-gray-700/95 backdrop-blur-sm px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 flex items-center gap-1.5 shadow-lg hover:scale-105"
           >
-            <Video className="w-4 h-4 text-gray-700 dark:text-gray-300" />
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Tour</span>
+            <Video className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-brand-primary" />
+            <span className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-white">Video Tour</span>
           </button>
         )}
       </div>
 
-      {/* Content - Minimal style with only name, price, and rating */}
-      <div className="space-y-1.5" onClick={handleImageClick}>
+      {/* Content - Enhanced structure */}
+      <div className="space-y-2 sm:space-y-3" onClick={handleImageClick}>
         {/* Room Name */}
-        <h3 className="text-base font-semibold text-gray-700 dark:text-gray-200 truncate">
-          {room.name}
-        </h3>
+        <div>
+          <h3 className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white truncate leading-tight">
+            {room.name}
+          </h3>
+        </div>
 
-        {/* Tower and Floor */}
-        {(room.tower || room.floor) && (
-          <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
-            {room.tower && room.floor
-              ? `${room.tower} · Floor ${room.floor}`
-              : room.tower
-              ? room.tower
-              : `Floor ${room.floor}`
-            }
-          </p>
-        )}
-
-        {/* Rating and Price Row */}
+        {/* Location and Reviews in one row */}
         <div className="flex items-center justify-between gap-2">
-          {/* Star Rating */}
-          <div className="flex items-center gap-1">
-            <Star className="w-3.5 h-3.5 fill-gray-700 text-gray-700 dark:fill-gray-300 dark:text-gray-300" />
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+          <div className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
+            <MapPin className="w-3 h-3" />
+            <span className="truncate">{room.tower || room.floor ? `${room.tower || ''}${room.tower && room.floor ? ', ' : ''}${room.floor || ''}` : 'Location'}</span>
+          </div>
+          <div className="flex items-center gap-0.5">
+            <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-brand-primary text-brand-primary" />
+            <span className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white">
               {room.rating.toFixed(1)}
             </span>
+            {room.reviews > 0 && (
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                ({room.reviews} reviews)
+              </span>
+            )}
           </div>
+        </div>
 
-          {/* Price Per Night with Special Offer Icon */}
-          <div className="flex items-center gap-1">
-            <Sparkles className="w-3.5 h-3.5 text-brand-primary dark:text-brand-primary" />
-            <p className="text-sm">
-              <span className="font-semibold text-gray-700 dark:text-gray-300">{room.price}</span>
-              <span className="text-gray-600 dark:text-gray-400 font-normal"> {room.pricePerNight}</span>
+        {/* Quick Info Badges */}
+        <div className="flex gap-1 overflow-x-auto">
+          {room.youtubeUrl && (
+            <div className="bg-brand-primary/10 text-brand-primary text-xs px-2 py-1 rounded-full font-medium flex-shrink-0">
+              Video Tour
+            </div>
+          )}
+          {room.amenities && room.amenities.length > 0 && (
+            <div className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-xs px-2 py-1 rounded-full font-medium flex-shrink-0">
+              {room.amenities.length} amenities
+            </div>
+          )}
+        </div>
+
+        {/* Price Section */}
+        <div className="flex items-start justify-between gap-2 pt-1 sm:pt-2 border-t border-gray-100 dark:border-gray-700">
+          <div>
+            <div className="flex items-center gap-1">
+              <span className="text-base sm:text-lg font-bold text-gray-900 dark:text-white">
+                {room.price}
+              </span>
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              {room.pricePerNight}
             </p>
           </div>
         </div>
@@ -241,7 +261,7 @@ const RoomCard = ({ room, mode = "browse", compact = false }: RoomCardsProps) =>
               }}
               className="w-full bg-gradient-to-r from-brand-primary to-brand-primaryDark hover:from-brand-primaryDark hover:to-brand-primary text-white font-semibold px-4 py-2.5 rounded-lg transition-all duration-300"
             >
-              Reserve
+              Reserve Now
             </button>
           </div>
         )}

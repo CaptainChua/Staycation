@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { Metadata } from "next";
 import RoomDetailsClient from "./RoomDetailsClient";
 
 
@@ -200,16 +201,48 @@ import RoomDetailsClient from "./RoomDetailsClient";
 // };
 
 const getRoomById = async (id: string) => {
+  console.log("🔍 Server-side fetching haven:", id);
   const baseUrl = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || '';
-  const res = await fetch(`${baseUrl}/api/haven/${id}`, {
-    cache: 'no-cache'
-  })
+  console.log("🔍 Base URL:", baseUrl);
+  
+  try {
+    const res = await fetch(`${baseUrl}/api/haven/${id}`, {
+      cache: 'no-cache'
+    })
 
-  if (!res.ok) {
-    return null
+    console.log("🔍 Response status:", res.status);
+    console.log("🔍 Response ok:", res.ok);
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.log("🔍 Error response:", errorText);
+      return null
+    }
+
+    const data = await res.json();
+    console.log("🔍 Success response:", data);
+    return data;
+  } catch (error: any) {
+    console.log("🔍 Fetch error:", error.message);
+    return null;
+  }
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const response = await getRoomById(id);
+
+  if (!response?.success || !response?.data) {
+    return {
+      title: "Staycation Haven | Room Not Found",
+    };
   }
 
-  return res.json();
+  const room = response.data;
+  return {
+    title: `Staycation Haven | ${room.description}`,
+    description: room.full_description || room.description,
+  };
 }
 
 const getAllHavens = async () => {

@@ -49,19 +49,21 @@ export default withAuth(
       }
     }
 
-    // User area protection - prevent admin sessions from accessing user pages
+    // User area protection - redirect admins to their role-based page
     if (!path.startsWith("/admin")) {
       if (normalizedRole && adminRoles.includes(normalizedRole)) {
-        console.log(`❌ Admin trying to access user area, auto-logout and redirect to /login`);
-        // Clear session and redirect to login
-        return NextResponse.redirect(new URL("/api/auth/signout?callbackUrl=/login", req.url));
+        const correctRoute = adminRoleRoutes[normalizedRole];
+        console.log(
+          `Admin trying to access user area, redirecting to ${correctRoute}`,
+        );
+        return NextResponse.redirect(new URL(correctRoute, req.url));
       }
     }
 
     const response = NextResponse.next();
     response.headers.set(
       "Cache-Control",
-      "no-store, no-cache, must-revalidate, proxy-revalidate"
+      "no-store, no-cache, must-revalidate, proxy-revalidate",
     );
     response.headers.set("Pragma", "no-cache");
     response.headers.set("Expires", "0");
@@ -90,14 +92,9 @@ export default withAuth(
     pages: {
       signIn: "/admin/login",
     },
-  }
+  },
 );
 
 export const config = {
-  matcher: [
-    "/admin/:path*",
-    "/",
-    "/rooms/:path*",
-    "/bookings/:path*",
-  ],
+  matcher: ["/admin/:path*", "/", "/rooms/:path*", "/bookings/:path*"],
 };
