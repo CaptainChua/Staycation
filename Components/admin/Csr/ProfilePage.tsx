@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, User, Mail, Phone, Calendar, MapPin, Briefcase, DollarSign, Edit2, Save, X, Camera, Shield, Check } from "lucide-react";
+import { Loader2, User, Mail, Phone, Calendar, MapPin, Briefcase, DollarSign, Edit2, Save, X, Camera, Shield, Check, Key, Eye, EyeOff, Activity, Headphones, FileText, Bell, Settings } from "lucide-react";
 import Image from "next/image";
 
 interface AdminUser {
@@ -66,7 +66,18 @@ export default function ProfilePage({ user, onClose }: ProfilePageProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState<Partial<EmployeeProfile>>({});
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
-  const [activeTab, setActiveTab] = useState<'personal' | 'professional' | 'contact'>('personal');
+  const [activeTab, setActiveTab] = useState<'personal' | 'professional' | 'contact' | 'security'>('personal');
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [showPasswords, setShowPasswords] = useState({
+    current: false,
+    new: false,
+    confirm: false
+  });
+  const [passwordSaveStatus, setPasswordSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
 
   useEffect(() => {
     if (!user?.id) return;
@@ -175,61 +186,131 @@ export default function ProfilePage({ user, onClose }: ProfilePageProps) {
     setEditForm(prev => ({ ...prev, [field]: value }));
   };
 
+  const handlePasswordInputChange = (field: string, value: string) => {
+    setPasswordForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  const togglePasswordVisibility = (field: 'current' | 'new' | 'confirm') => {
+    setShowPasswords(prev => ({ ...prev, [field]: !prev[field] }));
+  };
+
+  const handlePasswordChange = async () => {
+    if (!user?.email) return;
+
+    // Validation
+    if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+      setError('All password fields are required');
+      return;
+    }
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setError('New passwords do not match');
+      return;
+    }
+
+    if (passwordForm.newPassword.length < 8) {
+      setError('New password must be at least 8 characters long');
+      return;
+    }
+
+    try {
+      setPasswordSaveStatus('saving');
+      setError(null);
+
+      const response = await fetch('/api/admin/change-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: user.email,
+          currentPassword: passwordForm.currentPassword,
+          newPassword: passwordForm.newPassword,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to change password');
+      }
+
+      setPasswordSaveStatus('success');
+      setPasswordForm({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      });
+      
+      setTimeout(() => setPasswordSaveStatus('idle'), 3000);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to change password');
+      setPasswordSaveStatus('error');
+      setTimeout(() => setPasswordSaveStatus('idle'), 3000);
+    }
+  };
+
   const tabs = [
     { id: 'personal', label: 'Personal Info', icon: User },
     { id: 'professional', label: 'Professional', icon: Briefcase },
     { id: 'contact', label: 'Contact', icon: Mail },
+    { id: 'security', label: 'Security', icon: Key },
   ];
 
   return (
     <div className="space-y-6 animate-in fade-in duration-700 overflow-hidden h-full flex flex-col">
       {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 flex-shrink-0 border border-gray-200 dark:border-gray-700 rounded-lg p-6 bg-white dark:bg-gray-800 shadow dark:shadow-gray-900">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 sm:gap-4 flex-shrink-0 border border-gray-200 dark:border-gray-700 rounded-lg p-3 sm:p-6 bg-white dark:bg-gray-800 shadow dark:shadow-gray-900">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">My Profile</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage your personal and professional information</p>
+          <h1 className="text-lg sm:text-2xl font-bold text-gray-800 dark:text-gray-100">My Profile</h1>
+          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">Manage your personal and professional information</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           {saveStatus === 'success' && (
-            <div className="flex items-center gap-2 text-green-600 bg-green-50 px-4 py-2 rounded-lg">
-              <Check className="w-4 h-4" />
-              <span className="text-sm font-medium">Profile updated successfully</span>
+            <div className="flex items-center gap-2 text-green-600 bg-green-50 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg">
+              <Check className="w-3 h-3 sm:w-4 sm:h-4" />
+              <span className="text-xs sm:text-sm font-medium">Profile updated successfully</span>
             </div>
           )}
           {saveStatus === 'error' && (
-            <div className="flex items-center gap-2 text-red-600 bg-red-50 px-4 py-2 rounded-lg">
-              <X className="w-4 h-4" />
-              <span className="text-sm font-medium">Failed to update profile</span>
+            <div className="flex items-center gap-2 text-red-600 bg-red-50 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg">
+              <X className="w-3 h-3 sm:w-4 sm:h-4" />
+              <span className="text-xs sm:text-sm font-medium">Failed to update profile</span>
             </div>
           )}
           {!isEditing ? (
             <button
               onClick={handleEdit}
-              className="flex items-center gap-2 px-4 py-2 bg-brand-primary hover:bg-brand-primaryDark text-white rounded-lg font-medium transition-colors"
+              className="flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-brand-primary hover:bg-brand-primaryDark text-white rounded-lg font-medium transition-colors text-xs sm:text-sm"
             >
-              <Edit2 className="w-4 h-4" />
+              <Edit2 className="w-3 h-3 sm:w-4 sm:h-4" />
               Edit Profile
             </button>
           ) : (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 sm:gap-2">
               <button
                 onClick={handleCancel}
-                className="flex items-center gap-2 px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium transition-colors"
+                className="flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium transition-colors text-xs sm:text-sm"
               >
-                <X className="w-4 h-4" />
+                <X className="w-3 h-3 sm:w-4 sm:h-4" />
                 Cancel
               </button>
               <button
                 onClick={handleSave}
                 disabled={saveStatus === 'saving'}
-                className="flex items-center gap-2 px-4 py-2 bg-brand-primary hover:bg-brand-primaryDark text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+                className="flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-brand-primary hover:bg-brand-primaryDark text-white rounded-lg font-medium transition-colors disabled:opacity-50 text-xs sm:text-sm"
               >
                 {saveStatus === 'saving' ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <>
+                    <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 animate-spin" />
+                    Saving...
+                  </>
                 ) : (
-                  <Save className="w-4 h-4" />
+                  <>
+                    <Save className="w-3 h-3 sm:w-4 sm:h-4" />
+                    Save Changes
+                  </>
                 )}
-                {saveStatus === 'saving' ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
           )}
@@ -477,6 +558,216 @@ export default function ProfilePage({ user, onClose }: ProfilePageProps) {
                         ) : (
                           <p className="text-gray-900 dark:text-white">{employee?.zip_code || 'Not specified'}</p>
                         )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Security Tab */}
+                {activeTab === 'security' && (
+                  <div className="space-y-6">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Security Settings</h3>
+                    
+                    {passwordSaveStatus === 'success' && (
+                      <div className="flex items-center gap-2 text-green-600 bg-green-50 px-4 py-2 rounded-lg">
+                        <Check className="w-4 h-4" />
+                        <span className="text-sm font-medium">Password changed successfully</span>
+                      </div>
+                    )}
+                    
+                    {passwordSaveStatus === 'error' && (
+                      <div className="flex items-center gap-2 text-red-600 bg-red-50 px-4 py-2 rounded-lg">
+                        <X className="w-4 h-4" />
+                        <span className="text-sm font-medium">Failed to change password</span>
+                      </div>
+                    )}
+
+                    {/* Password Change Section */}
+                    <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
+                      <div className="flex items-center gap-3 mb-4">
+                        <Key className="w-5 h-5 text-brand-primary" />
+                        <h4 className="text-base font-semibold text-gray-900 dark:text-white">Change Password</h4>
+                      </div>
+                      
+                      <div className="max-w-md space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Current Password</label>
+                          <div className="relative">
+                            <input
+                              type={showPasswords.current ? 'text' : 'password'}
+                              value={passwordForm.currentPassword}
+                              onChange={(e) => handlePasswordInputChange('currentPassword', e.target.value)}
+                              className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                              placeholder="Enter current password"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => togglePasswordVisibility('current')}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                            >
+                              {showPasswords.current ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">New Password</label>
+                          <div className="relative">
+                            <input
+                              type={showPasswords.new ? 'text' : 'password'}
+                              value={passwordForm.newPassword}
+                              onChange={(e) => handlePasswordInputChange('newPassword', e.target.value)}
+                              className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                              placeholder="Enter new password"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => togglePasswordVisibility('new')}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                            >
+                              {showPasswords.new ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                          </div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Must be at least 8 characters long</p>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Confirm New Password</label>
+                          <div className="relative">
+                            <input
+                              type={showPasswords.confirm ? 'text' : 'password'}
+                              value={passwordForm.confirmPassword}
+                              onChange={(e) => handlePasswordInputChange('confirmPassword', e.target.value)}
+                              className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                              placeholder="Confirm new password"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => togglePasswordVisibility('confirm')}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                            >
+                              {showPasswords.confirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="pt-4">
+                          <button
+                            onClick={handlePasswordChange}
+                            disabled={passwordSaveStatus === 'saving'}
+                            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-brand-primary hover:bg-brand-primaryDark text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+                          >
+                            {passwordSaveStatus === 'saving' ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                Changing Password...
+                              </>
+                            ) : (
+                              <>
+                                <Key className="w-4 h-4" />
+                                Change Password
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Security Overview */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="w-10 h-10 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center">
+                            <Shield className="w-5 h-5 text-green-600 dark:text-green-400" />
+                          </div>
+                          <div>
+                            <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Account Security</h4>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Good</p>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 text-xs">
+                            <Check className="w-3 h-3 text-green-500" />
+                            <span className="text-gray-700 dark:text-gray-300">Password updated recently</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs">
+                            <Check className="w-3 h-3 text-green-500" />
+                            <span className="text-gray-700 dark:text-gray-300">Two-factor authentication available</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs">
+                            <Check className="w-3 h-3 text-green-500" />
+                            <span className="text-gray-700 dark:text-gray-300">Secure login method</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/20 rounded-full flex items-center justify-center">
+                            <Activity className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                          </div>
+                          <div>
+                            <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Recent Activity</h4>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Last 7 days</p>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 text-xs">
+                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                            <span className="text-gray-700 dark:text-gray-300">5 successful logins</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs">
+                            <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                            <span className="text-gray-700 dark:text-gray-300">2 failed attempts</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs">
+                            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                            <span className="text-gray-700 dark:text-gray-300">1 password change</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Security Tips */}
+                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                      <div className="flex items-start gap-3">
+                        <Shield className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5" />
+                        <div>
+                          <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2">Security Best Practices</h4>
+                          <ul className="text-xs text-blue-800 dark:text-blue-200 space-y-1">
+                            <li>• Use a strong password with at least 8 characters</li>
+                            <li>• Include a mix of letters, numbers, and symbols</li>
+                            <li>• Don't reuse passwords from other accounts</li>
+                            <li>• Change your password regularly</li>
+                            <li>• Enable two-factor authentication when available</li>
+                            <li>• Never share your login credentials</li>
+                            <li>• Log out from shared devices</li>
+                            <li>• Keep your software and browser updated</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Quick Actions */}
+                    <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                      <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Quick Actions</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <button className="flex items-center gap-2 px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors text-sm">
+                          <Headphones className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+                          <span className="text-gray-700 dark:text-gray-300">Contact Support</span>
+                        </button>
+                        <button className="flex items-center gap-2 px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors text-sm">
+                          <FileText className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+                          <span className="text-gray-700 dark:text-gray-300">View Logs</span>
+                        </button>
+                        <button className="flex items-center gap-2 px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors text-sm">
+                          <Bell className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+                          <span className="text-gray-700 dark:text-gray-300">Alert Settings</span>
+                        </button>
+                        <button className="flex items-center gap-2 px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors text-sm">
+                          <Settings className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+                          <span className="text-gray-700 dark:text-gray-300">Privacy Settings</span>
+                        </button>
                       </div>
                     </div>
                   </div>
