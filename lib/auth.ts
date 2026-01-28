@@ -73,24 +73,111 @@ export const authOptions: NextAuthOptions = {
           // First check employee table (for admin/staff users)
           console.log("📊 Querying employees table...");
           const employeeResult = await pool.query(
-            "SELECT id, email, password, role, first_name, last_name, ip_address, user_agent FROM employees WHERE email = $1",
+            "SELECT id, email, password, role, first_name, last_name, ip_address, user_agent, login_attempts FROM employees WHERE email = $1",
             [credentials.email]
           );
 
           if (employeeResult.rows.length > 0) {
             const user = employeeResult.rows[0];
-            console.log("✅ Employee found:", user.email, "- Role:", user.role);
+            console.log("✅ Employee found:", user.email, "- Role:", user.role, "- Current attempts:", user.login_attempts || 0);
 
             // Verify password
             console.log("🔒 Verifying password...");
             const isValid = await bcrypt.compare(credentials.password, user.password);
 
             if (!isValid) {
-              console.log("❌ Invalid password");
+              console.log("❌ Invalid password for employee:", user.email);
+              
+              // Increment login attempts
+              try {
+                const updateResult = await pool.query(
+                  `UPDATE employees SET login_attempts = login_attempts + 1, updated_at = NOW() WHERE email = $1`,
+                  [credentials.email]
+                );
+                console.log(`✅ Login attempts updated for employee: ${user.email}, rows affected: ${updateResult.rowCount}`);
+                
+                // Check if login attempts exceeded 3
+                const updatedEmployee = await pool.query(
+                  `SELECT login_attempts FROM employees WHERE email = $1`,
+                  [credentials.email]
+                );
+                
+                const attempts = updatedEmployee.rows[0]?.login_attempts || 0;
+                console.log(`📊 New login attempts count for ${user.email}: ${attempts}`);
+                
+                if (attempts >= 3) {
+                  // Generate OTP and send email
+                  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+                  const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiry
+                  
+                  // Get IP address and user agent
+                  const ipAddress = req?.headers?.['x-forwarded-for'] as string || 
+                                   req?.headers?.['x-real-ip'] as string || 
+                                   'unknown';
+                  const userAgent = req?.headers?.['user-agent'] as string || 'unknown';
+                  
+                  // Remove existing OTP for this email and insert new one
+                  await pool.query(
+                    `DELETE FROM otp_verification WHERE email = $1 AND otp_type = 'ACCOUNT_LOCK'`,
+                    [credentials.email]
+                  );
+                  
+                  // Insert new OTP into otp_verification table with IP and user agent
+                  await pool.query(
+                    `INSERT INTO otp_verification (email, otp_code, otp_type, expires_at, ip_address, user_agent, created_at)
+                     VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+                    [credentials.email, otp, 'ACCOUNT_LOCK', expiresAt, ipAddress, userAgent]
+                  );
+                  
+                  console.log(`🔒 Account locked for ${user.email}. OTP: ${otp}`);
+                  console.log(`📍 IP: ${ipAddress}, User Agent: ${userAgent}`);
+                  
+                  // Send email with OTP
+                  try {
+                    const emailResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/admin/send-email`, {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({
+                        email: credentials.email,
+                        otp: otp,
+                        type: 'ACCOUNT_LOCK',
+                        userName: `${user.first_name} ${user.last_name}`
+                      })
+                    });
+                    
+                    if (emailResponse.ok) {
+                      console.log(`✅ OTP email sent to ${credentials.email}`);
+                    } else {
+                      console.error(`❌ Failed to send OTP email to ${credentials.email}`);
+                    }
+                  } catch (emailError) {
+                    console.error('❌ Error sending OTP email:', emailError);
+                  }
+                  
+                  throw new Error("Account locked due to multiple failed attempts. Please check your email for OTP verification.");
+                }
+                
+              } catch (updateError: any) {
+                console.error('❌ Failed to update login attempts:', updateError.message);
+              }
+              
               throw new Error("Invalid email or password");
             }
 
             console.log("✅ Password valid! Employee login successful");
+
+            // Reset login attempts on successful login
+            try {
+              await pool.query(
+                `UPDATE employees SET login_attempts = 0, last_login = NOW(), updated_at = NOW() WHERE id = $1`,
+                [user.id]
+              );
+              console.log(`✅ Login attempts reset for employee: ${user.email}`);
+            } catch (resetError: any) {
+              console.error('❌ Failed to reset login attempts:', resetError.message);
+            }
 
             // Update employee IP address and user agent if not already set
             if (!user.ip_address || !user.user_agent) {
