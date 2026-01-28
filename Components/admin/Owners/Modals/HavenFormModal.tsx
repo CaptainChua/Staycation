@@ -468,7 +468,13 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
     <>
       <div className="fixed inset-0 bg-black/50 z-[9998] backdrop-blur-sm" onClick={handleClose}></div>
       <div className="fixed inset-0 flex items-center justify-center z-[9999] p-4">
-        <div className="bg-white rounded-2xl max-w-6xl w-full max-h-[90vh] shadow-2xl flex flex-col animate-in zoom-in-95 duration-200">
+        <form 
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSubmit();
+          }}
+          className="bg-white rounded-2xl max-w-6xl w-full max-h-[90vh] shadow-2xl flex flex-col animate-in zoom-in-95 duration-200"
+        >
           
           {/* Header */}
           <div className="flex justify-between items-center p-6 border-b border-brand-primary/20 bg-brand-primary text-white rounded-t-2xl flex-shrink-0 shadow-sm">
@@ -478,7 +484,7 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
                 {isEditMode ? "Update haven information and settings" : "Complete all sections to publish your property"}
               </p>
             </div>
-            <button onClick={handleClose} className="p-2 hover:bg-white/20 rounded-full transition-colors">
+            <button type="button" onClick={handleClose} className="p-2 hover:bg-white/20 rounded-full transition-colors">
               <X className="w-6 h-6 text-white" />
             </button>
           </div>
@@ -525,7 +531,7 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
           </div>
 
           {/* Footer */}
-          <div className="flex justify-between items-center p-6 border-t border-gray-200 bg-white rounded-b-2xl flex-shrink-0">
+          <div className="relative z-10 flex justify-between items-center p-6 border-t border-gray-200 bg-white rounded-b-2xl flex-shrink-0">
              <div className="flex gap-4 text-sm text-gray-500">
                 <div className="flex items-center gap-1"><Circle className="w-3 h-3 text-red-400" /> {isEditMode ? "Invalid" : "Not started"}</div>
                 <div className="flex items-center gap-1"><AlertCircle className="w-3 h-3 text-yellow-500" /> Incomplete</div>
@@ -534,6 +540,7 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
 
             <div className="flex gap-3">
               <button
+                type="button"
                 onClick={handleClose}
                 className="px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
                 disabled={isLoading}
@@ -541,12 +548,12 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
                 Cancel
               </button>
               <button
-                onClick={handleSubmit}
+                type="submit"
                 disabled={!allCriticalGreen || isLoading}
                 className={`
                   px-6 py-2.5 rounded-lg font-bold text-white shadow-md transition-all flex items-center gap-2
                   ${!allCriticalGreen || isLoading 
-                    ? 'bg-gray-300 cursor-not-allowed shadow-none' 
+                    ? 'bg-brand-primary/50 cursor-not-allowed shadow-none' 
                     : 'bg-brand-primary hover:bg-[#b57603] hover:shadow-lg transform active:scale-95'}
                 `}
               >
@@ -559,8 +566,7 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
                 {isLoading ? "Saving..." : "Save Changes"}
               </button>
             </div>
-          </div>
-        </div>
+          </form>
       </div>
     </>
   );
