@@ -5,7 +5,7 @@ import { Metadata } from 'next';
 import { Sparkles, Award, Star, Headphones } from 'lucide-react';
 
 export const metadata: Metadata = {
-  title: "Staycation Haven | Premium Rooms",
+  title: "Staycation Haven PH | Premium Rooms",
   description: "Browse our premium rooms and havens for your perfect staycation experience",
 };
 

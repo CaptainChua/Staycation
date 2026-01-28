@@ -2,8 +2,8 @@ import ContactContent from "@/Components/ContactContent";
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: "Staycation Haven | Contact",
-  description: "Get in touch with Staycation Haven. Contact us via phone, email, or visit our location in Quezon City.",
+  title: "Staycation Haven PH | Contact",
+  description: "Get in touch with Staycation Haven PH. Contact us via phone, email, or visit our location in Quezon City.",
 };
 
 const ContactsPage = () => {
