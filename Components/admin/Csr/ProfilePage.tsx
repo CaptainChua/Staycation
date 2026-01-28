@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Loader2, User, Mail, Phone, Calendar, MapPin, Briefcase, DollarSign, Edit2, Save, X, Camera, Shield, Check, Key, Eye, EyeOff, Activity, Headphones, FileText, Bell, Settings } from "lucide-react";
 import Image from "next/image";
+import { useSession, signOut } from "next-auth/react";
+import toast from "react-hot-toast";
 
 interface AdminUser {
   id?: string;
@@ -78,6 +80,7 @@ export default function ProfilePage({ user, onClose }: ProfilePageProps) {
     confirm: false
   });
   const [passwordSaveStatus, setPasswordSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
+  const { update: updateSession } = useSession();
 
   useEffect(() => {
     if (!user?.id) return;
@@ -130,9 +133,7 @@ export default function ProfilePage({ user, onClose }: ProfilePageProps) {
   const phone = employee?.phone || "Not specified";
   const hireDate = formatDate(employee?.hire_date);
   const salary = formatCurrency(employee?.monthly_salary);
-  const address =
-    [employee?.street_address, employee?.city, employee?.zip_code].filter(Boolean).join(", ") ||
-    "Not specified";
+  const address = `${employee?.street_address || ''} ${employee?.city || ''} ${employee?.zip_code || ''}`.trim() || "Not specified";
 
   const handleEdit = () => {
     setIsEditing(true);
@@ -150,28 +151,132 @@ export default function ProfilePage({ user, onClose }: ProfilePageProps) {
   const handleSave = async () => {
     if (!employee?.id) return;
     
+    // Email validation (only if email is provided)
+    if (editForm.email) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(editForm.email)) {
+        toast.error('Please enter a valid email address');
+        setSaveStatus('error');
+        setTimeout(() => setSaveStatus('idle'), 3000);
+        return;
+      }
+    }
+    
+    // Phone validation (if provided)
+    if (editForm.phone && editForm.phone.trim() !== '') {
+      const phoneRegex = /^[+]?[\d\s\-\(\)]+$/;
+      if (!phoneRegex.test(editForm.phone)) {
+        toast.error('Please enter a valid phone number');
+        setSaveStatus('error');
+        setTimeout(() => setSaveStatus('idle'), 3000);
+        return;
+      }
+    }
+    
     try {
       setSaveStatus('saving');
+      setError(null);
+      
+      // Prepare update data with only changed fields
+      const updateData: Partial<EmployeeProfile> = {};
+      
+      Object.keys(editForm).forEach(key => {
+        const field = key as keyof EmployeeProfile;
+        const currentValue = employee[field];
+        const newValue = editForm[field];
+        
+        // Compare values (handle string vs number conversions)
+        if (currentValue !== newValue) {
+          if (field === 'monthly_salary' && newValue) {
+            updateData[field] = parseFloat(newValue as string);
+          } else {
+            updateData[field] = newValue;
+          }
+        }
+      });
+      
+      // If no changes were made, show message and exit
+      if (Object.keys(updateData).length === 0) {
+        toast.error('No changes were made');
+        setSaveStatus('error');
+        setTimeout(() => setSaveStatus('idle'), 3000);
+        return;
+      }
+      
+      console.log('Sending update data:', updateData);
       
       const response = await fetch(`/api/admin/employees/${employee.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(editForm),
+        body: JSON.stringify(updateData),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to update profile');
+        const errorData = await response.json().catch(() => ({}));
+        console.error('API Error Response:', errorData);
+        throw new Error(errorData.error || errorData.message || 'Failed to update profile');
       }
 
       const updatedData = await response.json();
+      
+      // Update local state with new data
       setEmployee(updatedData.data);
+      
+      // Show success toast
+      toast.success('Profile updated successfully');
+      
+      // Log activity
+      try {
+        // Get client IP and user agent
+        const clientInfo = await fetch('/api/admin/client-info').then(res => res.json()).catch(() => ({}));
+        
+        await fetch('/api/admin/activity-logs', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            employment_id: employee.id,
+            action_type: 'update',
+            action: `Updated profile information: ${Object.keys(updateData).join(', ')}`,
+            details: {
+              entity_type: 'employee',
+              entity_id: employee.id,
+              ip_address: clientInfo.ipAddress,
+              user_agent: clientInfo.userAgent,
+            },
+          }),
+        });
+      } catch (logError) {
+        console.warn('Failed to log activity:', logError);
+        // Continue even if logging fails
+      }
+      
+      // Update the user session if name or email changed
+      if (updatedData.data.first_name || updatedData.data.last_name || updatedData.data.email) {
+        try {
+          // Update session with new user information
+          await updateSession({
+            ...user,
+            name: `${updatedData.data.first_name} ${updatedData.data.last_name}`.trim(),
+            email: updatedData.data.email,
+          });
+        } catch (sessionError) {
+          console.warn('Failed to update session:', sessionError);
+          // Continue even if session update fails
+        }
+      }
+      
       setIsEditing(false);
+      setEditForm({});
       setSaveStatus('success');
       
       setTimeout(() => setSaveStatus('idle'), 3000);
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update profile';
+      toast.error(errorMessage);
       setSaveStatus('error');
       setTimeout(() => setSaveStatus('idle'), 3000);
     }
@@ -199,23 +304,17 @@ export default function ProfilePage({ user, onClose }: ProfilePageProps) {
 
     // Validation
     if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
-      setError('All password fields are required');
+      toast.error('All password fields are required');
       return;
     }
 
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      setError('New passwords do not match');
-      return;
-    }
-
-    if (passwordForm.newPassword.length < 8) {
-      setError('New password must be at least 8 characters long');
+      toast.error('New passwords do not match');
       return;
     }
 
     try {
       setPasswordSaveStatus('saving');
-      setError(null);
 
       const response = await fetch('/api/admin/change-password', {
         method: 'POST',
@@ -242,9 +341,53 @@ export default function ProfilePage({ user, onClose }: ProfilePageProps) {
         confirmPassword: ''
       });
       
+      toast.success('Password changed successfully');
+      
+      // Log activity
+      try {
+        // Get client IP and user agent
+        const clientInfo = await fetch('/api/admin/client-info').then(res => res.json()).catch(() => ({}));
+        
+        console.log('🔍 Password change logging data:', {
+          employment_id: user?.id,
+          action_type: 'update',
+          action: 'Changed account password',
+          details: {
+            entity_type: 'employee',
+            entity_id: user?.id,
+            ip_address: clientInfo.ipAddress,
+            user_agent: clientInfo.userAgent,
+          },
+        });
+        
+        const logResponse = await fetch('/api/admin/activity-logs', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            employment_id: user?.id,
+            action_type: 'update',
+            action: 'Changed account password',
+            details: {
+              entity_type: 'employee',
+              entity_id: user?.id,
+              ip_address: clientInfo.ipAddress,
+              user_agent: clientInfo.userAgent,
+            },
+          }),
+        });
+        
+        const logResult = await logResponse.json();
+        console.log('🔍 Activity log response:', logResult);
+      } catch (logError) {
+        console.warn('❌ Failed to log activity:', logError);
+        // Continue even if logging fails
+      }
+      
       setTimeout(() => setPasswordSaveStatus('idle'), 3000);
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Failed to change password');
+      toast.error(error instanceof Error ? error.message : 'Failed to change password');
       setPasswordSaveStatus('error');
       setTimeout(() => setPasswordSaveStatus('idle'), 3000);
     }
@@ -352,24 +495,24 @@ export default function ProfilePage({ user, onClose }: ProfilePageProps) {
             </div>
           </div>
           
-          <div className="pt-20 px-8 pb-8">
+          <div className="pt-20 px-4 sm:px-8 pb-8">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{displayName}</h2>
-                <p className="text-gray-600 dark:text-gray-400">{roleLabel}</p>
-                <div className="flex items-center gap-4 mt-2 text-sm text-gray-500 dark:text-gray-400">
+              <div className="flex-1 min-w-0">
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white truncate">{displayName}</h2>
+                <p className="text-gray-600 dark:text-gray-400 text-sm sm:text-base">{roleLabel}</p>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
                   <span className="flex items-center gap-1">
-                    <Briefcase className="w-4 h-4" />
-                    {department}
+                    <Briefcase className="w-3 h-3 sm:w-4 sm:h-4" />
+                    <span className="truncate">{department}</span>
                   </span>
                   <span className="flex items-center gap-1">
-                    <Shield className="w-4 h-4" />
-                    {employmentId}
+                    <Shield className="w-3 h-3 sm:w-4 sm:h-4" />
+                    <span className="truncate">{employmentId}</span>
                   </span>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="px-3 py-1 bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-full text-sm font-medium">
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="px-2 sm:px-3 py-1 bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-full text-xs sm:text-sm font-medium">
                   Active
                 </div>
               </div>
@@ -380,21 +523,22 @@ export default function ProfilePage({ user, onClose }: ProfilePageProps) {
         {/* Tabs */}
         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg overflow-hidden border border-gray-200 dark:border-gray-700">
           <div className="border-b border-gray-200 dark:border-gray-700">
-            <nav className="flex space-x-8 px-8">
+            <nav className="flex overflow-x-auto scrollbar-hide px-4 sm:px-8">
               {tabs.map((tab) => {
                 const Icon = tab.icon;
                 return (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id as any)}
-                    className={`flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                    className={`flex items-center gap-1 sm:gap-2 py-4 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm transition-colors whitespace-nowrap flex-shrink-0 ${
                       activeTab === tab.id
                         ? 'border-brand-primary text-brand-primary'
                         : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
                     }`}
                   >
                     <Icon className="w-4 h-4" />
-                    {tab.label}
+                    <span className="hidden sm:inline">{tab.label}</span>
+                    <span className="sm:hidden">{tab.label.split(' ')[0]}</span>
                   </button>
                 );
               })}
