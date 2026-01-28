@@ -245,7 +245,7 @@ export default function ProfilePage({ user, onClose }: ProfilePageProps) {
       {/* Profile Content */}
       <div className="flex-1 overflow-y-auto">
         {/* Profile Card */}
-        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg overflow-hidden mb-6">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg overflow-hidden mb-6 border border-gray-200 dark:border-gray-700">
           <div className="bg-gradient-to-r from-brand-primary to-brand-primaryDark h-32 relative">
             <div className="absolute -bottom-16 left-8">
               <div className="relative group">
@@ -297,7 +297,7 @@ export default function ProfilePage({ user, onClose }: ProfilePageProps) {
         </div>
 
         {/* Tabs */}
-        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg overflow-hidden">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg overflow-hidden border border-gray-200 dark:border-gray-700">
           <div className="border-b border-gray-200 dark:border-gray-700">
             <nav className="flex space-x-8 px-8">
               {tabs.map((tab) => {
