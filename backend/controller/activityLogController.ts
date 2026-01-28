@@ -23,13 +23,16 @@ export const createActivityLog = async (req: NextRequest): Promise<NextResponse>
       }, { status: 400 });
     }
 
+    // Use current UTC time for TIMESTAMPTZ column (database will handle timezone conversion)
+    const currentUTCTime = new Date().toISOString();
+
     const query = `
-      INSERT INTO staff_activity_logs (employment_id, action_type, action, details, created_at)
-      VALUES ($1, $2, $3, $4, NOW())
+      INSERT INTO employee_activity_logs (employee_id, activity_type, description, entity_type, entity_id, ip_address, user_agent)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING *
     `;
 
-    const values = [employment_id, action_type, action, details || null];
+    const values = [employment_id, action_type, action, details?.entity_type || null, details?.entity_id || null, details?.ip_address || null, details?.user_agent || null];
     const result = await pool.query(query, values);
 
     console.log('✅ Activity Log Created:', result.rows[0]);
@@ -53,33 +56,116 @@ export const createActivityLog = async (req: NextRequest): Promise<NextResponse>
 export const getAllActivityLogs = async (req: NextRequest): Promise<NextResponse> => {
   try {
     const { searchParams } = new URL(req.url);
+    const employee_id = searchParams.get('employee_id');
     const action_type = searchParams.get('action_type');
+    const search = searchParams.get('search');
+    const date_range = searchParams.get('date_range');
+    const start_date = searchParams.get('start_date');
+    const end_date = searchParams.get('end_date');
     const limit = searchParams.get('limit') || '50';
-    const offset = searchParams.get('offset') || '0';
+    const page = searchParams.get('page') || '1';
+    const offset = ((parseInt(page) - 1) * parseInt(limit)).toString();
 
     let query = `
       SELECT
         al.id,
-        al.employment_id,
-        al.action_type,
-        al.action,
-        al.details,
-        al.created_at,
+        al.employee_id,
+        al.activity_type,
+        al.description,
+        al.entity_type,
+        al.entity_id,
+        al.ip_address,
+        al.user_agent,
+        (al.created_at AT TIME ZONE 'Asia/Manila') as created_at,
         e.first_name,
         e.last_name,
         e.role,
         e.profile_image_url
-      FROM staff_activity_logs al
-      LEFT JOIN employees e ON al.employment_id = e.id
+      FROM employee_activity_logs al
+      LEFT JOIN employees e ON al.employee_id = e.id
     `;
 
     const values: any[] = [];
     let paramCount = 1;
+    const whereConditions: string[] = [];
 
-    if (action_type) {
-      query += ` WHERE al.action_type = $${paramCount}`;
-      values.push(action_type);
+    // Add employee_id filter
+    if (employee_id) {
+      whereConditions.push(`al.employee_id = $${paramCount}`);
+      values.push(employee_id);
       paramCount++;
+    }
+
+    // Add activity_type filter
+    if (action_type && action_type !== 'all') {
+      whereConditions.push(`al.activity_type = $${paramCount}`);
+      values.push(action_type.toUpperCase());
+      paramCount++;
+    }
+
+    // Add search filter
+    if (search) {
+      whereConditions.push(`(
+        al.activity_type ILIKE $${paramCount} OR 
+        al.description ILIKE $${paramCount} OR 
+        al.entity_type ILIKE $${paramCount} OR 
+        e.first_name ILIKE $${paramCount} OR 
+        e.last_name ILIKE $${paramCount}
+      )`);
+      values.push(`%${search}%`);
+      paramCount++;
+    }
+
+    // Add date range filter (using Manila time)
+    if (date_range && date_range !== 'all') {
+      // Get current Manila time
+      const now = new Date();
+      const manilaTime = new Date(now.getTime() + (8 * 60 * 60 * 1000));
+      let startDate: Date | undefined;
+      let endDate: Date = new Date(manilaTime);
+
+      switch (date_range) {
+        case 'today':
+          startDate = new Date(manilaTime.getFullYear(), manilaTime.getMonth(), manilaTime.getDate());
+          break;
+        case 'yesterday':
+          startDate = new Date(manilaTime.getFullYear(), manilaTime.getMonth(), manilaTime.getDate() - 1);
+          endDate = new Date(manilaTime.getFullYear(), manilaTime.getMonth(), manilaTime.getDate());
+          break;
+        case 'last_7_days':
+          startDate = new Date(manilaTime.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case 'last_30_days':
+          startDate = new Date(manilaTime.getTime() - 30 * 24 * 60 * 60 * 1000);
+          break;
+        case 'custom':
+          if (start_date) {
+            startDate = new Date(start_date);
+          }
+          if (end_date) {
+            endDate = new Date(end_date + 'T23:59:59.999Z');
+          }
+          break;
+        default:
+          startDate = new Date(manilaTime.getTime() - 30 * 24 * 60 * 60 * 1000);
+      }
+
+      if (startDate) {
+        whereConditions.push(`(al.created_at AT TIME ZONE 'Asia/Manila') >= $${paramCount}`);
+        values.push(startDate.toISOString());
+        paramCount++;
+      }
+
+      if (date_range !== 'yesterday') {
+        whereConditions.push(`(al.created_at AT TIME ZONE 'Asia/Manila') <= $${paramCount}`);
+        values.push(endDate.toISOString());
+        paramCount++;
+      }
+    }
+
+    // Add WHERE clause if there are conditions
+    if (whereConditions.length > 0) {
+      query += ` WHERE ${whereConditions.join(' AND ')}`;
     }
 
     query += ` ORDER BY al.created_at DESC LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
@@ -87,12 +173,101 @@ export const getAllActivityLogs = async (req: NextRequest): Promise<NextResponse
 
     const result = await pool.query(query, values);
 
-    console.log(`✅ Retrieved ${result.rows.length} activity logs`);
+    // Get total count for pagination
+    let countQuery = `
+      SELECT COUNT(*) as total
+      FROM employee_activity_logs al
+      LEFT JOIN employees e ON al.employee_id = e.id
+    `;
+    
+    const countValues: any[] = [];
+    let countParamCount = 1;
+    const countWhereConditions: string[] = [];
+
+    if (employee_id) {
+      countWhereConditions.push(`al.employee_id = $${countParamCount}`);
+      countValues.push(employee_id);
+      countParamCount++;
+    }
+
+    if (action_type && action_type !== 'all') {
+      countWhereConditions.push(`al.activity_type = $${countParamCount}`);
+      countValues.push(action_type.toUpperCase());
+      countParamCount++;
+    }
+
+    if (search) {
+      countWhereConditions.push(`(
+        al.activity_type ILIKE $${countParamCount} OR 
+        al.description ILIKE $${countParamCount} OR 
+        al.entity_type ILIKE $${countParamCount} OR 
+        e.first_name ILIKE $${countParamCount} OR 
+        e.last_name ILIKE $${countParamCount}
+      )`);
+      countValues.push(`%${search}%`);
+      countParamCount++;
+    }
+
+    if (date_range && date_range !== 'all') {
+      const now = new Date();
+      let startDate: Date | undefined;
+      let endDate: Date = new Date();
+
+      switch (date_range) {
+        case 'today':
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          break;
+        case 'yesterday':
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+          endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          break;
+        case 'last_7_days':
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case 'last_30_days':
+          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          break;
+        case 'custom':
+          if (start_date) {
+            startDate = new Date(start_date);
+          }
+          if (end_date) {
+            endDate = new Date(end_date + 'T23:59:59.999Z');
+          }
+          break;
+        default:
+          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      }
+
+      if (startDate) {
+        countWhereConditions.push(`al.created_at >= $${countParamCount}`);
+        countValues.push(startDate.toISOString());
+        countParamCount++;
+      }
+
+      if (date_range !== 'yesterday') {
+        countWhereConditions.push(`al.created_at <= $${countParamCount}`);
+        countValues.push(endDate.toISOString());
+        countParamCount++;
+      }
+    }
+
+    if (countWhereConditions.length > 0) {
+      countQuery += ` WHERE ${countWhereConditions.join(' AND ')}`;
+    }
+
+    const countResult = await pool.query(countQuery, countValues);
+    const totalCount = parseInt(countResult.rows[0].total);
+
+    console.log(`✅ Retrieved ${result.rows.length} activity logs for employee ${employee_id}`);
 
     return NextResponse.json({
       success: true,
-      data: result.rows,
+      logs: result.rows,
       count: result.rows.length,
+      total_count: totalCount,
+      page: parseInt(page),
+      limit: parseInt(limit),
     });
 
   } catch (error: any) {

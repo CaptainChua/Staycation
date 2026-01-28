@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Pool } from 'pg';
 import { upload_image_from_form } from '@/backend/utils/fileUpload';
+import { createNotificationsForRoles } from '@/backend/utils/notificationHelper';
 
 // Database connection
 const pool = new Pool({
@@ -111,39 +112,14 @@ export async function POST(request: NextRequest) {
         }
       }
       
-      // Get all employees with Owner role
-      const ownerEmployeesQuery = `
-        SELECT id, first_name, last_name, email
-        FROM employees
-        WHERE role = 'Owner'
-      `;
+      // Create notifications for all Owner and CSR role employees
+      await createNotificationsForRoles(['Owner', 'CSR'], {
+        title: `New Issue Report: ${issue_type}`,
+        message: `A new ${priority_level.toLowerCase()} priority issue has been reported for ${specific_location}: ${issue_description.substring(0, 100)}${issue_description.length > 100 ? '...' : ''}`,
+        notificationType: 'ReportIssue'
+      });
       
-      const ownerEmployeesResult = await client.query(ownerEmployeesQuery);
-      const ownerEmployees = ownerEmployeesResult.rows;
-      
-      // Insert notifications for all Owner role employees
-      if (ownerEmployees.length > 0) {
-        for (const employee of ownerEmployees) {
-          try {
-            const notificationQuery = `
-              INSERT INTO notifications (user_id, title, message, notification_type, is_read)
-              VALUES ($1, $2, $3, $4, $5)
-              RETURNING notification_id
-            `;
-            
-            await client.query(notificationQuery, [
-              employee.id,
-              `New Issue Report: ${issue_type}`,
-              `A new ${priority_level.toLowerCase()} priority issue has been reported for ${specific_location}: ${issue_description.substring(0, 100)}${issue_description.length > 100 ? '...' : ''}`,
-              'ReportIssue',
-              false
-            ]);
-          } catch (notificationError) {
-            console.error('Failed to create notification:', notificationError);
-            throw new Error(`Failed to create notification: ${notificationError}`);
-          }
-        }
-      }
+      console.log(`✅ Notifications created for Owner and CSR roles`);
       
       // Commit transaction
       console.log('🔄 Committing transaction...');

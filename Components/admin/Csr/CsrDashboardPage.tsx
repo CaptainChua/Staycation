@@ -1,26 +1,27 @@
 "use client";
 
-import { Menu, X, Home, Calendar, DollarSign, FileText, Users, Wallet, Package, Settings, Bell, ChevronDown, User, MessageSquare, BarChart3, Headphones, Moon, Sun, Monitor } from "lucide-react";
+import { Menu, X, Home, Calendar, DollarSign, FileText, Users, Wallet, Package, Settings, Bell, ChevronDown, User, MessageSquare, BarChart3, Headphones, Moon, Sun, Monitor, Cloud, CloudRain, CloudSnow, Activity } from "lucide-react";
 import Image from "next/image";
 import { useMemo, useState, useEffect, useRef } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useTheme } from "next-themes";
-import DashboardPage, {
-  BookingsPage,
-  PaymentsPage,
-  DeliverablesPage,
-  CleanersPage,
-  DepositsPage,
-  InventoryPage,
-} from "./DashboardPage";
+import DashboardPage from "./DashboardPage";
+import BookingsPage from "./BookingPage";
+import PaymentsPage from "./PaymentPage";
+import DeliverablesPage from "./DeliverablesPage";
+import CleanersPage from "./CleanersPage";
+import DepositsPage from "./DepositPage";
+import SettingsPage from "./SettingsPage";
+import MessagePage from "./MessagePage";
+import ActivityLogsPage from "./ActivityLogsPage";
 import NotificationPage from "./NotificationPage";
+import InventoryPage from "./InventoryPage";
+import AdminFooter from "../AdminFooter";
 import NotificationModal from "./Modals/Notification";
 import MessageModal from "./Modals/MessageModal";
-import MessagePage from "./MessagePage";
-import SettingsPage from "./SettingsPage";
-import AdminFooter from "../AdminFooter";
 import { useGetConversationsQuery } from "@/redux/api/messagesApi";
 import { useGetEmployeesQuery } from "@/redux/api/employeeApi";
+import { useGetNotificationsQuery } from "@/redux/api/notificationsApi";
 
 interface EmployeeProfile {
   id: string;
@@ -57,9 +58,23 @@ export default function CsrDashboard() {
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [messageModalOpen, setMessageModalOpen] = useState(false);
-  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  const [selectedConversationId, setSelectedConversationId] = useState<
+    string | null
+  >(null);
   const [messageBadge, setMessageBadge] = useState(true);
   const [now, setNow] = useState<Date | null>(null);
+  const [weatherStatus, setWeatherStatus] = useState<{
+    condition: 'sunny' | 'cloudy' | 'rainy' | 'snowy';
+    description: string;
+    temperature: string;
+    location: string;
+  }>({
+    condition: 'sunny',
+    description: 'Loading...',
+    temperature: '--°C',
+    location: 'Mother Ignacia Ave, Diliman, QC'
+  });
+  const [weatherLoading, setWeatherLoading] = useState(true);
   const [employee, setEmployee] = useState<EmployeeProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -74,7 +89,7 @@ export default function CsrDashboard() {
     isLoading: isLoadingHeaderConversations,
   } = useGetConversationsQuery(
     { userId: userId || "" },
-    { skip: !userId, pollingInterval: 5000 }
+    { skip: !userId, pollingInterval: 5000 },
   );
 
   const { data: employeesData } = useGetEmployeesQuery({});
@@ -98,45 +113,44 @@ export default function CsrDashboard() {
     });
     return map;
   }, [employees]);
-  const notifications = [
-    {
-      id: "1",
-      title: "New booking pending approval",
-      description: "A new booking for Haven 2 requires CSR confirmation.",
-      timestamp: "2 mins ago",
-      type: "info" as const,
-    },
-    {
-      id: "2",
-      title: "Payment received",
-      description: "₱12,500 from Emily Brown was confirmed.",
-      timestamp: "15 mins ago",
-      type: "success" as const,
-    },
-    {
-      id: "3",
-      title: "Guest check-in reminder",
-      description: "Mike Wilson will arrive today at 3:00 PM.",
-      timestamp: "1 hr ago",
-      type: "warning" as const,
-    },
-  ];
+
+  // Fetch notifications for dynamic count
+  const { data: notifications = [] } = useGetNotificationsQuery(
+    { limit: 50 },
+    { 
+      pollingInterval: 30000, // Refresh every 30 seconds
+      skip: !userId 
+    }
+  );
+
+  // Count unread notifications
+  const unreadCount = notifications.filter((n: any) => !n.read).length;
+
+  // Count unread messages
+  const conversations = headerConversationsData?.data || [];
+  console.log('User ID:', userId);
+  console.log('Conversations for user:', conversations.length);
+  conversations.forEach((conv: any, index: number) => {
+    console.log(`Conv ${index + 1}: ID=${conv.id}, Name=${conv.name}, Unread=${conv.unread_count}`);
+  });
+  const unreadMessageCount = conversations.reduce((sum: number, conv: any) => sum + (conv.unread_count || 0), 0);
+  console.log('Total unread for user:', unreadMessageCount);
 
   // Prevent back navigation to login page after login
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       // Push current state to history
-      window.history.pushState(null, '', window.location.href);
+      window.history.pushState(null, "", window.location.href);
 
       // Prevent back navigation
       const handlePopState = () => {
-        window.history.pushState(null, '', window.location.href);
+        window.history.pushState(null, "", window.location.href);
       };
 
-      window.addEventListener('popstate', handlePopState);
+      window.addEventListener("popstate", handlePopState);
 
       return () => {
-        window.removeEventListener('popstate', handlePopState);
+        window.removeEventListener("popstate", handlePopState);
       };
     }
   }, []);
@@ -159,6 +173,140 @@ export default function CsrDashboard() {
     return () => window.clearInterval(id);
   }, []);
 
+  // Real weather API for Manila
+  useEffect(() => {
+    const fetchWeather = async () => {
+      try {
+        setWeatherLoading(true);
+        
+        // Debug: Check if API key is available
+        const apiKey = process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY;
+        console.log('Weather API Key available:', !!apiKey);
+        console.log('API Key length:', apiKey?.length || 0);
+        console.log('API Key first 8 chars:', apiKey?.substring(0, 8) + '...');
+        
+        if (!apiKey || apiKey.trim() === '') {
+          console.log('Using demo mode - no API key found');
+          // Fallback demo data if no API key
+          const hour = new Date().getHours();
+          const month = new Date().getMonth();
+          
+          const weatherConditions = [
+            { condition: 'sunny' as const, description: 'Clear and sunny', temperature: '30°C' },
+            { condition: 'cloudy' as const, description: 'Partly cloudy', temperature: '28°C' },
+            { condition: 'rainy' as const, description: 'Light showers', temperature: '26°C' },
+          ];
+          
+          const isRainySeason = month >= 5 && month <= 10;
+          let weatherIndex = 0;
+          
+          if (isRainySeason && hour >= 14 && hour <= 17) {
+            weatherIndex = Math.random() > 0.3 ? 2 : 1;
+          } else if (hour >= 11 && hour <= 15) {
+            weatherIndex = Math.random() > 0.4 ? 0 : 1;
+          } else if (hour >= 6 && hour <= 10) {
+            weatherIndex = Math.floor(Math.random() * 3);
+          } else if (hour >= 16 && hour <= 18) {
+            weatherIndex = Math.random() > 0.5 ? 1 : 0;
+          } else {
+            weatherIndex = 0;
+          }
+          
+          const selectedWeather = weatherConditions[weatherIndex];
+          setWeatherStatus({
+            ...selectedWeather,
+            location: 'Mother Ignacia Ave, Diliman, QC'
+          });
+          setWeatherLoading(false);
+          return;
+        }
+        
+        // Real API call
+        const lat = 14.6397; // Manila latitude
+        const lon = 121.0584; // Manila longitude
+        
+        console.log('Fetching real weather data...');
+        const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric`;
+        console.log('API URL:', url.replace(apiKey, 'HIDDEN_KEY'));
+        
+        const response = await fetch(url);
+        
+        console.log('Weather API response status:', response.status);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Weather API error response:', errorText);
+          throw new Error(`Weather API failed: ${response.status} ${errorText}`);
+        }
+        
+        const weatherData = await response.json();
+        console.log('Weather data received:', weatherData);
+        
+        // Map API response to our format
+        const temp = Math.round(weatherData.main.temp);
+        const weatherMain = weatherData.weather[0].main.toLowerCase();
+        const weatherDesc = weatherData.weather[0].description;
+        
+        let condition: 'sunny' | 'cloudy' | 'rainy' | 'snowy' = 'sunny';
+        let description = weatherDesc;
+        
+        if (weatherMain.includes('rain') || weatherMain.includes('drizzle')) {
+          condition = 'rainy';
+          description = weatherDesc;
+        } else if (weatherMain.includes('cloud')) {
+          condition = 'cloudy';
+          description = weatherDesc;
+        } else if (weatherMain.includes('clear')) {
+          condition = 'sunny';
+          description = 'Clear and sunny';
+        } else if (weatherMain.includes('snow')) {
+          condition = 'snowy';
+          description = weatherDesc;
+        }
+        
+        setWeatherStatus({
+          condition,
+          description: description.charAt(0).toUpperCase() + description.slice(1),
+          temperature: `${temp}°C`,
+          location: 'Mother Ignacia Ave, Diliman, QC'
+        });
+        
+      } catch (error) {
+        console.error('Error fetching weather:', error);
+        // Fallback to demo data on error
+        setWeatherStatus({
+          condition: 'sunny',
+          description: 'Weather unavailable',
+          temperature: '--°C',
+          location: 'Mother Ignacia Ave, Diliman, QC'
+        });
+      } finally {
+        setWeatherLoading(false);
+      }
+    };
+
+    fetchWeather();
+    const weatherInterval = setInterval(fetchWeather, 300000); // Update every 5 minutes
+
+    return () => clearInterval(weatherInterval);
+  }, []);
+
+  // Helper function to get weather icon
+  const getWeatherIcon = (condition: string) => {
+    switch (condition) {
+      case 'sunny':
+        return <Sun className="w-4 h-4 text-yellow-500" />;
+      case 'cloudy':
+        return <Cloud className="w-4 h-4 text-gray-500" />;
+      case 'rainy':
+        return <CloudRain className="w-4 h-4 text-blue-500" />;
+      case 'snowy':
+        return <CloudSnow className="w-4 h-4 text-blue-300" />;
+      default:
+        return <Sun className="w-4 h-4 text-yellow-500" />;
+    }
+  };
+
   // Fetch employee data
   useEffect(() => {
     if (!session?.user?.id) return;
@@ -168,11 +316,14 @@ export default function CsrDashboard() {
     const fetchEmployeeData = async () => {
       try {
         setIsLoading(true);
-        const response = await fetch(`/api/admin/employees/${session.user.id}`, {
-          method: "GET",
-          cache: "no-store",
-          signal: controller.signal,
-        });
+        const response = await fetch(
+          `/api/admin/employees/${session.user.id}`,
+          {
+            method: "GET",
+            cache: "no-store",
+            signal: controller.signal,
+          },
+        );
 
         const payload = await response.json().catch(() => ({}));
 
@@ -203,7 +354,10 @@ export default function CsrDashboard() {
   // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
         setProfileDropdownOpen(false);
       }
     }
@@ -222,41 +376,92 @@ export default function CsrDashboard() {
     {
       category: "Overview",
       items: [
-        { id: "dashboard", icon: Home, label: "Dashboard", color: "text-blue-500" },
-        { id: "analytics", icon: BarChart3, label: "Analytics & Reports", color: "text-cyan-500" },
+        {
+          id: "dashboard",
+          icon: Home,
+          label: "Dashboard",
+          color: "text-blue-500",
+        },
+        {
+          id: "analytics",
+          icon: BarChart3,
+          label: "Analytics & Reports",
+          color: "text-cyan-500",
+        },
       ],
     },
     {
       category: "Bookings",
       items: [
-        { id: "bookings", icon: Calendar, label: "Bookings Management", color: "text-green-500" },
-        { id: "reservations", icon: Calendar, label: "Reservations", color: "text-indigo-500" },
+        {
+          id: "bookings",
+          icon: Calendar,
+          label: "Bookings Management",
+          color: "text-green-500",
+        },
+        {
+          id: "reservations",
+          icon: Calendar,
+          label: "Reservations",
+          color: "text-indigo-500",
+        },
       ],
     },
     {
       category: "Finance",
       items: [
-        { id: "payments", icon: DollarSign, label: "Payment Management", color: "text-purple-500" },
-        { id: "deposits", icon: Wallet, label: "Security Deposit", color: "text-indigo-500" },
+        {
+          id: "payments",
+          icon: DollarSign,
+          label: "Payment Management",
+          color: "text-purple-500",
+        },
+        {
+          id: "deposits",
+          icon: Wallet,
+          label: "Security Deposit",
+          color: "text-indigo-500",
+        },
       ],
     },
     {
       category: "Operations",
       items: [
-        { id: "deliverables", icon: FileText, label: "Deliverables Management", color: "text-pink-500" },
-        { id: "cleaners", icon: Users, label: "Cleaners Management", color: "text-brand-primary" },
-        { id: "inventory", icon: Package, label: "Inventory Management", color: "text-teal-500" },
+        {
+          id: "deliverables",
+          icon: FileText,
+          label: "Deliverables Management",
+          color: "text-pink-500",
+        },
+        {
+          id: "cleaners",
+          icon: Users,
+          label: "Cleaners Management",
+          color: "text-brand-primary",
+        },
+        {
+          id: "inventory",
+          icon: Package,
+          label: "Inventory Management",
+          color: "text-teal-500",
+        },
       ],
     },
     {
       category: "Communication",
       items: [
-        { id: "messages", icon: MessageSquare, label: "Messages", color: "text-green-500" },
+        {
+          id: "messages",
+          icon: MessageSquare,
+          label: "Messages",
+          color: "text-green-500",
+        },
       ],
     },
     {
       category: "System",
       items: [
+        { id: "activity-logs", icon: Activity, label: "Activity Logs", color: "text-orange-500" },
         { id: "settings", icon: Settings, label: "Settings", color: "text-gray-500" },
       ],
     },
@@ -266,7 +471,7 @@ export default function CsrDashboard() {
     try {
       await signOut({
         callbackUrl: "/admin/login",
-        redirect: true
+        redirect: true,
       });
     } catch (error) {
       console.error("Logout error: ", error);
@@ -315,7 +520,9 @@ export default function CsrDashboard() {
                   <h1 className="font-bold text-lg text-gray-800 dark:text-gray-100">
                     Staycation Haven
                   </h1>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">CSR Portal</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    CSR Portal
+                  </p>
                 </div>
               )}
             </div>
@@ -359,9 +566,7 @@ export default function CsrDashboard() {
                     >
                       <Icon
                         className={`w-5 h-5 flex-shrink-0 ${
-                          page === item.id
-                            ? "text-white"
-                            : `${item.color}`
+                          page === item.id ? "text-white" : `${item.color}`
                         }`}
                       />
                       {sidebar && (
@@ -413,15 +618,27 @@ export default function CsrDashboard() {
                     })
                   : ""}
               </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                {now
-                  ? now.toLocaleString("en-US", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                      second: "2-digit",
-                    })
-                  : ""}
-              </p>
+              <div className="flex items-center gap-2">
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {now
+                    ? now.toLocaleString("en-US", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        second: "2-digit",
+                      })
+                    : ""}
+                </p>
+                <div className="flex items-center gap-1 px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded-full cursor-help transition-colors hover:bg-gray-200 dark:hover:bg-gray-700" title={`${weatherStatus.description} - ${weatherStatus.location} (Real-time)`}>
+                  {weatherLoading ? (
+                    <div className="w-4 h-4 animate-spin rounded-full border-2 border-gray-300 border-t-brand-primary" />
+                  ) : (
+                    getWeatherIcon(weatherStatus.condition)
+                  )}
+                  <span className="text-xs text-gray-600 dark:text-gray-300 font-medium">
+                    {weatherLoading ? 'Loading...' : weatherStatus.temperature}
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -440,9 +657,13 @@ export default function CsrDashboard() {
                 setMessageModalOpen((prev) => !prev);
               }}
             >
-              <MessageSquare className={`w-6 h-6 ${messageModalOpen ? "text-brand-primary" : "text-gray-600 dark:text-gray-300"}`} />
-              {messageBadge && (
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+              <MessageSquare
+                className={`w-6 h-6 ${messageModalOpen ? "text-brand-primary" : "text-gray-600 dark:text-gray-300"}`}
+              />
+              {unreadMessageCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[20px] h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center px-1">
+                  {unreadMessageCount > 99 ? '99+' : unreadMessageCount}
+                </span>
               )}
             </button>
 
@@ -459,8 +680,14 @@ export default function CsrDashboard() {
                 setNotificationOpen((prev) => !prev);
               }}
             >
-              <Bell className={`w-6 h-6 ${notificationOpen ? "text-brand-primary" : "text-gray-600 dark:text-gray-300"}`} />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+              <Bell
+                className={`w-6 h-6 ${notificationOpen ? "text-brand-primary" : "text-gray-600 dark:text-gray-300"}`}
+              />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[20px] h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center px-1">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
             </button>
 
             {/* User Avatar with Profile Dropdown */}
@@ -469,31 +696,41 @@ export default function CsrDashboard() {
                 onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
                 className="flex items-center gap-2 p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
               >
-                <div className="w-10 h-10 bg-white dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-full overflow-hidden flex items-center justify-center text-gray-700 dark:text-gray-200 font-bold cursor-pointer transition-colors">
+                <div className="w-10 h-10 bg-white dark:bg-gray-700 border-2 border-brand-primary rounded-full overflow-hidden flex items-center justify-center text-gray-700 dark:text-gray-200 font-bold cursor-pointer transition-colors shadow-sm">
                   {isLoading ? (
                     <div className="w-full h-full bg-gray-200 dark:bg-gray-700 animate-pulse" />
                   ) : employee?.profile_image_url ? (
                     <Image
                       src={employee.profile_image_url}
-                      alt={employee.first_name ? `${employee.first_name} ${employee.last_name}` : "Profile"}
+                      alt={
+                        employee.first_name
+                          ? `${employee.first_name} ${employee.last_name}`
+                          : "Profile"
+                      }
                       width={40}
                       height={40}
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <span>{session?.user?.name ? session.user.name.charAt(0).toUpperCase() : 'C'}</span>
+                    <span>
+                      {session?.user?.name
+                        ? session.user.name.charAt(0).toUpperCase()
+                        : "C"}
+                    </span>
                   )}
                 </div>
                 <div className="hidden sm:block text-left">
-                  <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate max-w-[120px]">
+                  <div className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate max-w-[120px]">
                     {isLoading ? (
                       <span className="inline-block h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
                     ) : employee ? (
-                      `${employee.first_name} ${employee.last_name}`.trim() || employee.email || employee.employment_id
+                      `${employee.first_name} ${employee.last_name}`.trim() ||
+                      employee.email ||
+                      employee.employment_id
                     ) : (
-                      session?.user?.name || "User"
+                      "No employee"
                     )}
-                  </p>
+                  </div>
                   <p className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[120px]">
                     {employee?.role || "CSR"}
                   </p>
@@ -506,14 +743,18 @@ export default function CsrDashboard() {
               </button>
 
               {profileDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-52 sm:w-56 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden z-50">
+                <div className="absolute right-0 mt-2 w-52 sm:w-56 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-brand-primary/20 dark:border-gray-700 overflow-hidden z-50">
                   {/* User Info Header */}
                   <div className="p-4 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-600">
                     <div className="flex items-center gap-3">
                       {employee?.profile_image_url ? (
                         <Image
                           src={employee.profile_image_url}
-                          alt={employee.first_name ? `${employee.first_name} ${employee.last_name}` : "Profile"}
+                          alt={
+                            employee.first_name
+                              ? `${employee.first_name} ${employee.last_name}`
+                              : "Profile"
+                          }
                           width={40}
                           height={40}
                           className="w-10 h-10 rounded-full object-cover ring-2 ring-brand-primary"
@@ -530,14 +771,14 @@ export default function CsrDashboard() {
                           ) : employee ? (
                             `${employee.first_name} ${employee.last_name}`.trim()
                           ) : (
-                            session?.user?.name || 'CSR Account'
+                            session?.user?.name || "CSR Account"
                           )}
                         </p>
                         <p className="text-xs text-gray-600 dark:text-gray-400 truncate">
                           {isLoading ? (
                             <span className="inline-block h-3 bg-gray-100 rounded animate-pulse w-20 mt-0.5"></span>
                           ) : (
-                            session?.user?.email || 'Loading...'
+                            session?.user?.email || "Loading..."
                           )}
                         </p>
                       </div>
@@ -564,12 +805,12 @@ export default function CsrDashboard() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          setTheme('dark');
+                          setTheme("dark");
                         }}
                         className={`p-1 rounded-full transition-all duration-200 ${
-                          theme === 'dark'
-                            ? 'bg-white dark:bg-gray-600 text-brand-primary shadow-sm'
-                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                          theme === "dark"
+                            ? "bg-white dark:bg-gray-600 text-brand-primary shadow-sm"
+                            : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                         }`}
                         aria-label="Dark mode"
                         title="Dark"
@@ -579,12 +820,12 @@ export default function CsrDashboard() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          setTheme('light');
+                          setTheme("light");
                         }}
                         className={`p-1 rounded-full transition-all duration-200 ${
-                          theme === 'light'
-                            ? 'bg-white dark:bg-gray-600 text-brand-primary shadow-sm'
-                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                          theme === "light"
+                            ? "bg-white dark:bg-gray-600 text-brand-primary shadow-sm"
+                            : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                         }`}
                         aria-label="Light mode"
                         title="Light"
@@ -594,12 +835,12 @@ export default function CsrDashboard() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          setTheme('system');
+                          setTheme("system");
                         }}
                         className={`p-1 rounded-full transition-all duration-200 ${
-                          theme === 'system'
-                            ? 'bg-white dark:bg-gray-600 text-brand-primary shadow-sm'
-                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                          theme === "system"
+                            ? "bg-white dark:bg-gray-600 text-brand-primary shadow-sm"
+                            : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                         }`}
                         aria-label="System mode"
                         title="System"
@@ -638,6 +879,7 @@ export default function CsrDashboard() {
             {page === "cleaners" && <CleanersPage />}
             {page === "deposits" && <DepositsPage />}
             {page === "inventory" && <InventoryPage />}
+            {page === "activity-logs" && <ActivityLogsPage />}
             {page === "notifications" && <NotificationPage />}
             {page === "messages" && (
               <MessagePage
@@ -659,7 +901,7 @@ export default function CsrDashboard() {
       {/* MODALS */}
       {notificationOpen && (
         <NotificationModal
-          notifications={notifications}
+          userId={userId}
           onClose={() => setNotificationOpen(false)}
           onViewAll={() => {
             setNotificationOpen(false);
@@ -672,8 +914,11 @@ export default function CsrDashboard() {
         <MessageModal
           onClose={() => setMessageModalOpen(false)}
           conversations={headerConversationsData?.data || []}
+          currentUserId={userId || ""}
           employeeNameById={employeeNameById}
           employeeProfileImageById={employeeProfileImageById}
+          anchorRef={messageButtonRef}
+          isLoading={isLoadingHeaderConversations}
           onSelectConversation={(conversationId) => {
             setSelectedConversationId(conversationId);
             setMessageModalOpen(false);

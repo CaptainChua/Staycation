@@ -11,6 +11,22 @@ import {
   Fingerprint,
   Wifi,
   Lock,
+  Calendar,
+  DollarSign,
+  FileText,
+  Users,
+  Package,
+  MessageSquare,
+  Clock,
+  CheckCircle,
+  Settings as SettingsIcon,
+  Printer,
+  Download,
+  Upload,
+  CreditCard,
+  Hotel,
+  UserCheck,
+  ClipboardList
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
@@ -21,17 +37,50 @@ const primaryBtn =
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
 
-  const [notificationPrefs, setNotificationPrefs] = useState({
-    bookingAlerts: true,
-    payoutUpdates: true,
-    csrAnnouncements: false,
-    weeklyDigest: true,
+  // CSR Front Desk Specific Settings
+  const [bookingSettings, setBookingSettings] = useState({
+    autoConfirmBookings: false,
+    requireDepositForBooking: true,
+    sendCheckInReminders: true,
+    sendCheckOutReminders: true,
+    allowSameDayBooking: true,
+    maxGuestsPerRoom: 4,
   });
 
-  const [channelPrefs, setChannelPrefs] = useState({
-    email: true,
-    sms: false,
-    push: true,
+  const [paymentSettings, setPaymentSettings] = useState({
+    acceptGCash: true,
+    acceptBankTransfer: true,
+    acceptCash: true,
+    requireFullPayment: false,
+    autoProcessRefunds: false,
+    paymentReminderEnabled: true,
+  });
+
+  const [deliverableSettings, setDeliverableSettings] = useState({
+    autoConfirmDeliverables: false,
+    requirePaymentForDeliverables: true,
+    sendDeliveryUpdates: true,
+    allowGuestCancellation: true,
+    defaultDeliveryTime: "09:00",
+  });
+
+  const [cleanerSettings, setCleanerSettings] = useState({
+    autoAssignCleaners: false,
+    requireCleanerConfirmation: true,
+    sendCleaningReminders: true,
+    allowCleanerNotes: true,
+    cleaningTimeBuffer: 2, // hours
+  });
+
+  const [notificationPrefs, setNotificationPrefs] = useState({
+    newBookings: true,
+    paymentConfirmations: true,
+    checkInNotifications: true,
+    checkOutNotifications: true,
+    cleaningUpdates: true,
+    deliverableUpdates: true,
+    guestMessages: true,
+    systemAlerts: true,
   });
 
   const [appearance, setAppearance] = useState({
@@ -39,6 +88,8 @@ export default function SettingsPage() {
     density: "comfortable",
     language: "en",
     timezone: "GMT+08",
+    autoRefreshDashboard: true,
+    showQuickActions: true,
   });
 
   // Sync theme with appearance state using requestAnimationFrame to avoid cascading renders
@@ -53,22 +104,33 @@ export default function SettingsPage() {
     }
   }, [theme, appearance.theme]);
 
+  const toggleBookingSetting = (key: keyof typeof bookingSettings) => {
+    setBookingSettings((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const togglePaymentSetting = (key: keyof typeof paymentSettings) => {
+    setPaymentSettings((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const toggleDeliverableSetting = (key: keyof typeof deliverableSettings) => {
+    setDeliverableSettings((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const toggleCleanerSetting = (key: keyof typeof cleanerSettings) => {
+    setCleanerSettings((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
   const toggleNotification = (key: keyof typeof notificationPrefs) => {
     setNotificationPrefs((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const toggleChannel = (key: keyof typeof channelPrefs) => {
-    setChannelPrefs((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
-
   const handleAppearanceChange = (
     field: keyof typeof appearance,
-    value: string
+    value: string | boolean
   ) => {
     setAppearance((prev) => ({ ...prev, [field]: value }));
-
     if (field === "theme") {
-      setTheme(value);
+      setTheme(value as string);
     }
   };
 
@@ -76,31 +138,37 @@ export default function SettingsPage() {
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col gap-2">
         <p className="text-xs font-semibold uppercase tracking-[0.3em] text-gray-400">
-          Workspace
+          CSR Front Desk
         </p>
         <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Settings</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 max-w-2xl">
-          Configure notification preferences, security controls, and workspace
-          defaults for the CSR dashboard experience.
+          Configure your CSR front desk operations, booking workflows, payment processing, and notification preferences.
         </p>
       </div>
 
       {/* Overview cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {[
           {
             icon: <Bell className="w-5 h-5 text-brand-primary" />,
-            label: "Alerts enabled",
+            label: "Active notifications",
             value: Object.values(notificationPrefs).filter(Boolean).length,
             total: Object.keys(notificationPrefs).length,
             accent: "bg-brand-primaryLighter text-brand-primary",
           },
           {
-            icon: <ShieldCheck className="w-5 h-5 text-emerald-600" />,
-            label: "Security health",
-            value: "Pass",
-            total: "",
-            accent: "bg-emerald-50 text-emerald-700",
+            icon: <Calendar className="w-5 h-5 text-green-600" />,
+            label: "Booking workflows",
+            value: Object.values(bookingSettings).filter(Boolean).length,
+            total: Object.keys(bookingSettings).length,
+            accent: "bg-green-50 text-green-700",
+          },
+          {
+            icon: <DollarSign className="w-5 h-5 text-purple-600" />,
+            label: "Payment methods",
+            value: Object.values(paymentSettings).filter((v, i) => i < 3).filter(Boolean).length,
+            total: 3,
+            accent: "bg-purple-50 text-purple-700",
           },
           {
             icon: <Palette className="w-5 h-5 text-indigo-600" />,
@@ -161,37 +229,68 @@ export default function SettingsPage() {
         <div className="divide-y divide-gray-100">
           {[
             {
-              id: "bookingAlerts" as const,
-              title: "Booking alerts",
-              description: "Instant alerts for new bookings and cancellations.",
+              id: "newBookings" as const,
+              title: "New bookings",
+              description: "Alert when new bookings are received.",
+              icon: <Calendar className="w-4 h-4 text-brand-primary" />,
             },
             {
-              id: "payoutUpdates" as const,
-              title: "Payout updates",
-              description: "Notify when disbursements are released or delayed.",
+              id: "paymentConfirmations" as const,
+              title: "Payment confirmations",
+              description: "Notify when payments are confirmed.",
+              icon: <DollarSign className="w-4 h-4 text-brand-primary" />,
             },
             {
-              id: "csrAnnouncements" as const,
-              title: "CSR announcements",
-              description:
-                "Product updates, CSR policies, and training invitations.",
+              id: "checkInNotifications" as const,
+              title: "Check-in notifications",
+              description: "Guest arrival and check-in alerts.",
+              icon: <UserCheck className="w-4 h-4 text-brand-primary" />,
             },
             {
-              id: "weeklyDigest" as const,
-              title: "Weekly performance digest",
-              description:
-                "Email summary each Monday covering KPIs and tasks due.",
+              id: "checkOutNotifications" as const,
+              title: "Check-out notifications",
+              description: "Guest departure and room cleaning alerts.",
+              icon: <Hotel className="w-4 h-4 text-brand-primary" />,
+            },
+            {
+              id: "cleaningUpdates" as const,
+              title: "Cleaning updates",
+              description: "Housekeeping status changes.",
+              icon: <Users className="w-4 h-4 text-brand-primary" />,
+            },
+            {
+              id: "deliverableUpdates" as const,
+              title: "Deliverable updates",
+              description: "Add-on service status notifications.",
+              icon: <FileText className="w-4 h-4 text-brand-primary" />,
+            },
+            {
+              id: "guestMessages" as const,
+              title: "Guest messages",
+              description: "New messages from guests.",
+              icon: <MessageSquare className="w-4 h-4 text-brand-primary" />,
+            },
+            {
+              id: "systemAlerts" as const,
+              title: "System alerts",
+              description: "Important system notifications.",
+              icon: <AlertTriangle className="w-4 h-4 text-brand-primary" />,
             },
           ].map((item) => (
             <div
               key={item.id}
               className="flex flex-wrap items-start justify-between gap-4 px-6 py-5"
             >
-              <div>
-                <p className="text-base font-semibold text-gray-900 dark:text-gray-100">
-                  {item.title}
-                </p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">{item.description}</p>
+              <div className="flex items-start gap-3">
+                <div className="rounded-full bg-brand-primaryLighter p-2">
+                  {item.icon}
+                </div>
+                <div>
+                  <p className="text-base font-semibold text-gray-900 dark:text-gray-100">
+                    {item.title}
+                  </p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">{item.description}</p>
+                </div>
               </div>
               <button
                 onClick={() => toggleNotification(item.id)}
@@ -269,21 +368,10 @@ export default function SettingsPage() {
                   </div>
                 </div>
                 <button
-                  onClick={() => toggleChannel(channel.id)}
-                  className={`${primaryBtn} ${
-                    channelPrefs[channel.id]
-                      ? "bg-brand-primary"
-                      : "bg-gray-200"
-                  }`}
-                  aria-pressed={channelPrefs[channel.id]}
+                  className={`${primaryBtn} bg-gray-200`}
+                  disabled
                 >
-                  <span
-                    className={`inline-block h-5 w-5 transform rounded-full bg-white transition ${
-                      channelPrefs[channel.id]
-                        ? "translate-x-5"
-                        : "translate-x-1"
-                    }`}
-                  />
+                  <span className="inline-block h-5 w-5 transform rounded-full bg-white transition translate-x-1" />
                 </button>
               </div>
             ))}

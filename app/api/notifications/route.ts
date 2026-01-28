@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
         n.message,
         n.notification_type,
         n.is_read,
-        n.created_at,
+        (n.created_at AT TIME ZONE 'Asia/Manila') as created_at,
         e.first_name,
         e.last_name,
         e.email
@@ -126,8 +126,10 @@ export async function PATCH(request: NextRequest) {
 }
 
 function formatTimestamp(timestamp: string): string {
+  // The timestamp is already converted to Manila time by the database query
   const date = new Date(timestamp);
   const now = new Date();
+  
   const diffInMs = now.getTime() - date.getTime();
   const diffInMins = Math.floor(diffInMs / 60000);
   const diffInHours = Math.floor(diffInMs / 3600000);

@@ -28,6 +28,7 @@ import {
   Download
 } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 
 // Highlight text function
 const highlightText = (text: string, searchTerm: string) => {
@@ -46,18 +47,24 @@ const highlightText = (text: string, searchTerm: string) => {
     )
   );
 };
+
 import { getDeposits, DepositRecord, updateDepositStatus, deleteDeposit, refundDeposit, processFullRefund, processPartialRefund, processForfeiture } from "@/app/admin/csr/actions";
 import { toast } from "react-hot-toast";
 import MarkReturnModal from "./Modals/MarkReturnModal";
 import MarkPartialModal from "./Modals/MarkPartialModal";
 import MarkForfeitedModal from "./Modals/MarkForfeitedModal";
+import ViewDepositModal from "./Modals/ViewDepositModal";
 import BulkProcessingModal from "./Modals/BulkProcessingModal";
 import BulkReturnedModal from "./Modals/BulkReturnedModal";
 import BulkForfeitedModal from "./Modals/BulkForfeitedModal";
+import BulkPartialModal from "./Modals/BulkPartialModal";
 
 type DepositStatus = "Pending" | "Held" | "Returned" | "Partial" | "Forfeited";
 
 export default function DepositPage() {
+  const { data: session } = useSession();
+  const employeeId = (session?.user as any)?.id;
+  
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | string>("all");
   const [filterDate, setFilterDate] = useState<"all" | "today_checkin" | "today_checkout" | "custom_range">("all");
@@ -74,6 +81,7 @@ export default function DepositPage() {
   const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
   const [isPartialModalOpen, setIsPartialModalOpen] = useState(false);
   const [isForfeitedModalOpen, setIsForfeitedModalOpen] = useState(false);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [selectedDeposit, setSelectedDeposit] = useState<DepositRecord | null>(null);
   const [isModalLoading, setIsModalLoading] = useState(false);
   const [selectedDeposits, setSelectedDeposits] = useState<string[]>([]);
@@ -81,6 +89,7 @@ export default function DepositPage() {
   const [isBulkProcessingModalOpen, setIsBulkProcessingModalOpen] = useState(false);
   const [isBulkReturnedModalOpen, setIsBulkReturnedModalOpen] = useState(false);
   const [isBulkForfeitedModalOpen, setIsBulkForfeitedModalOpen] = useState(false);
+  const [isBulkPartialModalOpen, setIsBulkPartialModalOpen] = useState(false);
   const [bulkAction, setBulkAction] = useState<string>("");
 
   const fetchData = async () => {
@@ -183,7 +192,7 @@ export default function DepositPage() {
       setRows(prev => prev.map(r => r.id === id ? { ...r, status: newStatus } : r));
 
       try {
-          await updateDepositStatus(id, newStatus);
+          await updateDepositStatus(id, newStatus, employeeId);
           toast.success(`Deposit marked as ${newStatus}`);
       } catch {
           setRows(oldRows);
@@ -191,7 +200,7 @@ export default function DepositPage() {
       }
   };
 
-  // PDF Export function
+  // PDF Export function - FIXED
   const exportToPDF = () => {
     // Import jsPDF and html2canvas dynamically
     Promise.all([
@@ -452,18 +461,18 @@ export default function DepositPage() {
       }).then((canvas: any) => {
         // Remove temporary element
         document.body.removeChild(cleanTableContainer);
-        
+
         const imgData = canvas.toDataURL('image/png');
         const imgWidth = 210; // A4 width in mm
         const pageHeight = 297; // A4 height in mm
         const imgHeight = (canvas.height * imgWidth) / canvas.width;
         let heightLeft = imgHeight;
         let position = yPosition + 10; // Start after summary
-        
+
         // Add image to PDF
         doc.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
         heightLeft -= pageHeight;
-        
+
         // Add new pages if needed
         while (heightLeft >= 0) {
           position = heightLeft - imgHeight;
@@ -471,7 +480,7 @@ export default function DepositPage() {
           doc.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
           heightLeft -= pageHeight;
         }
-        
+
         // Add page numbers
         const pageCount = doc.getNumberOfPages();
         for (let i = 1; i <= pageCount; i++) {
@@ -480,26 +489,30 @@ export default function DepositPage() {
           doc.setFont('helvetica', 'normal');
           doc.text(`Page ${i} of ${pageCount}`, 105, 285, { align: 'center' });
         }
-        
+
         // Save the PDF
-        doc.save(`deposit-records-${new Date().toISOString().split('T')[0]}.pdf`);
-        
-        // Update toast
-        toast.success('PDF exported successfully!', { id: loadingToast });
-      }).catch((error: unknown) => {
-        // Clean up temporary element on error
+        doc.save('deposits-report.pdf');
+        toast.success('PDF generated successfully', { id: loadingToast });
+      }).catch((error: Error) => {
+        console.error('Error generating PDF:', error);
+        toast.error('Failed to generate PDF. Please try again.', { id: loadingToast });
         if (cleanTableContainer && document.body.contains(cleanTableContainer)) {
           document.body.removeChild(cleanTableContainer);
         }
-        console.error('Failed to capture table:', error);
-        toast.error('Failed to generate PDF. Please try again.', { id: loadingToast });
       });
-      
-    }).catch((error) => {
-      console.error('Failed to load PDF libraries:', error);
-      toast.error('Failed to load PDF libraries. Please try again.');
+    }).catch((error: Error) => {
+      console.error('Error loading PDF libraries:', error);
+      toast.error('Failed to load PDF generator');
     });
   };
+
+  // Calculate summary counts
+  const totalCount = rows.length;
+  const pendingCount = rows.filter(row => row.status === "Pending").length;
+  const heldCount = rows.filter(row => row.status === "Held").length;
+  const returnedCount = rows.filter(row => row.status === "Returned").length;
+
+  // Modal functions
   const openReturnModal = (deposit: DepositRecord) => {
     setSelectedDeposit(deposit);
     setIsReturnModalOpen(true);
@@ -515,50 +528,64 @@ export default function DepositPage() {
     setIsForfeitedModalOpen(true);
   };
 
+  const openViewModal = (deposit: DepositRecord) => {
+    setSelectedDeposit(deposit);
+    setIsViewModalOpen(true);
+  };
+
   const closeAllModals = () => {
     setIsReturnModalOpen(false);
     setIsPartialModalOpen(false);
     setIsForfeitedModalOpen(false);
+    setIsViewModalOpen(false);
     setSelectedDeposit(null);
-    setIsModalLoading(false);
+  };
+
+  const closeAllBulkModals = () => {
+    setIsBulkProcessingModalOpen(false);
+    setIsBulkReturnedModalOpen(false);
+    setIsBulkForfeitedModalOpen(false);
+    setIsBulkPartialModalOpen(false);
+    setBulkAction("");
   };
 
   const handleFullRefund = async (depositId: string) => {
-    setIsModalLoading(true);
-    const oldRows = [...rows];
+    if (!selectedDeposit) return;
     
+    setIsModalLoading(true);
     try {
-      await processFullRefund(depositId);
-      setRows(prev => prev.map(r => 
-        r.id === depositId 
-          ? { ...r, status: "Returned", refunded_amount: r.deposit_amount, forfeited_amount: 0 }
-          : r
-      ));
-      toast.success("Full refund processed successfully");
+      // Use the full deposit amount for refund
+      await processFullRefund(selectedDeposit.id, selectedDeposit.deposit_amount, employeeId);
+      toast.success("Deposit fully refunded");
+      fetchData();
       closeAllModals();
-    } catch {
-      setRows(oldRows);
-      toast.error("Failed to process full refund");
+    } catch (error) {
+      toast.error("Failed to process refund");
     } finally {
       setIsModalLoading(false);
     }
   };
 
   const handlePartialRefund = async (depositId: string, refundAmount: number, deductionReason: string) => {
-    setIsModalLoading(true);
-    const oldRows = [...rows];
+    if (!selectedDeposit) return;
     
+    console.log('Client-side handlePartialRefund called with:', {
+      depositId,
+      refundAmount,
+      deductionReason,
+      employeeId
+    });
+    
+    setIsModalLoading(true);
     try {
-      await processPartialRefund(depositId, refundAmount, deductionReason);
-      setRows(prev => prev.map(r => 
-        r.id === depositId 
-          ? { ...r, status: "Partial", refunded_amount: refundAmount, forfeited_amount: r.deposit_amount - refundAmount }
-          : r
-      ));
-      toast.success("Partial refund processed successfully");
+      console.log('Calling processPartialRefund...');
+      await processPartialRefund(selectedDeposit.id, refundAmount, deductionReason, employeeId);
+      console.log('processPartialRefund completed successfully');
+      toast.success("Partial refund processed");
+      fetchData();
       closeAllModals();
-    } catch {
-      setRows(oldRows);
+    } catch (error) {
+      console.error('Client-side error in handlePartialRefund:', error);
       toast.error("Failed to process partial refund");
     } finally {
       setIsModalLoading(false);
@@ -566,27 +593,28 @@ export default function DepositPage() {
   };
 
   const handleForfeiture = async (depositId: string, forfeitureReason: string) => {
-    setIsModalLoading(true);
-    const oldRows = [...rows];
+    if (!selectedDeposit) return;
     
+    setIsModalLoading(true);
     try {
-      await processForfeiture(depositId, forfeitureReason);
-      setRows(prev => prev.map(r => 
-        r.id === depositId 
-          ? { ...r, status: "Forfeited", refunded_amount: 0, forfeited_amount: r.deposit_amount }
-          : r
-      ));
-      toast.success("Deposit forfeited successfully");
+      await processForfeiture(selectedDeposit.id, forfeitureReason, employeeId);
+      toast.success("Deposit marked as forfeited");
+      fetchData();
       closeAllModals();
-    } catch {
-      setRows(oldRows);
-      toast.error("Failed to process forfeiture");
+    } catch (error) {
+      toast.error("Failed to mark as forfeited");
     } finally {
       setIsModalLoading(false);
     }
   };
 
-  // Bulk action handlers
+  // Bulk selection functions
+  const handleSelectDeposit = (id: string, checked: boolean) => {
+    setSelectedDeposits(prev => 
+      checked ? [...prev, id] : prev.filter(depositId => depositId !== id)
+    );
+  };
+
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
       setSelectedDeposits(paginatedRows.map(row => row.id));
@@ -595,133 +623,66 @@ export default function DepositPage() {
     }
   };
 
-  const handleSelectDeposit = (depositId: string, checked: boolean) => {
-    if (checked) {
-      setSelectedDeposits(prev => [...prev, depositId]);
-    } else {
-      setSelectedDeposits(prev => prev.filter(id => id !== depositId));
-    }
-  };
-
-  const handleBulkAction = async (action: string) => {
-    if (selectedDeposits.length === 0) {
-      toast.error("Please select at least one deposit to process");
-      return;
-    }
-
+  const handleBulkAction = (action: string) => {
     setBulkAction(action);
-    
-    // Open appropriate modal based on action
-    switch (action) {
-      case "Held":
-        setIsBulkProcessingModalOpen(true);
-        break;
-      case "Returned":
-        setIsBulkReturnedModalOpen(true);
-        break;
-      case "Forfeited":
-        setIsBulkForfeitedModalOpen(true);
-        break;
-      default:
-        toast.error("Invalid bulk action");
+    if (action === "Held") {
+      setIsBulkProcessingModalOpen(true);
+    } else if (action === "Returned") {
+      setIsBulkReturnedModalOpen(true);
+    } else if (action === "Partial") {
+      setIsBulkPartialModalOpen(true);
+    } else if (action === "Forfeited") {
+      setIsBulkForfeitedModalOpen(true);
     }
   };
 
-  const processBulkAction = async (forfeitureReason?: string) => {
+  const processBulkAction = async (reason?: string) => {
+    if (selectedDeposits.length === 0) return;
+    
     setBulkActionLoading(true);
-    const oldRows = [...rows];
-
     try {
-      // Get notes from sessionStorage
-      let notes: Record<string, string> = {};
+      // Process based on bulk action
       if (bulkAction === "Held") {
-        notes = JSON.parse(sessionStorage.getItem('bulkHeldNotes') || '{}');
+        // Update all selected deposits to Held
+        await Promise.all(selectedDeposits.map(id => updateDepositStatus(id, "Held", employeeId)));
+        toast.success(`${selectedDeposits.length} deposit(s) marked as Held`);
       } else if (bulkAction === "Returned") {
-        notes = JSON.parse(sessionStorage.getItem('bulkReturnedNotes') || '{}');
-      } else if (bulkAction === "Forfeited") {
-        notes = JSON.parse(sessionStorage.getItem('bulkForfeitedNotes') || '{}');
+        // Process full refund for all selected
+        await Promise.all(selectedDeposits.map(id => processFullRefund(id, 0, employeeId)));
+        toast.success(`${selectedDeposits.length} deposit(s) marked as Returned`);
+      } else if (bulkAction === "Forfeited" && reason) {
+        // Process forfeiture for all selected
+        await Promise.all(selectedDeposits.map(id => processForfeiture(id, reason, employeeId)));
+        toast.success(`${selectedDeposits.length} deposit(s) marked as Forfeited`);
       }
-
-      // Update UI optimistically
-      setRows(prev => prev.map(r => {
-        if (selectedDeposits.includes(r.id)) {
-          switch (bulkAction) {
-            case "Held":
-              return { ...r, status: "Held" };
-            case "Returned":
-              return { ...r, status: "Returned", refunded_amount: r.deposit_amount, forfeited_amount: 0 };
-            case "Forfeited":
-              return { ...r, status: "Forfeited", refunded_amount: 0, forfeited_amount: r.deposit_amount };
-            default:
-              return r;
-          }
-        }
-        return r;
-      }));
-
-      // Process each deposit with notes
-      const promises = selectedDeposits.map(async (depositId) => {
-        const note = notes[depositId] || forfeitureReason || "Bulk action processed";
-        
-        switch (bulkAction) {
-          case "Held":
-            return await updateDepositStatus(depositId, "Held");
-          case "Returned":
-            return await processFullRefund(depositId);
-          case "Forfeited":
-            return await processForfeiture(depositId, note);
-          default:
-            return Promise.resolve();
-        }
-      });
-
-      await Promise.all(promises);
       
-      toast.success(`Successfully processed ${selectedDeposits.length} deposits as ${bulkAction}`);
+      // Refresh data
+      fetchData();
+      // Clear selection
       setSelectedDeposits([]);
+      // Close modal
       closeAllBulkModals();
-      
-      // Clear sessionStorage
-      sessionStorage.removeItem('bulkHeldNotes');
-      sessionStorage.removeItem('bulkReturnedNotes');
-      sessionStorage.removeItem('bulkForfeitedNotes');
-    } catch {
-      setRows(oldRows);
-      toast.error("Failed to process some deposits. Please try again.");
+    } catch (error) {
+      toast.error("Failed to process bulk action");
     } finally {
       setBulkActionLoading(false);
     }
   };
-
-  const closeAllBulkModals = () => {
-    setIsBulkProcessingModalOpen(false);
-    setIsBulkReturnedModalOpen(false);
-    setIsBulkForfeitedModalOpen(false);
-    setBulkAction("");
-    setBulkActionLoading(false);
-  };
-
-  const totalCount = rows.length;
-  const pendingCount = rows.filter((r) => r.status === "Pending").length;
-  const heldCount = rows.filter((r) => r.status === "Held").length;
-  const returnedCount = rows.filter((r) => r.status === "Returned").length;
-  const partialCount = rows.filter((r) => r.status === "Partial").length;
-  const forfeitedCount = rows.filter((r) => r.status === "Forfeited").length;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-700 overflow-hidden h-full flex flex-col">
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 flex-shrink-0 border border-gray-200 dark:border-gray-700 rounded-lg p-6 bg-white dark:bg-gray-800 shadow dark:shadow-gray-900">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Deposits Management</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Track deposits and manage refunds after checkout</p>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Deposit Management</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage security deposits for bookings</p>
         </div>
-        <button 
-            onClick={fetchData}
-            className="p-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
-            title="Refresh Data"
+        <button
+          onClick={fetchData}
+          className="p-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+          title="Refresh Data"
         >
-            <RefreshCw className={`w-4 h-4 text-gray-600 dark:text-gray-300 ${isLoading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`w-4 h-4 text-gray-600 dark:text-gray-300 ${isLoading ? 'animate-spin' : ''}`} />
         </button>
       </div>
 
@@ -824,6 +785,17 @@ export default function DepositPage() {
                   <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</>
                 ) : (
                   <><CheckCircle className="w-4 h-4" /> Mark as Returned</>
+                )}
+              </button>
+              <button
+                onClick={() => handleBulkAction("Partial")}
+                disabled={bulkActionLoading}
+                className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm flex items-center gap-2"
+              >
+                {bulkActionLoading ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</>
+                ) : (
+                  <><RotateCcw className="w-4 h-4" /> Mark as Partial</>
                 )}
               </button>
               <button
@@ -959,7 +931,7 @@ export default function DepositPage() {
       {/* Table Section - Fixed height and scrollable */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden flex-1 flex flex-col min-h-0 border border-gray-200 dark:border-gray-700">
         <div className="overflow-x-auto overflow-y-auto flex-1 h-[600px] max-h-[600px]">
-          <table className="w-full min-w-[1200px]">
+          <table className="w-full min-w-[1400px]">
             <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 border-b-2 border-gray-200 dark:border-gray-600 sticky top-0 z-10">
               <tr>
                 <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
@@ -1059,26 +1031,30 @@ export default function DepositPage() {
                     <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
                       <div className="flex flex-col gap-1">
                         <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{highlightText(row.deposit_id, searchTerm)}</span>
-                        {row.payment_method && ['cash', 'gcash', 'bank transfer'].includes(row.payment_method.toLowerCase()) && (
-                          <div className="flex flex-col gap-1">
-                            <div className="flex items-center gap-1">
-                              {row.payment_method.toLowerCase() === 'cash' && <Banknote className="w-3 h-3 text-green-600" />}
-                              {row.payment_method.toLowerCase() === 'gcash' && <CreditCard className="w-3 h-3 text-blue-600" />}
-                              {row.payment_method.toLowerCase() === 'bank transfer' && <CreditCard className="w-3 h-3 text-purple-600" />}
-                              <span className="text-xs text-gray-600 dark:text-gray-300 capitalize">{row.payment_method}</span>
+                        {row.payment_method ? (
+                          ['cash', 'gcash', 'bank transfer'].includes(row.payment_method.toLowerCase()) && (
+                            <div className="flex flex-col gap-1">
+                              <div className="flex items-center gap-1">
+                                {row.payment_method.toLowerCase() === 'cash' && <Banknote className="w-3 h-3 text-green-600" />}
+                                {row.payment_method.toLowerCase() === 'gcash' && <CreditCard className="w-3 h-3 text-blue-600" />}
+                                {row.payment_method.toLowerCase() === 'bank transfer' && <CreditCard className="w-3 h-3 text-purple-600" />}
+                                <span className="text-xs text-gray-600 dark:text-gray-300 capitalize">{row.payment_method}</span>
+                              </div>
+                              {row.payment_proof_url && (
+                                <a
+                                  href={row.payment_proof_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline"
+                                >
+                                  <ExternalLink className="w-3 h-3" />
+                                  View Proof
+                                </a>
+                              )}
                             </div>
-                            {row.payment_proof_url && (
-                              <a
-                                href={row.payment_proof_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline"
-                              >
-                                <ExternalLink className="w-3 h-3" />
-                                View Proof
-                              </a>
-                            )}
-                          </div>
+                          )
+                        ) : (
+                          <span className="text-xs text-gray-400 dark:text-gray-500 italic">No deposit payment</span>
                         )}
                       </div>
                     </td>
@@ -1213,37 +1189,62 @@ export default function DepositPage() {
                     <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
                       <div className="flex items-center justify-center gap-1">
                         <button
-                          className="p-2 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors"
-                          title="Mark as Held"
+                          className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                          title="View Details"
                           type="button"
-                          onClick={() => handleStatusUpdate(row.id, "Held")}
+                          onClick={() => openViewModal(row)}
                         >
-                          <Loader2 className="w-4 h-4" />
+                          <Eye className="w-4 h-4" />
                         </button>
-                        <button
-                          className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg transition-colors"
-                          title="Mark Returned"
-                          type="button"
-                          onClick={() => openReturnModal(row)}
-                        >
-                          <CheckCircle className="w-4 h-4" />
-                        </button>
-                        <button
-                          className="p-2 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/30 rounded-lg transition-colors"
-                          title="Mark Partial"
-                          type="button"
-                          onClick={() => openPartialModal(row)}
-                        >
-                          <RotateCcw className="w-4 h-4" />
-                        </button>
-                        <button
-                          className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
-                          title="Mark Forfeited"
-                          type="button"
-                          onClick={() => openForfeitedModal(row)}
-                        >
-                          <XCircle className="w-4 h-4" />
-                        </button>
+                        {row.status === "Pending" ? (
+                          <button
+                            className="p-2 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors"
+                            title="Mark as Held"
+                            type="button"
+                            onClick={() => handleStatusUpdate(row.id, "Held")}
+                          >
+                            <Loader2 className="w-4 h-4" />
+                          </button>
+                        ) : row.status === "Returned" || row.status === "Partial" || row.status === "Forfeited" ? (
+                          <span className="text-xs font-medium text-green-600 dark:text-green-400">Completed</span>
+                        ) : row.status === "Held" ? (
+                          <>
+                            <button
+                              className="p-2 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors"
+                              title="Mark as Held"
+                              type="button"
+                              onClick={() => handleStatusUpdate(row.id, "Held")}
+                            >
+                              <Loader2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg transition-colors"
+                              title="Mark Returned"
+                              type="button"
+                              onClick={() => openReturnModal(row)}
+                            >
+                              <CheckCircle className="w-4 h-4" />
+                            </button>
+                            <button
+                              className="p-2 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/30 rounded-lg transition-colors"
+                              title="Mark Partial"
+                              type="button"
+                              onClick={() => openPartialModal(row)}
+                            >
+                              <RotateCcw className="w-4 h-4" />
+                            </button>
+                            <button
+                              className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                              title="Mark Forfeited"
+                              type="button"
+                              onClick={() => openForfeitedModal(row)}
+                            >
+                              <XCircle className="w-4 h-4" />
+                            </button>
+                          </>
+                        ) : (
+                          <span className="text-xs text-gray-500 dark:text-gray-400">-</span>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -1353,6 +1354,34 @@ export default function DepositPage() {
         isLoading={bulkActionLoading}
       />
 
+      <BulkPartialModal
+        isOpen={isBulkPartialModalOpen}
+        onClose={closeAllBulkModals}
+        onConfirm={(refundData) => {
+          // Process partial refund for each deposit with its specific amount and reason
+          const processBulkPartial = async () => {
+            setBulkActionLoading(true);
+            try {
+              await Promise.all(refundData.map(data => 
+                processPartialRefund(data.depositId, data.refundAmount, data.deductionReason, employeeId)
+              ));
+              toast.success(`${refundData.length} deposit(s) processed as partial refund`);
+              fetchData();
+              setSelectedDeposits([]);
+              closeAllBulkModals();
+            } catch (error) {
+              toast.error("Failed to process bulk partial refund");
+            } finally {
+              setBulkActionLoading(false);
+            }
+          };
+          processBulkPartial();
+        }}
+        selectedDeposits={selectedDeposits}
+        deposits={rows}
+        isLoading={bulkActionLoading}
+      />
+
       <BulkForfeitedModal
         isOpen={isBulkForfeitedModalOpen}
         onClose={closeAllBulkModals}
@@ -1385,6 +1414,13 @@ export default function DepositPage() {
         onConfirm={handleForfeiture}
         deposit={selectedDeposit}
         isLoading={isModalLoading}
+      />
+
+      {/* View Details Modal */}
+      <ViewDepositModal
+        isOpen={isViewModalOpen}
+        onClose={() => setIsViewModalOpen(false)}
+        deposit={selectedDeposit}
       />
     </div>
   );
