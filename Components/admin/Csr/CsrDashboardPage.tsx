@@ -16,6 +16,7 @@ import MessagePage from "./MessagePage";
 import ActivityLogsPage from "./ActivityLogsPage";
 import NotificationPage from "./NotificationPage";
 import InventoryPage from "./InventoryPage";
+import ProfilePage from "./ProfilePage";
 import AdminFooter from "../AdminFooter";
 import NotificationModal from "./Modals/Notification";
 import MessageModal from "./Modals/MessageModal";
@@ -789,12 +790,30 @@ export default function CsrDashboard() {
                   <div className="py-1">
                     <button
                       onClick={() => {
+                        setPage("profile");
+                        setProfileDropdownOpen(false);
+                      }}
+                      className={`w-full px-4 py-2.5 flex items-center gap-3 transition-colors duration-150 text-left ${
+                        page === "profile"
+                          ? "bg-brand-primary/10 dark:bg-brand-primary/20 text-brand-primary dark:text-brand-primary"
+                          : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      }`}
+                    >
+                      <User className={`w-4 h-4 ${page === "profile" ? "text-brand-primary" : "text-brand-primary"}`} />
+                      <span className="text-sm font-medium">My Profile</span>
+                    </button>
+                    <button
+                      onClick={() => {
                         setPage("settings");
                         setProfileDropdownOpen(false);
                       }}
-                      className="w-full px-4 py-2.5 flex items-center gap-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-150 text-left"
+                      className={`w-full px-4 py-2.5 flex items-center gap-3 transition-colors duration-150 text-left ${
+                        page === "settings"
+                          ? "bg-brand-primary/10 dark:bg-brand-primary/20 text-brand-primary dark:text-brand-primary"
+                          : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      }`}
                     >
-                      <Settings className="w-4 h-4 text-brand-primary" />
+                      <Settings className={`w-4 h-4 ${page === "settings" ? "text-brand-primary" : "text-brand-primary"}`} />
                       <span className="text-sm font-medium">Settings</span>
                     </button>
                   </div>
@@ -879,6 +898,7 @@ export default function CsrDashboard() {
             {page === "cleaners" && <CleanersPage />}
             {page === "deposits" && <DepositsPage />}
             {page === "inventory" && <InventoryPage />}
+            {page === "profile" && <ProfilePage user={session?.user as AdminUser} onClose={() => {}} />}
             {page === "activity-logs" && <ActivityLogsPage />}
             {page === "notifications" && <NotificationPage />}
             {page === "messages" && (
