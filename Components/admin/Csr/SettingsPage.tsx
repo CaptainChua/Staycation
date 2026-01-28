@@ -19,6 +19,7 @@ import {
   MessageSquare,
   Clock,
   CheckCircle,
+  XCircle,
   Settings as SettingsIcon,
   Printer,
   Download,
@@ -30,6 +31,8 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
+import { toast } from "react-hot-toast";
+import axios from "axios";
 
 const primaryBtn =
   "relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-brand-primary focus:ring-offset-2";
@@ -37,41 +40,7 @@ const primaryBtn =
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
 
-  // CSR Front Desk Specific Settings
-  const [bookingSettings, setBookingSettings] = useState({
-    autoConfirmBookings: false,
-    requireDepositForBooking: true,
-    sendCheckInReminders: true,
-    sendCheckOutReminders: true,
-    allowSameDayBooking: true,
-    maxGuestsPerRoom: 4,
-  });
-
-  const [paymentSettings, setPaymentSettings] = useState({
-    acceptGCash: true,
-    acceptBankTransfer: true,
-    acceptCash: true,
-    requireFullPayment: false,
-    autoProcessRefunds: false,
-    paymentReminderEnabled: true,
-  });
-
-  const [deliverableSettings, setDeliverableSettings] = useState({
-    autoConfirmDeliverables: false,
-    requirePaymentForDeliverables: true,
-    sendDeliveryUpdates: true,
-    allowGuestCancellation: true,
-    defaultDeliveryTime: "09:00",
-  });
-
-  const [cleanerSettings, setCleanerSettings] = useState({
-    autoAssignCleaners: false,
-    requireCleanerConfirmation: true,
-    sendCleaningReminders: true,
-    allowCleanerNotes: true,
-    cleaningTimeBuffer: 2, // hours
-  });
-
+  // CSR Front Desk Notification Settings
   const [notificationPrefs, setNotificationPrefs] = useState({
     newBookings: true,
     paymentConfirmations: true,
@@ -81,57 +50,76 @@ export default function SettingsPage() {
     deliverableUpdates: true,
     guestMessages: true,
     systemAlerts: true,
+    emergencyAlerts: true,
+    maintenanceAlerts: true,
+    lowInventoryAlerts: false,
   });
 
-  const [appearance, setAppearance] = useState({
-    theme: theme || "light",
-    density: "comfortable",
-    language: "en",
-    timezone: "GMT+08",
-    autoRefreshDashboard: true,
-    showQuickActions: true,
-  });
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
 
-  // Sync theme with appearance state using requestAnimationFrame to avoid cascading renders
+  // Load settings from backend
   useEffect(() => {
-    if (theme && theme !== appearance.theme) {
-      // Schedule the state update for the next animation frame
-      const rafId = requestAnimationFrame(() => {
-        setAppearance((prev) => ({ ...prev, theme }));
+    loadSettings();
+  }, []);
+
+  useEffect(() => {
+    setHasChanges(true);
+  }, [notificationPrefs]);
+
+  const loadSettings = async () => {
+    try {
+      setIsLoading(true);
+      const response = await axios.get('/api/admin/settings/csr');
+      const data = response.data;
+      
+      if (data.notificationPrefs) setNotificationPrefs(data.notificationPrefs);
+      
+      setHasChanges(false);
+    } catch (error) {
+      console.error('Failed to load settings:', error);
+      toast.error('Failed to load settings');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const saveSettings = async () => {
+    try {
+      setIsLoading(true);
+      await axios.post('/api/admin/settings/csr', {
+        notificationPrefs,
       });
       
-      return () => cancelAnimationFrame(rafId);
+      setHasChanges(false);
+      toast.success('Settings saved successfully');
+    } catch (error) {
+      console.error('Failed to save settings:', error);
+      toast.error('Failed to save settings');
+    } finally {
+      setIsLoading(false);
     }
-  }, [theme, appearance.theme]);
-
-  const toggleBookingSetting = (key: keyof typeof bookingSettings) => {
-    setBookingSettings((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const togglePaymentSetting = (key: keyof typeof paymentSettings) => {
-    setPaymentSettings((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
-
-  const toggleDeliverableSetting = (key: keyof typeof deliverableSettings) => {
-    setDeliverableSettings((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
-
-  const toggleCleanerSetting = (key: keyof typeof cleanerSettings) => {
-    setCleanerSettings((prev) => ({ ...prev, [key]: !prev[key] }));
+  const resetToDefaults = () => {
+    setNotificationPrefs({
+      newBookings: true,
+      paymentConfirmations: true,
+      checkInNotifications: true,
+      checkOutNotifications: true,
+      cleaningUpdates: true,
+      deliverableUpdates: true,
+      guestMessages: true,
+      systemAlerts: true,
+      emergencyAlerts: true,
+      maintenanceAlerts: true,
+      lowInventoryAlerts: false,
+    });
+    toast.success('Settings reset to defaults');
   };
 
   const toggleNotification = (key: keyof typeof notificationPrefs) => {
     setNotificationPrefs((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
-
-  const handleAppearanceChange = (
-    field: keyof typeof appearance,
-    value: string | boolean
-  ) => {
-    setAppearance((prev) => ({ ...prev, [field]: value }));
-    if (field === "theme") {
-      setTheme(value as string);
-    }
   };
 
   return (
@@ -140,14 +128,33 @@ export default function SettingsPage() {
         <p className="text-xs font-semibold uppercase tracking-[0.3em] text-gray-400">
           CSR Front Desk
         </p>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Settings</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Settings</h1>
+          <div className="flex gap-2">
+            {hasChanges && (
+              <button
+                onClick={resetToDefaults}
+                className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
+              >
+                Reset to Defaults
+              </button>
+            )}
+            <button
+              onClick={saveSettings}
+              disabled={!hasChanges || isLoading}
+              className="px-4 py-2 bg-brand-primary text-white rounded-lg hover:bg-brand-primary/90 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+            >
+              {isLoading ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
+        </div>
         <p className="text-sm text-gray-500 dark:text-gray-400 max-w-2xl">
-          Configure your CSR front desk operations, booking workflows, payment processing, and notification preferences.
+          Configure your CSR front desk notification preferences and delivery methods.
         </p>
       </div>
 
       {/* Overview cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {[
           {
             icon: <Bell className="w-5 h-5 text-brand-primary" />,
@@ -157,30 +164,11 @@ export default function SettingsPage() {
             accent: "bg-brand-primaryLighter text-brand-primary",
           },
           {
-            icon: <Calendar className="w-5 h-5 text-green-600" />,
-            label: "Booking workflows",
-            value: Object.values(bookingSettings).filter(Boolean).length,
-            total: Object.keys(bookingSettings).length,
-            accent: "bg-green-50 text-green-700",
-          },
-          {
-            icon: <DollarSign className="w-5 h-5 text-purple-600" />,
-            label: "Payment methods",
-            value: Object.values(paymentSettings).filter((v, i) => i < 3).filter(Boolean).length,
-            total: 3,
-            accent: "bg-purple-50 text-purple-700",
-          },
-          {
-            icon: <Palette className="w-5 h-5 text-indigo-600" />,
-            label: "Theme",
-            value:
-              appearance.theme === "system"
-                ? "Match System"
-                : appearance.theme === "dark"
-                ? "Dark"
-                : "Light",
+            icon: <ShieldCheck className="w-5 h-5 text-emerald-600" />,
+            label: "Security status",
+            value: "Enabled",
             total: "",
-            accent: "bg-indigo-50 text-indigo-700",
+            accent: "bg-emerald-50 text-emerald-700",
           },
         ].map((card) => (
           <div
@@ -276,6 +264,24 @@ export default function SettingsPage() {
               description: "Important system notifications.",
               icon: <AlertTriangle className="w-4 h-4 text-brand-primary" />,
             },
+            {
+              id: "emergencyAlerts" as const,
+              title: "Emergency alerts",
+              description: "Urgent guest emergencies and safety issues.",
+              icon: <AlertTriangle className="w-4 h-4 text-red-600" />,
+            },
+            {
+              id: "maintenanceAlerts" as const,
+              title: "Maintenance alerts",
+              description: "Room maintenance and facility issues.",
+              icon: <AlertTriangle className="w-4 h-4 text-orange-600" />,
+            },
+            {
+              id: "lowInventoryAlerts" as const,
+              title: "Low inventory alerts",
+              description: "When supplies or amenities are running low.",
+              icon: <Package className="w-4 h-4 text-yellow-600" />,
+            },
           ].map((item) => (
             <div
               key={item.id}
@@ -336,12 +342,6 @@ export default function SettingsPage() {
                 title: "Email",
                 description: "Send detailed notifications to csr@staycation.ph",
                 icon: <Mail className="w-4 h-4 text-brand-primary" />,
-              },
-              {
-                id: "sms" as const,
-                title: "SMS / Viber",
-                description: "Escalate urgent cases via +63 912 345 6789",
-                icon: <Smartphone className="w-4 h-4 text-brand-primary" />,
               },
               {
                 id: "push" as const,
@@ -436,95 +436,6 @@ export default function SettingsPage() {
           </div>
         </section>
       </div>
-
-      {/* Appearance */}
-      <section className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm">
-        <div className="flex flex-col gap-2 border-b border-gray-100 dark:border-gray-800 px-6 py-5">
-          <div className="flex items-center gap-2 text-indigo-600">
-            <Palette className="w-4 h-4" />
-            <p className="text-xs font-semibold uppercase tracking-[0.3em]">
-              Workspace defaults
-            </p>
-          </div>
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-            Appearance & localization
-          </h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Keep the CSR workspace aligned with your operating hours and
-            readability needs.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 px-6 py-6">
-          <div className="space-y-2">
-            <label className="text-sm font-semibold text-gray-700 dark:text-gray-200">
-              Theme mode
-            </label>
-            <select
-              value={appearance.theme}
-              onChange={(e) => handleAppearanceChange("theme", e.target.value)}
-              className="w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-3 text-sm text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent"
-            >
-              <option value="light">Light mode</option>
-              <option value="dark">Dark mode</option>
-              <option value="system">Match system preference</option>
-            </select>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-semibold text-gray-700 dark:text-gray-200">
-              Density
-            </label>
-            <select
-              value={appearance.density}
-              onChange={(e) =>
-                handleAppearanceChange("density", e.target.value)
-              }
-              className="w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-3 text-sm text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent"
-            >
-              <option value="comfortable">Comfortable</option>
-              <option value="compact">Compact</option>
-              <option value="spacious">Spacious</option>
-            </select>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-semibold text-gray-700 dark:text-gray-200">
-              Language
-            </label>
-            <select
-              value={appearance.language}
-              onChange={(e) =>
-                handleAppearanceChange("language", e.target.value)
-              }
-              className="w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-3 text-sm text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent"
-            >
-              <option value="en">English (Philippines)</option>
-              <option value="fil">Filipino</option>
-              <option value="es">Spanish</option>
-            </select>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-semibold text-gray-700 dark:text-gray-200">
-              Time zone
-            </label>
-            <select
-              value={appearance.timezone}
-              onChange={(e) =>
-                handleAppearanceChange("timezone", e.target.value)
-              }
-              className="w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-3 text-sm text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent"
-            >
-              <option value="GMT+08">
-                GMT+08 — Manila, Hong Kong, Singapore
-              </option>
-              <option value="GMT+09">GMT+09 — Tokyo, Seoul</option>
-              <option value="GMT+07">GMT+07 — Bangkok, Jakarta</option>
-            </select>
-          </div>
-        </div>
-      </section>
 
       {/* Danger zone */}
       <section className="rounded-2xl border border-red-100 dark:border-red-900/30 bg-white dark:bg-gray-900 shadow-sm">

@@ -2,7 +2,7 @@ import SearchBarSticky from "@/Components/HeroSection/SearchBarSticky";
 import HotelRoomListings from "@/Components/Rooms/HotelRoomListings";
 import Footer from "@/Components/Footer";
 import { Metadata } from 'next';
-import { Sparkles, Award } from 'lucide-react';
+import { Sparkles, Award, Star, Headphones } from 'lucide-react';
 
 export const metadata: Metadata = {
   title: "Staycation Haven | Premium Rooms",
@@ -65,15 +65,24 @@ export default async function RoomsPage() {
             {/* Stats section */}
             <div className="flex justify-center gap-8 mt-6 sm:mt-8">
               <div className="text-center">
-                <div className="text-2xl sm:text-3xl font-bold text-brand-primary">{havens.length}</div>
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-brand-primary" />
+                  <div className="text-2xl sm:text-3xl font-bold text-brand-primary">{havens.length}</div>
+                </div>
                 <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Premium Havens</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl sm:text-3xl font-bold text-brand-primary">4.8</div>
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <Star className="w-5 h-5 sm:w-6 sm:h-6 text-brand-primary" />
+                  <div className="text-2xl sm:text-3xl font-bold text-brand-primary">4.8</div>
+                </div>
                 <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Average Rating</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl sm:text-3xl font-bold text-brand-primary">24/7</div>
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <Headphones className="w-5 h-5 sm:w-6 sm:h-6 text-brand-primary" />
+                  <div className="text-2xl sm:text-3xl font-bold text-brand-primary">24/7</div>
+                </div>
                 <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Support</div>
               </div>
             </div>
