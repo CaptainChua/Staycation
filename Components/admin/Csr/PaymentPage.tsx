@@ -21,6 +21,7 @@ import {
   CreditCard,
 } from "lucide-react";
 import { useCallback, useMemo, useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
 import type { UpdateBookingPaymentPayload } from "@/types/bookingPayment";
 import {
@@ -552,6 +553,35 @@ export default function PaymentPage() {
   const [entriesPerPage, setEntriesPerPage] = useState(5);
   const [sortField, setSortField] = useState<keyof PaymentRow | null>(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const { data: session } = useSession();
+
+  const logEmployeeActivity = useCallback(
+    async (
+      activityType: string,
+      description: string,
+      entityType?: string | null,
+      entityId?: string | null,
+    ) => {
+      const employeeId = session?.user?.id;
+      if (!employeeId) return;
+      try {
+        await fetch("/api/admin/activity-logs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            employee_id: employeeId,
+            activity_type: activityType,
+            description,
+            entity_type: entityType ?? null,
+            entity_id: entityId ?? null,
+          }),
+        });
+      } catch (err) {
+        console.error("Failed to create employee activity log:", err);
+      }
+    },
+    [session?.user?.id],
+  );
 
   // Compute server-side filter status (map UI filter to DB values)
   const serverStatusParam =
@@ -644,14 +674,24 @@ export default function PaymentPage() {
   const isLoadingTable = isPaymentsLoading || isPaymentsFetching;
 
   // Handlers
-  const handleView = useCallback((row: PaymentRow) => {
-    if (!row?.id) {
-      toast.error("Payment ID not available");
-      return;
-    }
-    setSelectedPayment(row);
-    setIsViewModalOpen(true);
-  }, []);
+  const handleView = useCallback(
+    (row: PaymentRow) => {
+      if (!row?.id) {
+        toast.error("Payment ID not available");
+        return;
+      }
+      // Log view action (fire-and-forget)
+      logEmployeeActivity?.(
+        "VIEW_PAYMENT",
+        `Viewed payment ${row.booking_id}`,
+        "payment",
+        row.id,
+      );
+      setSelectedPayment(row);
+      setIsViewModalOpen(true);
+    },
+    [logEmployeeActivity],
+  );
 
   const handleCloseView = useCallback(() => {
     setSelectedPayment(null);
@@ -689,20 +729,37 @@ export default function PaymentPage() {
       setIsApproveModalOpen(false);
       setChangeAmount(changeAmt);
       setIsChangeModalOpen(true);
+      // Log change modal display
+      logEmployeeActivity?.(
+        "SHOW_CHANGE_MODAL",
+        `Displayed change modal for booking ${payment.booking_id} with change amount ${changeAmt}`,
+        "payment",
+        payment.id,
+      );
 
       // Show an immediate success toast; we'll update it to an
       // error message if the server rejects the mutation.
       const toastId = toast.success("Payment approved");
+
+      // Log client-side attempt to approve
+      logEmployeeActivity?.(
+        "ATTEMPT_APPROVE_PAYMENT",
+        `Attempted to approve payment ${payment.booking_id} with amount ${amount}`,
+        "payment",
+        payment.id,
+      );
 
       try {
         // amount_paid is maintained server-side via collect_amount.
         const payload: Partial<UpdateBookingPaymentPayload> & {
           id: string;
           collect_amount?: number;
+          reviewed_by?: string | null;
         } = {
           id: payment.id,
           payment_status: "approved",
           collect_amount: Number(amount),
+          reviewed_by: session?.user?.id ?? undefined,
         };
 
         await updateBookingPayment(payload).unwrap();
@@ -747,7 +804,7 @@ export default function PaymentPage() {
         setUpdatingPaymentId(null);
       }
     },
-    [updateBookingPayment, refetch],
+    [updateBookingPayment, refetch, logEmployeeActivity, session],
   );
 
   const onSearchChange = (value: string) => {
@@ -758,17 +815,27 @@ export default function PaymentPage() {
     setCurrentPage(1);
   }, [searchTerm]);
 
-  const openRejectModal = useCallback((row: PaymentRow) => {
-    if (!row?.id) {
-      toast.error("Payment ID not available");
-      return;
-    }
-    // Keep the selected payment set so the reject modal has context,
-    // and close the view modal before opening the reject modal.
-    setSelectedPayment(row);
-    setIsViewModalOpen(false);
-    setIsRejectModalOpen(true);
-  }, []);
+  const openRejectModal = useCallback(
+    (row: PaymentRow) => {
+      if (!row?.id) {
+        toast.error("Payment ID not available");
+        return;
+      }
+      // Log modal open
+      logEmployeeActivity?.(
+        "OPEN_REJECT_MODAL",
+        `Opened reject modal for booking ${row.booking_id}`,
+        "payment",
+        row.id,
+      );
+      // Keep the selected payment set so the reject modal has context,
+      // and close the view modal before opening the reject modal.
+      setSelectedPayment(row);
+      setIsViewModalOpen(false);
+      setIsRejectModalOpen(true);
+    },
+    [logEmployeeActivity],
+  );
 
   const handleConfirmReject = useCallback(
     async (id: string, reason: string) => {
@@ -789,11 +856,20 @@ export default function PaymentPage() {
       // server rejects the mutation.
       const toastId = toast.success("Payment rejected");
 
+      // Log client-side attempt to reject
+      logEmployeeActivity?.(
+        "ATTEMPT_REJECT_PAYMENT",
+        `Attempted to reject payment ${id} with reason: ${reason || "N/A"}`,
+        "payment",
+        id,
+      );
+
       try {
         await updateBookingPayment({
           id,
           payment_status: "rejected",
           rejection_reason: reason || undefined,
+          reviewed_by: session?.user?.id ?? undefined,
         }).unwrap();
         // optimistic update — no success toast (UI already reflects change)
         refetch();
@@ -832,13 +908,25 @@ export default function PaymentPage() {
         setUpdatingPaymentId(null);
       }
     },
-    [updateBookingPayment, refetch, selectedPayment],
+    [
+      updateBookingPayment,
+      refetch,
+      selectedPayment,
+      logEmployeeActivity,
+      session,
+    ],
   );
 
   const handleCancelReject = useCallback(() => {
+    logEmployeeActivity?.(
+      "CANCEL_REJECT_MODAL",
+      `Cancelled reject for payment ${selectedPayment?.booking_id ?? "N/A"}`,
+      "payment",
+      selectedPayment?.id ?? null,
+    );
     setIsRejectModalOpen(false);
     setSelectedPayment(null);
-  }, []);
+  }, [logEmployeeActivity, selectedPayment]);
 
   const filteredPayments = useMemo(() => {
     const q = (searchTerm || "").toLowerCase();
@@ -1179,6 +1267,14 @@ export default function PaymentPage() {
                           href={payment.payment_proof}
                           target="_blank"
                           rel="noreferrer"
+                          onClick={() =>
+                            logEmployeeActivity?.(
+                              "VIEW_PAYMENT_PROOF",
+                              `Viewed payment proof for booking ${payment.booking_id}`,
+                              "payment",
+                              payment.id,
+                            )
+                          }
                           className="inline-flex items-center gap-2 px-3 py-2 text-sm font-semibold text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
                         >
                           <ImageIcon className="w-4 h-4" />
@@ -1213,6 +1309,12 @@ export default function PaymentPage() {
                           onClick={() => {
                             setSelectedPayment(payment);
                             setIsApproveModalOpen(true);
+                            logEmployeeActivity?.(
+                              "OPEN_APPROVE_MODAL",
+                              `Opened approve modal for booking ${payment.booking_id}`,
+                              "payment",
+                              payment.id,
+                            );
                           }}
                           disabled={
                             !payment.id || updatingPaymentId === payment.id
@@ -1397,6 +1499,14 @@ export default function PaymentPage() {
                     href={payment.payment_proof}
                     target="_blank"
                     rel="noreferrer"
+                    onClick={() =>
+                      logEmployeeActivity?.(
+                        "VIEW_PAYMENT_PROOF",
+                        `Viewed payment proof for booking ${payment.booking_id}`,
+                        "payment",
+                        payment.id,
+                      )
+                    }
                     className="inline-flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700 dark:hover:text-blue-400"
                   >
                     <ImageIcon className="w-4 h-4" /> View
@@ -1423,6 +1533,12 @@ export default function PaymentPage() {
                   onClick={() => {
                     setSelectedPayment(payment);
                     setIsApproveModalOpen(true);
+                    logEmployeeActivity?.(
+                      "OPEN_APPROVE_MODAL",
+                      `Opened approve modal for booking ${payment.booking_id}`,
+                      "payment",
+                      payment.id,
+                    );
                   }}
                   disabled={!payment.id || updatingPaymentId === payment.id}
                   className="p-2 inline-flex items-center justify-center text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"

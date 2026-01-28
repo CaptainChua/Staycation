@@ -305,6 +305,8 @@ export const updateBookingPayment = async (
     // Handle optional fields (support incremental collection via collect_amount)
     // payment_status_effective will be used when collect_amount triggers an implicit approval
     let payment_status_effective = payment_status;
+    // keep an applied amount copy for activity logging after commit
+    let appliedAmountForLog = 0;
     const collectAmountRaw =
       typeof collect_amount !== "undefined" ? collect_amount : undefined;
 
@@ -370,6 +372,8 @@ export const updateBookingPayment = async (
         Math.max(collectAmount, 0),
         Math.max(0, actualPrevRemaining),
       );
+      // Keep a copy to include in employee activity logs after the transaction commits
+      appliedAmountForLog = appliedAmount;
 
       const newDown = prevDown + appliedAmount;
       const newAmountPaid = prevAmountPaid + appliedAmount;
@@ -586,6 +590,59 @@ export const updateBookingPayment = async (
     `;
 
     const freshRes = await pool.query(freshQuery, [updatedPayment.id]);
+
+    // Log employee activity (if provided via `reviewed_by`) to employee_activity_logs.
+    // This captures approve/reject/update events performed by CSR/employee users.
+    try {
+      const ip =
+        req.headers.get("x-forwarded-for") ||
+        req.headers.get("x-real-ip") ||
+        req.headers.get("cf-connecting-ip") ||
+        null;
+      const ua = req.headers.get("user-agent") || null;
+
+      if (reviewed_by) {
+        let activityType = "UPDATE_PAYMENT";
+        let description = `Updated payment ${updatedPayment.id} for booking ${updatedPayment.booking_id}`;
+
+        if (payment_status_effective === "approved") {
+          activityType = "APPROVE_PAYMENT";
+          description = `Approved payment for booking ${updatedPayment.booking_id}. Collected: ${collect_amount ?? "N/A"}. Applied: ${appliedAmountForLog}. Remaining: ${updatedPayment.remaining_balance ?? 0}.`;
+        } else if (payment_status_effective === "rejected") {
+          activityType = "REJECT_PAYMENT";
+          description = `Rejected payment for booking ${updatedPayment.booking_id}. Reason: ${rejection_reason ?? "N/A"}.`;
+        } else {
+          const changedFields = updateFields
+            .map((f) => f.split("=")[0].trim())
+            .join(", ");
+          if (changedFields) {
+            description = `Updated payment ${updatedPayment.id} fields: ${changedFields}`;
+          }
+        }
+
+        await client.query(
+          `INSERT INTO employee_activity_logs (employee_id, activity_type, description, entity_type, entity_id, ip_address, user_agent, created_at)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,NOW())`,
+          [
+            reviewed_by,
+            activityType,
+            description,
+            "payment",
+            updatedPayment.id,
+            ip,
+            ua,
+          ],
+        );
+
+        console.log("✅ Employee activity logged:", {
+          employee_id: reviewed_by,
+          activity_type: activityType,
+          entity_id: updatedPayment.id,
+        });
+      }
+    } catch (logErr) {
+      console.error("❌ Failed to log employee activity:", logErr);
+    }
 
     return NextResponse.json({
       success: true,
