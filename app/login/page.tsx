@@ -2,8 +2,8 @@ import Login from "@/Components/Login";
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: "Staycation Haven | Login",
-  description: "Login to your account to continue.",
+  title: "Staycation Haven PH | Login",
+  description: "Login to your Staycation Haven PH account to continue.",
 };  
 
 const LoginPage = () => {

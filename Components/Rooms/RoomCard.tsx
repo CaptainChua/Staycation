@@ -168,10 +168,10 @@ const RoomCard = ({ room, mode = "browse", compact = false }: RoomCardsProps) =>
           title={isWishlistDisabled ? "Wishlist feature temporarily unavailable" : userId ? "Add to wishlist" : "Login to add to wishlist"}
         >
           {isAdding || isRemoving || isCheckingWishlist ? (
-            <div className="w-5 h-5 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+            <div className="w-4 h-4 sm:w-5 sm:h-5 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
           ) : (
             <Heart
-              className={`w-5 h-5 transition-all duration-200 ${
+              className={`w-4 h-4 sm:w-5 sm:h-5 transition-all duration-200 ${
                 isFavorite
                   ? "fill-red-500 text-red-500"
                   : "text-white"
@@ -187,86 +187,67 @@ const RoomCard = ({ room, mode = "browse", compact = false }: RoomCardsProps) =>
               e.stopPropagation();
               handleVideoClick();
             }}
-            className="absolute bottom-3 right-3 bg-white/90 dark:bg-gray-700/90 backdrop-blur-sm px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center gap-1.5"
+            className="absolute bottom-3 right-3 bg-white/95 dark:bg-gray-700/95 backdrop-blur-sm px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 flex items-center gap-1.5 shadow-lg hover:scale-105"
           >
-            <Video className="w-4 h-4 text-gray-700 dark:text-gray-300" />
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Tour</span>
+            <Video className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-brand-primary" />
+            <span className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-white">Video Tour</span>
           </button>
         )}
       </div>
 
       {/* Content - Enhanced structure */}
-      <div className="space-y-3" onClick={handleImageClick}>
-        {/* Room Name and Location */}
-        <div className="space-y-1">
-          <h3 className="text-base font-semibold text-gray-900 dark:text-white truncate leading-tight">
+      <div className="space-y-2 sm:space-y-3" onClick={handleImageClick}>
+        {/* Room Name */}
+        <div>
+          <h3 className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white truncate leading-tight">
             {room.name}
           </h3>
-          
-          {/* Location Info */}
-          <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-            {(room.tower || room.floor) && (
-              <>
-                <MapPin className="w-3 h-3" />
-                <span>
-                  {room.tower && room.floor
-                    ? `${room.tower} · Floor ${room.floor}`
-                    : room.tower
-                    ? room.tower
-                    : `Floor ${room.floor}`
-                  }
-                </span>
-              </>
-            )}
-            {room.capacity && (
-              <>
-                <span>•</span>
-                <span>{room.capacity} guests</span>
-              </>
+        </div>
+
+        {/* Location and Reviews in one row */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
+            <MapPin className="w-3 h-3" />
+            <span className="truncate">{room.tower || room.floor ? `${room.tower || ''}${room.tower && room.floor ? ', ' : ''}${room.floor || ''}` : 'Location'}</span>
+          </div>
+          <div className="flex items-center gap-0.5">
+            <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-brand-primary text-brand-primary" />
+            <span className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white">
+              {room.rating.toFixed(1)}
+            </span>
+            {room.reviews > 0 && (
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                ({room.reviews} reviews)
+              </span>
             )}
           </div>
         </div>
 
-        {/* Rating and Reviews */}
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1">
-            <Star className="w-4 h-4 fill-brand-primary text-brand-primary" />
-            <span className="text-sm font-medium text-gray-900 dark:text-white">
-              {room.rating.toFixed(1)}
-            </span>
-          </div>
-          {room.reviews > 0 && (
-            <span className="text-xs text-gray-500 dark:text-gray-400">
-              ({room.reviews} reviews)
-            </span>
+        {/* Quick Info Badges */}
+        <div className="flex gap-1 overflow-x-auto">
+          {room.youtubeUrl && (
+            <div className="bg-brand-primary/10 text-brand-primary text-xs px-2 py-1 rounded-full font-medium flex-shrink-0">
+              Video Tour
+            </div>
+          )}
+          {room.amenities && room.amenities.length > 0 && (
+            <div className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-xs px-2 py-1 rounded-full font-medium flex-shrink-0">
+              {room.amenities.length} amenities
+            </div>
           )}
         </div>
 
         {/* Price Section */}
-        <div className="flex items-start justify-between gap-2">
+        <div className="flex items-start justify-between gap-2 pt-1 sm:pt-2 border-t border-gray-100 dark:border-gray-700">
           <div>
             <div className="flex items-center gap-1">
-              <span className="text-lg font-bold text-gray-900 dark:text-white">
+              <span className="text-base sm:text-lg font-bold text-gray-900 dark:text-white">
                 {room.price}
               </span>
             </div>
             <p className="text-xs text-gray-500 dark:text-gray-400">
               {room.pricePerNight}
             </p>
-          </div>
-          
-          {/* Quick Info Badges */}
-          <div className="flex flex-col gap-1 text-right">
-            {room.youtubeUrl && (
-              <div className="bg-brand-primary/10 text-brand-primary text-xs px-2 py-1 rounded-full font-medium">
-                Video Tour
-              </div>
-            )}
-            {room.amenities && room.amenities.length > 0 && (
-              <div className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-xs px-2 py-1 rounded-full font-medium">
-                {room.amenities.length} amenities
-              </div>
-            )}
           </div>
         </div>
 
