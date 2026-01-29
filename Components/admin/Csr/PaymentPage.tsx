@@ -25,9 +25,9 @@ import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
 import type { UpdateBookingPaymentPayload } from "@/types/bookingPayment";
 import {
-  useGetBookingsQuery,
-  useUpdateBookingStatusMutation,
-} from "@/redux/api/bookingsApi";
+  useGetBookingPaymentsQuery,
+  useUpdateBookingPaymentMutation,
+} from "@/redux/api/bookingPaymentsApi";
 
 type PaymentStatus = "Paid" | "Pending" | "Rejected";
 
@@ -55,6 +55,7 @@ interface PaymentRow {
   status: PaymentStatus;
   statusColor: string;
   created_at?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   booking?: any;
 }
 
@@ -81,6 +82,59 @@ const InfoField: React.FC<InfoFieldProps> = ({
     </div>
   </div>
 );
+
+const TableSkeleton: React.FC<{ rows?: number }> = ({ rows = 5 }) => {
+  return (
+    <tbody>
+      {[...Array(rows)].map((_, i) => (
+        <tr key={i} className="animate-pulse">
+          <td colSpan={8} className="py-4 px-4">
+            <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+          </td>
+        </tr>
+      ))}
+    </tbody>
+  );
+};
+
+const formatCurrency = (amount: number) => {
+  try {
+    return new Intl.NumberFormat("en-PH", {
+      style: "currency",
+      currency: "PHP",
+      maximumFractionDigits: 2,
+    }).format(Number(amount || 0));
+  } catch {
+    return `₱${Number(amount || 0).toFixed(2)}`;
+  }
+};
+
+const formatDate = (dateStr?: string | null) => {
+  if (!dateStr) return "N/A";
+  try {
+    return new Date(dateStr).toLocaleDateString("en-PH", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  } catch {
+    return String(dateStr);
+  }
+};
+
+const mapStatusToUI = (status?: string | null): PaymentStatus => {
+  const s = (status ?? "").toLowerCase();
+  if (s === "approved" || s === "paid") return "Paid";
+  if (s === "rejected") return "Rejected";
+  return "Pending";
+};
+
+const getStatusColorClass = (status?: string | null) => {
+  const s = (status ?? "").toLowerCase();
+  if (s === "approved" || s === "paid") return "bg-green-100 text-green-800";
+  if (s === "rejected") return "bg-red-100 text-red-800";
+  return "bg-yellow-100 text-yellow-800";
+};
 
 function RejectModal({
   isOpen,
@@ -481,7 +535,7 @@ export default function PaymentPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
-  const [entriesPerPage, setEntriesPerPage] = useState(5);
+  const [itemsPerPage, setItemsPerPage] = useState(5);
   const [sortField, setSortField] = useState<keyof PaymentRow | null>(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const { data: session } = useSession();
@@ -516,11 +570,11 @@ export default function PaymentPage() {
 
   // Compute server-side filter status (map UI filter to DB values)
   const serverStatusParam =
-    filterStatus === "all"
+    statusFilter === "all"
       ? undefined
-      : filterStatus === "Paid"
+      : statusFilter === "Paid"
         ? "approved"
-        : filterStatus.toLowerCase();
+        : statusFilter.toLowerCase();
 
   // Fetch payments from backend (use status query when a specific filter is selected)
   const {
@@ -738,56 +792,22 @@ export default function PaymentPage() {
     [updateBookingPayment, refetch, logEmployeeActivity, session],
   );
 
-      return matchesSearch && matchesStatus;
-    });
-
-    // Sort
-    filtered.sort((a, b) => {
-      const aValue = a[sortField];
-      const bValue = b[sortField];
-
-  const openRejectModal = useCallback(
-    (row: PaymentRow) => {
-      if (!row?.id) {
+  const handleConfirmReject = useCallback(
+    async (id: string, reason: string) => {
+      if (!id) {
         toast.error("Payment ID not available");
         return;
       }
-      // Log modal open
-      logEmployeeActivity?.(
-        "OPEN_REJECT_MODAL",
-        `Opened reject modal for booking ${row.booking_id}`,
-        "payment",
-        row.id,
-      );
-      // Keep the selected payment set so the reject modal has context,
-      // and close the view modal before opening the reject modal.
-      setSelectedPayment(row);
-      setIsViewModalOpen(false);
-      setIsRejectModalOpen(true);
-    },
-    [logEmployeeActivity],
-  );
 
-      let comparison = 0;
-      if (typeof aValue === "string" && typeof bValue === "string") {
-        comparison = aValue.localeCompare(bValue);
-      } else if (typeof aValue === "number" && typeof bValue === "number") {
-        comparison = aValue - bValue;
-      }
-      // Keep the selected payment so we can restore it if the mutation fails
       const originalSelected = selectedPayment;
-
       setUpdatingPaymentId(id);
 
       // Optimistically close modal and clear selection so the UI responds
       setIsRejectModalOpen(false);
       setSelectedPayment(null);
 
-      // Show an immediate success toast; we'll update it if the
-      // server rejects the mutation.
       const toastId = toast.success("Payment rejected");
 
-      // Log client-side attempt to reject
       logEmployeeActivity?.(
         "ATTEMPT_REJECT_PAYMENT",
         `Attempted to reject payment ${id} with reason: ${reason || "N/A"}`,
@@ -802,8 +822,7 @@ export default function PaymentPage() {
           rejection_reason: reason || undefined,
           reviewed_by: session?.user?.id ?? undefined,
         }).unwrap();
-        // optimistic update — no success toast (UI already reflects change)
-        refetch();
+        await refetch();
       } catch (err) {
         console.error("Reject error:", err);
         let msg = "Failed to reject payment";
@@ -848,6 +867,28 @@ export default function PaymentPage() {
     ],
   );
 
+  const openRejectModal = useCallback(
+    (row: PaymentRow) => {
+      if (!row?.id) {
+        toast.error("Payment ID not available");
+        return;
+      }
+      // Log modal open
+      logEmployeeActivity?.(
+        "OPEN_REJECT_MODAL",
+        `Opened reject modal for booking ${row.booking_id}`,
+        "payment",
+        row.id,
+      );
+      // Keep the selected payment set so the reject modal has context,
+      // and close the view modal before opening the reject modal.
+      setSelectedPayment(row);
+      setIsViewModalOpen(false);
+      setIsRejectModalOpen(true);
+    },
+    [logEmployeeActivity],
+  );
+
   const handleCancelReject = useCallback(() => {
     logEmployeeActivity?.(
       "CANCEL_REJECT_MODAL",
@@ -860,20 +901,23 @@ export default function PaymentPage() {
   }, [logEmployeeActivity, selectedPayment]);
 
   const filteredPayments = useMemo(() => {
-    const q = (searchTerm || "").toLowerCase();
+    const q = (searchTerm || "").trim().toLowerCase();
     return payments.filter((payment) => {
       const matchesSearch =
+        q === "" ||
         payment.booking_id.toLowerCase().includes(q) ||
         payment.guest.toLowerCase().includes(q);
-
-      return sortDirection === "asc" ? comparison : -comparison;
+      const matchesStatus =
+        statusFilter === "all" || payment.status === statusFilter;
+      return matchesSearch && matchesStatus;
     });
+  }, [payments, searchTerm, statusFilter]);
 
   const sortedPayments = useMemo(() => {
     const copy = [...filteredPayments];
     if (!sortField) return copy;
     return copy.sort((a, b) => {
-      // Numeric sorts for the new currency columns
+      // Numeric sorts for the currency columns
       if (sortField === "totalAmount") {
         const aNum = a.totalAmountValue ?? 0;
         const bNum = b.totalAmountValue ?? 0;
@@ -907,12 +951,13 @@ export default function PaymentPage() {
     });
   }, [filteredPayments, sortDirection, sortField]);
 
-  // Pagination
-  const totalPages = Math.ceil(filteredPayments.length / itemsPerPage);
+  // Pagination (apply on sorted results)
+  const totalPages = Math.ceil(sortedPayments.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = Math.min(startIndex + itemsPerPage, sortedPayments.length);
   const paginatedPayments = useMemo(() => {
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    return filteredPayments.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredPayments, currentPage, itemsPerPage]);
+    return sortedPayments.slice(startIndex, endIndex);
+  }, [sortedPayments, startIndex, endIndex]);
 
   const handleSort = (field: keyof PaymentRow) => {
     if (sortField === field) {
@@ -920,47 +965,6 @@ export default function PaymentPage() {
     } else {
       setSortField(field);
       setSortDirection("desc");
-    }
-  };
-
-  const handleApprove = async (payment: PaymentRow) => {
-    if (!payment.id) return;
-    
-    setUpdatingPaymentId(payment.id);
-    try {
-      await updateBookingStatus({
-        id: payment.id,
-        status: 'approved',
-      }).unwrap();
-      
-      toast.success("Payment approved successfully");
-      refetch();
-    } catch (error) {
-      toast.error("Failed to approve payment");
-    } finally {
-      setUpdatingPaymentId(null);
-    }
-  };
-
-  const handleReject = async (payment: PaymentRow, reason?: string) => {
-    if (!payment.id) return;
-    
-    setUpdatingPaymentId(payment.id);
-    try {
-      await updateBookingStatus({
-        id: payment.id,
-        status: 'rejected',
-        rejection_reason: reason,
-      }).unwrap();
-      
-      toast.success("Payment rejected");
-      refetch();
-      setIsRejectModalOpen(false);
-      setSelectedPayment(null);
-    } catch (error) {
-      toast.error("Failed to reject payment");
-    } finally {
-      setUpdatingPaymentId(null);
     }
   };
 
@@ -972,13 +976,15 @@ export default function PaymentPage() {
     };
 
     return (
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colors[status]}`}>
+      <span
+        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colors[status]}`}
+      >
         {status}
       </span>
     );
   };
 
-  if (isLoading) {
+  if (isLoadingTable) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -989,7 +995,9 @@ export default function PaymentPage() {
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Payment Management</h1>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          Payment Management
+        </h1>
         <p className="text-gray-600">Manage and review booking payments</p>
       </div>
 
@@ -1003,7 +1011,12 @@ export default function PaymentPage() {
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Total Revenue</p>
               <p className="text-2xl font-bold text-gray-900">
-                ₱{filteredPayments.reduce((sum, p) => sum + (p.amountValue || 0), 0).toLocaleString()}
+                {formatCurrency(
+                  filteredPayments.reduce(
+                    (sum, p) => sum + (p.totalAmountValue ?? 0),
+                    0,
+                  ),
+                )}
               </p>
             </div>
           </div>
@@ -1017,7 +1030,7 @@ export default function PaymentPage() {
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Paid</p>
               <p className="text-2xl font-bold text-gray-900">
-                {filteredPayments.filter(p => p.status === 'Paid').length}
+                {filteredPayments.filter((p) => p.status === "Paid").length}
               </p>
             </div>
           </div>
@@ -1031,7 +1044,7 @@ export default function PaymentPage() {
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Pending</p>
               <p className="text-2xl font-bold text-gray-900">
-                {filteredPayments.filter(p => p.status === 'Pending').length}
+                {filteredPayments.filter((p) => p.status === "Pending").length}
               </p>
             </div>
           </div>
@@ -1045,7 +1058,7 @@ export default function PaymentPage() {
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Rejected</p>
               <p className="text-2xl font-bold text-gray-900">
-                {filteredPayments.filter(p => p.status === 'Rejected').length}
+                {filteredPayments.filter((p) => p.status === "Rejected").length}
               </p>
             </div>
           </div>
@@ -1155,7 +1168,7 @@ export default function PaymentPage() {
               </tr>
             </thead>
             {isLoadingTable ? (
-              <TableSkeleton rows={entriesPerPage} />
+              <TableSkeleton rows={itemsPerPage} />
             ) : (
               <tbody>
                 {paginatedPayments.map((payment) => (
@@ -1312,473 +1325,337 @@ export default function PaymentPage() {
           </table>
         </div>
 
-              <div className="grid grid-cols-2 gap-3 mb-3 pb-3">
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                    Total Amount
-                  </p>
-                  <p className="font-bold text-gray-800 dark:text-gray-100">
-                    {payment.totalAmount}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                    Down Payment
-                  </p>
-                  <p className="font-bold text-gray-800 dark:text-gray-100">
-                    {payment.downPayment}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                    Amount Paid
-                  </p>
-                  <p className="font-bold text-gray-800 dark:text-gray-100">
-                    {payment.amountPaid}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-2">
-                    Remaining Balance
-                    <span
-                      title="Remaining Balance = Total Amount - Amount Paid"
-                      className="text-gray-400 flex items-center"
-                    >
-                      <Info className="w-3 h-3" />
-                    </span>
-                  </p>
-                  <p
-                    className={`font-bold ${
-                      (payment.remainingValue ?? 0) > 0
-                        ? "text-orange-700 dark:text-orange-300"
-                        : "text-green-700 dark:text-green-300"
-                    }`}
-                  >
-                    {payment.remaining}
-                  </p>
-                </div>
-              </div>
-
-              <div className="mb-3 pb-3 border-b border-gray-200 dark:border-gray-600">
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                  Payment Proof
-                </p>
-                {payment.payment_proof ? (
-                  <a
-                    href={payment.payment_proof}
-                    target="_blank"
-                    rel="noreferrer"
-                    onClick={() =>
-                      logEmployeeActivity?.(
-                        "VIEW_PAYMENT_PROOF",
-                        `Viewed payment proof for booking ${payment.booking_id}`,
-                        "payment",
-                        payment.id,
-                      )
-                    }
-                    className="inline-flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700 dark:hover:text-blue-400"
-                  >
-                    <ImageIcon className="w-4 h-4" /> View
-                  </a>
-                ) : (
-                  <span className="text-sm text-gray-400 dark:text-gray-500">
-                    No proof
-                  </span>
-                )}
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-200 dark:border-gray-600">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden">
+          <div className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 px-6 py-4 border-t border-gray-200 dark:border-gray-600">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                Showing {sortedPayments.length === 0 ? 0 : startIndex + 1} to{" "}
+                {endIndex} of {sortedPayments.length} entries
+                {searchTerm || statusFilter !== "all"
+                  ? ` (filtered from ${payments.length} total entries)`
+                  : ""}
+              </p>
+              <div className="flex gap-1">
                 <button
-                  onClick={() => handleView(payment)}
-                  className="p-2 inline-flex items-center justify-center text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
-                  title="View"
-                  type="button"
-                  aria-label={`View ${payment.booking_id}`}
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                  disabled={currentPage === 1}
+                  className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
                 >
-                  <Eye className="w-4 h-4" />
+                  Previous
                 </button>
-
                 <button
-                  onClick={() => {
-                    setSelectedPayment(payment);
-                    setIsApproveModalOpen(true);
-                    logEmployeeActivity?.(
-                      "OPEN_APPROVE_MODAL",
-                      `Opened approve modal for booking ${payment.booking_id}`,
-                      "payment",
-                      payment.id,
-                    );
-                  }}
-                  disabled={!payment.id || updatingPaymentId === payment.id}
-                  className="p-2 inline-flex items-center justify-center text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Approve"
-                  type="button"
-                  aria-label={`Approve booking ${payment.booking_id}`}
+                  onClick={() =>
+                    setCurrentPage(Math.min(totalPages, currentPage + 1))
+                  }
+                  disabled={currentPage === totalPages}
+                  className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
                 >
-                  {updatingPaymentId === payment.id ? (
-                    <svg
-                      className="animate-spin inline-block align-middle h-5 w-5"
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      />
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                      />
-                    </svg>
-                  ) : (
-                    <CheckCircle className="w-5 h-5" />
-                  )}
-                </button>
-
-                <button
-                  onClick={() => openRejectModal(payment)}
-                  disabled={!payment.id || updatingPaymentId === payment.id}
-                  className="p-2 inline-flex items-center justify-center text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Reject"
-                  type="button"
-                  aria-label={`Reject booking ${payment.booking_id}`}
-                >
-                  <X className="w-4 h-4" />
+                  Next
                 </button>
               </div>
-            </div>
-          ))
-        )}
-      </div>
-
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden">
-        <div className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 px-6 py-4 border-t border-gray-200 dark:border-gray-600">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <p className="text-sm text-gray-600 dark:text-gray-300">
-              Showing {sortedPayments.length === 0 ? 0 : startIndex + 1} to{" "}
-              {Math.min(endIndex, sortedPayments.length)} of{" "}
-              {sortedPayments.length} entries
-              {searchTerm || filterStatus !== "all"
-                ? ` (filtered from ${payments.length} total entries)`
-                : ""}
-            </p>
-            <div className="flex gap-1">
-              <button
-                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                disabled={currentPage === 1}
-                className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
-              >
-                Previous
-              </button>
-              <button
-                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                disabled={currentPage === totalPages}
-                className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
-              >
-                Next
-              </button>
-            </div>
-            <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm text-gray-700">
-                  Showing{" "}
-                  <span className="font-medium">
-                    {(currentPage - 1) * itemsPerPage + 1}
-                  </span>{" "}
-                  to{" "}
-                  <span className="font-medium">
-                    {Math.min(currentPage * itemsPerPage, filteredPayments.length)}
-                  </span>{" "}
-                  of{" "}
-                  <span className="font-medium">{filteredPayments.length}</span>{" "}
-                  results
-                </p>
-              </div>
-              <div>
-                <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
-                  <button
-                    onClick={() => setCurrentPage(1)}
-                    disabled={currentPage === 1}
-                    className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
-                  >
-                    <ChevronsLeft className="h-5 w-5" />
-                  </button>
-                  <button
-                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                    disabled={currentPage === 1}
-                    className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
-                  >
-                    <ChevronLeft className="h-5 w-5" />
-                  </button>
-                  <button
-                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                    disabled={currentPage === totalPages}
-                    className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
-                  >
-                    <ChevronRight className="h-5 w-5" />
-                  </button>
-                  <button
-                    onClick={() => setCurrentPage(totalPages)}
-                    disabled={currentPage === totalPages}
-                    className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
-                  >
-                    <ChevronsRight className="h-5 w-5" />
-                  </button>
-                </nav>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* View Modal */}
-      {isViewModalOpen && selectedPayment && (
-        <>
-          <div
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9998]"
-            onClick={handleCloseView}
-          />
-          <div className="fixed inset-0 flex items-center justify-center px-4 py-8 z-[9999]">
-            <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-5xl max-h-[60vh] flex flex-col overflow-hidden border border-gray-100 dark:border-gray-700">
-              {/* Header */}
-              <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-orange-500 rounded-lg">
-                    <CreditCard className="w-5 h-5 text-white" />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                      Payment Details
-                    </h2>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      Booking: {selectedPayment.booking_id}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={handleCloseView}
-                  className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
-                >
-                  <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-              {/* Content */}
-              <div className="p-6 space-y-6 max-h-[calc(90vh-200px)] overflow-y-auto">
-                {/* Guest & Payment Info (status badge moved to the right side of this card header) */}
-                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 border border-gray-100 dark:border-gray-700">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
-                      <User className="w-5 h-5 text-orange-500" />
-                      Payment Information
-                    </h3>
-                    <span
-                      className={`px-4 py-2 rounded-full text-sm font-semibold ${getStatusColorClass(
-                        selectedPayment.booking?.status ??
-                          selectedPayment.status,
-                      )}`}
-                    >
-                      {(
-                        selectedPayment.booking?.status ??
-                        selectedPayment.status ??
-                        "unknown"
-                      )
-                        .toUpperCase()
-                        .replace("-", " ")}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <InfoField
-                      label="Booking ID"
-                      value={selectedPayment.booking_id}
-                    />
-                    <InfoField label="Guest" value={selectedPayment.guest} />
-                    <InfoField
-                      label="Amount"
-                      value={
-                        <span className="text-lg font-bold text-gray-900 dark:text-gray-100">
-                          {formatCurrency(
-                            Number(selectedPayment.booking?.down_payment ?? 0),
-                          )}
-                        </span>
-                      }
-                    />
-                    <InfoField
-                      label="Payment Proof"
-                      value={
-                        selectedPayment.payment_proof ? (
-                          <a
-                            href={selectedPayment.payment_proof}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-2 text-sm font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
-                          >
-                            <ImageIcon className="w-4 h-4" /> View Proof
-                          </a>
-                        ) : (
-                          <span className="text-sm text-gray-400 dark:text-gray-400">
-                            No proof
-                          </span>
-                        )
-                      }
-                    />
-                    <InfoField
-                      label="Contact"
-                      value={
-                        selectedPayment.booking?.guest_email ??
-                        selectedPayment.guest
-                      }
-                    />
-                    {selectedPayment.booking?.status === "rejected" &&
-                      selectedPayment.booking?.rejection_reason && (
-                        <InfoField
-                          label="Rejection Reason"
-                          value={selectedPayment.booking.rejection_reason}
-                        />
+              <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm text-gray-700">
+                    Showing{" "}
+                    <span className="font-medium">
+                      {sortedPayments.length === 0 ? 0 : startIndex + 1}
+                    </span>{" "}
+                    to{" "}
+                    <span className="font-medium">
+                      {Math.min(
+                        currentPage * itemsPerPage,
+                        sortedPayments.length,
                       )}
-                  </div>
+                    </span>{" "}
+                    of{" "}
+                    <span className="font-medium">{sortedPayments.length}</span>{" "}
+                    results
+                  </p>
                 </div>
-
-                {/* Payment Summary */}
-                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 border border-gray-100 dark:border-gray-700">
-                  <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4">
-                    Payment Summary
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <InfoField
-                      label="Total Amount"
-                      value={
-                        <span className="text-lg font-bold text-gray-900 dark:text-gray-100">
-                          {selectedPayment.totalAmount}
-                        </span>
+                <div>
+                  <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                    <button
+                      onClick={() => setCurrentPage(1)}
+                      disabled={currentPage === 1}
+                      className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      <ChevronsLeft className="h-5 w-5" />
+                    </button>
+                    <button
+                      onClick={() =>
+                        setCurrentPage(Math.max(1, currentPage - 1))
                       }
-                    />
-                    <InfoField
-                      label="Down Payment"
-                      value={
-                        <span className="text-green-700 dark:text-green-300 font-semibold">
-                          {formatCurrency(
-                            Number(selectedPayment.booking?.down_payment ?? 0),
-                          )}
-                        </span>
+                      disabled={currentPage === 1}
+                      className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      <ChevronLeft className="h-5 w-5" />
+                    </button>
+                    <button
+                      onClick={() =>
+                        setCurrentPage(Math.min(totalPages, currentPage + 1))
                       }
-                    />
-                    <InfoField
-                      label="Amount Paid"
-                      value={
-                        <span className="text-green-700 dark:text-green-300 font-semibold">
-                          {selectedPayment.amountPaid}
-                        </span>
-                      }
-                    />
-                    <InfoField
-                      label="Remaining Balance"
-                      value={
-                        <span
-                          className={`font-semibold ${
-                            Number(selectedPayment.remainingValue ?? 0) > 0
-                              ? "text-orange-700 dark:text-orange-300"
-                              : "text-green-700 dark:text-green-300"
-                          }`}
-                        >
-                          {selectedPayment.remaining}
-                        </span>
-                      }
-                    />
-                    <InfoField
-                      label="Payment Method"
-                      value={selectedPayment.booking?.payment_method ?? "—"}
-                      capitalize
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Footer (actions) */}
-              <div className="flex items-center justify-between gap-2 p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Last updated:{" "}
-                  {selectedPayment.booking?.updated_at
-                    ? formatDate(selectedPayment.booking?.updated_at)
-                    : "N/A"}
-                </p>
-
-                <div className="flex gap-3 justify-end">
-                  <button
-                    type="button"
-                    onClick={handleCloseView}
-                    className="px-5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-200 font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition"
-                  >
-                    Close
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!selectedPayment) return;
-                      setIsApproveModalOpen(true);
-                    }}
-                    disabled={
-                      mapStatusToUI(
-                        selectedPayment.booking?.status ??
-                          selectedPayment.status,
-                      ) === "Paid" || updatingPaymentId === selectedPayment.id
-                    }
-                    className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-yellow-500 dark:from-orange-600 dark:to-yellow-600 text-white font-semibold shadow-lg hover:from-orange-600 hover:to-yellow-600 dark:hover:from-orange-700 dark:hover:to-yellow-700 transition inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <CheckCircle className="w-4 h-4" /> Approve
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsViewModalOpen(false);
-                      setIsRejectModalOpen(true);
-                    }}
-                    className="px-6 py-2.5 rounded-xl bg-red-600 text-white font-semibold hover:bg-red-700 transition inline-flex items-center gap-2"
-                  >
-                    <XCircle className="w-4 h-4" /> Reject
-                  </button>
+                      disabled={currentPage === totalPages}
+                      className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      <ChevronRight className="h-5 w-5" />
+                    </button>
+                    <button
+                      onClick={() => setCurrentPage(totalPages)}
+                      disabled={currentPage === totalPages}
+                      className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      <ChevronsRight className="h-5 w-5" />
+                    </button>
+                  </nav>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      )}
 
-      <RejectModal
-        key={`reject-${selectedPayment?.id}`}
-        isOpen={isRejectModalOpen}
-        payment={selectedPayment}
-        onCancel={handleCancelReject}
-        onConfirm={handleConfirmReject}
-        updatingPaymentId={updatingPaymentId}
-      />
-      <ApproveModal
-        key={`approve-${selectedPayment?.id}`}
-        isOpen={isApproveModalOpen}
-        payment={selectedPayment}
-        onCancel={() => setIsApproveModalOpen(false)}
-        onConfirm={handleConfirmApprove}
-        updatingPaymentId={updatingPaymentId}
-      />
-      <ChangeModal
-        key={`change-${selectedPayment?.id}`}
-        isOpen={isChangeModalOpen}
-        amount={changeAmount}
-        onClose={() => setIsChangeModalOpen(false)}
-      />
+        {/* View Modal */}
+        {isViewModalOpen && selectedPayment && (
+          <>
+            <div
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9998]"
+              onClick={handleCloseView}
+            />
+            <div className="fixed inset-0 flex items-center justify-center px-4 py-8 z-[9999]">
+              <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-5xl max-h-[60vh] flex flex-col overflow-hidden border border-gray-100 dark:border-gray-700">
+                {/* Header */}
+                <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-orange-500 rounded-lg">
+                      <CreditCard className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                        Payment Details
+                      </h2>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Booking: {selectedPayment.booking_id}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleCloseView}
+                    className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
+                  >
+                    <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                  </button>
+                </div>
+
+                {/* Content */}
+                <div className="p-6 space-y-6 max-h-[calc(90vh-200px)] overflow-y-auto">
+                  {/* Guest & Payment Info (status badge moved to the right side of this card header) */}
+                  <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 border border-gray-100 dark:border-gray-700">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+                        <User className="w-5 h-5 text-orange-500" />
+                        Payment Information
+                      </h3>
+                      <span
+                        className={`px-4 py-2 rounded-full text-sm font-semibold ${getStatusColorClass(
+                          selectedPayment.booking?.status ??
+                            selectedPayment.status,
+                        )}`}
+                      >
+                        {(
+                          selectedPayment.booking?.status ??
+                          selectedPayment.status ??
+                          "unknown"
+                        )
+                          .toUpperCase()
+                          .replace("-", " ")}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <InfoField
+                        label="Booking ID"
+                        value={selectedPayment.booking_id}
+                      />
+                      <InfoField label="Guest" value={selectedPayment.guest} />
+                      <InfoField
+                        label="Amount"
+                        value={
+                          <span className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                            {formatCurrency(
+                              Number(
+                                selectedPayment.booking?.down_payment ?? 0,
+                              ),
+                            )}
+                          </span>
+                        }
+                      />
+                      <InfoField
+                        label="Payment Proof"
+                        value={
+                          selectedPayment.payment_proof ? (
+                            <a
+                              href={selectedPayment.payment_proof}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-2 text-sm font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+                            >
+                              <ImageIcon className="w-4 h-4" /> View Proof
+                            </a>
+                          ) : (
+                            <span className="text-sm text-gray-400 dark:text-gray-400">
+                              No proof
+                            </span>
+                          )
+                        }
+                      />
+                      <InfoField
+                        label="Contact"
+                        value={
+                          selectedPayment.booking?.guest_email ??
+                          selectedPayment.guest
+                        }
+                      />
+                      {selectedPayment.booking?.status === "rejected" &&
+                        selectedPayment.booking?.rejection_reason && (
+                          <InfoField
+                            label="Rejection Reason"
+                            value={selectedPayment.booking.rejection_reason}
+                          />
+                        )}
+                    </div>
+                  </div>
+
+                  {/* Payment Summary */}
+                  <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 border border-gray-100 dark:border-gray-700">
+                    <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4">
+                      Payment Summary
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <InfoField
+                        label="Total Amount"
+                        value={
+                          <span className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                            {selectedPayment.totalAmount}
+                          </span>
+                        }
+                      />
+                      <InfoField
+                        label="Down Payment"
+                        value={
+                          <span className="text-green-700 dark:text-green-300 font-semibold">
+                            {formatCurrency(
+                              Number(
+                                selectedPayment.booking?.down_payment ?? 0,
+                              ),
+                            )}
+                          </span>
+                        }
+                      />
+                      <InfoField
+                        label="Amount Paid"
+                        value={
+                          <span className="text-green-700 dark:text-green-300 font-semibold">
+                            {selectedPayment.amountPaid}
+                          </span>
+                        }
+                      />
+                      <InfoField
+                        label="Remaining Balance"
+                        value={
+                          <span
+                            className={`font-semibold ${
+                              Number(selectedPayment.remainingValue ?? 0) > 0
+                                ? "text-orange-700 dark:text-orange-300"
+                                : "text-green-700 dark:text-green-300"
+                            }`}
+                          >
+                            {selectedPayment.remaining}
+                          </span>
+                        }
+                      />
+                      <InfoField
+                        label="Payment Method"
+                        value={selectedPayment.booking?.payment_method ?? "—"}
+                        capitalize
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Footer (actions) */}
+                <div className="flex items-center justify-between gap-2 p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Last updated:{" "}
+                    {selectedPayment.booking?.updated_at
+                      ? formatDate(selectedPayment.booking?.updated_at)
+                      : "N/A"}
+                  </p>
+
+                  <div className="flex gap-3 justify-end">
+                    <button
+                      type="button"
+                      onClick={handleCloseView}
+                      className="px-5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-200 font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+                    >
+                      Close
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!selectedPayment) return;
+                        setIsApproveModalOpen(true);
+                      }}
+                      disabled={
+                        mapStatusToUI(
+                          selectedPayment.booking?.status ??
+                            selectedPayment.status,
+                        ) === "Paid" || updatingPaymentId === selectedPayment.id
+                      }
+                      className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-yellow-500 dark:from-orange-600 dark:to-yellow-600 text-white font-semibold shadow-lg hover:from-orange-600 hover:to-yellow-600 dark:hover:from-orange-700 dark:hover:to-yellow-700 transition inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <CheckCircle className="w-4 h-4" /> Approve
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsViewModalOpen(false);
+                        setIsRejectModalOpen(true);
+                      }}
+                      className="px-6 py-2.5 rounded-xl bg-red-600 text-white font-semibold hover:bg-red-700 transition inline-flex items-center gap-2"
+                    >
+                      <XCircle className="w-4 h-4" /> Reject
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+
+        <RejectModal
+          key={`reject-${selectedPayment?.id}`}
+          isOpen={isRejectModalOpen}
+          payment={selectedPayment}
+          onCancel={handleCancelReject}
+          onConfirm={handleConfirmReject}
+          updatingPaymentId={updatingPaymentId}
+        />
+        <ApproveModal
+          key={`approve-${selectedPayment?.id}`}
+          isOpen={isApproveModalOpen}
+          payment={selectedPayment}
+          onCancel={() => setIsApproveModalOpen(false)}
+          onConfirm={handleConfirmApprove}
+          updatingPaymentId={updatingPaymentId}
+        />
+        <ChangeModal
+          key={`change-${selectedPayment?.id}`}
+          isOpen={isChangeModalOpen}
+          amount={changeAmount}
+          onClose={() => setIsChangeModalOpen(false)}
+        />
+      </div>
     </div>
   );
 }
