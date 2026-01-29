@@ -187,8 +187,9 @@ interface UserData {
               height={24}
               className="w-5 h-5 sm:w-6 sm:h-6 object-contain"
             />
-            <span className="text-xl sm:text-2xl font-display text-brand-primary dark:text-brand-primary">
+            <span className="text-xl sm:text-2xl font-display text-brand-primary dark:text-brand-primary relative">
               taycation Haven
+              <sup className="text-xs text-brand-primary dark:text-brand-primary ml-0.5 font-normal">PH</sup>
             </span>
           </div>
         </Link>

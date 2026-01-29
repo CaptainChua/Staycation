@@ -114,6 +114,15 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
   const [showAllReviews, setShowAllReviews] = useState(false);
   const [activeTab, setActiveTab] = useState<"overview" | "amenities" | "location" | "reviews">("overview");
   
+  // Touch/swipe state for mobile carousel
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
+  
+  // Mouse drag state for desktop
+  const [mouseStart, setMouseStart] = useState<number | null>(null);
+  const [mouseEnd, setMouseEnd] = useState<number | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  
   // Local state for date and guest selection
   const [localCheckInDate, setLocalCheckInDate] = useState(bookingData.checkInDate || "");
   const [localCheckOutDate, setLocalCheckOutDate] = useState(bookingData.checkOutDate || "");
@@ -294,37 +303,109 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
     }
   };
 
+  // Swipe handlers for mobile carousel
+  const minSwipeDistance = 50;
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+
+    if (isLeftSwipe && images.length > 0) {
+      // Swipe left - next image
+      setCurrentImageIndex((prev) => (prev + 1) % images.length);
+    } else if (isRightSwipe && images.length > 0) {
+      // Swipe right - previous image
+      setCurrentImageIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1));
+    }
+  };
+
+  // Mouse drag handlers for desktop
+  const onMouseDown = (e: React.MouseEvent) => {
+    setIsDragging(true);
+    setMouseEnd(null);
+    setMouseStart(e.clientX);
+    e.preventDefault(); // Prevent text selection
+  };
+
+  const onMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging) return;
+    setMouseEnd(e.clientX);
+  };
+
+  const onMouseUp = () => {
+    if (!isDragging) return;
+    setIsDragging(false);
+    
+    if (!mouseStart || !mouseEnd) return;
+    
+    const distance = mouseStart - mouseEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+
+    if (isLeftSwipe && images.length > 0) {
+      // Swipe left - next image
+      setCurrentImageIndex((prev) => (prev + 1) % images.length);
+    } else if (isRightSwipe && images.length > 0) {
+      // Swipe right - previous image
+      setCurrentImageIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1));
+    }
+  };
+
+  const onMouseLeave = () => {
+    setIsDragging(false);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
       {/* Main Content with Top Padding for Navbar */}
       <div className="pt-14 sm:pt-16 flex-1">
 
         {/* Header Bar */}
-        <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-14 sm:top-16 z-30">
+        <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-14 sm:top-16 z-50 relative pointer-events-auto">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
             <div className="flex items-center justify-between">
               <button
-                onClick={onBack}
-                className="flex items-center gap-2 text-gray-600 dark:text-gray-300 hover:text-brand-primary dark:hover:text-brand-primary transition-colors"
+                onClick={() => {
+                  try {
+                    router.back();
+                  } catch (error) {
+                    console.log('Router back failed, using fallback');
+                    onBack();
+                  }
+                }}
+                className="flex items-center gap-2 text-gray-600 dark:text-gray-300 hover:text-brand-primary dark:hover:text-brand-primary transition-colors p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 relative z-10 pointer-events-auto touch-manipulation"
               >
-                <ArrowLeft className="w-5 h-5" />
+                <ArrowLeft className="w-5 h-5 flex-shrink-0" />
                 <span className="text-sm font-medium hidden sm:inline">Back to Havens</span>
+                <span className="text-sm font-medium sm:hidden">Back</span>
               </button>
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleShare}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors relative z-10 pointer-events-auto touch-manipulation"
                 >
-                  <Share className="w-4 h-4" />
+                  <Share className="w-4 h-4 flex-shrink-0" />
                   <span className="hidden sm:inline">Share</span>
                 </button>
                 <button
                   onClick={handleWishlistToggle}
                   disabled={isLoadingWishlist || isWishlistDisabled}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed relative z-10 pointer-events-auto touch-manipulation"
                   title={isWishlistDisabled ? "Wishlist feature temporarily unavailable" : userId ? "Add to wishlist" : "Login to add to wishlist"}
                 >
-                  <Heart className={`w-4 h-4 ${isInWishlist ? 'fill-red-500 text-red-500' : ''}`} />
+                  <Heart className={`w-4 h-4 flex-shrink-0 ${isInWishlist ? 'fill-red-500 text-red-500' : ''}`} />
                   <span className="hidden sm:inline">{isInWishlist ? 'Saved' : 'Save'}</span>
                 </button>
               </div>
@@ -334,18 +415,24 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
 
         {/* Airbnb-Style Image Gallery */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          {/* Desktop: 5-image grid */}
+          {/* Desktop: 5-image grid with drag support */}
           <div className="hidden md:block relative">
-            <div className="grid grid-cols-4 grid-rows-2 gap-2 h-[400px] lg:h-[480px] rounded-xl overflow-hidden">
+            <div 
+              className="grid grid-cols-4 grid-rows-2 gap-2 h-[400px] lg:h-[480px] rounded-xl overflow-hidden cursor-grab active:cursor-grabbing"
+              onMouseDown={onMouseDown}
+              onMouseMove={onMouseMove}
+              onMouseUp={onMouseUp}
+              onMouseLeave={onMouseLeave}
+            >
               {/* Main large image */}
               <div
                 className="col-span-2 row-span-2 relative cursor-pointer group"
-                onClick={() => openLightbox(0)}
+                onClick={() => openLightbox(currentImageIndex)}
               >
-                {images[0] && (
+                {images[currentImageIndex % images.length] && (
                   <>
                     <Image
-                      src={images[0]}
+                      src={images[currentImageIndex % images.length]}
                       alt={room.name}
                       fill
                       sizes="(max-width: 1024px) 50vw, 600px"
@@ -356,33 +443,36 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
                   </>
                 )}
               </div>
-              {/* 4 smaller images */}
-              {[1, 2, 3, 4].map((index) => (
-                <div
-                  key={index}
-                  className="relative cursor-pointer group"
-                  onClick={() => images[index] && openLightbox(index)}
-                >
-                  {images[index] ? (
-                    <>
-                      <Image
-                        src={images[index]}
-                        alt={`${room.name} ${index + 1}`}
-                        fill
-                        sizes="(max-width: 1024px) 25vw, 300px"
-                        className="object-cover transition-transform duration-300 group-hover:scale-105"
-                      />
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
-                    </>
-                  ) : (
-                    <div className="w-full h-full bg-gray-200 dark:bg-gray-700" />
-                  )}
-                </div>
-              ))}
+              {/* 4 smaller images showing next images */}
+              {[1, 2, 3, 4].map((index) => {
+                const imageIndex = (currentImageIndex + index) % images.length;
+                return (
+                  <div
+                    key={index}
+                    className="relative cursor-pointer group"
+                    onClick={() => images[imageIndex] && openLightbox(imageIndex)}
+                  >
+                    {images[imageIndex] ? (
+                      <>
+                        <Image
+                          src={images[imageIndex]}
+                          alt={`${room.name} ${imageIndex + 1}`}
+                          fill
+                          sizes="(max-width: 1024px) 25vw, 300px"
+                          className="object-cover transition-transform duration-300 group-hover:scale-105"
+                        />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                      </>
+                    ) : (
+                      <div className="w-full h-full bg-gray-200 dark:bg-gray-700" />
+                    )}
+                  </div>
+                );
+              })}
             </div>
             {/* Show all photos button - positioned outside grid */}
             <button
-              onClick={() => openLightbox(0)}
+              onClick={() => openLightbox(currentImageIndex)}
               className="absolute bottom-4 right-4 flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm font-medium rounded-lg shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors z-10"
             >
               <Grid3X3 className="w-4 h-4" />
@@ -395,6 +485,9 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
             <div
               className="w-full h-full flex transition-transform duration-500"
               style={{ transform: `translateX(-${currentImageIndex * 100}%)` }}
+              onTouchStart={onTouchStart}
+              onTouchMove={onTouchMove}
+              onTouchEnd={onTouchEnd}
             >
               {images.map((image, index) => (
                 <div key={index} className="w-full h-full flex-shrink-0 relative">

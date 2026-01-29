@@ -116,6 +116,35 @@ const GuestSelector = ({ guests, onGuestChange }: GuestSelectorProps) => {
           {renderGuestCounter("Adults", "Ages 18 or above", "adults", 1)}
           {renderGuestCounter("Children", "Ages 4 – 17", "children", 0)}
           {renderGuestCounter("Infants", "Ages 0 – 3", "infants", 0)}
+          
+          {/* Action Buttons */}
+          <div className="flex gap-2 mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
+            {/* Reset to Default Button */}
+            <button
+              onClick={() => {
+                onGuestChange('adults', 1);
+                onGuestChange('children', 0);
+                onGuestChange('infants', 0);
+              }}
+              className="flex-1 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600
+                       text-gray-700 dark:text-gray-300 font-medium py-2 rounded-lg
+                       transition-all duration-300 active:scale-[0.98]
+                       text-xs sm:text-sm"
+            >
+              Reset Default
+            </button>
+            
+            {/* OK Button */}
+            <button
+              onClick={() => setIsOpen(false)}
+              className="flex-1 bg-brand-primary hover:bg-brand-primaryDark dark:bg-brand-primary dark:hover:bg-brand-primaryDark
+                       text-white font-semibold py-2 rounded-lg
+                       transition-all duration-300 active:scale-[0.98] shadow-md hover:shadow-lg
+                       text-xs sm:text-base"
+            >
+              OK
+            </button>
+          </div>
         </div>
       )}
     </div>

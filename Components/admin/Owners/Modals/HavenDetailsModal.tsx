@@ -1,9 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Input } from "@nextui-org/input";
-import toast from 'react-hot-toast';
-import SubModalWrapper from "./SubModalWrapper";
+import { Input, Textarea } from "@nextui-org/input";
+import { z } from "zod";
+
+const detailsSchema = z.object({
+  capacity: z.string().refine(val => !isNaN(parseInt(val)) && parseInt(val) > 0, "Capacity must be a positive number"),
+  room_size: z.string().refine(val => !isNaN(parseFloat(val)) && parseFloat(val) > 0, "Room size must be a positive number"),
+  beds: z.string().min(1, "Number of beds is required"),
+  description: z.string().min(1, "Description is required"),
+});
 
 interface HavenDetailsData {
   capacity?: number | string;
@@ -13,21 +19,24 @@ interface HavenDetailsData {
 }
 
 interface HavenDetailsModalProps {
-  isOpen: boolean;
-  onClose: () => void;
   onSave: (data: HavenDetailsData) => void;
   initialData?: HavenDetailsData;
+  isAddMode?: boolean;
 }
 
-const HavenDetailsModal = ({ isOpen, onClose, onSave, initialData }: HavenDetailsModalProps) => {
-  const [formData, setFormData] = useState<HavenDetailsData>({
+const HavenDetailsModal = ({ 
+  onSave, 
+  initialData, 
+  isAddMode = false,
+}: HavenDetailsModalProps) => {
+  const [formData, setFormData] = useState<Record<string, string>>({
     capacity: "",
     room_size: "",
     beds: "",
     description: "",
   });
 
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (initialData) {
@@ -38,111 +47,104 @@ const HavenDetailsModal = ({ isOpen, onClose, onSave, initialData }: HavenDetail
         description: initialData.description || "",
       });
     }
-  }, [initialData, isOpen]);
+  }, [initialData]);
 
-  const validateForm = (): boolean => {
-    const newErrors: Record<string, string> = {};
+  const validation = detailsSchema.safeParse(formData);
+  const errors = !validation.success ? validation.error.format() : null;
 
-    if (!formData.capacity || formData.capacity === "") {
-      newErrors.capacity = "Maximum guests is required";
-    } else if (isNaN(parseInt(formData.capacity.toString()))) {
-      newErrors.capacity = "Maximum guests must be a number";
-    }
-
-    if (!formData.room_size || formData.room_size === "") {
-      newErrors.room_size = "Room size is required";
-    } else if (isNaN(parseFloat(formData.room_size.toString()))) {
-      newErrors.room_size = "Room size must be a number";
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+  const handleChange = (field: string, value: string) => {
+    const newData = { ...formData, [field]: value };
+    setFormData(newData);
+    setTouched(prev => ({ ...prev, [field]: true }));
+    onSave(newData);
   };
 
-  const handleSave = () => {
-    if (validateForm()) {
-      onSave({
-        capacity: parseInt((formData.capacity ?? "").toString()),
-        room_size: parseFloat((formData.room_size ?? "").toString()),
-        beds: formData.beds,
-        description: formData.description,
-      });
-      toast.success("Haven details saved successfully!");
-      handleClose();
-    } else {
-      toast.error("Please fix the errors in the form");
-    }
-  };
+  const getInputClasses = (field: string) => {
+    const isFieldTouched = touched[field];
+    const isFieldInvalid = isFieldTouched && errors?.[field as keyof typeof errors];
+    const isFieldValid = isFieldTouched && !errors?.[field as keyof typeof errors];
 
-  const handleClose = () => {
-    setFormData({
-      capacity: "",
-      room_size: "",
-      beds: "",
-      description: "",
-    });
-    setErrors({});
-    onClose();
-  };
+    let borderClass = "border-gray-200";
+    if (isFieldInvalid) borderClass = "border-red-500 bg-red-50/10";
+    if (isFieldValid) borderClass = "border-green-500 bg-green-50/10";
 
-  const inputClassNames = {
-    label: "text-sm font-medium text-gray-700",
-    inputWrapper: "border-gray-300 focus-within:!border-brand-primary focus-within:!ring-brand-primary/20 hover:border-brand-primary/50 transition-colors"
+    return {
+      label: "text-sm font-bold text-gray-700 mb-2 ml-1 uppercase tracking-wider",
+      inputWrapper: [
+        "bg-white",
+        `border-2 ${borderClass}`,
+        "hover:border-brand-primary/40",
+        "focus-within:!border-brand-primary",
+        "focus-within:ring-4",
+        "focus-within:ring-brand-primary/10",
+        "shadow-sm",
+        "transition-all",
+        "duration-300",
+        "rounded-2xl",
+        "h-14",
+        "px-4"
+      ].join(" "),
+      input: "text-base font-semibold text-gray-900 placeholder:text-gray-400",
+      errorMessage: "text-xs font-bold text-red-500 mt-1.5 ml-1 animate-in slide-in-from-top-1"
+    };
   };
 
   return (
-    <SubModalWrapper
-      isOpen={isOpen}
-      onClose={handleClose}
-      title="Haven Details"
-      subtitle="Update haven specifications and description"
-      onSave={handleSave}
-    >
-      <div className="space-y-4">
+    <div className="bg-white border border-gray-200 rounded-3xl p-8 shadow-sm transition-all duration-[250ms] [transition-timing-function:cubic-bezier(0.4,0,0.2,1)] hover:scale-[1.01] hover:shadow-md will-change-transform">
+      <div className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input
             type="number"
-            label="Maximum Guests"
+            label="Capacity"
             labelPlacement="outside"
-            value={formData.capacity?.toString()}
-            onChange={(e) => setFormData({ ...formData, capacity: e.target.value })}
-            classNames={inputClassNames}
-            isInvalid={!!errors.capacity}
-            errorMessage={errors.capacity}
+            placeholder="e.g., 4"
+            value={formData.capacity}
+            onChange={(e) => handleChange('capacity', e.target.value)}
+            classNames={getInputClasses('capacity')}
+            isInvalid={touched.capacity && !!errors?.capacity}
+            errorMessage={touched.capacity && (errors?.capacity as any)?._errors[0]}
             isRequired
           />
           <Input
             type="number"
-            label="Room Size (sq.m)"
+            label="Room Size (sqm)"
             labelPlacement="outside"
-            value={formData.room_size?.toString()}
-            onChange={(e) => setFormData({ ...formData, room_size: e.target.value })}
-            classNames={inputClassNames}
-            isInvalid={!!errors.room_size}
-            errorMessage={errors.room_size}
+            placeholder="e.g., 35"
+            value={formData.room_size}
+            onChange={(e) => handleChange('room_size', e.target.value)}
+            classNames={getInputClasses('room_size')}
+            isInvalid={touched.room_size && !!errors?.room_size}
+            errorMessage={touched.room_size && (errors?.room_size as any)?._errors[0]}
             isRequired
           />
         </div>
         <Input
-          label="Beds Configuration"
+          label="Beds"
           labelPlacement="outside"
-          placeholder="e.g., 1 King + 1 Queen Bed"
+          placeholder="e.g., 2 Queen Beds"
           value={formData.beds}
-          onChange={(e) => setFormData({ ...formData, beds: e.target.value })}
-          classNames={inputClassNames}
+          onChange={(e) => handleChange('beds', e.target.value)}
+          classNames={getInputClasses('beds')}
+          isInvalid={touched.beds && !!errors?.beds}
+          errorMessage={touched.beds && (errors?.beds as any)?._errors[0]}
+          isRequired
         />
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
-          <textarea
-            value={formData.description}
-            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            rows={4}
-            className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all text-sm"
-            placeholder="Enter haven description..."
-          />
-        </div>
+        <Textarea
+          label="Description"
+          labelPlacement="outside"
+          placeholder="Describe the haven..."
+          value={formData.description}
+          onChange={(e) => handleChange('description', e.target.value)}
+          classNames={{
+            ...getInputClasses('description'),
+            inputWrapper: `${getInputClasses('description').inputWrapper} h-auto min-h-[120px] py-2`
+          }}
+          isInvalid={touched.description && !!errors?.description}
+          errorMessage={touched.description && (errors?.description as any)?._errors[0]}
+          isRequired
+        />
       </div>
-    </SubModalWrapper>
+    </div>
   );
 };
 
