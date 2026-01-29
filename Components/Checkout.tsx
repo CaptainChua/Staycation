@@ -251,6 +251,23 @@ const Checkout = () => {
 
   const [additionalGuests, setAdditionalGuests] = useState<GuestInfo[]>([]);
 
+  // Payment methods state
+  const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
+  const [isLoadingPaymentMethods, setIsLoadingPaymentMethods] = useState(false);
+
+  interface PaymentMethod {
+    id: string;
+    payment_name: string;
+    payment_method: string;
+    provider: string;
+    account_details: string;
+    payment_qr_link?: string;
+    is_active: boolean;
+    description?: string;
+    created_at: string;
+    updated_at: string;
+  }
+
   const [addOns, setAddOns] = useState<AddOns>({
     poolPass: 0,
     towels: 0,
@@ -285,6 +302,46 @@ const Checkout = () => {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.stayType, localCheckInDate]);
+
+  // Fetch payment methods from API
+  const fetchPaymentMethods = async () => {
+    setIsLoadingPaymentMethods(true);
+    try {
+      const response = await fetch('/api/payment-methods');
+      const data = await response.json();
+      
+      if (data.success) {
+        // Filter out cash payment method and only show active payment methods
+        const filteredMethods = data.data.filter((method: PaymentMethod) => 
+          method.is_active && method.payment_method.toLowerCase() !== 'cash'
+        );
+        setPaymentMethods(filteredMethods);
+        
+        // Set default payment method if available
+        if (filteredMethods.length > 0) {
+          setFormData(prev => ({ 
+            ...prev, 
+            paymentMethod: filteredMethods[0].payment_method 
+          }));
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching payment methods:', error);
+      toast.error('Failed to load payment methods');
+    } finally {
+      setIsLoadingPaymentMethods(false);
+    }
+  };
+
+  // Load payment methods on component mount
+  useEffect(() => {
+    fetchPaymentMethods();
+  }, []);
+
+  // Get selected payment method details
+  const getSelectedPaymentMethod = (): PaymentMethod | null => {
+    return paymentMethods.find(method => method.payment_method === formData.paymentMethod) || null;
+  };
 
   // Validate date range for selected stay type
   const getDateRangeWarning = useCallback(() => {
@@ -621,6 +678,108 @@ const Checkout = () => {
         updatedGuests[guestIndex].validIdPreview = URL.createObjectURL(file);
         setAdditionalGuests(updatedGuests);
       }
+    }
+  };
+
+  // Camera capture function for ID photos
+  const captureImage = async (type: 'id', guestIndex?: number) => {
+    try {
+      // Check if camera is available
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        toast.error('Camera is not available on this device');
+        return;
+      }
+
+      // Request camera access
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          facingMode: 'environment' // Prefer back camera for ID capture
+        } 
+      });
+
+      // Create video element to show camera feed
+      const video = document.createElement('video');
+      video.srcObject = stream;
+      video.autoplay = true;
+      video.style.width = '100%';
+      video.style.maxWidth = '400px';
+
+      // Create canvas for capturing the image
+      const canvas = document.createElement('canvas');
+      canvas.width = 800;
+      canvas.height = 600;
+
+      // Create modal for camera interface
+      const modal = document.createElement('div');
+      modal.className = 'fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4';
+      modal.innerHTML = `
+        <div class="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-2xl w-full">
+          <h3 class="text-lg font-semibold mb-4 text-gray-800 dark:text-white">Capture ID Photo</h3>
+          <div class="mb-4 border-2 border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden">
+            <video id="camera-video" class="w-full"></video>
+          </div>
+          <div class="flex gap-3 justify-center">
+            <button id="capture-btn" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+              </svg>
+              Capture
+            </button>
+            <button id="cancel-btn" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700">
+              Cancel
+            </button>
+          </div>
+        </div>
+      `;
+
+      document.body.appendChild(modal);
+      const videoElement = modal.querySelector('#camera-video') as HTMLVideoElement;
+      const captureBtn = modal.querySelector('#capture-btn') as HTMLButtonElement;
+      const cancelBtn = modal.querySelector('#cancel-btn') as HTMLButtonElement;
+
+      videoElement.srcObject = stream;
+
+      // Handle capture
+      captureBtn.addEventListener('click', () => {
+        const context = canvas.getContext('2d');
+        if (context) {
+          // Draw video frame to canvas
+          context.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+          
+          // Convert canvas to blob
+          canvas.toBlob((blob) => {
+            if (blob) {
+              const file = new File([blob], 'id-photo.jpg', { type: 'image/jpeg' });
+              
+              // Create a synthetic event to reuse handleFileChange
+              const syntheticEvent = {
+                target: {
+                  files: [file]
+                }
+              } as unknown as React.ChangeEvent<HTMLInputElement>;
+              
+              handleFileChange(syntheticEvent, type, guestIndex);
+              
+              // Clean up
+              stream.getTracks().forEach(track => track.stop());
+              document.body.removeChild(modal);
+              
+              toast.success('ID photo captured successfully!');
+            }
+          }, 'image/jpeg', 0.95);
+        }
+      });
+
+      // Handle cancel
+      cancelBtn.addEventListener('click', () => {
+        stream.getTracks().forEach(track => track.stop());
+        document.body.removeChild(modal);
+      });
+
+    } catch (error) {
+      console.error('Error accessing camera:', error);
+      toast.error('Failed to access camera. Please check permissions.');
     }
   };
 
@@ -1227,7 +1386,7 @@ const Checkout = () => {
         </div>
 
         {/* Main Content */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 pb-32 lg:pb-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 pb-12 lg:pb-8">
           {/* Main Content Grid */}
           <div className="lg:grid lg:grid-cols-3 lg:gap-8">
             {/* Left Column - Form */}
@@ -1443,41 +1602,74 @@ const Checkout = () => {
                             id="valid-id"
                           />
                           {!formData.validIdPreview && (
-                            <label
-                              htmlFor="valid-id"
-                              className="cursor-pointer inline-flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors border-2 border-gray-200 dark:border-gray-600"
-                            >
-                              <Upload className="w-12 h-12 text-blue-500 dark:text-blue-400 mb-3" />
-                              <p className="text-blue-600 dark:text-blue-400 font-medium mb-1">
-                                Click to upload ID photo
-                              </p>
-                              <p className="text-xs text-gray-500 dark:text-gray-400">PNG, JPG, JPEG up to 5MB</p>
-                            </label>
+                            <div className="space-y-3">
+                              <label
+                                htmlFor="valid-id"
+                                className="cursor-pointer inline-flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors border-2 border-gray-200 dark:border-gray-600"
+                              >
+                                <Upload className="w-12 h-12 text-blue-500 dark:text-blue-400 mb-3" />
+                                <p className="text-blue-600 dark:text-blue-400 font-medium mb-1">
+                                  Click to upload ID photo
+                                </p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">PNG, JPG, JPEG up to 5MB</p>
+                              </label>
+                              
+                              <div className="flex items-center justify-center">
+                                <div className="relative">
+                                  <div className="absolute inset-0 flex items-center">
+                                    <div className="w-full border-t border-gray-300 dark:border-gray-600"></div>
+                                  </div>
+                                  <span className="relative bg-white dark:bg-gray-800 px-3 text-xs text-gray-500 dark:text-gray-400">OR</span>
+                                </div>
+                              </div>
+                              
+                              <button
+                                type="button"
+                                onClick={() => captureImage('id')}
+                                className="cursor-pointer inline-flex flex-col items-center justify-center p-6 bg-green-50 dark:bg-green-900/20 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors border-2 border-green-300 dark:border-green-500"
+                              >
+                                <Camera className="w-12 h-12 text-green-600 dark:text-green-400 mb-3" />
+                                <p className="text-green-700 dark:text-green-300 font-medium mb-1">
+                                  Take photo with camera
+                                </p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">Use device camera to capture ID</p>
+                              </button>
+                            </div>
                           )}
 
                           {formData.validIdPreview && (
-                            <div className="mt-4 flex flex-col items-center">
-                              <Image
-                                src={formData.validIdPreview}
-                                alt="Valid ID preview"
-                                width={300}
-                                height={200}
-                                className="max-w-xs mx-auto rounded-lg shadow-md border-2 border-green-500"
-                              />
+                            <div className="mt-4 flex flex-col items-center w-full">
+                              <div className="relative w-full max-w-sm">
+                                <Image
+                                  src={formData.validIdPreview}
+                                  alt="Valid ID preview"
+                                  width={300}
+                                  height={200}
+                                  className="w-full h-auto max-h-48 object-contain rounded-lg shadow-md border-2 border-green-500"
+                                />
+                              </div>
                               
-                              <div className="mt-3 flex flex-col items-center gap-2">
-                                  <p className="text-xs text-yellow-600 dark:text-yellow-400 font-medium flex items-center gap-1">
-                                      <Info className="w-3 h-3" />
+                              <div className="mt-3 flex flex-col items-center gap-2 w-full max-w-sm">
+                                  <p className="text-xs text-yellow-600 dark:text-yellow-400 font-medium flex items-center gap-1 text-center">
+                                      <Info className="w-3 h-3 flex-shrink-0" />
                                       Photo should not be blurred and always clear
                                   </p>
                                   
-                                  <div className="flex gap-2">
+                                  <div className="flex gap-2 flex-wrap justify-center">
                                       <label
                                         htmlFor="valid-id"
                                         className="cursor-pointer px-3 py-1 bg-blue-100 text-blue-700 rounded-md text-sm hover:bg-blue-200 transition-colors"
                                       >
                                         Change
                                       </label>
+                                      <button
+                                        type="button"
+                                        onClick={() => captureImage('id')}
+                                        className="px-3 py-1 bg-green-100 text-green-700 rounded-md text-sm hover:bg-green-200 transition-colors"
+                                      >
+                                        <Camera className="w-4 h-4 inline mr-1" />
+                                        Camera
+                                      </button>
                                       <button
                                         type="button"
                                         onClick={() => setFormData(prev => ({ ...prev, validId: null, validIdPreview: '' }))}
@@ -1644,41 +1836,71 @@ const Checkout = () => {
                                 id={`valid-id-${index}`}
                               />
                               {!guest.validIdPreview && (
-                                <label
-                                  htmlFor={`valid-id-${index}`}
-                                  className="cursor-pointer inline-flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors border-2 border-gray-200 dark:border-gray-600"
-                                >
-                                  <Upload className="w-12 h-12 text-blue-500 dark:text-blue-400 mb-3" />
-                                  <p className="text-blue-600 dark:text-blue-400 font-medium mb-1">
-                                    Click to upload ID photo
-                                  </p>
-                                  <p className="text-xs text-gray-500 dark:text-gray-400">PNG, JPG, JPEG up to 5MB</p>
-                                </label>
+                                <div className="space-y-3">
+                                  <label
+                                    htmlFor={`valid-id-${index}`}
+                                    className="cursor-pointer inline-flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors border-2 border-gray-200 dark:border-gray-600"
+                                  >
+                                    <Upload className="w-12 h-12 text-blue-500 dark:text-blue-400 mb-3" />
+                                    <p className="text-blue-600 dark:text-blue-400 font-medium mb-1">
+                                      Click to upload ID photo
+                                    </p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">PNG, JPG, JPEG up to 5MB</p>
+                                  </label>
+                                  <div className="flex items-center justify-center">
+                                    <div className="relative">
+                                      <div className="absolute inset-0 flex items-center">
+                                        <div className="w-full border-t border-gray-300 dark:border-gray-600"></div>
+                                      </div>
+                                      <span className="relative bg-white dark:bg-gray-800 px-3 text-xs text-gray-500 dark:text-gray-400">OR</span>
+                                    </div>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => captureImage('id', index)}
+                                    className="cursor-pointer inline-flex flex-col items-center justify-center p-6 bg-green-50 dark:bg-green-900/20 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors border-2 border-green-300 dark:border-green-500"
+                                  >
+                                    <Camera className="w-12 h-12 text-green-600 dark:text-green-400 mb-3" />
+                                    <p className="text-green-700 dark:text-green-300 font-medium mb-1">
+                                      Take photo with camera
+                                    </p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">Use device camera to capture ID</p>
+                                  </button>
+                                </div>
                               )}
-
                               {guest.validIdPreview && (
-                                <div className="mt-4 flex flex-col items-center">
-                                  <Image
-                                    src={guest.validIdPreview}
-                                    alt={`Guest ${guestNumber} Valid ID preview`}
-                                    width={300}
-                                    height={200}
-                                    className="max-w-xs mx-auto rounded-lg shadow-md border-2 border-green-500"
-                                  />
+                                <div className="mt-4 flex flex-col items-center w-full">
+                                  <div className="relative w-full max-w-sm">
+                                    <Image
+                                      src={guest.validIdPreview}
+                                      alt={`Guest ${guestNumber} Valid ID preview`}
+                                      width={300}
+                                      height={200}
+                                      className="w-full h-auto max-h-48 object-contain rounded-lg shadow-md border-2 border-green-500"
+                                    />
+                                  </div>
                                   
-                                  <div className="mt-3 flex flex-col items-center gap-2">
-                                      <p className="text-xs text-yellow-600 dark:text-yellow-400 font-medium flex items-center gap-1">
-                                          <Info className="w-3 h-3" />
+                                  <div className="mt-3 flex flex-col items-center gap-2 w-full max-w-sm">
+                                      <p className="text-xs text-yellow-600 dark:text-yellow-400 font-medium flex items-center gap-1 text-center">
+                                          <Info className="w-3 h-3 flex-shrink-0" />
                                           Photo should not be blurred and always clear
                                       </p>
                                       
-                                      <div className="flex gap-2">
+                                      <div className="flex gap-2 flex-wrap justify-center">
                                           <label
                                             htmlFor={`valid-id-${index}`}
                                             className="cursor-pointer px-3 py-1 bg-blue-100 text-blue-700 rounded-md text-sm hover:bg-blue-200 transition-colors"
                                           >
                                             Change
                                           </label>
+                                          <button
+                                            type="button"
+                                            onClick={() => captureImage('id', index)}
+                                            className="px-3 py-1 bg-green-100 text-green-700 rounded-md text-sm hover:bg-green-200 transition-colors"
+                                          >
+                                            <Camera className="w-4 h-4 inline mr-1" />
+                                            Camera
+                                          </button>
                                           <button
                                             type="button"
                                             onClick={() => {
@@ -2133,148 +2355,152 @@ const Checkout = () => {
                         Payment Method
                       </h2>
 
-                      <div className="space-y-3 mb-6">
-                        <label className="flex items-center gap-3 p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:border-brand-primary dark:hover:border-brand-primary transition-colors bg-white dark:bg-gray-700">
-                          <input
-                            type="radio"
-                            name="paymentMethod"
-                            value="gcash"
-                            checked={formData.paymentMethod === "gcash"}
-                            onChange={handleInputChange}
-                            className="w-4 h-4 text-blue-600 accent-blue-600"
-                          />
-                          <div className="relative w-32 h-10">
-                            <Image
-                              src="/6553cc4c-gcash-logo-svg.avif"
-                              alt="GCash Logo"
-                              fill
-                              className="object-contain"
-                              sizes="(max-width: 768px) 100vw, 128px"
-                            />
+                      <div className="mb-6">
+                        <label htmlFor="paymentMethod" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                          Select Payment Method *
+                        </label>
+                        {isLoadingPaymentMethods ? (
+                          <div className="flex items-center justify-center p-4 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700">
+                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-brand-primary mr-2"></div>
+                            <span className="text-gray-600 dark:text-gray-400">Loading payment methods...</span>
                           </div>
-                        </label>
-
-                        <label className="flex items-center gap-3 p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:border-brand-primary dark:hover:border-brand-primary transition-colors bg-white dark:bg-gray-700">
-                          <input
-                            type="radio"
+                        ) : paymentMethods.length === 0 ? (
+                          <div className="p-4 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700">
+                            <p className="text-gray-600 dark:text-gray-400 text-center">No payment methods available</p>
+                          </div>
+                        ) : (
+                          <select
+                            id="paymentMethod"
                             name="paymentMethod"
-                            value="bank"
-                            checked={formData.paymentMethod === "bank"}
+                            value={formData.paymentMethod}
                             onChange={handleInputChange}
-                            className="w-4 h-4 text-blue-600 accent-blue-600"
-                          />
-                          <span className="font-medium text-gray-900 dark:text-white">Bank Transfer</span>
-                        </label>
+                            required
+                            className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-colors"
+                          >
+                            <option value="">Select a payment method</option>
+                            {paymentMethods.map((method) => (
+                              <option key={method.id} value={method.payment_method}>
+                                {method.payment_name} - {method.provider}
+                              </option>
+                            ))}
+                          </select>
+                        )}
                       </div>
 
                       {/* Payment Instructions */}
-                      {formData.paymentMethod === "gcash" ? (
-                        // GCash Payment - Show QR Code
-                        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-6">
-                          <h3 className="font-bold text-lg mb-4 text-gray-800 dark:text-white flex items-center gap-2">
-                            <Wallet className="w-5 h-5 text-brand-primary" />
-                            Pay via GCash
-                          </h3>
-                          <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">
-                            Scan the QR code below to pay your <strong>DOWNPAYMENT of ₱{downPayment}</strong> to
-                            secure your booking
-                          </p>
+                      {(() => {
+                        const selectedMethod = getSelectedPaymentMethod();
+                        if (!selectedMethod) return null;
 
-                          <div className="bg-white dark:bg-gray-700 rounded-lg p-8 text-center mb-4">
-                            <div className="w-64 h-64 mx-auto bg-gray-200 dark:bg-gray-600 rounded-lg flex items-center justify-center">
-                              <p className="text-gray-500 dark:text-gray-400">GCash QR Code will be loaded here</p>
-                            </div>
-                          </div>
-
-                          <div className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
-                            <p className="font-semibold">Instructions:</p>
-                            <ol className="list-decimal list-inside space-y-1 ml-2">
-                              <li>Open your GCash app</li>
-                              <li>Tap &quot;Send Money&quot; or &quot;Pay QR&quot;</li>
-                              <li>Scan the QR code above</li>
-                              <li>Enter amount: ₱{downPayment}</li>
-                              <li>Complete the payment</li>
-                              <li>Upload screenshot below</li>
-                            </ol>
-                          </div>
-
-                          {/* Important Note */}
-                          <div className="mt-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4">
-                            <p className="text-sm font-semibold text-yellow-800 dark:text-yellow-300 mb-2 flex items-center gap-2">
-                              <AlertCircle className="w-4 h-4" />
-                              Important Note:
+                        return (
+                          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-6">
+                            <h3 className="font-bold text-lg mb-4 text-gray-800 dark:text-white flex items-center gap-2">
+                              <Wallet className="w-5 h-5 text-brand-primary" />
+                              Pay via {selectedMethod.payment_name}
+                            </h3>
+                            <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">
+                              {selectedMethod.description || (
+                                <>Pay your <strong>DOWNPAYMENT of ₱{downPayment}</strong> to secure your booking</>
+                              )}
                             </p>
-                            <ul className="text-xs text-yellow-700 dark:text-yellow-400 space-y-1">
-                              <li>• Make sure to pay the exact downpayment amount</li>
-                              <li>• Screenshot must be clear and show transaction details</li>
-                              <li>• Your booking will be confirmed once payment is verified</li>
-                            </ul>
-                          </div>
-                        </div>
-                      ) : (
-                        // Bank Transfer Payment - Show Bank Details
-                        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg p-6">
-                          <h3 className="font-bold text-lg mb-4 text-gray-800 dark:text-white flex items-center gap-2">
-                            <Building2 className="w-5 h-5 text-brand-primary" />
-                            Pay via Bank Transfer
-                          </h3>
-                          <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">
-                            Transfer your <strong>DOWNPAYMENT of ₱{downPayment}</strong> to the account below
-                          </p>
 
-                          {/* Bank Account Details */}
-                          <div className="bg-white dark:bg-gray-700 rounded-lg p-6 mb-4 space-y-3">
-                            <div className="flex justify-between items-center border-b dark:border-gray-600 pb-2">
-                              <span className="text-gray-600 dark:text-gray-400 font-medium">Bank Name:</span>
-                              <span className="font-bold text-gray-800 dark:text-white">BDO Unibank</span>
+                            <div className="bg-white dark:bg-gray-700 rounded-lg p-6 mb-4 space-y-3">
+                              <div className="flex justify-between items-center border-b dark:border-gray-600 pb-2">
+                                <span className="text-gray-600 dark:text-gray-400 font-medium">Payment Method:</span>
+                                <span className="font-bold text-gray-800 dark:text-white">{selectedMethod.payment_name}</span>
+                              </div>
+                              <div className="flex justify-between items-center border-b dark:border-gray-600 pb-2">
+                                <span className="text-gray-600 dark:text-gray-400 font-medium">Provider:</span>
+                                <span className="font-bold text-gray-800 dark:text-white">{selectedMethod.provider}</span>
+                              </div>
+                              <div className="flex justify-between items-center">
+                                <span className="text-gray-600 dark:text-gray-400 font-medium">Amount:</span>
+                                <span className="font-bold text-green-600 dark:text-green-400 text-xl">₱{downPayment}</span>
+                              </div>
                             </div>
-                            <div className="flex justify-between items-center border-b dark:border-gray-600 pb-2">
-                              <span className="text-gray-600 dark:text-gray-400 font-medium">Account Name:</span>
-                              <span className="font-bold text-gray-800 dark:text-white">Staycation Haven Inc.</span>
-                            </div>
-                            <div className="flex justify-between items-center border-b dark:border-gray-600 pb-2">
-                              <span className="text-gray-600 dark:text-gray-400 font-medium">Account Number:</span>
-                              <span className="font-bold text-gray-800 dark:text-white">0123-4567-8901</span>
-                            </div>
-                            <div className="flex justify-between items-center">
-                              <span className="text-gray-600 dark:text-gray-400 font-medium">Amount:</span>
-                              <span className="font-bold text-green-600 dark:text-green-400 text-xl">₱{downPayment}</span>
-                            </div>
-                          </div>
 
-                          <div className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
-                            <p className="font-semibold">Instructions:</p>
-                            <ol className="list-decimal list-inside space-y-1 ml-2">
-                              <li>Open your banking app or visit your bank</li>
-                              <li>Select &quot;Transfer to Another Account&quot;</li>
-                              <li>Enter the bank details above</li>
-                              <li>Transfer exactly ₱{downPayment}</li>
-                              <li>Save your transaction receipt</li>
-                              <li>Upload proof of payment below</li>
-                            </ol>
-                          </div>
+                            {/* Account Details */}
+                            {selectedMethod.account_details && (
+                              <div className="bg-white dark:bg-gray-700 rounded-lg p-6 mb-4">
+                                <h4 className="font-semibold text-gray-800 dark:text-white mb-3">Account Details:</h4>
+                                <div className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                                  {selectedMethod.account_details}
+                                </div>
+                              </div>
+                            )}
 
-                          {/* Important Note */}
-                          <div className="mt-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4">
-                            <p className="text-sm font-semibold text-yellow-800 dark:text-yellow-300 mb-2 flex items-center gap-2">
-                              <AlertCircle className="w-4 h-4" />
-                              Important Note:
-                            </p>
-                            <ul className="text-xs text-yellow-700 dark:text-yellow-400 space-y-1">
-                              <li>• Transfer the exact downpayment amount to avoid delays</li>
-                              <li>• Bank transfers may take 1-3 business days to process</li>
-                              <li>• Ensure your proof of payment shows complete transaction details</li>
-                              <li>• Include reference number in your upload</li>
-                              <li>• Your booking will be confirmed after bank verification</li>
-                            </ul>
+                            {/* QR Code */}
+                            {selectedMethod.payment_qr_link && (
+                              <div className="bg-white dark:bg-gray-700 rounded-lg p-4 sm:p-6 text-center mb-4">
+                                <h4 className="font-semibold text-gray-800 dark:text-white mb-4">Scan QR Code</h4>
+                                <div className="w-48 h-48 sm:w-64 sm:h-64 mx-auto mb-4 max-w-full">
+                                  <Image
+                                    src={selectedMethod.payment_qr_link}
+                                    alt={`${selectedMethod.payment_name} QR Code`}
+                                    width={256}
+                                    height={256}
+                                    className="w-full h-full object-contain rounded-lg shadow-md"
+                                  />
+                                </div>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">
+                                  Scan this QR code to pay ₱{downPayment}
+                                </p>
+                              </div>
+                            )}
+
+                            {/* Instructions */}
+                            <div className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
+                              <p className="font-semibold">Instructions:</p>
+                              <ol className="list-decimal list-inside space-y-1 ml-2">
+                                {selectedMethod.payment_qr_link ? (
+                                  <>
+                                    <li>Open your {selectedMethod.provider.toLowerCase()} app</li>
+                                    <li>Tap "Send Money" or "Pay QR"</li>
+                                    <li>Scan the QR code above</li>
+                                    <li>Enter amount: ₱{downPayment}</li>
+                                    <li>Complete the payment</li>
+                                    <li>Upload screenshot below</li>
+                                  </>
+                                ) : (
+                                  <>
+                                    <li>Open your {selectedMethod.provider.toLowerCase()} app or visit their website</li>
+                                    <li>Select "Send Money" or "Transfer"</li>
+                                    <li>Use the account details provided above</li>
+                                    <li>Enter amount: ₱{downPayment}</li>
+                                    <li>Complete the payment</li>
+                                    <li>Upload proof of payment below</li>
+                                  </>
+                                )}
+                              </ol>
+                            </div>
+
+                            {/* Important Note */}
+                            <div className="mt-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4">
+                              <p className="text-sm font-semibold text-yellow-800 dark:text-yellow-300 mb-2 flex items-center gap-2">
+                                <AlertCircle className="w-4 h-4" />
+                                Important Note:
+                              </p>
+                              <ul className="text-xs text-yellow-700 dark:text-yellow-400 space-y-1">
+                                <li>• Make sure to pay the exact downpayment amount</li>
+                                <li>• Screenshot must be clear and show transaction details</li>
+                                <li>• Your booking will be confirmed once payment is verified</li>
+                                {selectedMethod.payment_qr_link && (
+                                  <li>• QR code payments are usually processed faster</li>
+                                )}
+                              </ul>
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        );
+                      })()}
 
                       {/* Upload Proof of Payment */}
-                      <div className="mt-6" ref={(el) => { errorRefs.current.paymentProof = el; }}>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
-                          <Camera className="w-4 h-4 text-brand-primary" />
+                      <div className="mt-4">
+                        <label
+                          htmlFor="payment-proof"
+                          className={`block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 ${
+                            errors.paymentProof ? 'text-red-700 dark:text-red-400' : ''
+                          }`}
+                        >
                           Upload Proof of Payment *
                         </label>
                         <div className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
