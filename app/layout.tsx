@@ -1,5 +1,4 @@
-import type { Metadata, Viewport } from "next";
-import { Inter, Poppins } from "next/font/google";
+import type { Metadata } from "next";
 import "./globals.css";
 import UIProviders from "@/Components/UIProviders";
 import { Providers } from '@/Components/Providers'
@@ -93,13 +92,6 @@ export const metadata: Metadata = {
   category: 'travel',
   classification: 'Travel and Tourism',
   referrer: 'origin-when-cross-origin',
-};
-
-export const viewport: Viewport = {
-  width: "device-width",
-  initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
 };
 
 export default function RootLayout({

@@ -251,7 +251,7 @@ export default function DashboardPage() {
 
 export { default as BookingsPage } from "./BookingPage";
 
-export { default as PaymentsPage } from "./PaymentPage";
+export { default as PaymentsPage } from "./PaymentPage.tsx";
 
 export { default as DeliverablesPage } from "./DeliverablesPage";
 
