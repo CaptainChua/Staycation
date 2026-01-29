@@ -71,14 +71,28 @@ const PricingManagementModal = ({
     const isFieldInvalid = isFieldTouched && errors?.[field];
     const isFieldValid = isFieldTouched && !errors?.[field];
 
-    let borderClass = "border-gray-300";
+    let borderClass = "border-gray-200";
     if (isFieldInvalid) borderClass = "border-red-500 bg-red-50/10";
     if (isFieldValid) borderClass = "border-green-500 bg-green-50/10";
 
     return {
-      label: "text-sm font-medium text-gray-700 mb-2",
-      inputWrapper: `bg-white border ${borderClass} hover:border-brand-primary/60 focus-within:!border-brand-primary focus-within:!ring-1 focus-within:!ring-brand-primary/20 shadow-sm transition-all duration-200 rounded-lg h-12`,
-      input: "text-gray-800 placeholder:text-gray-400"
+      label: "text-sm font-bold text-gray-700 mb-2 ml-1 uppercase tracking-wider",
+      inputWrapper: [
+        "bg-white",
+        `border-2 ${borderClass}`,
+        "hover:border-brand-primary/40",
+        "focus-within:!border-brand-primary",
+        "focus-within:ring-4",
+        "focus-within:ring-brand-primary/10",
+        "shadow-sm",
+        "transition-all",
+        "duration-300",
+        "rounded-2xl",
+        "h-14",
+        "px-4"
+      ].join(" "),
+      input: "text-base font-semibold text-gray-900 placeholder:text-gray-400",
+      errorMessage: "text-xs font-bold text-red-500 mt-1.5 ml-1 animate-in slide-in-from-top-1"
     };
   };
 

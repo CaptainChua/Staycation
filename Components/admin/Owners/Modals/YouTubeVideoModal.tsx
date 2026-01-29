@@ -90,8 +90,23 @@ const YouTubeVideoModal = ({
             isInvalid={!isValid && youtubeUrl !== ""}
             errorMessage={!isValid && youtubeUrl !== "" ? "Invalid YouTube URL format" : null}
             classNames={{
-              label: "text-xs font-bold text-gray-400 uppercase tracking-widest mb-2",
-              inputWrapper: `bg-gray-50 border-2 transition-all h-14 rounded-2xl ${isValid ? 'focus-within:!border-brand-primary' : 'border-red-200'}`
+              label: "text-sm font-bold text-gray-700 mb-2 ml-1 uppercase tracking-wider",
+              inputWrapper: [
+                "bg-white",
+                `border-2 ${(!isValid && youtubeUrl !== "") ? 'border-red-500 bg-red-50/10' : 'border-gray-200'}`,
+                "hover:border-brand-primary/40",
+                "focus-within:!border-brand-primary",
+                "focus-within:ring-4",
+                "focus-within:ring-brand-primary/10",
+                "shadow-sm",
+                "transition-all",
+                "duration-300",
+                "rounded-2xl",
+                "h-14",
+                "px-4"
+              ].join(" "),
+              input: "text-base font-semibold text-gray-900 placeholder:text-gray-400",
+              errorMessage: "text-xs font-bold text-red-500 mt-1.5 ml-1 animate-in slide-in-from-top-1"
             }}
           />
           
