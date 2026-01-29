@@ -1,9 +1,7 @@
-import type { Metadata, Viewport } from "next";
+import type { Metadata } from "next";
 import { Inter, Poppins } from "next/font/google";
 import "./globals.css";
-import UIProviders from "@/Components/UIProviders";
 import { Providers } from '@/Components/Providers'
-import ConditionalLayout from "@/Components/ConditionalLayout";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -21,7 +19,7 @@ const poppins = Poppins({
 export const metadata: Metadata = {
   title: {
     default: "Staycation Haven Philippines | Premium Short-Term Stays & Vacation Rentals",
-    template: "%s | Staycation Haven Philippines"
+    template: "%s | Staycation Haven PH"
   },
   description: "Discover premium staycation havens across the Philippines. Book luxurious short-term stays, vacation rentals, and getaways with modern amenities. Perfect for couples, families, and business travelers.",
   keywords: [
@@ -93,13 +91,6 @@ export const metadata: Metadata = {
   category: 'travel',
   classification: 'Travel and Tourism',
   referrer: 'origin-when-cross-origin',
-};
-
-export const viewport: Viewport = {
-  width: "device-width",
-  initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
 };
 
 export default function RootLayout({
@@ -216,13 +207,9 @@ export default function RootLayout({
         />
       </head>
       <body className={`${inter.variable} ${poppins.variable} font-sans antialiased`} suppressHydrationWarning>
-        <UIProviders>
-          <Providers>
-            <ConditionalLayout>
-              {children}
-            </ConditionalLayout>
-          </Providers>
-        </UIProviders>
+        <Providers>
+          {children}
+        </Providers>
       </body>
     </html>
   );

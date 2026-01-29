@@ -6,7 +6,7 @@ export async function POST(request: NextRequest) {
   
   try {
     const body = await request.json();
-    const { employeeId, action, details, entityId } = body;
+    const { employeeId, action, details, entityId, entityType } = body;
     
     console.log('📥 Request body:', { employeeId, action, details, entityId });
 
@@ -34,8 +34,8 @@ export async function POST(request: NextRequest) {
         employeeId,
         action,
         details || '',
-        'deliverable', // entity_type
-        entityId, // entity_id
+        entityType || null, // entity_type
+        entityId || null, // entity_id
         ip,
         userAgent
       ]

@@ -6,9 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
-    "db:init": "tsx backend/init-db.ts",
-    "db:test": "tsx backend/test-connection.ts"
+    "lint": "eslint"
   },
   "dependencies": {
     "@nextui-org/button": "^2.2.9",
@@ -27,7 +25,9 @@
     "bcryptjs": "^3.0.3",
     "cloudinary": "^2.8.0",
     "critters": "^0.0.23",
+    "exceljs": "^4.4.0",
     "framer-motion": "^12.23.25",
+    "googleapis": "^170.1.0",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.0.0",
     "jspdf-autotable": "^5.0.7",
@@ -37,7 +37,7 @@
     "next-auth": "^4.24.13",
     "next-themes": "^0.4.6",
     "nodemailer": "^7.0.11",
-    "pg": "^8.16.3",
+    "pg": "^8.17.2",
     "qrcode": "^1.5.4",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

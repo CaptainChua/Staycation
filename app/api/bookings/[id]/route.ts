@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getBookingById, updateBookingStatus, deleteBooking } from "@/backend/controller/bookingController";
+import { getBookingById, updateBookingDetails, updateBookingStatus, deleteBooking } from "@/backend/controller/bookingController";
 import pool from "@/backend/config/db";
 
 interface RouteContext {
@@ -15,7 +15,21 @@ export async function GET(request: NextRequest, { params }: RouteContext): Promi
 
 export async function PUT(request: NextRequest, { params }: RouteContext): Promise<NextResponse> {
   await params;
-  return updateBookingStatus(request);
+  const peek = await request.clone().json().catch(() => ({} as any));
+  const isDetailsUpdate =
+    peek &&
+    typeof peek === "object" &&
+    ("room_name" in peek ||
+      "check_in_date" in peek ||
+      "check_out_date" in peek ||
+      "guest_first_name" in peek ||
+      "guest_last_name" in peek ||
+      "guest_email" in peek ||
+      "guest_phone" in peek ||
+      "payment_method" in peek ||
+      "add_ons" in peek);
+
+  return isDetailsUpdate ? updateBookingDetails(request) : updateBookingStatus(request);
 }
 
 export async function PATCH(request: NextRequest, { params }: RouteContext): Promise<NextResponse> {
