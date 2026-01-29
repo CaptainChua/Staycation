@@ -244,7 +244,7 @@ export default function OwnerDashboard() {
             {page === "calendar" && <CalendarPage havens={havens} />}
             {page === "havens" && (
               <div className="space-y-6">
-                <ViewAllUnits onAddUnitClick={() => openModal("addHaven")} hideHeader={true} />
+                <ViewAllUnits onAddUnitClick={() => openModal("addHaven")} />
               </div>
             )}
             {page === "blockedDates" && <BlockedDatesManagementPage />}
