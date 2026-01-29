@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Calendar, Trash2 } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { Calendar, Trash2, Info } from "lucide-react";
 import { Input } from "@nextui-org/input";
 import toast from 'react-hot-toast';
-import SubModalWrapper from "./SubModalWrapper";
+import AdminDateRangePicker from "./AdminDateRangePicker";
 
 interface BlockedDate {
   id: number;
@@ -20,13 +20,16 @@ interface BlockedDateData {
 }
 
 interface AvailabilityManagementModalProps {
-  isOpen: boolean;
-  onClose: () => void;
   onSave: (dates: BlockedDate[]) => void;
   initialData?: BlockedDateData[];
+  isAddMode?: boolean;
 }
 
-const AvailabilityManagementModal = ({ isOpen, onClose, onSave, initialData }: AvailabilityManagementModalProps) => {
+const AvailabilityManagementModal = ({
+  onSave,
+  initialData,
+  isAddMode = false,
+}: AvailabilityManagementModalProps) => {
   const [blockedDates, setBlockedDates] = useState<BlockedDate[]>([]);
   const [blockDateForm, setBlockDateForm] = useState({
     fromDate: "",
@@ -36,16 +39,20 @@ const AvailabilityManagementModal = ({ isOpen, onClose, onSave, initialData }: A
 
   useEffect(() => {
     if (initialData) {
-      setBlockedDates(
-        initialData.map((date, index) => ({
-          id: index,
-          fromDate: date.from_date,
-          toDate: date.to_date,
-          reason: date.reason || "",
-        }))
-      );
+      const mappedDates = initialData.map((date, index) => ({
+        id: index, // Temporary ID, could be more robust
+        fromDate: date.from_date,
+        toDate: date.to_date,
+        reason: date.reason || "",
+      }));
+      
+      // Only update if the stringified content actually differs to avoid infinite loops
+      // if the parent accidentally passes a new reference of the same data.
+      if (JSON.stringify(mappedDates) !== JSON.stringify(blockedDates)) {
+        setBlockedDates(mappedDates);
+      }
     }
-  }, [initialData, isOpen]);
+  }, [initialData, blockedDates]);
 
   const handleAddBlockedDate = () => {
     if (blockDateForm.fromDate && blockDateForm.toDate) {
@@ -53,117 +60,157 @@ const AvailabilityManagementModal = ({ isOpen, onClose, onSave, initialData }: A
         toast.error("From date must be before or equal to To date");
         return;
       }
-      setBlockedDates([
+      const newBlockedDates = [
         ...blockedDates,
         {
           id: Date.now(),
           ...blockDateForm,
         },
-      ]);
+      ];
+      setBlockedDates(newBlockedDates);
       setBlockDateForm({ fromDate: "", toDate: "", reason: "" });
       toast.success("Blocked date added");
+      onSave(newBlockedDates); // Update parent state immediately
     } else {
       toast.error("Please select both from and to dates");
     }
   };
 
   const handleRemoveBlockedDate = (id: number) => {
-    setBlockedDates(blockedDates.filter((date) => date.id !== id));
+    const newBlockedDates = blockedDates.filter((date) => date.id !== id);
+    setBlockedDates(newBlockedDates);
     toast.success("Blocked date removed");
+    onSave(newBlockedDates); // Update parent state immediately
   };
 
-  const handleSave = () => {
-    onSave(blockedDates);
-    toast.success("Availability management updated successfully!");
-    handleClose();
+  const getInputClasses = (field: string) => {
+    return {
+      label: "text-sm font-bold text-gray-700 mb-2 ml-1 uppercase tracking-wider",
+      inputWrapper: [
+        "bg-white",
+        "border-2",
+        "border-gray-200",
+        "hover:border-brand-primary/40",
+        "focus-within:!border-brand-primary",
+        "focus-within:ring-4",
+        "focus-within:ring-brand-primary/10",
+        "shadow-sm",
+        "transition-all",
+        "duration-300",
+        "rounded-2xl",
+        "h-14",
+        "px-4",
+        isAddMode ? 'hover:!bg-white data-[hover=true]:!bg-white' : ''
+      ].join(" "),
+      input: "text-base font-semibold text-gray-900 placeholder:text-gray-400"
+    };
   };
 
-  const handleClose = () => {
-    setBlockDateForm({ fromDate: "", toDate: "", reason: "" });
-    onClose();
-  };
-
-  const inputClassNames = {
-    label: "text-sm font-medium text-gray-700",
-    inputWrapper: "border-gray-300 focus-within:!border-brand-primary focus-within:!ring-brand-primary/20 hover:border-brand-primary/50 transition-colors"
-  };
+  // Memoize blocked dates for the picker to avoid unnecessary re-renders
+  const existingBlockedDates = useMemo(() => 
+    blockedDates.map(d => ({ fromDate: d.fromDate, toDate: d.toDate })),
+  [blockedDates]);
 
   return (
-    <SubModalWrapper
-      isOpen={isOpen}
-      onClose={handleClose}
-      title="Availability Management"
-      subtitle="Manage blocked dates and availability"
-      onSave={handleSave}
-      maxWidth="max-w-3xl"
-    >
-      <div className="space-y-6">
-        <div>
-          <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2 mb-4">
-            Blocked Dates
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-            <Input
-              type="date"
-              label="From Date"
-              labelPlacement="outside"
-              value={blockDateForm.fromDate}
-              onChange={(e) => setBlockDateForm({ ...blockDateForm, fromDate: e.target.value })}
-              classNames={inputClassNames}
-            />
-            <Input
-              type="date"
-              label="To Date"
-              labelPlacement="outside"
-              value={blockDateForm.toDate}
-              onChange={(e) => setBlockDateForm({ ...blockDateForm, toDate: e.target.value })}
-              classNames={inputClassNames}
-            />
-            <Input
-              label="Reason"
-              labelPlacement="outside"
-              placeholder="e.g., Maintenance"
-              value={blockDateForm.reason}
-              onChange={(e) => setBlockDateForm({ ...blockDateForm, reason: e.target.value })}
-              classNames={inputClassNames}
-            />
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2 mb-6 flex items-center gap-2">
+          <Calendar className="w-5 h-5 text-brand-primary" /> Availability Management
+        </h3>
+        
+        <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm mb-8 transition-all duration-300 hover:shadow-md">
+          <div className="flex items-start gap-4 mb-8 bg-blue-50/50 p-4 rounded-xl border border-blue-100">
+            <Info className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
+            <p className="text-sm text-blue-800 leading-relaxed font-medium">
+              Select a date range and provide a reason to block this haven from being booked. 
+              The calendar view will show existing blocked dates to help you avoid overlaps.
+            </p>
           </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            <div className="space-y-2">
+              <AdminDateRangePicker 
+                fromDate={blockDateForm.fromDate}
+                toDate={blockDateForm.toDate}
+                onFromDateChange={(date) => setBlockDateForm(prev => ({ ...prev, fromDate: date }))}
+                onToDateChange={(date) => setBlockDateForm(prev => ({ ...prev, toDate: date }))}
+                blockedDates={existingBlockedDates}
+              />
+            </div>
+            <div className="space-y-2">
+              <Input
+                label="Reason for Blocking"
+                labelPlacement="outside"
+                placeholder="e.g., General Maintenance, Owner Stay"
+                value={blockDateForm.reason}
+                onChange={(e) => setBlockDateForm({ ...blockDateForm, reason: e.target.value })}
+                classNames={getInputClasses('reason')}
+              />
+            </div>
+          </div>
+
           <button
             type="button"
             onClick={handleAddBlockedDate}
-            className="px-4 py-2 bg-brand-primary hover:bg-brand-primaryDark text-white rounded-lg mb-4 font-medium transition-colors shadow-sm"
+            className={`
+              w-full lg:w-auto px-10 py-3.5 bg-brand-primary hover:bg-[#b57603] text-white rounded-xl font-bold transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2
+              ${(!blockDateForm.fromDate || !blockDateForm.toDate) ? 'opacity-50 cursor-not-allowed shadow-none' : ''}
+            `}
+            disabled={!blockDateForm.fromDate || !blockDateForm.toDate}
           >
-            Add Blocked Date
+            <Calendar className="w-5 h-5" />
+            Add Blocked Range
           </button>
-          {blockedDates.length > 0 && (
-            <div className="space-y-2">
+        </div>
+
+        {blockedDates.length > 0 ? (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+                Currently Blocked ({blockedDates.length})
+              </p>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {blockedDates.map((date) => (
-                <div key={date.id} className="flex items-center justify-between p-3 bg-gray-50 border rounded-lg hover:border-brand-primary/20 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-white rounded-full border border-gray-200">
-                      <Calendar className="w-4 h-4 text-brand-primary" />
+                <div key={date.id} className="flex items-center justify-between p-5 bg-white border border-gray-100 rounded-2xl hover:border-brand-primary/30 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-lg group">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3.5 bg-brand-primary/5 rounded-2xl text-brand-primary group-hover:bg-brand-primary/10 transition-colors">
+                      <Calendar className="w-6 h-6" />
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-gray-800">
-                        {date.fromDate} to {date.toDate}
-                      </p>
-                      {date.reason && <p className="text-xs text-gray-500">{date.reason}</p>}
+                      <div className="flex items-center gap-2">
+                        <p className="text-base font-bold text-gray-800">{new Date(date.fromDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                        <span className="text-gray-300">→</span>
+                        <p className="text-base font-bold text-gray-800">{new Date(date.toDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                      </div>
+                      {date.reason && <p className="text-sm text-gray-500 mt-1 font-medium">{date.reason}</p>}
                     </div>
                   </div>
                   <button
                     type="button"
                     onClick={() => handleRemoveBlockedDate(date.id)}
-                    className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                    className="p-2.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                    title="Remove blocked range"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-5 h-5" />
                   </button>
                 </div>
               ))}
             </div>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div className="text-center py-20 border-2 border-dashed border-gray-200 rounded-3xl bg-gray-50/30">
+            <div className="relative inline-block mb-4">
+              <Calendar className="w-16 h-16 text-gray-200" />
+              <Info className="w-6 h-6 text-brand-primary/40 absolute -bottom-1 -right-1" />
+            </div>
+            <p className="text-gray-400 font-bold text-lg">No blocked dates scheduled</p>
+            <p className="text-gray-400 text-sm mt-1">This haven is currently available for all future dates.</p>
+          </div>
+        )}
       </div>
-    </SubModalWrapper>
+    </div>
   );
 };
 

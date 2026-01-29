@@ -8,6 +8,7 @@
 
 import { useEffect, useState, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
+import { useSession } from "next-auth/react";
 import {
   Calendar,
   Mail,
@@ -58,6 +59,8 @@ interface NewBookingModalProps {
     infants: number;
     facebook_link?: string;
     payment_method: string;
+    payment_proof_url?: string;
+    valid_id_url?: string;
     room_rate: number;
     security_deposit: number;
     add_ons_total: number;
@@ -67,6 +70,8 @@ interface NewBookingModalProps {
     status: string;
     add_ons?: unknown;
     additional_guests?: unknown;
+    stay_type?: string;
+    guests?: unknown;
   };
   onSuccess?: () => void;
 }
@@ -106,6 +111,8 @@ interface GuestInfo {
   validIdPreview: string;
 }
 
+type AnyRecord = Record<string, any>;
+
 interface Booking {
   status: string;
   check_in_date: string;
@@ -125,12 +132,17 @@ const statusOptions = ["pending", "approved", "declined", "checked-in", "checked
 const paymentMethods = ["cash", "gcash", "bank-transfer", "credit-card"];
 
 export default function NewBookingModal({ onClose, initialBooking, onSuccess }: NewBookingModalProps) {
+  const { data: session } = useSession();
+  const employeeId = session?.user?.id;
+
   const [isMounted, setIsMounted] = useState(false);
   const [createBooking, { isLoading: isCreating }] = useCreateBookingMutation();
   const [updateBooking, { isLoading: isUpdating }] = useUpdateBookingStatusMutation();
   const { data: havensData, isLoading: isLoadingHavens } = useGetHavensQuery({}) as { data: Haven[]; isLoading: boolean };
   const isEditMode = Boolean(initialBooking?.id);
   const isLoading = isCreating || isUpdating;
+
+  const [fullBooking, setFullBooking] = useState<AnyRecord | null>(null);
 
   const [currentStep, setCurrentStep] = useState(1);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
@@ -151,15 +163,15 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
     phone: initialBooking?.guest_phone || "",
     facebookLink: initialBooking?.facebook_link || "",
     validId: null as File | null,
-    validIdPreview: "",
+    validIdPreview: initialBooking?.valid_id_url || "",
     adults: initialBooking?.adults ?? 1,
     children: initialBooking?.children ?? 0,
     infants: initialBooking?.infants ?? 0,
-    stayType: "",
+    stayType: initialBooking?.stay_type || "",
     checkInTime: initialBooking?.check_in_time || "14:00",
     checkOutTime: initialBooking?.check_out_time || "12:00",
     paymentProof: null as File | null,
-    paymentProofPreview: "",
+    paymentProofPreview: initialBooking?.payment_proof_url || "",
     termsAccepted: false,
     paymentMethod: initialBooking?.payment_method || "gcash",
     status: initialBooking?.status || "pending",
@@ -174,6 +186,112 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
     guestKit: 0,
     extraSlippers: 0,
   });
+
+  const logEmployeeActivity = async (action: string, details: string, bookingId?: string) => {
+    if (!employeeId) return;
+    try {
+      await fetch('/api/admin/employee-activity', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          employeeId,
+          action,
+          details,
+          entityType: 'booking',
+          entityId: bookingId,
+        }),
+      });
+    } catch {
+      // ignore
+    }
+  };
+
+  // If editing, fetch full booking details to ensure we can prefill everything
+  useEffect(() => {
+    if (!initialBooking?.id) {
+      setFullBooking(null);
+      return;
+    }
+
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await fetch(`/api/bookings/${initialBooking.id}`, { cache: "no-store" });
+        if (!res.ok) return;
+        const json = await res.json();
+        const data = json?.data;
+        if (!cancelled && data) setFullBooking(data);
+      } catch {
+        // ignore
+      }
+    };
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [initialBooking?.id]);
+
+  // Apply full booking to form when loaded
+  useEffect(() => {
+    if (!isEditMode) return;
+    if (!fullBooking) return;
+
+    // stay_type -> stayType
+    setFormData((prev) => ({
+      ...prev,
+      firstName: fullBooking.guest_first_name ?? prev.firstName,
+      lastName: fullBooking.guest_last_name ?? prev.lastName,
+      email: fullBooking.guest_email ?? prev.email,
+      phone: fullBooking.guest_phone ?? prev.phone,
+      facebookLink: fullBooking.facebook_link ?? prev.facebookLink,
+      gender: fullBooking.guest_gender ?? prev.gender,
+      stayType: fullBooking.stay_type ?? prev.stayType,
+      checkInTime: fullBooking.check_in_time ?? prev.checkInTime,
+      checkOutTime: fullBooking.check_out_time ?? prev.checkOutTime,
+      paymentMethod: fullBooking.payment_method ?? prev.paymentMethod,
+      status: fullBooking.status ?? prev.status,
+      validIdPreview: fullBooking.valid_id_url ?? prev.validIdPreview,
+      paymentProofPreview: fullBooking.payment_proof_url ?? prev.paymentProofPreview,
+    }));
+
+    if (fullBooking.check_in_date) setCheckInDate(String(fullBooking.check_in_date));
+    if (fullBooking.check_out_date) setCheckOutDate(String(fullBooking.check_out_date));
+
+    // Prefill add-ons quantities
+    const ao: AddOns = {
+      poolPass: 0,
+      towels: 0,
+      bathRobe: 0,
+      extraComforter: 0,
+      guestKit: 0,
+      extraSlippers: 0,
+    };
+
+    const list = Array.isArray(fullBooking.add_ons) ? fullBooking.add_ons : [];
+    for (const item of list) {
+      const name = String((item as any)?.name || "");
+      const qty = Number((item as any)?.quantity || 0);
+      if (name in ao) {
+        (ao as any)[name] = qty;
+      }
+    }
+    setAddOns(ao);
+
+    // Prefill additional guests (exclude the main guest)
+    const guestsList = Array.isArray(fullBooking.guests) ? fullBooking.guests : [];
+    const additional = guestsList.slice(1).map((g: any) => ({
+      firstName: String(g?.firstName || ""),
+      lastName: String(g?.lastName || ""),
+      age: String(g?.age || ""),
+      gender: String(g?.gender || ""),
+      validId: null,
+      validIdPreview: String(g?.valid_id_url || ""),
+    }));
+    if (additional.length) setAdditionalGuests(additional);
+  }, [isEditMode, fullBooking]);
 
   // Fetch room bookings for date availability
   const { data: roomBookingsData } = useGetRoomBookingsQuery(
@@ -390,11 +508,11 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
     const newErrors: Record<string, string> = {};
     if (!formData.firstName) newErrors.firstName = "First name is required";
     if (!formData.lastName) newErrors.lastName = "Last name is required";
-    if (!formData.age) newErrors.age = "Age is required";
-    if (!formData.gender) newErrors.gender = "Please select a gender";
+    if (!isEditMode && !formData.age) newErrors.age = "Age is required";
+    if (!isEditMode && !formData.gender) newErrors.gender = "Please select a gender";
     if (!formData.email) newErrors.email = "Email is required";
     if (!formData.phone) newErrors.phone = "Phone number is required";
-    if (formData.age && parseInt(formData.age) >= 10 && !formData.validId) {
+    if (formData.age && parseInt(formData.age) >= 10 && !formData.validId && !formData.validIdPreview) {
       newErrors.validId = "Valid ID is required for guests 10+ years old";
     }
     for (let i = 0; i < additionalGuests.length; i++) {
@@ -402,10 +520,16 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
       const guestNumber = i + 2;
       if (!guest.firstName) newErrors[`guest${i}FirstName`] = `Guest ${guestNumber} first name is required`;
       if (!guest.lastName) newErrors[`guest${i}LastName`] = `Guest ${guestNumber} last name is required`;
-      if (!guest.age) newErrors[`guest${i}Age`] = `Guest ${guestNumber} age is required`;
-      if (!guest.gender) newErrors[`guest${i}Gender`] = `Guest ${guestNumber} gender is required`;
-      if (guest.age && parseInt(guest.age) >= 10 && !guest.validId) {
-        newErrors[`guest${i}ValidId`] = `Valid ID is required for Guest ${guestNumber} (10+ years old)`;
+      if (!isEditMode) {
+        if (!guest.age) newErrors[`guest${i}Age`] = `Guest ${guestNumber} age is required`;
+        if (!guest.gender) newErrors[`guest${i}Gender`] = `Guest ${guestNumber} gender is required`;
+        if (guest.age && parseInt(guest.age) >= 10 && !guest.validId) {
+          newErrors[`guest${i}ValidId`] = `Valid ID is required for Guest ${guestNumber} (10+ years old)`;
+        }
+      } else {
+        if (guest.age && parseInt(guest.age) >= 10 && !guest.validId && !guest.validIdPreview) {
+          newErrors[`guest${i}ValidId`] = `Valid ID is required for Guest ${guestNumber} (10+ years old)`;
+        }
       }
     }
     if (formData.adults + formData.children > 4) {
@@ -441,10 +565,10 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
 
   const validateStep4 = (): boolean => {
     const newErrors: Record<string, string> = {};
-    if (!formData.paymentProof) {
+    if (!formData.paymentProof && !formData.paymentProofPreview) {
       newErrors.paymentProof = "Proof of payment is required";
     }
-    if (!formData.termsAccepted) {
+    if (!isEditMode && !formData.termsAccepted) {
       newErrors.termsAccepted = "You must accept the terms and conditions";
     }
     setErrors(newErrors);
@@ -483,6 +607,19 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateStep4()) return;
+
+    const getApiErrorMessage = (err: unknown) => {
+      if (!err || typeof err !== "object") return null;
+      const anyErr = err as any;
+      const data = anyErr?.data;
+      if (data && typeof data === "object") {
+        const msg = (data.error || data.message) as unknown;
+        if (typeof msg === "string" && msg.trim()) return msg;
+      }
+      const msg = anyErr?.error as unknown;
+      if (typeof msg === "string" && msg.trim()) return msg;
+      return null;
+    };
 
     try {
 
@@ -524,6 +661,7 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
             age: guest.age,
             gender: guest.gender,
             validId: guestIdBase64,
+            valid_id_url: guest.validIdPreview,
           };
         })
       );
@@ -533,12 +671,13 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
         user_id: null,
         guest_first_name: formData.firstName,
         guest_last_name: formData.lastName,
-        guest_age: formData.age,
+        guest_age: Number(formData.age),
         guest_gender: formData.gender,
         guest_email: formData.email,
         guest_phone: formData.phone,
         facebook_link: formData.facebookLink || undefined,
         valid_id: validIdBase64,
+        valid_id_url: formData.validIdPreview || undefined,
         additional_guests: additionalGuestsData,
         room_name: selectedHaven?.haven_name || 'Standard Room',
         stay_type: formData.stayType,
@@ -551,6 +690,7 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
         infants: formData.infants,
         payment_method: formData.paymentMethod,
         payment_proof: paymentProofBase64,
+        payment_proof_url: formData.paymentProofPreview || undefined,
         room_rate: roomRate,
         security_deposit: securityDeposit,
         add_ons_total: addOnsTotal,
@@ -566,16 +706,20 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
           id: initialBooking.id,
           ...bookingData,
         }).unwrap();
+        logEmployeeActivity('UPDATE_BOOKING', `Updated booking ${bookingIdState}`, initialBooking.id);
         toast.success("Booking updated successfully!");
       } else {
-        await createBooking(bookingData).unwrap();
-        toast.success("Booking created successfully!");
+        const created = await createBooking(bookingData).unwrap();
+        const createdId = (created as any)?.data?.id as string | undefined;
+        logEmployeeActivity('CREATE_BOOKING', `Created booking ${bookingIdState}`, createdId);
+        toast.success("You've successfully added booking!");
       }
 
       onSuccess?.();
       onClose();
     } catch (error) {
-      toast.error(isEditMode ? "Failed to update booking" : "Failed to create booking");
+      const message = getApiErrorMessage(error);
+      toast.error(message || (isEditMode ? "Failed to update booking" : "Failed to create booking"));
       console.error(error);
     }
   };
@@ -1486,8 +1630,8 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                       <input
                         type="radio"
                         name="paymentMethod"
-                        value="bank"
-                        checked={formData.paymentMethod === "bank"}
+                        value="bank-transfer"
+                        checked={formData.paymentMethod === "bank-transfer"}
                         onChange={handleInputChange}
                         className="w-4 h-4 text-brand-primary accent-brand-primary"
                       />

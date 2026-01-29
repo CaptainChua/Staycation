@@ -43,30 +43,20 @@ export const authOptions: NextAuthOptions = {
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
-        turnstileToken: { label: "Turnstile Token", type: "text" },
+        turnstileToken: { label: "Turnstile Token", type: "text", optional: true },
       },
       async authorize(credentials, req) {
         try {
           console.log("🔐 Attempting login for:", credentials?.email);
 
-          if (!credentials?.email || !credentials?.password || !credentials?.turnstileToken) {
+          if (!credentials?.email || !credentials?.password) {
             console.log("❌ Missing credentials");
-            throw new Error("Email, password, and security verification are required");
+            throw new Error("Email and password are required");
           }
-
-          // Verify Turnstile token first
-          const isValidTurnstile = await verifyTurnstileToken(credentials.turnstileToken);
-          if (!isValidTurnstile) {
-            console.log("❌ Invalid Turnstile token");
-            throw new Error("Security verification failed. Please try again.");
-          }
-
-          console.log("✅ Turnstile verification passed");
 
           // Get IP address and user agent from request
           const ipAddress = req?.headers?.['x-forwarded-for'] as string || 
                            req?.headers?.['x-real-ip'] as string || 
-                           
                            'unknown';
           const userAgent = req?.headers?.['user-agent'] as string || 'unknown';
 
@@ -80,6 +70,21 @@ export const authOptions: NextAuthOptions = {
           if (employeeResult.rows.length > 0) {
             const user = employeeResult.rows[0];
             console.log("✅ Employee found:", user.email, "- Role:", user.role, "- Current attempts:", user.login_attempts || 0);
+
+            // For employees, require turnstile token verification
+            if (!credentials?.turnstileToken) {
+              console.log("❌ Missing turnstile token for employee");
+              throw new Error("Email, password, and security verification are required");
+            }
+
+            // Verify Turnstile token for employees
+            const isValidTurnstile = await verifyTurnstileToken(credentials.turnstileToken);
+            if (!isValidTurnstile) {
+              console.log("❌ Invalid Turnstile token");
+              throw new Error("Security verification failed. Please try again.");
+            }
+
+            console.log("✅ Turnstile verification passed for employee");
 
             // Verify password
             console.log("🔒 Verifying password...");

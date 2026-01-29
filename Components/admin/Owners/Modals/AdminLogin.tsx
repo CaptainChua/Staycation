@@ -56,10 +56,22 @@ const AdminLogin = () => {
   });
 
   useEffect(() => {
+    // Check if site key is available
+    const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+    
+    if (!siteKey) {
+      console.error("Turnstile site key is missing. Please set NEXT_PUBLIC_TURNSTILE_SITE_KEY in your environment variables.");
+      setFormData(prev => ({ 
+        ...prev, 
+        error: "Security configuration missing. Please contact administrator." 
+      }));
+      return;
+    }
+
     // Initialize Turnstile widget
     if (turnstileRef.current && window.turnstile) {
       const widgetId = window.turnstile.render(turnstileRef.current, {
-        sitekey: process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '',
+        sitekey: siteKey,
         callback: (token: string) => {
           setFormData(prev => ({ ...prev, turnstileToken: token }));
         },

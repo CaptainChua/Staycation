@@ -7,7 +7,7 @@ import { useSession, signOut } from "next-auth/react";
 import { useTheme } from "next-themes";
 import DashboardPage from "./DashboardPage";
 import BookingsPage from "./BookingPage";
-import PaymentsPage from "./PaymentPage";
+import PaymentsPage from "./PaymentPage.tsx";
 import DeliverablesPage from "./DeliverablesPage";
 import CleanersPage from "./CleanersPage";
 import DepositsPage from "./DepositPage";
@@ -493,7 +493,7 @@ export default function CsrDashboard() {
       <div
         className={`${
           sidebar ? "w-72" : "w-20"
-        } bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 transition-all duration-300 flex-col sticky top-0 h-screen shadow-xl flex-shrink-0
+        } bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 transition-all duration-300 flex-col md:sticky md:top-0 h-screen shadow-xl flex-shrink-0
         ${
           mobileMenuOpen
             ? "fixed inset-y-0 left-0 z-50 flex animate-in slide-in-from-left duration-300"

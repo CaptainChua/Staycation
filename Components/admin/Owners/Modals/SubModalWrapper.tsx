@@ -2,7 +2,8 @@
 
 import { ReactNode, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { X } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, Save } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface SubModalWrapperProps {
   isOpen: boolean;
@@ -13,7 +14,10 @@ interface SubModalWrapperProps {
   isSaving?: boolean;
   saveLabel?: string;
   children: ReactNode;
-  maxWidth?: string; // e.g., "max-w-2xl"
+  maxWidth?: string;
+  mode?: 'modal' | 'step';
+  onBack?: () => void;
+  backLabel?: string;
 }
 
 const SubModalWrapper = ({
@@ -26,6 +30,9 @@ const SubModalWrapper = ({
   saveLabel = "Save Changes",
   children,
   maxWidth = "max-w-2xl",
+  mode = 'modal',
+  onBack,
+  backLabel = "Cancel",
 }: SubModalWrapperProps) => {
   const [mounted, setMounted] = useState(false);
 
@@ -34,8 +41,28 @@ const SubModalWrapper = ({
     return () => setMounted(false);
   }, []);
 
-  if (!isOpen || !mounted) return null;
+  if (!isOpen && mode === 'modal') return null;
+  if (!mounted && mode === 'modal') return null;
 
+  // STEP MODE: Render inline content without a separate footer
+  if (mode === 'step') {
+    return (
+      <div className="flex flex-col h-full bg-gray-50/50">
+        {/* Content - Scrollable with Motion */}
+        <div className="flex-1 overflow-y-auto p-8 overflow-x-hidden">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            {children}
+          </motion.div>
+        </div>
+      </div>
+    );
+  }
+
+  // MODAL MODE: Standard implementation with Portal
   const content = (
     <>
       {/* Backdrop */}
@@ -51,7 +78,7 @@ const SubModalWrapper = ({
           style={{ maxHeight: 'calc(100vh - 4rem)' }}
         >
           {/* Header - System Gold Theme */}
-          <div className="flex justify-between items-center p-6 border-b border-brand-primary/20 bg-brand-primary text-white rounded-t-2xl flex-shrink-0 shadow-sm">
+          <div className="flex justify-between items-center p-6 border-b border-brand-primary/20 bg-brand-primary text-white rounded-t-2xl flex-shrink-0 shadow-sm transition-all duration-[250ms] [transition-timing-function:cubic-bezier(0.4,0,0.2,1)] hover:brightness-110 hover:scale-[1.01] hover:shadow-lg will-change-transform cursor-default">
             <div>
               <h2 className="text-xl font-bold">{title}</h2>
               {subtitle && <p className="text-sm opacity-90 mt-1">{subtitle}</p>}

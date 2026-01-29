@@ -30,7 +30,15 @@ const ReservationsPage = () => {
   const [itemsPerPage, setItemsPerPage] = useState(5);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const { data, isLoading, refetch } = useGetBookingsQuery({});
+  const { data, isLoading, refetch } = useGetBookingsQuery(
+    {},
+    {
+      pollingInterval: 5000,
+      skipPollingIfUnfocused: true,
+      refetchOnFocus: true,
+      refetchOnReconnect: true,
+    }
+  );
   const [updateBookingStatus] = useUpdateBookingStatusMutation();
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
 

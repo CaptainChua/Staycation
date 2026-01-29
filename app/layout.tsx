@@ -1,8 +1,7 @@
-import type { Metadata, Viewport } from "next";
-import { Inter, Poppins } from "next/font/google";
+import type { Metadata } from "next";
 import "./globals.css";
 import UIProviders from "@/Components/UIProviders";
-import { Proviers } from '@/Components/Providers'
+import { Providers } from '@/Components/Providers'
 import ConditionalLayout from "@/Components/ConditionalLayout";
 
 const inter = Inter({
@@ -93,13 +92,6 @@ export const metadata: Metadata = {
   category: 'travel',
   classification: 'Travel and Tourism',
   referrer: 'origin-when-cross-origin',
-};
-
-export const viewport: Viewport = {
-  width: "device-width",
-  initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
 };
 
 export default function RootLayout({
@@ -217,11 +209,11 @@ export default function RootLayout({
       </head>
       <body className={`${inter.variable} ${poppins.variable} font-sans antialiased`} suppressHydrationWarning>
         <UIProviders>
-          <Proviers>
+          <Providers>
             <ConditionalLayout>
               {children}
             </ConditionalLayout>
-          </Proviers>
+          </Providers>
         </UIProviders>
       </body>
     </html>

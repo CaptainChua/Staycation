@@ -25,9 +25,9 @@ import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
 import type { UpdateBookingPaymentPayload } from "@/types/bookingPayment";
 import {
-  useGetBookingPaymentsQuery,
-  useUpdateBookingPaymentMutation,
-} from "@/redux/api/bookingPaymentsApi";
+  useGetBookingsQuery,
+  useUpdateBookingStatusMutation,
+} from "@/redux/api/bookingsApi";
 
 type PaymentStatus = "Paid" | "Pending" | "Rejected";
 
@@ -54,7 +54,7 @@ interface PaymentRow {
   payment_proof?: string | null;
   status: PaymentStatus;
   statusColor: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  created_at?: string;
   booking?: any;
 }
 
@@ -65,88 +65,21 @@ interface InfoFieldProps {
   capitalize?: boolean;
 }
 
-function InfoField({ label, value, icon, capitalize }: InfoFieldProps) {
-  return (
-    <div className="space-y-2">
-      <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
-        {label}
-      </span>
-      <div className="relative">
-        {icon && (
-          <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-gray-400 dark:text-gray-300">
-            {icon}
-          </div>
-        )}
-        <div
-          className={`w-full rounded-2xl border border-gray-200 dark:border-gray-700 px-3 py-3 text-sm text-gray-800 dark:text-gray-100 dark:bg-gray-900 ${icon ? "pl-9" : "pl-3"} ${capitalize ? "capitalize" : ""}`}
-        >
-          {value}
-        </div>
-      </div>
+const InfoField: React.FC<InfoFieldProps> = ({
+  label,
+  value,
+  icon,
+  capitalize = false,
+}) => (
+  <div className="flex items-start space-x-2">
+    {icon && <span className="mt-0.5 text-gray-400">{icon}</span>}
+    <div>
+      <p className="text-xs text-gray-500">{label}</p>
+      <p className={`text-sm font-medium ${capitalize ? "capitalize" : ""}`}>
+        {value}
+      </p>
     </div>
-  );
-}
-
-const currencyFormatter = new Intl.NumberFormat("en-PH", {
-  style: "currency",
-  currency: "PHP",
-});
-
-const formatCurrency = (amount: number) => currencyFormatter.format(amount);
-
-const formatDate = (dateString?: string | null) => {
-  if (!dateString) return "—";
-  return new Date(dateString).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-};
-
-const mapStatusToUI = (status?: string | null): PaymentStatus => {
-  const s = (status || "").toLowerCase();
-  if (s === "approved" || s === "confirmed") return "Paid";
-  if (s === "rejected" || s === "declined") return "Rejected";
-  return "Pending";
-};
-
-const getStatusColorClass = (status?: string | null) => {
-  const s = (status || "").toLowerCase();
-  if (s === "approved" || s === "confirmed")
-    return "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300";
-  if (s === "pending")
-    return "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300";
-  if (s === "rejected" || s === "declined")
-    return "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300";
-  return "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200";
-};
-
-// Small table skeleton rows (used while bookings are loading)
-const TableSkeleton = ({ rows = 5 }: { rows?: number }) => (
-  <tbody>
-    {Array.from({ length: rows }).map((_, i) => (
-      <tr key={i} className="border-b border-gray-100 dark:border-gray-700">
-        <td className="py-4 px-4">
-          <div className="h-4 w-28 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-        </td>
-        <td className="py-4 px-4">
-          <div className="h-4 w-40 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-        </td>
-        <td className="py-4 px-4 text-right">
-          <div className="h-4 w-16 mx-auto bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-        </td>
-        <td className="py-4 px-4 text-center">
-          <div className="h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded mx-auto animate-pulse" />
-        </td>
-        <td className="py-4 px-4 text-center">
-          <div className="h-4 w-20 bg-gray-200 dark:bg-gray-700 rounded mx-auto animate-pulse" />
-        </td>
-        <td className="py-4 px-4">
-          <div className="h-8 w-32 bg-gray-200 dark:bg-gray-700 rounded mx-auto animate-pulse" />
-        </td>
-      </tr>
-    ))}
-  </tbody>
+  </div>
 );
 
 function RejectModal({
@@ -546,9 +479,7 @@ function ChangeModal({
 
 export default function PaymentPage() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterStatus, setFilterStatus] = useState<"all" | PaymentStatus>(
-    "all",
-  );
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [entriesPerPage, setEntriesPerPage] = useState(5);
   const [sortField, setSortField] = useState<keyof PaymentRow | null>(null);
@@ -807,13 +738,13 @@ export default function PaymentPage() {
     [updateBookingPayment, refetch, logEmployeeActivity, session],
   );
 
-  const onSearchChange = (value: string) => {
-    setSearchTerm(value);
-  };
+      return matchesSearch && matchesStatus;
+    });
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm]);
+    // Sort
+    filtered.sort((a, b) => {
+      const aValue = a[sortField];
+      const bValue = b[sortField];
 
   const openRejectModal = useCallback(
     (row: PaymentRow) => {
@@ -837,11 +768,11 @@ export default function PaymentPage() {
     [logEmployeeActivity],
   );
 
-  const handleConfirmReject = useCallback(
-    async (id: string, reason: string) => {
-      if (!id) {
-        toast.error("Payment ID not available");
-        return;
+      let comparison = 0;
+      if (typeof aValue === "string" && typeof bValue === "string") {
+        comparison = aValue.localeCompare(bValue);
+      } else if (typeof aValue === "number" && typeof bValue === "number") {
+        comparison = aValue - bValue;
       }
       // Keep the selected payment so we can restore it if the mutation fails
       const originalSelected = selectedPayment;
@@ -935,12 +866,8 @@ export default function PaymentPage() {
         payment.booking_id.toLowerCase().includes(q) ||
         payment.guest.toLowerCase().includes(q);
 
-      const matchesFilter =
-        filterStatus === "all" || payment.status === filterStatus;
-
-      return matchesSearch && matchesFilter;
+      return sortDirection === "asc" ? comparison : -comparison;
     });
-  }, [filterStatus, payments, searchTerm]);
 
   const sortedPayments = useMemo(() => {
     const copy = [...filteredPayments];
@@ -980,174 +907,194 @@ export default function PaymentPage() {
     });
   }, [filteredPayments, sortDirection, sortField]);
 
-  const totalPages = Math.ceil(sortedPayments.length / entriesPerPage);
-  const startIndex = (currentPage - 1) * entriesPerPage;
-  const endIndex = startIndex + entriesPerPage;
-  const paginatedPayments = sortedPayments.slice(startIndex, endIndex);
+  // Pagination
+  const totalPages = Math.ceil(filteredPayments.length / itemsPerPage);
+  const paginatedPayments = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredPayments.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredPayments, currentPage, itemsPerPage]);
 
   const handleSort = (field: keyof PaymentRow) => {
     if (sortField === field) {
       setSortDirection(sortDirection === "asc" ? "desc" : "asc");
     } else {
       setSortField(field);
-      setSortDirection("asc");
+      setSortDirection("desc");
     }
   };
 
-  // Use unfiltered payments for summary counts so counts don't change with status filter
-  const totalCount = (paymentsAll || []).length;
-  const paidCount = (paymentsAll || []).filter(
-    (p) => mapStatusToUI(p.payment_status) === "Paid",
-  ).length;
-  const pendingCount = (paymentsAll || []).filter(
-    (p) => mapStatusToUI(p.payment_status) === "Pending",
-  ).length;
-  const rejectedCount = (paymentsAll || []).filter(
-    (p) => mapStatusToUI(p.payment_status) === "Rejected",
-  ).length;
+  const handleApprove = async (payment: PaymentRow) => {
+    if (!payment.id) return;
+    
+    setUpdatingPaymentId(payment.id);
+    try {
+      await updateBookingStatus({
+        id: payment.id,
+        status: 'approved',
+      }).unwrap();
+      
+      toast.success("Payment approved successfully");
+      refetch();
+    } catch (error) {
+      toast.error("Failed to approve payment");
+    } finally {
+      setUpdatingPaymentId(null);
+    }
+  };
+
+  const handleReject = async (payment: PaymentRow, reason?: string) => {
+    if (!payment.id) return;
+    
+    setUpdatingPaymentId(payment.id);
+    try {
+      await updateBookingStatus({
+        id: payment.id,
+        status: 'rejected',
+        rejection_reason: reason,
+      }).unwrap();
+      
+      toast.success("Payment rejected");
+      refetch();
+      setIsRejectModalOpen(false);
+      setSelectedPayment(null);
+    } catch (error) {
+      toast.error("Failed to reject payment");
+    } finally {
+      setUpdatingPaymentId(null);
+    }
+  };
+
+  const getStatusBadge = (status: PaymentStatus) => {
+    const colors = {
+      Paid: "bg-green-100 text-green-800",
+      Pending: "bg-yellow-100 text-yellow-800",
+      Rejected: "bg-red-100 text-red-800",
+    };
+
+    return (
+      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colors[status]}`}>
+        {status}
+      </span>
+    );
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-700">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
-            Payments Management
-          </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Review and manage payment submissions
-          </p>
+    <div className="p-6 max-w-7xl mx-auto">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Payment Management</h1>
+        <p className="text-gray-600">Manage and review booking payments</p>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="bg-white rounded-lg shadow p-6 border border-gray-200">
+          <div className="flex items-center">
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <DollarSign className="h-6 w-6 text-blue-600" />
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Total Revenue</p>
+              <p className="text-2xl font-bold text-gray-900">
+                ₱{filteredPayments.reduce((sum, p) => sum + (p.amountValue || 0), 0).toLocaleString()}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow p-6 border border-gray-200">
+          <div className="flex items-center">
+            <div className="p-2 bg-green-100 rounded-lg">
+              <CheckCircle className="h-6 w-6 text-green-600" />
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Paid</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {filteredPayments.filter(p => p.status === 'Paid').length}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow p-6 border border-gray-200">
+          <div className="flex items-center">
+            <div className="p-2 bg-yellow-100 rounded-lg">
+              <Clock className="h-6 w-6 text-yellow-600" />
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Pending</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {filteredPayments.filter(p => p.status === 'Pending').length}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow p-6 border border-gray-200">
+          <div className="flex items-center">
+            <div className="p-2 bg-red-100 rounded-lg">
+              <XCircle className="h-6 w-6 text-red-600" />
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Rejected</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {filteredPayments.filter(p => p.status === 'Rejected').length}
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {[
-          {
-            label: "Total Payments",
-            value: String(totalCount),
-            color: "bg-green-500",
-            icon: DollarSign,
-          },
-          {
-            label: "Paid",
-            value: String(paidCount),
-            color: "bg-emerald-500",
-            icon: CheckCircle,
-          },
-          {
-            label: "Pending",
-            value: String(pendingCount),
-            color: "bg-yellow-500",
-            icon: Clock,
-          },
-          {
-            label: "Rejected",
-            value: String(rejectedCount),
-            color: "bg-red-500",
-            icon: XCircle,
-          },
-        ].map((stat, i) => {
-          const IconComponent = stat.icon;
-          return (
-            <div
-              key={i}
-              className={`${stat.color} text-white rounded-lg p-6 shadow dark:shadow-gray-900 hover:shadow-lg transition-transform duration-200 transform hover:-translate-y-1`}
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm opacity-90">{stat.label}</p>
-                  <p className="text-3xl font-bold mt-2">{stat.value}</p>
-                </div>
-                <IconComponent className="w-12 h-12 opacity-50" />
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-4">
-        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-          <div className="flex flex-col sm:flex-row gap-4 flex-1 w-full">
-            <div className="flex items-center gap-2">
-              <label className="text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                Show
-              </label>
-              <select
-                value={entriesPerPage}
-                onChange={(e) => {
-                  setEntriesPerPage(Number(e.target.value));
-                  setCurrentPage(1);
-                }}
-                className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-orange-500 text-sm"
-              >
-                <option value="5">5</option>
-                <option value="10">10</option>
-                <option value="25">25</option>
-                <option value="50">50</option>
-              </select>
-              <label className="text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                entries
-              </label>
-            </div>
-
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500" />
+      {/* Filters */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+        <div className="flex flex-wrap gap-4 items-center">
+          <div className="flex-1 min-w-64">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
               <input
                 type="text"
                 placeholder="Search by booking ID or guest name..."
                 value={searchTerm}
-                onChange={(e) => onSearchChange(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-orange-500"
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Filter className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-            <select
-              value={filterStatus}
-              onChange={(e) => {
-                const value = e.target.value;
-                if (
-                  value === "all" ||
-                  ["Paid", "Pending", "Rejected"].includes(value)
-                ) {
-                  setFilterStatus(value as "all" | PaymentStatus);
-                }
-                setCurrentPage(1);
-              }}
-              className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-orange-500"
-            >
-              <option value="all">All Status</option>
-              <option value="Paid">Paid</option>
-              <option value="Pending">Pending</option>
-              <option value="Rejected">Rejected</option>
-            </select>
-          </div>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="all">All Status</option>
+            <option value="Paid">Paid</option>
+            <option value="Pending">Pending</option>
+            <option value="Rejected">Rejected</option>
+          </select>
         </div>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden hidden lg:block">
+      {/* Payments Table */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 border-b-2 border-gray-200 dark:border-gray-600">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
               <tr>
-                <th
-                  onClick={() => handleSort("booking_id")}
-                  className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
-                >
-                  <div className="flex items-center gap-2">
-                    Booking ID
-                    <ArrowUpDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600 dark:text-gray-300 dark:group-hover:text-gray-100" />
-                  </div>
-                </th>
-                <th
-                  onClick={() => handleSort("guest")}
-                  className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
-                >
-                  <div className="flex items-center gap-2">
-                    Guest
-                    <ArrowUpDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600 dark:text-gray-300 dark:group-hover:text-gray-100" />
-                  </div>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <button
+                    onClick={() => handleSort("booking_id")}
+                    className="flex items-center space-x-1 hover:text-gray-700"
+                  >
+                    <span>Booking ID</span>
+                    <ArrowUpDown className="h-4 w-4" />
+                  </button>
                 </th>
 
                 <th
@@ -1199,16 +1146,10 @@ export default function PaymentPage() {
                 <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
                   Payment Proof
                 </th>
-                <th
-                  onClick={() => handleSort("status")}
-                  className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors whitespace-nowrap"
-                >
-                  <div className="flex items-center justify-center gap-2">
-                    Status
-                    <ArrowUpDown className="w-4 h-4 text-gray-400 dark:text-gray-300" />
-                  </div>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Status
                 </th>
-                <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
@@ -1370,78 +1311,6 @@ export default function PaymentPage() {
             )}
           </table>
         </div>
-      </div>
-
-      <div className="lg:hidden space-y-4 bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden p-4">
-        {isLoadingTable ? (
-          <div className="space-y-4">
-            {Array.from({ length: Math.min(entriesPerPage, 5) }).map((_, i) => (
-              <div
-                key={i}
-                className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 animate-pulse"
-              >
-                <div className="flex items-start justify-between mb-3 pb-3 border-b border-gray-200 dark:border-gray-600">
-                  <div>
-                    <div className="h-3 w-24 bg-gray-200 dark:bg-gray-700 rounded mb-2" />
-                    <div className="h-4 w-32 bg-gray-200 dark:bg-gray-700 rounded" />
-                  </div>
-                  <div className="h-4 w-20 bg-gray-200 dark:bg-gray-700 rounded" />
-                </div>
-
-                <div className="mb-3 pb-3 border-b border-gray-200 dark:border-gray-600">
-                  <div className="h-3 w-40 bg-gray-200 dark:bg-gray-700 rounded" />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 mb-3 pb-3">
-                  <div className="h-3 w-24 bg-gray-200 dark:bg-gray-700 rounded" />
-                  <div className="h-3 w-24 bg-gray-200 dark:bg-gray-700 rounded" />
-                </div>
-
-                <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-200 dark:border-gray-600">
-                  <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-full" />
-                  <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-full" />
-                  <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-full" />
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : paginatedPayments.length === 0 ? (
-          <div className="py-8 text-center text-gray-500 dark:text-gray-400">
-            No payments found
-          </div>
-        ) : (
-          paginatedPayments.map((payment) => (
-            <div
-              key={payment.booking_id}
-              className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-4 border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-transform duration-200 transform hover:-translate-y-1"
-            >
-              <div className="flex items-start justify-between mb-3 pb-3 border-b border-gray-200 dark:border-gray-600">
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                    Booking ID
-                  </p>
-                  <p className="font-bold text-gray-800 dark:text-gray-100">
-                    {payment.booking_id}
-                  </p>
-                </div>
-                <span
-                  className={`px-3 py-1 rounded-full text-xs font-bold ${payment.statusColor}`}
-                >
-                  {payment.status}
-                </span>
-              </div>
-
-              <div className="mb-3 pb-3 border-b border-gray-200 dark:border-gray-600">
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                  Guest
-                </p>
-                <div className="flex items-center gap-2">
-                  <User className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                  <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm">
-                    {payment.guest}
-                  </span>
-                </div>
-              </div>
 
               <div className="grid grid-cols-2 gap-3 mb-3 pb-3">
                 <div>
@@ -1601,79 +1470,74 @@ export default function PaymentPage() {
             </p>
             <div className="flex gap-1">
               <button
-                onClick={() => setCurrentPage(1)}
-                disabled={currentPage === 1 || totalPages === 0}
-                className="p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                title="First Page"
-                type="button"
-              >
-                <ChevronsLeft className="w-4 h-4" />
-              </button>
-
-              <button
                 onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                disabled={currentPage === 1 || totalPages === 0}
-                className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                type="button"
+                disabled={currentPage === 1}
+                className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
               >
-                <ChevronLeft className="w-4 h-4" />
+                Previous
               </button>
-
-              {Array.from({ length: Math.min(5, totalPages || 1) }, (_, i) => {
-                let pageNum;
-                if (totalPages <= 5) {
-                  pageNum = i + 1;
-                } else if (currentPage <= 3) {
-                  pageNum = i + 1;
-                } else if (currentPage >= totalPages - 2) {
-                  pageNum = totalPages - 4 + i;
-                } else {
-                  pageNum = currentPage - 2 + i;
-                }
-
-                return (
+              <button
+                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                disabled={currentPage === totalPages}
+                className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
+            <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm text-gray-700">
+                  Showing{" "}
+                  <span className="font-medium">
+                    {(currentPage - 1) * itemsPerPage + 1}
+                  </span>{" "}
+                  to{" "}
+                  <span className="font-medium">
+                    {Math.min(currentPage * itemsPerPage, filteredPayments.length)}
+                  </span>{" "}
+                  of{" "}
+                  <span className="font-medium">{filteredPayments.length}</span>{" "}
+                  results
+                </p>
+              </div>
+              <div>
+                <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
                   <button
-                    key={pageNum}
-                    onClick={() => setCurrentPage(pageNum)}
-                    className={`px-4 py-2 rounded-lg transition-colors text-sm font-medium ${
-                      currentPage === pageNum
-                        ? "bg-orange-500 text-white shadow-md"
-                        : "border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-600"
-                    }`}
-                    disabled={totalPages === 0}
-                    type="button"
+                    onClick={() => setCurrentPage(1)}
+                    disabled={currentPage === 1}
+                    className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
                   >
-                    {pageNum}
+                    <ChevronsLeft className="h-5 w-5" />
                   </button>
-                );
-              })}
-
-              <button
-                onClick={() =>
-                  setCurrentPage(Math.min(totalPages, currentPage + 1))
-                }
-                disabled={currentPage === totalPages || totalPages === 0}
-                className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                type="button"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-
-              <button
-                onClick={() => setCurrentPage(totalPages)}
-                disabled={currentPage === totalPages || totalPages === 0}
-                className="p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Last Page"
-                type="button"
-              >
-                <ChevronsRight className="w-4 h-4" />
-              </button>
+                  <button
+                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                    disabled={currentPage === 1}
+                    className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
+                  <button
+                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                    disabled={currentPage === totalPages}
+                    className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    <ChevronRight className="h-5 w-5" />
+                  </button>
+                  <button
+                    onClick={() => setCurrentPage(totalPages)}
+                    disabled={currentPage === totalPages}
+                    className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    <ChevronsRight className="h-5 w-5" />
+                  </button>
+                </nav>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Payment Details Modal (Booking Details styling, local implementation) */}
+      {/* View Modal */}
       {isViewModalOpen && selectedPayment && (
         <>
           <div
@@ -1704,6 +1568,10 @@ export default function PaymentPage() {
                   <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
 
               {/* Content */}
               <div className="p-6 space-y-6 max-h-[calc(90vh-200px)] overflow-y-auto">
@@ -1886,7 +1754,7 @@ export default function PaymentPage() {
               </div>
             </div>
           </div>
-        </>
+        </div>
       )}
 
       <RejectModal

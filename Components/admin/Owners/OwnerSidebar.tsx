@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { LogOut, Menu, X, Home, Users, MessageSquare, Settings, User, Bell, UserCircle, ChevronDown, BarChart3, Calendar, DollarSign, Wrench, Star, Shield, TrendingUp, TrendingDown, Building2, Sparkles, Headphones, CalendarOff, UsersRound, Moon, Sun, Monitor } from "lucide-react";
+import { LogOut, Menu, X, Home, Users, MessageSquare, Settings, User, Bell, UserCircle, ChevronDown, BarChart3, Calendar, DollarSign, Wrench, Star, Shield, TrendingUp, TrendingDown, Building2, Sparkles, Headphones, CalendarOff, UsersRound, Moon, Sun, Monitor, CreditCard } from "lucide-react";
 import Image from "next/image";
 import { signOut, useSession } from "next-auth/react";
 import { useTheme } from "next-themes";
@@ -116,6 +116,7 @@ export default function OwnerSidebar({ sidebar, setSidebar, mobileMenuOpen, setM
       category: "Finance",
       items: [
         { id: "revenue", icon: DollarSign, label: "Revenue Management", color: "text-emerald-500" },
+        { id: "paymentMethods", icon: CreditCard, label: "Payment Methods", color: "text-purple-500" },
       ],
     },
     {
@@ -167,7 +168,7 @@ export default function OwnerSidebar({ sidebar, setSidebar, mobileMenuOpen, setM
       <div
         className={`${
           sidebar ? "w-72" : "w-20"
-        } bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 transition-all duration-300 flex-col sticky top-0 self-start h-screen shadow-xl
+        } bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 transition-all duration-300 flex-col md:sticky md:top-0 self-start h-screen shadow-xl
         ${
           mobileMenuOpen
             ? "fixed inset-y-0 left-0 z-50 flex animate-in slide-in-from-left duration-300"

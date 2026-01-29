@@ -103,6 +103,7 @@ export default function DeliverablesPage() {
           employeeId,
           action,
           details,
+          entityType: 'deliverable',
           entityId,
         }),
       });
