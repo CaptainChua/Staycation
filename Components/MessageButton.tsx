@@ -1,7 +1,8 @@
 "use client";
 
 import { MessageCircle, X, Send, HelpCircle, Calendar, Bot, User } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import HydrationSafeWrapper from "./HydrationSafeWrapper";
 
 interface ChatMessage {
   id: string;
@@ -48,21 +49,46 @@ const MessageButton = () => {
       id: "1",
       text: "Hello! Welcome to Staycation Haven! 👋 How can I assist you today?",
       sender: "bot",
-      timestamp: new Date(Date.now() - 60000)
+      timestamp: new Date(0) // Placeholder, will be set in useEffect
     },
     {
       id: "2", 
       text: "Hi! I'm interested in booking a room for this weekend. What are your available options?",
       sender: "user",
-      timestamp: new Date(Date.now() - 30000)
+      timestamp: new Date(0) // Placeholder, will be set in useEffect
     },
     {
       id: "3",
       text: "Great! We have several beautiful rooms available for this weekend. Would you prefer our Deluxe Suite with a city view or our Premium Room with a garden view? Both come with complimentary breakfast!",
       sender: "bot",
-      timestamp: new Date()
+      timestamp: new Date(0) // Placeholder, will be set in useEffect
     }
   ]);
+
+  // Set proper timestamps after component mounts to avoid hydration mismatch
+  useEffect(() => {
+    setChatMessages([
+      {
+        id: "1",
+        text: "Hello! Welcome to Staycation Haven! 👋 How can I assist you today?",
+        sender: "bot",
+        timestamp: new Date(Date.now() - 60000)
+      },
+      {
+        id: "2", 
+        text: "Hi! I'm interested in booking a room for this weekend. What are your available options?",
+        sender: "user",
+        timestamp: new Date(Date.now() - 30000)
+      },
+      {
+        id: "3",
+        text: "Great! We have several beautiful rooms available for this weekend. Would you prefer our Deluxe Suite with a city view or our Premium Room with a garden view? Both come with complimentary breakfast!",
+        sender: "bot",
+        timestamp: new Date()
+      }
+    ]);
+  }, []);
+
   const [bookingData, setBookingData] = useState<{
     booking_id: string;
     status: string;
@@ -274,7 +300,7 @@ const MessageButton = () => {
   };
 
   return (
-    <>
+    <HydrationSafeWrapper>
       {/* Fixed Message Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
@@ -797,7 +823,7 @@ const MessageButton = () => {
             )}
         </div>
       )}
-    </>
+    </HydrationSafeWrapper>
   );
 };
 

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useTheme } from "next-themes";
-import { Menu, X, MessageSquare, Bell, User, Settings, LogOut, UserCircle, ChevronDown, Moon, Sun, Monitor } from "lucide-react";
+import { Menu, X, MessageSquare, Bell, User, Settings, LogOut, UserCircle, ChevronDown, Moon, Sun, Monitor, Cloud, CloudRain, CloudSnow, Activity } from "lucide-react";
 import Image from "next/image";
 import { useGetConversationsQuery } from "@/redux/api/messagesApi";
 import { useGetEmployeesQuery } from "@/redux/api/employeeApi";
@@ -72,6 +72,18 @@ export default function OwnerHeader({
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [messageBadge, setMessageBadge] = useState(true);
   const [now, setNow] = useState<Date | null>(null);
+  const [weatherStatus, setWeatherStatus] = useState<{
+    condition: 'sunny' | 'cloudy' | 'rainy' | 'snowy';
+    description: string;
+    temperature: string;
+    location: string;
+  }>({
+    condition: 'sunny',
+    description: 'Loading...',
+    temperature: '--°C',
+    location: 'Mother Ignacia Ave, Diliman, QC'
+  });
+  const [weatherLoading, setWeatherLoading] = useState(true);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const notificationButtonRef = useRef<HTMLButtonElement | null>(null);
   const messageButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -169,6 +181,124 @@ export default function OwnerHeader({
     return () => window.clearInterval(id);
   }, []);
 
+  // Real weather API for Manila
+  useEffect(() => {
+    const fetchWeather = async () => {
+      try {
+        setWeatherLoading(true);
+        
+        // Debug: Check if API key is available
+        const apiKey = process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY;
+        console.log('Weather API Key available:', !!apiKey);
+        console.log('API Key length:', apiKey?.length || 0);
+        console.log('API Key first 8 chars:', apiKey?.substring(0, 8) + '...');
+        
+        // Fallback to demo data if no API key
+        if (!apiKey || apiKey.length < 10) {
+          console.log('Using demo weather data (no API key)');
+          
+          const hour = new Date().getHours();
+          const month = new Date().getMonth();
+          
+          const weatherConditions = [
+            { condition: 'sunny' as const, description: 'Clear and sunny', temperature: '30°C' },
+            { condition: 'cloudy' as const, description: 'Partly cloudy', temperature: '28°C' },
+            { condition: 'rainy' as const, description: 'Light showers', temperature: '26°C' },
+          ];
+          
+          const isRainySeason = month >= 5 && month <= 10;
+          let weatherIndex = 0;
+          
+          if (isRainySeason && hour >= 14 && hour <= 17) {
+            weatherIndex = Math.random() > 0.3 ? 2 : 1;
+          } else if (hour >= 11 && hour <= 15) {
+            weatherIndex = Math.random() > 0.4 ? 0 : 1;
+          } else if (hour >= 6 && hour <= 10) {
+            weatherIndex = Math.floor(Math.random() * 3);
+          } else if (hour >= 16 && hour <= 18) {
+            weatherIndex = Math.random() > 0.5 ? 1 : 0;
+          } else {
+            weatherIndex = 0;
+          }
+          
+          const selectedWeather = weatherConditions[weatherIndex];
+          setWeatherStatus({
+            ...selectedWeather,
+            location: 'Mother Ignacia Ave, Diliman, QC'
+          });
+          setWeatherLoading(false);
+          return;
+        }
+        
+        const lat = 14.6397; // Manila latitude
+        const lon = 121.0584; // Manila longitude
+        
+        console.log('Fetching real weather data...');
+        const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric`;
+        console.log('API URL:', url.replace(apiKey, 'HIDDEN_KEY'));
+        
+        const response = await fetch(url);
+        
+        console.log('Weather API response status:', response.status);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Weather API error response:', errorText);
+          throw new Error(`Weather API failed: ${response.status} ${errorText}`);
+        }
+        
+        const weatherData = await response.json();
+        console.log('Weather data received:', weatherData);
+        
+        // Map API response to our format
+        const temp = Math.round(weatherData.main.temp);
+        const weatherMain = weatherData.weather[0].main.toLowerCase();
+        const weatherDesc = weatherData.weather[0].description;
+        
+        let condition: 'sunny' | 'cloudy' | 'rainy' | 'snowy' = 'sunny';
+        let description = weatherDesc;
+        
+        if (weatherMain.includes('rain') || weatherMain.includes('drizzle')) {
+          condition = 'rainy';
+          description = weatherDesc;
+        } else if (weatherMain.includes('cloud')) {
+          condition = 'cloudy';
+          description = weatherDesc;
+        } else if (weatherMain.includes('clear')) {
+          condition = 'sunny';
+          description = 'Clear and sunny';
+        } else if (weatherMain.includes('snow')) {
+          condition = 'snowy';
+          description = weatherDesc;
+        }
+        
+        setWeatherStatus({
+          condition,
+          description: description.charAt(0).toUpperCase() + description.slice(1),
+          temperature: `${temp}°C`,
+          location: 'Mother Ignacia Ave, Diliman, QC'
+        });
+        
+      } catch (error) {
+        console.error('Error fetching weather:', error);
+        // Fallback to demo data on error
+        setWeatherStatus({
+          condition: 'sunny',
+          description: 'Weather unavailable',
+          temperature: '--°C',
+          location: 'Mother Ignacia Ave, Diliman, QC'
+        });
+      } finally {
+        setWeatherLoading(false);
+      }
+    };
+
+    fetchWeather();
+    const weatherInterval = setInterval(fetchWeather, 300000); // Update every 5 minutes
+
+    return () => clearInterval(weatherInterval);
+  }, []);
+
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -186,6 +316,22 @@ export default function OwnerHeader({
     };
   }, [profileDropdownOpen]);
 
+  // Helper function to get weather icon
+  const getWeatherIcon = (condition: string) => {
+    switch (condition) {
+      case 'sunny':
+        return <Sun className="w-4 h-4 text-yellow-500" />;
+      case 'cloudy':
+        return <Cloud className="w-4 h-4 text-gray-500" />;
+      case 'rainy':
+        return <CloudRain className="w-4 h-4 text-blue-500" />;
+      case 'snowy':
+        return <CloudSnow className="w-4 h-4 text-blue-300" />;
+      default:
+        return <Sun className="w-4 h-4 text-yellow-500" />;
+    }
+  };
+
   const handleLogout = async () => {
     try {
       await signOut({
@@ -198,57 +344,67 @@ export default function OwnerHeader({
   };
 
   return (
-    <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-6 h-20 min-h-20 flex-shrink-0 flex justify-between items-center sticky top-0 z-10">
-      <div className="flex items-center gap-4">
+    <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-3 sm:px-6 h-16 sm:h-20 min-h-16 sm:min-h-20 flex-shrink-0 flex justify-between items-center sticky top-0 z-10 shadow-sm">
+      <div className="flex items-center gap-2 sm:gap-4">
         {/* Mobile Menu Button */}
         <button
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg md:hidden transition-colors"
+          className="p-1.5 sm:p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg md:hidden transition-colors"
         >
-          <Menu className="w-6 h-6 text-gray-600 dark:text-gray-300" />
+          <Menu className="w-5 h-5 sm:w-6 sm:h-6 text-gray-600 dark:text-gray-300" />
         </button>
 
         {/* Desktop Sidebar Toggle */}
         <button
           onClick={() => setSidebar(!sidebar)}
-          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg hidden md:flex transition-colors"
+          className="p-1.5 sm:p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg hidden md:block transition-colors"
         >
           {sidebar ? (
-            <X className="w-6 h-6 text-gray-600 dark:text-gray-300" />
+            <X className="w-5 h-5 sm:w-6 sm:h-6 text-gray-600 dark:text-gray-300" />
           ) : (
-            <Menu className="w-6 h-6 text-gray-600 dark:text-gray-300" />
+            <Menu className="w-5 h-5 sm:w-6 sm:h-6 text-gray-600 dark:text-gray-300" />
           )}
         </button>
-
-        {/* Current Date & Time */}
-        <div className="flex flex-col items-start">
-          <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+        <div className="flex flex-col min-w-0 flex-1">
+          <p className="text-xs sm:text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">
             {now
               ? now.toLocaleString("en-US", {
-                  weekday: "long",
+                  weekday: "short",
                   year: "numeric",
-                  month: "long",
+                  month: "short",
                   day: "numeric",
                 })
               : ""}
           </p>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            {now
-              ? now.toLocaleString("en-US", {
+          <div className="flex items-center gap-1 sm:gap-2">
+            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+              {now
+                ? now.toLocaleString("en-US", {
                   hour: "2-digit",
                   minute: "2-digit",
                   second: "2-digit",
                 })
-              : ""}
-          </p>
+                : ""}
+            </p>
+            <div className="flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 bg-gray-100 dark:bg-gray-800 rounded-full cursor-help transition-colors hover:bg-gray-200 dark:hover:bg-gray-700" title={`${weatherStatus.description} - ${weatherStatus.location} (Real-time)`}>
+              {weatherLoading ? (
+                <div className="w-3 h-3 sm:w-4 sm:h-4 animate-spin rounded-full border-2 border-gray-300 border-t-brand-primary" />
+              ) : (
+                getWeatherIcon(weatherStatus.condition)
+              )}
+              <span className="text-xs text-gray-600 dark:text-gray-300 font-medium hidden sm:inline">
+                {weatherLoading ? 'Loading...' : weatherStatus.temperature}
+              </span>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-1 sm:gap-3">
         {/* Messages */}
         <button
           ref={messageButtonRef}
-          className={`relative p-2 rounded-lg transition-colors ${
+          className={`relative p-1.5 sm:p-2 rounded-lg transition-colors ${
             messageModalOpen
               ? "bg-brand-primaryLighter text-brand-primary"
               : "hover:bg-gray-100 dark:hover:bg-gray-800"
@@ -259,16 +415,18 @@ export default function OwnerHeader({
             setMessageModalOpen((prev) => !prev);
           }}
         >
-          <MessageSquare className={`w-6 h-6 ${messageModalOpen ? "text-brand-primary" : "text-gray-600 dark:text-gray-300"}`} />
+          <MessageSquare className={`w-4 h-4 sm:w-6 sm:h-6 ${messageModalOpen ? "text-brand-primary" : "text-gray-600 dark:text-gray-300"}`} />
           {messageBadge && (
-            <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+            <span className="absolute -top-1 -right-1 min-w-[16px] sm:min-w-[20px] h-4 sm:h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center px-0.5 sm:px-1">
+              •
+            </span>
           )}
         </button>
 
         {/* Notifications */}
         <button
           ref={notificationButtonRef}
-          className={`relative p-2 rounded-lg transition-colors ${
+          className={`relative p-1.5 sm:p-2 rounded-lg transition-colors ${
             notificationOpen
               ? "bg-brand-primaryLighter text-brand-primary"
               : "hover:bg-gray-100 dark:hover:bg-gray-800"
@@ -278,9 +436,11 @@ export default function OwnerHeader({
             setNotificationOpen((prev) => !prev);
           }}
         >
-          <Bell className={`w-6 h-6 ${notificationOpen ? "text-brand-primary" : "text-gray-600 dark:text-gray-300"}`} />
+          <Bell className={`w-4 h-4 sm:w-6 sm:h-6 ${notificationOpen ? "text-brand-primary" : "text-gray-600 dark:text-gray-300"}`} />
           {unreadCount > 0 && (
-            <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+            <span className="absolute -top-1 -right-1 min-w-[16px] sm:min-w-[20px] h-4 sm:h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center px-0.5 sm:px-1">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
           )}
         </button>
 
@@ -288,7 +448,7 @@ export default function OwnerHeader({
         <div className="relative" ref={dropdownRef}>
           <button
             onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-            className="flex items-center gap-2 sm:gap-3 p-1 sm:px-2 sm:py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+            className="flex items-center gap-1 sm:gap-2 p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
           >
             <div className="w-10 h-10 bg-white dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-full overflow-hidden flex items-center justify-center text-gray-700 dark:text-gray-200 font-bold cursor-pointer transition-colors">
               {headerImage ? (

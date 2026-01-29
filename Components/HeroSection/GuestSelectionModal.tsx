@@ -128,17 +128,35 @@ const GuestSelectorModal = ({ isOpen, onClose, guests, onGuestChange }: GuestSel
             </div>
           </div>
 
-          {/* Footer with gradient button */}
+          {/* Footer with action buttons */}
           <div className="px-6 py-4 border-t border-gray-200 mt-2">
-            <button
-              onClick={onClose}
-              className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600
-                       text-white font-semibold py-3 rounded-lg
-                       transition-all duration-300 active:scale-[0.98] shadow-md hover:shadow-lg
-                       text-sm sm:text-base transform hover:scale-[1.02]"
-            >
-              Done
-            </button>
+            <div className="flex gap-3">
+              {/* Reset to default button */}
+              <button
+                onClick={() => {
+                  onGuestChange('adults', 1);
+                  onGuestChange('children', 0);
+                  onGuestChange('infants', 0);
+                }}
+                className="flex-1 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600
+                         text-gray-700 dark:text-gray-300 font-medium py-3 rounded-lg
+                         transition-all duration-300 active:scale-[0.98]
+                         text-sm sm:text-base"
+              >
+                Reset Default
+              </button>
+              
+              {/* OK button */}
+              <button
+                onClick={onClose}
+                className="flex-1 bg-brand-primary hover:bg-brand-primaryDark dark:bg-brand-primary dark:hover:bg-brand-primaryDark
+                         text-white font-semibold py-3 rounded-lg
+                         transition-all duration-300 active:scale-[0.98] shadow-md hover:shadow-lg
+                         text-sm sm:text-base"
+              >
+                OK
+              </button>
+            </div>
           </div>
         </div>
       </div>

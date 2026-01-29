@@ -216,7 +216,7 @@ const DateRangePicker = ({
   };
 
   return (
-    <div ref={containerRef} className="relative sm:col-span-1 h-12 sm:h-14">
+    <div ref={containerRef} className="relative sm:col-span-1 h-12 sm:h-14 md:h-16 lg:h-14">
       {/* Date Range Display Button - Airbnb Style */}
       <button
         onClick={() => setIsOpen(!isOpen)}
