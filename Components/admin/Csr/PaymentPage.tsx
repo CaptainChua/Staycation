@@ -18,7 +18,8 @@ import {
   ChevronRight,
   ChevronsRight,
   Image as ImageIcon,
-  CreditCard,
+  CheckSquare,
+  Loader2,
 } from "lucide-react";
 import { useCallback, useMemo, useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
@@ -29,7 +30,7 @@ import {
   useUpdateBookingPaymentMutation,
 } from "@/redux/api/bookingPaymentsApi";
 import type { PaymentStatus, PaymentRow } from "./types";
-import { formatCurrency, formatDate } from "./utils";
+import { formatCurrency } from "./utils";
 import ApproveModal from "./Modals/ApproveModal";
 import RejectModal from "./Modals/RejectModal";
 import ChangeModal from "./Modals/ChangeModal";
@@ -37,34 +38,7 @@ import ViewPaymentModal from "./Modals/ViewPaymentModal";
 
 // Payment types are imported from ./types
 
-interface InfoFieldProps {
-  label: string;
-  value: React.ReactNode;
-  icon?: React.ReactNode;
-  capitalize?: boolean;
-}
-
-function InfoField({ label, value, icon, capitalize }: InfoFieldProps) {
-  return (
-    <div className="space-y-2">
-      <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
-        {label}
-      </span>
-      <div className="relative">
-        {icon && (
-          <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-gray-400 dark:text-gray-300">
-            {icon}
-          </div>
-        )}
-        <div
-          className={`w-full rounded-2xl border border-gray-200 dark:border-gray-700 px-3 py-3 text-sm text-gray-800 dark:text-gray-100 dark:bg-gray-900 ${icon ? "pl-9" : "pl-3"} ${capitalize ? "capitalize" : ""}`}
-        >
-          {value}
-        </div>
-      </div>
-    </div>
-  );
-}
+/* InfoField removed — unused in this file */
 
 // Currency and date formatting helpers moved to ./utils
 
@@ -195,6 +169,10 @@ export default function PaymentPage() {
   const [isApproveModalOpen, setIsApproveModalOpen] = useState(false);
   const [isChangeModalOpen, setIsChangeModalOpen] = useState(false);
   const [changeAmount, setChangeAmount] = useState<number>(0);
+
+  // Bulk selection state
+  const [selectedPayments, setSelectedPayments] = useState<string[]>([]);
+  const [bulkActionLoading, setBulkActionLoading] = useState(false);
 
   const payments = useMemo<PaymentRow[]>(() => {
     return (paymentsRaw || []).map((p) => {
@@ -561,6 +539,111 @@ export default function PaymentPage() {
   const endIndex = startIndex + entriesPerPage;
   const paginatedPayments = sortedPayments.slice(startIndex, endIndex);
 
+  // Visible IDs on the current page (filter out undefined ids for type-safety)
+  const visiblePaymentIds = paginatedPayments
+    .map((p) => p.id)
+    .filter((id): id is string => typeof id === "string");
+
+  // Bulk selection helpers & processing
+  const handleSelectPayment = (id: string, checked: boolean) => {
+    setSelectedPayments((prev) =>
+      checked ? [...prev, id] : prev.filter((p) => p !== id),
+    );
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      // Use only visible, defined ids for selection (avoids `undefined` values)
+      setSelectedPayments(visiblePaymentIds);
+    } else {
+      setSelectedPayments([]);
+    }
+  };
+
+  const processBulkApprove = async () => {
+    if (selectedPayments.length === 0) return;
+    setBulkActionLoading(true);
+    try {
+      await Promise.all(
+        selectedPayments.map((id) => {
+          // Find the corresponding payment row to determine the appropriate
+          // collect_amount (prefer submitted down_payment, otherwise use remaining)
+          const payment = payments.find((p) => p.id === id);
+          const submittedDown =
+            typeof payment?.booking?.down_payment === "number"
+              ? Number(payment!.booking!.down_payment)
+              : undefined;
+          const fallbackRemaining = Number(payment?.remainingValue ?? 0);
+          const collect_amount =
+            typeof submittedDown !== "undefined" && submittedDown > 0
+              ? submittedDown
+              : Math.max(0, fallbackRemaining);
+
+          const payload: Partial<UpdateBookingPaymentPayload> & {
+            id: string;
+            collect_amount?: number;
+            reviewed_by?: string | null;
+          } = {
+            id,
+            payment_status: "approved",
+            reviewed_by: session?.user?.id ?? undefined,
+          };
+
+          if (collect_amount > 0) {
+            payload.collect_amount = collect_amount;
+          }
+
+          return updateBookingPayment(payload).unwrap();
+        }),
+      );
+      toast.success(`${selectedPayments.length} payment(s) approved`);
+      logEmployeeActivity?.(
+        "BULK_APPROVE_PAYMENTS",
+        `Approved ${selectedPayments.length} payments`,
+        "payment",
+        null,
+      );
+      setSelectedPayments([]);
+      await refetch();
+    } catch (err) {
+      console.error("Bulk approve failed:", err);
+      toast.error("Failed to approve selected payments");
+    } finally {
+      setBulkActionLoading(false);
+    }
+  };
+
+  const processBulkReject = async (reason?: string) => {
+    if (selectedPayments.length === 0) return;
+    setBulkActionLoading(true);
+    try {
+      await Promise.all(
+        selectedPayments.map((id) =>
+          updateBookingPayment({
+            id,
+            payment_status: "rejected",
+            rejection_reason: reason || undefined,
+            reviewed_by: session?.user?.id ?? undefined,
+          }).unwrap(),
+        ),
+      );
+      toast.success(`${selectedPayments.length} payment(s) rejected`);
+      logEmployeeActivity?.(
+        "BULK_REJECT_PAYMENTS",
+        `Rejected ${selectedPayments.length} payments`,
+        "payment",
+        null,
+      );
+      setSelectedPayments([]);
+      await refetch();
+    } catch (err) {
+      console.error("Bulk reject failed:", err);
+      toast.error("Failed to reject selected payments");
+    } finally {
+      setBulkActionLoading(false);
+    }
+  };
+
   const handleSort = (field: keyof PaymentRow) => {
     if (sortField === field) {
       setSortDirection(sortDirection === "asc" ? "desc" : "asc");
@@ -640,6 +723,69 @@ export default function PaymentPage() {
         })}
       </div>
 
+      {/* Bulk Actions Bar */}
+      {selectedPayments.length > 0 && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-4 flex-shrink-0 border border-gray-200 dark:border-gray-700 mb-4">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <CheckSquare className="w-5 h-5 text-brand-primary" />
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                {selectedPayments.length} payment
+                {selectedPayments.length !== 1 ? "s" : ""} selected
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => processBulkApprove()}
+                disabled={bulkActionLoading}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm flex items-center gap-2"
+                type="button"
+              >
+                {bulkActionLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" /> Processing...
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-4 h-4" /> Approve
+                  </>
+                )}
+              </button>
+
+              <button
+                onClick={() => {
+                  const reason = window.prompt("Rejection reason (optional):");
+                  if (reason === null) return;
+                  processBulkReject(reason);
+                }}
+                disabled={bulkActionLoading}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm flex items-center gap-2"
+                type="button"
+              >
+                {bulkActionLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" /> Processing...
+                  </>
+                ) : (
+                  <>
+                    <X className="w-4 h-4" /> Reject
+                  </>
+                )}
+              </button>
+
+              <button
+                onClick={() => setSelectedPayments([])}
+                disabled={bulkActionLoading}
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 font-medium text-sm"
+                type="button"
+              >
+                Clear Selection
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-4">
         <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
           <div className="flex flex-col sm:flex-row gap-4 flex-1 w-full">
@@ -707,6 +853,20 @@ export default function PaymentPage() {
           <table className="w-full">
             <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 border-b-2 border-gray-200 dark:border-gray-600">
               <tr>
+                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={
+                        visiblePaymentIds.length > 0 &&
+                        selectedPayments.length === visiblePaymentIds.length
+                      }
+                      onChange={(e) => handleSelectAll(e.target.checked)}
+                      className="w-4 h-4 text-brand-primary border-gray-300 rounded focus:ring-brand-primary"
+                    />
+                    <span>Select</span>
+                  </div>
+                </th>
                 <th
                   onClick={() => handleSort("booking_id")}
                   className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
@@ -795,9 +955,24 @@ export default function PaymentPage() {
               <tbody>
                 {paginatedPayments.map((payment) => (
                   <tr
-                    key={payment.booking_id}
+                    key={payment.id}
                     className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                   >
+                    <td className="py-4 px-4">
+                      <input
+                        type="checkbox"
+                        checked={
+                          payment.id
+                            ? selectedPayments.includes(payment.id)
+                            : false
+                        }
+                        onChange={(e) =>
+                          payment.id &&
+                          handleSelectPayment(payment.id, e.target.checked)
+                        }
+                        className="w-4 h-4 text-brand-primary border-gray-300 rounded focus:ring-brand-primary"
+                      />
+                    </td>
                     <td className="py-4 px-4">
                       <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm">
                         {payment.booking_id}
@@ -988,17 +1163,30 @@ export default function PaymentPage() {
         ) : (
           paginatedPayments.map((payment) => (
             <div
-              key={payment.booking_id}
+              key={payment.id}
               className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-4 border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-transform duration-200 transform hover:-translate-y-1"
             >
               <div className="flex items-start justify-between mb-3 pb-3 border-b border-gray-200 dark:border-gray-600">
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                    Booking ID
-                  </p>
-                  <p className="font-bold text-gray-800 dark:text-gray-100">
-                    {payment.booking_id}
-                  </p>
+                <div className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    checked={
+                      payment.id ? selectedPayments.includes(payment.id) : false
+                    }
+                    onChange={(e) =>
+                      payment.id &&
+                      handleSelectPayment(payment.id, e.target.checked)
+                    }
+                    className="w-4 h-4 text-brand-primary border-gray-300 rounded focus:ring-brand-primary"
+                  />
+                  <div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                      Booking ID
+                    </p>
+                    <p className="font-bold text-gray-800 dark:text-gray-100">
+                      {payment.booking_id}
+                    </p>
+                  </div>
                 </div>
                 <span
                   className={`px-3 py-1 rounded-full text-xs font-bold ${payment.statusColor}`}
