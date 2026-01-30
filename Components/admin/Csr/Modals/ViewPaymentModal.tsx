@@ -2,20 +2,9 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import {
-  X,
-  CreditCard,
-  User,
-  DollarSign,
-  XCircle,
-  CheckCircle,
-  Clock,
-  ExternalLink,
-  MapPin,
-  Calendar,
-} from "lucide-react";
+import { X, CreditCard, User, ExternalLink, MapPin } from "lucide-react";
 import type { PaymentRow } from "../types";
-import { formatCurrency, formatDate } from "../utils";
+import { formatDate } from "../utils";
 
 interface ViewPaymentModalProps {
   isOpen: boolean;
@@ -77,7 +66,7 @@ export default function ViewPaymentModal({
       <div className="fixed inset-0 z-[9980] bg-black/50" aria-hidden="true" />
       <div
         ref={modalRef}
-        className="fixed z-[9991] w-full max-w-5xl inset-y-8 left-1/2 transform -translate-x-1/2 bg-white dark:bg-gray-900 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-col max-h-[80vh]"
+        className="fixed z-[9991] w-full max-w-5xl inset-y-8 left-1/2 transform -translate-x-1/2 bg-white dark:bg-gray-900 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-col max-h-[70vh]"
         role="dialog"
         aria-modal="true"
       >
