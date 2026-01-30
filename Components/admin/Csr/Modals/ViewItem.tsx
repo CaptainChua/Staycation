@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { Eye, X } from "lucide-react";
+import { Eye, X, Package, Activity } from "lucide-react";
 
 type InventoryStatus = "In Stock" | "Low Stock" | "Out of Stock";
 
@@ -13,6 +13,7 @@ export interface ViewInventoryItem {
   current_stock: number;
   minimum_stock: number;
   unit_type: string;
+  price_per_unit: number;
   last_restocked: string | null;
   status: InventoryStatus;
 }
@@ -53,6 +54,21 @@ const formatDateTime = (value: unknown) => {
   }).format(d);
 };
 
+const shortenId = (id: string): string => {
+  if (id.length <= 12) return id;
+  const first = id.slice(0, 8);
+  const last = id.slice(-4);
+  return `${first}...${last}`;
+};
+
+const maskId = (id: string): string => {
+  // Show only first 4 chars and last 2 chars
+  if (id.length <= 8) return id;
+  const first = id.slice(0, 4);
+  const last = id.slice(-2);
+  return `${first}...${last}`;
+};
+
 export default function ViewItem({ item, onClose }: ViewItemProps) {
   const [isMounted, setIsMounted] = useState(false);
 
@@ -85,21 +101,17 @@ export default function ViewItem({ item, onClose }: ViewItemProps) {
           className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl dark:shadow-gray-900/50 w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden pointer-events-auto"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex items-center justify-between px-8 py-6 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700">
+          <div className="flex items-center justify-between px-6 py-6 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-white rounded-2xl border border-gray-100 shadow-sm flex items-center justify-center">
-                <Eye className="w-6 h-6 text-blue-600" />
+              <div className="p-2 bg-brand-primary rounded-lg">
+                <Eye className="w-5 h-5 text-white" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-blue-600 uppercase tracking-[0.2em]">
-                  Inventory
-                </p>
-
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
-                  View Item
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                  Inventory Item Details
                 </h2>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                  Item details (read-only)
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  View complete item information
                 </p>
               </div>
             </div>
@@ -112,82 +124,94 @@ export default function ViewItem({ item, onClose }: ViewItemProps) {
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-8 py-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                  Item ID
-                </p>
-                <p className="mt-1 text-sm font-semibold text-gray-800 dark:text-gray-100">
-                  {item.item_id}
-                </p>
+          <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+            {/* Basic Information */}
+            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-3">
+              <div className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                <Package className="w-4 h-4" />
+                Item Information
               </div>
-              <div>
-                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                  Status
-                </p>
-                <span
-                  className={`mt-1 inline-block px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${statusColor}`}
-                >
-                  {item.status}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400">ID:</span>
+                  <span className="text-sm font-mono text-gray-900 dark:text-gray-100">
+                    {maskId(item.item_id)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Status:</span>
+                  <span className={`inline-block px-2 py-1 rounded-full text-xs font-bold ${statusColor}`}>
+                    {item.status}
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Name:</span>
+                <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                  {item.item_name}
                 </span>
               </div>
-              <div className="md:col-span-2">
-                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                  Item Name
-                </p>
-                <p className="mt-1 text-sm font-semibold text-gray-800 dark:text-gray-100">
-                  {item.item_name}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                  Category
-                </p>
-                <p className="mt-1 text-sm font-semibold text-gray-800 dark:text-gray-100">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Category:</span>
+                <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
                   {item.category}
-                </p>
+                </span>
               </div>
-              <div>
-                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                  Unit Type
-                </p>
-                <p className="mt-1 text-sm font-semibold text-gray-800 dark:text-gray-100">
-                  {item.unit_type || "-"}
-                </p>
+            </div>
+
+            {/* Stock Information */}
+            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-3">
+              <div className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                <Activity className="w-4 h-4" />
+                Stock Details
               </div>
-              <div>
-                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                  Current Stock
-                </p>
-                <p className="mt-1 text-sm font-semibold text-gray-800 dark:text-gray-100">
-                  {item.current_stock}
-                </p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Current:</span>
+                  <span className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                    {item.current_stock}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Minimum:</span>
+                  <span className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                    {item.minimum_stock}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Unit:</span>
+                  <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                    {item.unit_type || "-"}
+                  </span>
+                </div>
               </div>
-              <div>
-                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                  Minimum Stock
-                </p>
-                <p className="mt-1 text-sm font-semibold text-gray-800 dark:text-gray-100">
-                  {item.minimum_stock}
-                </p>
-              </div>
-              <div className="md:col-span-2">
-                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                  Last Restocked
-                </p>
-                <p className="mt-1 text-sm font-semibold text-gray-800 dark:text-gray-100">
-                  {formatDateTime(item.last_restocked)}
-                </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Price Per Unit:</span>
+                  <span className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                    {new Intl.NumberFormat('en-PH', {
+                      style: 'currency',
+                      currency: 'PHP',
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    }).format(item.price_per_unit)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Last Restocked:</span>
+                  <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                    {formatDateTime(item.last_restocked)}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="sticky bottom-0 bg-gray-50 dark:bg-gray-800 px-8 py-5 border-t border-gray-200 dark:border-gray-700 flex justify-end">
+          <div className="sticky bottom-0 bg-gray-50 dark:bg-gray-800 px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:shadow-lg hover:scale-[1.02] transition-all font-semibold"
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 font-medium text-sm"
             >
               Close
             </button>
