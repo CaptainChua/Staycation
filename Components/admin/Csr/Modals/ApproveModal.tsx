@@ -1,5 +1,6 @@
 "use client";
 
+import { createPortal } from "react-dom";
 import { CheckCircle, X, DollarSign } from "lucide-react";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
@@ -92,7 +93,7 @@ export default function ApproveModal({
     onConfirmAction(payment, amountNum);
   };
 
-  return (
+  const modalContent = (
     <div className="fixed inset-0 z-[9999]">
       <div
         className="fixed inset-0 bg-black/50 backdrop-blur-sm"
@@ -201,4 +202,8 @@ export default function ApproveModal({
       </div>
     </div>
   );
+
+  return typeof window !== "undefined"
+    ? createPortal(modalContent, document.body)
+    : null;
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { XCircle, X, User } from "lucide-react";
 import type { PaymentRow } from "../types";
 import { formatCurrency } from "../utils";
@@ -22,7 +23,7 @@ export default function RejectModal({
 
   if (!isOpen || !payment) return null;
 
-  return (
+  const modalContent = (
     <div className="fixed inset-0 z-[9999]">
       <div
         className="fixed inset-0 bg-black/50 backdrop-blur-sm"
@@ -150,4 +151,8 @@ export default function RejectModal({
       </div>
     </div>
   );
+
+  return typeof window !== "undefined"
+    ? createPortal(modalContent, document.body)
+    : null;
 }

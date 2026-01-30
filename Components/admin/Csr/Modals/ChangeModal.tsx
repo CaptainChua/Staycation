@@ -1,6 +1,7 @@
 "use client";
 
 import { DollarSign } from "lucide-react";
+import { createPortal } from "react-dom";
 import { formatCurrency } from "../utils";
 
 export default function ChangeModal({
@@ -14,7 +15,7 @@ export default function ChangeModal({
 }) {
   if (!isOpen) return null;
 
-  return (
+  const modalContent = (
     <div className="fixed inset-0 z-[9999]">
       <div className="fixed inset-0 bg-black/50" onClick={onCloseAction} />
       <div className="fixed inset-0 flex items-center justify-center p-4">
@@ -52,4 +53,8 @@ export default function ChangeModal({
       </div>
     </div>
   );
+
+  return typeof window !== "undefined"
+    ? createPortal(modalContent, document.body)
+    : null;
 }
