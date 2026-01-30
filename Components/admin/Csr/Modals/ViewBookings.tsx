@@ -66,21 +66,21 @@ export default function ViewBookings({ booking, onClose }: ViewBookingsProps) {
     const statusLower = status?.toLowerCase() || '';
     switch (statusLower) {
       case "approved":
-        return "bg-green-100 text-green-700";
+        return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300";
       case "pending":
-        return "bg-yellow-100 text-yellow-700";
+        return "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300";
       case "declined":
-        return "bg-red-100 text-red-700";
+        return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300";
       case "checked-in":
-        return "bg-blue-100 text-blue-700";
+        return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300";
       case "checked-out":
-        return "bg-indigo-100 text-indigo-700";
+        return "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300";
       case "cancelled":
-        return "bg-orange-100 text-orange-700";
+        return "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300";
       case "completed":
-        return "bg-purple-100 text-purple-700";
+        return "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300";
       default:
-        return "bg-gray-100 text-gray-700";
+        return "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200";
     }
   };
 
@@ -116,14 +116,14 @@ export default function ViewBookings({ booking, onClose }: ViewBookingsProps) {
     <>
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9998]" onClick={onClose} />
       <div className="fixed inset-0 flex items-center justify-center px-4 py-8 z-[9999]">
-        <div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
+        <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
           {/* Header */}
-          <div className="flex items-center justify-between px-8 py-6 border-b border-gray-100 bg-gradient-to-r from-orange-50 to-yellow-50">
+          <div className="flex items-center justify-between px-8 py-6 border-b border-gray-100 dark:border-gray-800 bg-gradient-to-r from-orange-50 to-yellow-50 dark:from-gray-900 dark:to-gray-900">
             <div>
               <p className="text-sm font-semibold text-orange-500 uppercase tracking-[0.2em]">
                 Booking Details
               </p>
-              <h2 className="text-3xl font-bold text-gray-900 mt-1">
+              <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mt-1">
                 {booking.booking_id}
               </h2>
               <div className="mt-2">
@@ -134,9 +134,9 @@ export default function ViewBookings({ booking, onClose }: ViewBookingsProps) {
             </div>
             <button
               onClick={onClose}
-              className="p-2 rounded-full hover:bg-white/70 transition-colors"
+              className="p-2 rounded-full hover:bg-white/70 dark:hover:bg-gray-800 transition-colors"
             >
-              <X className="w-6 h-6 text-gray-600" />
+              <X className="w-6 h-6 text-gray-600 dark:text-gray-300" />
             </button>
           </div>
 
@@ -148,7 +148,7 @@ export default function ViewBookings({ booking, onClose }: ViewBookingsProps) {
                 <p className="text-sm font-semibold text-gray-500 uppercase tracking-[0.3em]">
                   Guest Information
                 </p>
-                <h3 className="text-lg font-semibold text-gray-900">Primary Contact</h3>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Primary Contact</h3>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <InfoField label="Full Name" icon={<User className="w-4 h-4" />} value={guestName} />
@@ -163,7 +163,7 @@ export default function ViewBookings({ booking, onClose }: ViewBookingsProps) {
                       label="Facebook Profile"
                       icon={<Facebook className="w-4 h-4" />}
                       value={
-                        <a href={booking.facebook_link} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                        <a href={booking.facebook_link} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">
                           {booking.facebook_link}
                         </a>
                       }
@@ -176,7 +176,7 @@ export default function ViewBookings({ booking, onClose }: ViewBookingsProps) {
                       label="Valid ID"
                       icon={<IdCard className="w-4 h-4" />}
                       value={
-                        <a href={booking.valid_id_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline inline-flex items-center gap-2">
+                        <a href={booking.valid_id_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-2">
                           <ImageIcon className="w-4 h-4" />
                           View Valid ID
                         </a>
@@ -194,30 +194,30 @@ export default function ViewBookings({ booking, onClose }: ViewBookingsProps) {
                   <p className="text-sm font-semibold text-gray-500 uppercase tracking-[0.3em]">
                     Additional Guests
                   </p>
-                  <h3 className="text-lg font-semibold text-gray-900">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                     {additionalGuests.length} {additionalGuests.length === 1 ? 'Guest' : 'Guests'}
                   </h3>
                 </div>
                 <div className="space-y-3">
                   {additionalGuests.map((guest: { firstName?: string; lastName?: string; age?: string; gender?: string; validIdUrl?: string }, index: number) => (
-                    <div key={index} className="bg-gray-50 rounded-2xl p-4">
+                    <div key={index} className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-4">
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                         <div>
-                          <p className="text-xs text-gray-500 mb-1">Name</p>
-                          <p className="font-semibold text-gray-800">{guest.firstName} {guest.lastName}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Name</p>
+                          <p className="font-semibold text-gray-800 dark:text-gray-100">{guest.firstName} {guest.lastName}</p>
                         </div>
                         <div>
-                          <p className="text-xs text-gray-500 mb-1">Age</p>
-                          <p className="font-semibold text-gray-800">{guest.age || 'N/A'}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Age</p>
+                          <p className="font-semibold text-gray-800 dark:text-gray-100">{guest.age || 'N/A'}</p>
                         </div>
                         <div>
-                          <p className="text-xs text-gray-500 mb-1">Gender</p>
-                          <p className="font-semibold text-gray-800 capitalize">{guest.gender || 'N/A'}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Gender</p>
+                          <p className="font-semibold text-gray-800 dark:text-gray-100 capitalize">{guest.gender || 'N/A'}</p>
                         </div>
                         {guest.validIdUrl && (
                           <div>
-                            <p className="text-xs text-gray-500 mb-1">Valid ID</p>
-                            <a href={guest.validIdUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-xs">
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Valid ID</p>
+                            <a href={guest.validIdUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline text-xs">
                               View ID
                             </a>
                           </div>
@@ -235,7 +235,7 @@ export default function ViewBookings({ booking, onClose }: ViewBookingsProps) {
                 <p className="text-sm font-semibold text-gray-500 uppercase tracking-[0.3em]">
                   Reservation Details
                 </p>
-                <h3 className="text-lg font-semibold text-gray-900">Stay Information</h3>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Stay Information</h3>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <InfoField label="Haven" icon={<MapPin className="w-4 h-4" />} value={booking.room_name} />
@@ -244,23 +244,25 @@ export default function ViewBookings({ booking, onClose }: ViewBookingsProps) {
                   icon={<UsersIcon className="w-4 h-4" />}
                   value={`${totalGuests} (Adults: ${booking.adults}, Children: ${booking.children}, Infants: ${booking.infants})`}
                 />
+
                 <InfoField
                   label="Check-In"
                   icon={<Calendar className="w-4 h-4" />}
                   value={
                     <div>
                       <p className="font-semibold">{formatDate(booking.check_in_date)}</p>
-                      <p className="text-xs text-gray-500">{booking.check_in_time}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{booking.check_in_time}</p>
                     </div>
                   }
                 />
+
                 <InfoField
                   label="Check-Out"
                   icon={<Calendar className="w-4 h-4" />}
                   value={
                     <div>
                       <p className="font-semibold">{formatDate(booking.check_out_date)}</p>
-                      <p className="text-xs text-gray-500">{booking.check_out_time}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{booking.check_out_time}</p>
                     </div>
                   }
                 />
@@ -278,7 +280,7 @@ export default function ViewBookings({ booking, onClose }: ViewBookingsProps) {
                 <p className="text-sm font-semibold text-gray-500 uppercase tracking-[0.3em]">
                   Payment Details
                 </p>
-                <h3 className="text-lg font-semibold text-gray-900">Billing Summary</h3>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Billing Summary</h3>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <InfoField label="Haven Rate" icon={<DollarSign className="w-4 h-4" />} value={formatCurrency(booking.room_rate)} />
@@ -287,15 +289,15 @@ export default function ViewBookings({ booking, onClose }: ViewBookingsProps) {
                 <InfoField
                   label="Total Amount"
                   icon={<DollarSign className="w-4 h-4" />}
-                  value={<span className="text-lg font-bold text-gray-900">{formatCurrency(booking.total_amount)}</span>}
+                  value={<span className="text-lg font-bold text-gray-900 dark:text-gray-100">{formatCurrency(booking.total_amount)}</span>}
                 />
                 <InfoField
                   label="Down Payment"
-                  value={<span className="text-green-700 font-semibold">{formatCurrency(booking.down_payment)}</span>}
+                  value={<span className="text-green-700 dark:text-green-300 font-semibold">{formatCurrency(booking.down_payment)}</span>}
                 />
                 <InfoField
                   label="Remaining Balance"
-                  value={<span className="text-orange-700 font-semibold">{formatCurrency(booking.remaining_balance)}</span>}
+                  value={<span className="text-orange-700 dark:text-orange-300 font-semibold">{formatCurrency(booking.remaining_balance)}</span>}
                 />
                 <InfoField label="Payment Method" icon={<CreditCard className="w-4 h-4" />} value={booking.payment_method} capitalize />
                 {booking.payment_proof_url && (
@@ -303,7 +305,7 @@ export default function ViewBookings({ booking, onClose }: ViewBookingsProps) {
                     label="Payment Proof"
                     icon={<ImageIcon className="w-4 h-4" />}
                     value={
-                      <a href={booking.payment_proof_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline inline-flex items-center gap-2">
+                      <a href={booking.payment_proof_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-2">
                         <ImageIcon className="w-4 h-4" />
                         View Payment Proof
                       </a>
@@ -315,21 +317,21 @@ export default function ViewBookings({ booking, onClose }: ViewBookingsProps) {
           </div>
 
           {/* Footer actions */}
-          <div className="px-8 py-5 border-t border-gray-100 flex flex-col sm:flex-row justify-between gap-3 bg-white">
-            <p className="text-xs text-gray-500">
+          <div className="px-8 py-5 border-t border-gray-100 dark:border-gray-800 flex flex-col sm:flex-row justify-between gap-3 bg-white dark:bg-gray-900">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
               Last updated: {booking.updated_at ? formatDate(booking.updated_at) : 'N/A'}
             </p>
             <div className="flex gap-3 justify-end">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-5 py-2.5 rounded-xl border border-gray-200 text-gray-600 font-semibold hover:bg-gray-50 transition"
+                className="px-5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-200 font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition"
               >
                 Close
               </button>
               <button
                 type="button"
-                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-yellow-500 text-white font-semibold shadow-lg shadow-orange-200 hover:from-orange-600 hover:to-yellow-600 transition"
+                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-yellow-500 text-white font-semibold shadow-lg shadow-orange-200/70 dark:shadow-none hover:from-orange-600 hover:to-yellow-600 transition"
               >
                 Edit Booking
               </button>
@@ -351,15 +353,15 @@ interface InfoFieldProps {
 
 const InfoField = ({ label, value, icon, capitalize }: InfoFieldProps) => (
   <div className="space-y-2">
-    <span className="text-sm font-medium text-gray-600">{label}</span>
+    <span className="text-sm font-medium text-gray-600 dark:text-gray-300">{label}</span>
     <div className="relative">
       {icon && (
-        <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-gray-400">
+        <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-gray-400 dark:text-gray-500">
           {icon}
         </div>
       )}
       <div
-        className={`w-full rounded-2xl border border-gray-200 px-3 py-3 text-sm text-gray-800 ${icon ? "pl-9" : "pl-3"} ${capitalize ? "capitalize" : ""}`}
+        className={`w-full rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-3 text-sm text-gray-800 dark:text-gray-100 ${icon ? "pl-9" : "pl-3"} ${capitalize ? "capitalize" : ""}`}
       >
         {value}
       </div>

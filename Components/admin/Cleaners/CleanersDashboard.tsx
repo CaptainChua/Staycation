@@ -360,10 +360,11 @@ export default function CleanersDashboard() {
         </div>
 
         {/* Navigation Items */}
-        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+        <nav className="flex-1 p-4 space-y-2 overflow-y-auto scrollbar-hide">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = page === item.id;
+
             return (
               <button
                 key={item.id}
