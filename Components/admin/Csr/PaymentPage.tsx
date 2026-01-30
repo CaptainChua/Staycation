@@ -23,7 +23,10 @@ import {
 import { useCallback, useMemo, useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
-import type { UpdateBookingPaymentPayload } from "@/types/bookingPayment";
+import type {
+  UpdateBookingPaymentPayload,
+  BookingPayment,
+} from "@/types/bookingPayment";
 import {
   useGetBookingPaymentsQuery,
   useUpdateBookingPaymentMutation,
@@ -54,8 +57,7 @@ interface PaymentRow {
   payment_proof?: string | null;
   status: PaymentStatus;
   statusColor: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  booking?: any;
+  booking?: BookingPayment["booking"];
 }
 
 interface InfoFieldProps {

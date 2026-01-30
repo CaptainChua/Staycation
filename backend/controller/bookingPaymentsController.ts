@@ -491,13 +491,12 @@ export const updateBookingPayment = async (
       updatedPayment = updateRes.rows[0];
     } catch (err) {
       // Detect Postgres check-constraint violation (SQLSTATE 23514) or message text.
+      const errObj = (err as Record<string, unknown>) || {};
       const errCode =
-        err && typeof err === "object" && "code" in err
-          ? (err as any).code
-          : null;
+        typeof errObj["code"] === "string" ? (errObj["code"] as string) : null;
       const errMsg =
-        err && typeof err === "object" && "message" in err
-          ? (err as any).message
+        typeof errObj["message"] === "string"
+          ? (errObj["message"] as string)
           : String(err);
       const isCheckViolation =
         errCode === "23514" || /violates check constraint/i.test(errMsg);
