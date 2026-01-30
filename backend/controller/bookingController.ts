@@ -105,7 +105,10 @@ export const updateBookingDetails = async (
 
     let mainValidIdUrl: string | null = null;
     if (valid_id) {
-      const uploadResult = await upload_file(valid_id, "staycation-haven/valid-ids");
+      const uploadResult = await upload_file(
+        valid_id,
+        "staycation-haven/valid-ids",
+      );
       mainValidIdUrl = uploadResult.url;
     } else if (typeof valid_id_url === "string" && valid_id_url.trim()) {
       mainValidIdUrl = valid_id_url;
@@ -125,9 +128,15 @@ export const updateBookingDetails = async (
       for (const g of additional_guests) {
         let guestIdUrl: string | null = null;
         if (g?.validId) {
-          const uploadResult = await upload_file(g.validId, "staycation-haven/valid-ids");
+          const uploadResult = await upload_file(
+            g.validId,
+            "staycation-haven/valid-ids",
+          );
           guestIdUrl = uploadResult.url;
-        } else if (typeof g?.valid_id_url === "string" && g.valid_id_url.trim()) {
+        } else if (
+          typeof g?.valid_id_url === "string" &&
+          g.valid_id_url.trim()
+        ) {
           guestIdUrl = g.valid_id_url;
         }
         allGuests.push({
@@ -142,7 +151,9 @@ export const updateBookingDetails = async (
       }
     }
 
-    await client.query(`DELETE FROM booking_guests WHERE booking_id = $1`, [id]);
+    await client.query(`DELETE FROM booking_guests WHERE booking_id = $1`, [
+      id,
+    ]);
     for (const g of allGuests) {
       await client.query(
         `
@@ -165,9 +176,19 @@ export const updateBookingDetails = async (
 
     let paymentProofUrl: string | null = null;
     if (payment_proof) {
-      const uploadResult = await upload_file(payment_proof, "staycation-haven/payment-proofs");
+      const uploadResult = await upload_file(
+        payment_proof,
+        "staycation-haven/payment-proofs",
+      );
       paymentProofUrl = uploadResult.url;
     }
+
+    // Ensure amount_paid remains consistent with the provided remaining_balance.
+    // If remaining_balance was provided, compute amount_paid = total_amount - remaining_balance.
+    const paymentAmountPaid =
+      typeof remaining_balance !== "undefined" && remaining_balance !== null
+        ? Number(total_amount) - Number(remaining_balance)
+        : Number(down_payment ?? 0);
 
     const paymentUpdateRes = await client.query(
       `
@@ -178,8 +199,9 @@ export const updateBookingDetails = async (
             add_ons_total = $4,
             total_amount = $5,
             down_payment = $6,
-            remaining_balance = $7
-        WHERE booking_id = $8
+            amount_paid = $7,
+            remaining_balance = $8
+        WHERE booking_id = $9
         RETURNING id
       `,
       [
@@ -189,6 +211,7 @@ export const updateBookingDetails = async (
         add_ons_total,
         total_amount,
         down_payment,
+        paymentAmountPaid,
         remaining_balance,
         id,
       ],
@@ -199,9 +222,9 @@ export const updateBookingDetails = async (
         `
           INSERT INTO booking_payments (
             booking_id, payment_method, payment_proof_url, room_rate,
-            add_ons_total, total_amount, down_payment, remaining_balance
+            add_ons_total, total_amount, down_payment, amount_paid, remaining_balance
           )
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         `,
         [
           id,
@@ -211,17 +234,21 @@ export const updateBookingDetails = async (
           add_ons_total,
           total_amount,
           down_payment,
+          paymentAmountPaid,
           remaining_balance,
         ],
       );
     }
 
-    await client.query(`DELETE FROM booking_add_ons WHERE booking_id = $1`, [id]);
+    await client.query(`DELETE FROM booking_add_ons WHERE booking_id = $1`, [
+      id,
+    ]);
     if (add_ons && typeof add_ons === "object") {
       for (const [name, quantity] of Object.entries(add_ons)) {
         const quantityNum = Number(quantity);
         if (quantityNum > 0) {
-          const addOnPrice = ADD_ON_PRICES[name as keyof typeof ADD_ON_PRICES] || 0;
+          const addOnPrice =
+            ADD_ON_PRICES[name as keyof typeof ADD_ON_PRICES] || 0;
           await client.query(
             `
               INSERT INTO booking_add_ons (booking_id, name, price, quantity)
@@ -272,7 +299,8 @@ export const updateBookingDetails = async (
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Failed to update booking",
+        error:
+          error instanceof Error ? error.message : "Failed to update booking",
       },
       { status: 500 },
     );
@@ -410,18 +438,26 @@ export const createBooking = async (
       try {
         const uploadResult = await upload_file(
           valid_id,
-          "staycation-haven/valid-ids"
+          "staycation-haven/valid-ids",
         );
         validIdUrl = uploadResult.url;
       } catch (err: unknown) {
-        const e = err as { message?: string; http_code?: number; name?: string };
+        const e = err as {
+          message?: string;
+          http_code?: number;
+          name?: string;
+        };
         return NextResponse.json(
           {
             success: false,
             error: "Failed to upload valid ID.",
-            details: { message: e?.message, name: e?.name, http_code: e?.http_code },
+            details: {
+              message: e?.message,
+              name: e?.name,
+              http_code: e?.http_code,
+            },
           },
-          { status: 500 }
+          { status: 500 },
         );
       }
     }
@@ -490,14 +526,15 @@ export const createBooking = async (
 
     // Calculate payment amounts (security deposit is handled separately during checkout)
     const paymentTotalAmount = total_amount; // Full amount during booking (security deposit handled at checkout)
-    const paymentRemainingBalance = paymentTotalAmount - down_payment;
+    const paymentAmountPaid = Number(down_payment ?? 0); // initial collected amount
+    const paymentRemainingBalance = paymentTotalAmount - paymentAmountPaid;
 
     const paymentQuery = `
       INSERT INTO booking_payments (
         booking_id, payment_method, payment_proof_url, room_rate,
-        add_ons_total, total_amount, down_payment, remaining_balance
+        add_ons_total, total_amount, down_payment, amount_paid, remaining_balance
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
     `;
 
     const paymentValues = [
@@ -508,6 +545,7 @@ export const createBooking = async (
       add_ons_total,
       paymentTotalAmount,
       down_payment,
+      paymentAmountPaid,
       paymentRemainingBalance,
     ];
 
@@ -557,34 +595,35 @@ export const createBooking = async (
 
     // Get the complete booking data for response (include the booking payment object)
     const completeBookingQuery = `
-      SELECT
-        b.*,
-        bg.first_name,
-        bg.last_name,
-        bg.email,
-        bg.phone,
-        bg.valid_id_url,
-        json_build_object(
-          'id', bp.id,
-          'payment_method', bp.payment_method,
-          'payment_proof_url', bp.payment_proof_url,
-          'room_rate', bp.room_rate,
-          'add_ons_total', bp.add_ons_total,
-          'total_amount', bp.total_amount,
-          'down_payment', bp.down_payment,
-          'remaining_balance', bp.remaining_balance,
-          'payment_status', bp.payment_status,
-          'rejection_reason', bp.rejection_reason,
-          'reviewed_by', bp.reviewed_by,
-          'reviewed_at', bp.reviewed_at,
-          'created_at', bp.created_at
-        ) AS booking_payment
-      FROM booking b
-      JOIN booking_guests bg ON b.id = bg.booking_id
-      JOIN booking_payments bp ON b.id = bp.booking_id
-      WHERE b.id = $1
-      LIMIT 1
-    `;
+    SELECT
+      b.*,
+      bg.first_name,
+      bg.last_name,
+      bg.email,
+      bg.phone,
+      bg.valid_id_url,
+      json_build_object(
+        'id', bp.id,
+        'payment_method', bp.payment_method,
+        'payment_proof_url', bp.payment_proof_url,
+        'room_rate', bp.room_rate,
+        'add_ons_total', bp.add_ons_total,
+        'total_amount', bp.total_amount,
+        'down_payment', bp.down_payment,
+        'amount_paid', bp.amount_paid,
+        'remaining_balance', bp.remaining_balance,
+        'payment_status', bp.payment_status,
+        'rejection_reason', bp.rejection_reason,
+        'reviewed_by', bp.reviewed_by,
+        'reviewed_at', bp.reviewed_at,
+        'created_at', bp.created_at
+      ) AS booking_payment
+    FROM booking b
+    JOIN booking_guests bg ON b.id = bg.booking_id
+    JOIN booking_payments bp ON b.id = bp.booking_id
+    WHERE b.id = $1
+    LIMIT 1
+  `;
 
     const completeResult = await client.query(completeBookingQuery, [
       bookingId,
@@ -845,11 +884,7 @@ export const updateBookingStatus = async (
 ): Promise<NextResponse> => {
   try {
     const body = await req.json();
-    const {
-      id,
-      status,
-      rejection_reason,
-    } = body;
+    const { id, status, rejection_reason } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -972,7 +1007,7 @@ export const updateBookingStatus = async (
       data: result.rows[0],
       message:
         typeof status === "string"
-          ? `Booking ${status} successfully` 
+          ? `Booking ${status} successfully`
           : "Booking updated successfully",
     });
   } catch (error) {
