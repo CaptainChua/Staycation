@@ -60,28 +60,63 @@ const getStatusColorClass = (status?: string | null) => {
   return "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200";
 };
 
-// Small table skeleton rows (used while bookings are loading)
+/* Small table skeleton rows (used while bookings are loading) */
 const TableSkeleton = ({ rows = 5 }: { rows?: number }) => (
   <tbody>
     {Array.from({ length: rows }).map((_, i) => (
       <tr key={i} className="border-b border-gray-100 dark:border-gray-700">
+        {/* Select */}
+        <td className="py-4 px-4">
+          <div className="h-4 w-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+        </td>
+
+        {/* Booking ID */}
         <td className="py-4 px-4">
           <div className="h-4 w-28 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
         </td>
+
+        {/* Guest */}
         <td className="py-4 px-4">
           <div className="h-4 w-40 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
         </td>
+
+        {/* Total Amount */}
         <td className="py-4 px-4 text-right">
           <div className="h-4 w-16 mx-auto bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
         </td>
-        <td className="py-4 px-4 text-center">
-          <div className="h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded mx-auto animate-pulse" />
+
+        {/* Down Payment */}
+        <td className="py-4 px-4 text-right">
+          <div className="h-4 w-16 mx-auto bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
         </td>
-        <td className="py-4 px-4 text-center">
-          <div className="h-4 w-20 bg-gray-200 dark:bg-gray-700 rounded mx-auto animate-pulse" />
+
+        {/* Amount Paid */}
+        <td className="py-4 px-4 text-right">
+          <div className="h-4 w-16 mx-auto bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
         </td>
+
+        {/* Remaining Balance */}
+        <td className="py-4 px-4 text-right">
+          <div className="h-4 w-16 mx-auto bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+        </td>
+
+        {/* Payment Proof */}
+        <td className="py-4 px-4 text-center">
+          <div className="h-4 w-20 mx-auto bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+        </td>
+
+        {/* Status */}
+        <td className="py-4 px-4 text-center">
+          <div className="h-6 w-20 mx-auto bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse" />
+        </td>
+
+        {/* Actions */}
         <td className="py-4 px-4">
-          <div className="h-8 w-32 bg-gray-200 dark:bg-gray-700 rounded mx-auto animate-pulse" />
+          <div className="flex items-center justify-center gap-2">
+            <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+            <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+            <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+          </div>
         </td>
       </tr>
     ))}
