@@ -18,6 +18,9 @@ import {
   ChevronsRight,
   FileDown,
   FileSpreadsheet,
+  AlertCircle,
+  CheckCircle,
+  RefreshCw,
 } from "lucide-react";
 
 import { useEffect, useMemo, useState } from "react";
@@ -36,6 +39,7 @@ const CATEGORY_FILTER_OPTIONS = [
   "Cleaning Supplies",
   "Linens & Bedding",
   "Kitchen Supplies",
+  "Add ons",
 ] as const;
 
 interface InventoryRow {
@@ -45,6 +49,7 @@ interface InventoryRow {
   current_stock: number;
   minimum_stock: number;
   unit_type: string;
+  price_per_unit: number;
   last_restocked: string | null;
   status: InventoryStatus;
   statusColor: string;
@@ -57,6 +62,7 @@ type InventoryApiRow = {
   current_stock: number;
   minimum_stock: number;
   unit_type: string;
+  price_per_unit: number;
   last_restocked: string | null;
   status: string;
   created_at: string;
@@ -108,6 +114,184 @@ const formatDateTime = (value: unknown) => {
   }).format(d);
 };
 
+// Translation content for guides
+const guideTranslations = {
+  en: {
+    statusGuide: {
+      title: "Inventory Status Guide",
+      statuses: [
+        {
+          name: "In Stock",
+          description: "Items have sufficient quantity above minimum threshold"
+        },
+        {
+          name: "Low Stock",
+          description: "Items are running low (at or below threshold of 10 units)"
+        },
+        {
+          name: "Out of Stock",
+          description: "No items available or quantity is zero"
+        }
+      ]
+    },
+    usageGuide: {
+      title: "How to Manage Inventory",
+      steps: [
+        {
+          title: "Add New Items",
+          description: "Click 'Add Item' to create new inventory items with category, stock level, and minimum threshold"
+        },
+        {
+          title: "Monitor Stock Levels",
+          description: "Review status indicators to track which items need restocking"
+        },
+        {
+          title: "Edit Item Details",
+          description: "Update item information including current stock, minimum stock, and unit type"
+        },
+        {
+          title: "Track Usage",
+          description: "Monitor usage patterns to optimize reorder quantities"
+        }
+      ],
+      actionGuideTitle: "How to Use Actions:",
+      actions: [
+        {
+          title: "View",
+          description: "Click the eye icon to view full item details and history"
+        },
+        {
+          title: "Edit",
+          description: "Update item stock levels, thresholds, and other details"
+        },
+        {
+          title: "Delete",
+          description: "Remove items that are no longer needed"
+        }
+      ]
+    },
+    bulkGuide: {
+      title: "Bulk Operations Guide",
+      steps: [
+        {
+          title: "Filter Items",
+          description: "Use search, category, and status filters to find items you want to manage"
+        },
+        {
+          title: "Export Data",
+          description: "Download inventory data as CSV or PDF for reporting and analysis"
+        },
+        {
+          title: "Review & Track",
+          description: "Monitor stock levels and usage trends across all items"
+        }
+      ],
+      whenToUseTitle: "When to Use Features:",
+      useCases: [
+        {
+          title: "Use Filters",
+          description: "When you need to focus on specific items by category or stock status"
+        },
+        {
+          title: "Export Reports",
+          description: "When you need to share inventory data with management or suppliers"
+        },
+        {
+          title: "Monitor Usage",
+          description: "When planning reorder schedules based on consumption patterns"
+        }
+      ]
+    }
+  },
+  fil: {
+    statusGuide: {
+      title: "Inventory Status Guide",
+      statuses: [
+        {
+          name: "In Stock",
+          description: "May sapat na dami ng items sa minimum threshold"
+        },
+        {
+          name: "Low Stock",
+          description: "Kaunting items na lang (10 units o mas kaunti)"
+        },
+        {
+          name: "Out of Stock",
+          description: "Walang items o zero ang quantity"
+        }
+      ]
+    },
+    usageGuide: {
+      title: "Paano mag-manage ng Inventory",
+      steps: [
+        {
+          title: "Magdagdag ng Bagong Items",
+          description: "I-click 'Add Item' para gumawa ng bagong inventory items with category, stock level, at minimum"
+        },
+        {
+          title: "Bantayan ang Stock Levels",
+          description: "Tingnan ang status para malaman kung aling items ang kailangan ng restock"
+        },
+        {
+          title: "I-edit ang Item Details",
+          description: "I-update ang item info kasama ang current stock, minimum stock, at unit type"
+        },
+        {
+          title: "Bantayan ang Usage",
+          description: "Subaybayan ang usage patterns para ma-optimize ang reorder quantities"
+        }
+      ],
+      actionGuideTitle: "Paano gamitin ang Actions:",
+      actions: [
+        {
+          title: "View",
+          description: "I-click ang mata icon para makita ang full item details at history"
+        },
+        {
+          title: "Edit",
+          description: "I-update ang item stock levels, thresholds, at iba pang details"
+        },
+        {
+          title: "Delete",
+          description: "I-tanggal ang items na hindi na kailangan"
+        }
+      ]
+    },
+    bulkGuide: {
+      title: "Bulk Operations Guide",
+      steps: [
+        {
+          title: "Mag-filter ng Items",
+          description: "Gamitin ang search, category, at status filters para mahanap ang items"
+        },
+        {
+          title: "I-export ang Data",
+          description: "I-download ang inventory data as CSV o PDF para sa reports at analysis"
+        },
+        {
+          title: "Subaybayan ang Stock",
+          description: "Bantayan ang stock levels at usage trends sa lahat ng items"
+        }
+      ],
+      whenToUseTitle: "Kailan gamitin ang Features:",
+      useCases: [
+        {
+          title: "Gamitin ang Filters",
+          description: "Pag kailangan mong mag-focus sa specific items by category o stock status"
+        },
+        {
+          title: "I-export ang Reports",
+          description: "Pag kailangan mong magbahagi ng inventory data sa management o suppliers"
+        },
+        {
+          title: "Bantayan ang Usage",
+          description: "Pag nagplaplano ng reorder schedules based sa consumption patterns"
+        }
+      ]
+    }
+  }
+};
+
 export default function InventoryPage() {
   const [isAddItemOpen, setIsAddItemOpen] = useState(false);
   const [viewItem, setViewItem] = useState<ViewInventoryItem | null>(null);
@@ -129,6 +313,12 @@ export default function InventoryPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [rows, setRows] = useState<InventoryRow[]>([]);
+
+  // Guide states
+  const [showStatusGuide, setShowStatusGuide] = useState(false);
+  const [showUsageGuide, setShowUsageGuide] = useState(false);
+  const [showBulkGuide, setShowBulkGuide] = useState(false);
+  const [guideLanguage, setGuideLanguage] = useState<"en" | "fil">("en");
 
   const loadInventory = async () => {
     const res = await fetch("/api/inventory", {
@@ -156,6 +346,7 @@ export default function InventoryPage() {
         current_stock: currentStock,
         minimum_stock: Number(r.minimum_stock ?? 0),
         unit_type: r.unit_type,
+        price_per_unit: Number(r.price_per_unit ?? 0),
         last_restocked: lastRestocked,
         status,
         statusColor: statusToColor(status),
@@ -189,12 +380,32 @@ export default function InventoryPage() {
     };
   }, []);
 
-  const usageRows: UsageRow[] = [
-    { item_id: "IT-001", name: "Bath Towel", used_today: 12, used_week: 78, trend: "up" },
-    { item_id: "IT-002", name: "Guest Kit", used_today: 5, used_week: 34, trend: "up" },
-    { item_id: "IT-004", name: "Extra Slippers", used_today: 3, used_week: 19, trend: "down" },
-    { item_id: "IT-005", name: "Extra Comforter", used_today: 2, used_week: 9, trend: "up" },
-  ];
+  // Compute usage rows dynamically from inventory data
+  const usageRows = useMemo(() => {
+    if (!rows || rows.length === 0) return [];
+
+    // Only show items with low stock or out of stock as they indicate higher usage
+    return rows
+      .filter(row => row.status === "Low Stock" || row.status === "Out of Stock")
+      .map(row => {
+        // Calculate usage metrics based on stock levels
+        const stockDeficiency = Math.max(0, row.minimum_stock - row.current_stock);
+        const used_today = Math.ceil(stockDeficiency / 3); // Estimate daily usage
+        const used_week = stockDeficiency * 2; // Estimate weekly usage
+
+        // Determine trend based on current stock vs minimum threshold
+        const trend: "up" | "down" = row.current_stock < (row.minimum_stock / 2) ? "up" : "down";
+
+        return {
+          item_id: row.item_id,
+          name: row.item_name,
+          used_today,
+          used_week,
+          trend
+        };
+      })
+      .slice(0, 10); // Show top 10 most used items
+  }, [rows]);
 
   const filteredRows = useMemo(() => {
     const term = searchTerm.toLowerCase();
@@ -292,7 +503,7 @@ export default function InventoryPage() {
 
   const handleExportExcel = () => {
     const rowsToExport = getExportRows();
-    const headers = ["Item ID", "Item Name", "Category", "Current Stock", "Minimum Stock", "Unit Type", "Status", "Last Restocked"];
+    const headers = ["Item ID", "Item Name", "Category", "Current Stock", "Minimum Stock", "Unit Type", "Price Per Unit", "Status", "Last Restocked"];
     const csvLines = [headers.join(",")];
 
     rowsToExport.forEach((row) => {
@@ -303,6 +514,7 @@ export default function InventoryPage() {
         row.current_stock,
         row.minimum_stock,
         row.unit_type,
+        row.price_per_unit,
         row.status,
         row.last_restocked ? formatDateTime(row.last_restocked) : "-",
       ]
@@ -376,6 +588,7 @@ export default function InventoryPage() {
        "Current Stock",
        "Minimum Stock",
        "Unit Type",
+       "Price Per Unit",
        "Status",
        "Last Restocked",
      ];
@@ -387,6 +600,7 @@ export default function InventoryPage() {
        row.current_stock.toString(),
        row.minimum_stock.toString(),
        row.unit_type,
+       `₱${row.price_per_unit.toFixed(2)}`,
        row.status,
        row.last_restocked ? formatDateTime(row.last_restocked) : "-",
      ]);
@@ -435,120 +649,10 @@ export default function InventoryPage() {
    }
  };
 
-  const showSkeleton = loading && rows.length === 0;
-
-  const Skeleton = ({ className }: { className: string }) => (
-    <div className={`animate-pulse bg-gray-200 dark:bg-gray-700 ${className}`} />
-  );
-
   return (
-    <div className="space-y-6 animate-in fade-in duration-700">
-      {showSkeleton ? (
-        <>
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div className="space-y-2">
-              <Skeleton className="h-7 w-64 rounded-lg" />
-              <Skeleton className="h-4 w-80 rounded-lg" />
-            </div>
-            <Skeleton className="h-10 w-32 rounded-lg" />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {Array.from({ length: 4 }).map((_, idx) => (
-              <div
-                key={idx}
-                className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 shadow"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="space-y-3">
-                    <Skeleton className="h-4 w-24 rounded" />
-                    <Skeleton className="h-8 w-16 rounded" />
-                  </div>
-                  <Skeleton className="h-12 w-12 rounded-full" />
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-4 border border-gray-200 dark:border-gray-700">
-            <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-              <div className="flex flex-col sm:flex-row gap-4 flex-1 w-full">
-                <div className="flex items-center gap-2">
-                  <Skeleton className="h-4 w-10 rounded" />
-                  <Skeleton className="h-10 w-20 rounded-lg" />
-                  <Skeleton className="h-4 w-14 rounded" />
-                </div>
-                <div className="flex-1">
-                  <Skeleton className="h-10 w-full rounded-lg" />
-                </div>
-              </div>
-              <div className="flex flex-wrap items-center gap-3">
-                <Skeleton className="h-10 w-36 rounded-lg" />
-                <Skeleton className="h-10 w-40 rounded-lg" />
-                <Skeleton className="h-10 w-28 rounded-lg" />
-                <Skeleton className="h-10 w-32 rounded-lg" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden border border-gray-200 dark:border-gray-700">
-            <div className="overflow-x-auto">
-              <div className="min-w-[1050px]">
-                <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 border-b border-gray-200 dark:border-gray-600">
-                  <Skeleton className="h-5 w-52 rounded" />
-                </div>
-                <div className="divide-y divide-gray-100 dark:divide-gray-700">
-                  {Array.from({ length: 6 }).map((_, idx) => (
-                    <div
-                      key={idx}
-                      className="px-6 py-4 flex items-center gap-4"
-                    >
-                      <Skeleton className="h-4 w-24 rounded" />
-                      <Skeleton className="h-4 w-56 rounded" />
-                      <Skeleton className="h-4 w-40 rounded" />
-                      <Skeleton className="h-4 w-16 rounded" />
-                      <Skeleton className="h-4 w-16 rounded" />
-                      <Skeleton className="h-4 w-32 rounded" />
-                      <Skeleton className="h-6 w-24 rounded-full" />
-                      <Skeleton className="h-8 w-24 rounded-lg" />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-6 border border-gray-200 dark:border-gray-700">
-            <div className="space-y-2 mb-4">
-              <Skeleton className="h-5 w-40 rounded" />
-              <Skeleton className="h-4 w-72 rounded" />
-            </div>
-            <div className="overflow-x-auto">
-              <div className="min-w-[750px] space-y-3">
-                <div className="grid grid-cols-4 gap-4">
-                  <Skeleton className="h-4 w-full rounded" />
-                  <Skeleton className="h-4 w-full rounded" />
-                  <Skeleton className="h-4 w-full rounded" />
-                  <Skeleton className="h-4 w-full rounded" />
-                </div>
-                {Array.from({ length: 4 }).map((_, idx) => (
-                  <div
-                    key={idx}
-                    className="grid grid-cols-4 gap-4 items-center"
-                  >
-                    <Skeleton className="h-4 w-48 rounded" />
-                    <Skeleton className="h-4 w-16 rounded" />
-                    <Skeleton className="h-4 w-16 rounded" />
-                    <Skeleton className="h-4 w-20 rounded" />
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </>
-      ) : (
-        <>
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div className="space-y-6 animate-in fade-in duration-700 overflow-hidden h-full flex flex-col">
+      <div className="w-full space-y-6 flex-1 flex flex-col">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 flex-shrink-0 border border-gray-200 dark:border-gray-700 rounded-lg p-6 bg-white dark:bg-gray-800 shadow dark:shadow-gray-900">
             <div>
               <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
                 Inventory Management
@@ -557,14 +661,6 @@ export default function InventoryPage() {
                 Manage items, stock levels, and usage tracking
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => setIsAddItemOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-brand-primary to-brand-primaryDark text-white rounded-lg hover:shadow-lg hover:scale-[1.02] transition-all font-semibold shadow-[rgba(186,144,60,0.35)]"
-            >
-              <Plus className="w-5 h-5" />
-              Add Item
-            </button>
           </div>
 
           {isAddItemOpen && (
@@ -591,6 +687,7 @@ export default function InventoryPage() {
                       current_stock: item.current_stock,
                       minimum_stock: item.minimum_stock,
                       unit_type: item.unit_type,
+                      price_per_unit: item.price_per_unit,
                       status: derivedStatus,
                     }),
                   });
@@ -655,6 +752,215 @@ export default function InventoryPage() {
             />
           )}
 
+          {/* Status Guide */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-6 border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between mb-2">
+              <button
+                onClick={() => setShowStatusGuide(!showStatusGuide)}
+                className="flex-1 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded-lg transition-colors"
+              >
+                <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100">{guideTranslations[guideLanguage].statusGuide.title}</h4>
+                <ChevronRight className={`w-5 h-5 text-gray-600 dark:text-gray-300 transform transition-transform ${showStatusGuide ? 'rotate-90' : ''}`} />
+              </button>
+              <div className="flex gap-1 ml-2">
+                {(['en', 'fil'] as const).map((lang) => (
+                  <button
+                    key={lang}
+                    onClick={() => setGuideLanguage(lang)}
+                    className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                      guideLanguage === lang
+                        ? 'bg-brand-primary text-white'
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    {lang === 'en' ? 'EN' : 'FIL'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {showStatusGuide && (
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                {guideTranslations[guideLanguage].statusGuide.statuses.map((status, idx) => {
+                  const statusColors: Record<string, string> = {
+                    "In Stock": "bg-green-500",
+                    "Low Stock": "bg-yellow-500",
+                    "Out of Stock": "bg-red-500"
+                  };
+                  const color = statusColors[status.name] || "bg-gray-500";
+
+                  return (
+                    <div key={idx} className="flex items-start gap-3">
+                      <div className={`w-3 h-3 ${color} rounded-full mt-1 flex-shrink-0`}></div>
+                      <div>
+                        <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{status.name}</h5>
+                        <p className="text-xs text-gray-600 dark:text-gray-300">{status.description}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* How to Use Inventory Guide */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-6 border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between mb-2">
+              <button
+                onClick={() => setShowUsageGuide(!showUsageGuide)}
+                className="flex-1 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded-lg transition-colors"
+              >
+                <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100">{guideTranslations[guideLanguage].usageGuide.title}</h4>
+                <ChevronRight className={`w-5 h-5 text-gray-600 dark:text-gray-300 transform transition-transform ${showUsageGuide ? 'rotate-90' : ''}`} />
+              </button>
+              <div className="flex gap-1 ml-2">
+                {(['en', 'fil'] as const).map((lang) => (
+                  <button
+                    key={lang}
+                    onClick={() => setGuideLanguage(lang)}
+                    className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                      guideLanguage === lang
+                        ? 'bg-brand-primary text-white'
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    {lang === 'en' ? 'EN' : 'FIL'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {showUsageGuide && (
+              <div className="mt-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {guideTranslations[guideLanguage].usageGuide.steps.map((step, idx) => (
+                    <div key={idx} className="flex items-start gap-3">
+                      <div className="w-8 h-8 bg-brand-primary text-white rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold">{idx + 1}</div>
+                      <div>
+                        <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{step.title}</h5>
+                        <p className="text-xs text-gray-600 dark:text-gray-300">{step.description}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                  <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm mb-3">{guideTranslations[guideLanguage].usageGuide.actionGuideTitle}</h5>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-gray-600 dark:text-gray-300">
+                    {guideTranslations[guideLanguage].usageGuide.actions.map((action, idx) => {
+                      const getActionIcon = (title: string) => {
+                        const iconMap: Record<string, typeof Eye> = {
+                          View: Eye,
+                          Edit: Edit,
+                          Delete: Trash2
+                        };
+                        return iconMap[title] || Eye;
+                      };
+
+                      const getActionColor = (title: string) => {
+                        const colorMap: Record<string, string> = {
+                          View: 'text-blue-600 dark:text-blue-400',
+                          Edit: 'text-indigo-600 dark:text-indigo-400',
+                          Delete: 'text-red-600 dark:text-red-400'
+                        };
+                        return colorMap[title] || 'text-gray-600 dark:text-gray-400';
+                      };
+
+                      const IconComponent = getActionIcon(action.title);
+                      const iconColor = getActionColor(action.title);
+
+                      return (
+                        <div key={idx} className="flex items-start gap-2">
+                          <IconComponent className={`w-4 h-4 ${iconColor} flex-shrink-0 mt-0.5`} />
+                          <span><strong>{action.title}:</strong> {action.description}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Bulk Operations Guide */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-6 border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between mb-2">
+              <button
+                onClick={() => setShowBulkGuide(!showBulkGuide)}
+                className="flex-1 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded-lg transition-colors"
+              >
+                <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100">{guideTranslations[guideLanguage].bulkGuide.title}</h4>
+                <ChevronRight className={`w-5 h-5 text-gray-600 dark:text-gray-300 transform transition-transform ${showBulkGuide ? 'rotate-90' : ''}`} />
+              </button>
+              <div className="flex gap-1 ml-2">
+                {(['en', 'fil'] as const).map((lang) => (
+                  <button
+                    key={lang}
+                    onClick={() => setGuideLanguage(lang)}
+                    className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                      guideLanguage === lang
+                        ? 'bg-brand-primary text-white'
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    {lang === 'en' ? 'EN' : 'FIL'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {showBulkGuide && (
+              <div className="mt-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {guideTranslations[guideLanguage].bulkGuide.steps.map((step, idx) => (
+                    <div key={idx} className="flex items-start gap-3">
+                      <div className="w-8 h-8 bg-brand-primary text-white rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold">{idx + 1}</div>
+                      <div>
+                        <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{step.title}</h5>
+                        <p className="text-xs text-gray-600 dark:text-gray-300">{step.description}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                  <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm mb-3">{guideTranslations[guideLanguage].bulkGuide.whenToUseTitle}</h5>
+                  <div className="space-y-2 text-xs text-gray-600 dark:text-gray-300">
+                    {guideTranslations[guideLanguage].bulkGuide.useCases.map((useCase, idx) => {
+                      const getUseCaseIcon = (title: string) => {
+                        const iconMap: Record<string, typeof AlertCircle> = {
+                          'Use Filters': Filter,
+                          'Export Reports': FileDown,
+                          'Monitor Usage': Activity
+                        };
+                        return iconMap[title] || AlertCircle;
+                      };
+
+                      const getUseCaseColor = (title: string) => {
+                        const colorMap: Record<string, string> = {
+                          'Use Filters': 'text-blue-600 dark:text-blue-400',
+                          'Export Reports': 'text-green-600 dark:text-green-400',
+                          'Monitor Usage': 'text-indigo-600 dark:text-indigo-400'
+                        };
+                        return colorMap[title] || 'text-gray-600 dark:text-gray-400';
+                      };
+
+                      const IconComponent = getUseCaseIcon(useCase.title);
+                      const iconColor = getUseCaseColor(useCase.title);
+
+                      return (
+                        <div key={idx} className="flex items-start gap-2">
+                          <IconComponent className={`w-4 h-4 ${iconColor} flex-shrink-0 mt-0.5`} />
+                          <span><strong>{useCase.title}:</strong> {useCase.description}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {[
               {
@@ -698,6 +1004,17 @@ export default function InventoryPage() {
                 </div>
               );
             })}
+          </div>
+
+          <div className="flex justify-start flex-shrink-0">
+            <button
+              type="button"
+              onClick={() => setIsAddItemOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-lg hover:bg-opacity-90 transition-all font-semibold"
+            >
+              <Plus className="w-5 h-5" />
+              Add Item
+            </button>
           </div>
 
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-4">
@@ -781,6 +1098,14 @@ export default function InventoryPage() {
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
+                    onClick={loadInventory}
+                    className="p-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                    title="Refresh Data"
+                  >
+                    <RefreshCw className={`w-4 h-4 text-gray-600 dark:text-gray-300 ${loading ? 'animate-spin' : ''}`} />
+                  </button>
+                  <button
+                    type="button"
                     onClick={handleExportPdf}
                     className="inline-flex items-center gap-2 px-3 py-2 border border-red-500 text-red-600 rounded-lg text-sm font-semibold hover:bg-red-50 transition-colors"
                   >
@@ -808,7 +1133,7 @@ export default function InventoryPage() {
 
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1050px]">
+              <table className="w-full min-w-[1150px]">
                 <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 border-b-2 border-gray-200 dark:border-gray-600">
                   <tr>
                     <th
@@ -857,6 +1182,15 @@ export default function InventoryPage() {
                       </div>
                     </th>
                     <th
+                      onClick={() => handleSort("price_per_unit")}
+                      className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors whitespace-nowrap"
+                    >
+                      <div className="flex items-center justify-center gap-2">
+                        Price
+                        <ArrowUpDown className="w-4 h-4 text-gray-400" />
+                      </div>
+                    </th>
+                    <th
                       onClick={() => handleSort("last_restocked")}
                       className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors whitespace-nowrap"
                     >
@@ -883,7 +1217,7 @@ export default function InventoryPage() {
                   {loading ? (
                     <tr>
                       <td
-                        colSpan={8}
+                        colSpan={9}
                         className="py-10 px-4 text-center text-sm text-gray-500 dark:text-gray-400"
                       >
                         <div className="flex items-center justify-center gap-3">
@@ -895,7 +1229,7 @@ export default function InventoryPage() {
                   ) : paginatedRows.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={8}
+                        colSpan={9}
                         className="py-10 px-4 text-center text-sm text-gray-500 dark:text-gray-400"
                       >
                         No inventory items found.
@@ -933,6 +1267,13 @@ export default function InventoryPage() {
                           </span>
                         </td>
                         <td className="py-4 px-4 text-center">
+                          <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                            {row.price_per_unit > 0
+                              ? `₱${row.price_per_unit.toFixed(2)}`
+                              : ""}
+                          </span>
+                        </td>
+                        <td className="py-4 px-4 text-center">
                           <span className="text-sm font-semibold text-gray-700 dark:text-gray-200 whitespace-nowrap">
                             {formatDateTime(row.last_restocked)}
                           </span>
@@ -950,7 +1291,17 @@ export default function InventoryPage() {
                               className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                               title="View"
                               type="button"
-                              onClick={() => {
+                              onClick={async () => {
+                                try {
+                                  // Call API to log the view action
+                                  await fetch(`/api/inventory?item_id=${row.item_id}`, {
+                                    method: "GET",
+                                    headers: { "Content-Type": "application/json" },
+                                  });
+                                } catch (err) {
+                                  console.error("Failed to log view action:", err);
+                                }
+                                // Show the view modal
                                 setViewItem({
                                   item_id: row.item_id,
                                   item_name: row.item_name,
@@ -958,6 +1309,7 @@ export default function InventoryPage() {
                                   current_stock: row.current_stock,
                                   minimum_stock: row.minimum_stock,
                                   unit_type: row.unit_type,
+                                  price_per_unit: row.price_per_unit,
                                   last_restocked: row.last_restocked,
                                   status: row.status,
                                 });
@@ -978,6 +1330,7 @@ export default function InventoryPage() {
                                   current_stock: row.current_stock,
                                   minimum_stock: row.minimum_stock,
                                   unit_type: row.unit_type,
+                                  price_per_unit: row.price_per_unit,
                                   status: row.status,
                                 })
                               }
@@ -1159,8 +1512,7 @@ export default function InventoryPage() {
               </table>
             </div>
           </div>
-        </>
-      )}
+      </div>
     </div>
   );
 }
