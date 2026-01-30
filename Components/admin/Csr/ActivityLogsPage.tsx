@@ -158,7 +158,7 @@ export default function ActivityLogsPage() {
       }
 
       const data = await response.json();
-      setLogs(data.logs || []);
+      setLogs(data.data?.logs || []);
     } catch (error) {
       console.error('Error fetching activity logs:', error);
     } finally {
