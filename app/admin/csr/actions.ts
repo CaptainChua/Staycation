@@ -63,7 +63,12 @@ export async function getDeposits(): Promise<DepositRecord[]> {
         h.tower
       FROM booking_security_deposits sd
       INNER JOIN booking b ON sd.booking_id = b.id
-      LEFT JOIN booking_guests bg ON b.id = bg.booking_id
+      LEFT JOIN LATERAL (
+        SELECT first_name, last_name, email, phone, facebook_link, valid_id_url
+        FROM booking_guests
+        WHERE booking_id = b.id
+        LIMIT 1
+      ) bg ON true
       LEFT JOIN havens h ON b.room_name = h.haven_name
       ORDER BY b.check_out_date DESC, sd.held_at DESC
     `;

@@ -9,6 +9,7 @@ const ALLOWED_CATEGORIES = new Set([
   "Cleaning Supplies",
   "Linens & Bedding",
   "Kitchen Supplies",
+  "Add ons",
 ]);
 
 const ALLOWED_STATUSES = new Set(["In Stock", "Low Stock", "Out of Stock"]);
@@ -23,6 +24,7 @@ export const getAllInventory = async (req: NextRequest): Promise<NextResponse> =
         current_stock,
         minimum_stock,
         unit_type,
+        price_per_unit,
         last_restocked,
         status,
         created_at,
@@ -50,6 +52,120 @@ export const getAllInventory = async (req: NextRequest): Promise<NextResponse> =
   }
 };
 
+export const getInventoryItemById = async (req: NextRequest): Promise<NextResponse> => {
+  try {
+    const session = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+    const userId = session?.sub || session?.id;
+
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, error: "You must be signed in to view inventory items" },
+        { status: 401 }
+      );
+    }
+
+    const { searchParams } = new URL(req.url);
+    const item_id = searchParams.get("item_id");
+
+    if (!item_id) {
+      return NextResponse.json(
+        { success: false, error: "Item ID is required" },
+        { status: 400 }
+      );
+    }
+
+    const query = `
+      SELECT
+        item_id,
+        item_name,
+        category,
+        current_stock,
+        minimum_stock,
+        unit_type,
+        price_per_unit,
+        last_restocked,
+        status,
+        created_at,
+        updated_at
+      FROM inventory
+      WHERE item_id = $1
+    `;
+
+    const result = await pool.query(query, [item_id]);
+
+    if (result.rowCount === 0) {
+      return NextResponse.json(
+        { success: false, error: "Inventory item not found" },
+        { status: 404 }
+      );
+    }
+
+    const item = result.rows[0];
+
+    // Extract IP and user agent for logging
+    const extractClientIp = (): string => {
+      const headerCandidates = [
+        "x-real-ip",
+        "cf-connecting-ip",
+        "x-client-ip",
+        "x-forwarded-for",
+      ];
+      for (const header of headerCandidates) {
+        const value = req.headers.get(header);
+        if (value) {
+          return header === "x-forwarded-for" ? value.split(",")[0]?.trim() || value : value.trim();
+        }
+      }
+      return "unknown";
+    };
+
+    const ipAddress = extractClientIp();
+    const userAgent = req.headers.get("user-agent") || "unknown";
+
+    // Log the view action
+    const viewDescription = `Viewed inventory item: ${item.item_name} (Category: ${item.category})`;
+
+    await pool.query(
+      `
+      INSERT INTO employee_activity_logs (
+        employee_id,
+        activity_type,
+        description,
+        entity_type,
+        entity_id,
+        ip_address,
+        user_agent,
+        created_at
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+    `,
+      [
+        userId,
+        "VIEW_INVENTORY",
+        viewDescription,
+        "inventory",
+        item_id,
+        ipAddress,
+        userAgent.slice(0, 255),
+      ]
+    );
+
+    return NextResponse.json({
+      success: true,
+      data: item,
+    });
+  } catch (error: any) {
+    console.log("❌ Error getting inventory item:", error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: error?.message || "Failed to get inventory item",
+      },
+      { status: 500 }
+    );
+  }
+};
+
 export const createInventoryItem = async (req: NextRequest): Promise<NextResponse> => {
   try {
     const session = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
@@ -69,6 +185,7 @@ export const createInventoryItem = async (req: NextRequest): Promise<NextRespons
     const current_stock = Number(body?.current_stock ?? body?.stock ?? 0);
     const minimum_stock = Number(body?.minimum_stock ?? body?.min_stock ?? 0);
     const unit_type = String(body?.unit_type ?? "").trim();
+    const price_per_unit = Number(body?.price_per_unit ?? 0);
     const statusRaw = String(body?.status ?? "").trim();
 
     if (!item_name) {
@@ -121,12 +238,13 @@ export const createInventoryItem = async (req: NextRequest): Promise<NextRespons
         current_stock,
         minimum_stock,
         unit_type,
+        price_per_unit,
         last_restocked,
         status,
         created_at,
         updated_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, NOW(), NOW())
+      VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), $8, NOW(), NOW())
       RETURNING
         item_id,
         item_name,
@@ -134,6 +252,7 @@ export const createInventoryItem = async (req: NextRequest): Promise<NextRespons
         current_stock,
         minimum_stock,
         unit_type,
+        price_per_unit,
         last_restocked,
         status,
         created_at,
@@ -185,35 +304,32 @@ export const createInventoryItem = async (req: NextRequest): Promise<NextRespons
         current_stock,
         minimum_stock,
         unit_type,
+        price_per_unit || null,
         dbStatus,
       ]);
 
-      const actionDescription = `Added inventory item ${item_name}`;
+      const actionDescription = `Added inventory item: ${item_name} (Stock: ${current_stock}, Category: ${category})`;
 
       await client.query(
         `
-        INSERT INTO activity_logs (
-          user_id,
-          action_type,
-          action_description,
-          target_type,
-          target_id,
-          old_value,
-          new_value,
+        INSERT INTO employee_activity_logs (
+          employee_id,
+          activity_type,
+          description,
+          entity_type,
+          entity_id,
           ip_address,
           user_agent,
           created_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, timezone('Asia/Manila', now()))
+        VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
       `,
         [
           userId,
-          "inventory_create",
-          actionDescription.slice(0, 255),
+          "ADD_INVENTORY",
+          actionDescription,
           "inventory",
           item_id,
-          null,
-          String(current_stock),
           ipAddress,
           userAgent.slice(0, 255),
         ]
@@ -266,6 +382,7 @@ export const updateInventoryItem = async (req: NextRequest): Promise<NextRespons
     const current_stock = Number(body?.current_stock ?? body?.stock ?? NaN);
     const minimum_stock = Number(body?.minimum_stock ?? body?.min_stock ?? NaN);
     const unit_type = String(body?.unit_type ?? "").trim();
+    const price_per_unit = Number(body?.price_per_unit ?? 0);
     const statusRaw = String(body?.status ?? "").trim();
 
     if (!item_id) {
@@ -358,40 +475,39 @@ export const updateInventoryItem = async (req: NextRequest): Promise<NextRespons
             current_stock = $4,
             minimum_stock = $5,
             unit_type = $6,
-            status = $7,
+            price_per_unit = $7,
+            status = $8,
             updated_at = NOW()
         WHERE item_id = $1
-        RETURNING item_id, item_name, category, current_stock, minimum_stock, unit_type, last_restocked, status, updated_at
+        RETURNING item_id, item_name, category, current_stock, minimum_stock, unit_type, price_per_unit, last_restocked, status, updated_at
       `,
-        [item_id, item_name, category, current_stock, minimum_stock, unit_type, dbStatus]
+        [item_id, item_name, category, current_stock, minimum_stock, unit_type, price_per_unit || null, dbStatus]
       );
 
       const updatedRow = updateResult.rows[0];
 
+      const updateDescription = `Updated inventory item: ${item_name} (Stock: ${current_stock}, Category: ${category})`;
+
       await client.query(
         `
-        INSERT INTO activity_logs (
-          user_id,
-          action_type,
-          action_description,
-          target_type,
-          target_id,
-          old_value,
-          new_value,
+        INSERT INTO employee_activity_logs (
+          employee_id,
+          activity_type,
+          description,
+          entity_type,
+          entity_id,
           ip_address,
           user_agent,
           created_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, timezone('Asia/Manila', now()))
+        VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
       `,
         [
           userId,
-          "inventory_update",
-          `Updated inventory item ${item_name}`.slice(0, 255),
+          "EDIT_INVENTORY",
+          updateDescription,
           "inventory",
           item_id,
-          JSON.stringify(existing.rows[0]).slice(0, 100),
-          JSON.stringify(updatedRow).slice(0, 100),
           ipAddress,
           userAgent.slice(0, 255),
         ]
@@ -488,32 +604,31 @@ export const deleteInventoryItem = async (req: NextRequest): Promise<NextRespons
         return NextResponse.json({ success: false, error: "Inventory item not found" }, { status: 404 });
       }
 
+      const deletedItem = existing.rows[0];
       await client.query(`DELETE FROM inventory WHERE item_id = $1`, [item_id]);
+
+      const deleteDescription = `Deleted inventory item: ${deletedItem.item_name} (Category: ${deletedItem.category})`;
 
       await client.query(
         `
-        INSERT INTO activity_logs (
-          user_id,
-          action_type,
-          action_description,
-          target_type,
-          target_id,
-          old_value,
-          new_value,
+        INSERT INTO employee_activity_logs (
+          employee_id,
+          activity_type,
+          description,
+          entity_type,
+          entity_id,
           ip_address,
           user_agent,
           created_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, timezone('Asia/Manila', now()))
+        VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
       `,
         [
           userId,
-          "inventory_delete",
-          `Deleted inventory item ${existing.rows[0].item_name}`.slice(0, 255),
+          "DELETE_INVENTORY",
+          deleteDescription,
           "inventory",
           item_id,
-          JSON.stringify(existing.rows[0]).slice(0, 100),
-          null,
           ipAddress,
           userAgent.slice(0, 255),
         ]

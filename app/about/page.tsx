@@ -14,7 +14,7 @@ import SidebarLayout from "@/Components/SidebarLayout";
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: "Staycation Haven PH | About",
+  title: "About",
   description: "Learn about Staycation Haven PH - your premier destination for flexible, comfortable, and affordable urban staycations in Quezon City.",
 };
 
