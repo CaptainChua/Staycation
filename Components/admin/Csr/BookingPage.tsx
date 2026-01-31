@@ -1,6 +1,6 @@
 "use client";
 
-import { Calendar, Search, Filter, Plus, Eye, Edit, Trash2, MapPin, User, Phone, Mail, CheckCircle, Clock, LogIn, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUpDown, Download, FileSpreadsheet } from "lucide-react";
+import { Calendar, Search, Filter, Plus, Eye, Edit, Trash2, MapPin, User, Phone, Mail, CheckCircle, Clock, LogIn, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUpDown, Download, FileSpreadsheet, RefreshCw } from "lucide-react";
 import { useEffect, useMemo, useState, useRef } from "react";
 import { useSession } from "next-auth/react";
 import ViewBookings from "./Modals/ViewBookings";
@@ -419,28 +419,36 @@ export default function BookingsPage() {
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-700">
+    <div className="space-y-6 animate-in fade-in duration-700 overflow-hidden h-full flex flex-col">
       {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 flex-shrink-0 border border-gray-200 dark:border-gray-700 rounded-lg p-6 bg-white dark:bg-gray-800 shadow dark:shadow-gray-900">
         <div>
           <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Bookings Management</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage all customer bookings and reservations</p>
         </div>
-        <button
-          onClick={() => {
-            setIsNewBookingModalOpen(true);
-            logEmployeeActivity('OPEN_NEW_BOOKING', 'Opened create booking modal');
-          }}
-          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-brand-primary to-brand-primaryDark text-white rounded-lg hover:shadow-lg hover:scale-[1.02] transition-all font-semibold shadow-[rgba(186,144,60,0.35)]"
-        >
-          <Plus className="w-5 h-5" />
-          New Booking
-        </button>
-
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => window.location.reload()}
+            className="p-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+            title="Refresh Data"
+          >
+            <RefreshCw className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+          </button>
+          <button
+            onClick={() => {
+              setIsNewBookingModalOpen(true);
+              logEmployeeActivity('OPEN_NEW_BOOKING', 'Opened create booking modal');
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-brand-primary to-brand-primaryDark text-white rounded-lg hover:shadow-lg hover:scale-[1.02] transition-all font-semibold shadow-[rgba(186,144,60,0.35)]"
+          >
+            <Plus className="w-5 h-5" />
+            New Booking
+          </button>
+        </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 flex-shrink-0">
         {[
           { label: "Total Bookings", value: stats.total.toString(), color: "bg-blue-500", icon: Calendar },
           { label: "Confirmed", value: stats.confirmed.toString(), color: "bg-green-500", icon: CheckCircle },
@@ -451,7 +459,7 @@ export default function BookingsPage() {
           return (
             <div
               key={i}
-              className={`${stat.color} text-white rounded-lg p-6 shadow hover:shadow-lg transition-all`}
+              className={`${stat.color} text-white rounded-lg p-6 shadow dark:shadow-gray-900 hover:shadow-lg transition-all border border-gray-200 dark:border-gray-600`}
             >
               <div className="flex items-center justify-between">
                 <div>
@@ -465,8 +473,43 @@ export default function BookingsPage() {
         })}
       </div>
 
+      {/* Booking Status Guide */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-6 flex-shrink-0 border border-gray-200 dark:border-gray-700">
+        <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4">Booking Status Guide</h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="flex items-start gap-3">
+            <div className="w-3 h-3 bg-yellow-500 rounded-full mt-1 flex-shrink-0"></div>
+            <div>
+              <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">Pending</h5>
+              <p className="text-xs text-gray-600 dark:text-gray-300">Booking awaiting approval or payment confirmation</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <div className="w-3 h-3 bg-green-500 rounded-full mt-1 flex-shrink-0"></div>
+            <div>
+              <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">Approved</h5>
+              <p className="text-xs text-gray-600 dark:text-gray-300">Booking confirmed and approved by management</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <div className="w-3 h-3 bg-blue-500 rounded-full mt-1 flex-shrink-0"></div>
+            <div>
+              <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">Checked-In</h5>
+              <p className="text-xs text-gray-600 dark:text-gray-300">Guest has arrived and checked in to the haven</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <div className="w-3 h-3 bg-red-500 rounded-full mt-1 flex-shrink-0"></div>
+            <div>
+              <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">Checked-Out</h5>
+              <p className="text-xs text-gray-600 dark:text-gray-300">Guest has completed their stay</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Search and Filter Bar */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-4 flex-shrink-0 border border-gray-200 dark:border-gray-700">
         <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
           <div className="flex flex-col sm:flex-row gap-4 flex-1 w-full">
             {/* Entries Per Page */}
@@ -619,10 +662,10 @@ export default function BookingsPage() {
       </div>
 
       {/* Bookings Table - Desktop View */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden hidden lg:block">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 border-b-2 border-gray-200 dark:border-gray-600">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden flex-1 flex flex-col min-h-0 border border-gray-200 dark:border-gray-700 hidden lg:flex">
+        <div className="overflow-x-auto overflow-y-auto flex-1 h-[600px] max-h-[600px]">
+          <table className="w-full min-w-[1400px]">
+            <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 border-b-2 border-gray-200 dark:border-gray-600 sticky top-0 z-10">
               <tr>
                 <th
                   onClick={() => handleSort("id")}
@@ -817,7 +860,7 @@ export default function BookingsPage() {
       </div>
 
       {/* Mobile/Tablet Card View */}
-      <div className="lg:hidden space-y-4 bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden p-4">
+      <div className="lg:hidden space-y-4 bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden p-4 flex-1 flex flex-col min-h-0">
         {isLoading ? (
           <div className="py-16 text-center">
             <div className="flex flex-col items-center justify-center">
@@ -951,7 +994,7 @@ export default function BookingsPage() {
       </div>
 
       {/* Pagination */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden flex-shrink-0 mt-auto border border-gray-200 dark:border-gray-700">
         <div className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 px-6 py-4 border-t border-gray-200 dark:border-gray-600">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <p className="text-sm text-gray-600 dark:text-gray-300">

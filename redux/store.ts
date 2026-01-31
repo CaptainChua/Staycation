@@ -14,6 +14,7 @@ import { notificationsApi } from "./api/notificationsApi";
 import { reviewsApi } from "./api/reviewsApi";
 import { blockedDatesApi } from "./api/blockedDatesApi";
 import { adminUsersApi } from "./api/adminUsersApi";
+import { cleanersApi } from "./api/cleanersApi";
 
 export const store = configureStore({
   reducer: {
@@ -31,6 +32,7 @@ export const store = configureStore({
     [reviewsApi.reducerPath]: reviewsApi.reducer,
     [blockedDatesApi.reducerPath]: blockedDatesApi.reducer,
     [adminUsersApi.reducerPath]: adminUsersApi.reducer,
+    [cleanersApi.reducerPath]: cleanersApi.reducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware()
@@ -46,7 +48,8 @@ export const store = configureStore({
       .concat(notificationsApi.middleware)
       .concat(reviewsApi.middleware)
       .concat(blockedDatesApi.middleware)
-      .concat(adminUsersApi.middleware),
+      .concat(adminUsersApi.middleware)
+      .concat(cleanersApi.middleware),
 });
 
 setupListeners(store.dispatch);

@@ -49,6 +49,200 @@ const highlightText = (text: string, searchTerm: string) => {
   );
 };
 
+// Translation content for guides
+const guideTranslations = {
+  en: {
+    statusGuide: {
+      title: "Deliverable Status Guide",
+      statuses: [
+        {
+          name: "Pending",
+          description: "Items waiting to be prepared"
+        },
+        {
+          name: "Preparing",
+          description: "Items currently being prepared"
+        },
+        {
+          name: "Delivered",
+          description: "Successfully delivered to guest"
+        },
+        {
+          name: "Cancelled",
+          description: "Order was cancelled"
+        },
+        {
+          name: "Refunded",
+          description: "Payment has been refunded"
+        }
+      ]
+    },
+    usageGuide: {
+      title: "How to Manage Deliverables",
+      steps: [
+        {
+          title: "Select Items to Process",
+          description: "Use the checkboxes to select deliverables you want to update, or use \"Select All\" in the table header"
+        },
+        {
+          title: "Update Item Status",
+          description: "Click on the status buttons (Preparing/Delivered/Cancelled) to update individual items or all items in a booking"
+        },
+        {
+          title: "Track Payment Status",
+          description: "Check payment indicators to see if full payment, down payment, or pending payment status for each deliverable"
+        },
+        {
+          title: "Process Bulk Actions",
+          description: "Use the bulk actions bar that appears when items are selected to update multiple deliverables at once"
+        }
+      ],
+      actionGuideTitle: "How to Use Actions:",
+      actions: [
+        {
+          title: "Preparing",
+          description: "Use when you start preparing the items for delivery"
+        },
+        {
+          title: "Delivered",
+          description: "Use when items have been successfully delivered to the guest"
+        },
+        {
+          title: "Cancelled",
+          description: "Use when items are no longer needed or the order is cancelled"
+        }
+      ]
+    },
+    bulkGuide: {
+      title: "Bulk Operations Guide",
+      steps: [
+        {
+          title: "Select Items",
+          description: "Check the checkboxes next to deliverables you want to update, or use \"Select All\" in the table header"
+        },
+        {
+          title: "Choose Action",
+          description: "A bulk actions bar will appear at the top showing your selection with action buttons (Preparing/Delivered/Cancelled)"
+        },
+        {
+          title: "Apply to All",
+          description: "The action will be applied to all items in the selected deliverables at once"
+        }
+      ],
+      whenToUseTitle: "When to Use Bulk Operations:",
+      useCases: [
+        {
+          title: "Mark as Preparing",
+          description: "When multiple bookings have items that need to be prepared at the same time"
+        },
+        {
+          title: "Mark as Delivered",
+          description: "When multiple items have been delivered and need status update in bulk"
+        },
+        {
+          title: "Mark as Cancelled",
+          description: "When multiple orders need to be cancelled at once"
+        }
+      ]
+    }
+  },
+  fil: {
+    statusGuide: {
+      title: "Deliverable Status Guide",
+      statuses: [
+        {
+          name: "Pending",
+          description: "Naghihintay na i-prepare"
+        },
+        {
+          name: "Preparing",
+          description: "Kasalukuyang ini-prepare"
+        },
+        {
+          name: "Delivered",
+          description: "Na-deliver na sa guest"
+        },
+        {
+          name: "Cancelled",
+          description: "Kinansela na ang order"
+        },
+        {
+          name: "Refunded",
+          description: "Na-refund na ang payment"
+        }
+      ]
+    },
+    usageGuide: {
+      title: "Paano mag-manage ng Deliverables",
+      steps: [
+        {
+          title: "Pumili ng Items na I-process",
+          description: "I-check ang checkbox para sa deliverables na gusto mong i-update, o gamitin \"Select All\" sa table header"
+        },
+        {
+          title: "I-update ang Item Status",
+          description: "I-click ang status buttons (Preparing/Delivered/Cancelled) para mag-update ng individual items o lahat ng items sa booking"
+        },
+        {
+          title: "Bantayan ang Payment Status",
+          description: "Tingnan ang payment indicators para makita kung full payment, down payment, o pending payment ang status"
+        },
+        {
+          title: "I-process ang Bulk Actions",
+          description: "Gamitin ang bulk actions bar na lalabas pag may selected items para mag-update ng multiple deliverables nang sabay-sabay"
+        }
+      ],
+      actionGuideTitle: "Paano gamitin ang Actions:",
+      actions: [
+        {
+          title: "Preparing",
+          description: "Gamitin pag nagsimula na kang mag-prepare ng items para sa delivery"
+        },
+        {
+          title: "Delivered",
+          description: "Gamitin pag na-deliver na ang items sa guest"
+        },
+        {
+          title: "Cancelled",
+          description: "Gamitin pag hindi na kailangan ang items o kinansela ang order"
+        }
+      ]
+    },
+    bulkGuide: {
+      title: "Bulk Operations Guide",
+      steps: [
+        {
+          title: "Pumili ng Items",
+          description: "I-check ang checkbox para sa deliverables na gusto mong i-update, o gamitin \"Select All\" sa table header"
+        },
+        {
+          title: "Pumili ng Action",
+          description: "Magpapakita ng bulk actions bar sa taas with action buttons (Preparing/Delivered/Cancelled)"
+        },
+        {
+          title: "I-apply sa Lahat",
+          description: "Ang action ay ia-apply sa lahat ng items sa selected deliverables nang sabay-sabay"
+        }
+      ],
+      whenToUseTitle: "Kailan gamitin ang Bulk Operations:",
+      useCases: [
+        {
+          title: "Mark as Preparing",
+          description: "Pag maraming bookings na may items na kailangan i-prepare nang sabay-sabay"
+        },
+        {
+          title: "Mark as Delivered",
+          description: "Pag maraming items na na-deliver na at kailangan i-update ang status nang bulk"
+        },
+        {
+          title: "Mark as Cancelled",
+          description: "Pag maraming orders na kailangan i-cancel nang sabay-sabay"
+        }
+      ]
+    }
+  }
+};
+
 export default function DeliverablesPage() {
   const { data: session } = useSession();
   const employeeId = session?.user?.id;
@@ -74,6 +268,12 @@ export default function DeliverablesPage() {
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
   const [selectedPaymentRecord, setSelectedPaymentRecord] = useState<DeliverableRecord | null>(null);
+
+  // Guide states
+  const [showStatusGuide, setShowStatusGuide] = useState(false);
+  const [showUsageGuide, setShowUsageGuide] = useState(false);
+  const [showBulkGuide, setShowBulkGuide] = useState(false);
+  const [guideLanguage, setGuideLanguage] = useState<"en" | "fil">("en");
 
   // Toggle expanded items
   const toggleExpanded = (bookingId: string) => {
@@ -574,15 +774,14 @@ export default function DeliverablesPage() {
     }
   };
 
-  // Summary counts - count individual items across all bookings
-  const allItems = rows.flatMap(r => r.items || []);
-  const totalCount = allItems.length;
-  const pendingCount = allItems.filter((item) => item?.status === "Pending").length;
-  const preparingCount = allItems.filter((item) => item?.status === "Preparing").length;
-  const deliveredCount = allItems.filter((item) => item?.status === "Delivered").length;
-  const cancelledCount = allItems.filter((item) => item?.status === "Cancelled").length;
-  const refundedCount = allItems.filter((item) => item?.status === "Refunded").length;
-  const bookingCount = rows.length;
+  // Summary counts - count deliverable records (1 per booking), not individual items
+  const totalCount = paginatedRows.length;
+  const pendingCount = paginatedRows.filter((row) => row.overall_status === "Pending").length;
+  const preparingCount = paginatedRows.filter((row) => row.overall_status === "Preparing").length;
+  const deliveredCount = paginatedRows.filter((row) => row.overall_status === "Delivered").length;
+  const cancelledCount = paginatedRows.filter((row) => row.overall_status === "Cancelled").length;
+  const refundedCount = paginatedRows.filter((row) => row.overall_status === "Refunded").length;
+  const bookingCount = paginatedRows.length;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-700 overflow-hidden h-full flex flex-col">
@@ -601,10 +800,221 @@ export default function DeliverablesPage() {
         </button>
       </div>
 
+      {/* Status Guide */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-6 flex-shrink-0 border border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between mb-2">
+          <button
+            onClick={() => setShowStatusGuide(!showStatusGuide)}
+            className="flex-1 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded-lg transition-colors"
+          >
+            <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100">{guideTranslations[guideLanguage].statusGuide.title}</h4>
+            <ChevronRight className={`w-5 h-5 text-gray-600 dark:text-gray-300 transform transition-transform ${showStatusGuide ? 'rotate-90' : ''}`} />
+          </button>
+          <div className="flex gap-1 ml-2">
+            {(['en', 'fil'] as const).map((lang) => (
+              <button
+                key={lang}
+                onClick={() => setGuideLanguage(lang)}
+                className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                  guideLanguage === lang
+                    ? 'bg-brand-primary text-white'
+                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                }`}
+              >
+                {lang === 'en' ? 'EN' : 'FIL'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {showStatusGuide && (
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            {guideTranslations[guideLanguage].statusGuide.statuses.map((status, idx) => {
+              const statusColors: Record<string, string> = {
+                Pending: 'bg-yellow-500',
+                Preparing: 'bg-indigo-500',
+                Delivered: 'bg-green-500',
+                Cancelled: 'bg-red-500',
+                Refunded: 'bg-orange-500'
+              };
+              const color = statusColors[status.name] || 'bg-gray-500';
+
+              return (
+                <div key={idx} className="flex items-start gap-3">
+                  <div className={`w-3 h-3 ${color} rounded-full mt-1 flex-shrink-0`}></div>
+                  <div>
+                    <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{status.name}</h5>
+                    <p className="text-xs text-gray-600 dark:text-gray-300">{status.description}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* How to Use Deliverables Guide */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-6 flex-shrink-0 border border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between mb-2">
+          <button
+            onClick={() => setShowUsageGuide(!showUsageGuide)}
+            className="flex-1 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded-lg transition-colors"
+          >
+            <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100">{guideTranslations[guideLanguage].usageGuide.title}</h4>
+            <ChevronRight className={`w-5 h-5 text-gray-600 dark:text-gray-300 transform transition-transform ${showUsageGuide ? 'rotate-90' : ''}`} />
+          </button>
+          <div className="flex gap-1 ml-2">
+            {(['en', 'fil'] as const).map((lang) => (
+              <button
+                key={lang}
+                onClick={() => setGuideLanguage(lang)}
+                className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                  guideLanguage === lang
+                    ? 'bg-brand-primary text-white'
+                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                }`}
+              >
+                {lang === 'en' ? 'EN' : 'FIL'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {showUsageGuide && (
+          <div className="mt-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {guideTranslations[guideLanguage].usageGuide.steps.map((step, idx) => (
+                <div key={idx} className="flex items-start gap-3">
+                  <div className="w-8 h-8 bg-brand-primary text-white rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold">{idx + 1}</div>
+                  <div>
+                    <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{step.title}</h5>
+                    <p className="text-xs text-gray-600 dark:text-gray-300">{step.description}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+              <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm mb-3">{guideTranslations[guideLanguage].usageGuide.actionGuideTitle}</h5>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-gray-600 dark:text-gray-300">
+                {guideTranslations[guideLanguage].usageGuide.actions.map((action, idx) => {
+                  const getActionIcon = (title: string) => {
+                    const iconMap: Record<string, typeof Play> = {
+                      Preparing: Play,
+                      Delivered: Truck,
+                      Cancelled: XCircle
+                    };
+                    return iconMap[title] || Play;
+                  };
+
+                  const getActionColor = (title: string) => {
+                    const colorMap: Record<string, string> = {
+                      Preparing: 'text-indigo-600 dark:text-indigo-400',
+                      Delivered: 'text-green-600 dark:text-green-400',
+                      Cancelled: 'text-red-600 dark:text-red-400'
+                    };
+                    return colorMap[title] || 'text-gray-600 dark:text-gray-400';
+                  };
+
+                  const IconComponent = getActionIcon(action.title);
+                  const iconColor = getActionColor(action.title);
+
+                  return (
+                    <div key={idx} className="flex items-start gap-2">
+                      <IconComponent className={`w-4 h-4 ${iconColor} flex-shrink-0 mt-0.5`} />
+                      <span><strong>{action.title}:</strong> {action.description}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Bulk Operations Guide */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-6 flex-shrink-0 border border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between mb-2">
+          <button
+            onClick={() => setShowBulkGuide(!showBulkGuide)}
+            className="flex-1 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded-lg transition-colors"
+          >
+            <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100">{guideTranslations[guideLanguage].bulkGuide.title}</h4>
+            <ChevronRight className={`w-5 h-5 text-gray-600 dark:text-gray-300 transform transition-transform ${showBulkGuide ? 'rotate-90' : ''}`} />
+          </button>
+          <div className="flex gap-1 ml-2">
+            {(['en', 'fil'] as const).map((lang) => (
+              <button
+                key={lang}
+                onClick={() => setGuideLanguage(lang)}
+                className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                  guideLanguage === lang
+                    ? 'bg-brand-primary text-white'
+                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                }`}
+              >
+                {lang === 'en' ? 'EN' : 'FIL'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {showBulkGuide && (
+          <div className="mt-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {guideTranslations[guideLanguage].bulkGuide.steps.map((step, idx) => (
+                <div key={idx} className="flex items-start gap-3">
+                  <div className="w-8 h-8 bg-brand-primary text-white rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold">{idx + 1}</div>
+                  <div>
+                    <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{step.title}</h5>
+                    <p className="text-xs text-gray-600 dark:text-gray-300">{step.description}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+              <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm mb-3">{guideTranslations[guideLanguage].bulkGuide.whenToUseTitle}</h5>
+              <div className="space-y-2 text-xs text-gray-600 dark:text-gray-300">
+                {guideTranslations[guideLanguage].bulkGuide.useCases.map((useCase, idx) => {
+                  const getUseCaseIcon = (title: string) => {
+                    const iconMap: Record<string, typeof Play> = {
+                      'Mark as Preparing': Play,
+                      'Mark as Delivered': Truck,
+                      'Mark as Cancelled': XCircle
+                    };
+                    return iconMap[title] || Play;
+                  };
+
+                  const getUseCaseColor = (title: string) => {
+                    const colorMap: Record<string, string> = {
+                      'Mark as Preparing': 'text-indigo-600 dark:text-indigo-400',
+                      'Mark as Delivered': 'text-green-600 dark:text-green-400',
+                      'Mark as Cancelled': 'text-red-600 dark:text-red-400'
+                    };
+                    return colorMap[title] || 'text-gray-600 dark:text-gray-400';
+                  };
+
+                  const IconComponent = getUseCaseIcon(useCase.title);
+                  const iconColor = getUseCaseColor(useCase.title);
+
+                  return (
+                    <div key={idx} className="flex items-start gap-2">
+                      <IconComponent className={`w-4 h-4 ${iconColor} flex-shrink-0 mt-0.5`} />
+                      <span><strong>{useCase.title}:</strong> {useCase.description}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 flex-shrink-0">
         {[
-          { label: "Total Deliverables", value: String(bookingCount), color: "bg-indigo-500", icon: Package },
+          { label: "Total Deliverables", value: String(totalCount), color: "bg-indigo-500", icon: Package },
           { label: "Pending", value: String(pendingCount), color: "bg-yellow-500", icon: Clock },
           { label: "Preparing", value: String(preparingCount), color: "bg-indigo-500", icon: Loader2 },
           { label: "Delivered", value: String(deliveredCount), color: "bg-green-500", icon: CheckCircle },
@@ -625,48 +1035,6 @@ export default function DeliverablesPage() {
             </div>
           );
         })}
-      </div>
-
-      {/* Status Explanation */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-6 flex-shrink-0 border border-gray-200 dark:border-gray-700">
-        <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4">Deliverable Status Guide</h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          <div className="flex items-start gap-3">
-            <div className="w-3 h-3 bg-yellow-500 rounded-full mt-1 flex-shrink-0"></div>
-            <div>
-              <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">Pending</h5>
-              <p className="text-xs text-gray-600 dark:text-gray-300">Items waiting to be prepared</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <div className="w-3 h-3 bg-indigo-500 rounded-full mt-1 flex-shrink-0"></div>
-            <div>
-              <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">Preparing</h5>
-              <p className="text-xs text-gray-600 dark:text-gray-300">Items currently being prepared</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <div className="w-3 h-3 bg-green-500 rounded-full mt-1 flex-shrink-0"></div>
-            <div>
-              <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">Delivered</h5>
-              <p className="text-xs text-gray-600 dark:text-gray-300">Successfully delivered to guest</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <div className="w-3 h-3 bg-red-500 rounded-full mt-1 flex-shrink-0"></div>
-            <div>
-              <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">Cancelled</h5>
-              <p className="text-xs text-gray-600 dark:text-gray-300">Order was cancelled</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <div className="w-3 h-3 bg-orange-500 rounded-full mt-1 flex-shrink-0"></div>
-            <div>
-              <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">Refunded</h5>
-              <p className="text-xs text-gray-600 dark:text-gray-300">Payment has been refunded</p>
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Bulk Actions Bar */}

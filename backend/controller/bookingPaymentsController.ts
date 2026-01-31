@@ -31,6 +31,7 @@ export const createBookingPayment = async (
       add_ons_total,
       total_amount,
       down_payment,
+      amount_paid,
       remaining_balance,
     } = body;
 
@@ -51,20 +52,25 @@ export const createBookingPayment = async (
       paymentProofUrl = uploadResult.url;
     }
 
-    // Compute remaining balance if not provided
+    // Compute remaining balance if not provided. If an explicit amount_paid was
+    // provided use that as the current paid amount; otherwise default to down_payment.
     const computedTotal = Number(total_amount || 0);
     const computedDown = Number(down_payment || 0);
+    const computedAmountPaid =
+      typeof amount_paid !== "undefined" && amount_paid !== null
+        ? Number(amount_paid)
+        : computedDown;
     const computedRemaining =
       typeof remaining_balance !== "undefined" && remaining_balance !== null
         ? Number(remaining_balance)
-        : computedTotal - computedDown;
+        : computedTotal - computedAmountPaid;
 
     const insertQuery = `
       INSERT INTO booking_payments (
         booking_id, payment_method, payment_proof_url, room_rate,
-        add_ons_total, total_amount, down_payment, remaining_balance, created_at
+        add_ons_total, total_amount, down_payment, amount_paid, remaining_balance, created_at
       )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW())
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW())
       RETURNING *
     `;
 
@@ -76,6 +82,7 @@ export const createBookingPayment = async (
       add_ons_total ?? 0,
       computedTotal,
       computedDown,
+      computedAmountPaid,
       computedRemaining,
     ];
 
@@ -264,7 +271,9 @@ export const updateBookingPayment = async (
       add_ons_total,
       total_amount,
       down_payment,
+      amount_paid,
       remaining_balance,
+      collect_amount,
     } = body || {};
 
     // Validate payment_status if provided
@@ -293,8 +302,112 @@ export const updateBookingPayment = async (
       values.push(value);
     };
 
-    // Handle optional fields
-    pushField("payment_status", payment_status ?? null);
+    // Handle optional fields (support incremental collection via collect_amount)
+    // payment_status_effective will be used when collect_amount triggers an implicit approval
+    let payment_status_effective = payment_status;
+    // keep an applied amount copy for activity logging after commit
+    let appliedAmountForLog = 0;
+    const collectAmountRaw =
+      typeof collect_amount !== "undefined" ? collect_amount : undefined;
+
+    if (typeof collectAmountRaw !== "undefined" && collectAmountRaw !== null) {
+      const collectAmount = Number(collectAmountRaw);
+      if (Number.isNaN(collectAmount) || collectAmount < 0) {
+        await client.query("ROLLBACK");
+        return NextResponse.json(
+          { success: false, error: "Invalid collect_amount" },
+          { status: 400 },
+        );
+      }
+
+      // Lock and read the current payment row so we can compute applied amount safely
+      const currentRes = await client.query(
+        `SELECT down_payment, amount_paid, remaining_balance, total_amount FROM booking_payments WHERE id = $1 FOR UPDATE`,
+        [id],
+      );
+
+      if (currentRes.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return NextResponse.json(
+          { success: false, error: "Booking payment not found" },
+          { status: 404 },
+        );
+      }
+
+      const cur = currentRes.rows[0];
+      const prevDown = Number(cur.down_payment ?? 0);
+      const prevAmountPaid = Number(cur.amount_paid ?? 0);
+      const explicitPrevRemaining =
+        typeof cur.remaining_balance !== "undefined" &&
+        cur.remaining_balance !== null
+          ? Number(cur.remaining_balance)
+          : NaN;
+      const derivedPrevRemaining = !Number.isNaN(Number(cur.total_amount))
+        ? Number(cur.total_amount) - prevAmountPaid
+        : NaN;
+      const actualPrevRemaining = !Number.isNaN(explicitPrevRemaining)
+        ? explicitPrevRemaining
+        : !Number.isNaN(derivedPrevRemaining)
+          ? derivedPrevRemaining
+          : 0;
+
+      // If collecting less than the outstanding remaining balance, only allow it
+      // when the collected amount matches the submitted down payment (i.e. this
+      // is an approval of a submitted payment). Otherwise, reject as insufficient.
+      if (collectAmount < actualPrevRemaining) {
+        if (Number(cur.down_payment ?? 0) !== collectAmount) {
+          await client.query("ROLLBACK");
+          return NextResponse.json(
+            {
+              success: false,
+              error: `Insufficient amount: remaining balance is ${actualPrevRemaining}`,
+            },
+            { status: 400 },
+          );
+        }
+      }
+
+      // appliedAmount is portion of collectAmount that is actually applied to outstanding balance
+      const appliedAmount = Math.min(
+        Math.max(collectAmount, 0),
+        Math.max(0, actualPrevRemaining),
+      );
+      // Keep a copy to include in employee activity logs after the transaction commits
+      appliedAmountForLog = appliedAmount;
+
+      const newDown = prevDown + appliedAmount;
+      const newAmountPaid = prevAmountPaid + appliedAmount;
+      const newRemaining = Math.max(0, actualPrevRemaining - appliedAmount);
+
+      // Update with computed incremental values
+      pushField("down_payment", newDown);
+      pushField("amount_paid", newAmountPaid);
+      pushField("remaining_balance", newRemaining);
+
+      // Default to approving the payment if payment_status wasn't provided explicitly
+      if (typeof payment_status === "undefined" || payment_status === null) {
+        payment_status_effective = "approved";
+      }
+    } else {
+      // No collect_amount provided - allow direct updates to these fields
+      pushField(
+        "down_payment",
+        typeof down_payment === "undefined" ? undefined : down_payment,
+      );
+      pushField(
+        "amount_paid",
+        typeof amount_paid === "undefined" ? undefined : amount_paid,
+      );
+      pushField(
+        "remaining_balance",
+        typeof remaining_balance === "undefined"
+          ? undefined
+          : remaining_balance,
+      );
+    }
+
+    // Push other optional edits (use effective payment status if modified by collect_amount)
+    pushField("payment_status", payment_status_effective ?? null);
     pushField(
       "rejection_reason",
       typeof rejection_reason === "undefined"
@@ -312,14 +425,6 @@ export const updateBookingPayment = async (
       "total_amount",
       typeof total_amount === "undefined" ? undefined : total_amount,
     );
-    pushField(
-      "down_payment",
-      typeof down_payment === "undefined" ? undefined : down_payment,
-    );
-    pushField(
-      "remaining_balance",
-      typeof remaining_balance === "undefined" ? undefined : remaining_balance,
-    );
 
     // Handle upload if provided
     if (payment_proof) {
@@ -330,10 +435,10 @@ export const updateBookingPayment = async (
       pushField("payment_proof_url", uploadResult.url);
     }
 
-    // If reviewed_by or payment_status is provided, set reviewed_at = NOW()
+    // If reviewed_by or (effective) payment_status is provided, set reviewed_at = NOW()
     if (
       typeof reviewed_by !== "undefined" ||
-      typeof payment_status !== "undefined"
+      typeof payment_status_effective !== "undefined"
     ) {
       updateFields.push(`reviewed_at = NOW()`);
     }
@@ -367,24 +472,28 @@ export const updateBookingPayment = async (
 
     const updatedPayment = updateRes.rows[0];
 
-    // If payment_status changed to approved or rejected, update the booking.status too
-    if (payment_status === "approved" || payment_status === "rejected") {
-      const bookingStatus = payment_status;
+    // If payment_status_effective is rejected, update booking.status to rejected.
+    // If payment_status_effective is approved and remaining_balance is zero, mark booking as approved (fully paid).
+    if (payment_status_effective === "rejected") {
       await client.query(
         `UPDATE booking SET status = $1, rejection_reason = $2, updated_at = NOW() WHERE id = $3`,
-        [
-          bookingStatus,
-          payment_status === "rejected" ? (rejection_reason ?? null) : null,
-          updatedPayment.booking_id,
-        ],
+        ["rejected", rejection_reason ?? null, updatedPayment.booking_id],
       );
+    } else if (payment_status_effective === "approved") {
+      const remainingAfter = Number(updatedPayment.remaining_balance ?? 0);
+      if (remainingAfter === 0) {
+        await client.query(
+          `UPDATE booking SET status = $1, rejection_reason = $2, updated_at = NOW() WHERE id = $3`,
+          ["approved", null, updatedPayment.booking_id],
+        );
+      }
     }
 
     // Commit transaction
     await client.query("COMMIT");
 
-    // If approved, send confirmation email similar to bookingController
-    if (payment_status === "approved") {
+    // If approved (effective), send confirmation email similar to bookingController
+    if (payment_status_effective === "approved") {
       try {
         // Fetch booking & guest for email
         const bookingDetailsQuery = `
@@ -394,7 +503,8 @@ export const updateBookingPayment = async (
             bg.last_name,
             bg.email,
             bp.total_amount,
-            bp.down_payment
+            bp.down_payment,
+            bp.amount_paid
           FROM booking b
           JOIN booking_guests bg ON b.id = bg.booking_id
           JOIN booking_payments bp ON b.id = bp.booking_id
@@ -428,7 +538,12 @@ export const updateBookingPayment = async (
             guests: `${booking.adults} Adults, ${booking.children} Children, ${booking.infants} Infants`,
             paymentMethod:
               booking.payment_method || updatedPayment.payment_method,
-            downPayment: booking.down_payment || updatedPayment.down_payment,
+            // Prefer amount_paid if present (total paid so far), otherwise fall back to down_payment
+            downPayment:
+              booking.amount_paid ??
+              updatedPayment.amount_paid ??
+              booking.down_payment ??
+              updatedPayment.down_payment,
             totalAmount: booking.total_amount || updatedPayment.total_amount,
           };
 
@@ -475,6 +590,59 @@ export const updateBookingPayment = async (
     `;
 
     const freshRes = await pool.query(freshQuery, [updatedPayment.id]);
+
+    // Log employee activity (if provided via `reviewed_by`) to employee_activity_logs.
+    // This captures approve/reject/update events performed by CSR/employee users.
+    try {
+      const ip =
+        req.headers.get("x-forwarded-for") ||
+        req.headers.get("x-real-ip") ||
+        req.headers.get("cf-connecting-ip") ||
+        null;
+      const ua = req.headers.get("user-agent") || null;
+
+      if (reviewed_by) {
+        let activityType = "UPDATE_PAYMENT";
+        let description = `Updated payment ${updatedPayment.id} for booking ${updatedPayment.booking_id}`;
+
+        if (payment_status_effective === "approved") {
+          activityType = "APPROVE_PAYMENT";
+          description = `Approved payment for booking ${updatedPayment.booking_id}. Collected: ${collect_amount ?? "N/A"}. Applied: ${appliedAmountForLog}. Remaining: ${updatedPayment.remaining_balance ?? 0}.`;
+        } else if (payment_status_effective === "rejected") {
+          activityType = "REJECT_PAYMENT";
+          description = `Rejected payment for booking ${updatedPayment.booking_id}. Reason: ${rejection_reason ?? "N/A"}.`;
+        } else {
+          const changedFields = updateFields
+            .map((f) => f.split("=")[0].trim())
+            .join(", ");
+          if (changedFields) {
+            description = `Updated payment ${updatedPayment.id} fields: ${changedFields}`;
+          }
+        }
+
+        await client.query(
+          `INSERT INTO employee_activity_logs (employee_id, activity_type, description, entity_type, entity_id, ip_address, user_agent, created_at)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,NOW())`,
+          [
+            reviewed_by,
+            activityType,
+            description,
+            "payment",
+            updatedPayment.id,
+            ip,
+            ua,
+          ],
+        );
+
+        console.log("✅ Employee activity logged:", {
+          employee_id: reviewed_by,
+          activity_type: activityType,
+          entity_id: updatedPayment.id,
+        });
+      }
+    } catch (logErr) {
+      console.error("❌ Failed to log employee activity:", logErr);
+    }
 
     return NextResponse.json({
       success: true,
