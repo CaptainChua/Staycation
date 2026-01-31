@@ -1271,17 +1271,45 @@ export default function InventoryPage() {
                 </thead>
                 <tbody>
                   {loading ? (
-                    <tr>
-                      <td
-                        colSpan={9}
-                        className="py-10 px-4 text-center text-sm text-gray-500 dark:text-gray-400"
+                    // Skeleton loading rows
+                    Array.from({ length: entriesPerPage }).map((_, idx) => (
+                      <tr
+                        key={`skeleton-${idx}`}
+                        className="border-b border-gray-100 dark:border-gray-700 animate-pulse"
                       >
-                        <div className="flex items-center justify-center gap-3">
-                          <span className="inline-block w-5 h-5 rounded-full border-2 border-gray-300 border-t-gray-600 animate-spin" />
-                          Loading inventory...
-                        </div>
-                      </td>
-                    </tr>
+                        <td className="py-4 px-4">
+                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
+                        </td>
+                        <td className="py-4 px-4">
+                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
+                        </td>
+                        <td className="py-4 px-4 text-center">
+                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24 mx-auto"></div>
+                        </td>
+                        <td className="py-4 px-4 text-center">
+                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-12 mx-auto"></div>
+                        </td>
+                        <td className="py-4 px-4 text-center">
+                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16 mx-auto"></div>
+                        </td>
+                        <td className="py-4 px-4 text-center">
+                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16 mx-auto"></div>
+                        </td>
+                        <td className="py-4 px-4 text-center">
+                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20 mx-auto"></div>
+                        </td>
+                        <td className="py-4 px-4 text-center">
+                          <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded-full w-20 mx-auto"></div>
+                        </td>
+                        <td className="py-4 px-4">
+                          <div className="flex items-center justify-center gap-1">
+                            <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+                            <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+                            <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
                   ) : paginatedRows.length === 0 ? (
                     <tr>
                       <td
