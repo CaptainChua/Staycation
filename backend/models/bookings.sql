@@ -144,6 +144,7 @@ CREATE TABLE booking_cleaning (
   cleaning_status VARCHAR(20) NOT NULL DEFAULT 'pending'
     CHECK (cleaning_status IN (
       'pending',
+      'assigned',
       'in-progress',
       'cleaned',
       'inspected'
