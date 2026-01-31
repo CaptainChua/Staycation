@@ -1147,6 +1147,7 @@ export const updateCleaningStatus = async (
 
     const validCleaningStatuses = [
       "pending",
+      "assigned",
       "in-progress",
       "cleaned",
       "inspected",
@@ -1156,7 +1157,7 @@ export const updateCleaningStatus = async (
         {
           success: false,
           error:
-            "Invalid cleaning status. Must be one of: pending, in-progress, cleaned, inspected",
+            "Invalid cleaning status. Must be one of: pending, assigned, in-progress, cleaned, inspected",
         },
         { status: 400 },
       );
