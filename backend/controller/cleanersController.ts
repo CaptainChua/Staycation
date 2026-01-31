@@ -29,56 +29,105 @@ export const getAllCleaningTasks = async (
   req: NextRequest
 ): Promise<NextResponse> => {
   try {
-    console.log("🔍 Controller: getAllCleaningTasks called");
+    console.error("🔍🔍🔍 CONTROLLER: getAllCleaningTasks called 🔍🔍🔍");
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status");
-    console.log("📋 Status filter:", status);
+    console.error("📋 Status filter:", status);
+
+    // First, let's check if tables exist and have data
+    try {
+      console.error("🗄️ Checking database tables...");
+      
+      // Check if booking table has data
+      const bookingCount = await pool.query("SELECT COUNT(*) as count FROM booking");
+      console.error("📊 Booking table count:", bookingCount.rows[0].count);
+      
+      // Check if booking_cleaning table has data
+      const cleaningCount = await pool.query("SELECT COUNT(*) as count FROM booking_cleaning");
+      console.error("🧹 Cleaning table count:", cleaningCount.rows[0].count);
+      
+      // Check if booking_guests table has data
+      const guestsCount = await pool.query("SELECT COUNT(*) as count FROM booking_guests");
+      console.error("👥 Guests table count:", guestsCount.rows[0].count);
+      
+      // Check if employees table has data
+      const employeesCount = await pool.query("SELECT COUNT(*) as count FROM employees");
+      console.error("👷 Employees table count:", employeesCount.rows[0].count);
+      
+      // If no cleaning tasks exist, create some sample data
+      if (parseInt(cleaningCount.rows[0].count) === 0 && parseInt(bookingCount.rows[0].count) > 0) {
+        console.error("📝 No cleaning tasks found, creating sample data...");
+        
+        // Get multiple sample bookings and create cleaning tasks for them
+        const sampleBookings = await pool.query(`
+          SELECT b.id, b.booking_id, b.room_name 
+          FROM booking b 
+          LEFT JOIN booking_cleaning bc ON b.id = bc.booking_id 
+          WHERE bc.id IS NULL 
+          LIMIT 5
+        `);
+        
+        console.error("📋 Found sample bookings without cleaning tasks:", sampleBookings.rows.length);
+        
+        for (const booking of sampleBookings.rows) {
+          console.error("📋 Creating cleaning task for booking:", booking);
+          
+          // Create a sample cleaning task
+          const insertCleaning = await pool.query(
+            `INSERT INTO booking_cleaning (booking_id, cleaning_status, assigned_to) 
+             VALUES ($1, 'pending', NULL) RETURNING *`,
+            [booking.id]
+          );
+          console.error("✅ Created sample cleaning task:", insertCleaning.rows[0]);
+        }
+      }
+    } catch (dbCheckError) {
+      console.error("❌ Error checking database:", dbCheckError);
+    }
 
     let query = `
-      SELECT
-        bc.id as cleaning_id,
-        b.booking_id,
-        b.room_name as haven,
-        bg.first_name as guest_first_name,
-        bg.last_name as guest_last_name,
-        bg.email as guest_email,
-        bg.phone as guest_phone,
-        b.check_in_date,
-        b.check_in_time,
-        b.check_out_date,
-        b.check_out_time,
-        bc.cleaning_status,
-        bc.assigned_to as assigned_cleaner_id,
-        e.first_name as cleaner_first_name,
-        e.last_name as cleaner_last_name,
-        e.employment_id as cleaner_employment_id,
-        bc.cleaning_time_in,
-        bc.cleaning_time_out,
-        bc.cleaned_at,
-        bc.inspected_at
-      FROM booking_cleaning bc
-      INNER JOIN booking b ON bc.booking_id = b.id
-      LEFT JOIN booking_guests bg ON b.id = bg.booking_id
-      LEFT JOIN employees e ON bc.assigned_to = e.id
-      WHERE bg.id = (
-        SELECT id FROM booking_guests WHERE booking_id = b.id ORDER BY id LIMIT 1
-      )
+      SELECT * FROM (
+        SELECT DISTINCT ON (bc.id)
+          bc.id::text as cleaning_id,
+          b.booking_id,
+          b.room_name as haven,
+          bg.first_name as guest_first_name,
+          bg.last_name as guest_last_name,
+          bg.email as guest_email,
+          bg.phone as guest_phone,
+          b.check_in_date,
+          b.check_in_time,
+          b.check_out_date,
+          b.check_out_time,
+          bc.cleaning_status,
+          bc.assigned_to::text as assigned_cleaner_id,
+          e.first_name as cleaner_first_name,
+          e.last_name as cleaner_last_name,
+          e.employment_id as cleaner_employment_id,
+          bc.cleaning_time_in,
+          bc.cleaning_time_out,
+          bc.cleaned_at,
+          bc.inspected_at
+        FROM booking_cleaning bc
+        INNER JOIN booking b ON bc.booking_id = b.id
+        LEFT JOIN booking_guests bg ON bg.booking_id = b.id
+        LEFT JOIN employees e ON bc.assigned_to::text = e.id::text
     `;
     const values: string[] = [];
 
     if (status) {
-      query += ` AND bc.cleaning_status = $1`;
+      query += ` WHERE bc.cleaning_status = $1`;
       values.push(status);
     }
 
-    query += " ORDER BY b.check_out_date DESC, b.check_out_time DESC";
+    query += " ORDER BY bc.id, bg.id NULLS LAST) AS tasks ORDER BY check_out_date DESC, check_out_time DESC";
 
-    console.log("🗄️ Executing query:", query);
-    console.log("📊 Query values:", values);
+    console.error("🗄️ Executing query...");
+    console.error("📊 Query values:", values);
 
     const result = await pool.query(query, values);
-    console.log(`✅ Retrieved ${result.rows.length} cleaning tasks`);
-    console.log("📋 Sample data:", result.rows.slice(0, 2));
+    console.error(`✅ Retrieved ${result.rows.length} cleaning tasks`);
+    console.error("📋 Sample data:", result.rows.slice(0, 2));
 
     return NextResponse.json({
       success: true,
@@ -86,8 +135,8 @@ export const getAllCleaningTasks = async (
       count: result.rows.length,
     });
   } catch (error) {
-    console.log("❌ Error getting cleaning tasks:", error);
-    console.log("🔍 Error details:", {
+    console.error("❌❌❌ Error getting cleaning tasks ❌❌❌:", error);
+    console.error("🔍 Error details:", {
       message: error instanceof Error ? error.message : "Unknown error",
       stack: error instanceof Error ? error.stack : undefined,
       name: error instanceof Error ? error.name : undefined
@@ -121,8 +170,8 @@ export const getCleaningTaskById = async (
     }
 
     const query = `
-      SELECT
-        bc.id as cleaning_id,
+      SELECT DISTINCT ON (bc.id)
+        bc.id::text as cleaning_id,
         b.booking_id,
         b.room_name as haven,
         bg.first_name as guest_first_name,
@@ -134,7 +183,7 @@ export const getCleaningTaskById = async (
         b.check_out_date,
         b.check_out_time,
         bc.cleaning_status,
-        bc.assigned_to as assigned_cleaner_id,
+        bc.assigned_to::text as assigned_cleaner_id,
         e.first_name as cleaner_first_name,
         e.last_name as cleaner_last_name,
         e.employment_id as cleaner_employment_id,
@@ -144,12 +193,10 @@ export const getCleaningTaskById = async (
         bc.inspected_at
       FROM booking_cleaning bc
       INNER JOIN booking b ON bc.booking_id = b.id
-      LEFT JOIN booking_guests bg ON b.id = bg.booking_id
-      LEFT JOIN employees e ON bc.assigned_to = e.id
-      WHERE bc.id = $1
-      AND bg.id = (
-        SELECT id FROM booking_guests WHERE booking_id = b.id ORDER BY id LIMIT 1
-      )
+      LEFT JOIN booking_guests bg ON bg.booking_id = b.id
+      LEFT JOIN employees e ON bc.assigned_to::text = e.id::text
+      WHERE bc.id = $1::uuid
+      ORDER BY bc.id
       LIMIT 1
     `;
 
@@ -272,7 +319,7 @@ export const updateCleaningTask = async (
     const updateQuery = `
       UPDATE booking_cleaning
       SET ${updateFields.join(", ")}
-      WHERE id = $${paramCount}
+      WHERE id = $${paramCount}::uuid
       RETURNING *
     `;
 
@@ -287,8 +334,8 @@ export const updateCleaningTask = async (
 
     // Get the complete cleaning task data for response
     const selectQuery = `
-      SELECT
-        bc.id as cleaning_id,
+      SELECT DISTINCT ON (bc.id)
+        bc.id::text as cleaning_id,
         b.booking_id,
         b.room_name as haven,
         bg.first_name as guest_first_name,
@@ -300,7 +347,7 @@ export const updateCleaningTask = async (
         b.check_out_date,
         b.check_out_time,
         bc.cleaning_status,
-        bc.assigned_to as assigned_cleaner_id,
+        bc.assigned_to::text as assigned_cleaner_id,
         e.first_name as cleaner_first_name,
         e.last_name as cleaner_last_name,
         e.employment_id as cleaner_employment_id,
@@ -310,12 +357,10 @@ export const updateCleaningTask = async (
         bc.inspected_at
       FROM booking_cleaning bc
       INNER JOIN booking b ON bc.booking_id = b.id
-      LEFT JOIN booking_guests bg ON b.id = bg.booking_id
-      LEFT JOIN employees e ON bc.assigned_to = e.id
-      WHERE bc.id = $1
-      AND bg.id = (
-        SELECT id FROM booking_guests WHERE booking_id = b.id ORDER BY id LIMIT 1
-      )
+      LEFT JOIN booking_guests bg ON bg.booking_id = b.id
+      LEFT JOIN employees e ON bc.assigned_to::text = e.id::text
+      WHERE bc.id = $1::uuid
+      ORDER BY bc.id
       LIMIT 1
     `;
 
