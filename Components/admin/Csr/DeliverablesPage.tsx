@@ -20,7 +20,7 @@ import {
   CheckSquare,
   Play,
   Truck,
-  CreditCard,
+  Calendar,
   AlertTriangle,
   ExternalLink,
   BadgeCheck,
@@ -31,6 +31,9 @@ import { useMemo, useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { toast } from "react-hot-toast";
 import { DeliverableRecord, DeliverableItem } from "@/app/admin/csr/actions";
+import DeliverableActionModal from "./Modals/DeliverableActionModal";
+import BulkDeliverableActionModal from "./Modals/BulkDeliverableActionModal";
+import BulkSelectionActionModal from "./Modals/BulkSelectionActionModal";
 import ViewPaymentDetailsModal from "./Modals/ViewPaymentDetailsModal";
 
 // Highlight text function
@@ -101,15 +104,15 @@ const guideTranslations = {
       actions: [
         {
           title: "Preparing",
-          description: "Use when you start preparing the items for delivery"
+          description: "Use when you start preparing the items for delivery. Cannot be used if items are already marked as preparing."
         },
         {
           title: "Delivered",
-          description: "Use when items have been successfully delivered to the guest"
+          description: "Use when items have been successfully delivered to the guest. Automatically updates inventory stock."
         },
         {
           title: "Cancelled",
-          description: "Use when items are no longer needed or the order is cancelled"
+          description: "Use when items are no longer needed or the order is cancelled."
         }
       ]
     },
@@ -133,15 +136,15 @@ const guideTranslations = {
       useCases: [
         {
           title: "Mark as Preparing",
-          description: "When multiple bookings have items that need to be prepared at the same time"
+          description: "When multiple bookings have items that need to be prepared at the same time. Cannot be used if items are already preparing."
         },
         {
           title: "Mark as Delivered",
-          description: "When multiple items have been delivered and need status update in bulk"
+          description: "When multiple items have been delivered and need status update in bulk. Automatically updates inventory stock for all affected items."
         },
         {
           title: "Mark as Cancelled",
-          description: "When multiple orders need to be cancelled at once"
+          description: "When multiple orders need to be cancelled at once."
         }
       ]
     }
@@ -274,6 +277,15 @@ export default function DeliverablesPage() {
   const [showUsageGuide, setShowUsageGuide] = useState(false);
   const [showBulkGuide, setShowBulkGuide] = useState(false);
   const [guideLanguage, setGuideLanguage] = useState<"en" | "fil">("en");
+
+  // Modal states
+  const [actionModalOpen, setActionModalOpen] = useState(false);
+  const [bulkActionModalOpen, setBulkActionModalOpen] = useState(false);
+  const [bulkSelectionModalOpen, setBulkSelectionModalOpen] = useState(false);
+  const [selectedAction, setSelectedAction] = useState<'preparing' | 'delivered' | 'cancelled' | 'refunded'>('delivered');
+  const [selectedBooking, setSelectedBooking] = useState<any>(null);
+  const [selectedItem, setSelectedItem] = useState<any>(null);
+  const [isActionLoading, setIsActionLoading] = useState(false);
 
   // Toggle expanded items
   const toggleExpanded = (bookingId: string) => {
@@ -446,11 +458,35 @@ export default function DeliverablesPage() {
 
   // Update status for an individual item within a booking
   const handleItemStatusUpdate = async (bookingId: string, itemId: string, newStatus: string) => {
+    const booking = rows.find(r => r.id === bookingId);
+    const item = booking?.items?.find(i => i.id === itemId);
+    
+    if (!booking || !item) return;
+
+    // Check if item already has the target status
+    if (item.status === newStatus) {
+      toast.error(`Item is already marked as ${newStatus}`);
+      return;
+    }
+
+    // Set modal data and open
+    setSelectedBooking(booking);
+    setSelectedItem(item);
+    setSelectedAction(newStatus as 'preparing' | 'delivered' | 'cancelled' | 'refunded');
+    setActionModalOpen(true);
+  };
+
+  // Execute the item status update after modal confirmation
+  const executeItemStatusUpdate = async () => {
+    if (!selectedBooking || !selectedItem) return;
+
     const oldRows = [...rows];
+    setIsActionLoading(true);
+    
     setRows(prev => prev.map(r => {
-      if (r.id === bookingId) {
+      if (r.id === selectedBooking.id) {
         const updatedItems = (r.items || []).map(item =>
-          item.id === itemId ? { ...item, status: newStatus } : item
+          item.id === selectedItem.id ? { ...item, status: selectedAction } : item
         );
         // Recalculate overall status
         const statuses = updatedItems.map(item => item.status);
@@ -474,8 +510,8 @@ export default function DeliverablesPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          deliverableId: itemId,
-          newStatus
+          deliverableId: selectedItem.id,
+          newStatus: selectedAction
         })
       });
 
@@ -484,17 +520,68 @@ export default function DeliverablesPage() {
         throw new Error(errorData.error || 'Failed to update status');
       }
 
-      toast.success(`Item marked as ${newStatus}`);
+      // If marked as delivered, update inventory stock
+      if (selectedAction === 'delivered' && selectedItem) {
+        try {
+          await updateInventoryStock(selectedItem.name, selectedItem.quantity);
+        } catch (inventoryError) {
+          console.error('Failed to update inventory stock:', inventoryError);
+          toast.error('Status updated but inventory stock update failed');
+        }
+      }
+
+      toast.success(`Item marked as ${selectedAction}`);
       
       // Log employee activity
       await logEmployeeActivity(
         `UPDATE_ITEM_STATUS`,
-        `Updated item status to ${newStatus} in booking ${rows.find(r => r.id === bookingId)?.deliverable_id}`,
-        bookingId
+        `Updated item status to ${selectedAction} in booking ${selectedBooking.deliverable_id}`,
+        selectedBooking.id
       );
+
+      // Refresh data to ensure UI is in sync with database
+      await fetchData();
+      
+      // Close modal
+      setActionModalOpen(false);
+      setSelectedBooking(null);
+      setSelectedItem(null);
     } catch (error) {
       setRows(oldRows);
       toast.error("Failed to update status: " + (error instanceof Error ? error.message : "Unknown error"));
+    } finally {
+      setIsActionLoading(false);
+    }
+  };
+
+  // Update inventory stock when item is delivered
+  const updateInventoryStock = async (itemName: string, quantity: number) => {
+    try {
+      console.log('🔄 Updating inventory stock:', { itemName, quantity });
+      
+      const response = await fetch('/api/admin/inventory/update-stock', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          itemName: itemName.trim(),
+          quantity: quantity,
+          operation: 'subtract' // Subtract from current stock
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('❌ Inventory update failed:', errorData);
+        throw new Error(errorData.error || 'Failed to update inventory stock');
+      }
+
+      const result = await response.json();
+      console.log('✅ Inventory stock updated successfully:', result);
+    } catch (error) {
+      console.error('❌ Error updating inventory stock:', error);
+      throw error;
     }
   };
 
@@ -549,150 +636,120 @@ export default function DeliverablesPage() {
     }
   };
 
-  const handleMarkAllDelivered = async (bookingId: string) => {
+const handleMarkAllDelivered = async (bookingId: string) => {
     const booking = rows.find(r => r.id === bookingId);
     if (!booking) return;
 
-    const oldRows = [...rows];
-    setRows(prev => prev.map(r => {
-      if (r.id === bookingId) {
-        const updatedItems = (r.items || []).map(item => ({ ...item, status: "Delivered" }));
-        return { ...r, items: updatedItems, overall_status: "Delivered" };
-      }
-      return r;
-    }));
-
-    try {
-      const promises = (booking.items || []).map(item => 
-        fetch('/api/admin/deliverables', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            deliverableId: item.id,
-            action: 'delivered'
-          })
-        })
-      );
-      
-      const results = await Promise.all(promises);
-      
-      // Check if any failed
-      const failed = results.filter(res => !res.ok);
-      if (failed.length > 0) {
-        throw new Error(`${failed.length} updates failed`);
-      }
-      
-      toast.success("All items marked as delivered");
-      
-      // Log employee activity
-      await logEmployeeActivity(
-        `MARK_ALL_DELIVERED`,
-        `Marked all items in booking ${booking.deliverable_id} as delivered`,
-        bookingId
-      );
-    } catch (error) {
-      setRows(oldRows);
-      toast.error("Failed to mark as delivered: " + (error instanceof Error ? error.message : "Unknown error"));
-    }
+    // Set modal data and open
+    setSelectedBooking(booking);
+    setSelectedAction('delivered');
+    setBulkActionModalOpen(true);
   };
 
   const handleCancelAll = async (bookingId: string) => {
     const booking = rows.find(r => r.id === bookingId);
     if (!booking) return;
 
-    const oldRows = [...rows];
-    setRows(prev => prev.map(r => {
-      if (r.id === bookingId) {
-        const updatedItems = (r.items || []).map(item => ({ ...item, status: "Cancelled" }));
-        return { ...r, items: updatedItems, overall_status: "Cancelled" };
-      }
-      return r;
-    }));
-
-    try {
-      const promises = (booking.items || []).map(item => 
-        fetch('/api/admin/deliverables', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            deliverableId: item.id,
-            action: 'cancelled'
-          })
-        })
-      );
-      
-      const results = await Promise.all(promises);
-      
-      // Check if any failed
-      const failed = results.filter(res => !res.ok);
-      if (failed.length > 0) {
-        throw new Error(`${failed.length} updates failed`);
-      }
-      
-      toast.success("All items cancelled");
-      
-      // Log employee activity
-      await logEmployeeActivity(
-        `CANCEL_ALL_ITEMS`,
-        `Cancelled all items in booking ${booking.deliverable_id}`,
-        bookingId
-      );
-    } catch (error) {
-      setRows(oldRows);
-      toast.error("Failed to cancel items: " + (error instanceof Error ? error.message : "Unknown error"));
-    }
+    // Set modal data and open
+    setSelectedBooking(booking);
+    setSelectedAction('cancelled');
+    setBulkActionModalOpen(true);
   };
 
   const handleRefundAll = async (bookingId: string) => {
     const booking = rows.find(r => r.id === bookingId);
     if (!booking) return;
 
+    // Set modal data and open
+    setSelectedBooking(booking);
+    setSelectedAction('refunded');
+    setBulkActionModalOpen(true);
+  };
+
+  const handleMarkAllPreparing = async (bookingId: string) => {
+    const booking = rows.find(r => r.id === bookingId);
+    if (!booking) return;
+
+    // Set modal data and open
+    setSelectedBooking(booking);
+    setSelectedAction('preparing');
+    setBulkActionModalOpen(true);
+  };
+
+// Execute bulk action after modal confirmation
+  const executeBulkAction = async () => {
+    if (!selectedBooking) return;
+
     const oldRows = [...rows];
+    setIsActionLoading(true);
+    
     setRows(prev => prev.map(r => {
-      if (r.id === bookingId) {
-        const updatedItems = (r.items || []).map(item => ({ ...item, status: "Refunded" }));
-        return { ...r, items: updatedItems, overall_status: "Refunded" };
+      if (r.id === selectedBooking.id) {
+        const updatedItems = (r.items || []).map(item => ({ ...item, status: selectedAction === 'delivered' ? 'Delivered' : selectedAction === 'cancelled' ? 'Cancelled' : selectedAction === 'refunded' ? 'Refunded' : 'Preparing' }));
+        return { ...r, items: updatedItems, overall_status: selectedAction === 'delivered' ? 'Delivered' : selectedAction === 'cancelled' ? 'Cancelled' : selectedAction === 'refunded' ? 'Refunded' : 'Preparing' };
       }
       return r;
     }));
 
     try {
-      const promises = (booking.items || []).map(item => 
-        fetch('/api/admin/deliverables', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            deliverableId: item.id,
-            action: 'refunded'
+      const results = await Promise.allSettled(
+        (selectedBooking.items || []).map(item =>
+          fetch('/api/admin/deliverables', {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              deliverableId: item.id,
+              newStatus: selectedAction === 'delivered' ? 'Delivered' : selectedAction === 'cancelled' ? 'Cancelled' : selectedAction === 'refunded' ? 'Refunded' : 'Preparing'
+            })
           })
-        })
+        )
       );
-      
-      const results = await Promise.all(promises);
-      
-      // Check if any failed
-      const failed = results.filter(res => !res.ok);
+
+      const failed = results.filter(result => result.status === 'rejected');
       if (failed.length > 0) {
+        console.error('Some updates failed:', failed);
         throw new Error(`${failed.length} updates failed`);
       }
-      
-      toast.success("All items refunded");
+
+      // Update inventory stock for all delivered items
+      if (selectedAction === 'delivered') {
+        const inventoryUpdateResults = await Promise.allSettled(
+          (selectedBooking.items || []).map(item =>
+            updateInventoryStock(item.name, item.quantity)
+          )
+        );
+
+        const inventoryFailed = inventoryUpdateResults.filter(result => result.status === 'rejected');
+        if (inventoryFailed.length > 0) {
+          console.error('Some inventory updates failed:', inventoryFailed);
+          toast.error("All items marked as delivered but some inventory updates failed");
+        } else {
+          toast.success("All items marked as delivered and inventory updated");
+        }
+      } else {
+        toast.success(`All items marked as ${selectedAction}`);
+      }
       
       // Log employee activity
       await logEmployeeActivity(
-        `REFUND_ALL_ITEMS`,
-        `Refunded all items in booking ${booking.deliverable_id}`,
-        bookingId
+        `MARK_ALL_${selectedAction.toUpperCase()}`,
+        `Marked all items in booking ${selectedBooking.deliverable_id} as ${selectedAction}`,
+        selectedBooking.id
       );
+
+      // Refresh data to ensure UI is in sync with database
+      await fetchData();
+      
+      // Close modal
+      setBulkActionModalOpen(false);
+      setSelectedBooking(null);
     } catch (error) {
       setRows(oldRows);
-      toast.error("Failed to refund items: " + (error instanceof Error ? error.message : "Unknown error"));
+      toast.error("Failed to mark as " + selectedAction + ": " + (error instanceof Error ? error.message : "Unknown error"));
+    } finally {
+      setIsActionLoading(false);
     }
   };
 
@@ -719,21 +776,58 @@ export default function DeliverablesPage() {
       return;
     }
 
+    // Check if any items already have the target status
+    const selectedRows = rows.filter(r => selectedDeliverables.includes(r.id));
+    const allItems = selectedRows.flatMap(r => r.items || []);
+    
+    if (action === 'Preparing') {
+      const alreadyPreparing = allItems.filter(item => item.status === 'Preparing');
+      if (alreadyPreparing.length > 0) {
+        toast.error(`${alreadyPreparing.length} item(s) are already marked as preparing`);
+        return;
+      }
+    }
+
+    // Convert to lowercase to match actionConfig keys
+    const normalizedAction = action.toLowerCase() as 'preparing' | 'delivered' | 'cancelled' | 'refunded';
+    
+    // Set modal data and open
+    setSelectedAction(normalizedAction);
+    setBulkSelectionModalOpen(true);
+  };
+
+  // Execute bulk selection action after modal confirmation
+  const executeBulkSelectionAction = async () => {
+    if (selectedDeliverables.length === 0) return;
+
     setBulkActionLoading(true);
     const oldRows = [...rows];
 
     try {
+      // Get selected booking data
+      const selectedRows = rows.filter(r => selectedDeliverables.includes(r.id));
+      
       // Update all items in selected bookings
       setRows(prev => prev.map(r => {
         if (selectedDeliverables.includes(r.id)) {
-          const updatedItems = (r.items || []).map(item => ({ ...item, status: action }));
-          return { ...r, items: updatedItems, overall_status: action };
+          const updatedItems = (r.items || []).map(item => ({ 
+            ...item, 
+            status: selectedAction === 'delivered' ? 'Delivered' : 
+                   selectedAction === 'cancelled' ? 'Cancelled' : 
+                   selectedAction === 'refunded' ? 'Refunded' : 'Preparing'
+          }));
+          return { 
+            ...r, 
+            items: updatedItems, 
+            overall_status: selectedAction === 'delivered' ? 'Delivered' : 
+                           selectedAction === 'cancelled' ? 'Cancelled' : 
+                           selectedAction === 'refunded' ? 'Refunded' : 'Preparing'
+          };
         }
         return r;
       }));
 
       // Get all item IDs from selected bookings and update them
-      const selectedRows = rows.filter(r => selectedDeliverables.includes(r.id));
       const allItemIds = selectedRows.flatMap(r => (r.items || []).map(item => item.id));
       
       const promises = allItemIds.map(id => 
@@ -744,7 +838,9 @@ export default function DeliverablesPage() {
           },
           body: JSON.stringify({
             deliverableId: id,
-            newStatus: action
+            newStatus: selectedAction === 'delivered' ? 'Delivered' : 
+                       selectedAction === 'cancelled' ? 'Cancelled' : 
+                       selectedAction === 'refunded' ? 'Refunded' : 'Preparing'
           })
         })
       );
@@ -757,15 +853,40 @@ export default function DeliverablesPage() {
         throw new Error(`${failed.length} updates failed`);
       }
 
-      toast.success(`Successfully marked ${selectedDeliverables.length} bookings as ${action}`);
+      // Update inventory stock for all delivered items
+      if (selectedAction === 'delivered') {
+        const allItems = selectedRows.flatMap(r => r.items || []);
+        const inventoryUpdateResults = await Promise.allSettled(
+          allItems.map(item =>
+            updateInventoryStock(item.name, item.quantity)
+          )
+        );
+
+        const inventoryFailed = inventoryUpdateResults.filter(result => result.status === 'rejected');
+        if (inventoryFailed.length > 0) {
+          console.error('Some inventory updates failed:', inventoryFailed);
+          toast.warning("All items marked as delivered but some inventory updates failed");
+        } else {
+          toast.success(`Successfully marked ${selectedDeliverables.length} bookings as delivered and inventory updated`);
+        }
+      } else {
+        toast.success(`Successfully marked ${selectedDeliverables.length} bookings as ${selectedAction}`);
+      }
       
       // Log employee activity
       await logEmployeeActivity(
         `BULK_UPDATE_STATUS`,
-        `Bulk updated ${selectedDeliverables.length} bookings to ${action} status`,
+        `Bulk updated ${selectedDeliverables.length} bookings to ${selectedAction} status`,
         selectedDeliverables.join(',') // Pass multiple IDs as comma-separated
       );
+      
       setSelectedDeliverables([]);
+      
+      // Refresh data to ensure UI is in sync with database
+      await fetchData();
+      
+      // Close modal
+      setBulkSelectionModalOpen(false);
     } catch (error) {
       setRows(oldRows);
       toast.error("Failed to process some deliverables: " + (error instanceof Error ? error.message : "Unknown error"));
@@ -1482,12 +1603,12 @@ export default function DeliverablesPage() {
                     <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                          <Calendar className="w-3 h-3 text-green-500" />
                           <span className="text-xs font-medium text-gray-600 dark:text-gray-300">Check-in:</span>
                           <span className="text-xs font-semibold text-green-700 dark:text-green-300">{highlightText(row.checkin_date, searchTerm)}</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                          <Calendar className="w-3 h-3 text-red-500" />
                           <span className="text-xs font-medium text-gray-600 dark:text-gray-300">Check-out:</span>
                           <span className="text-xs font-semibold text-red-700 dark:text-red-300">{highlightText(row.checkout_date, searchTerm)}</span>
                         </div>
@@ -1499,7 +1620,7 @@ export default function DeliverablesPage() {
                           className="p-2 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors"
                           title="Mark All Preparing"
                           type="button"
-                          onClick={() => handleAllItemsStatusUpdate(row.id, "Preparing")}
+                          onClick={() => handleMarkAllPreparing(row.id)}
                         >
                           <Play className="w-4 h-4" />
                         </button>
@@ -1654,6 +1775,47 @@ export default function DeliverablesPage() {
           setSelectedPaymentRecord(null);
         }}
         record={selectedPaymentRecord}
+      />
+
+      {/* Individual Item Action Modal */}
+      <DeliverableActionModal
+        isOpen={actionModalOpen}
+        onClose={() => {
+          setActionModalOpen(false);
+          setSelectedBooking(null);
+          setSelectedItem(null);
+        }}
+        onConfirm={executeItemStatusUpdate}
+        action={selectedAction}
+        booking={selectedBooking}
+        item={selectedItem}
+        isLoading={isActionLoading}
+      />
+
+      {/* Bulk Action Modal */}
+      <BulkDeliverableActionModal
+        isOpen={bulkActionModalOpen}
+        onClose={() => {
+          setBulkActionModalOpen(false);
+          setSelectedBooking(null);
+        }}
+        onConfirm={executeBulkAction}
+        action={selectedAction}
+        booking={selectedBooking}
+        items={selectedBooking?.items || []}
+        isLoading={isActionLoading}
+      />
+
+      {/* Bulk Selection Action Modal */}
+      <BulkSelectionActionModal
+        isOpen={bulkSelectionModalOpen}
+        onClose={() => {
+          setBulkSelectionModalOpen(false);
+        }}
+        onConfirm={executeBulkSelectionAction}
+        action={selectedAction}
+        selectedBookings={rows.filter(r => selectedDeliverables.includes(r.id))}
+        isLoading={bulkActionLoading}
       />
     </div>
   );
