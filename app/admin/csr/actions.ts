@@ -1162,14 +1162,14 @@ export async function updateDeliverableStatus(deliverableId: string, newStatus: 
     };
 
     const dbStatus = statusMap[newStatus] || newStatus.toLowerCase();
-    const now = new Date();
 
     if (dbStatus === 'delivered') {
+      // Use Philippine timezone (Asia/Manila) for delivered_at timestamp
       await client.query(
         `UPDATE booking_add_ons
-         SET status = $2, delivered_at = $3
+         SET status = $2, delivered_at = NOW() AT TIME ZONE 'Asia/Manila'
          WHERE id = $1`,
-        [deliverableId, dbStatus, now]
+        [deliverableId, dbStatus]
       );
     } else {
       await client.query(
@@ -1207,12 +1207,12 @@ export async function markDeliverablePreparing(deliverableId: string): Promise<v
 export async function markDeliverableDelivered(deliverableId: string, notes?: string): Promise<void> {
   const client = await pool.connect();
   try {
-    const now = new Date();
+    // Use Philippine timezone (Asia/Manila) for delivered_at timestamp
     await client.query(
       `UPDATE booking_add_ons
-       SET status = 'delivered', delivered_at = $2, notes = COALESCE($3, notes)
+       SET status = 'delivered', delivered_at = NOW() AT TIME ZONE 'Asia/Manila', notes = COALESCE($2, notes)
        WHERE id = $1`,
-      [deliverableId, now, notes]
+      [deliverableId, notes]
     );
   } catch (error) {
     console.error("Error marking deliverable as delivered:", error);
