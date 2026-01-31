@@ -18,8 +18,8 @@ const poppins = Poppins({
 
 export const metadata: Metadata = {
   title: {
-    default: "Staycation Haven Philippines | Premium Short-Term Stays & Vacation Rentals",
-    template: "%s | Staycation Haven PH"
+    default: "Staycation Haven PH | Premium Short-Term Stays & Vacation Rentals",
+    template: "Staycation Haven PH | %s"
   },
   description: "Discover premium staycation havens across the Philippines. Book luxurious short-term stays, vacation rentals, and getaways with modern amenities. Perfect for couples, families, and business travelers.",
   keywords: [
@@ -91,6 +91,15 @@ export const metadata: Metadata = {
   category: 'travel',
   classification: 'Travel and Tourism',
   referrer: 'origin-when-cross-origin',
+  icons: {
+    icon: [
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/favicon-32x32v2.png', sizes: '32x32', type: 'image/png' },
+    ],
+    apple: [
+      { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+    ],
+  },
 };
 
 export default function RootLayout({
