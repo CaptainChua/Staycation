@@ -254,12 +254,12 @@ export const updateCleaningTask = async (
 
     // Validate cleaning status if provided
     if (cleaning_status) {
-      const validStatuses = ["pending", "in-progress", "cleaned", "inspected"];
+      const validStatuses = ["pending", "assigned", "in-progress", "cleaned", "inspected"];
       if (!validStatuses.includes(cleaning_status)) {
         return NextResponse.json(
           {
             success: false,
-            error: "Invalid cleaning status. Must be one of: pending, in-progress, cleaned, inspected",
+            error: "Invalid cleaning status. Must be one of: pending, assigned, in-progress, cleaned, inspected",
           },
           { status: 400 }
         );
