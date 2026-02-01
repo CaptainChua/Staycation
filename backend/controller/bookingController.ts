@@ -681,6 +681,7 @@ export const getAllBookings = async (
         bg.email as guest_email,
         bg.phone as guest_phone,
         bg.valid_id_url as valid_id_url,
+        bg.facebook_link,
         bp.payment_method,
         bp.payment_proof_url,
         bp.room_rate,
@@ -689,6 +690,9 @@ export const getAllBookings = async (
         bp.down_payment,
         bp.remaining_balance,
         COALESCE(bd.amount, 0) as security_deposit,
+        bd.deposit_status,
+        bd.payment_method as security_deposit_payment_method,
+        bd.payment_proof_url as security_deposit_payment_proof_url,
         bc.cleaning_status
       FROM booking b
       LEFT JOIN booking_guests bg ON b.id = bg.booking_id
