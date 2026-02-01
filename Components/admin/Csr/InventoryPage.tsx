@@ -1053,7 +1053,13 @@ export default function InventoryPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm opacity-90">{stat.label}</p>
-                      <p className="text-3xl font-bold mt-2">{stat.value}</p>
+                      <div className="text-3xl font-bold mt-2">
+                        {loading ? (
+                          <div className="w-16 h-8 bg-white/20 rounded animate-pulse" />
+                        ) : (
+                          stat.value
+                        )}
+                      </div>
                     </div>
                     <IconComponent className="w-12 h-12 opacity-50" />
                   </div>
@@ -1111,55 +1117,41 @@ export default function InventoryPage() {
               </div>
 
               <div className="flex flex-wrap items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <Filter className="w-5 h-5 text-gray-600" />
-                  <select
-                    value={filterStatus}
-                    onChange={(e) => {
-                      setFilterStatus(
-                        e.target.value as "all" | InventoryStatus,
-                      );
-                      setCurrentPage(1);
-                    }}
-                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-brand-primary"
-                  >
-                    <option value="all">All Status</option>
-                    <option value="In Stock">In Stock</option>
-                    <option value="Low Stock">Low Stock</option>
-                    <option value="Out of Stock">Out of Stock</option>
-                  </select>
-                </div>
+                <Filter className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                <select
+                  value={filterStatus}
+                  onChange={(e) => {
+                    setFilterStatus(
+                      e.target.value as "all" | InventoryStatus,
+                    );
+                    setCurrentPage(1);
+                  }}
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-brand-primary"
+                >
+                  <option value="all">All Status</option>
+                  <option value="In Stock">In Stock</option>
+                  <option value="Low Stock">Low Stock</option>
+                  <option value="Out of Stock">Out of Stock</option>
+                </select>
 
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-600 whitespace-nowrap">
-                    Category
-                  </span>
-                  <select
-                    value={filterCategory}
-                    onChange={(e) => {
-                      setFilterCategory(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-brand-primary"
-                  >
-                    <option value="all">All Categories</option>
-                    {categoryOptions.map((category) => (
-                      <option key={category} value={category}>
-                        {category}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <select
+                  value={filterCategory}
+                  onChange={(e) => {
+                    setFilterCategory(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-brand-primary"
+                >
+                  <option value="all">All Categories</option>
+                  {categoryOptions.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handleManualRefresh}
-                    className="p-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
-                    title="Refresh Data"
-                  >
-                    <RefreshCw className={`w-4 h-4 text-gray-600 dark:text-gray-300 ${loading ? 'animate-spin' : ''}`} />
-                  </button>
+              <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={handleExportPdf}
@@ -1176,7 +1168,15 @@ export default function InventoryPage() {
                     <FileSpreadsheet className="w-4 h-4" />
                     Export Excel
                   </button>
-                </div>
+                  
+                <button
+                  type="button"
+                  onClick={handleManualRefresh}
+                  className="p-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                  title="Refresh Data"
+                >
+                  <RefreshCw className={`w-4 h-4 text-gray-600 dark:text-gray-300 ${loading ? 'animate-spin' : ''}`} />
+                </button>
               </div>
             </div>
           </div>
