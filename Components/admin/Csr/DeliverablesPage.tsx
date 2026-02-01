@@ -912,13 +912,6 @@ const handleMarkAllDelivered = async (bookingId: string) => {
           <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Deliverables Management</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Track and manage add-ons and deliverables for bookings</p>
         </div>
-        <button
-          onClick={fetchData}
-          className="p-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
-          title="Refresh Data"
-        >
-          <RefreshCw className={`w-4 h-4 text-gray-600 dark:text-gray-300 ${isLoading ? 'animate-spin' : ''}`} />
-        </button>
       </div>
 
       {/* Status Guide */}
@@ -1149,7 +1142,13 @@ const handleMarkAllDelivered = async (bookingId: string) => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm opacity-90">{stat.label}</p>
-                  <p className="text-3xl font-bold mt-2">{stat.value}</p>
+                  <div className="text-3xl font-bold mt-2">
+                    {isLoading ? (
+                      <div className="w-16 h-8 bg-white/20 rounded animate-pulse" />
+                    ) : (
+                      stat.value
+                    )}
+                  </div>
                 </div>
                 <IconComponent className="w-12 h-12 opacity-50" />
               </div>
@@ -1296,6 +1295,13 @@ const handleMarkAllDelivered = async (bookingId: string) => {
                 />
               </div>
             )}
+            <button
+              onClick={fetchData}
+              className="p-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+              title="Refresh Data"
+            >
+              <RefreshCw className={`w-4 h-4 text-gray-600 dark:text-gray-300 ${isLoading ? 'animate-spin' : ''}`} />
+            </button>
           </div>
         </div>
       </div>
@@ -1381,12 +1387,73 @@ const handleMarkAllDelivered = async (bookingId: string) => {
             </thead>
             <tbody>
               {isLoading ? (
-                <tr>
-                  <td colSpan={9} className="py-20 text-center border border-gray-200 dark:border-gray-700">
-                    <Loader2 className="w-10 h-10 text-brand-primary animate-spin mx-auto mb-4" />
-                    <p className="text-gray-500 dark:text-gray-400 font-medium">Loading deliverables...</p>
-                  </td>
-                </tr>
+                // Skeleton loading rows
+                Array.from({ length: entriesPerPage }).map((_, idx) => (
+                  <tr
+                    key={`skeleton-${idx}`}
+                    className="border border-gray-200 dark:border-gray-700 animate-pulse"
+                  >
+                    {/* Select Checkbox */}
+                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                      <div className="h-4 w-4 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                    </td>
+                    {/* Deliverable ID */}
+                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                      <div className="space-y-2">
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
+                      </div>
+                    </td>
+                    {/* Haven & Booking */}
+                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                      <div className="space-y-1">
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-36"></div>
+                        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-28"></div>
+                        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
+                      </div>
+                    </td>
+                    {/* Guest */}
+                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                      <div className="space-y-2">
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
+                        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-40"></div>
+                        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-28"></div>
+                      </div>
+                    </td>
+                    {/* Item Details */}
+                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                      <div className="space-y-2">
+                        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-2/3"></div>
+                      </div>
+                    </td>
+                    {/* Total */}
+                    <td className="py-4 px-4 text-right border border-gray-200 dark:border-gray-700">
+                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20 ml-auto"></div>
+                    </td>
+                    {/* Status */}
+                    <td className="py-4 px-4 text-center border border-gray-200 dark:border-gray-700">
+                      <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded-full w-20 mx-auto"></div>
+                    </td>
+                    {/* Check-in / Check-out */}
+                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                      <div className="space-y-1">
+                        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
+                        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
+                      </div>
+                    </td>
+                    {/* Actions */}
+                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                      <div className="flex items-center justify-center gap-1">
+                        <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+                        <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+                        <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+                        <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+                      </div>
+                    </td>
+                  </tr>
+                ))
               ) : paginatedRows.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="py-20 text-center border border-gray-200 dark:border-gray-700">
