@@ -487,15 +487,6 @@ export default function CleanersPage() {
   const inProgressCount = rows.filter((r) => r.status === "In Progress").length;
   const completedCount = rows.filter((r) => r.status === "Completed").length;
 
-  // Don't render until component is mounted
-  if (!isMounted) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 text-brand-primary animate-spin" />
-      </div>
-    );
-  }
-
   return (
     <>
       <div className="space-y-6 animate-in fade-in duration-700 overflow-hidden h-full flex flex-col">
@@ -643,7 +634,13 @@ export default function CleanersPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm opacity-90">{stat.label}</p>
-                    <p className="text-3xl font-bold mt-2">{stat.value}</p>
+                    <div className="text-3xl font-bold mt-2">
+                      {isLoading ? (
+                        <div className="w-16 h-8 bg-white/20 rounded animate-pulse" />
+                      ) : (
+                        stat.value
+                      )}
+                    </div>
                   </div>
                   <IconComponent className="w-12 h-12 opacity-50" />
                 </div>
@@ -687,14 +684,6 @@ export default function CleanersPage() {
             </div>
 
             <div className="flex items-center gap-2">
-              <button
-                onClick={handleRefresh}
-                disabled={isRefreshing || isLoading}
-                className="p-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Refresh Data"
-              >
-                <RefreshCw className={`w-4 h-4 text-gray-600 dark:text-gray-300 ${(isRefreshing || isLoading) ? 'animate-spin' : ''}`} />
-              </button>
               <Filter className="w-5 h-5 text-gray-600 dark:text-gray-300" />
               <select
                 value={filterStatus}
@@ -756,6 +745,14 @@ export default function CleanersPage() {
                   />
                 </div>
               )}
+              <button
+                onClick={handleRefresh}
+                disabled={isRefreshing || isLoading}
+                className="p-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Refresh Data"
+              >
+                <RefreshCw className={`w-4 h-4 text-gray-600 dark:text-gray-300 ${(isRefreshing || isLoading) ? 'animate-spin' : ''}`} />
+              </button>
             </div>
           </div>
         </div>
@@ -824,12 +821,51 @@ export default function CleanersPage() {
               </thead>
               <tbody>
                 {isLoading ? (
-                  <tr>
-                    <td colSpan={6} className="py-20 text-center border border-gray-200 dark:border-gray-700">
-                      <Loader2 className="w-10 h-10 text-brand-primary animate-spin mx-auto mb-4" />
-                      <p className="text-gray-500 dark:text-gray-400 font-medium">Loading cleaning tasks...</p>
-                    </td>
-                  </tr>
+                  // Skeleton loading rows
+                  Array.from({ length: entriesPerPage }).map((_, idx) => (
+                    <tr
+                      key={`skeleton-${idx}`}
+                      className="border border-gray-200 dark:border-gray-700 animate-pulse"
+                    >
+                      {/* Booking ID */}
+                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
+                      </td>
+                      {/* Haven & Guest */}
+                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                        <div className="space-y-2">
+                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
+                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-28"></div>
+                          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-36"></div>
+                        </div>
+                      </td>
+                      {/* Check-in / Check-out */}
+                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                        <div className="space-y-1">
+                          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
+                          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
+                        </div>
+                      </td>
+                      {/* Assigned Cleaner */}
+                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                        <div className="space-y-1">
+                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-28"></div>
+                          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
+                        </div>
+                      </td>
+                      {/* Status */}
+                      <td className="py-4 px-4 text-center border border-gray-200 dark:border-gray-700">
+                        <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded-full w-20 mx-auto"></div>
+                      </td>
+                      {/* Actions */}
+                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                        <div className="flex items-center justify-center gap-1">
+                          <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+                          <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
                 ) : error ? (
                   <tr>
                     <td colSpan={6} className="py-20 text-center text-sm text-red-600 dark:text-red-400 border border-gray-200 dark:border-gray-700">
