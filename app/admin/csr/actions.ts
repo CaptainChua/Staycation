@@ -159,12 +159,17 @@ export async function getDeposits(): Promise<DepositRecord[]> {
   }
 }
 
+// Default security deposit amount
+const DEFAULT_SECURITY_DEPOSIT_AMOUNT = 1000;
+
 // Update deposit status in booking_security_deposits table
 export async function updateDepositStatus(
-  depositId: string, 
+  depositId: string,
   newStatus: string,
   employeeId?: string,
-  notes?: string
+  notes?: string,
+  paymentMethod?: string,
+  paymentProofUrl?: string
 ): Promise<void> {
   const client = await pool.connect();
   try {
@@ -191,6 +196,20 @@ export async function updateDepositStatus(
          SET deposit_status = $2, returned_at = $3, processed_by = $4, notes = COALESCE($5, notes)
          WHERE id = $1`,
         [depositId, dbStatus, now, employeeId, notes]
+      );
+    } else if (dbStatus === 'held') {
+      // When marking as held (paid), also set the amount, payment method, proof URL, and held_at
+      await client.query(
+        `UPDATE booking_security_deposits
+         SET deposit_status = $2,
+             amount = $3,
+             payment_method = COALESCE($4, payment_method),
+             payment_proof_url = COALESCE($5, payment_proof_url),
+             held_at = $6,
+             processed_by = $7,
+             notes = COALESCE($8, notes)
+         WHERE id = $1`,
+        [depositId, dbStatus, DEFAULT_SECURITY_DEPOSIT_AMOUNT, paymentMethod, paymentProofUrl, now, employeeId, notes]
       );
     } else {
       await client.query(
