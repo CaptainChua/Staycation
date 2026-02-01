@@ -1,6 +1,6 @@
 "use client";
 
-import { Menu, X, Home, Calendar, DollarSign, FileText, Users, Wallet, Package, Settings, Bell, ChevronDown, User, MessageSquare, BarChart3, Headphones, Moon, Sun, Monitor, Cloud, CloudRain, CloudSnow, Activity } from "lucide-react";
+import { Menu, X, Home, Calendar, CalendarDays, DollarSign, FileText, Users, Wallet, Package, Settings, Bell, ChevronDown, User, MessageSquare, BarChart3, Headphones, Moon, Sun, Monitor, Cloud, CloudRain, CloudSnow, Activity } from "lucide-react";
 import Image from "next/image";
 import { useMemo, useState, useEffect, useRef } from "react";
 import { useSession, signOut } from "next-auth/react";
@@ -16,6 +16,7 @@ import MessagePage from "./MessagePage";
 import ActivityLogsPage from "./ActivityLogsPage";
 import NotificationPage from "./NotificationPage";
 import InventoryPage from "./InventoryPage";
+import CalendarPage from "./CalendarPage";
 import ProfilePage from "./ProfilePage";
 import AdminFooter from "../AdminFooter";
 import NotificationModal from "./Modals/Notification";
@@ -393,6 +394,12 @@ export default function CsrDashboard() {
           icon: Calendar,
           label: "Bookings Management",
           color: "text-green-500",
+        },
+        {
+          id: "calendar",
+          icon: CalendarDays,
+          label: "Booking Calendar",
+          color: "text-cyan-500",
         },
       ],
     },
@@ -881,6 +888,7 @@ export default function CsrDashboard() {
           <div className="w-full">
             {page === "dashboard" && <DashboardPage />}
             {page === "bookings" && <BookingsPage />}
+            {page === "calendar" && <CalendarPage />}
             {page === "payments" && <PaymentsPage />}
             {page === "deliverables" && <DeliverablesPage />}
             {page === "cleaners" && <CleanersPage />}
