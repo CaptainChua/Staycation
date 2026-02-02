@@ -6,6 +6,7 @@ export interface BlockedDate {
   from_date: string;
   to_date: string;
   reason?: string;
+  status?: string;
   created_at: string;
   haven_name?: string;
   tower?: string;
