@@ -1970,6 +1970,7 @@ const Checkout = () => {
                           checkOutDate={localCheckOutDate}
                           onCheckInChange={setLocalCheckInDate}
                           onCheckOutChange={setLocalCheckOutDate}
+                          havenId={bookingData.selectedRoom?.id}
                         />
                       </div>
 
@@ -2636,6 +2637,7 @@ const Checkout = () => {
                     checkOutDate={localCheckOutDate}
                     onCheckInChange={setLocalCheckInDate}
                     onCheckOutChange={setLocalCheckOutDate}
+                    havenId={bookingData.selectedRoom?.id}
                   />
                 </div>
 
@@ -2778,6 +2780,7 @@ const Checkout = () => {
                 checkOutDate={localCheckOutDate}
                 onCheckInChange={setLocalCheckInDate}
                 onCheckOutChange={setLocalCheckOutDate}
+                havenId={bookingData.selectedRoom?.id}
               />
             </div>
 
