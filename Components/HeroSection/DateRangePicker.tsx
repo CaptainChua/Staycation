@@ -37,7 +37,7 @@ const DateRangePicker = ({
 }: DateRangePickerProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectingCheckOut, setSelectingCheckOut] = useState(false);
-  const [currentMonthOffset, setCurrentMonthOffset] = useState(0);
+  const [currentMonthOffset, setCurrentMonthOffset] = useState(1); // Start from February (month 1)
   const [hoveredDate, setHoveredDate] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -253,7 +253,7 @@ const DateRangePicker = ({
     return date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
   };
 
-  const canGoBack = currentMonthOffset > 0;
+  const canGoBack = currentMonthOffset > 1; // Prevent going back before February
   const canGoForward = currentMonthOffset < 11;
 
   const renderMonth = (monthOffset: number) => {
@@ -425,7 +425,7 @@ const DateRangePicker = ({
             onCheckOutChange("");
             setSelectingCheckOut(false);
             setHoveredDate(null);
-            setCurrentMonthOffset(0);
+            setCurrentMonthOffset(1); // Reset to February
           }}
           className="flex-1 py-1.5 sm:py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white rounded-lg font-medium hover:border-[#8B4513] transition-all duration-200 text-xs sm:text-sm"
         >
