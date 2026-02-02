@@ -35,6 +35,11 @@ export async function getAllBlockedDates(req: NextRequest): Promise<NextResponse
       paramCount++;
     }
 
+    // Only return active blocked dates
+    conditions.push(`bd.status = $${paramCount}`);
+    values.push("active");
+    paramCount++;
+
     if (conditions.length > 0) {
       query += " WHERE " + conditions.join(" AND ");
     }
@@ -108,7 +113,7 @@ export async function getBlockedDateById(
 export async function createBlockedDate(req: NextRequest): Promise<NextResponse> {
   try {
     const body = await req.json();
-    const { haven_id, from_date, to_date, reason } = body;
+    const { haven_id, from_date, to_date, reason, status } = body;
 
     if (!haven_id || !from_date || !to_date) {
       return NextResponse.json(
@@ -125,8 +130,8 @@ export async function createBlockedDate(req: NextRequest): Promise<NextResponse>
     const actualToDate = fromDateObj <= toDateObj ? to_date : from_date;
 
     const query = `
-      INSERT INTO blocked_dates (haven_id, from_date, to_date, reason, created_at)
-      VALUES ($1, $2, $3, $4, NOW())
+      INSERT INTO blocked_dates (haven_id, from_date, to_date, reason, status, created_at)
+      VALUES ($1, $2, $3, $4, $5, NOW())
       RETURNING *
     `;
 
@@ -135,6 +140,7 @@ export async function createBlockedDate(req: NextRequest): Promise<NextResponse>
       actualFromDate,
       actualToDate,
       reason || null,
+      status || "active",
     ]);
 
     console.log("Blocked date created:", result.rows[0]);
@@ -158,7 +164,7 @@ export async function createBlockedDate(req: NextRequest): Promise<NextResponse>
 export async function updateBlockedDate(req: NextRequest): Promise<NextResponse> {
   try {
     const body = await req.json();
-    const { id, haven_id, from_date, to_date, reason } = body;
+    const { id, haven_id, from_date, to_date, reason, status } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -179,7 +185,8 @@ export async function updateBlockedDate(req: NextRequest): Promise<NextResponse>
       SET haven_id = COALESCE($2, haven_id),
           from_date = COALESCE($3, from_date),
           to_date = COALESCE($4, to_date),
-          reason = $5
+          reason = $5,
+          status = COALESCE($6, status)
       WHERE id = $1
       RETURNING *
     `;
@@ -190,6 +197,7 @@ export async function updateBlockedDate(req: NextRequest): Promise<NextResponse>
       actualFromDate,
       actualToDate,
       reason || null,
+      status || null,
     ]);
 
     if (result.rows.length === 0) {
