@@ -1506,12 +1506,18 @@ export default function BookingsPage() {
                 <div className="flex items-start justify-between pt-3 border-t border-gray-200 dark:border-gray-700">
                   <div className="flex-1">
                     <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Total Amount</p>
-                    <p className="font-bold text-gray-800 dark:text-gray-100 text-lg">{formatCurrency(booking.total_amount)}</p>
-                    {booking.remaining_balance > 0 && (
-                      <p className="text-xs text-orange-600 dark:text-orange-400">
-                        Balance: {formatCurrency(booking.remaining_balance)}
-                      </p>
-                    )}
+                    <p className="font-bold text-gray-800 dark:text-gray-100 text-lg">{formatCurrency(booking.total_amount + 1000)}</p>
+                    {(() => {
+                      const isDepositPaid = booking.deposit_status?.toLowerCase() !== 'pending';
+                      const balance = isDepositPaid
+                        ? (booking.total_amount - booking.down_payment)
+                        : (booking.total_amount + 1000 - booking.down_payment);
+                      return balance > 0 && (
+                        <p className="text-xs text-orange-600 dark:text-orange-400">
+                          Balance: {formatCurrency(balance)}
+                        </p>
+                      );
+                    })()}
                     <TotalBreakdown
                       roomRate={booking.room_rate}
                       securityDeposit={booking.security_deposit}

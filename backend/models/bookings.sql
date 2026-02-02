@@ -77,6 +77,8 @@ CREATE TABLE booking_payments (
   reviewed_at TIMESTAMPTZ,
   rejection_reason TEXT,
 
+  amount_paid DECIMAL(10,2) NOT NULL,
+
   created_at TIMESTAMPTZ DEFAULT NOW(),
 
   CHECK (down_payment <= total_amount),

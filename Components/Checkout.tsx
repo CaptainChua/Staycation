@@ -482,8 +482,12 @@ const Checkout = () => {
     return total + quantity * ADD_ON_PRICES[key as keyof AddOns];
   }, 0);
 
-  const totalAmount = roomRate + securityDeposit + addOnsTotal;
-  const remainingBalance = totalAmount - downPayment;
+  // Total amount for payment record (excluding security deposit - it's tracked separately)
+  const totalAmount = Math.round((roomRate + addOnsTotal) * 100) / 100;
+  const remainingBalance = Math.round((totalAmount - downPayment) * 100) / 100;
+
+  // Display total includes security deposit for UI purposes
+  const displayTotal = totalAmount + securityDeposit;
 
   // Update additional guests array when adults/children count changes
   const updateAdditionalGuests = (adults: number, children: number) => {
@@ -2315,7 +2319,7 @@ const Checkout = () => {
                           )}
                           <div className="flex justify-between pt-2 border-t dark:border-gray-700 font-bold text-lg text-gray-800 dark:text-white">
                             <span>Total</span>
-                            <span className="text-orange-500">₱{totalAmount.toLocaleString()}</span>
+                            <span className="text-orange-500">₱{displayTotal.toLocaleString()}</span>
                           </div>
                         </div>
 
@@ -2331,7 +2335,7 @@ const Checkout = () => {
                           <div className="flex justify-between text-sm">
                             <span className="text-green-700 dark:text-green-300">Remaining Balance (Pay Upon Check-in)</span>
                             <span className="font-bold text-green-800 dark:text-green-200">
-                              ₱{(totalAmount - downPayment).toLocaleString()}
+                              ₱{(displayTotal - downPayment).toLocaleString()}
                             </span>
                           </div>
                         </div>
@@ -2750,7 +2754,7 @@ const Checkout = () => {
                     <div className="flex justify-between pt-2 border-t border-gray-200 dark:border-gray-700">
                       <span className="font-bold text-gray-800 dark:text-white">Total</span>
                       <span className="font-bold text-brand-primary">
-                        {totalAmount > 0 ? `₱${totalAmount.toLocaleString()}` : "—"}
+                        {displayTotal > 0 ? `₱${displayTotal.toLocaleString()}` : "—"}
                       </span>
                     </div>
                   </div>
@@ -2876,7 +2880,7 @@ const Checkout = () => {
                 <div className="flex items-center gap-3">
                   <div className="flex items-baseline gap-1">
                     <span className="text-lg font-bold text-gray-900 dark:text-white">
-                      {totalAmount > 0 ? `₱${totalAmount.toLocaleString()}` : "Select dates"}
+                      {displayTotal > 0 ? `₱${displayTotal.toLocaleString()}` : "Select dates"}
                     </span>
                     <span className="text-sm text-gray-500 dark:text-gray-400">total</span>
                   </div>
