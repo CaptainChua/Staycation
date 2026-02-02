@@ -154,6 +154,23 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
     if (bookingData.guests) setLocalGuests(bookingData.guests);
   }, [bookingData.checkInDate, bookingData.checkOutDate, bookingData.guests]);
 
+  // Sync local dates to Redux whenever they change (for persistence)
+  useEffect(() => {
+    if (localCheckInDate) {
+      dispatch(setReduxCheckInDate(localCheckInDate));
+    }
+  }, [localCheckInDate, dispatch]);
+
+  useEffect(() => {
+    if (localCheckOutDate) {
+      dispatch(setReduxCheckOutDate(localCheckOutDate));
+    }
+  }, [localCheckOutDate, dispatch]);
+
+  useEffect(() => {
+    dispatch(setReduxGuests(localGuests));
+  }, [localGuests, dispatch]);
+
   // Handle click outside to close dropdowns
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -924,6 +941,7 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
                         checkOutDate={localCheckOutDate}
                         onCheckInChange={setLocalCheckInDate}
                         onCheckOutChange={setLocalCheckOutDate}
+                        havenId={room.id}
                       />
                     </div>
                     
@@ -1068,6 +1086,7 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
             checkOutDate={localCheckOutDate}
             onCheckInChange={setLocalCheckInDate}
             onCheckOutChange={setLocalCheckOutDate}
+            havenId={room.id}
           />
         </div>
 

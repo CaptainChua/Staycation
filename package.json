@@ -50,6 +50,7 @@
     "react-leaflet": "^5.0.0",
     "react-redux": "^9.2.0",
     "recharts": "^3.5.1",
+    "redux-persist": "^6.0.0",
     "resend": "^6.6.0"
   },
   "devDependencies": {

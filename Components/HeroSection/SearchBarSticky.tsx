@@ -164,7 +164,7 @@ const SearchBarSticky = () => {
       // Fallback to rooms page without search filter
       router.push('/rooms');
     }
-  }
+  };
 
   return (
     <div
@@ -230,6 +230,7 @@ const SearchBarSticky = () => {
                   checkOutDate={checkOutDate}
                   onCheckInChange={setCheckInDate}
                   onCheckOutChange={setCheckOutDate}
+                  havenId={selectedLocation?.uuid_id}
                 />
               </div>
 
@@ -296,6 +297,16 @@ const SearchBarSticky = () => {
                   checkOutDate={checkOutDate}
                   onCheckInChange={setCheckInDate}
                   onCheckOutChange={setCheckOutDate}
+                  havenId={selectedLocation?.uuid_id}
+                />
+              </div>
+
+              {/* Guest Selector - Added back for tablet */}
+              <div className="col-span-2 px-3 py-2 border-t border-gray-200 dark:border-gray-700 mt-2">
+                <GuestSelector
+                  guests={guests}
+                  onGuestChange={handleGuestChange}
+                  compact={true}
                 />
               </div>
 
@@ -344,6 +355,7 @@ const SearchBarSticky = () => {
                   checkOutDate={checkOutDate}
                   onCheckInChange={setCheckInDate}
                   onCheckOutChange={setCheckOutDate}
+                  havenId={selectedLocation?.uuid_id}
                 />
               </div>
 

@@ -1,5 +1,7 @@
 import { configureStore } from "@reduxjs/toolkit";
 import { setupListeners } from "@reduxjs/toolkit/query";
+import { persistStore, persistReducer } from "redux-persist";
+import storage from "redux-persist/lib/storage";
 import bookingReducer from "./slices/bookingSlice";
 import { employeeApi } from "./api/employeeApi";
 import { roomApi } from "./api/roomApi";
@@ -16,9 +18,17 @@ import { blockedDatesApi } from "./api/blockedDatesApi";
 import { adminUsersApi } from "./api/adminUsersApi";
 import { cleanersApi } from "./api/cleanersApi";
 
+const persistConfig = {
+  key: 'root',
+  storage,
+  whitelist: ['booking'],
+};
+
+const persistedBookingReducer = persistReducer(persistConfig, bookingReducer);
+
 export const store = configureStore({
   reducer: {
-    booking: bookingReducer,
+    booking: persistedBookingReducer,
     [employeeApi.reducerPath]: employeeApi.reducer,
     [roomApi.reducerPath]: roomApi.reducer,
     [bookingsApi.reducerPath]: bookingsApi.reducer,
@@ -35,7 +45,11 @@ export const store = configureStore({
     [cleanersApi.reducerPath]: cleanersApi.reducer,
   },
   middleware: (getDefaultMiddleware) =>
-    getDefaultMiddleware()
+    getDefaultMiddleware({
+      serializableCheck: {
+        ignoredActions: ['persist/PERSIST'],
+      },
+    })
       .concat(employeeApi.middleware)
       .concat(roomApi.middleware)
       .concat(bookingsApi.middleware)
@@ -51,6 +65,8 @@ export const store = configureStore({
       .concat(adminUsersApi.middleware)
       .concat(cleanersApi.middleware),
 });
+
+export const persistor = persistStore(store);
 
 setupListeners(store.dispatch);
 
