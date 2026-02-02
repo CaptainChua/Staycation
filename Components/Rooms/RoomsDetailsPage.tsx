@@ -559,7 +559,7 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
         </div>
 
         {/* Main Content */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-32 lg:pb-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-24 lg:pb-12">
           <div className="lg:grid lg:grid-cols-3 lg:gap-8">
 
             {/* Left Column - Details */}
@@ -656,9 +656,52 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
               </div>
 
               {/* Tab Content */}
-              <div className="py-6">
+              <div className="py-4">
                 {activeTab === "overview" && (
                   <div className="space-y-8">
+                    {/* Stay Details */}
+                    {localCheckInDate && localCheckOutDate && (
+                      <div className="bg-gradient-to-r from-brand-primary/10 to-orange-100/10 dark:from-brand-primary/20 dark:to-orange-900/20 p-6 rounded-xl border border-brand-primary/20 dark:border-brand-primary/30">
+                        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                          <Calendar className="w-5 h-5 text-brand-primary" />
+                          Your Stay
+                        </h2>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          {/* Check-in */}
+                          <div>
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Check-in</p>
+                            <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                              {formatDateSafe(localCheckInDate)}
+                            </p>
+                          </div>
+
+                          {/* Check-out */}
+                          <div>
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Check-out</p>
+                            <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                              {formatDateSafe(localCheckOutDate)}
+                            </p>
+                          </div>
+
+                          {/* Number of Nights */}
+                          <div>
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Nights</p>
+                            <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                              {Math.ceil((new Date(localCheckOutDate).getTime() - new Date(localCheckInDate).getTime()) / (1000 * 60 * 60 * 24))} night{Math.ceil((new Date(localCheckOutDate).getTime() - new Date(localCheckInDate).getTime()) / (1000 * 60 * 60 * 24)) !== 1 ? 's' : ''}
+                            </p>
+                          </div>
+
+                          {/* Number of Guests */}
+                          <div>
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Guests</p>
+                            <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                              {localGuests.adults + localGuests.children + localGuests.infants} guest{(localGuests.adults + localGuests.children + localGuests.infants) !== 1 ? 's' : ''}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     {/* About */}
                     <div>
                       <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
@@ -693,6 +736,19 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
                           <p className="text-sm text-gray-500 dark:text-gray-400">We&apos;re here to help anytime you need</p>
                         </div>
                       </div>
+                    </div>
+
+                    {/* Calendar Display */}
+                    <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700">
+                      <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Select Your Dates</h2>
+                      <DateRangePicker
+                        checkInDate={localCheckInDate}
+                        checkOutDate={localCheckOutDate}
+                        onCheckInChange={setLocalCheckInDate}
+                        onCheckOutChange={setLocalCheckOutDate}
+                        havenId={room.id}
+                        expanded={true}
+                      />
                     </div>
 
                     {/* Video Tour */}
