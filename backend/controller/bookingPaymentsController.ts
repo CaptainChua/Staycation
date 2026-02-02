@@ -52,23 +52,20 @@ export const createBookingPayment = async (
       paymentProofUrl = uploadResult.url;
     }
 
-    // Compute remaining balance if not provided. If an explicit amount_paid was
-    // provided use that as the current paid amount; otherwise default to down_payment.
-    const computedTotal = Number(total_amount || 0);
-    const computedDown = Number(down_payment || 0);
-    const computedAmountPaid =
-      typeof amount_paid !== "undefined" && amount_paid !== null
-        ? Number(amount_paid)
-        : computedDown;
-    const computedRemaining =
-      typeof remaining_balance !== "undefined" && remaining_balance !== null
-        ? Number(remaining_balance)
-        : computedTotal - computedAmountPaid;
+    // Ensure proper number conversion and calculate remaining_balance to satisfy DB constraint
+    // The constraint requires: remaining_balance = total_amount - down_payment
+    const computedTotal = Number(total_amount) || 0;
+    const computedDown = Number(down_payment) || 0;
+    const computedRemaining = computedTotal - computedDown;
+    // amount_paid defaults to down_payment if not provided
+    const computedAmountPaid = typeof amount_paid !== "undefined" && amount_paid !== null
+      ? Number(amount_paid)
+      : computedDown;
 
     const insertQuery = `
       INSERT INTO booking_payments (
         booking_id, payment_method, payment_proof_url, room_rate,
-        add_ons_total, total_amount, down_payment, amount_paid, remaining_balance, created_at
+        add_ons_total, total_amount, down_payment, remaining_balance, amount_paid, created_at
       )
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW())
       RETURNING *
@@ -82,8 +79,8 @@ export const createBookingPayment = async (
       add_ons_total ?? 0,
       computedTotal,
       computedDown,
-      computedAmountPaid,
       computedRemaining,
+      computedAmountPaid,
     ];
 
     const result = await client.query(insertQuery, values);
@@ -328,7 +325,7 @@ export const updateBookingPayment = async (
 
       // Lock and read the current payment row so we can compute applied amount safely
       const currentRes = await client.query(
-        `SELECT down_payment, amount_paid, remaining_balance, total_amount FROM booking_payments WHERE id = $1 FOR UPDATE`,
+        `SELECT down_payment, remaining_balance, total_amount FROM booking_payments WHERE id = $1 FOR UPDATE`,
         [id],
       );
 
@@ -342,20 +339,8 @@ export const updateBookingPayment = async (
 
       const cur = currentRes.rows[0];
       const prevDown = Number(cur.down_payment ?? 0);
-      const prevAmountPaid = Number(cur.amount_paid ?? 0);
-      const explicitPrevRemaining =
-        typeof cur.remaining_balance !== "undefined" &&
-        cur.remaining_balance !== null
-          ? Number(cur.remaining_balance)
-          : NaN;
-      const derivedPrevRemaining = !Number.isNaN(Number(cur.total_amount))
-        ? Number(cur.total_amount) - prevAmountPaid
-        : NaN;
-      const actualPrevRemaining = !Number.isNaN(explicitPrevRemaining)
-        ? explicitPrevRemaining
-        : !Number.isNaN(derivedPrevRemaining)
-          ? derivedPrevRemaining
-          : 0;
+      const curTotalAmount = Number(cur.total_amount ?? 0);
+      const actualPrevRemaining = Number(cur.remaining_balance ?? 0);
 
       // If collecting less than the outstanding remaining balance, only allow it
       // when the collected amount matches the submitted down payment (i.e. this
@@ -405,20 +390,40 @@ export const updateBookingPayment = async (
       }
     } else {
       // No collect_amount provided - allow direct updates to these fields
-      pushField(
-        "down_payment",
-        typeof down_payment === "undefined" ? undefined : down_payment,
-      );
-      pushField(
-        "amount_paid",
-        typeof amount_paid === "undefined" ? undefined : amount_paid,
-      );
-      pushField(
-        "remaining_balance",
-        typeof remaining_balance === "undefined"
-          ? undefined
-          : remaining_balance,
-      );
+      // But we must ensure remaining_balance = total_amount - down_payment constraint
+      if (typeof down_payment !== "undefined" || typeof total_amount !== "undefined") {
+        // If down_payment or total_amount changes, we need to recalculate remaining_balance
+        // Fetch current values first
+        const currentRes = await client.query(
+          `SELECT down_payment, total_amount FROM booking_payments WHERE id = $1`,
+          [id],
+        );
+        if (currentRes.rows.length > 0) {
+          const cur = currentRes.rows[0];
+          const newTotal = typeof total_amount !== "undefined" ? Number(total_amount) : Number(cur.total_amount ?? 0);
+          const newDown = typeof down_payment !== "undefined" ? Number(down_payment) : Number(cur.down_payment ?? 0);
+          const newRemaining = newTotal - newDown;
+
+          pushField("down_payment", newDown);
+          pushField("total_amount", newTotal);
+          pushField("remaining_balance", newRemaining);
+        }
+      } else if (typeof remaining_balance !== "undefined") {
+        // If only remaining_balance is provided, we can't satisfy the constraint
+        // So we need to adjust down_payment accordingly
+        const currentRes = await client.query(
+          `SELECT total_amount FROM booking_payments WHERE id = $1`,
+          [id],
+        );
+        if (currentRes.rows.length > 0) {
+          const curTotal = Number(currentRes.rows[0].total_amount ?? 0);
+          const newRemaining = Number(remaining_balance);
+          const newDown = curTotal - newRemaining;
+
+          pushField("down_payment", newDown);
+          pushField("remaining_balance", newRemaining);
+        }
+      }
     }
 
     // Push other optional edits (use effective payment status if modified by collect_amount)
@@ -437,8 +442,8 @@ export const updateBookingPayment = async (
       typeof add_ons_total === "undefined" ? undefined : add_ons_total,
     );
     pushField(
-      "total_amount",
-      typeof total_amount === "undefined" ? undefined : total_amount,
+      "amount_paid",
+      typeof amount_paid === "undefined" ? undefined : amount_paid,
     );
 
     // Handle upload if provided
@@ -646,8 +651,7 @@ export const updateBookingPayment = async (
             bg.last_name,
             bg.email,
             bp.total_amount,
-            bp.down_payment,
-            bp.amount_paid
+            bp.down_payment
           FROM booking b
           JOIN booking_guests bg ON b.id = bg.booking_id
           JOIN booking_payments bp ON b.id = bp.booking_id
@@ -681,12 +685,8 @@ export const updateBookingPayment = async (
             guests: `${booking.adults} Adults, ${booking.children} Children, ${booking.infants} Infants`,
             paymentMethod:
               booking.payment_method || updatedPayment.payment_method,
-            // Prefer amount_paid if present (total paid so far), otherwise fall back to down_payment
             downPayment:
-              booking.amount_paid ??
-              updatedPayment.amount_paid ??
-              booking.down_payment ??
-              updatedPayment.down_payment,
+              booking.down_payment ?? updatedPayment.down_payment,
             totalAmount: booking.total_amount || updatedPayment.total_amount,
           };
 

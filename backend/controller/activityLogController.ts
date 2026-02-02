@@ -139,7 +139,12 @@ export const getAllActivityLogs = async (
 ): Promise<NextResponse> => {
   try {
     const { searchParams } = new URL(req.url);
+    const employee_id = searchParams.get("employee_id");
     const action_type = searchParams.get("action_type");
+    const search = searchParams.get("search");
+    const date_range = searchParams.get("date_range");
+    const start_date = searchParams.get("start_date");
+    const end_date = searchParams.get("end_date");
     const limit = searchParams.get("limit") || "50";
     const offset = searchParams.get("offset") || "0";
 
@@ -340,11 +345,13 @@ export const getAllActivityLogs = async (
 
     return NextResponse.json({
       success: true,
-      logs: result.rows,
-      count: result.rows.length,
-      total_count: totalCount,
-      page: parseInt(page),
-      limit: parseInt(limit),
+      data: {
+        logs: result.rows,
+        count: result.rows.length,
+        total_count: totalCount,
+        page: Math.floor(parseInt(offset) / parseInt(limit)) + 1,
+        limit: parseInt(limit),
+      }
     });
   } catch (error: unknown) {
     console.log("❌ Error getting activity logs:", error);

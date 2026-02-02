@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { X, Search, UserPlus, CheckCircle, MapPin, Calendar, User, Users, Loader2, ChevronDown } from "lucide-react";
 import { useGetEmployeesQuery } from "@/redux/api/employeeApi";
-import { useGetBookingsQuery, useUpdateBookingStatusMutation } from "@/redux/api/bookingsApi";
+import { useGetBookingsQuery } from "@/redux/api/bookingsApi";
 import toast from 'react-hot-toast';
 import Image from "next/image";
 
@@ -40,15 +40,17 @@ interface AssignCleanerModalProps {
   onClose: () => void;
   bookingId: string;
   onSuccess?: () => void;
+  currentUserId?: string;
 }
 
 const skeletonPulse = "animate-pulse bg-gray-100 dark:bg-gray-700/60";
 
-export default function AssignCleanerModal({ isOpen, onClose, bookingId, onSuccess }: AssignCleanerModalProps) {
+export default function AssignCleanerModal({ isOpen, onClose, bookingId, onSuccess, currentUserId }: AssignCleanerModalProps) {
   const [showCleanerDropdown, setShowCleanerDropdown] = useState(false);
   const [selectedCleaner, setSelectedCleaner] = useState<Cleaner | null>(null);
   const [availableOnly, setAvailableOnly] = useState(true);
   const [cleanerSearchTerm, setCleanerSearchTerm] = useState("");
+  const [isUpdating, setIsUpdating] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
   const cleanerDropdownRef = useRef<HTMLDivElement>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -63,7 +65,6 @@ export default function AssignCleanerModal({ isOpen, onClose, bookingId, onSucce
       refetchOnReconnect: true,
     }
   ) as { data: BookingRow[] };
-  const [updateBookingStatus, { isLoading: isUpdating }] = useUpdateBookingStatusMutation();
 
   const cleaners = useMemo(() => {
     if (!employeesData?.data) return [];
@@ -75,19 +76,31 @@ export default function AssignCleanerModal({ isOpen, onClose, bookingId, onSucce
   }, [bookings, bookingId]);
 
   const cleanerAvailability = useMemo(() => {
-    const map: Record<string, { status: "Available" | "Cleaning"; room?: string; timeIn?: string | null }> = {};
+    const map: Record<string, { 
+      status: "Available" | "Cleaning"; 
+      room?: string; 
+      timeIn?: string | null;
+      checkOutDate?: string;
+      checkOutTime?: string;
+      bookingId?: string;
+    }> = {};
     for (const cleaner of cleaners) {
       map[cleaner.id] = { status: "Available" };
     }
     for (const b of bookings) {
       const cleanerId = b.assigned_cleaner_id || undefined;
       if (!cleanerId) continue;
-      if (b.cleaning_status !== "in-progress") continue;
-      if (b.cleaning_time_out) continue;
+      // Check for both 'assigned' and 'in-progress' status
+      if (b.cleaning_status !== "assigned" && b.cleaning_status !== "in-progress") continue;
+      if (b.cleaning_time_out) continue; // Only show active assignments
+      
       map[cleanerId] = {
         status: "Cleaning",
         room: b.room_name || "Not specified",
         timeIn: b.cleaning_time_in || null,
+        checkOutDate: b.check_out_date || undefined,
+        checkOutTime: b.check_out_time || undefined,
+        bookingId: b.booking_id || undefined,
       };
     }
     return map;
@@ -151,21 +164,45 @@ export default function AssignCleanerModal({ isOpen, onClose, bookingId, onSucce
       return;
     }
 
+    setIsUpdating(true);
     try {
-      await updateBookingStatus({
-        id: selectedBooking.id,
-        cleaning_status: "in-progress",
-        assigned_cleaner_id: selectedCleaner.id,
-        cleaning_time_in: new Date().toISOString(),
-        cleaning_time_out: null
-      }).unwrap();
+      // Find the cleaning task ID for this booking
+      const cleaningTaskResponse = await fetch(`/api/admin/cleaners/tasks/by-booking/${selectedBooking.booking_id}`);
+      const cleaningTaskData = await cleaningTaskResponse.json();
       
-      toast.success(`Cleaning task assigned to ${selectedCleaner.first_name} ${selectedCleaner.last_name}`);
-      onSuccess?.();
-      onClose();
+      if (!cleaningTaskData.success || !cleaningTaskData.data) {
+        toast.error("Cleaning task not found");
+        return;
+      }
+
+      const cleaningTaskId = cleaningTaskData.data.cleaning_id;
+      
+      // Assign the cleaner using the correct API
+      const response = await fetch(`/api/admin/cleaners/tasks/${cleaningTaskId}/assign`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': currentUserId || '',
+        },
+        body: JSON.stringify({
+          assigned_to: selectedCleaner.id
+        }),
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        toast.success(`Cleaning task assigned to ${selectedCleaner.first_name} ${selectedCleaner.last_name}`);
+        onSuccess?.();
+        onClose();
+      } else {
+        toast.error(result.error || "Failed to assign cleaner");
+      }
     } catch (error) {
       toast.error("Failed to assign cleaner");
       console.error(error);
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -185,21 +222,45 @@ export default function AssignCleanerModal({ isOpen, onClose, bookingId, onSucce
       return;
     }
 
+    setIsUpdating(true);
     try {
-      await updateBookingStatus({
-        id: nextQueuedTask.id,
-        cleaning_status: "in-progress",
-        assigned_cleaner_id: selectedCleaner.id,
-        cleaning_time_in: new Date().toISOString(),
-        cleaning_time_out: null,
-      }).unwrap();
+      // Find the cleaning task ID for the next queued booking
+      const cleaningTaskResponse = await fetch(`/api/admin/cleaners/tasks/by-booking/${nextQueuedTask.booking_id}`);
+      const cleaningTaskData = await cleaningTaskResponse.json();
+      
+      if (!cleaningTaskData.success || !cleaningTaskData.data) {
+        toast.error("Cleaning task not found");
+        return;
+      }
 
-      toast.success(`Next room assigned to ${selectedCleaner.first_name} ${selectedCleaner.last_name}`);
-      onSuccess?.();
-      onClose();
+      const cleaningTaskId = cleaningTaskData.data.cleaning_id;
+      
+      // Assign the cleaner using the correct API
+      const response = await fetch(`/api/admin/cleaners/tasks/${cleaningTaskId}/assign`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': currentUserId || '',
+        },
+        body: JSON.stringify({
+          assigned_to: selectedCleaner.id
+        }),
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        toast.success(`Next room assigned to ${selectedCleaner.first_name} ${selectedCleaner.last_name}`);
+        onSuccess?.();
+        onClose();
+      } else {
+        toast.error(result.error || "Failed to assign next room");
+      }
     } catch (error) {
       toast.error("Failed to assign next room");
       console.error(error);
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -317,7 +378,19 @@ export default function AssignCleanerModal({ isOpen, onClose, bookingId, onSucce
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Check-Out:</span>
                         <span className="text-sm text-gray-900 dark:text-gray-100">
-                          {selectedBooking.check_out_date ? new Date(selectedBooking.check_out_date).toLocaleDateString() : "N/A"} {selectedBooking.check_out_time || ""}
+                          {selectedBooking.check_out_date ? (
+                            <>
+                              {new Date(selectedBooking.check_out_date).toLocaleDateString('en-US', { 
+                                month: 'short', 
+                                day: 'numeric', 
+                                year: 'numeric' 
+                              })}
+                              {selectedBooking.check_out_time && ` at ${new Date(`2000-01-01T${selectedBooking.check_out_time}`).toLocaleTimeString('en-US', { 
+                                hour: '2-digit', 
+                                minute: '2-digit' 
+                              })}`}
+                            </>
+                          ) : "N/A"}
                         </span>
                       </div>
                     </div>
@@ -390,6 +463,42 @@ export default function AssignCleanerModal({ isOpen, onClose, bookingId, onSucce
                               <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
                                 {selectedCleaner.email} • {selectedCleaner.employment_id}
                               </p>
+                              {(() => {
+                                const a = cleanerAvailability[selectedCleaner.id] || { status: "Available" as const };
+                                const isCleaning = a.status === "Cleaning";
+                                if (isCleaning && a.room) {
+                                  return (
+                                    <div className="mt-2 text-xs text-gray-600 dark:text-gray-400 space-y-1">
+                                      <div className="flex items-center gap-1">
+                                        <MapPin className="w-3 h-3" />
+                                        <span>Currently assigned to: {a.room}</span>
+                                      </div>
+                                      {a.checkOutDate && (
+                                        <div className="flex items-center gap-1">
+                                          <Calendar className="w-3 h-3" />
+                                          <span>
+                                            Check-out: {new Date(a.checkOutDate).toLocaleDateString('en-US', { 
+                                              month: 'short', 
+                                              day: 'numeric', 
+                                              year: 'numeric' 
+                                            })}
+                                            {a.checkOutTime && ` at ${new Date(`2000-01-01T${a.checkOutTime}`).toLocaleTimeString('en-US', { 
+                                              hour: '2-digit', 
+                                              minute: '2-digit' 
+                                            })}`}
+                                          </span>
+                                        </div>
+                                      )}
+                                      {a.bookingId && (
+                                        <div className="text-gray-500">
+                                          Booking: {a.bookingId}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                }
+                                return null;
+                              })()}
                             </>
                           ) : (
                             <>
@@ -492,8 +601,41 @@ export default function AssignCleanerModal({ isOpen, onClose, bookingId, onSucce
                                           {isCleaning && a.timeIn ? formatDuration(timeMs) : "-"}
                                         </span>
                                       </div>
-                                      <div className="mt-1 text-xs text-gray-600 dark:text-gray-400 truncate">
-                                        {isCleaning ? `Room: ${a.room || "N/A"}` : "Room: -"}
+                                      <div className="mt-1 text-xs text-gray-600 dark:text-gray-400">
+                                        {isCleaning ? (
+                                          <div className="space-y-1">
+                                            <div className="flex items-center gap-1">
+                                              <MapPin className="w-3 h-3" />
+                                              <span>Room: {a.room || "N/A"}</span>
+                                            </div>
+                                            {a.checkOutDate && (
+                                              <div className="flex items-center gap-1">
+                                                <Calendar className="w-3 h-3" />
+                                                <span>
+                                                  {new Date(a.checkOutDate).toLocaleDateString('en-US', { 
+                                                    month: 'short', 
+                                                    day: 'numeric', 
+                                                    year: 'numeric' 
+                                                  })}
+                                                  {a.checkOutTime && ` at ${new Date(`2000-01-01T${a.checkOutTime}`).toLocaleTimeString('en-US', { 
+                                                    hour: '2-digit', 
+                                                    minute: '2-digit' 
+                                                  })}`}
+                                                </span>
+                                              </div>
+                                            )}
+                                            {a.bookingId && (
+                                              <div className="text-gray-500">
+                                                Booking: {a.bookingId}
+                                              </div>
+                                            )}
+                                          </div>
+                                        ) : (
+                                          <div className="flex items-center gap-1">
+                                            <MapPin className="w-3 h-3" />
+                                            <span>Room: -</span>
+                                          </div>
+                                        )}
                                       </div>
                                     </div>
                                   </div>
@@ -520,7 +662,19 @@ export default function AssignCleanerModal({ isOpen, onClose, bookingId, onSucce
                         <span className="text-xs font-mono text-gray-500 dark:text-gray-400">{nextQueuedTask.booking_id}</span>
                       </div>
                       <div className="text-xs text-gray-600 dark:text-gray-400">
-                        {`${nextQueuedTask.check_out_date ?? ""} ${nextQueuedTask.check_out_time ?? ""}`.trim() || "Not specified"}
+                        {nextQueuedTask.check_out_date ? (
+                          <>
+                            {new Date(nextQueuedTask.check_out_date).toLocaleDateString('en-US', { 
+                              month: 'short', 
+                              day: 'numeric', 
+                              year: 'numeric' 
+                            })}
+                            {nextQueuedTask.check_out_time && ` at ${new Date(`2000-01-01T${nextQueuedTask.check_out_time}`).toLocaleTimeString('en-US', { 
+                              hour: '2-digit', 
+                              minute: '2-digit' 
+                            })}`}
+                          </>
+                        ) : "Not specified"}
                       </div>
                     </div>
                   ) : (

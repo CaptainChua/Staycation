@@ -1,6 +1,6 @@
 "use client";
 
-import { Menu, X, Home, Calendar, DollarSign, FileText, Users, Wallet, Package, Settings, Bell, ChevronDown, User, MessageSquare, BarChart3, Headphones, Moon, Sun, Monitor, Cloud, CloudRain, CloudSnow, Activity } from "lucide-react";
+import { Menu, X, Home, Calendar, CalendarDays, DollarSign, FileText, Users, Wallet, Package, Settings, Bell, ChevronDown, User, MessageSquare, BarChart3, Headphones, Moon, Sun, Monitor, Cloud, CloudRain, CloudSnow, Activity } from "lucide-react";
 import Image from "next/image";
 import { useMemo, useState, useEffect, useRef } from "react";
 import { useSession, signOut } from "next-auth/react";
@@ -16,6 +16,7 @@ import MessagePage from "./MessagePage";
 import ActivityLogsPage from "./ActivityLogsPage";
 import NotificationPage from "./NotificationPage";
 import InventoryPage from "./InventoryPage";
+import CalendarPage from "./CalendarPage";
 import ProfilePage from "./ProfilePage";
 import AdminFooter from "../AdminFooter";
 import NotificationModal from "./Modals/Notification";
@@ -383,12 +384,6 @@ export default function CsrDashboard() {
           label: "Dashboard",
           color: "text-blue-500",
         },
-        {
-          id: "analytics",
-          icon: BarChart3,
-          label: "Analytics & Reports",
-          color: "text-cyan-500",
-        },
       ],
     },
     {
@@ -401,10 +396,10 @@ export default function CsrDashboard() {
           color: "text-green-500",
         },
         {
-          id: "reservations",
-          icon: Calendar,
-          label: "Reservations",
-          color: "text-indigo-500",
+          id: "calendar",
+          icon: CalendarDays,
+          label: "Booking Calendar",
+          color: "text-cyan-500",
         },
       ],
     },
@@ -493,7 +488,7 @@ export default function CsrDashboard() {
       <div
         className={`${
           sidebar ? "w-72" : "w-20"
-        } bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 transition-all duration-300 flex-col md:sticky md:top-0 h-screen shadow-xl flex-shrink-0
+        } bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 transition-all duration-300 flex-col md:sticky md:top-0 h-screen flex-shrink-0
         ${
           mobileMenuOpen
             ? "fixed inset-y-0 left-0 z-50 flex animate-in slide-in-from-left duration-300"
@@ -587,7 +582,7 @@ export default function CsrDashboard() {
       {/* MAIN CONTENT */}
       <div className="flex-1 flex flex-col h-screen min-w-0 overflow-x-hidden overflow-y-auto">
         {/* HEADER */}
-        <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-3 sm:px-6 h-16 sm:h-20 min-h-16 sm:min-h-20 flex-shrink-0 flex justify-between items-center sticky top-0 z-10 shadow-sm">
+        <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-3 sm:px-6 h-16 sm:h-20 min-h-16 sm:min-h-20 flex-shrink-0 flex justify-between items-center sticky top-0 z-10">
           <div className="flex items-center gap-2 sm:gap-4">
             {/* Mobile Menu Button */}
             <button
@@ -890,9 +885,10 @@ export default function CsrDashboard() {
 
         {/* PAGE CONTENT */}
         <div className="flex-1 p-6">
-          <div className="max-w-[1600px] mx-auto">
+          <div className="w-full">
             {page === "dashboard" && <DashboardPage />}
             {page === "bookings" && <BookingsPage />}
+            {page === "calendar" && <CalendarPage />}
             {page === "payments" && <PaymentsPage />}
             {page === "deliverables" && <DeliverablesPage />}
             {page === "cleaners" && <CleanersPage />}

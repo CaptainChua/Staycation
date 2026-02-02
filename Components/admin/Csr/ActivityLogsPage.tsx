@@ -158,7 +158,7 @@ export default function ActivityLogsPage() {
       }
 
       const data = await response.json();
-      setLogs(data.logs || []);
+      setLogs(data.data?.logs || []);
     } catch (error) {
       console.error('Error fetching activity logs:', error);
     } finally {
@@ -403,12 +403,35 @@ export default function ActivityLogsPage() {
             </thead>
             <tbody>
               {isLoading ? (
-                  <tr>
-                      <td colSpan={6} className="py-20 text-center border border-gray-200 dark:border-gray-700">
-                          <Loader2 className="w-10 h-10 text-brand-primary animate-spin mx-auto mb-4" />
-                          <p className="text-gray-500 dark:text-gray-400 font-medium">Loading activity logs...</p>
+                  // Skeleton loading rows
+                  Array.from({ length: entriesPerPage }).map((_, idx) => (
+                    <tr
+                      key={`skeleton-${idx}`}
+                      className="border border-gray-200 dark:border-gray-700 animate-pulse"
+                    >
+                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                        <div className="flex items-center gap-2">
+                          <div className="h-4 w-4 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                          <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded-full w-24"></div>
+                        </div>
                       </td>
-                  </tr>
+                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-48"></div>
+                      </td>
+                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
+                      </td>
+                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
+                      </td>
+                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-28"></div>
+                      </td>
+                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
+                      </td>
+                    </tr>
+                  ))
               ) : filteredLogs.length === 0 ? (
                   <tr>
                       <td colSpan={6} className="py-20 text-center border border-gray-200 dark:border-gray-700">
