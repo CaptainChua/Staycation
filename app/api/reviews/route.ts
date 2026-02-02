@@ -171,11 +171,42 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '10');
     const offset = parseInt(searchParams.get('offset') || '0');
 
+    // If no haven_id, get all reviews for the owner
     if (!haven_id) {
-      return NextResponse.json(
-        { success: false, error: 'haven_id is required' },
-        { status: 400 }
-      );
+      const query = `
+        SELECT 
+          r.id,
+          r.booking_id,
+          r.guest_first_name,
+          r.guest_last_name,
+          r.guest_email,
+          r.comment,
+          r.cleanliness_rating,
+          r.communication_rating,
+          r.checkin_rating,
+          r.accuracy_rating,
+          r.location_rating,
+          r.value_rating,
+          r.overall_rating,
+          r.is_verified,
+          r.is_featured,
+          r.created_at,
+          b.check_in_date,
+          b.check_out_date,
+          b.room_name
+        FROM reviews r
+        JOIN booking b ON r.booking_id = b.id
+        WHERE r.is_public = true
+          AND r.status = 'published'
+        ORDER BY r.created_at DESC
+      `;
+
+      const result = await pool.query(query);
+
+      return NextResponse.json({
+        success: true,
+        data: result.rows
+      });
     }
 
     // Get reviews for a specific haven
