@@ -63,7 +63,12 @@ export async function getDeposits(): Promise<DepositRecord[]> {
         h.tower
       FROM booking_security_deposits sd
       INNER JOIN booking b ON sd.booking_id = b.id
-      LEFT JOIN booking_guests bg ON b.id = bg.booking_id
+      LEFT JOIN LATERAL (
+        SELECT first_name, last_name, email, phone, facebook_link, valid_id_url
+        FROM booking_guests
+        WHERE booking_id = b.id
+        LIMIT 1
+      ) bg ON true
       LEFT JOIN havens h ON b.room_name = h.haven_name
       ORDER BY b.check_out_date DESC, sd.held_at DESC
     `;
@@ -154,12 +159,17 @@ export async function getDeposits(): Promise<DepositRecord[]> {
   }
 }
 
+// Default security deposit amount
+const DEFAULT_SECURITY_DEPOSIT_AMOUNT = 1000;
+
 // Update deposit status in booking_security_deposits table
 export async function updateDepositStatus(
-  depositId: string, 
+  depositId: string,
   newStatus: string,
   employeeId?: string,
-  notes?: string
+  notes?: string,
+  paymentMethod?: string,
+  paymentProofUrl?: string
 ): Promise<void> {
   const client = await pool.connect();
   try {
@@ -186,6 +196,20 @@ export async function updateDepositStatus(
          SET deposit_status = $2, returned_at = $3, processed_by = $4, notes = COALESCE($5, notes)
          WHERE id = $1`,
         [depositId, dbStatus, now, employeeId, notes]
+      );
+    } else if (dbStatus === 'held') {
+      // When marking as held (paid), also set the amount, payment method, proof URL, and held_at
+      await client.query(
+        `UPDATE booking_security_deposits
+         SET deposit_status = $2,
+             amount = $3,
+             payment_method = COALESCE($4, payment_method),
+             payment_proof_url = COALESCE($5, payment_proof_url),
+             held_at = $6,
+             processed_by = $7,
+             notes = COALESCE($8, notes)
+         WHERE id = $1`,
+        [depositId, dbStatus, DEFAULT_SECURITY_DEPOSIT_AMOUNT, paymentMethod, paymentProofUrl, now, employeeId, notes]
       );
     } else {
       await client.query(
@@ -1157,14 +1181,14 @@ export async function updateDeliverableStatus(deliverableId: string, newStatus: 
     };
 
     const dbStatus = statusMap[newStatus] || newStatus.toLowerCase();
-    const now = new Date();
 
     if (dbStatus === 'delivered') {
+      // Use Philippine timezone (Asia/Manila) for delivered_at timestamp
       await client.query(
         `UPDATE booking_add_ons
-         SET status = $2, delivered_at = $3
+         SET status = $2, delivered_at = NOW() AT TIME ZONE 'Asia/Manila'
          WHERE id = $1`,
-        [deliverableId, dbStatus, now]
+        [deliverableId, dbStatus]
       );
     } else {
       await client.query(
@@ -1202,12 +1226,12 @@ export async function markDeliverablePreparing(deliverableId: string): Promise<v
 export async function markDeliverableDelivered(deliverableId: string, notes?: string): Promise<void> {
   const client = await pool.connect();
   try {
-    const now = new Date();
+    // Use Philippine timezone (Asia/Manila) for delivered_at timestamp
     await client.query(
       `UPDATE booking_add_ons
-       SET status = 'delivered', delivered_at = $2, notes = COALESCE($3, notes)
+       SET status = 'delivered', delivered_at = NOW() AT TIME ZONE 'Asia/Manila', notes = COALESCE($2, notes)
        WHERE id = $1`,
-      [deliverableId, now, notes]
+      [deliverableId, notes]
     );
   } catch (error) {
     console.error("Error marking deliverable as delivered:", error);
