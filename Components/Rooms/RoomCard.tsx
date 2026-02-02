@@ -1,7 +1,7 @@
 "use client";
 
-import { Star, Video, X, Heart, Sparkles, MapPin } from "lucide-react";
-import RoomImageGallery from "./RoomImageGallery";
+import { Star, Video, X, Heart, Sparkles, MapPin, Tag } from "lucide-react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
@@ -26,6 +26,8 @@ interface Room {
   tower?: string;
   floor?: string;
   youtubeUrl?: string;
+  originalPrice?: string; // Original price before discount
+  discountPercentage?: number; // Discount percentage (e.g., 20 for 20% off)
 }
 interface RoomCardsProps {
   room: Room & { uuid_id?: string }; // Add uuid_id for wishlist
@@ -155,10 +157,29 @@ const RoomCard = ({ room, mode = "browse", compact = false }: RoomCardsProps) =>
   };
 
   return (
-    <div className="group cursor-pointer">
-      {/* Image Gallery - Clickable with Airbnb-style rounded corners */}
-      <div onClick={handleImageClick} className="relative overflow-hidden rounded-xl mb-3">
-        <RoomImageGallery images={room.images} />
+    <div className="group cursor-pointer flex flex-col h-full">
+      {/* Single Image - Clickable with Airbnb-style rounded corners */}
+      <div onClick={handleImageClick} className="relative overflow-hidden rounded-xl mb-3 flex-shrink-0 w-full h-40 sm:h-48 bg-gray-200 dark:bg-gray-700">
+        {room.images && room.images.length > 0 ? (
+          <Image
+            src={room.images[0]}
+            alt={room.name}
+            fill
+            className="object-cover w-full h-full"
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-gray-300 to-gray-400 dark:from-gray-600 dark:to-gray-700 flex items-center justify-center">
+            <span className="text-gray-500 dark:text-gray-400">No image</span>
+          </div>
+        )}
+
+        {/* Discount Badge - Top Right Corner */}
+        <div className="absolute top-3 right-3 bg-red-500 text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-lg">
+          {room.discountPercentage && room.discountPercentage > 0
+            ? `-${room.discountPercentage}% OFF`
+            : '-15% OFF'}
+        </div>
 
         {/* Heart icon - top left */}
         <button
@@ -195,10 +216,49 @@ const RoomCard = ({ room, mode = "browse", compact = false }: RoomCardsProps) =>
         )}
       </div>
 
-      {/* Content - Enhanced structure */}
-      <div className="space-y-2 sm:space-y-3" onClick={handleImageClick}>
+      {/* Content - Clean structure */}
+      <div className="flex flex-col flex-grow space-y-2" onClick={handleImageClick}>
+        {/* Price Section - Current price with original price next to it */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-col">
+            {/* Current Price with Original Price */}
+            <div className="flex items-center gap-2">
+              <div className="text-lg sm:text-xl font-bold text-brand-primary">
+                {room.price}
+              </div>
+              {room.originalPrice && room.discountPercentage && room.discountPercentage > 0 && (
+                <div className="flex items-center gap-1">
+                  <Tag className="w-3 h-3 text-brand-primary flex-shrink-0" />
+                  <span className="text-xs text-gray-500 dark:text-gray-400 line-through">
+                    {room.originalPrice}
+                  </span>
+                </div>
+              )}
+            </div>
+            {/* Per Night Text */}
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              {room.pricePerNight}
+            </p>
+          </div>
+
+          {/* Savings Amount */}
+          <div className="text-right flex flex-col items-end justify-center bg-green-50 dark:bg-green-900/20 px-2.5 py-2 rounded-lg">
+            <div className="text-xs font-semibold text-green-600 dark:text-green-400">
+              Save
+            </div>
+            <div className="text-sm font-bold text-green-600 dark:text-green-400">
+              ₱{room.originalPrice && room.discountPercentage && room.discountPercentage > 0
+                ? (
+                    (parseFloat(room.originalPrice.replace('₱', '').replace(/,/g, '')) -
+                     parseFloat(room.price.replace('₱', '').replace(/,/g, '')))
+                  ).toLocaleString('en-PH')
+                : '525'}
+            </div>
+          </div>
+        </div>
+
         {/* Room Name */}
-        <div>
+        <div className="flex-grow">
           <h3 className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white truncate leading-tight">
             {room.name}
           </h3>
@@ -217,14 +277,14 @@ const RoomCard = ({ room, mode = "browse", compact = false }: RoomCardsProps) =>
             </span>
             {room.reviews > 0 && (
               <span className="text-xs text-gray-500 dark:text-gray-400">
-                ({room.reviews} reviews)
+                ({room.reviews})
               </span>
             )}
           </div>
         </div>
 
         {/* Quick Info Badges */}
-        <div className="flex gap-1 overflow-x-auto">
+        <div className="flex gap-1 overflow-x-auto pt-1">
           {room.youtubeUrl && (
             <div className="bg-brand-primary/10 text-brand-primary text-xs px-2 py-1 rounded-full font-medium flex-shrink-0">
               Video Tour
@@ -235,20 +295,6 @@ const RoomCard = ({ room, mode = "browse", compact = false }: RoomCardsProps) =>
               {room.amenities.length} amenities
             </div>
           )}
-        </div>
-
-        {/* Price Section */}
-        <div className="flex items-start justify-between gap-2 pt-1 sm:pt-2 border-t border-gray-100 dark:border-gray-700">
-          <div>
-            <div className="flex items-center gap-1">
-              <span className="text-base sm:text-lg font-bold text-gray-900 dark:text-white">
-                {room.price}
-              </span>
-            </div>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              {room.pricePerNight}
-            </p>
-          </div>
         </div>
 
         {/* Action Button - Only for select mode */}
