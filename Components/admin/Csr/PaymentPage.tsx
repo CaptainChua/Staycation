@@ -201,6 +201,11 @@ export default function PaymentPage() {
   const [updatingPaymentId, setUpdatingPaymentId] = useState<string | null>(
     null,
   );
+  // Tracks which action is currently being performed for the payment id above.
+  // This allows us to show the spinner on the correct action icon (approve vs reject).
+  const [updatingAction, setUpdatingAction] = useState<
+    "approve" | "reject" | null
+  >(null);
   const [isApproveModalOpen, setIsApproveModalOpen] = useState(false);
   const [isChangeModalOpen, setIsChangeModalOpen] = useState(false);
   const [changeAmount, setChangeAmount] = useState<number>(0);
@@ -295,6 +300,7 @@ export default function PaymentPage() {
       }
 
       setUpdatingPaymentId(payment.id);
+      setUpdatingAction("approve");
 
       // Compute the change amount upfront and show the change modal immediately
       const prevRemainingForChange = (() => {
@@ -391,6 +397,7 @@ export default function PaymentPage() {
         setIsApproveModalOpen(true);
       } finally {
         setUpdatingPaymentId(null);
+        setUpdatingAction(null);
       }
     },
     [updateBookingPayment, refetch, logEmployeeActivity, session],
@@ -436,6 +443,7 @@ export default function PaymentPage() {
       const originalSelected = selectedPayment;
 
       setUpdatingPaymentId(id);
+      setUpdatingAction("reject");
 
       // Optimistically close modal and clear selection so the UI responds
       setIsRejectModalOpen(false);
@@ -495,6 +503,7 @@ export default function PaymentPage() {
         setIsRejectModalOpen(true);
       } finally {
         setUpdatingPaymentId(null);
+        setUpdatingAction(null);
       }
     },
     [
@@ -1110,7 +1119,8 @@ export default function PaymentPage() {
                           type="button"
                           aria-label={`Approve booking ${payment.booking_id}`}
                         >
-                          {updatingPaymentId === payment.id ? (
+                          {updatingPaymentId === payment.id &&
+                          updatingAction === "approve" ? (
                             <svg
                               className="animate-spin inline-block align-middle h-4 w-4"
                               xmlns="http://www.w3.org/2000/svg"
@@ -1146,7 +1156,31 @@ export default function PaymentPage() {
                           type="button"
                           aria-label={`Reject booking ${payment.booking_id}`}
                         >
-                          <X className="w-4 h-4" />
+                          {updatingPaymentId === payment.id &&
+                          updatingAction === "reject" ? (
+                            <svg
+                              className="animate-spin inline-block align-middle h-4 w-4"
+                              xmlns="http://www.w3.org/2000/svg"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                            >
+                              <circle
+                                className="opacity-25"
+                                cx="12"
+                                cy="12"
+                                r="10"
+                                stroke="currentColor"
+                                strokeWidth="4"
+                              />
+                              <path
+                                className="opacity-75"
+                                fill="currentColor"
+                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                              />
+                            </svg>
+                          ) : (
+                            <X className="w-4 h-4" />
+                          )}
                         </button>
                       </div>
                     </td>
@@ -1345,7 +1379,8 @@ export default function PaymentPage() {
                   type="button"
                   aria-label={`Approve booking ${payment.booking_id}`}
                 >
-                  {updatingPaymentId === payment.id ? (
+                  {updatingPaymentId === payment.id &&
+                  updatingAction === "approve" ? (
                     <svg
                       className="animate-spin inline-block align-middle h-5 w-5"
                       xmlns="http://www.w3.org/2000/svg"
@@ -1379,7 +1414,31 @@ export default function PaymentPage() {
                   type="button"
                   aria-label={`Reject booking ${payment.booking_id}`}
                 >
-                  <X className="w-4 h-4" />
+                  {updatingPaymentId === payment.id &&
+                  updatingAction === "reject" ? (
+                    <svg
+                      className="animate-spin inline-block align-middle h-4 w-4"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                      />
+                    </svg>
+                  ) : (
+                    <X className="w-4 h-4" />
+                  )}
                 </button>
               </div>
             </div>
@@ -1486,6 +1545,7 @@ export default function PaymentPage() {
         onCancelAction={handleCancelReject}
         onConfirmAction={handleConfirmReject}
         updatingPaymentId={updatingPaymentId}
+        updatingAction={updatingAction}
       />
       <ApproveModal
         key={`approve-${selectedPayment?.id}`}
@@ -1494,6 +1554,7 @@ export default function PaymentPage() {
         onCancelAction={() => setIsApproveModalOpen(false)}
         onConfirmAction={handleConfirmApprove}
         updatingPaymentId={updatingPaymentId}
+        updatingAction={updatingAction}
       />
       <ChangeModal
         key={`change-${selectedPayment?.id}`}

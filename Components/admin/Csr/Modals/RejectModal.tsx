@@ -12,12 +12,14 @@ export default function RejectModal({
   onCancelAction,
   onConfirmAction,
   updatingPaymentId,
+  updatingAction,
 }: {
   isOpen: boolean;
   payment: PaymentRow | null;
   onCancelAction: () => void;
   onConfirmAction: (id: string, reason: string) => Promise<void>;
   updatingPaymentId: string | null;
+  updatingAction?: "approve" | "reject" | null;
 }) {
   const [localReason, setLocalReason] = useState("");
 
@@ -118,7 +120,8 @@ export default function RejectModal({
               disabled={updatingPaymentId === payment.id}
               className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center"
             >
-              {updatingPaymentId === payment.id ? (
+              {updatingPaymentId === payment.id &&
+              updatingAction === "reject" ? (
                 <svg
                   className="animate-spin inline-block align-middle h-4 w-4"
                   xmlns="http://www.w3.org/2000/svg"
