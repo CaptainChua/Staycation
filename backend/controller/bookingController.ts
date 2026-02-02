@@ -376,6 +376,49 @@ export const createBooking = async (
       add_ons,
     } = body;
 
+    // --- IDENTITY-BASED OVERLAP CHECK ---
+    const overlapCheckQuery = `
+      SELECT b.id, b.booking_id, b.status, b.check_in_date, b.check_out_date
+      FROM booking b
+      JOIN booking_guests bg ON b.id = bg.booking_id
+      WHERE b.room_name = $1
+        AND b.status NOT IN ('rejected', 'cancelled')
+        AND bg.first_name = $2
+        AND bg.last_name = $3
+        AND bg.email = $4
+        AND bg.phone = $5
+        AND (
+          (b.check_in_date, b.check_out_date) OVERLAPS ($6::DATE, $7::DATE)
+          OR b.check_in_date = $6::DATE
+          OR b.check_out_date = $7::DATE
+        )
+      LIMIT 1
+    `;
+
+    const overlapCheckValues = [
+      room_name,
+      guest_first_name,
+      guest_last_name,
+      guest_email,
+      guest_phone,
+      check_in_date,
+      check_out_date,
+    ];
+
+    const overlapResult = await client.query(overlapCheckQuery, overlapCheckValues);
+
+    if (overlapResult.rows.length > 0) {
+      await client.query("ROLLBACK");
+      return NextResponse.json(
+        {
+          success: false,
+          error: "You already have an existing booking for this room on the selected dates.",
+        },
+        { status: 400 }
+      );
+    }
+    // --- END CHECK ---
+
     // Step 1: Create main booking record
     const bookingQuery = `
       INSERT INTO booking (
