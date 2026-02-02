@@ -36,6 +36,13 @@ export default function TotalBreakdown({
   // Always use default security deposit amount (₱1,000)
   const displaySecurityDeposit = DEFAULT_SECURITY_DEPOSIT;
 
+  // Check if security deposit is paid (not 'pending')
+  const isDepositPaid = depositStatus?.toLowerCase() !== 'pending';
+
+  // Calculate display total (totalAmount from DB + security deposit)
+  // The database total_amount does NOT include security deposit, so we add it for display
+  const displayTotal = totalAmount + displaySecurityDeposit;
+
   const breakdownItems = [
     {
       icon: Home,
@@ -58,8 +65,11 @@ export default function TotalBreakdown({
   ];
 
   const hasValidDownPayment = downPayment > 0;
-  // Calculate actual remaining balance (total - down payment)
-  const actualRemainingBalance = totalAmount - downPayment;
+  // Calculate actual remaining balance
+  // If deposit is paid, exclude it from balance. If not paid, include it.
+  const actualRemainingBalance = isDepositPaid
+    ? (totalAmount - downPayment)  // Deposit paid: exclude from balance
+    : (displayTotal - downPayment); // Deposit not paid: include in balance
   const hasRemainingBalance = actualRemainingBalance > 0;
 
   if (isCompact) {
@@ -67,7 +77,7 @@ export default function TotalBreakdown({
       <div className="text-sm text-right space-y-1">
         {/* Total */}
         <div className="font-bold text-gray-800 dark:text-gray-100">
-          {formatCurrency(totalAmount)}
+          {formatCurrency(displayTotal)}
         </div>
         
         {/* Breakdown items */}
@@ -138,7 +148,7 @@ export default function TotalBreakdown({
         <div className="border-t border-gray-200 dark:border-gray-600 pt-2 mt-2">
           <div className="flex items-center justify-between text-sm font-bold">
             <span className="text-gray-700 dark:text-gray-300">Total Amount</span>
-            <span className="text-gray-800 dark:text-gray-100">{formatCurrency(totalAmount)}</span>
+            <span className="text-gray-800 dark:text-gray-100">{formatCurrency(displayTotal)}</span>
           </div>
           
           {hasValidDownPayment && (
