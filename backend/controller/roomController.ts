@@ -6,6 +6,15 @@ import pool from "../config/db";
 
 export const createHaven = async (req: NextRequest): Promise<NextResponse> => {
   try {
+    // Test database connection
+    try {
+      const testResult = await pool.query('SELECT 1 as test');
+      if (!testResult.rows.length) throw new Error("Database connection check failed");
+    } catch (dbError: any) {
+      console.error("❌ Database connection error in createHaven:", dbError.message);
+      return NextResponse.json({ success: false, message: "Haven can't save: Database connection error" }, { status: 500 });
+    }
+
     const body = await req.json();
 
     const {
@@ -23,13 +32,39 @@ export const createHaven = async (req: NextRequest): Promise<NextResponse> => {
       weekday_rate,
       weekend_rate,
       six_hour_check_in,
+      six_hour_check_out,
       ten_hour_check_in,
+      ten_hour_check_out,
       twenty_one_hour_check_in,
+      twenty_one_hour_check_out,
       amenities,
       haven_images,
       photo_tour_images,
       blocked_dates,
     } = body;
+
+    // Required fields validation
+    if (!haven_name || !tower || !floor || !view_type || !capacity || !room_size || !beds || !description) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Missing required fields",
+          message: "Haven can't save: Missing required information"
+        },
+        { status: 400 }
+      );
+    }
+
+    if (!six_hour_rate || !ten_hour_rate || !weekday_rate || !weekend_rate) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Pricing information is required",
+          message: "Haven can't save: Please provide all rates"
+        },
+        { status: 400 }
+      );
+    }
 
     let havenImageUrls: any[] = [];
     if (haven_images && haven_images.length > 0) {
@@ -168,12 +203,13 @@ export const createHaven = async (req: NextRequest): Promise<NextResponse> => {
         message: "Haven created successfully",
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.log("❌ Error Creating haven:", error);
     return NextResponse.json(
       {
         success: false,
-        error: "Failed to create haven",
+        error: error.message || "Failed to create haven",
+        message: `Haven can't save: ${error.message || "An unexpected error occurred"}`
       },
       { status: 500 }
     );
@@ -241,6 +277,7 @@ export const getAllHavens = async (req: NextRequest): Promise<NextResponse> => {
       {
         success: false,
         error: error.message || "Failed to get havens",
+        message: "Unable to load havens at this time"
       },
       { status: 500 }
     );
@@ -355,6 +392,15 @@ export const getHavenById = async (
 
 export const updateHaven = async (req: NextRequest): Promise<NextResponse> => {
   try {
+    // Test database connection
+    try {
+      const testResult = await pool.query('SELECT 1 as test');
+      if (!testResult.rows.length) throw new Error("Database connection check failed");
+    } catch (dbError: any) {
+      console.error("❌ Database connection error in updateHaven:", dbError.message);
+      return NextResponse.json({ success: false, message: "Haven can't save: Database connection error" }, { status: 500 });
+    }
+
     const body = await req.json();
     const {
       id,
@@ -384,6 +430,18 @@ export const updateHaven = async (req: NextRequest): Promise<NextResponse> => {
       existing_photo_tours,
       blocked_dates
     } = body;
+
+    // Required fields validation
+    if (!id || !haven_name || !tower || !floor || !view_type || !capacity || !room_size || !beds || !description) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Missing required fields",
+          message: "Haven can't save: Missing required information"
+        },
+        { status: 400 }
+      );
+    }
 
     // Update haven basic info
     const query = `
@@ -572,7 +630,8 @@ export const updateHaven = async (req: NextRequest): Promise<NextResponse> => {
     console.log("❌ Update haven error:", error);
     return NextResponse.json({
       success: false,
-      error: error.message || "Failed to update haven"
+      error: error.message || "Failed to update haven",
+      message: `Haven can't save: ${error.message || "An unexpected error occurred"}`
     }, { status: 500 });
   }
 }
@@ -656,7 +715,8 @@ export const deleteHaven = async (
     console.log("❌ Delete haven error:", error);
     return NextResponse.json({
       success: false,
-      error: error.message || "Failed to delete haven"
+      error: error.message || "Failed to delete haven",
+      message: "Unable to delete haven at this time"
     }, { status: 500 });
   }
 }
@@ -710,7 +770,11 @@ export const getAllAdminRooms = async (
   } catch (error) {
         console.error("❌ Admin get rooms error:", error);
     return NextResponse.json(
-      { success: false, message: "Failed to fetch admin rooms" },
+      { 
+        success: false, 
+        message: "Failed to fetch admin rooms: An unexpected error occurred",
+        error: error instanceof Error ? error.message : String(error)
+      },
       { status: 500 }
     );
   }
