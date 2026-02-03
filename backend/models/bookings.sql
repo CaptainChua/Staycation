@@ -41,8 +41,6 @@ CREATE TABLE booking_guests (
 
   first_name VARCHAR(100) NOT NULL,
   last_name VARCHAR(100) NOT NULL,
-  age INTEGER,                    -- ADD THIS
-  gender VARCHAR(20),              -- ADD THIS
   email VARCHAR(255) NOT NULL,
   phone VARCHAR(20) NOT NULL,
 
@@ -78,6 +76,8 @@ CREATE TABLE booking_payments (
   reviewed_by UUID NULL,
   reviewed_at TIMESTAMPTZ,
   rejection_reason TEXT,
+
+  amount_paid DECIMAL(10,2) NOT NULL,
 
   created_at TIMESTAMPTZ DEFAULT NOW(),
 
@@ -146,6 +146,7 @@ CREATE TABLE booking_cleaning (
   cleaning_status VARCHAR(20) NOT NULL DEFAULT 'pending'
     CHECK (cleaning_status IN (
       'pending',
+      'assigned',
       'in-progress',
       'cleaned',
       'inspected'

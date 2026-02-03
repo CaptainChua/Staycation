@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/no-unescaped-entities */
+
 import React from 'react';
 import {
   Download,
@@ -26,7 +28,7 @@ export default function GettingStartedContent() {
 
       <h2 className="text-xl md:text-2xl font-semibold text-gray-800 dark:text-gray-100 mt-8 mb-4">Step 1: Check Your Current Branch</h2>
       <p className="text-sm md:text-base text-gray-700 dark:text-gray-300 leading-relaxed mb-4">
-        First, let's see which branch you're currently on:
+        First, let&apos;s see which branch you&apos;re currently on:
       </p>
 
       <div className="bg-gray-900 text-gray-100 p-4 md:p-6 rounded-lg mb-6 font-mono text-xs md:text-sm overflow-x-auto">
@@ -43,7 +45,7 @@ export default function GettingStartedContent() {
 
       <h2 className="text-xl md:text-2xl font-semibold text-gray-800 dark:text-gray-100 mt-8 mb-4">Step 2: Switch to the develop Branch</h2>
       <p className="text-sm md:text-base text-gray-700 dark:text-gray-300 leading-relaxed mb-4">
-        Now, let's switch to the develop branch:
+        Now, let&apos;s switch to the develop branch:
       </p>
 
       <div className="bg-gray-900 text-gray-100 p-4 md:p-6 rounded-lg mb-6 font-mono text-xs md:text-sm overflow-x-auto">
@@ -56,7 +58,7 @@ export default function GettingStartedContent() {
       <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 p-4 md:p-5 rounded-lg mb-6">
         <div className="flex items-start gap-3 mb-2">
           <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
-          <h3 className="text-base md:text-lg font-semibold text-green-800 dark:text-green-300">What you'll see:</h3>
+          <h3 className="text-base md:text-lg font-semibold text-green-800 dark:text-green-300">What you&apos;ll see:</h3>
         </div>
         <div className="bg-white dark:bg-gray-800 p-3 rounded border border-green-300 dark:border-green-700 font-mono text-xs md:text-sm text-gray-700 dark:text-gray-300">
           Switched to branch 'develop'
@@ -206,7 +208,7 @@ export default function GettingStartedContent() {
           <h3 className="text-lg md:text-xl font-semibold text-gray-800 dark:text-white">Great! You're Ready!</h3>
         </div>
         <p className="text-sm md:text-base text-gray-700 dark:text-gray-300 mb-4">
-          Now that you're on the develop branch with the latest code, let's learn how to create your feature branch.
+          Now that you&apos;re on the develop branch with the latest code, let&apos;s learn how to create your feature branch.
         </p>
         <a
           href="/documentation/git-workflow/creating-branches"

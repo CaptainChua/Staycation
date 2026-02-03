@@ -1,9 +1,5 @@
 'use client';
 
-import { useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import L from 'leaflet';
-
 interface RoomMapProps {
   roomName: string;
   tower?: string;
@@ -11,42 +7,21 @@ interface RoomMapProps {
 }
 
 const RoomMap = ({ roomName, tower, location }: RoomMapProps) => {
-  // Quezon City coordinates (default location)
-  const defaultPosition: [number, number] = [14.6760, 121.0437];
-
-  useEffect(() => {
-    // Fix for default marker icon issue in Leaflet with Next.js
-    const prototype = L.Icon.Default.prototype as { _getIconUrl?: unknown };
-    delete prototype._getIconUrl;
-    L.Icon.Default.mergeOptions({
-      iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-      iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-    });
-  }, []);
+  // Google Maps embed URL for M Place South Triangle Tower D, Diliman, Quezon City
+  const mapsEmbedUrl = "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3860.5889374956847!2d121.03087197584714!3d14.639809577537995!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3397b603c2fec51b%3A0xdf26cdeed4a6fa95!2sStaycation%20Haven%20PH%20Quezon%20City!5e0!3m2!1sen!2sph!4v1234567890123";
 
   return (
     <div className="w-full h-[400px] rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 relative z-0">
-      <MapContainer
-        center={defaultPosition}
-        zoom={15}
-        scrollWheelZoom={false}
+      <iframe
+        src={mapsEmbedUrl}
+        width="100%"
+        height="100%"
+        style={{ border: 0 }}
+        allowFullScreen
+        loading="lazy"
+        referrerPolicy="no-referrer-when-downgrade"
         className="w-full h-full"
-      >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        <Marker position={defaultPosition}>
-          <Popup>
-            <div className="text-center">
-              <p className="font-bold text-gray-800">{roomName}</p>
-              {tower && <p className="text-sm text-gray-600">{tower}</p>}
-              <p className="text-sm text-gray-600">{location || 'Quezon City'}</p>
-            </div>
-          </Popup>
-        </Marker>
-      </MapContainer>
+      />
     </div>
   );
 };

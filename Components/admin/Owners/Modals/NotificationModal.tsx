@@ -11,6 +11,14 @@ interface NotificationModalProps {
   onViewAll?: () => void;
   anchorRef?: RefObject<HTMLElement | null>;
   userId?: string;
+  notifications: Array<{
+    id: string;
+    title: string;
+    description: string;
+    timestamp: string;
+    type: 'info' | 'success' | 'warning';
+    read?: boolean;
+  }>;
 }
 
 const iconMap: Record<string, ReactNode> = {
@@ -34,7 +42,7 @@ const typeStyles: Record<NonNullable<Notification["type"]>, { wrapper: string; i
   },
 };
 
-export default function NotificationModal({ onClose, onViewAll, anchorRef, userId }: NotificationModalProps) {
+export default function NotificationModal({ onClose, onViewAll, anchorRef, userId, notifications: propNotifications }: NotificationModalProps) {
   const [isMounted, setIsMounted] = useState(false);
   const [position, setPosition] = useState({ top: 96, right: 16 });
   const [filter, setFilter] = useState<"all" | "unread">("all");
@@ -42,13 +50,16 @@ export default function NotificationModal({ onClose, onViewAll, anchorRef, userI
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Fetch notifications from API
-  const { data: notifications = [], isLoading, error, refetch } = useGetNotificationsQuery(
+  const { data: apiNotifications = [], isLoading, error, refetch } = useGetNotificationsQuery(
     { limit: 50 },
     { 
       pollingInterval: 30000, // Refresh every 30 seconds
       skip: !userId 
     }
   );
+
+  // Use prop notifications if userId is not provided (mock/fallback behavior)
+  const notifications = userId ? apiNotifications : propNotifications;
 
   const [updateNotifications] = useUpdateNotificationsMutation();
   const [markAllAsRead] = useMarkAllAsReadMutation();
@@ -121,16 +132,14 @@ export default function NotificationModal({ onClose, onViewAll, anchorRef, userI
   if (!isMounted) return null;
 
   return createPortal(
-    <>
-      <div className="fixed inset-0 z-[9980]" aria-hidden="true" />
-      <div
-        ref={containerRef}
-        className="fixed z-[9991] w-full max-w-md md:max-w-sm"
-        style={{
-          top: position.top,
-          right: position.right,
-        }}
-      >
+    <div
+      ref={containerRef}
+      className="fixed z-[9991] w-full max-w-md md:max-w-sm"
+      style={{
+        top: position.top,
+        right: position.right,
+      }}
+    >
         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-h-[80vh] flex flex-col overflow-hidden border border-brand-primary/20 dark:border-gray-800">
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900">
             <div className="flex items-center gap-3">
@@ -294,8 +303,7 @@ export default function NotificationModal({ onClose, onViewAll, anchorRef, userI
             </button>
           </div>
         </div>
-      </div>
-    </>,
+    </div>,
     document.body
   );
 }

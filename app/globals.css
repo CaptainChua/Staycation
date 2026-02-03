@@ -114,38 +114,283 @@
     animation-duration: 0.7s !important;
 }
 
-/* Custom scrollbar styles */
-.scrollbar-thin {
+/* ========================================
+   Global Custom Scrollbar Styles
+   ======================================== */
+
+/* Firefox */
+* {
     scrollbar-width: thin;
-    scrollbar-base-color: #f1f5f4;
-    scrollbar-face-color: #f1f5f4;
-    scrollbar-track-color: #f1f5f4;
-    scrollbar-arrow-color: #6b7280;
-    scrollbar-shadow-color: rgba(0, 0, 0, 0.2);
+    scrollbar-color: #d1d5db transparent;
 }
 
-.scrollbar-thin::-webkit-scrollbar {
+.dark * {
+    scrollbar-color: #4b5563 transparent;
+}
+
+/* Chrome, Safari, Edge */
+*::-webkit-scrollbar {
     width: 6px;
+    height: 6px;
 }
 
-.scrollbar-thin::-webkit-scrollbar-track {
+*::-webkit-scrollbar-track {
     background: transparent;
+    border-radius: 3px;
 }
 
-.scrollbar-thin::-webkit-scrollbar-thumb {
+*::-webkit-scrollbar-thumb {
     background-color: #d1d5db;
     border-radius: 3px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    transition: background-color 0.2s ease;
 }
 
-.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+*::-webkit-scrollbar-thumb:hover {
     background-color: #9ca3af;
 }
 
-.dark .scrollbar-thumb-gray-600::-webkit-scrollbar-thumb {
+*::-webkit-scrollbar-corner {
+    background: transparent;
+}
+
+/* Dark mode scrollbar */
+.dark *::-webkit-scrollbar-thumb {
     background-color: #4b5563;
 }
 
-.dark .scrollbar-thumb-gray-600::-webkit-scrollbar-thumb:hover {
+.dark *::-webkit-scrollbar-thumb:hover {
     background-color: #6b7280;
+}
+
+/* Optional: Hide scrollbar when not hovering (uncomment if needed) */
+/*
+*::-webkit-scrollbar-thumb {
+    background-color: transparent;
+}
+
+*:hover::-webkit-scrollbar-thumb {
+    background-color: #d1d5db;
+}
+
+.dark *:hover::-webkit-scrollbar-thumb {
+    background-color: #4b5563;
+}
+*/
+
+/* Custom scrollbar utility classes */
+.scrollbar-thin {
+    scrollbar-width: thin;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+}
+
+.scrollbar-hide {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+    display: none;
+}
+
+/* Brand-colored scrollbar for special areas */
+.scrollbar-brand::-webkit-scrollbar-thumb {
+    background-color: #f97316;
+}
+
+.scrollbar-brand::-webkit-scrollbar-thumb:hover {
+    background-color: #ea580c;
+}
+
+/* ========================================
+   FullCalendar Dark Mode Styles
+   ======================================== */
+
+/* Calendar container */
+.fc {
+    --fc-border-color: #e5e7eb;
+    --fc-page-bg-color: #ffffff;
+    --fc-neutral-bg-color: #f9fafb;
+    --fc-today-bg-color: rgba(249, 115, 22, 0.1);
+}
+
+.dark .fc {
+    --fc-border-color: #374151;
+    --fc-page-bg-color: #1f2937;
+    --fc-neutral-bg-color: #374151;
+    --fc-today-bg-color: rgba(249, 115, 22, 0.2);
+}
+
+/* Header styling */
+.fc .fc-col-header-cell {
+    background-color: #f3f4f6;
+    padding: 0.75rem 0;
+}
+
+.dark .fc .fc-col-header-cell {
+    background-color: #374151;
+}
+
+.fc .fc-col-header-cell-cushion {
+    color: #374151;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.dark .fc .fc-col-header-cell-cushion {
+    color: #e5e7eb;
+}
+
+/* Day cells */
+.fc .fc-daygrid-day {
+    transition: background-color 0.2s ease;
+}
+
+.fc .fc-daygrid-day:hover {
+    background-color: #f3f4f6;
+}
+
+.dark .fc .fc-daygrid-day:hover {
+    background-color: #374151;
+}
+
+.fc .fc-daygrid-day-number {
+    color: #374151;
+    padding: 0.5rem;
+    font-weight: 500;
+}
+
+.dark .fc .fc-daygrid-day-number {
+    color: #e5e7eb;
+}
+
+/* Today highlight */
+.fc .fc-day-today {
+    background-color: var(--fc-today-bg-color) !important;
+}
+
+.fc .fc-day-today .fc-daygrid-day-number {
+    color: #f97316;
+    font-weight: 700;
+}
+
+/* Event styling */
+.fc .fc-event {
+    border-radius: 4px;
+    padding: 2px 4px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.fc .fc-event:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* More events link */
+.fc .fc-daygrid-more-link {
+    color: #f97316;
+    font-weight: 600;
+    font-size: 0.75rem;
+}
+
+.dark .fc .fc-daygrid-more-link {
+    color: #fb923c;
+}
+
+/* Time grid styling */
+.fc .fc-timegrid-slot-label {
+    color: #6b7280;
+    font-size: 0.75rem;
+}
+
+.dark .fc .fc-timegrid-slot-label {
+    color: #9ca3af;
+}
+
+.fc .fc-timegrid-axis {
+    color: #6b7280;
+}
+
+.dark .fc .fc-timegrid-axis {
+    color: #9ca3af;
+}
+
+/* Now indicator */
+.fc .fc-timegrid-now-indicator-line {
+    border-color: #f97316;
+}
+
+.fc .fc-timegrid-now-indicator-arrow {
+    border-color: #f97316;
+    border-top-color: transparent;
+    border-bottom-color: transparent;
+}
+
+/* Popover styling */
+.fc .fc-popover {
+    background-color: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.dark .fc .fc-popover {
+    background-color: #1f2937;
+    border-color: #374151;
+}
+
+.fc .fc-popover-header {
+    background-color: #f3f4f6;
+    color: #374151;
+    padding: 0.5rem;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.dark .fc .fc-popover-header {
+    background-color: #374151;
+    color: #e5e7eb;
+    border-bottom-color: #4b5563;
+}
+
+/* List view */
+.fc .fc-list-event:hover td {
+    background-color: #f3f4f6;
+}
+
+.dark .fc .fc-list-event:hover td {
+    background-color: #374151;
+}
+
+.fc .fc-list-day-cushion {
+    background-color: #f9fafb;
+}
+
+.dark .fc .fc-list-day-cushion {
+    background-color: #374151;
+}
+
+/* Button styling (if used) */
+.fc .fc-button {
+    background-color: #f97316;
+    border-color: #f97316;
+}
+
+.fc .fc-button:hover {
+    background-color: #ea580c;
+    border-color: #ea580c;
+}
+
+.fc .fc-button:disabled {
+    background-color: #d1d5db;
+    border-color: #d1d5db;
+}
+
+.dark .fc .fc-button:disabled {
+    background-color: #4b5563;
+    border-color: #4b5563;
 }

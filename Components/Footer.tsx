@@ -13,6 +13,7 @@ const Footer = () => {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
   }, []);
 
@@ -31,8 +32,9 @@ const Footer = () => {
                 height={24}
                 className="w-6 h-6 object-contain"
               />
-              <span className="text-xl sm:text-2xl font-display text-brand-primary dark:text-brand-primary">
+              <span className="text-xl sm:text-2xl font-display text-brand-primary dark:text-brand-primary relative">
                 taycation Haven
+                <sup className="text-xs text-brand-primary dark:text-brand-primary ml-0.5 font-normal">PH</sup>
               </span>
             </div>
             <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed font-light">

@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth';
 import MyBookingsClient from "@/Components/MyBookings";
 
 export const metadata = {
-  title: "My Bookings - Staycation Haven"
+  title: "Staycation Haven | My Bookings"
 }
 
 const getBookings = async (userId: string) => {

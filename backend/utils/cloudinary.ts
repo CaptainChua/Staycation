@@ -17,11 +17,20 @@ const upload_file = (
                 resource_type: "auto",
                 folder: folder,
             },
-            (error, result: any) => {
+            (error: unknown, result: unknown) => {
+                if (error) {
+                    reject(error);
+                    return;
+                }
+                const r = result as { public_id?: string; url?: string } | null;
+                if (!r || !r.public_id || !r.url) {
+                    reject(new Error("Cloudinary upload failed"));
+                    return;
+                }
                 resolve({
-                    public_id: result.public_id,
-                    url: result.url,
-                })
+                    public_id: r.public_id,
+                    url: r.url,
+                });
             }
         )
     });
@@ -31,7 +40,7 @@ const delete_file = async (file: string): Promise<boolean> => {
     const res = await cloudinary.v2.uploader.destroy(file);
 
     if (res?.result === "ok") {
-        return false;
+        return true;
     }
     return false;
 }
