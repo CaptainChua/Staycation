@@ -41,6 +41,7 @@ const ReservationsPage = () => {
   );
   const [updateBookingStatus] = useUpdateBookingStatusMutation();
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [isNewReservationModalOpen, setIsNewReservationModalOpen] = useState(false);
 
   const reservations: Booking[] = data ?? [];
 
@@ -62,7 +63,9 @@ const ReservationsPage = () => {
 
   const handleApprove = async (bookingId: string) => {
     try {
-      await updateBookingStatus({
+      console.log('🔄 Approving booking:', bookingId);
+      
+      const result = await updateBookingStatus({
         id: bookingId,
         status: "approved",
       }).unwrap();
@@ -79,7 +82,9 @@ const ReservationsPage = () => {
     const reason = prompt("Please enter rejection reason:");
     if (!reason) return;
     try {
-      await updateBookingStatus({
+      console.log('🔄 Rejecting booking:', bookingId, 'Reason:', reason);
+      
+      const result = await updateBookingStatus({
         id: bookingId,
         status: "rejected",
         rejection_reason: reason,
@@ -101,16 +106,23 @@ const ReservationsPage = () => {
         return;
       }
 
-      await updateBookingStatus({
+      const booking = result.data;
+      const mainGuest = booking.main_guest || booking.guests?.[0];
+
+      // Update booking status
+      const updateResult = await updateBookingStatus({
         id: bookingId,
         status: "checked-in",
       }).unwrap();
 
+      console.log('✅ Check-in status updated:', updateResult);
+
+      // Send check-in email
       try {
         const emailData = {
-          firstName: booking.guest_first_name,
-          lastName: booking.guest_last_name,
-          email: booking.guest_email,
+          firstName: mainGuest?.first_name || 'Guest',
+          lastName: mainGuest?.last_name || '',
+          email: mainGuest?.email || '',
           bookingId: booking.booking_id,
           roomName: booking.room_name,
           checkInDate: formatDateSafe(booking.check_in_date),
@@ -149,16 +161,24 @@ const ReservationsPage = () => {
         return;
       }
 
-      await updateBookingStatus({
+      const booking = result.data;
+      const mainGuest = booking.main_guest || booking.guests?.[0];
+      const payment = booking.payment;
+
+      // Update booking status
+      const updateResult = await updateBookingStatus({
         id: bookingId,
         status: "completed",
       }).unwrap();
 
+      console.log('✅ Check-out status updated:', updateResult);
+
+      // Send check-out email
       try {
         const emailData = {
-          firstName: booking.guest_first_name,
-          lastName: booking.guest_last_name,
-          email: booking.guest_email,
+          firstName: mainGuest?.first_name || 'Guest',
+          lastName: mainGuest?.last_name || '',
+          email: mainGuest?.email || '',
           bookingId: booking.booking_id,
           roomName: booking.room_name,
           checkInDate: formatDateSafe(booking.check_in_date),
@@ -232,8 +252,25 @@ const ReservationsPage = () => {
   const endIndex = startIndex + itemsPerPage;
   const currentReservations = filteredReservations.slice(startIndex, endIndex);
 
-  const handleViewDetails = (booking: Booking) => {
-    setSelectedBooking(booking);
+  const handleViewDetails = async (booking: Booking) => {
+    try {
+      console.log('🔍 Viewing details for booking:', booking.id);
+      
+      // Fetch complete booking data with all related tables
+      const response = await fetch(`/api/bookings/${booking.id}`);
+      const result = await response.json();
+      
+      console.log('📥 Fetched complete booking:', result);
+      
+      if (result.success) {
+        setSelectedBooking(result.data);
+      } else {
+        toast.error('Failed to load booking details');
+      }
+    } catch (error) {
+      console.error('❌ Error loading booking details:', error);
+      toast.error('Failed to load booking details');
+    }
   };
 
   const closeModal = () => {
@@ -246,13 +283,24 @@ const ReservationsPage = () => {
     setCurrentPage((prev) => Math.min(prev + 1, totalPages));
   const goToPrevPage = () => setCurrentPage((prev) => Math.max(prev - 1, 1));
 
+  const statusCardsData = [
+    { key: 'pending', label: 'Pending', bg: 'bg-yellow-400 text-white', icon: <AlertCircle className="w-14 h-14" /> },
+    { key: 'approved', label: 'Approved', bg: 'bg-green-500 text-white', icon: <Check className="w-14 h-14" /> },
+    { key: 'confirmed', label: 'Confirmed', bg: 'bg-emerald-500 text-white', icon: <Calendar className="w-14 h-14" /> },
+    { key: 'checked-in', label: 'Checked In', bg: 'bg-blue-500 text-white', icon: <MapPin className="w-14 h-14" /> },
+    { key: 'completed', label: 'Completed', bg: 'bg-gray-500 text-white', icon: <Package className="w-14 h-14" /> },
+    { key: 'rejected', label: 'Rejected', bg: 'bg-red-500 text-white', icon: <X className="w-14 h-14" /> },
+    { key: 'cancelled', label: 'Cancelled', bg: 'bg-red-600 text-white', icon: <XCircle className="w-14 h-14" /> },
+  ];
+
   return (
     <>
       {/* Details Modal */}
       {selectedBooking && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-gradient-to-r from-orange-500 to-yellow-500 text-white p-6 rounded-t-2xl flex justify-between items-center">
+          <div className="bg-[#1e293b] rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="sticky top-0 bg-[#a1823d] text-white p-6 rounded-t-2xl flex justify-between items-center">
               <div>
                 <h2 className="text-2xl font-bold">Booking Details</h2>
                 <p className="text-sm opacity-90">
@@ -268,6 +316,7 @@ const ReservationsPage = () => {
             </div>
 
             <div className="p-6 space-y-6">
+              {/* Status Badge */}
               <div className="flex justify-center">
                 <span
                   className={`px-6 py-2 rounded-full text-sm font-semibold ${getStatusColor(selectedBooking.status)}`}
@@ -276,9 +325,10 @@ const ReservationsPage = () => {
                 </span>
               </div>
 
-              <div className="bg-gray-50 rounded-lg p-6">
-                <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                  <User className="w-5 h-5 text-orange-500" />
+              {/* Main Guest Information */}
+              <div className="bg-[#334155] rounded-lg p-6 border border-[#475569]">
+                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                  <User className="w-5 h-5 text-[#d4a574]" />
                   Main Guest Information
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -509,7 +559,10 @@ const ReservationsPage = () => {
               Manage all your bookings and reservations
             </p>
           </div>
-          <button className="px-6 py-3 bg-gradient-to-r from-orange-500 to-yellow-500 text-white rounded-lg font-semibold hover:shadow-lg transition-all">
+          <button 
+            onClick={() => setIsNewReservationModalOpen(true)}
+            className="px-6 py-3 bg-yellow-600 text-white rounded-lg font-semibold hover:bg-yellow-700 transition-colors"
+          >
             + New Reservation
           </button>
         </div>
@@ -605,7 +658,7 @@ const ReservationsPage = () => {
                   setCurrentPage(1);
                 }}
                 placeholder="Search by booking ID or guest name..."
-                className="w-full border rounded-lg px-4 py-2 text-sm"
+                className="w-full border rounded-lg px-4 py-2 text-sm dark:bg-slate-800 dark:border-slate-700 dark:text-gray-200"
               />
             </div>
 
@@ -654,9 +707,9 @@ const ReservationsPage = () => {
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[1100px]">
-                <thead className="bg-gray-50 border-b border-gray-200">
+            <div className="overflow-x-auto overflow-y-visible">
+              <table className="w-full min-w-[1400px]">
+                <thead className="bg-gray-50 dark:bg-slate-800 border-b-2 border-gray-200 dark:border-slate-700">
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-tight">
                       ID
@@ -894,6 +947,13 @@ const ReservationsPage = () => {
           </div>
         )}
       </div>
+
+      {/* New Reservation Modal */}
+      <NewReservationModal
+        isOpen={isNewReservationModalOpen}
+        onClose={() => setIsNewReservationModalOpen(false)}
+        onSubmit={handleNewReservation}
+      />
     </>
   );
 };
