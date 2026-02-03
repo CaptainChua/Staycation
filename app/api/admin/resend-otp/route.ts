@@ -32,7 +32,18 @@ export async function POST(request: NextRequest) {
     );
 
     // TODO: Send email with OTP
-    console.log(`📧 New OTP sent to ${email}: ${otp}`);
+    await fetch(
+      `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/api/admin/send-email`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          otp,
+          type,
+        }),
+      }
+    );
 
     return NextResponse.json({
       success: true,
