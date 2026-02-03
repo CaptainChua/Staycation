@@ -74,9 +74,12 @@ export const roomApi = createApi({
         getAllAdminRooms: builder.query({
              query(params) {
                 return {
-                    url: "/haven",
+                    url: "/admin/haven",
                     params
                 };
+            },
+            transformResponse: (response: { success: boolean; havens: any[] }) => {
+                return response.havens || [];
             },
             providesTags: ['Haven']
         })

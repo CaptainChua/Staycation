@@ -15,8 +15,11 @@ export interface Haven {
   weekday_rate: number;
   weekend_rate: number;
   six_hour_check_in?: string;
+  six_hour_check_out?: string;
   ten_hour_check_in?: string;
+  ten_hour_check_out?: string;
   twenty_one_hour_check_in?: string;
+  twenty_one_hour_check_out?: string;
   amenities?: any;
   created_at?: string;
   updated_at?: string;
