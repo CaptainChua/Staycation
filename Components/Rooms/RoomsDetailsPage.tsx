@@ -248,10 +248,24 @@ const RoomsDetailsPage = ({ room, onBack, recommendedRooms = [] }: RoomsDetailsP
 
   const getYouTubeEmbedUrl = (url: string) => {
     if (!url) return "";
-    const videoIdMatch = url.match(
-      /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/
-    );
-    return videoIdMatch ? `https://www.youtube.com/embed/${videoIdMatch[1]}` : url;
+    
+    // Regular expressions for different YouTube URL formats
+    const standardRegExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+    const shortsRegExp = /^.*youtube\.com\/shorts\/([^#\&\?]*).*/;
+    
+    let videoId = null;
+    
+    const shortsMatch = url.match(shortsRegExp);
+    if (shortsMatch && shortsMatch[1].length === 11) {
+      videoId = shortsMatch[1];
+    } else {
+      const standardMatch = url.match(standardRegExp);
+      if (standardMatch && standardMatch[2].length === 11) {
+        videoId = standardMatch[2];
+      }
+    }
+    
+    return videoId ? `https://www.youtube.com/embed/${videoId}?rel=0` : url;
   };
 
   const handleWishlistToggle = async () => {
