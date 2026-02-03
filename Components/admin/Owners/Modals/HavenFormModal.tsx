@@ -494,8 +494,10 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
   };
 
   const handleSubmit = async () => {
+    console.log("🚀 [HavenFormModal] Starting submit process...");
     try {
       // 1. Process Images
+      console.log("🖼️ [HavenFormModal] Processing images...");
       const havenImagesBase64 = await Promise.all(
         havenImages.map((file) => {
           return new Promise<string>((resolve, reject) => {
@@ -554,6 +556,8 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
         }))
       };
 
+      console.log("📦 [HavenFormModal] Request Payload:", { ...payload, haven_images: `${payload.haven_images.length} images`, photo_tour_images: "..." });
+
       let result;
       if (isEditMode) {
         // Edit Mode
@@ -563,23 +567,34 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
           existing_images: existingImages,
           existing_photo_tours: existingPhotoTours,
         };
+        console.log("🔄 [HavenFormModal] Calling updateHaven mutation...");
         result = await updateHaven(updatePayload).unwrap();
       } else {
         // Add Mode
+        console.log("✨ [HavenFormModal] Calling createHaven mutation...");
         result = await createHaven(payload).unwrap();
       }
+
+      console.log("✅ [HavenFormModal] Mutation Success:", result);
 
       if (result.success || (isEditMode && !result.error)) {
         toast.success(isEditMode ? "Haven updated successfully!" : "Haven created successfully!");
         handleClose();
+      } else {
+        // In case success is false but didn't throw
+        const msg = result.message || result.error || "Haven can't save";
+        toast.error(msg);
       }
     } catch (error: unknown) {
-      console.error(isEditMode ? "Error updating haven:" : "Error creating haven:", error);
+      console.error("❌ [HavenFormModal] Submit Error:", error);
       let errorMessage = isEditMode ? "Failed to update haven" : "Failed to create haven";
+      
       if (typeof error === 'object' && error !== null) {
-        const apiError = error as ApiError;
-        errorMessage = apiError?.data?.error || apiError?.message || errorMessage;
+        const apiError = error as any;
+        // Handle RTK Query error structure
+        errorMessage = apiError?.data?.message || apiError?.data?.error || apiError?.message || errorMessage;
       }
+      
       toast.error(errorMessage);
     }
   };
