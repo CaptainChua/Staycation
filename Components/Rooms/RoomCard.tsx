@@ -159,7 +159,7 @@ const RoomCard = ({ room, mode = "browse", compact = false }: RoomCardsProps) =>
   return (
     <div className="group cursor-pointer flex flex-col h-full">
       {/* Single Image - Clickable with Airbnb-style rounded corners */}
-      <div onClick={handleImageClick} className="relative overflow-hidden rounded-xl mb-3 flex-shrink-0 w-full h-40 sm:h-48 bg-gray-200 dark:bg-gray-700">
+      <div onClick={handleImageClick} className="relative overflow-hidden rounded-xl mb-3 flex-shrink-0 w-full h-32 sm:h-40 md:h-48 bg-gray-200 dark:bg-gray-700">
         {room.images && room.images.length > 0 ? (
           <Image
             src={room.images[0]}
