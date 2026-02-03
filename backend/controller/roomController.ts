@@ -37,7 +37,7 @@ export const createHaven = async (req: NextRequest): Promise<NextResponse> => {
         haven_images.map(async (image: string, index: number) => {
           const result = await upload_file(image, "staycation-haven/havens");
           return {
-            url: result.url,
+            image_url: result.url,
             public_id: result.public_id,
             display_order: index,
           };
@@ -57,7 +57,7 @@ export const createHaven = async (req: NextRequest): Promise<NextResponse> => {
               );
               return {
                 category,
-                url: result.url,
+                image_url: result.url,
                 public_id: result.public_id,
                 display_order: index,
               };
@@ -93,12 +93,12 @@ export const createHaven = async (req: NextRequest): Promise<NextResponse> => {
       ten_hour_rate,
       weekday_rate,
       weekend_rate,
-      six_hour_check_in || "09:00:00",
-      six_hour_check_out || "15:00:00",
-      ten_hour_check_in || "09:00:00",
-      ten_hour_check_out || "19:00:00",
-      twenty_one_hour_check_in || "14:00:00",
-      twenty_one_hour_check_out || "11:00:00",
+      six_hour_check_in || "09:00",
+      six_hour_check_out || "15:00",
+      ten_hour_check_in || "09:00",
+      ten_hour_check_out || "19:00",
+      twenty_one_hour_check_in || "14:00",
+      twenty_one_hour_check_out || "11:00",
       JSON.stringify(amenities || {}),
     ];
 
@@ -121,7 +121,7 @@ export const createHaven = async (req: NextRequest): Promise<NextResponse> => {
                     INSERT INTO haven_images (haven_id, image_url, cloudinary_public_id, display_order, uploaded_at)
                     VALUES ($1, $2, $3, $4, NOW())
                 `,
-          [havenId, img.url, img.public_id, img.display_order]
+          [havenId, img.image_url, img.public_id, img.display_order]
         );
       }
     }
@@ -132,7 +132,7 @@ export const createHaven = async (req: NextRequest): Promise<NextResponse> => {
           await pool.query(
             `INSERT INTO photo_tour_images (haven_id, category, image_url, cloudinary_public_id, display_order, uploaded_at)
              VALUES ($1, $2, $3, $4, $5, NOW())`,
-            [havenId, img.category, img.url, img.public_id, img.display_order]
+            [havenId, img.category, img.image_url, img.public_id, img.display_order]
           );
         }
       }
@@ -300,7 +300,7 @@ export const getHavenById = async (
       console.log("📝 Getting full haven data...");
       const fullQuery = `
         SELECT h.*,
-          json_agg(DISTINCT jsonb_build_object('id', hi.id, 'url', hi.image_url, 'display_order', hi.display_order))
+          json_agg(DISTINCT jsonb_build_object('id', hi.id, 'image_url', hi.image_url, 'display_order', hi.display_order))
             FILTER (WHERE hi.id IS NOT NULL) as images,
           0 as rating,
           0 as review_count
@@ -427,12 +427,12 @@ export const updateHaven = async (req: NextRequest): Promise<NextResponse> => {
       ten_hour_rate,
       weekday_rate,
       weekend_rate,
-      six_hour_check_in || "09:00:00",
-      six_hour_check_out || "15:00:00",
-      ten_hour_check_in || "09:00:00",
-      ten_hour_check_out || "19:00:00",
-      twenty_one_hour_check_in || "14:00:00",
-      twenty_one_hour_check_out || "11:00:00",
+      six_hour_check_in || "09:00",
+      six_hour_check_out || "15:00",
+      ten_hour_check_in || "09:00",
+      ten_hour_check_out || "19:00",
+      twenty_one_hour_check_in || "14:00",
+      twenty_one_hour_check_out || "11:00",
       JSON.stringify(amenities || {}),
       id
     ];
@@ -457,13 +457,13 @@ export const updateHaven = async (req: NextRequest): Promise<NextResponse> => {
     );
 
     // Find images that were removed (exist in DB but not in existing_images array)
-    const existingImageUrls = (existing_images || []).map((img: any) => img.url);
+    const existingImageUrls = (existing_images || []).map((img: any) => img.image_url);
     const imagesToDelete = currentImagesResult.rows.filter(
       (img: any) => !existingImageUrls.includes(img.image_url)
     );
 
     // Find photo tours that were removed
-    const existingPhotoTourUrls = (existing_photo_tours || []).map((photo: any) => photo.url);
+    const existingPhotoTourUrls = (existing_photo_tours || []).map((photo: any) => photo.image_url);
     const photoToursToDelete = currentPhotoToursResult.rows.filter(
       (photo: any) => !existingPhotoTourUrls.includes(photo.image_url)
     );
@@ -490,7 +490,7 @@ export const updateHaven = async (req: NextRequest): Promise<NextResponse> => {
         haven_images.map(async (image: string, index: number) => {
           const result = await upload_file(image, "staycation-haven/havens");
           return {
-            url: result.url,
+            image_url: result.url,
             public_id: result.public_id,
             display_order: index,
           };
@@ -502,7 +502,7 @@ export const updateHaven = async (req: NextRequest): Promise<NextResponse> => {
         await pool.query(
           `INSERT INTO haven_images (haven_id, image_url, cloudinary_public_id, display_order, uploaded_at)
            VALUES ($1, $2, $3, $4, NOW())`,
-          [id, img.url, img.public_id, img.display_order]
+          [id, img.image_url, img.public_id, img.display_order]
         );
       }
     }
@@ -519,7 +519,7 @@ export const updateHaven = async (req: NextRequest): Promise<NextResponse> => {
               );
               return {
                 category,
-                url: result.url,
+                image_url: result.url,
                 public_id: result.public_id,
                 display_order: index,
               };
@@ -531,7 +531,7 @@ export const updateHaven = async (req: NextRequest): Promise<NextResponse> => {
             await pool.query(
               `INSERT INTO photo_tour_images (haven_id, category, image_url, cloudinary_public_id, display_order, uploaded_at)
                VALUES ($1, $2, $3, $4, $5, NOW())`,
-              [id, img.category, img.url, img.public_id, img.display_order]
+              [id, img.category, img.image_url, img.public_id, img.display_order]
             );
           }
         }
@@ -669,7 +669,7 @@ export const getAllAdminRooms = async (
         json_agg(
           DISTINCT jsonb_build_object(
             'id', hi.id,
-            'url', hi.image_url,
+            'image_url', hi.image_url,
             'display_order', hi.display_order
           )
         ) FILTER (WHERE hi.id IS NOT NULL) AS images,
@@ -677,7 +677,7 @@ export const getAllAdminRooms = async (
         json_agg(
           DISTINCT jsonb_build_object(
             'category', pti.category,
-            'url', pti.image_url,
+            'image_url', pti.image_url,
             'display_order', pti.display_order
           )
         ) FILTER (WHERE pti.id IS NOT NULL) AS photo_tours,

@@ -21,31 +21,18 @@ interface AmenityItem {
 }
 
 const AMENITIES_LIST: AmenityItem[] = [
-  { id: "wifi", label: "High-Speed WiFi", icon: Wifi, category: "Essential" },
-  { id: "netflix", label: "Netflix / Streaming", icon: Monitor, category: "Essential" },
-  { id: "airConditioning", label: "Air Conditioning", icon: Snowflake, category: "Essential" },
-  { id: "fridge", label: "Refrigerator", icon: Refrigerator, category: "Essential" },
-  { id: "inductionCooker", label: "Induction Cooker", icon: CookingPot, category: "Essential" },
-  { id: "riceCooker", label: "Rice Cooker", icon: CookingPot, category: "Essential" },
-  { id: "cookingSet", label: "Complete Cooking Set", icon: Utensils, category: "Essential" },
-  { id: "diningSet", label: "Dining Set", icon: UtensilsCrossed, category: "Essential" },
-  { id: "hotColdShower", label: "Hot and Cold Shower", icon: Bath, category: "Essential" },
-  
-  { id: "doubleBeds", label: "2 Double-Size Beds", icon: Bed, category: "Comfort" },
-  { id: "pillowsComforters", label: "Pillows and Comforters", icon: BedDouble, category: "Comfort" },
-  { id: "clothesRack", label: "Clothes Rack", icon: Shirt, category: "Comfort" },
-  { id: "humidifier", label: "Humidifier", icon: Wind, category: "Comfort" },
-  
-  { id: "glowBed", label: "Glow Bed System", icon: Zap, category: "Luxury" },
-  { id: "ledLights", label: "LED Lights", icon: Lightbulb, category: "Luxury" },
-  { id: "soundbar", label: "Soundbar", icon: Speaker, category: "Luxury" },
-  { id: "boardGames", label: "Board Games", icon: Dices, category: "Luxury" },
-  
-  { id: "parking", label: "Secure Parking", icon: Car, category: "Essential" },
-  { id: "keyless", label: "Keyless Entry", icon: Key, category: "Safety" },
-  { id: "smokeAlarm", label: "Smoke Alarm", icon: Shield, category: "Safety" },
-  { id: "firstAid", label: "First Aid Kit", icon: Info, category: "Safety" },
-  { id: "fireExtinguisher", label: "Fire Extinguisher", icon: Flame, category: "Safety" },
+  { id: "wifi", label: "WiFi", icon: Wifi, category: "Essential" },
+  { id: "airConditioning", label: "Air conditioning", icon: Snowflake, category: "Essential" },
+  { id: "poolAccess", label: "Pool access", icon: Pool, category: "Luxury" },
+  { id: "netflix", label: "Netflix", icon: Monitor, category: "Essential" },
+  { id: "kitchen", label: "Kitchen", icon: Utensils, category: "Essential" },
+  { id: "parking", label: "Parking", icon: Car, category: "Essential" },
+  { id: "ps4", label: "PS4", icon: Smartphone, category: "Luxury" },
+  { id: "balcony", label: "Balcony", icon: Wind, category: "Comfort" },
+  { id: "washerDryer", label: "Washer/Dryer", icon: Zap, category: "Comfort" },
+  { id: "glowBed", label: "Glow Bed", icon: Zap, category: "Luxury" },
+  { id: "tv", label: "TV", icon: Tv, category: "Essential" },
+  { id: "towels", label: "Towels", icon: Bath, category: "Essential" },
 ];
 
 interface AmenitiesData {

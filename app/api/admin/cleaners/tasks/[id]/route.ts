@@ -1,17 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCleaningTaskById, updateCleaningTask } from "@/backend/controller/cleanersController";
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
-  console.log("🔍 API Route called: GET /api/admin/cleaners/tasks/[id]", params.id);
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  console.log("🔍 API Route called: GET /api/admin/cleaners/tasks/[id]", id);
   try {
     // Mock the URL structure for the controller
-    const url = new URL(`/api/admin/cleaners/tasks/${params.id}`, req.url);
+    const url = new URL(`/api/admin/cleaners/tasks/${id}`, req.url);
     const mockReq = new Request(url, {
       method: req.method,
       headers: req.headers,
     }) as NextRequest;
     
-    console.log("📋 Calling getCleaningTaskById with ID:", params.id);
+    console.log("📋 Calling getCleaningTaskById with ID:", id);
     const result = await getCleaningTaskById(mockReq);
     console.log("✅ getCleaningTaskById result:", result);
     return result;
@@ -28,8 +29,9 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
-  console.log("🔍 API Route called: PUT /api/admin/cleaners/tasks/[id]", params.id);
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  console.log("🔍 API Route called: PUT /api/admin/cleaners/tasks/[id]", id);
   try {
     // Read the request body first
     let body;
@@ -45,14 +47,14 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     }
 
     // Mock the URL structure for the controller
-    const url = new URL(`/api/admin/cleaners/tasks/${params.id}`, req.url);
+    const url = new URL(`/api/admin/cleaners/tasks/${id}`, req.url);
     const mockReq = new Request(url, {
       method: req.method,
       headers: req.headers,
       body: JSON.stringify(body),
     }) as NextRequest;
     
-    console.log("📋 Calling updateCleaningTask with ID:", params.id);
+    console.log("📋 Calling updateCleaningTask with ID:", id);
     const result = await updateCleaningTask(mockReq);
     console.log("✅ updateCleaningTask result:", result);
     return result;
