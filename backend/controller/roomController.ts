@@ -72,10 +72,10 @@ export const createHaven = async (req: NextRequest): Promise<NextResponse> => {
     INSERT INTO havens (
         haven_name, tower, floor, view_type, capacity, room_size, beds,
         description, youtube_url, six_hour_rate, ten_hour_rate, weekday_rate,
-        weekend_rate, six_hour_check_in, ten_hour_check_in, twenty_one_hour_check_in,
+        weekend_rate, six_hour_check_in, six_hour_check_out, ten_hour_check_in, ten_hour_check_out, twenty_one_hour_check_in, twenty_one_hour_check_out,
         amenities, created_at, updated_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, NOW(), NOW())
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, NOW(), NOW())
       RETURNING *
     `;
 
@@ -94,8 +94,11 @@ export const createHaven = async (req: NextRequest): Promise<NextResponse> => {
       weekday_rate,
       weekend_rate,
       six_hour_check_in || "09:00:00",
+      six_hour_check_out || "15:00:00",
       ten_hour_check_in || "09:00:00",
+      ten_hour_check_out || "19:00:00",
       twenty_one_hour_check_in || "14:00:00",
+      twenty_one_hour_check_out || "11:00:00",
       JSON.stringify(amenities || {}),
     ];
 
@@ -369,8 +372,11 @@ export const updateHaven = async (req: NextRequest): Promise<NextResponse> => {
       weekday_rate,
       weekend_rate,
       six_hour_check_in,
+      six_hour_check_out,
       ten_hour_check_in,
+      ten_hour_check_out,
       twenty_one_hour_check_in,
+      twenty_one_hour_check_out,
       amenities,
       haven_images,
       existing_images,
@@ -396,11 +402,14 @@ export const updateHaven = async (req: NextRequest): Promise<NextResponse> => {
           weekday_rate = $12,
           weekend_rate = $13,
           six_hour_check_in = $14,
-          ten_hour_check_in = $15,
-          twenty_one_hour_check_in = $16,
-          amenities = $17,
+          six_hour_check_out = $15,
+          ten_hour_check_in = $16,
+          ten_hour_check_out = $17,
+          twenty_one_hour_check_in = $18,
+          twenty_one_hour_check_out = $19,
+          amenities = $20,
           updated_at = NOW()
-      WHERE uuid_id = $18
+      WHERE uuid_id = $21
       RETURNING *
     `;
 
@@ -419,8 +428,11 @@ export const updateHaven = async (req: NextRequest): Promise<NextResponse> => {
       weekday_rate,
       weekend_rate,
       six_hour_check_in || "09:00:00",
+      six_hour_check_out || "15:00:00",
       ten_hour_check_in || "09:00:00",
+      ten_hour_check_out || "19:00:00",
       twenty_one_hour_check_in || "14:00:00",
+      twenty_one_hour_check_out || "11:00:00",
       JSON.stringify(amenities || {}),
       id
     ];

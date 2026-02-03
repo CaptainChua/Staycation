@@ -81,6 +81,12 @@ interface Room {
   location?: string;
   tower?: string;
   floor?: string;
+  sixHourCheckIn?: string;
+  sixHourCheckOut?: string;
+  tenHourCheckIn?: string;
+  tenHourCheckOut?: string;
+  twentyOneHourCheckIn?: string;
+  twentyOneHourCheckOut?: string;
   photoTour?: {
     livingArea?: string[];
     kitchenette?: string[];

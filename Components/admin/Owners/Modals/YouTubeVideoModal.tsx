@@ -67,14 +67,14 @@ const YouTubeVideoModal = ({
 
   const inputContent = (
     <div className="space-y-8 max-w-3xl mx-auto py-4">
-      <div className="bg-white border border-gray-200 rounded-3xl p-8 shadow-sm transition-all duration-[250ms] [transition-timing-function:cubic-bezier(0.4,0,0.2,1)] hover:scale-[1.01] hover:shadow-md will-change-transform">
+      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-3xl p-8 shadow-sm transition-all duration-[250ms] [transition-timing-function:cubic-bezier(0.4,0,0.2,1)] hover:scale-[1.01] hover:shadow-md will-change-transform">
         <div className="flex items-center gap-4 mb-8">
-          <div className="bg-red-50 p-3 rounded-2xl">
-            <Youtube className="w-8 h-8 text-red-600" />
+          <div className="bg-red-50 dark:bg-red-900/20 p-3 rounded-2xl">
+            <Youtube className="w-8 h-8 text-red-600 dark:text-red-400" />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-gray-800">Featured Video</h2>
-            <p className="text-sm text-gray-500">Add a virtual tour or promotional video</p>
+            <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">Featured Video</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Add a virtual tour or promotional video</p>
           </div>
         </div>
 
@@ -86,14 +86,14 @@ const YouTubeVideoModal = ({
             placeholder="https://www.youtube.com/watch?v=..."
             value={youtubeUrl}
             onChange={(e) => handleChange(e.target.value)}
-            startContent={<Play className="w-4 h-4 text-gray-400" />}
+            startContent={<Play className="w-4 h-4 text-gray-400 dark:text-gray-500" />}
             isInvalid={!isValid && youtubeUrl !== ""}
             errorMessage={!isValid && youtubeUrl !== "" ? "Invalid YouTube URL format" : null}
             classNames={{
-              label: "text-sm font-bold text-gray-700 mb-2 ml-1 uppercase tracking-wider",
+              label: "text-sm font-bold text-gray-700 dark:text-gray-300 mb-2 ml-1 uppercase tracking-wider",
               inputWrapper: [
-                "bg-white",
-                `border-2 ${(!isValid && youtubeUrl !== "") ? 'border-red-500 bg-red-50/10' : 'border-gray-200'}`,
+                "bg-white dark:bg-gray-700",
+                `border-2 ${(!isValid && youtubeUrl !== "") ? 'border-red-500 bg-red-50/10 dark:bg-red-900/10' : 'border-gray-200 dark:border-gray-600'}`,
                 "hover:border-brand-primary/40",
                 "focus-within:!border-brand-primary",
                 "focus-within:ring-4",
@@ -105,12 +105,12 @@ const YouTubeVideoModal = ({
                 "h-14",
                 "px-4"
               ].join(" "),
-              input: "text-base font-semibold text-gray-900 placeholder:text-gray-400",
-              errorMessage: "text-xs font-bold text-red-500 mt-1.5 ml-1 animate-in slide-in-from-top-1"
+              input: "text-base font-semibold text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500",
+              errorMessage: "text-xs font-bold text-red-500 dark:text-red-400 mt-1.5 ml-1 animate-in slide-in-from-top-1"
             }}
           />
           
-          <p className="text-[10px] text-gray-400 flex items-center gap-1.5 px-1">
+          <p className="text-[10px] text-gray-400 dark:text-gray-500 flex items-center gap-1.5 px-1">
             <Info className="w-3 h-3" />
             Paste the full URL from your browser's address bar.
           </p>
@@ -120,7 +120,7 @@ const YouTubeVideoModal = ({
       {/* Video Preview */}
       {videoId ? (
         <div className="animate-in zoom-in-95 duration-300">
-          <div className="group relative aspect-video rounded-3xl overflow-hidden shadow-2xl border-4 border-white">
+          <div className="group relative aspect-video rounded-3xl overflow-hidden shadow-2xl border-4 border-white dark:border-gray-700">
             <iframe
               className="w-full h-full"
               src={`https://www.youtube.com/embed/${videoId}`}
@@ -133,21 +133,21 @@ const YouTubeVideoModal = ({
               <ExternalLink className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-4 flex items-center justify-center gap-2 text-green-600 bg-green-50 py-3 rounded-2xl border border-green-100">
+          <div className="mt-4 flex items-center justify-center gap-2 text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 py-3 rounded-2xl border border-green-100 dark:border-green-900/30">
             <CheckCircle2 className="w-5 h-5" />
             <span className="text-sm font-bold">Video Link Validated</span>
           </div>
         </div>
       ) : youtubeUrl !== "" && !isValid ? (
-        <div className="p-12 text-center bg-red-50 rounded-3xl border-2 border-dashed border-red-100">
-          <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-3" />
-          <p className="text-red-600 font-bold">Unable to resolve video</p>
-          <p className="text-xs text-red-400 mt-1">Please check the URL and try again</p>
+        <div className="p-12 text-center bg-red-50 dark:bg-red-900/20 rounded-3xl border-2 border-dashed border-red-100 dark:border-red-900/30">
+          <AlertCircle className="w-12 h-12 text-red-400 dark:text-red-500 mx-auto mb-3" />
+          <p className="text-red-600 dark:text-red-400 font-bold">Unable to resolve video</p>
+          <p className="text-xs text-red-400 dark:text-red-500 mt-1">Please check the URL and try again</p>
         </div>
       ) : (
-        <div className="p-12 text-center bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200 opacity-60">
-          <Play className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-400 font-medium">Video preview will appear here</p>
+        <div className="p-12 text-center bg-gray-50 dark:bg-gray-800/50 rounded-3xl border-2 border-dashed border-gray-200 dark:border-gray-700 opacity-60">
+          <Play className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+          <p className="text-gray-400 dark:text-gray-500 font-medium">Video preview will appear here</p>
         </div>
       )}
     </div>

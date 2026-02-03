@@ -13,6 +13,12 @@ interface HavenData {
   rating?: number;
   review_count?: number;
   capacity: number;
+  six_hour_check_in?: string;
+  six_hour_check_out?: string;
+  ten_hour_check_in?: string;
+  ten_hour_check_out?: string;
+  twenty_one_hour_check_in?: string;
+  twenty_one_hour_check_out?: string;
   amenities?: Record<string, boolean>;
   description: string;
   full_description?: string;
@@ -91,6 +97,12 @@ export default function RoomDetailsClient({ room: haven, recommendedRooms = [] }
     location: haven.location,
     tower: haven.tower,
     floor: haven.floor,
+    sixHourCheckIn: haven.six_hour_check_in,
+    sixHourCheckOut: haven.six_hour_check_out,
+    tenHourCheckIn: haven.ten_hour_check_in,
+    tenHourCheckOut: haven.ten_hour_check_out,
+    twentyOneHourCheckIn: haven.twenty_one_hour_check_in,
+    twentyOneHourCheckOut: haven.twenty_one_hour_check_out,
     photoTour: transformPhotoTours(haven.photo_tours)
   };
 
@@ -115,6 +127,12 @@ export default function RoomDetailsClient({ room: haven, recommendedRooms = [] }
     location: rec.location,
     tower: rec.tower,
     floor: rec.floor,
+    sixHourCheckIn: rec.six_hour_check_in,
+    sixHourCheckOut: rec.six_hour_check_out,
+    tenHourCheckIn: rec.ten_hour_check_in,
+    tenHourCheckOut: rec.ten_hour_check_out,
+    twentyOneHourCheckIn: rec.twenty_one_hour_check_in,
+    twentyOneHourCheckOut: rec.twenty_one_hour_check_out,
     photoTour: transformPhotoTours(rec.photo_tours)
   }));
 
