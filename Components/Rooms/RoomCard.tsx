@@ -149,11 +149,27 @@ const RoomCard = ({ room, mode = "browse", compact = false }: RoomCardsProps) =>
     setIsVideoModalOpen(false);
   };
 
-  // Extract YouTube video ID from URL
-  const getYouTubeVideoId = (url: string) => {
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-    const match = url.match(regExp);
-    return (match && match[2].length === 11) ? match[2] : null;
+  // Extract YouTube video ID from URL and return a valid embed URL
+  const getYouTubeEmbedUrl = (url: string | undefined) => {
+    if (!url) return "";
+    
+    // Regular expressions for different YouTube URL formats
+    const standardRegExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+    const shortsRegExp = /^.*youtube\.com\/shorts\/([^#\&\?]*).*/;
+    
+    let videoId = null;
+    
+    const shortsMatch = url.match(shortsRegExp);
+    if (shortsMatch && shortsMatch[1].length === 11) {
+      videoId = shortsMatch[1];
+    } else {
+      const standardMatch = url.match(standardRegExp);
+      if (standardMatch && standardMatch[2].length === 11) {
+        videoId = standardMatch[2];
+      }
+    }
+    
+    return videoId ? `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&rel=0` : "";
   };
 
   return (
@@ -343,10 +359,10 @@ const RoomCard = ({ room, mode = "browse", compact = false }: RoomCardsProps) =>
             <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
               <iframe
                 className="absolute top-0 left-0 w-full h-full"
-                src={`https://www.youtube.com/embed/${getYouTubeVideoId(room.youtubeUrl)}?autoplay=1`}
+                src={getYouTubeEmbedUrl(room.youtubeUrl)}
                 title={`${room.name} Video Tour`}
                 frameBorder="0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allow="autoplay; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
               />
             </div>

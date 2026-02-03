@@ -60,7 +60,7 @@ interface Haven {
   six_hour_rate?: number;
   weekday_rate?: number;
   weekend_rate?: number;
-  images?: Array<{ image_url: string }>;
+  images?: Array<{ image_url?: string; url?: string }>;
   rating?: number;
   review_count?: number;
   capacity?: number;
@@ -72,7 +72,7 @@ interface Haven {
   location?: string;
   tower?: string;
   floor?: string;
-  photo_tours?: Array<{ category: string; url: string }>;
+  photo_tours?: Array<{ category: string; image_url?: string; url?: string }>;
   youtube_url?: string;
 }
 
@@ -182,7 +182,7 @@ const HotelRoomListings = ({ initialHavens }: HotelRoomListingsProps) => {
       name: haven.haven_name ?? haven.name ?? "Unnamed Haven",
       price: `₱${haven.six_hour_rate ?? haven.weekday_rate ?? haven.weekend_rate ?? "N/A"}`,
       pricePerNight: "per night",
-      images: haven.images?.map((img: any) => img.image_url) ?? [],
+      images: haven.images?.map((img: any) => img.image_url || img.url).filter(Boolean) ?? [],
       rating: haven.rating ?? 4.5,
       reviews: haven.review_count ?? 0,
       capacity: haven.capacity ?? 2,
@@ -204,8 +204,11 @@ const HotelRoomListings = ({ initialHavens }: HotelRoomListingsProps) => {
       twentyOneHourCheckOut: haven.twenty_one_hour_check_out,
       photoTour: haven.photo_tours
         ? haven.photo_tours.reduce((acc: Record<string, string[]>, item: any) => {
-            acc[item.category] = acc[item.category] || [];
-            acc[item.category].push(item.image_url);
+            const imageUrl = item.image_url || item.url;
+            if (imageUrl) {
+              acc[item.category] = acc[item.category] || [];
+              acc[item.category].push(imageUrl);
+            }
             return acc;
           }, {} as Record<string, string[]>)
         : {},

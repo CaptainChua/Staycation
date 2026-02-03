@@ -226,9 +226,9 @@ export const getAllHavens = async (req: NextRequest): Promise<NextResponse> => {
 
     let query = `
       SELECT h.*,
-        json_agg(DISTINCT jsonb_build_object('id', hi.id, 'url', hi.image_url, 'display_order', hi.display_order))
+        json_agg(DISTINCT jsonb_build_object('id', hi.id, 'image_url', hi.image_url, 'display_order', hi.display_order))
           FILTER (WHERE hi.id IS NOT NULL) as images,
-        json_agg(DISTINCT jsonb_build_object('category', pti.category, 'url', pti.image_url, 'display_order', pti.display_order))
+        json_agg(DISTINCT jsonb_build_object('category', pti.category, 'image_url', pti.image_url, 'display_order', pti.display_order))
           FILTER (WHERE pti.id IS NOT NULL) as photo_tours
       FROM havens h
       LEFT JOIN haven_images hi ON h.uuid_id = hi.haven_id

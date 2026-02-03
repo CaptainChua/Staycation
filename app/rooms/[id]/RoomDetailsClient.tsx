@@ -9,7 +9,7 @@ interface HavenData {
   uuid_id: string;
   haven_name: string;
   six_hour_rate: number;
-  images?: Array<{ image_url: string }>;
+  images?: Array<{ image_url?: string; url?: string }>;
   rating?: number;
   review_count?: number;
   capacity: number;
@@ -27,7 +27,7 @@ interface HavenData {
   location?: string;
   tower?: string;
   floor?: string;
-  photo_tours?: Array<{ category: string; url: string }>;
+  photo_tours?: Array<{ category: string; image_url?: string; url?: string }>;
   youtube_url?: string;
 }
 
@@ -59,19 +59,22 @@ export default function RoomDetailsClient({ room: haven, recommendedRooms = [] }
   // Debug logging
   console.log("🏠 Room data received:", haven);
   console.log("🖼️ Raw images data:", haven.images);
-  console.log("🖼️ Mapped images:", haven.images?.map((img: { image_url: string }) => img.image_url) ?? []);
+  console.log("🖼️ Mapped images:", haven.images?.map((img: any) => img.image_url || img.url).filter(Boolean) ?? []);
 
   // Transform photo_tours array to photoTour object format
-  const transformPhotoTours = (photoTours?: Array<{ category: string; image_url: string }>) => {
+  const transformPhotoTours = (photoTours?: Array<{ category: string; image_url?: string; url?: string }>) => {
     if (!photoTours || photoTours.length === 0) return undefined;
 
     const photoTourObj: Record<string, string[]> = {};
-    photoTours.forEach(({ category, image_url }) => {
-      const key = category.toLowerCase().replace(/\s+/g, '');
-      if (!photoTourObj[key]) {
-        photoTourObj[key] = [];
+    photoTours.forEach((item) => {
+      const imageUrl = item.image_url || item.url;
+      if (imageUrl) {
+        const key = item.category.toLowerCase().replace(/\s+/g, '');
+        if (!photoTourObj[key]) {
+          photoTourObj[key] = [];
+        }
+        photoTourObj[key].push(imageUrl);
       }
-      photoTourObj[key].push(image_url);
     });
     return photoTourObj;
   };
@@ -83,7 +86,7 @@ export default function RoomDetailsClient({ room: haven, recommendedRooms = [] }
     name: haven.haven_name,
     price: `₱${haven.six_hour_rate}`,
     pricePerNight: 'per night',
-    images: haven.images?.map((img: { image_url: string }) => img.image_url) ?? [],
+    images: haven.images?.map((img: any) => img.image_url || img.url).filter(Boolean) ?? [],
     rating: haven.rating ?? 4.5,
     reviews: haven.review_count ?? 0,
     capacity: haven.capacity,
@@ -113,7 +116,7 @@ export default function RoomDetailsClient({ room: haven, recommendedRooms = [] }
     name: rec.haven_name,
     price: `₱${rec.six_hour_rate}`,
     pricePerNight: 'per night',
-    images: rec.images?.map((img: { image_url: string }) => img.image_url) ?? [],
+    images: rec.images?.map((img: any) => img.image_url || img.url).filter(Boolean) ?? [],
     rating: rec.rating ?? 4.5,
     reviews: rec.review_count ?? 0,
     capacity: rec.capacity,
