@@ -63,7 +63,7 @@ export default function DashboardPage() {
     },
     {
       title: "Pending Payments",
-      value: paymentsData?.data ? `₱${paymentsData.data.reduce((sum: number, payment: any) => sum + (payment.amount || 0), 0).toLocaleString()}` : "₱0",
+      value: paymentsData ? `₱${paymentsData.reduce((sum: number, payment: any) => sum + (payment.amount || 0), 0).toLocaleString()}` : "₱0",
       Icon: DollarSign,
       color: "bg-green-500",
       loading: paymentsLoading
@@ -152,9 +152,9 @@ export default function DashboardPage() {
 
   // Calculate payment status from payments data
   const paymentStatus = {
-    paid: paymentsData?.data?.filter((payment: any) => payment.status === 'completed').length || 0,
-    pending: paymentsData?.data?.filter((payment: any) => payment.status === 'pending').length || 0,
-    overdue: paymentsData?.data?.filter((payment: any) => {
+    paid: paymentsData?.filter((payment: any) => payment.status === 'completed').length || 0,
+    pending: paymentsData?.filter((payment: any) => payment.status === 'pending').length || 0,
+    overdue: paymentsData?.filter((payment: any) => {
       const dueDate = new Date(payment.due_date);
       return dueDate < new Date() && payment.status !== 'completed';
     }).length || 0
