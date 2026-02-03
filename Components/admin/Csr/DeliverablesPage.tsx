@@ -865,7 +865,7 @@ const handleMarkAllDelivered = async (bookingId: string) => {
         const inventoryFailed = inventoryUpdateResults.filter(result => result.status === 'rejected');
         if (inventoryFailed.length > 0) {
           console.error('Some inventory updates failed:', inventoryFailed);
-          toast.warning("All items marked as delivered but some inventory updates failed");
+          toast.error("All items marked as delivered but some inventory updates failed");
         } else {
           toast.success(`Successfully marked ${selectedDeliverables.length} bookings as delivered and inventory updated`);
         }

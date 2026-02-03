@@ -3,8 +3,9 @@ import pool from "@/backend/config/db";
 import { logActivity } from "@/backend/utils/activityLogger";
 import { createNotificationForUser } from "@/backend/utils/notificationHelper";
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id: cleaningTaskId } = await params;
     const body = await req.json();
     const { assigned_to } = body;
 
@@ -14,8 +15,6 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         { status: 400 }
       );
     }
-
-    const cleaningTaskId = params.id;
 
     // Get current user from session (you'll need to implement this based on your auth system)
     // For now, we'll use a placeholder - you should get this from your NextAuth session

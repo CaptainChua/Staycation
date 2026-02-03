@@ -666,7 +666,7 @@ export default function BookingsPage() {
       return;
     }
     // TODO: Implement bulk view modal or navigation
-    toast.info(`Viewing ${selectedBookings.length} selected bookings`);
+    toast(`Viewing ${selectedBookings.length} selected bookings`);
   };
 
   const handleSelectAll = () => {
