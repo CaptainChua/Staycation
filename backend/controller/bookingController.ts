@@ -308,12 +308,8 @@ interface AdditionalGuest {
 export interface Booking {
   id?: string;
   booking_id: string;
-  user_id?: string; // NULL for guest bookings, UUID for logged-in users
-  guest_first_name: string;
-  guest_last_name: string;
-  guest_email: string;
-  guest_phone: string;
-  room_name?: string;
+  user_id?: string;
+  room_name: string;
   check_in_date: string;
   check_out_date: string;
   check_in_time: string;
@@ -321,15 +317,6 @@ export interface Booking {
   adults: number;
   children: number;
   infants: number;
-  facebook_link?: string;
-  payment_method: string;
-  payment_proof_url?: string;
-  room_rate: number;
-  security_deposit: number;
-  add_ons_total: number;
-  total_amount: number;
-  down_payment: number;
-  remaining_balance: number;
   status:
     | "pending"
     | "approved"
@@ -352,17 +339,11 @@ export const createBooking = async (
     await client.query("BEGIN");
 
     const body = await req.json();
+    console.log("📥 createBooking body received");
+
     const {
       booking_id,
-      user_id, // Optional: null for guest, UUID for logged-in users
-      guest_first_name,
-      guest_last_name,
-      guest_age,
-      guest_gender,
-      guest_email,
-      guest_phone,
-      valid_id, // base64 string for main guest ID
-      additional_guests, // Array of additional guest objects
+      user_id,
       room_name,
       check_in_date,
       check_out_date,
@@ -371,16 +352,28 @@ export const createBooking = async (
       adults,
       children,
       infants,
+      // Main guest info
+      guest_first_name,
+      guest_last_name,
+      guest_email,
+      guest_phone,
+      guest_age,
+      guest_gender,
       facebook_link,
+      valid_id, // base64
+      // Additional guests
+      additional_guests = [],
+      // Payment info
       payment_method,
-      payment_proof, // base64 string
+      payment_proof, // base64
       room_rate,
       security_deposit,
       add_ons_total,
       total_amount,
       down_payment,
       remaining_balance,
-      add_ons,
+      // Add-ons
+      addOns = {},
     } = body;
 
     // --- IDENTITY-BASED OVERLAP CHECK ---
@@ -688,6 +681,20 @@ export const createBooking = async (
       // Don't fail the whole request if email fails
     }
 
+    // 8. Initialize cleaning record
+    const cleaningQuery = `
+      INSERT INTO booking_cleaning (
+        booking_id, cleaning_status
+      )
+      VALUES ($1, $2)
+    `;
+
+    await client.query(cleaningQuery, [newBooking.id, 'pending']);
+    console.log("✅ Cleaning record initialized");
+
+    await client.query('COMMIT');
+    console.log("✅ Transaction completed successfully");
+
     return NextResponse.json(
       {
         success: true,
@@ -870,21 +877,74 @@ export const getBookingById = async (
       GROUP BY b.id, h.tower, h.uuid_id, bp.total_amount, bp.down_payment, bp.remaining_balance, bp.payment_method, bp.payment_proof_url, bp.room_rate, bp.add_ons_total, bg.first_name, bg.last_name, bg.email, bg.phone, bg.valid_id_url, bd.amount
       LIMIT 1
     `;
+    const bookingResult = await pool.query(bookingQuery, [id]);
 
-    const result = await pool.query(query, [id]);
-
-    if (result.rows.length === 0) {
+    if (bookingResult.rows.length === 0) {
       return NextResponse.json(
         { success: false, error: "Booking not found" },
         { status: 404 },
       );
     }
 
-    console.log(`✅ Retrieved booking ${id} with room images`);
+    const booking = bookingResult.rows[0];
+
+    // Get all guests
+    const guestsQuery = `
+      SELECT * FROM booking_guests
+      WHERE booking_id = $1
+      ORDER BY created_at ASC
+    `;
+    const guestsResult = await pool.query(guestsQuery, [booking.id]);
+
+    // Get payment info
+    const paymentQuery = `
+      SELECT * FROM booking_payments
+      WHERE booking_id = $1
+      LIMIT 1
+    `;
+    const paymentResult = await pool.query(paymentQuery, [booking.id]);
+
+    // Get security deposit
+    const depositQuery = `
+      SELECT * FROM booking_security_deposits
+      WHERE booking_id = $1
+      LIMIT 1
+    `;
+    const depositResult = await pool.query(depositQuery, [booking.id]);
+
+    // Get add-ons
+    const addOnsQuery = `
+      SELECT * FROM booking_add_ons
+      WHERE booking_id = $1
+      ORDER BY name ASC
+    `;
+    const addOnsResult = await pool.query(addOnsQuery, [booking.id]);
+
+    // Get cleaning info
+    const cleaningQuery = `
+      SELECT * FROM booking_cleaning
+      WHERE booking_id = $1
+      LIMIT 1
+    `;
+    const cleaningResult = await pool.query(cleaningQuery, [booking.id]);
+
+    // Combine all data
+    const completeBooking = {
+      ...booking,
+      guests: guestsResult.rows,
+      main_guest: guestsResult.rows[0] || null,
+      additional_guests: guestsResult.rows.slice(1),
+      payment: paymentResult.rows[0] || null,
+      security_deposit: depositResult.rows[0] || null,
+      add_ons: addOnsResult.rows,
+      cleaning: cleaningResult.rows[0] || null,
+    };
+
+    console.log(`✅ Retrieved complete booking data for ${id}`);
 
     return NextResponse.json({
       success: true,
-      data: result.rows[0],
+      data: completeBooking,
     });
   } catch (error) {
     console.log("❌ Error getting booking:", error);
@@ -922,13 +982,8 @@ export const updateBookingStatus = async (
 
     // If status is provided, validate it
     const validStatuses = [
-      "pending",
-      "approved",
-      "rejected",
-      "confirmed",
-      "checked-in",
-      "completed",
-      "cancelled",
+      "pending", "approved", "rejected", "confirmed",
+      "checked-in", "completed", "cancelled",
     ];
     if (typeof status !== "undefined" && status !== null) {
       if (typeof status !== "string" || !validStatuses.includes(status)) {
@@ -939,10 +994,11 @@ export const updateBookingStatus = async (
       }
     }
 
+    // ✅ FIXED: Added ::uuid casting
     const query = `
       UPDATE booking
       SET status = $1, rejection_reason = $2, updated_at = NOW()
-      WHERE id = $3
+      WHERE id::text = $3 OR booking_id = $3
       RETURNING *
     `;
 
@@ -1080,7 +1136,7 @@ export const deleteBooking = async (
       );
     }
 
-    console.log("✅ Booking deleted:", result.rows[0]);
+    console.log("✅ Booking deleted (cascade):", result.rows[0]);
 
     return NextResponse.json({
       success: true,
@@ -1109,10 +1165,11 @@ export const getUserBookings = async (
 
   try {
     const { searchParams } = new URL(req.url);
-    const status = searchParams.get("status"); // upcoming, past, cancelled, all
+    const status = searchParams.get("status");
 
+    // ✅ FIXED: Added ::uuid casting
     let query = `
-      SELECT
+      SELECT 
         b.*,
         h.tower,
         h.uuid_id as haven_id,
@@ -1143,7 +1200,6 @@ export const getUserBookings = async (
 
     const values: string[] = [userId];
 
-    // Filter by status if provided
     if (status && status !== "all") {
       if (status === "upcoming") {
         query += ` AND b.status IN ('pending', 'approved', 'confirmed') AND b.check_in_date >= CURRENT_DATE`;

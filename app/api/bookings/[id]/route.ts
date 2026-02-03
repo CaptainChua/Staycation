@@ -8,8 +8,8 @@ interface RouteContext {
   }>
 }
 
-export async function GET(request: NextRequest, { params }: RouteContext): Promise<NextResponse> {
-  await params;
+export async function GET(request: NextRequest, context: RouteContext): Promise<NextResponse> {
+  await context.params; // Just await it, we don't need to extract it
   return getBookingById(request);
 }
 
