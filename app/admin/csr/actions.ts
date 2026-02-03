@@ -1276,3 +1276,264 @@ export async function refundDeliverable(deliverableId: string, reason?: string):
     client.release();
   }
 }
+
+// ==================== DISCOUNT MANAGEMENT ====================
+
+export interface DiscountRecord {
+  id: string;
+  discount_code: string;
+  haven_id: string;
+  haven_name: string;
+  tower: string;
+  name: string;
+  description: string | null;
+  discount_type: 'percentage' | 'fixed';
+  discount_value: number;
+  formatted_value: string;
+  min_booking_amount: number | null;
+  formatted_min: string | null;
+  start_date: string;
+  end_date: string;
+  max_uses: number | null;
+  used_count: number;
+  usage_percentage: number;
+  active: boolean;
+  created_at: string;
+}
+
+export async function getDiscounts(havenId?: string): Promise<DiscountRecord[]> {
+  const client = await pool.connect();
+  try {
+    let query = `
+      SELECT
+        d.id,
+        d.code as discount_code,
+        d.haven_id,
+        h.haven_name,
+        h.tower,
+        d.name,
+        d.description,
+        d.discount_type,
+        d.discount_value,
+        d.min_booking_amount,
+        d.start_date,
+        d.end_date,
+        d.max_uses,
+        d.used_count,
+        d.active,
+        d.created_at
+      FROM discounts d
+      LEFT JOIN havens h ON d.haven_id = h.uuid_id
+    `;
+
+    const conditions: string[] = [];
+    const values: any[] = [];
+    let paramCount = 1;
+
+    if (havenId) {
+      conditions.push(`d.haven_id = $${paramCount}`);
+      values.push(havenId);
+      paramCount++;
+    }
+
+    if (conditions.length > 0) {
+      query += " WHERE " + conditions.join(" AND ");
+    }
+
+    query += " ORDER BY d.created_at DESC";
+
+    const result = await client.query(query, values);
+
+    return result.rows.map((row: any) => ({
+      ...row,
+      formatted_value: row.discount_type === 'percentage'
+        ? `${row.discount_value}%`
+        : `₱${parseFloat(row.discount_value).toLocaleString('en-PH')}`,
+      formatted_min: row.min_booking_amount
+        ? `₱${parseFloat(row.min_booking_amount).toLocaleString('en-PH')}`
+        : 'N/A',
+      usage_percentage: row.max_uses ? Math.round((row.used_count / row.max_uses) * 100) : 0
+    }));
+  } catch (error) {
+    console.error("Error getting discounts:", error);
+    throw new Error("Failed to get discounts");
+  } finally {
+    client.release();
+  }
+}
+
+export async function createDiscount(discountData: {
+  code: string;
+  haven_id: string;
+  name: string;
+  description?: string;
+  discount_type: 'percentage' | 'fixed';
+  discount_value: number;
+  min_booking_amount?: number;
+  start_date: string;
+  end_date: string;
+  max_uses?: number;
+}): Promise<DiscountRecord> {
+  const client = await pool.connect();
+  try {
+    const query = `
+      INSERT INTO discounts (
+        code, haven_id, name, description, discount_type,
+        discount_value, min_booking_amount, start_date, end_date, max_uses, active
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, true)
+      RETURNING *
+    `;
+
+    const result = await client.query(query, [
+      discountData.code,
+      discountData.haven_id,
+      discountData.name,
+      discountData.description || null,
+      discountData.discount_type,
+      discountData.discount_value,
+      discountData.min_booking_amount || null,
+      discountData.start_date,
+      discountData.end_date,
+      discountData.max_uses || null,
+    ]);
+
+    return result.rows[0];
+  } catch (error) {
+    console.error("Error creating discount:", error);
+    throw new Error("Failed to create discount");
+  } finally {
+    client.release();
+  }
+}
+
+export async function updateDiscount(
+  id: string,
+  discountData: Partial<{
+    name: string;
+    description: string;
+    discount_type: 'percentage' | 'fixed';
+    discount_value: number;
+    min_booking_amount: number;
+    start_date: string;
+    end_date: string;
+    max_uses: number;
+    active: boolean;
+  }>
+): Promise<DiscountRecord> {
+  const client = await pool.connect();
+  try {
+    const updates: string[] = [];
+    const values: any[] = [id];
+    let paramCount = 2;
+
+    if (discountData.name !== undefined) {
+      updates.push(`name = $${paramCount}`);
+      values.push(discountData.name);
+      paramCount++;
+    }
+    if (discountData.description !== undefined) {
+      updates.push(`description = $${paramCount}`);
+      values.push(discountData.description);
+      paramCount++;
+    }
+    if (discountData.discount_type !== undefined) {
+      updates.push(`discount_type = $${paramCount}`);
+      values.push(discountData.discount_type);
+      paramCount++;
+    }
+    if (discountData.discount_value !== undefined) {
+      updates.push(`discount_value = $${paramCount}`);
+      values.push(discountData.discount_value);
+      paramCount++;
+    }
+    if (discountData.min_booking_amount !== undefined) {
+      updates.push(`min_booking_amount = $${paramCount}`);
+      values.push(discountData.min_booking_amount);
+      paramCount++;
+    }
+    if (discountData.start_date !== undefined) {
+      updates.push(`start_date = $${paramCount}`);
+      values.push(discountData.start_date);
+      paramCount++;
+    }
+    if (discountData.end_date !== undefined) {
+      updates.push(`end_date = $${paramCount}`);
+      values.push(discountData.end_date);
+      paramCount++;
+    }
+    if (discountData.max_uses !== undefined) {
+      updates.push(`max_uses = $${paramCount}`);
+      values.push(discountData.max_uses);
+      paramCount++;
+    }
+    if (discountData.active !== undefined) {
+      updates.push(`active = $${paramCount}`);
+      values.push(discountData.active);
+      paramCount++;
+    }
+
+    if (updates.length === 0) {
+      throw new Error("No fields to update");
+    }
+
+    updates.push(`updated_at = NOW()`);
+
+    const query = `
+      UPDATE discounts
+      SET ${updates.join(", ")}
+      WHERE id = $1
+      RETURNING *
+    `;
+
+    const result = await client.query(query, values);
+
+    if (result.rows.length === 0) {
+      throw new Error("Discount not found");
+    }
+
+    return result.rows[0];
+  } catch (error) {
+    console.error("Error updating discount:", error);
+    throw new Error("Failed to update discount");
+  } finally {
+    client.release();
+  }
+}
+
+export async function deleteDiscount(id: string): Promise<void> {
+  const client = await pool.connect();
+  try {
+    await client.query("DELETE FROM discounts WHERE id = $1", [id]);
+  } catch (error) {
+    console.error("Error deleting discount:", error);
+    throw new Error("Failed to delete discount");
+  } finally {
+    client.release();
+  }
+}
+
+export async function toggleDiscountStatus(id: string, active: boolean): Promise<DiscountRecord> {
+  const client = await pool.connect();
+  try {
+    const query = `
+      UPDATE discounts
+      SET active = $2, updated_at = NOW()
+      WHERE id = $1
+      RETURNING *
+    `;
+
+    const result = await client.query(query, [id, active]);
+
+    if (result.rows.length === 0) {
+      throw new Error("Discount not found");
+    }
+
+    return result.rows[0];
+  } catch (error) {
+    console.error("Error toggling discount status:", error);
+    throw new Error("Failed to toggle discount status");
+  } finally {
+    client.release();
+  }
+}
