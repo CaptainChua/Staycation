@@ -47,7 +47,7 @@ const SubModalWrapper = ({
   // STEP MODE: Render inline content without a separate footer
   if (mode === 'step') {
     return (
-      <div className="flex flex-col h-full bg-gray-50/50">
+      <div className="flex flex-col h-full bg-gray-50/50 dark:bg-gray-950/30">
         {/* Content - Scrollable with Motion */}
         <div className="flex-1 overflow-y-auto p-8 overflow-x-hidden">
           <motion.div
@@ -74,11 +74,11 @@ const SubModalWrapper = ({
       {/* Modal Container */}
       <div className="fixed inset-0 flex items-center justify-center z-[10001] p-4 pointer-events-none">
         <div 
-          className={`bg-white rounded-2xl w-full ${maxWidth} shadow-2xl flex flex-col pointer-events-auto animate-in zoom-in-95 duration-200`}
+          className={`bg-white dark:bg-gray-800 rounded-2xl w-full ${maxWidth} shadow-2xl flex flex-col pointer-events-auto animate-in zoom-in-95 duration-200`}
           style={{ maxHeight: 'calc(100vh - 4rem)' }}
         >
           {/* Header - System Gold Theme */}
-          <div className="flex justify-between items-center p-6 border-b border-brand-primary/20 bg-brand-primary text-white rounded-t-2xl flex-shrink-0 shadow-sm transition-all duration-[250ms] [transition-timing-function:cubic-bezier(0.4,0,0.2,1)] hover:brightness-110 hover:scale-[1.01] hover:shadow-lg will-change-transform cursor-default">
+          <div className="flex justify-between items-center p-6 border-b border-brand-primary/20 dark:border-brand-primary/40 bg-brand-primary text-white rounded-t-2xl flex-shrink-0 shadow-sm transition-all duration-[250ms] [transition-timing-function:cubic-bezier(0.4,0,0.2,1)] hover:brightness-110 hover:scale-[1.01] hover:shadow-lg will-change-transform cursor-default">
             <div>
               <h2 className="text-xl font-bold">{title}</h2>
               {subtitle && <p className="text-sm opacity-90 mt-1">{subtitle}</p>}
@@ -97,10 +97,10 @@ const SubModalWrapper = ({
           </div>
 
           {/* Footer */}
-          <div className="flex justify-end gap-3 p-6 border-t border-gray-200 bg-white rounded-b-2xl flex-shrink-0">
+          <div className="flex justify-end gap-3 p-6 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-b-2xl flex-shrink-0">
             <button
               onClick={onClose}
-              className="px-6 py-2.5 border-2 border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-100 transition-all"
+              className="px-6 py-2.5 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-all"
               disabled={isSaving}
             >
               Cancel
@@ -112,7 +112,7 @@ const SubModalWrapper = ({
                 className={`
                   px-6 py-2.5 rounded-lg font-bold text-white shadow-md transition-all flex items-center gap-2
                   ${isSaving 
-                    ? 'bg-gray-300 cursor-not-allowed shadow-none' 
+                    ? 'bg-gray-300 dark:bg-gray-700 cursor-not-allowed shadow-none' 
                     : 'bg-brand-primary hover:bg-[#b57603] hover:shadow-lg transform active:scale-95'}
                 `}
               >
