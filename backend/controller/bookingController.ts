@@ -681,19 +681,7 @@ export const createBooking = async (
       // Don't fail the whole request if email fails
     }
 
-    // 8. Initialize cleaning record
-    const cleaningQuery = `
-      INSERT INTO booking_cleaning (
-        booking_id, cleaning_status
-      )
-      VALUES ($1, $2)
-    `;
-
-    await client.query(cleaningQuery, [newBooking.id, 'pending']);
-    console.log("✅ Cleaning record initialized");
-
-    await client.query('COMMIT');
-    console.log("✅ Transaction completed successfully");
+    await client.query("COMMIT");
 
     return NextResponse.json(
       {

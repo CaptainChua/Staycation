@@ -106,7 +106,6 @@ const ReservationsPage = () => {
         return;
       }
 
-      const booking = result.data;
       const mainGuest = booking.main_guest || booking.guests?.[0];
 
       // Update booking status
@@ -161,7 +160,6 @@ const ReservationsPage = () => {
         return;
       }
 
-      const booking = result.data;
       const mainGuest = booking.main_guest || booking.guests?.[0];
       const payment = booking.payment;
 
