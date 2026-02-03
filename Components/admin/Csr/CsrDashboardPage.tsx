@@ -16,6 +16,7 @@ import MessagePage from "./MessagePage";
 import ActivityLogsPage from "./ActivityLogsPage";
 import NotificationPage from "./NotificationPage";
 import InventoryPage from "./InventoryPage";
+import ProfilePage from "./ProfilePage";
 import AdminFooter from "../AdminFooter";
 import NotificationModal from "./Modals/Notification";
 import MessageModal from "./Modals/MessageModal";
@@ -586,40 +587,40 @@ export default function CsrDashboard() {
       {/* MAIN CONTENT */}
       <div className="flex-1 flex flex-col h-screen min-w-0 overflow-x-hidden overflow-y-auto">
         {/* HEADER */}
-        <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-6 h-20 min-h-20 flex-shrink-0 flex justify-between items-center sticky top-0 z-10 shadow-sm">
-          <div className="flex items-center gap-4">
+        <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-3 sm:px-6 h-16 sm:h-20 min-h-16 sm:min-h-20 flex-shrink-0 flex justify-between items-center sticky top-0 z-10 shadow-sm">
+          <div className="flex items-center gap-2 sm:gap-4">
             {/* Mobile Menu Button */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg md:hidden transition-colors"
+              className="p-1.5 sm:p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg md:hidden transition-colors"
             >
-              <Menu className="w-6 h-6 text-gray-600 dark:text-gray-300" />
+              <Menu className="w-5 h-5 sm:w-6 sm:h-6 text-gray-600 dark:text-gray-300" />
             </button>
 
             {/* Desktop Sidebar Toggle */}
             <button
               onClick={() => setSidebar(!sidebar)}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg hidden md:block transition-colors"
+              className="p-1.5 sm:p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg hidden md:block transition-colors"
             >
               {sidebar ? (
-                <X className="w-6 h-6 text-gray-600 dark:text-gray-300" />
+                <X className="w-5 h-5 sm:w-6 sm:h-6 text-gray-600 dark:text-gray-300" />
               ) : (
-                <Menu className="w-6 h-6 text-gray-600 dark:text-gray-300" />
+                <Menu className="w-5 h-5 sm:w-6 sm:h-6 text-gray-600 dark:text-gray-300" />
               )}
             </button>
-            <div className="flex flex-col">
-              <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+            <div className="flex flex-col min-w-0 flex-1">
+              <p className="text-xs sm:text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">
                 {now
                   ? now.toLocaleString("en-US", {
-                      weekday: "long",
+                      weekday: "short",
                       year: "numeric",
-                      month: "long",
+                      month: "short",
                       day: "numeric",
                     })
                   : ""}
               </p>
-              <div className="flex items-center gap-2">
-                <p className="text-xs text-gray-500 dark:text-gray-400">
+              <div className="flex items-center gap-1 sm:gap-2">
+                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                   {now
                     ? now.toLocaleString("en-US", {
                         hour: "2-digit",
@@ -628,13 +629,13 @@ export default function CsrDashboard() {
                       })
                     : ""}
                 </p>
-                <div className="flex items-center gap-1 px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded-full cursor-help transition-colors hover:bg-gray-200 dark:hover:bg-gray-700" title={`${weatherStatus.description} - ${weatherStatus.location} (Real-time)`}>
+                <div className="flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 bg-gray-100 dark:bg-gray-800 rounded-full cursor-help transition-colors hover:bg-gray-200 dark:hover:bg-gray-700" title={`${weatherStatus.description} - ${weatherStatus.location} (Real-time)`}>
                   {weatherLoading ? (
-                    <div className="w-4 h-4 animate-spin rounded-full border-2 border-gray-300 border-t-brand-primary" />
+                    <div className="w-3 h-3 sm:w-4 sm:h-4 animate-spin rounded-full border-2 border-gray-300 border-t-brand-primary" />
                   ) : (
                     getWeatherIcon(weatherStatus.condition)
                   )}
-                  <span className="text-xs text-gray-600 dark:text-gray-300 font-medium">
+                  <span className="text-xs text-gray-600 dark:text-gray-300 font-medium hidden sm:inline">
                     {weatherLoading ? 'Loading...' : weatherStatus.temperature}
                   </span>
                 </div>
@@ -642,11 +643,11 @@ export default function CsrDashboard() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1 sm:gap-3">
             {/* Messages */}
             <button
               ref={messageButtonRef}
-              className={`relative p-2 rounded-lg transition-colors ${
+              className={`relative p-1.5 sm:p-2 rounded-lg transition-colors ${
                 messageModalOpen
                   ? "bg-brand-primaryLighter text-brand-primary"
                   : "hover:bg-gray-100 dark:hover:bg-gray-800"
@@ -658,10 +659,10 @@ export default function CsrDashboard() {
               }}
             >
               <MessageSquare
-                className={`w-6 h-6 ${messageModalOpen ? "text-brand-primary" : "text-gray-600 dark:text-gray-300"}`}
+                className={`w-4 h-4 sm:w-6 sm:h-6 ${messageModalOpen ? "text-brand-primary" : "text-gray-600 dark:text-gray-300"}`}
               />
               {unreadMessageCount > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-[20px] h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center px-1">
+                <span className="absolute -top-1 -right-1 min-w-[16px] sm:min-w-[20px] h-4 sm:h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center px-0.5 sm:px-1">
                   {unreadMessageCount > 99 ? '99+' : unreadMessageCount}
                 </span>
               )}
@@ -670,7 +671,7 @@ export default function CsrDashboard() {
             {/* Notifications */}
             <button
               ref={notificationButtonRef}
-              className={`relative p-2 rounded-lg transition-colors ${
+              className={`relative p-1.5 sm:p-2 rounded-lg transition-colors ${
                 notificationOpen
                   ? "bg-brand-primaryLighter text-brand-primary"
                   : "hover:bg-gray-100 dark:hover:bg-gray-800"
@@ -681,10 +682,10 @@ export default function CsrDashboard() {
               }}
             >
               <Bell
-                className={`w-6 h-6 ${notificationOpen ? "text-brand-primary" : "text-gray-600 dark:text-gray-300"}`}
+                className={`w-4 h-4 sm:w-6 sm:h-6 ${notificationOpen ? "text-brand-primary" : "text-gray-600 dark:text-gray-300"}`}
               />
               {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-[20px] h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center px-1">
+                <span className="absolute -top-1 -right-1 min-w-[16px] sm:min-w-[20px] h-4 sm:h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center px-0.5 sm:px-1">
                   {unreadCount > 99 ? '99+' : unreadCount}
                 </span>
               )}
@@ -694,9 +695,9 @@ export default function CsrDashboard() {
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-                className="flex items-center gap-2 p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                className="flex items-center gap-1 sm:gap-2 p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
               >
-                <div className="w-10 h-10 bg-white dark:bg-gray-700 border-2 border-brand-primary rounded-full overflow-hidden flex items-center justify-center text-gray-700 dark:text-gray-200 font-bold cursor-pointer transition-colors shadow-sm">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-white dark:bg-gray-700 border-2 border-brand-primary rounded-full overflow-hidden flex items-center justify-center text-gray-700 dark:text-gray-200 font-bold cursor-pointer transition-colors shadow-sm">
                   {isLoading ? (
                     <div className="w-full h-full bg-gray-200 dark:bg-gray-700 animate-pulse" />
                   ) : employee?.profile_image_url ? (
@@ -707,22 +708,22 @@ export default function CsrDashboard() {
                           ? `${employee.first_name} ${employee.last_name}`
                           : "Profile"
                       }
-                      width={40}
-                      height={40}
+                      width={32}
+                      height={32}
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <span>
+                    <span className="text-xs sm:text-sm">
                       {session?.user?.name
                         ? session.user.name.charAt(0).toUpperCase()
                         : "C"}
                     </span>
                   )}
                 </div>
-                <div className="hidden sm:block text-left">
-                  <div className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate max-w-[120px]">
+                <div className="hidden sm:block text-left min-w-0">
+                  <div className="text-xs sm:text-sm font-semibold text-gray-800 dark:text-gray-100 truncate max-w-[80px] sm:max-w-[120px]">
                     {isLoading ? (
-                      <span className="inline-block h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                      <span className="inline-block h-3 w-16 sm:h-4 sm:w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
                     ) : employee ? (
                       `${employee.first_name} ${employee.last_name}`.trim() ||
                       employee.email ||
@@ -731,7 +732,7 @@ export default function CsrDashboard() {
                       "No employee"
                     )}
                   </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[120px]">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[80px] sm:max-w-[120px]">
                     {employee?.role || "CSR"}
                   </p>
                 </div>
@@ -789,12 +790,30 @@ export default function CsrDashboard() {
                   <div className="py-1">
                     <button
                       onClick={() => {
+                        setPage("profile");
+                        setProfileDropdownOpen(false);
+                      }}
+                      className={`w-full px-4 py-2.5 flex items-center gap-3 transition-colors duration-150 text-left ${
+                        page === "profile"
+                          ? "bg-brand-primary/10 dark:bg-brand-primary/20 text-brand-primary dark:text-brand-primary"
+                          : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      }`}
+                    >
+                      <User className={`w-4 h-4 ${page === "profile" ? "text-brand-primary" : "text-brand-primary"}`} />
+                      <span className="text-sm font-medium">My Profile</span>
+                    </button>
+                    <button
+                      onClick={() => {
                         setPage("settings");
                         setProfileDropdownOpen(false);
                       }}
-                      className="w-full px-4 py-2.5 flex items-center gap-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-150 text-left"
+                      className={`w-full px-4 py-2.5 flex items-center gap-3 transition-colors duration-150 text-left ${
+                        page === "settings"
+                          ? "bg-brand-primary/10 dark:bg-brand-primary/20 text-brand-primary dark:text-brand-primary"
+                          : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      }`}
                     >
-                      <Settings className="w-4 h-4 text-brand-primary" />
+                      <Settings className={`w-4 h-4 ${page === "settings" ? "text-brand-primary" : "text-brand-primary"}`} />
                       <span className="text-sm font-medium">Settings</span>
                     </button>
                   </div>
@@ -879,6 +898,7 @@ export default function CsrDashboard() {
             {page === "cleaners" && <CleanersPage />}
             {page === "deposits" && <DepositsPage />}
             {page === "inventory" && <InventoryPage />}
+            {page === "profile" && <ProfilePage user={session?.user as AdminUser} onClose={() => {}} />}
             {page === "activity-logs" && <ActivityLogsPage />}
             {page === "notifications" && <NotificationPage />}
             {page === "messages" && (

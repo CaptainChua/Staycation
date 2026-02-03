@@ -26,6 +26,8 @@ export interface BookingPayment {
   total_amount: number;
   down_payment: number;
   remaining_balance: number;
+  // Total amount actually paid so far (useful to record incremental collections)
+  amount_paid?: number;
 
   payment_status?: PaymentStatus | null;
   reviewed_by?: string | null;
@@ -53,6 +55,7 @@ export interface BookingPayment {
     down_payment?: number | null;
     total_amount?: number | null;
     remaining_balance?: number | null;
+    amount_paid?: number | null;
     payment_proof_url?: string | null;
     payment_method?: string | null;
     updated_at?: string | null;
@@ -70,6 +73,8 @@ export interface CreateBookingPaymentPayload {
   total_amount: number;
   down_payment: number;
   remaining_balance: number;
+  // Optional initial amount already collected (defaults to 0 if omitted)
+  amount_paid?: number;
 }
 
 /** Payload to update a booking payment. Keep fields optional to allow partial updates. */
@@ -90,6 +95,10 @@ export interface UpdateBookingPaymentPayload {
   total_amount?: number;
   down_payment?: number;
   remaining_balance?: number;
+  // Allows updating the cumulative amount paid (e.g. when collecting during check-in)
+  amount_paid?: number;
+  // Collect an amount to be applied atomically server-side (preferred for check-in collections)
+  collect_amount?: number;
 }
 
 /** Standard list response from the API. */

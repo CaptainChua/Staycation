@@ -216,7 +216,7 @@ const DateRangePicker = ({
   };
 
   return (
-    <div ref={containerRef} className="relative sm:col-span-1 h-12 sm:h-14">
+    <div ref={containerRef} className="relative sm:col-span-1 h-12 sm:h-14 md:h-16 lg:h-14">
       {/* Date Range Display Button - Airbnb Style */}
       <button
         onClick={() => setIsOpen(!isOpen)}
@@ -246,19 +246,19 @@ const DateRangePicker = ({
 
       {/* Calendar Dropdown - Responsive Dual Month View */}
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 sm:left-1/2 sm:-translate-x-1/2 mt-2 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 shadow-2xl z-50 p-4 sm:p-6 w-full sm:w-[680px] max-w-[95vw] sm:max-w-none max-h-[80vh] overflow-y-auto">
+        <div className="absolute top-full left-0 right-0 sm:left-1/2 sm:-translate-x-1/2 mt-2 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 shadow-2xl z-50 p-3 sm:p-6 w-full sm:w-[680px] max-w-[90vw] sm:max-w-none h-[380px] sm:h-[450px] md:h-[500px] lg:h-[550px] flex flex-col overflow-hidden">
           {/* Navigation Header */}
-          <div className="flex items-center justify-between mb-4 sm:mb-6 sticky top-0 bg-white dark:bg-gray-700 p-2 -mx-4 sm:-mx-6 z-10">
+          <div className="flex items-center justify-between mb-2 sm:mb-4 flex-shrink-0">
             <button
               onClick={() => canGoBack && setCurrentMonthOffset(currentMonthOffset - 1)}
               disabled={!canGoBack}
-              className={`p-2 rounded-lg transition-all ${
+              className={`p-1.5 sm:p-2 rounded-lg transition-all ${
                 canGoBack
                   ? "hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
                   : "opacity-30 cursor-not-allowed"
               }`}
             >
-              <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 text-gray-700 dark:text-gray-300" />
+              <ChevronLeft className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-gray-700 dark:text-gray-300" />
             </button>
 
             {checkInDate && !checkOutDate && (
@@ -270,18 +270,18 @@ const DateRangePicker = ({
             <button
               onClick={() => canGoForward && setCurrentMonthOffset(currentMonthOffset + 1)}
               disabled={!canGoForward}
-              className={`p-2 rounded-lg transition-all ${
+              className={`p-1.5 sm:p-2 rounded-lg transition-all ${
                 canGoForward
                   ? "hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
                   : "opacity-30 cursor-not-allowed"
               }`}
             >
-              <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-gray-700 dark:text-gray-300" />
+              <ChevronRight className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-gray-700 dark:text-gray-300" />
             </button>
           </div>
 
           {/* Responsive Calendar Layout */}
-          <div className="flex gap-4 sm:gap-8 flex-col sm:flex-row">
+          <div className="flex gap-1 sm:gap-8 flex-col sm:flex-row flex-1 overflow-y-auto">
             <div className="flex-1 min-w-0">
               {renderMonth(currentMonthOffset)}
             </div>
@@ -292,20 +292,34 @@ const DateRangePicker = ({
             )}
           </div>
 
-          {/* Clear Button */}
-          {(checkInDate || checkOutDate) && (
+          {/* Action Buttons */}
+          <div className="flex gap-2 mt-2 sm:mt-3 flex-shrink-0">
+            {/* Reset to Default Button */}
             <button
               onClick={() => {
                 onCheckInChange("");
                 onCheckOutChange("");
                 setSelectingCheckOut(false);
                 setHoveredDate(null);
+                setCurrentMonthOffset(0);
               }}
-              className="w-full mt-4 sm:mt-6 py-2 sm:py-2.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white rounded-lg font-medium hover:border-[#8B4513] transition-all duration-200 text-sm sticky bottom-0"
+              className="flex-1 py-1.5 sm:py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white rounded-lg font-medium hover:border-[#8B4513] transition-all duration-200 text-xs sm:text-sm"
             >
-              Clear dates
+              Reset to Default
             </button>
-          )}
+            
+            {/* OK Button */}
+            <button
+              onClick={() => {
+                setIsOpen(false);
+                setSelectingCheckOut(false);
+                setHoveredDate(null);
+              }}
+              className="flex-1 py-1.5 sm:py-2 bg-brand-primary hover:bg-brand-primaryDark text-white rounded-lg font-medium transition-all duration-200 text-xs sm:text-sm"
+            >
+              OK
+            </button>
+          </div>
         </div>
       )}
     </div>

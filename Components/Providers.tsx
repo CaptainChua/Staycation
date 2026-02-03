@@ -14,7 +14,7 @@ function InactivityLogoutWrapper({ children }: { children: React.ReactNode }) {
     return <>{children}</>;
 }
 
-export function Proviers({ children }: {children:React.ReactNode}) {
+export function Providers ({ children }: {children:React.ReactNode}) {
     return (
         <SessionProvider>
             <InactivityLogoutWrapper>

@@ -3,8 +3,8 @@ import { Metadata } from 'next';
 import pool from '../backend/config/db';
 
 export const metadata: Metadata = {
-  title: "Staycation Haven | Premium Staycation Experiences",
-  description: "Staycation Haven - Find your perfect premium rooms and havens for an unforgettable stay",
+  title: "Staycation Haven PH | Premium Staycation Experiences",
+  description: "Staycation Haven PH - Find your perfect premium rooms and havens for an unforgettable stay",
 };
 
 export default async function Home() {
