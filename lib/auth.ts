@@ -44,14 +44,21 @@ export const authOptions: NextAuthOptions = {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
         turnstileToken: { label: "Turnstile Token", type: "text", optional: true },
+        isOtpLogin: { label: "OTP Login", type: "text", optional: true },
       },
       async authorize(credentials, req) {
         try {
           console.log("🔐 Attempting login for:", credentials?.email);
 
-          if (!credentials?.email || !credentials?.password) {
-            console.log("❌ Missing credentials");
-            throw new Error("Email and password are required");
+          if (!credentials?.email) {
+            console.log("❌ Missing email");
+            throw new Error("Email is required");
+          }
+
+          // 🔐 Only require password if NOT OTP login
+          if (!credentials?.isOtpLogin && !credentials?.password) {
+            console.log("❌ Missing password for normal login");
+            throw new Error("Password is required");
           }
 
           // Get IP address and user agent from request
@@ -71,105 +78,110 @@ export const authOptions: NextAuthOptions = {
             const user = employeeResult.rows[0];
             console.log("✅ Employee found:", user.email, "- Role:", user.role, "- Current attempts:", user.login_attempts || 0);
 
+            // 🔒 IMMEDIATE LOCK CHECK (REQUIRED)
+          if ((user.login_attempts || 0) >= 3) {
+            console.log(`🔒 Account already locked for ${user.email}`);
+            throw new Error(
+              "Account locked due to multiple failed attempts. Please check your email for OTP verification."
+            );
+          }
+
+
             // For employees, require turnstile token verification
-            if (!credentials?.turnstileToken) {
-              console.log("❌ Missing turnstile token for employee");
-              throw new Error("Email, password, and security verification are required");
-            }
+            // 🔐 Require Turnstile ONLY if this is NOT an OTP-based auto login
+          if (!credentials?.turnstileToken && !credentials?.isOtpLogin) {
+            console.log("❌ Missing turnstile token for employee");
+            throw new Error("Email, password, and security verification are required");
+          }
+
 
             // Verify Turnstile token for employees
-            const isValidTurnstile = await verifyTurnstileToken(credentials.turnstileToken);
-            if (!isValidTurnstile) {
-              console.log("❌ Invalid Turnstile token");
-              throw new Error("Security verification failed. Please try again.");
+            if (!credentials?.isOtpLogin) {
+              const isValidTurnstile = await verifyTurnstileToken(credentials.turnstileToken);
+              if (!isValidTurnstile) {
+                console.log("❌ Invalid Turnstile token");
+                throw new Error("Security verification failed. Please try again.");
+              }
+              console.log("✅ Turnstile verification passed for employee");
             }
 
             console.log("✅ Turnstile verification passed for employee");
 
             // Verify password
-            console.log("🔒 Verifying password...");
-            const isValid = await bcrypt.compare(credentials.password, user.password);
+            // Skip password check if OTP login
+            let isValid = false;
+            if (credentials?.isOtpLogin) {
+              isValid = true; // OTP login bypasses password
+            } else {
+              console.log("🔒 Verifying password...");
+              isValid = await bcrypt.compare(credentials.password || '', user.password);
+            }
 
             if (!isValid) {
               console.log("❌ Invalid password for employee:", user.email);
-              
-              // Increment login attempts
-              try {
-                const updateResult = await pool.query(
-                  `UPDATE employees SET login_attempts = login_attempts + 1, updated_at = NOW() WHERE email = $1`,
+
+              // ⬆ Increment login attempts
+              const attemptUpdate = await pool.query(
+                `UPDATE employees
+                SET login_attempts = COALESCE(login_attempts, 0) + 1,
+                    updated_at = NOW()
+                WHERE email = $1
+                RETURNING login_attempts`,
+                [credentials.email]
+              );
+
+              const attempts = attemptUpdate.rows[0].login_attempts;
+              console.log(`📊 Login attempts for ${user.email}: ${attempts}`);
+
+              // 🔒 LOCK ACCOUNT AT 3 ATTEMPTS
+              if (attempts >= 3) {
+                const otp = Math.floor(100000 + Math.random() * 900000).toString();
+                const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+                // Remove old OTP
+                await pool.query(
+                  `DELETE FROM otp_verification
+                  WHERE email = $1 AND otp_type = 'ACCOUNT_LOCK'`,
                   [credentials.email]
                 );
-                console.log(`✅ Login attempts updated for employee: ${user.email}, rows affected: ${updateResult.rowCount}`);
-                
-                // Check if login attempts exceeded 3
-                const updatedEmployee = await pool.query(
-                  `SELECT login_attempts FROM employees WHERE email = $1`,
-                  [credentials.email]
+
+                // Insert new OTP
+                await pool.query(
+                  `INSERT INTO otp_verification
+                  (email, otp_code, otp_type, expires_at, ip_address, user_agent, created_at)
+                  VALUES ($1, $2, 'ACCOUNT_LOCK', $3, $4, $5, NOW())`,
+                  [
+                    credentials.email,
+                    otp,
+                    expiresAt,
+                    ipAddress !== 'unknown' ? ipAddress : null,
+                    userAgent !== 'unknown' ? userAgent : null,
+                  ]
                 );
-                
-                const attempts = updatedEmployee.rows[0]?.login_attempts || 0;
-                console.log(`📊 New login attempts count for ${user.email}: ${attempts}`);
-                
-                if (attempts >= 3) {
-                  // Generate OTP and send email
-                  const otp = Math.floor(100000 + Math.random() * 900000).toString();
-                  const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiry
-                  
-                  // Get IP address and user agent
-                  const ipAddress = req?.headers?.['x-forwarded-for'] as string || 
-                                   req?.headers?.['x-real-ip'] as string || 
-                                   'unknown';
-                  const userAgent = req?.headers?.['user-agent'] as string || 'unknown';
-                  
-                  // Remove existing OTP for this email and insert new one
-                  await pool.query(
-                    `DELETE FROM otp_verification WHERE email = $1 AND otp_type = 'ACCOUNT_LOCK'`,
-                    [credentials.email]
-                  );
-                  
-                  // Insert new OTP into otp_verification table with IP and user agent
-                  await pool.query(
-                    `INSERT INTO otp_verification (email, otp_code, otp_type, expires_at, ip_address, user_agent, created_at)
-                     VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
-                    [credentials.email, otp, 'ACCOUNT_LOCK', expiresAt, ipAddress, userAgent]
-                  );
-                  
-                  console.log(`🔒 Account locked for ${user.email}. OTP: ${otp}`);
-                  console.log(`📍 IP: ${ipAddress}, User Agent: ${userAgent}`);
-                  
-                  // Send email with OTP
-                  try {
-                    const emailResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/admin/send-email`, {
-                      method: 'POST',
-                      headers: {
-                        'Content-Type': 'application/json',
-                      },
-                      body: JSON.stringify({
-                        email: credentials.email,
-                        otp: otp,
-                        type: 'ACCOUNT_LOCK',
-                        userName: `${user.first_name} ${user.last_name}`
-                      })
-                    });
-                    
-                    if (emailResponse.ok) {
-                      console.log(`✅ OTP email sent to ${credentials.email}`);
-                    } else {
-                      console.error(`❌ Failed to send OTP email to ${credentials.email}`);
-                    }
-                  } catch (emailError) {
-                    console.error('❌ Error sending OTP email:', emailError);
+
+                // Send OTP email
+                await fetch(
+                  `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/api/admin/send-email`,
+                  {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      email: credentials.email,
+                      otp,
+                      type: "ACCOUNT_LOCK",
+                      userName: `${user.first_name} ${user.last_name}`,
+                    }),
                   }
-                  
-                  throw new Error("Account locked due to multiple failed attempts. Please check your email for OTP verification.");
-                }
-                
-              } catch (updateError: any) {
-                console.error('❌ Failed to update login attempts:', updateError.message);
+                );
+
+                throw new Error(
+                  "Account locked due to multiple failed attempts. Please check your email for OTP verification."
+                );
               }
-              
+
               throw new Error("Invalid email or password");
             }
+
 
             console.log("✅ Password valid! Employee login successful");
 
