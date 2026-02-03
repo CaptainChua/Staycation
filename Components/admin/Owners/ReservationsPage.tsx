@@ -1,230 +1,363 @@
-"use client";
+'use client';
 
-import {
-  Calendar,
-  User,
-  MapPin,
-  Check,
-  X,
-  AlertCircle,
-  Eye,
-  XCircle,
-  Package,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
-  CreditCard, // added (was used but not imported)
-} from "lucide-react";
-import Image from "next/image"; // added (used in modal)
-import { useState } from "react";
-import {
-  useGetBookingsQuery,
-  useUpdateBookingStatusMutation,
-} from "@/redux/api/bookingsApi";
-import { Booking, AdditionalGuest } from "@/types/booking";
+import { Calendar, User, MapPin, Phone, Mail, Check, X, AlertCircle, Eye, XCircle, CreditCard, Package, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Wallet, Users } from "lucide-react";
+import { useState, useRef } from "react";
+import { useGetBookingsQuery, useUpdateBookingStatusMutation, useCreateBookingMutation } from "@/redux/api/bookingsApi";
+import NewReservationModal from "@/Components/admin/Owners/NewReservationModal";
+import toast from "react-hot-toast";
+
+interface AdditionalGuest {
+  name: string;
+  age?: number;
+  [key: string]: unknown;
+}
+
+interface Booking {
+  id: string;
+  status: string;
+  additional_guests?: AdditionalGuest[];
+  booking_id?: string;
+  guest_first_name?: string;  
+  guest_last_name?: string;   
+  guest_email?: string;       
+  guest_phone?: string;       
+  room_name?: string;
+  check_in_date: string;
+  check_in_time?: string;
+  check_out_date: string;
+  check_out_time?: string;
+  adults?: number;
+  children?: number;
+  infants?: number;
+  total_amount?: string | number;
+  remaining_balance?: string | number;
+  main_guest?: any;
+  payment?: any;
+  add_ons?: any[];
+  security_deposit?: any;
+  [key: string]: unknown;
+}
 
 const ReservationsPage = () => {
   const [filter, setFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
   const [searchQuery, setSearchQuery] = useState("");
-
-  const { data, isLoading, refetch } = useGetBookingsQuery(
-    {},
-    {
-      pollingInterval: 5000,
-      skipPollingIfUnfocused: true,
-      refetchOnFocus: true,
-      refetchOnReconnect: true,
-    }
-  );
-  const [updateBookingStatus] = useUpdateBookingStatusMutation();
+  
+  const { data, isLoading, refetch } = useGetBookingsQuery({});
+  const [updateBookingStatus, { isLoading: isUpdating }] = useUpdateBookingStatusMutation();
+  const [createBooking] = useCreateBookingMutation();
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [isNewReservationModalOpen, setIsNewReservationModalOpen] = useState(false);
 
-  const reservations: Booking[] = data ?? [];
-
-  const formatShortDate = (date?: string | null) =>
-    date
-      ? new Date(date).toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-        })
-      : "N/A";
-
-  const formatDateSafe = (date?: string | null) =>
-    date ? new Date(date).toLocaleDateString() : "";
-
-  const formatStatus = (status?: string | null) =>
-    status
-      ? status.charAt(0).toUpperCase() + status.slice(1).replace("-", " ")
-      : "";
+  const reservations: Booking[] = (data as Booking[]) || [];
 
   const handleApprove = async (bookingId: string) => {
     try {
-      await updateBookingStatus({
+      console.log('🔄 Approving booking:', bookingId);
+      
+      const result = await updateBookingStatus({
         id: bookingId,
-        status: "approved",
+        status: 'approved'
       }).unwrap();
 
-      alert("Booking approved! Confirmation email will be sent to the guest.");
-      refetch();
-    } catch (error) {
-      console.error("Error approving booking:", error);
-      alert("Failed to approve booking. Please try again.");
+      console.log('✅ Approval result:', result);
+      
+      toast.success('Booking approved! Confirmation email will be sent to the guest.');
+      await refetch();
+    } catch (error: any) {
+      console.error('❌ Error approving booking:', error);
+      
+      // More detailed error message
+      const errorMessage = error?.data?.error || error?.message || 'Failed to approve booking';
+      toast.error(`Failed to approve: ${errorMessage}`);
     }
   };
 
   const handleReject = async (bookingId: string) => {
-    const reason = prompt("Please enter rejection reason:");
+    const reason = prompt('Please enter rejection reason:');
     if (!reason) return;
+
     try {
-      await updateBookingStatus({
+      console.log('🔄 Rejecting booking:', bookingId, 'Reason:', reason);
+      
+      const result = await updateBookingStatus({
         id: bookingId,
-        status: "rejected",
-        rejection_reason: reason,
+        status: 'rejected',
+        rejection_reason: reason
       }).unwrap();
 
-      alert("Booking rejected. Guest will be notified.");
-      refetch();
-    } catch (error) {
-      console.error("Error rejecting booking:", error);
-      alert("Failed to reject booking. Please try again.");
+      console.log('✅ Rejection result:', result);
+      
+      toast.success('Booking rejected. Guest will be notified.');
+      await refetch();
+    } catch (error: any) {
+      console.error('❌ Error rejecting booking:', error);
+      
+      const errorMessage = error?.data?.error || error?.message || 'Failed to reject booking';
+      toast.error(`Failed to reject: ${errorMessage}`);
     }
   };
 
   const handleCheckIn = async (bookingId: string) => {
     try {
-      const booking = reservations.find((r) => r.id === bookingId);
-      if (!booking) {
-        alert("Booking not found");
+      console.log('🔄 Checking in booking:', bookingId);
+      
+      // First, fetch the complete booking data with guest info
+      const response = await fetch(`/api/bookings/${bookingId}`);
+      const result = await response.json();
+
+      console.log('📥 Fetched booking data:', result);
+
+      if (!result.success || !result.data) {
+        toast.error('Booking not found');
         return;
       }
 
-      await updateBookingStatus({
+      const booking = result.data;
+      const mainGuest = booking.main_guest || booking.guests?.[0];
+
+      // Update booking status
+      const updateResult = await updateBookingStatus({
         id: bookingId,
-        status: "checked-in",
+        status: 'checked-in'
       }).unwrap();
 
+      console.log('✅ Check-in status updated:', updateResult);
+
+      // Send check-in email
       try {
         const emailData = {
-          firstName: booking.guest_first_name,
-          lastName: booking.guest_last_name,
-          email: booking.guest_email,
+          firstName: mainGuest?.first_name || 'Guest',
+          lastName: mainGuest?.last_name || '',
+          email: mainGuest?.email || '',
           bookingId: booking.booking_id,
           roomName: booking.room_name,
-          checkInDate: formatDateSafe(booking.check_in_date),
+          checkInDate: new Date(booking.check_in_date).toLocaleDateString(),
           checkInTime: booking.check_in_time,
-          checkOutDate: formatDateSafe(booking.check_out_date),
+          checkOutDate: new Date(booking.check_out_date).toLocaleDateString(),
           checkOutTime: booking.check_out_time,
-          guests: `${booking.adults || 0} Adults, ${booking.children || 0} Children, ${booking.infants || 0} Infants`,
+          guests: `${booking.adults} Adults, ${booking.children} Children, ${booking.infants} Infants`,
         };
 
-        const emailResponse = await fetch("/api/send-checkin-email", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+        const emailResponse = await fetch('/api/send-checkin-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(emailData),
         });
 
         if (!emailResponse.ok) {
-          console.error("Failed to send check-in email");
+          console.error('⚠️ Failed to send check-in email');
         }
       } catch (emailError) {
-        console.error("Email sending error:", emailError);
+        console.error('⚠️ Email sending error:', emailError);
       }
 
-      alert("Guest checked in successfully! Confirmation email sent.");
-      refetch();
-    } catch (error) {
-      console.error("Error checking in:", error);
-      alert("Failed to check in. Please try again.");
+      toast.success('Guest checked in successfully! Confirmation email sent.');
+      await refetch();
+    } catch (error: any) {
+      console.error('❌ Error checking in:', error);
+      
+      const errorMessage = error?.data?.error || error?.message || 'Failed to check in';
+      toast.error(`Failed to check in: ${errorMessage}`);
     }
   };
 
   const handleCheckOut = async (bookingId: string) => {
     try {
-      const booking = reservations.find((r) => r.id === bookingId);
-      if (!booking) {
-        alert("Booking not found");
+      console.log('🔄 Checking out booking:', bookingId);
+      
+      // First, fetch the complete booking data
+      const response = await fetch(`/api/bookings/${bookingId}`);
+      const result = await response.json();
+
+      console.log('📥 Fetched booking data:', result);
+
+      if (!result.success || !result.data) {
+        toast.error('Booking not found');
         return;
       }
 
-      await updateBookingStatus({
+      const booking = result.data;
+      const mainGuest = booking.main_guest || booking.guests?.[0];
+      const payment = booking.payment;
+
+      // Update booking status
+      const updateResult = await updateBookingStatus({
         id: bookingId,
-        status: "completed",
+        status: 'completed'
       }).unwrap();
 
+      console.log('✅ Check-out status updated:', updateResult);
+
+      // Send check-out email
       try {
         const emailData = {
-          firstName: booking.guest_first_name,
-          lastName: booking.guest_last_name,
-          email: booking.guest_email,
+          firstName: mainGuest?.first_name || 'Guest',
+          lastName: mainGuest?.last_name || '',
+          email: mainGuest?.email || '',
           bookingId: booking.booking_id,
           roomName: booking.room_name,
-          checkInDate: formatDateSafe(booking.check_in_date),
-          checkOutDate: formatDateSafe(booking.check_out_date),
-          totalAmount: Number(booking.total_amount).toLocaleString(),
-          remainingBalance: Number(booking.remaining_balance),
+          checkInDate: new Date(booking.check_in_date).toLocaleDateString(),
+          checkOutDate: new Date(booking.check_out_date).toLocaleDateString(),
+          totalAmount: payment ? Number(payment.total_amount).toLocaleString() : '0',
+          remainingBalance: payment ? Number(payment.remaining_balance) : 0,
         };
 
-        const emailResponse = await fetch("/api/send-checkout-email", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+        const emailResponse = await fetch('/api/send-checkout-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(emailData),
         });
 
         if (!emailResponse.ok) {
-          console.error("Failed to send check-out email");
+          console.error('⚠️ Failed to send check-out email');
         }
       } catch (emailError) {
-        console.error("Email sending error:", emailError);
+        console.error('⚠️ Email sending error:', emailError);
       }
 
-      alert("Guest checked out successfully! Thank you email sent.");
-      refetch();
-    } catch (error) {
-      console.error("Error checking out:", error);
-      alert("Failed to check out. Please try again.");
+      toast.success('Guest checked out successfully! Thank you email sent.');
+      await refetch();
+    } catch (error: any) {
+      console.error('❌ Error checking out:', error);
+      
+      const errorMessage = error?.data?.error || error?.message || 'Failed to check out';
+      toast.error(`Failed to check out: ${errorMessage}`);
     }
   };
 
-  const getStatusColor = (status: string | null | undefined) => {
+  const handleNewReservation = async (bookingData: any) => {
+    try {
+      console.log("📤 Sending booking data:", bookingData);
+
+      let paymentProofBase64 = '';
+      if (bookingData.paymentProof) {
+        const reader = new FileReader();
+        paymentProofBase64 = await new Promise((resolve, reject) => {
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(bookingData.paymentProof as File);
+        });
+      }
+
+      let validIdBase64 = '';
+      if (bookingData.validId) {
+        const reader = new FileReader();
+        validIdBase64 = await new Promise((resolve, reject) => {
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(bookingData.validId as File);
+        });
+      }
+
+      const additionalGuestsData = await Promise.all(
+        (bookingData.additionalGuests || []).map(async (guest: any) => {
+          let guestIdBase64 = '';
+          if (guest.validId) {
+            const reader = new FileReader();
+            guestIdBase64 = await new Promise((resolve, reject) => {
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.onerror = reject;
+              reader.readAsDataURL(guest.validId as File);
+            });
+          }
+          return {
+            firstName: guest.firstName,
+            lastName: guest.lastName,
+            age: guest.age,
+            gender: guest.gender,
+            validId: guestIdBase64,
+          };
+        })
+      );
+
+      const bookingId = `BK${Date.now()}`;
+
+      const bookingRequestData = {
+        booking_id: bookingId,
+        user_id: null,
+        // Main guest info
+        guest_first_name: bookingData.firstName,
+        guest_last_name: bookingData.lastName,
+        guest_age: bookingData.age,
+        guest_gender: bookingData.gender,
+        guest_email: bookingData.email,
+        guest_phone: bookingData.phone,
+        facebook_link: bookingData.facebookLink || '',
+        valid_id: validIdBase64,
+        // Additional guests
+        additional_guests: additionalGuestsData,
+        // Booking details
+        room_name: bookingData.roomName,
+        check_in_date: bookingData.checkInDate,
+        check_out_date: bookingData.checkOutDate,
+        check_in_time: bookingData.checkInTime,
+        check_out_time: bookingData.checkOutTime,
+        adults: bookingData.adults,
+        children: bookingData.children,
+        infants: bookingData.infants,
+        // Payment info
+        payment_method: bookingData.paymentMethod,
+        payment_proof: paymentProofBase64,
+        room_rate: bookingData.roomRate,
+        security_deposit: bookingData.securityDeposit,
+        add_ons_total: bookingData.addOnsTotal,
+        total_amount: bookingData.totalAmount,
+        down_payment: bookingData.downPayment,
+        remaining_balance: bookingData.remainingBalance,
+        // Add-ons object
+        addOns: bookingData.addOns,
+      };
+
+      console.log("📤 Final request data:", bookingRequestData);
+
+      const result = await createBooking(bookingRequestData).unwrap();
+
+      if (result.success) {
+        toast.success(`Reservation created successfully! Booking ID: ${bookingId}`);
+        setIsNewReservationModalOpen(false);
+        await refetch();
+      } else {
+        toast.error('Failed to create reservation. Please try again.');
+      }
+    } catch (error: any) {
+      console.error('❌ Error creating reservation:', error);
+      
+      const errorMessage = error?.data?.error || error?.message || 'An error occurred';
+      toast.error(`Failed to create reservation: ${errorMessage}`);
+    }
+  };
+
+  const getStatusColor = (status: string) => {
     switch (status) {
       case "approved":
-      case "confirmed":
-        return "bg-green-100 text-green-700";
-      case "pending":
-        return "bg-yellow-100 text-yellow-700";
-      case "checked-in":
-        return "bg-blue-100 text-blue-700";
-      case "completed":
-        return "bg-gray-100 text-gray-700";
+      case "confirmed": return "bg-green-100 text-green-700";
+      case "pending": return "bg-yellow-100 text-yellow-700";
+      case "checked-in": return "bg-blue-100 text-blue-700";
+      case "completed": return "bg-gray-100 text-gray-700";
       case "rejected":
-      case "cancelled":
-        return "bg-red-100 text-red-700";
-      default:
-        return "bg-gray-100 text-gray-700";
+      case "cancelled": return "bg-red-100 text-red-700";
+      default: return "bg-gray-100 text-gray-700";
     }
   };
 
   const filteredReservations = reservations.filter((r: Booking) => {
     const matchesStatus = filter === "all" || r.status === filter;
 
-    if (!searchQuery?.trim()) return matchesStatus;
+    if (!searchQuery || typeof searchQuery !== 'string' || searchQuery.trim() === '') {
+      return matchesStatus;
+    }
 
     const q = searchQuery.trim().toLowerCase();
-    const bookingId = String(r.booking_id || r.id || "").toLowerCase();
-    const guestFirst = String(r.guest_first_name || "").toLowerCase();
-    const guestLast = String(r.guest_last_name || "").toLowerCase();
+    const bookingId = String(r.booking_id || r.id || '').toLowerCase();
+    const guestFirst = String((r as any).guest_first_name || '').toLowerCase();
+    const guestLast = String((r as any).guest_last_name || '').toLowerCase();
     const guestFull = `${guestFirst} ${guestLast}`.trim();
 
-    return (
-      matchesStatus &&
-      (bookingId.includes(q) ||
-        guestFirst.includes(q) ||
-        guestLast.includes(q) ||
-        guestFull.includes(q))
-    );
+    const matchesSearch = bookingId.includes(q) || guestFirst.includes(q) || guestLast.includes(q) || guestFull.includes(q);
+
+    return matchesStatus && matchesSearch;
   });
 
   const totalPages = Math.ceil(filteredReservations.length / itemsPerPage);
@@ -232,8 +365,25 @@ const ReservationsPage = () => {
   const endIndex = startIndex + itemsPerPage;
   const currentReservations = filteredReservations.slice(startIndex, endIndex);
 
-  const handleViewDetails = (booking: Booking) => {
-    setSelectedBooking(booking);
+  const handleViewDetails = async (booking: Booking) => {
+    try {
+      console.log('🔍 Viewing details for booking:', booking.id);
+      
+      // Fetch complete booking data with all related tables
+      const response = await fetch(`/api/bookings/${booking.id}`);
+      const result = await response.json();
+      
+      console.log('📥 Fetched complete booking:', result);
+      
+      if (result.success) {
+        setSelectedBooking(result.data);
+      } else {
+        toast.error('Failed to load booking details');
+      }
+    } catch (error) {
+      console.error('❌ Error loading booking details:', error);
+      toast.error('Failed to load booking details');
+    }
   };
 
   const closeModal = () => {
@@ -242,254 +392,326 @@ const ReservationsPage = () => {
 
   const goToFirstPage = () => setCurrentPage(1);
   const goToLastPage = () => setCurrentPage(totalPages);
-  const goToNextPage = () =>
-    setCurrentPage((prev) => Math.min(prev + 1, totalPages));
-  const goToPrevPage = () => setCurrentPage((prev) => Math.max(prev - 1, 1));
+  const goToNextPage = () => setCurrentPage(prev => Math.min(prev + 1, totalPages));
+  const goToPrevPage = () => setCurrentPage(prev => Math.max(prev - 1, 1));
+
+  const statusCardsData = [
+    { key: 'pending', label: 'Pending', bg: 'bg-yellow-400 text-white', icon: <AlertCircle className="w-14 h-14" /> },
+    { key: 'approved', label: 'Approved', bg: 'bg-green-500 text-white', icon: <Check className="w-14 h-14" /> },
+    { key: 'confirmed', label: 'Confirmed', bg: 'bg-emerald-500 text-white', icon: <Calendar className="w-14 h-14" /> },
+    { key: 'checked-in', label: 'Checked In', bg: 'bg-blue-500 text-white', icon: <MapPin className="w-14 h-14" /> },
+    { key: 'completed', label: 'Completed', bg: 'bg-gray-500 text-white', icon: <Package className="w-14 h-14" /> },
+    { key: 'rejected', label: 'Rejected', bg: 'bg-red-500 text-white', icon: <X className="w-14 h-14" /> },
+    { key: 'cancelled', label: 'Cancelled', bg: 'bg-red-600 text-white', icon: <XCircle className="w-14 h-14" /> },
+  ];
 
   return (
     <>
       {/* Details Modal */}
       {selectedBooking && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-gradient-to-r from-orange-500 to-yellow-500 text-white p-6 rounded-t-2xl flex justify-between items-center">
+          <div className="bg-[#1e293b] rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="sticky top-0 bg-[#a1823d] text-white p-6 rounded-t-2xl flex justify-between items-center">
               <div>
                 <h2 className="text-2xl font-bold">Booking Details</h2>
-                <p className="text-sm opacity-90">
-                  ID: {selectedBooking.booking_id}
-                </p>
+                <p className="text-sm opacity-90">ID: {selectedBooking.booking_id}</p>
               </div>
-              <button
-                onClick={closeModal}
-                className="p-2 hover:bg-white/20 rounded-full transition-colors"
-              >
+              <button onClick={closeModal} className="p-2 hover:bg-white/20 rounded-full transition-colors">
                 <XCircle className="w-6 h-6" />
               </button>
             </div>
 
             <div className="p-6 space-y-6">
+              {/* Status Badge */}
               <div className="flex justify-center">
-                <span
-                  className={`px-6 py-2 rounded-full text-sm font-semibold ${getStatusColor(selectedBooking.status)}`}
-                >
-                  {formatStatus(selectedBooking.status)}
+                <span className={`px-6 py-2 rounded-full text-sm font-semibold ${getStatusColor(selectedBooking.status)}`}>
+                  {selectedBooking.status.toUpperCase().replace("-", " ")}
                 </span>
               </div>
 
-              <div className="bg-gray-50 rounded-lg p-6">
-                <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                  <User className="w-5 h-5 text-orange-500" />
+              {/* Main Guest Information */}
+              <div className="bg-[#334155] rounded-lg p-6 border border-[#475569]">
+                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                  <User className="w-5 h-5 text-[#d4a574]" />
                   Main Guest Information
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <p className="text-sm text-gray-500">Full Name</p>
-                    <p className="font-semibold text-gray-800">
-                      {selectedBooking.guest_first_name}{" "}
-                      {selectedBooking.guest_last_name}
+                    <p className="text-sm text-gray-400">Full Name</p>
+                    <p className="font-semibold text-white">
+                      {selectedBooking.guests?.[0]?.firstName || selectedBooking.guest_first_name || 'N/A'} {selectedBooking.guests?.[0]?.lastName || selectedBooking.guest_last_name || ''}
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">Email</p>
-                    <p className="font-semibold text-gray-800">
-                      {selectedBooking.guest_email}
-                    </p>
+                    <p className="text-sm text-gray-400">Email</p>
+                    <p className="font-semibold text-white">{selectedBooking.guests?.[0]?.email || selectedBooking.guest_email || 'N/A'}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">Phone</p>
-                    <p className="font-semibold text-gray-800">
-                      {selectedBooking.guest_phone}
-                    </p>
+                    <p className="text-sm text-gray-400">Phone</p>
+                    <p className="font-semibold text-white">{selectedBooking.guests?.[0]?.phone || selectedBooking.guest_phone || 'N/A'}</p>
                   </div>
-
-                  {selectedBooking.guest_gender && (
+                  {selectedBooking.guests?.[0]?.age && (
                     <div>
-                      <p className="text-sm text-gray-500">Gender</p>
-                      <p className="font-semibold text-gray-800 capitalize">
-                        {selectedBooking.guest_gender}
-                      </p>
+                      <p className="text-sm text-gray-400">Age</p>
+                      <p className="font-semibold text-white">{selectedBooking.guests[0].age}</p>
                     </div>
                   )}
-                  {selectedBooking.facebook_link && (
+                  {selectedBooking.guests?.[0]?.gender && (
                     <div>
-                      <p className="text-sm text-gray-500">Facebook</p>
-                      <a
-                        href={selectedBooking.facebook_link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-semibold text-blue-600 hover:underline"
+                      <p className="text-sm text-gray-400">Gender</p>
+                      <p className="font-semibold text-white capitalize">{selectedBooking.guests[0].gender}</p>
+                    </div>
+                  )}
+                  {selectedBooking.guests?.[0]?.facebook_link && (
+                    <div>
+                      <p className="text-sm text-gray-400">Facebook</p>
+                      <a 
+                        href={selectedBooking.guests[0].facebook_link} 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="font-semibold text-blue-400 hover:underline"
                       >
                         View Profile
                       </a>
                     </div>
                   )}
                 </div>
-
-                {selectedBooking.valid_id_url && (
-                  <div className="mt-6 pt-6 border-t border-gray-200">
-                    <h4 className="text-md font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                      <CreditCard className="w-4 h-4 text-blue-600" />
-                      Valid ID
-                    </h4>
-                    <div className="relative w-full max-w-md h-64 bg-gray-200 rounded-lg overflow-hidden">
-                      <Image
-                        src={selectedBooking.valid_id_url}
-                        alt="Main Guest Valid ID"
-                        fill
-                        className="object-contain"
-                      />
-                    </div>
-                    <a
-                      href={selectedBooking.valid_id_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-2 inline-block text-blue-600 hover:underline text-sm"
-                    >
-                      Open in new tab →
-                    </a>
+                {selectedBooking.guests?.[0]?.valid_id_url && (
+                  <div className="mt-4">
+                    <p className="text-sm text-gray-400 mb-2">Valid ID</p>
+                    <img 
+                      src={selectedBooking.guests[0].valid_id_url} 
+                      alt="Valid ID" 
+                      className="max-w-xs rounded-lg border border-[#475569]"
+                    />
                   </div>
                 )}
               </div>
 
-              {selectedBooking.additional_guests?.length ? (
-                <div className="bg-gray-50 rounded-lg p-6">
-                  <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                    <User className="w-5 h-5 text-orange-500" />
-                    Additional Guests (
-                    {selectedBooking.additional_guests.length})
+              {/* Additional Guests */}
+              {selectedBooking.guests && selectedBooking.guests.length > 1 && (
+                <div className="bg-[#334155] rounded-lg p-6 border border-[#475569]">
+                  <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                    <Users className="w-5 h-5 text-[#d4a574]" />
+                    Additional Guests ({selectedBooking.additional_guests.length})
                   </h3>
-                  <div className="space-y-6">
-                    {Array.isArray(selectedBooking.additional_guests) &&
-                      selectedBooking.additional_guests.map(
-                        (guest: AdditionalGuest, index: number) => {
-                          const guestNumber = index + 2;
-                          const isAdult =
-                            index < (selectedBooking.adults || 0) - 1;
-                          const guestType = isAdult
-                            ? `Adult ${guestNumber}`
-                            : `Child ${guestNumber - ((selectedBooking.adults || 0) - 1)}`;
-
-                          return (
-                            <div
-                              key={index}
-                              className="bg-white rounded-lg p-4 border border-gray-200"
-                            >
-                              <h4 className="font-semibold text-orange-600 mb-3">
-                                {guestType}
-                              </h4>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                <div>
-                                  <p className="text-sm text-gray-500">
-                                    Full Name
-                                  </p>
-                                  <p className="font-semibold text-gray-800">
-                                    {guest.firstName} {guest.lastName}
-                                  </p>
-                                </div>
-                                {guest.age && (
-                                  <div>
-                                    <p className="text-sm text-gray-500">Age</p>
-                                    <p className="font-semibold text-gray-800">
-                                      {guest.age} years old
-                                    </p>
-                                  </div>
-                                )}
-                                {guest.gender && (
-                                  <div>
-                                    <p className="text-sm text-gray-500">
-                                      Gender
-                                    </p>
-                                    <p className="font-semibold text-gray-800 capitalize">
-                                      {guest.gender}
-                                    </p>
-                                  </div>
-                                )}
-                              </div>
-
-                              {guest.validIdUrl && (
-                                <div className="mt-4 pt-4 border-t border-gray-100">
-                                  <h5 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                                    <CreditCard className="w-4 h-4 text-blue-600" />
-                                    Valid ID
-                                  </h5>
-                                  <div className="relative w-full max-w-sm h-48 bg-gray-200 rounded-lg overflow-hidden">
-                                    <Image
-                                      src={guest.validIdUrl}
-                                      alt={`${guest.firstName} ${guest.lastName} Valid ID`}
-                                      fill
-                                      className="object-contain"
-                                    />
-                                  </div>
-                                  <a
-                                    href={guest.validIdUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="mt-2 inline-block text-blue-600 hover:underline text-sm"
-                                  >
-                                    Open in new tab →
-                                  </a>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        },
-                      )}
+                  <div className="space-y-3">
+                    {selectedBooking.additional_guests.map((guest: any, index: number) => (
+                      <div key={guest.id || index} className="bg-[#475569] p-4 rounded-lg">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="font-semibold text-white">
+                              {guest.first_name} {guest.last_name}
+                            </p>
+                            {guest.age && (
+                              <p className="text-sm text-gray-400">Age: {guest.age}</p>
+                            )}
+                            {guest.gender && (
+                              <p className="text-sm text-gray-400 capitalize">Gender: {guest.gender}</p>
+                            )}
+                          </div>
+                          {guest.valid_id_url && (
+                            <span className="text-xs bg-green-500 text-white px-2 py-1 rounded">✓ ID Verified</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              ) : null}
+              )}
 
-              <div className="flex gap-3 justify-center mt-6 flex-wrap">
+              {/* Booking Details */}
+              <div className="bg-[#334155] rounded-lg p-6 border border-[#475569]">
+                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-[#d4a574]" />
+                  Booking Details
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-400">Room/Haven</p>
+                    <p className="font-semibold text-white">{selectedBooking.room_name}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-400">Guests</p>
+                    <p className="font-semibold text-white">
+                      {selectedBooking.adults} Adults, {selectedBooking.children} Children, {selectedBooking.infants} Infants
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-400">Check-in</p>
+                    <p className="font-semibold text-white">
+                      {new Date(selectedBooking.check_in_date).toLocaleDateString()} at {selectedBooking.check_in_time}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-400">Check-out</p>
+                    <p className="font-semibold text-white">
+                      {new Date(selectedBooking.check_out_date).toLocaleDateString()} at {selectedBooking.check_out_time}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Payment Information */}
+              {selectedBooking.payment && (
+                <div className="bg-[#334155] rounded-lg p-6 border border-[#475569]">
+                  <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                    <CreditCard className="w-5 h-5 text-[#d4a574]" />
+                    Payment Information
+                  </h3>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Payment Method</span>
+                      <span className="text-white font-semibold uppercase">{selectedBooking.payment.payment_method}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Room Rate</span>
+                      <span className="text-white font-semibold">₱{Number(selectedBooking.payment.room_rate).toLocaleString()}</span>
+                    </div>
+                    {selectedBooking.payment.add_ons_total > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Add-ons</span>
+                        <span className="text-white font-semibold">₱{Number(selectedBooking.payment.add_ons_total).toLocaleString()}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between pt-2 border-t border-[#475569]">
+                      <span className="text-gray-400 font-bold">Total Amount</span>
+                      <span className="text-white font-bold text-lg">₱{Number(selectedBooking.payment.total_amount).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between text-green-400">
+                      <span>Down Payment</span>
+                      <span className="font-semibold">₱{Number(selectedBooking.payment.down_payment).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between text-yellow-400">
+                      <span>Remaining Balance</span>
+                      <span className="font-semibold">₱{Number(selectedBooking.payment.remaining_balance).toLocaleString()}</span>
+                    </div>
+                    {selectedBooking.payment.payment_proof_url && (
+                      <div className="mt-4">
+                        <p className="text-sm text-gray-400 mb-2">Payment Proof</p>
+                        <img 
+                          src={selectedBooking.payment.payment_proof_url} 
+                          alt="Payment Proof" 
+                          className="max-w-xs rounded-lg border border-[#475569]"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Add-ons */}
+              {selectedBooking.add_ons && selectedBooking.add_ons.length > 0 && (
+                <div className="bg-[#334155] rounded-lg p-6 border border-[#475569]">
+                  <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                    <Package className="w-5 h-5 text-[#d4a574]" />
+                    Add-ons ({selectedBooking.add_ons.length})
+                  </h3>
+                  <div className="space-y-2">
+                    {selectedBooking.add_ons.map((addon: any) => (
+                      <div key={addon.id} className="flex justify-between items-center p-3 bg-[#475569] rounded">
+                        <div>
+                          <p className="text-white font-medium">{addon.name}</p>
+                          <p className="text-sm text-gray-400">
+                            ₱{Number(addon.price).toLocaleString()} × {addon.quantity}
+                          </p>
+                        </div>
+                        <span className="text-white font-semibold">
+                          ₱{Number(addon.price * addon.quantity).toLocaleString()}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Security Deposit */}
+              <div className="bg-[#334155] rounded-lg p-6 border border-[#475569]">
+                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                  <Wallet className="w-5 h-5 text-[#d4a574]" />
+                  Security Deposit
+                </h3>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-400">Amount</span>
+                    <span className="text-white font-semibold">
+                      ₱{Number(selectedBooking.security_deposit || 0).toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-400">Status</span>
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                      selectedBooking.deposit_status === 'returned' ? 'bg-green-500 text-white' :
+                      selectedBooking.deposit_status === 'held' ? 'bg-blue-500 text-white' :
+                      selectedBooking.deposit_status === 'forfeited' ? 'bg-red-500 text-white' :
+                      'bg-yellow-500 text-white'
+                    }`}>
+                      {selectedBooking.deposit_status?.toUpperCase() || 'PENDING'}
+                    </span>
+                  </div>
+                  {selectedBooking.security_deposit_payment_method && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-400">Payment Method</span>
+                      <span className="text-white font-semibold uppercase">
+                        {selectedBooking.security_deposit_payment_method}
+                      </span>
+                    </div>
+                  )}
+                  {selectedBooking.security_deposit_payment_proof_url && (
+                    <div className="mt-4">
+                      <p className="text-sm text-gray-400 mb-2">Payment Proof</p>
+                      <img 
+                        src={selectedBooking.security_deposit_payment_proof_url} 
+                        alt="Security Deposit Payment Proof" 
+                        className="max-w-xs rounded-lg border border-[#475569]"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 justify-end border-t border-[#475569] pt-6">
                 {selectedBooking.status === "pending" && (
                   <>
-                    <button
-                      onClick={() => {
-                        handleApprove(selectedBooking.id);
-                        closeModal();
-                      }}
-                      className="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2"
+                    <button 
+                      onClick={() => { handleApprove(selectedBooking.id); closeModal(); }} 
+                      disabled={isUpdating}
+                      className="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <Check className="w-5 h-5" /> Approve
+                      <Check className="w-5 h-5" /> {isUpdating ? 'Processing...' : 'Approve Booking'}
                     </button>
-                    <button
-                      onClick={() => {
-                        handleReject(selectedBooking.id);
-                        closeModal();
-                      }}
-                      className="px-6 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2"
+                    <button 
+                      onClick={() => { handleReject(selectedBooking.id); closeModal(); }} 
+                      disabled={isUpdating}
+                      className="px-6 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <X className="w-5 h-5" /> Reject
+                      <X className="w-5 h-5" /> {isUpdating ? 'Processing...' : 'Reject Booking'}
                     </button>
                   </>
                 )}
-
-                {(selectedBooking.status === "approved" ||
-                  selectedBooking.status === "confirmed") && (
-                  <button
-                    onClick={() => {
-                      handleCheckIn(selectedBooking.id);
-                      closeModal();
-                    }}
-                    className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                {(selectedBooking.status === "approved" || selectedBooking.status === "confirmed") && (
+                  <button 
+                    onClick={() => { handleCheckIn(selectedBooking.id); closeModal(); }} 
+                    disabled={isUpdating}
+                    className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Check In Guest
+                    {isUpdating ? 'Processing...' : 'Check In Guest'}
                   </button>
                 )}
-
                 {selectedBooking.status === "checked-in" && (
-                  <button
-                    onClick={() => {
-                      handleCheckOut(selectedBooking.id);
-                      closeModal();
-                    }}
-                    className="px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
+                  <button 
+                    onClick={() => { handleCheckOut(selectedBooking.id); closeModal(); }} 
+                    disabled={isUpdating}
+                    className="px-6 py-3 bg-[#d4a574] text-white rounded-lg hover:bg-[#c89560] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Check Out Guest
+                    {isUpdating ? 'Processing...' : 'Check Out Guest'}
                   </button>
                 )}
-
-                <button
-                  onClick={closeModal}
-                  className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                <button 
+                  onClick={closeModal} 
+                  className="px-6 py-3 border border-[#475569] text-gray-200 bg-[#334155] rounded-lg hover:bg-[#475569] transition-colors"
                 >
                   Close
                 </button>
@@ -500,93 +722,70 @@ const ReservationsPage = () => {
       )}
 
       <div className="space-y-6 animate-in fade-in duration-700">
+        {/* Header */}
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-gray-800 mb-2">
-              Reservations
-            </h1>
-            <p className="text-gray-600">
-              Manage all your bookings and reservations
-            </p>
+            <h1 className="text-3xl font-bold text-white mb-2">Reservations</h1>
+            <p className="text-white-600">Manage all your bookings and reservations</p>
           </div>
-          <button className="px-6 py-3 bg-gradient-to-r from-orange-500 to-yellow-500 text-white rounded-lg font-semibold hover:shadow-lg transition-all">
+          <button 
+            onClick={() => setIsNewReservationModalOpen(true)}
+            className="px-6 py-3 bg-yellow-600 text-white rounded-lg font-semibold hover:bg-yellow-700 transition-colors"
+          >
             + New Reservation
           </button>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-4">
-          {[
-            {
-              key: "pending",
-              label: "Pending",
-              bg: "bg-yellow-400 text-white",
-              icon: <AlertCircle className="w-10 h-10" />,
-            },
-            {
-              key: "approved",
-              label: "Approved",
-              bg: "bg-green-500 text-white",
-              icon: <Check className="w-10 h-10" />,
-            },
-            {
-              key: "confirmed",
-              label: "Confirmed",
-              bg: "bg-emerald-500 text-white",
-              icon: <Calendar className="w-10 h-10" />,
-            },
-            {
-              key: "checked-in",
-              label: "Checked In",
-              bg: "bg-blue-500 text-white",
-              icon: <MapPin className="w-10 h-10" />,
-            },
-            {
-              key: "completed",
-              label: "Completed",
-              bg: "bg-gray-500 text-white",
-              icon: <Package className="w-10 h-10" />,
-            },
-            {
-              key: "rejected",
-              label: "Rejected",
-              bg: "bg-red-500 text-white",
-              icon: <X className="w-10 h-10" />,
-            },
-            {
-              key: "cancelled",
-              label: "Cancelled",
-              bg: "bg-red-600 text-white",
-              icon: <XCircle className="w-10 h-10" />,
-            },
-          ].map((s) => {
-            const count = reservations.filter((r) => r.status === s.key).length;
+        {/* Status summary cards */}
+        <div className="hidden lg:block">
+          <div className="grid grid-cols-4 gap-6">
+            {statusCardsData.slice(0, 4).map((s) => {
+              const count = reservations.filter((r: Booking) => r.status === s.key).length;
+              return (
+                <div key={s.key} className={`rounded-2xl p-6 min-h-[120px] ${s.bg} shadow-lg relative overflow-hidden`}>
+                  <div className="text-base font-medium opacity-95 mb-2">{s.label}</div>
+                  <div className="text-4xl font-bold">{count}</div>
+                  <div className="absolute bottom-3 right-3 opacity-30">{s.icon}</div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="flex justify-center gap-6 mt-4">
+            {statusCardsData.slice(4).map((s) => {
+              const count = reservations.filter((r: Booking) => r.status === s.key).length;
+              return (
+                <div key={s.key} className={`rounded-2xl p-6 min-h-[120px] ${s.bg} shadow-lg relative overflow-hidden w-[240px]`}>
+                  <div className="text-base font-medium opacity-95 mb-2">{s.label}</div>
+                  <div className="text-4xl font-bold">{count}</div>
+                  <div className="absolute bottom-3 right-3 opacity-30">{s.icon}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:hidden gap-6">
+          {statusCardsData.map((s) => {
+            const count = reservations.filter((r: Booking) => r.status === s.key).length;
             return (
-              <div
-                key={s.key}
-                className={`rounded-xl p-5 ${s.bg} shadow-lg relative overflow-hidden`}
-              >
-                <div className="text-sm font-medium opacity-90 mb-2">
-                  {s.label}
-                </div>
-                <div className="text-3xl font-bold">{count}</div>
-                <div className="absolute bottom-2 right-2 opacity-30">
-                  {s.icon}
-                </div>
+              <div key={s.key} className={`rounded-2xl p-6 min-h-[120px] ${s.bg} shadow-lg relative overflow-hidden`}>
+                <div className="text-base font-medium opacity-95 mb-2">{s.label}</div>
+                <div className="text-4xl font-bold">{count}</div>
+                <div className="absolute bottom-3 right-3 opacity-30">{s.icon}</div>
               </div>
             );
           })}
         </div>
 
-        <div className="bg-white rounded-xl shadow-md p-4 border border-gray-200">
+        {/* Filters */}
+        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-md p-4 border border-gray-200 dark:border-slate-700">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
             <div className="flex items-center gap-2">
               <label className="text-sm text-gray-600">Show</label>
               <select
                 value={itemsPerPage}
-                onChange={(e) => {
-                  setItemsPerPage(Number(e.target.value));
-                  setCurrentPage(1);
-                }}
+                onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
                 className="border rounded-md px-2 py-1 text-sm"
               >
                 <option value={5}>5</option>
@@ -600,221 +799,141 @@ const ReservationsPage = () => {
               <input
                 type="search"
                 value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setCurrentPage(1);
-                }}
+                onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
                 placeholder="Search by booking ID or guest name..."
-                className="w-full border rounded-lg px-4 py-2 text-sm"
+                className="w-full border rounded-lg px-4 py-2 text-sm dark:bg-slate-800 dark:border-slate-700 dark:text-gray-200"
               />
             </div>
 
             <div className="w-full sm:w-auto">
               <select
                 value={filter}
-                onChange={(e) => {
-                  setFilter(e.target.value);
-                  setCurrentPage(1);
-                }}
+                onChange={(e) => { setFilter(e.target.value); setCurrentPage(1); }}
                 className="border rounded-lg px-3 py-2 text-sm w-full"
               >
-                {[
-                  "all",
-                  "pending",
-                  "approved",
-                  "confirmed",
-                  "checked-in",
-                  "completed",
-                  "rejected",
-                  "cancelled",
-                ].map((s) => (
-                  <option key={s} value={s}>
-                    {s.charAt(0).toUpperCase() + s.slice(1).replace("-", " ")}
-                  </option>
+                {["all", "pending", "approved", "confirmed", "checked-in", "completed", "rejected", "cancelled"].map((s) => (
+                  <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1).replace("-", " ")}</option>
                 ))}
               </select>
             </div>
           </div>
         </div>
 
-        <div className="space-y-4">
+        {/* Table */}
+        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-md border border-gray-200 dark:border-slate-700 overflow-hidden">
           {isLoading ? (
             <div className="flex justify-center items-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500" />
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
             </div>
           ) : filteredReservations.length === 0 ? (
-            <div className="bg-white rounded-2xl shadow-lg p-12 border border-gray-200 text-center">
+            <div className="p-12 text-center">
               <AlertCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-gray-800 mb-2">
-                No Reservations Found
-              </h3>
-              <p className="text-gray-600">
-                There are no {filter !== "all" ? filter : ""} reservations at
-                the moment.
-              </p>
+              <h3 className="text-xl font-semibold text-gray-800 mb-2">No Reservations Found</h3>
+              <p className="text-gray-600">There are no {filter !== 'all' ? filter : ''} reservations at the moment.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[1100px]">
-                <thead className="bg-gray-50 border-b border-gray-200">
+            <div className="overflow-x-auto overflow-y-visible">
+              <table className="w-full min-w-[1400px]">
+                <thead className="bg-gray-50 dark:bg-slate-800 border-b-2 border-gray-200 dark:border-slate-700">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-tight">
-                      ID
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-tight">
-                      Guest
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-tight">
-                      Haven
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-tight">
-                      Check-In
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-tight">
-                      Check-Out
-                    </th>
-                    <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-tight">
-                      Guests
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-tight">
-                      Status
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-tight">
-                      Amount
-                    </th>
-                    <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-tight">
-                      Actions
-                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-200">Booking ID</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-200">Haven Location</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-200">Guest</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-200">Check-In</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-200">Check-Out</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-200">Assigned To</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-200">Status</th>
+                    <th className="px-6 py-4 text-center text-sm font-semibold text-gray-700 dark:text-gray-200">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-100">
-                  {currentReservations.map((reservation) => (
-                    <tr
-                      key={reservation.id}
-                      className="hover:bg-gray-50 transition-colors"
-                    >
-                      <td className="px-2 py-1.5 whitespace-nowrap">
-                        <span className="text-xs font-medium text-gray-900">
-                          {reservation.booking_id}
+                <tbody className="bg-white dark:bg-transparent divide-y divide-gray-100 dark:divide-slate-700">
+                  {currentReservations.map((reservation: Booking) => (
+                    <tr key={reservation.id} className="hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
+                      <td className="px-6 py-5 whitespace-nowrap">
+                        <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">{reservation.booking_id}</span>
+                      </td>
+                      <td className="px-6 py-5 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          <MapPin className="w-4 h-4 text-orange-500 flex-shrink-0" />
+                          <span className="text-sm text-gray-800 dark:text-gray-200 font-medium">{reservation.room_name || 'N/A'}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-5">
+                        <div className="flex items-center gap-2">
+                          <User className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                          <span className="text-sm text-gray-800 dark:text-gray-200 font-medium">{reservation.guest_first_name} {reservation.guest_last_name}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-5 whitespace-nowrap">
+                        <div className="text-sm text-gray-800 dark:text-gray-200">{new Date(reservation.check_in_date).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' })} {reservation.check_in_time}</div>
+                      </td>
+                      <td className="px-6 py-5 whitespace-nowrap">
+                        <div className="text-sm text-gray-800 dark:text-gray-200">{new Date(reservation.check_out_date).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' })} {reservation.check_out_time}</div>
+                      </td>
+                      <td className="px-6 py-5 whitespace-nowrap">
+                        <div className="text-sm text-gray-800 dark:text-gray-200">Unassigned</div>
+                      </td>
+                      <td className="px-6 py-5 whitespace-nowrap">
+                        <span className={`px-4 py-1.5 rounded-md text-sm font-semibold ${getStatusColor(reservation.status)}`}>
+                          {reservation.status.charAt(0).toUpperCase() + reservation.status.slice(1).replace("-", " ")}
                         </span>
                       </td>
-                      <td className="px-2 py-1.5">
-                        <div className="flex items-start gap-1.5 min-w-[140px]">
-                          <User className="w-3.5 h-3.5 text-gray-400 flex-shrink-0 mt-0.5" />
-                          <div className="min-w-0">
-                            <div className="text-xs font-medium text-gray-900 truncate">
-                              {reservation.guest_first_name}{" "}
-                              {reservation.guest_last_name}
-                            </div>
-                            <div className="text-[10px] text-gray-500 truncate">
-                              {reservation.guest_email}
-                            </div>
-                            <div className="text-[10px] text-gray-500">
-                              {reservation.guest_phone}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-2 py-1.5 whitespace-nowrap">
-                        <div className="flex items-center gap-1 text-xs text-gray-600">
-                          <MapPin className="w-3.5 h-3.5 text-orange-500 flex-shrink-0" />
-                          <span className="truncate max-w-[80px]">
-                            {reservation.room_name || "N/A"}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-2 py-1.5 whitespace-nowrap">
-                        <div className="text-xs font-medium text-gray-900">
-                          {formatShortDate(reservation.check_in_date)}
-                        </div>
-                        <div className="text-[10px] text-gray-500">
-                          {reservation.check_in_time}
-                        </div>
-                      </td>
-                      <td className="px-2 py-1.5 whitespace-nowrap">
-                        <div className="text-xs font-medium text-gray-900">
-                          {formatShortDate(reservation.check_out_date)}
-                        </div>
-                        <div className="text-[10px] text-gray-500">
-                          {reservation.check_out_time}
-                        </div>
-                      </td>
-                      <td className="px-2 py-1.5 whitespace-nowrap text-center">
-                        <div className="text-base font-bold text-gray-900">
-                          {(reservation.adults || 0) +
-                            (reservation.children || 0) +
-                            (reservation.infants || 0)}
-                        </div>
-                        <div className="text-[10px] text-gray-500">
-                          A:{reservation.adults || 0} C:
-                          {reservation.children || 0} I:
-                          {reservation.infants || 0}
-                        </div>
-                      </td>
-                      <td className="px-2 py-1.5 whitespace-nowrap">
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${getStatusColor(reservation.status)}`}
-                        >
-                          {formatStatus(reservation.status)}
-                        </span>
-                      </td>
-                      <td className="px-2 py-1.5 whitespace-nowrap">
-                        <div className="text-xs font-bold text-gray-900">
-                          ₱{Number(reservation.total_amount).toLocaleString()}
-                        </div>
-                        <div className="text-[10px] text-orange-600">
-                          Bal: ₱
-                          {Number(
-                            reservation.remaining_balance,
-                          ).toLocaleString()}
-                        </div>
-                      </td>
-                      <td className="px-4 py-2 text-center">
-                        <div className="flex items-center justify-center gap-2 flex-wrap">
+                      <td className="px-6 py-5 whitespace-nowrap">
+                        <div className="flex items-center justify-center gap-2">
                           {reservation.status === "pending" && (
                             <>
-                              <button
-                                onClick={() => handleApprove(reservation.id)}
-                                className="p-1.5 bg-green-500 text-white rounded hover:bg-green-600"
+                              <button 
+                                onClick={() => handleApprove(reservation.id)} 
+                                disabled={isUpdating}
+                                className="p-2 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 disabled:opacity-50 disabled:cursor-not-allowed" 
                                 title="Approve"
                               >
                                 <Check className="w-4 h-4" />
                               </button>
-                              <button
-                                onClick={() => handleReject(reservation.id)}
-                                className="p-1.5 bg-red-500 text-white rounded hover:bg-red-600"
+                              <button 
+                                onClick={() => handleReject(reservation.id)} 
+                                disabled={isUpdating}
+                                className="p-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 disabled:opacity-50 disabled:cursor-not-allowed" 
                                 title="Reject"
                               >
                                 <X className="w-4 h-4" />
                               </button>
                             </>
                           )}
-
-                          {(reservation.status === "approved" ||
-                            reservation.status === "confirmed") && (
-                            <button
-                              onClick={() => handleCheckIn(reservation.id)}
-                              className="px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
+                          {(reservation.status === "approved" || reservation.status === "confirmed") && (
+                            <button 
+                              onClick={() => handleCheckIn(reservation.id)} 
+                              disabled={isUpdating}
+                              className="p-2 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 disabled:opacity-50 disabled:cursor-not-allowed" 
+                              title="Check In"
                             >
-                              Check In
+                              <MapPin className="w-4 h-4" />
                             </button>
                           )}
-
                           {reservation.status === "checked-in" && (
-                            <button
-                              onClick={() => handleCheckOut(reservation.id)}
-                              className="px-3 py-1 text-xs bg-orange-500 text-white rounded hover:bg-orange-600"
+                            <button 
+                              onClick={() => handleCheckOut(reservation.id)} 
+                              disabled={isUpdating}
+                              className="p-2 text-orange-500 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300 disabled:opacity-50 disabled:cursor-not-allowed" 
+                              title="Check Out"
                             >
-                              Check Out
+                              <Package className="w-4 h-4" />
                             </button>
                           )}
-
-                          <button
-                            onClick={() => handleViewDetails(reservation)}
-                            className="p-1.5 border border-gray-300 text-gray-700 rounded hover:bg-gray-50"
+                          <button 
+                            onClick={() => handleViewDetails(reservation)} 
+                            className="p-2 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 disabled:opacity-50 disabled:cursor-not-allowed" 
                             title="View Details"
                           >
-                            <Eye className="w-4 h-4" />
+                            <Eye className="w-5 h-5" />
+                          </button>
+                          <button 
+                            className="p-2 text-purple-600 hover:text-purple-800 dark:text-purple-400 dark:hover:text-purple-300 disabled:opacity-50 disabled:cursor-not-allowed" 
+                            title="View Clipboard"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
                           </button>
                         </div>
                       </td>
@@ -826,74 +945,83 @@ const ReservationsPage = () => {
           )}
         </div>
 
-        {!isLoading && filteredReservations.length > 0 && (
-          <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-3">
-            <div className="text-sm text-gray-700">
-              Showing {startIndex + 1} to{" "}
-              {Math.min(endIndex, filteredReservations.length)} of{" "}
-              {filteredReservations.length} entries
-            </div>
+        {/* Pagination */}
+        {(!isLoading && filteredReservations.length > 0) && (
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-4">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="text-sm text-gray-600 dark:text-gray-300">
+                Showing {startIndex + 1} to {Math.min(endIndex, filteredReservations.length)} of {filteredReservations.length} entries
+              </div>
 
-            <div className="flex items-center gap-1">
-              <button
-                onClick={goToFirstPage}
-                disabled={currentPage === 1}
-                className="p-1.5 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <ChevronsLeft className="w-4 h-4" />
-              </button>
-              <button
-                onClick={goToPrevPage}
-                disabled={currentPage === 1}
-                className="p-1.5 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage(1)}
+                  disabled={currentPage === 1 || totalPages === 0}
+                  className="p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="First Page"
+                  type="button"
+                >
+                  <ChevronsLeft className="w-4 h-4" />
+                </button>
 
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                let pageNum;
-                if (totalPages <= 5) {
-                  pageNum = i + 1;
-                } else if (currentPage <= 3) {
-                  pageNum = i + 1;
-                } else if (currentPage >= totalPages - 2) {
-                  pageNum = totalPages - 4 + i;
-                } else {
-                  pageNum = currentPage - 2 + i;
-                }
-                return (
-                  <button
-                    key={pageNum}
-                    onClick={() => setCurrentPage(pageNum)}
-                    className={`px-3 py-1.5 rounded text-sm transition-colors ${
-                      currentPage === pageNum
-                        ? "bg-orange-500 text-white"
-                        : "hover:bg-gray-100"
-                    }`}
-                  >
-                    {pageNum}
-                  </button>
-                );
-              })}
+                <button
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                  disabled={currentPage === 1 || totalPages === 0}
+                  className="p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Previous Page"
+                  type="button"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
 
-              <button
-                onClick={goToNextPage}
-                disabled={currentPage === totalPages}
-                className="p-1.5 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-              <button
-                onClick={goToLastPage}
-                disabled={currentPage === totalPages}
-                className="p-1.5 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <ChevronsRight className="w-4 h-4" />
-              </button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.min(3, totalPages) }, (_, i) => i + 1).map((pageNum) => (
+                    <button
+                      key={pageNum}
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`px-4 py-2 rounded-lg transition-colors text-sm font-medium ${
+                        currentPage === pageNum
+                          ? "bg-brand-primary text-white shadow-md"
+                          : "border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-600"
+                      }`}
+                      type="button"
+                    >
+                      {pageNum}
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                  disabled={currentPage === totalPages || totalPages === 0}
+                  className="p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Next Page"
+                  type="button"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+
+                <button
+                  onClick={() => setCurrentPage(totalPages)}
+                  disabled={currentPage === totalPages || totalPages === 0}
+                  className="p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Last Page"
+                  type="button"
+                >
+                  <ChevronsRight className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           </div>
         )}
       </div>
+
+      {/* New Reservation Modal */}
+      <NewReservationModal
+        isOpen={isNewReservationModalOpen}
+        onClose={() => setIsNewReservationModalOpen(false)}
+        onSubmit={handleNewReservation}
+      />
     </>
   );
 };
