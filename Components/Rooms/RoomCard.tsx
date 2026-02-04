@@ -7,11 +7,6 @@ import { useState, useEffect, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { useAddToWishlistMutation, useRemoveFromWishlistMutation, useCheckWishlistStatusQuery } from "@/redux/api/wishlistApi";
 import { useRoomDiscounts } from "@/hooks/useRoomDiscounts";
-import {
-  useAddToWishlistMutation,
-  useRemoveFromWishlistMutation,
-  useCheckWishlistStatusQuery,
-} from "@/redux/api/wishlistApi";
 import toast from "react-hot-toast";
 import { ensureGuestToken, getGuestIdentifier } from "@/lib/guest";
 
@@ -394,34 +389,8 @@ const RoomCard = ({
               </div>
             </>
           )}
-      <div className="flex items-center justify-center gap-3 px-4 py-2 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm rounded-lg shadow-md border border-gray-200 dark:border-gray-700 -mt-5 mx-3 relative z-10 mb-3 overflow-hidden">
-        <div className="bg-brand-primary dark:bg-brand-primary text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-md whitespace-nowrap">
-          {room.discountPercentage && room.discountPercentage > 0
-            ? `-${room.discountPercentage}% OFF`
-            : "-15% OFF"}
-        </div>
-        <div className="flex items-center gap-1.5">
-          <Tag
-            className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-yellow-600 dark:text-yellow-500"
-            style={{ animation: "slideInScale 0.6s ease-out" }}
-          />
-          <div className="text-xs font-semibold text-yellow-700 dark:text-yellow-400">
-            Summer Sale
-          </div>
         </div>
       )}
-      <style>{`
-        @keyframes slideInScale {
-          from {
-            opacity: 0;
-            transform: scale(0.8) translateX(-10px);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1) translateX(0);
-          }
-        }
-      `}</style>
 
       {/* Content - Clean structure */}
       <div
@@ -465,22 +434,6 @@ const RoomCard = ({
               <div className="text-xs sm:text-sm font-bold text-green-600 dark:text-green-400">
                 ₱{bestDiscount.savings?.toLocaleString('en-PH') || '0'}
               </div>
-          <div className="text-right flex flex-col items-end justify-center bg-green-50 dark:bg-green-900/20 px-2 sm:px-2.5 py-1.5 sm:py-2 rounded-lg">
-            <div className="text-xs sm:text-xs font-semibold text-green-600 dark:text-green-400">
-              Save
-            </div>
-            <div className="text-xs sm:text-sm font-bold text-green-600 dark:text-green-400">
-              ₱
-              {room.originalPrice &&
-              room.discountPercentage &&
-              room.discountPercentage > 0
-                ? (
-                    parseFloat(
-                      room.originalPrice.replace("₱", "").replace(/,/g, ""),
-                    ) -
-                    parseFloat(room.price.replace("₱", "").replace(/,/g, ""))
-                  ).toLocaleString("en-PH")
-                : "525"}
             </div>
           )}
         </div>
