@@ -404,12 +404,6 @@ const RoomCard = ({
             <div className="flex items-center gap-2">
               <div className="text-lg sm:text-xl font-bold text-brand-primary">
                 {displayCurrentPrice}
-                {room.price}
-              </div>
-              <div className="flex items-center gap-1">
-                <span className="text-xs text-gray-500 dark:text-gray-400 line-through">
-                  {room.originalPrice || "₱3,150"}
-                </span>
               </div>
               {displayOriginalPrice && (
                 <div className="flex items-center gap-1">
@@ -426,14 +420,29 @@ const RoomCard = ({
           </div>
 
           {/* Savings Amount */}
-          {bestDiscount && (
+          {(bestDiscount || isLoadingDiscounts) && (
             <div className="text-right flex flex-col items-end justify-center bg-green-50 dark:bg-green-900/20 px-2 sm:px-2.5 py-1.5 sm:py-2 rounded-lg">
-              <div className="text-xs sm:text-xs font-semibold text-green-600 dark:text-green-400">
-                Save
-              </div>
-              <div className="text-xs sm:text-sm font-bold text-green-600 dark:text-green-400">
-                ₱{bestDiscount.savings?.toLocaleString('en-PH') || '0'}
-              </div>
+              {isLoadingDiscounts ? (
+                <>
+                  {/* Skeleton for "Save" label */}
+                  <div className="text-xs sm:text-xs font-semibold text-green-600 dark:text-green-400 animate-pulse">
+                    <div className="h-3 w-8 bg-green-200 dark:bg-green-800 rounded"></div>
+                  </div>
+                  {/* Skeleton for savings amount */}
+                  <div className="text-xs sm:text-sm font-bold text-green-600 dark:text-green-400 animate-pulse">
+                    <div className="h-4 w-12 bg-green-200 dark:bg-green-800 rounded"></div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="text-xs sm:text-xs font-semibold text-green-600 dark:text-green-400">
+                    Save
+                  </div>
+                  <div className="text-xs sm:text-sm font-bold text-green-600 dark:text-green-400">
+                    ₱{bestDiscount?.savings?.toLocaleString('en-PH') || '0'}
+                  </div>
+                </>
+              )}
             </div>
           )}
         </div>
