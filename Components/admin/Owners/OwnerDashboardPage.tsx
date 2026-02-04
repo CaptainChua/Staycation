@@ -30,12 +30,13 @@ import RoomManagement from "./CleaningManagement";
 import BlockedDatesManagementPage from "./BlockedDatesManagementPage";
 import UserManagementPage from "./UserManagementPage";
 import PaymentMethodsManagementPage from "./PaymentMethodsManagementPage";
+import PartnerManagementPage from "./PartnerManagementPage";
 import AdminFooter from "../AdminFooter";
 import toast from 'react-hot-toast';
 import { useState, useEffect } from "react";
 import { signOut, useSession } from "next-auth/react";
 import { useGetHavensQuery } from "@/redux/api/roomApi";
-import { Home, BarChart3, Calendar, CalendarOff, Building2, Wrench, Sparkles, DollarSign, Headphones, MessageSquare, Star, Users, UsersRound, Settings, Shield, CreditCard } from "lucide-react";
+import { Home, BarChart3, Calendar, CalendarOff, Building2, Wrench, Sparkles, DollarSign, Headphones, MessageSquare, Star, Users, UsersRound, Settings, Shield, CreditCard, Handshake } from "lucide-react";
 
 interface OwnerHaven {
   uuid_id?: string;
@@ -180,6 +181,7 @@ export default function OwnerDashboard() {
       items: [
         { id: "staff", icon: Users, label: "Staff Management", color: "text-brand-primary" },
         { id: "userManagement", icon: UsersRound, label: "User Management", color: "text-teal-500" },
+        { id: "partnerManagement", icon: Handshake, label: "Partner Management", color: "text-indigo-500" },
       ],
     },
     {
@@ -249,6 +251,7 @@ export default function OwnerDashboard() {
             )}
             {page === "blockedDates" && <BlockedDatesManagementPage />}
             {page === "userManagement" && <UserManagementPage />}
+            {page === "partnerManagement" && <PartnerManagementPage />}
             {page === "analytics" && <AnalyticsPage />}
             {page === "reservations" && <ReservationsPage />}
             {page === "revenue" && <RevenueManagementPage />}
