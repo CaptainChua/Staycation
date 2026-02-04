@@ -17,6 +17,7 @@ import { reviewsApi } from "./api/reviewsApi";
 import { blockedDatesApi } from "./api/blockedDatesApi";
 import { adminUsersApi } from "./api/adminUsersApi";
 import { cleanersApi } from "./api/cleanersApi";
+import { partnersApi } from "./api/partnersApi";
 
 const persistConfig = {
   key: 'root',
@@ -43,6 +44,7 @@ export const store = configureStore({
     [blockedDatesApi.reducerPath]: blockedDatesApi.reducer,
     [adminUsersApi.reducerPath]: adminUsersApi.reducer,
     [cleanersApi.reducerPath]: cleanersApi.reducer,
+    [partnersApi.reducerPath]: partnersApi.reducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
@@ -63,7 +65,8 @@ export const store = configureStore({
       .concat(reviewsApi.middleware)
       .concat(blockedDatesApi.middleware)
       .concat(adminUsersApi.middleware)
-      .concat(cleanersApi.middleware),
+      .concat(cleanersApi.middleware)
+      .concat(partnersApi.middleware),
 });
 
 export const persistor = persistStore(store);
