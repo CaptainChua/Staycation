@@ -1291,9 +1291,10 @@ export interface DiscountRecord {
   discount_value: number;
   formatted_value: string;
   min_booking_amount: number | null;
-  formatted_min: string | null;
+  formatted_minimum_amount: string | null;
   start_date: string;
   end_date: string;
+  expires_at: string;
   max_uses: number | null;
   used_count: number;
   usage_percentage: number;
@@ -1305,12 +1306,9 @@ export async function getDiscounts(havenId?: string): Promise<DiscountRecord[]> 
   const client = await pool.connect();
   try {
     let query = `
-      SELECT
+      SELECT DISTINCT
         d.id,
         d.code as discount_code,
-        d.haven_id,
-        h.haven_name,
-        h.tower,
         d.name,
         d.description,
         d.discount_type,
@@ -1321,9 +1319,18 @@ export async function getDiscounts(havenId?: string): Promise<DiscountRecord[]> 
         d.max_uses,
         d.used_count,
         d.active,
-        d.created_at
+        d.created_at,
+        COALESCE(
+          STRING_AGG(DISTINCT h.haven_name, ', ') FILTER (WHERE h.haven_name IS NOT NULL),
+          'All Properties'
+        ) as haven_name,
+        COALESCE(
+          STRING_AGG(DISTINCT h.tower, ', ') FILTER (WHERE h.tower IS NOT NULL),
+          'All Towers'
+        ) as tower
       FROM discounts d
-      LEFT JOIN havens h ON d.haven_id = h.uuid_id
+      LEFT JOIN discount_havens dh ON d.id = dh.discount_id
+      LEFT JOIN havens h ON dh.haven_id = h.uuid_id
     `;
 
     const conditions: string[] = [];
@@ -1331,7 +1338,10 @@ export async function getDiscounts(havenId?: string): Promise<DiscountRecord[]> 
     let paramCount = 1;
 
     if (havenId) {
-      conditions.push(`d.haven_id = $${paramCount}`);
+      conditions.push(`EXISTS (
+        SELECT 1 FROM discount_havens dh2 
+        WHERE dh2.discount_id = d.id AND dh2.haven_id = $${paramCount}
+      )`);
       values.push(havenId);
       paramCount++;
     }
@@ -1340,18 +1350,21 @@ export async function getDiscounts(havenId?: string): Promise<DiscountRecord[]> 
       query += " WHERE " + conditions.join(" AND ");
     }
 
+    query += " GROUP BY d.id, d.code, d.name, d.description, d.discount_type, d.discount_value, d.min_booking_amount, d.start_date, d.end_date, d.max_uses, d.used_count, d.active, d.created_at";
     query += " ORDER BY d.created_at DESC";
 
     const result = await client.query(query, values);
 
     return result.rows.map((row: any) => ({
       ...row,
+      haven_id: null, // Not applicable in new schema
       formatted_value: row.discount_type === 'percentage'
         ? `${row.discount_value}%`
         : `₱${parseFloat(row.discount_value).toLocaleString('en-PH')}`,
-      formatted_min: row.min_booking_amount
+      formatted_minimum_amount: row.min_booking_amount
         ? `₱${parseFloat(row.min_booking_amount).toLocaleString('en-PH')}`
-        : 'N/A',
+        : null,
+      expires_at: row.end_date,
       usage_percentage: row.max_uses ? Math.round((row.used_count / row.max_uses) * 100) : 0
     }));
   } catch (error) {
@@ -1364,7 +1377,7 @@ export async function getDiscounts(havenId?: string): Promise<DiscountRecord[]> 
 
 export async function createDiscount(discountData: {
   code: string;
-  haven_id: string;
+  haven_ids?: string[];
   name: string;
   description?: string;
   discount_type: 'percentage' | 'fixed';
@@ -1373,21 +1386,29 @@ export async function createDiscount(discountData: {
   start_date: string;
   end_date: string;
   max_uses?: number;
+  employeeId?: string;
 }): Promise<DiscountRecord> {
   const client = await pool.connect();
   try {
-    const query = `
+    // Get IP address and user agent from headers
+    const requestHeaders = await headers();
+    const ipAddress = requestHeaders.get('x-forwarded-for') || requestHeaders.get('x-real-ip') || 'unknown';
+    const userAgent = requestHeaders.get('user-agent') || 'unknown';
+
+    await client.query('BEGIN');
+
+    // Insert the discount record
+    const discountQuery = `
       INSERT INTO discounts (
-        code, haven_id, name, description, discount_type,
-        discount_value, min_booking_amount, start_date, end_date, max_uses, active
+        code, name, description, discount_type,
+        discount_value, min_booking_amount, start_date, end_date, max_uses, active, created_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, true)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, true, NOW() AT TIME ZONE 'Asia/Manila')
       RETURNING *
     `;
 
-    const result = await client.query(query, [
+    const discountResult = await client.query(discountQuery, [
       discountData.code,
-      discountData.haven_id,
       discountData.name,
       discountData.description || null,
       discountData.discount_type,
@@ -1398,9 +1419,61 @@ export async function createDiscount(discountData: {
       discountData.max_uses || null,
     ]);
 
-    return result.rows[0];
+    const newDiscount = discountResult.rows[0];
+
+    // If specific properties are selected, add them to the junction table
+    if (discountData.haven_ids && discountData.haven_ids.length > 0) {
+      for (const havenId of discountData.haven_ids) {
+        await client.query(
+          'INSERT INTO discount_havens (discount_id, haven_id) VALUES ($1, $2)',
+          [newDiscount.id, havenId]
+        );
+      }
+    }
+
+    await client.query('COMMIT');
+
+    // Log activity if employeeId is provided
+    if (discountData.employeeId) {
+      await client.query(
+        `SELECT log_employee_activity($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          discountData.employeeId,
+          'CREATE_DISCOUNT',
+          `Created discount "${discountData.code}" - ${discountData.name} (${discountData.discount_type === 'percentage' ? discountData.discount_value + '%' : '₱' + discountData.discount_value})`,
+          'discount',
+          newDiscount.id,
+          ipAddress,
+          userAgent
+        ]
+      );
+    }
+
+    // Return the discount in the expected format
+    return {
+      ...newDiscount,
+      discount_code: newDiscount.code,
+      haven_id: null,
+      haven_name: discountData.haven_ids && discountData.haven_ids.length > 0 ? 'Selected Properties' : 'All Properties',
+      tower: discountData.haven_ids && discountData.haven_ids.length > 0 ? 'Selected Towers' : 'All Towers',
+      formatted_value: discountData.discount_type === 'percentage'
+        ? `${discountData.discount_value}%`
+        : `₱${parseFloat(discountData.discount_value.toString()).toLocaleString('en-PH')}`,
+      formatted_minimum_amount: discountData.min_booking_amount
+        ? `₱${parseFloat(discountData.min_booking_amount.toString()).toLocaleString('en-PH')}`
+        : null,
+      expires_at: newDiscount.end_date,
+      usage_percentage: 0
+    };
   } catch (error) {
+    await client.query('ROLLBACK');
     console.error("Error creating discount:", error);
+    console.error("Discount data:", discountData);
+    console.error("Error details:", {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : 'No stack trace',
+      name: error instanceof Error ? error.name : 'Unknown error type'
+    });
     throw new Error("Failed to create discount");
   } finally {
     client.release();
@@ -1419,10 +1492,19 @@ export async function updateDiscount(
     end_date: string;
     max_uses: number;
     active: boolean;
-  }>
+    haven_ids?: string[];
+  }>,
+  employeeId?: string
 ): Promise<DiscountRecord> {
   const client = await pool.connect();
   try {
+    // Get IP address and user agent from headers
+    const requestHeaders = await headers();
+    const ipAddress = requestHeaders.get('x-forwarded-for') || requestHeaders.get('x-real-ip') || 'unknown';
+    const userAgent = requestHeaders.get('user-agent') || 'unknown';
+
+    await client.query('BEGIN');
+
     const updates: string[] = [];
     const values: any[] = [id];
     let paramCount = 2;
@@ -1473,27 +1555,117 @@ export async function updateDiscount(
       paramCount++;
     }
 
-    if (updates.length === 0) {
+    if (updates.length === 0 && !discountData.haven_ids) {
+      await client.query('ROLLBACK');
       throw new Error("No fields to update");
     }
 
-    updates.push(`updated_at = NOW()`);
+    updates.push(`updated_at = NOW() AT TIME ZONE 'Asia/Manila'`);
 
-    const query = `
-      UPDATE discounts
-      SET ${updates.join(", ")}
-      WHERE id = $1
-      RETURNING *
-    `;
+    // Update discount basic info if there are updates
+    if (updates.length > 1) { // More than just updated_at
+      const query = `
+        UPDATE discounts
+        SET ${updates.join(", ")}
+        WHERE id = $1
+        RETURNING *
+      `;
 
-    const result = await client.query(query, values);
+      const result = await client.query(query, values);
 
-    if (result.rows.length === 0) {
-      throw new Error("Discount not found");
+      if (result.rows.length === 0) {
+        await client.query('ROLLBACK');
+        throw new Error("Discount not found");
+      }
     }
 
-    return result.rows[0];
+    // Handle property updates if provided
+    if (discountData.haven_ids !== undefined) {
+      // Remove existing property associations
+      await client.query('DELETE FROM discount_havens WHERE discount_id = $1', [id]);
+
+      // Add new property associations if any are selected
+      if (discountData.haven_ids.length > 0) {
+        for (const havenId of discountData.haven_ids) {
+          await client.query(
+            'INSERT INTO discount_havens (discount_id, haven_id) VALUES ($1, $2)',
+            [id, havenId]
+          );
+        }
+      }
+    }
+
+    await client.query('COMMIT');
+
+    // Log activity if employeeId is provided
+    if (employeeId) {
+      const updatedFields = Object.keys(discountData).map(key => {
+        const value = discountData[key as keyof typeof discountData];
+        if (key === 'discount_type') {
+          return `${key}: ${value}`;
+        } else if (key === 'discount_value' && discountData.discount_type) {
+          return `${key}: ${discountData.discount_type === 'percentage' ? value + '%' : '₱' + value}`;
+        } else if (key === 'haven_ids') {
+          return `${key}: ${Array.isArray(value) && value.length > 0 ? `${value.length} properties selected` : 'All properties'}`;
+        }
+        return `${key}: ${value}`;
+      }).join(', ');
+
+      await client.query(
+        `SELECT log_employee_activity($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          employeeId,
+          'UPDATE_DISCOUNT',
+          `Updated discount ${id} - ${updatedFields}`,
+          'discount',
+          id,
+          ipAddress,
+          userAgent
+        ]
+      );
+    }
+
+    // Fetch updated discount with properties
+    const updatedDiscountQuery = `
+      SELECT 
+        d.*,
+        COALESCE(
+          STRING_AGG(DISTINCT h.haven_name, ', ') FILTER (WHERE h.haven_name IS NOT NULL),
+          'All Properties'
+        ) as haven_name,
+        COALESCE(
+          STRING_AGG(DISTINCT h.tower, ', ') FILTER (WHERE h.tower IS NOT NULL),
+          'All Towers'
+        ) as tower
+      FROM discounts d
+      LEFT JOIN discount_havens dh ON d.id = dh.discount_id
+      LEFT JOIN havens h ON dh.haven_id = h.uuid_id
+      WHERE d.id = $1
+      GROUP BY d.id
+    `;
+
+    const result = await client.query(updatedDiscountQuery, [id]);
+    
+    if (result.rows.length === 0) {
+      throw new Error("Discount not found after update");
+    }
+
+    const row = result.rows[0];
+    return {
+      ...row,
+      discount_code: row.code,
+      haven_id: null,
+      formatted_value: row.discount_type === 'percentage'
+        ? `${row.discount_value}%`
+        : `₱${parseFloat(row.discount_value).toLocaleString('en-PH')}`,
+      formatted_minimum_amount: row.min_booking_amount
+        ? `₱${parseFloat(row.min_booking_amount).toLocaleString('en-PH')}`
+        : null,
+      expires_at: row.end_date,
+      usage_percentage: row.max_uses ? Math.round((row.used_count / row.max_uses) * 100) : 0
+    };
   } catch (error) {
+    await client.query('ROLLBACK');
     console.error("Error updating discount:", error);
     throw new Error("Failed to update discount");
   } finally {
@@ -1501,10 +1673,62 @@ export async function updateDiscount(
   }
 }
 
-export async function deleteDiscount(id: string): Promise<void> {
+export async function getDiscountProperties(discountId: string): Promise<string[]> {
   const client = await pool.connect();
   try {
+    const query = `
+      SELECT haven_id
+      FROM discount_havens
+      WHERE discount_id = $1
+    `;
+    
+    const result = await client.query(query, [discountId]);
+    return result.rows.map(row => row.haven_id);
+  } catch (error) {
+    console.error("Error getting discount properties:", error);
+    throw new Error("Failed to get discount properties");
+  } finally {
+    client.release();
+  }
+}
+
+export async function deleteDiscount(id: string, employeeId?: string): Promise<void> {
+  const client = await pool.connect();
+  try {
+    // Get IP address and user agent from headers
+    const requestHeaders = await headers();
+    const ipAddress = requestHeaders.get('x-forwarded-for') || requestHeaders.get('x-real-ip') || 'unknown';
+    const userAgent = requestHeaders.get('user-agent') || 'unknown';
+
+    // Get discount details before deletion for logging
+    const discountQuery = await client.query(
+      'SELECT code, name, discount_type, discount_value FROM discounts WHERE id = $1',
+      [id]
+    );
+
+    if (discountQuery.rows.length === 0) {
+      throw new Error("Discount not found");
+    }
+
+    const discount = discountQuery.rows[0];
+
     await client.query("DELETE FROM discounts WHERE id = $1", [id]);
+
+    // Log activity if employeeId is provided
+    if (employeeId) {
+      await client.query(
+        `SELECT log_employee_activity($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          employeeId,
+          'DELETE_DISCOUNT',
+          `Deleted discount "${discount.code}" - ${discount.name} (${discount.discount_type === 'percentage' ? discount.discount_value + '%' : '₱' + discount.discount_value})`,
+          'discount',
+          id,
+          ipAddress,
+          userAgent
+        ]
+      );
+    }
   } catch (error) {
     console.error("Error deleting discount:", error);
     throw new Error("Failed to delete discount");
@@ -1513,12 +1737,29 @@ export async function deleteDiscount(id: string): Promise<void> {
   }
 }
 
-export async function toggleDiscountStatus(id: string, active: boolean): Promise<DiscountRecord> {
+export async function toggleDiscountStatus(id: string, active: boolean, employeeId?: string): Promise<DiscountRecord> {
   const client = await pool.connect();
   try {
+    // Get IP address and user agent from headers
+    const requestHeaders = await headers();
+    const ipAddress = requestHeaders.get('x-forwarded-for') || requestHeaders.get('x-real-ip') || 'unknown';
+    const userAgent = requestHeaders.get('user-agent') || 'unknown';
+
+    // Get discount details before update for logging
+    const discountQuery = await client.query(
+      'SELECT code, name, discount_type, discount_value FROM discounts WHERE id = $1',
+      [id]
+    );
+
+    if (discountQuery.rows.length === 0) {
+      throw new Error("Discount not found");
+    }
+
+    const discount = discountQuery.rows[0];
+
     const query = `
       UPDATE discounts
-      SET active = $2, updated_at = NOW()
+      SET active = $2, updated_at = NOW() AT TIME ZONE 'Asia/Manila'
       WHERE id = $1
       RETURNING *
     `;
@@ -1527,6 +1768,22 @@ export async function toggleDiscountStatus(id: string, active: boolean): Promise
 
     if (result.rows.length === 0) {
       throw new Error("Discount not found");
+    }
+
+    // Log activity if employeeId is provided
+    if (employeeId) {
+      await client.query(
+        `SELECT log_employee_activity($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          employeeId,
+          'TOGGLE_DISCOUNT_STATUS',
+          `${active ? 'Activated' : 'Deactivated'} discount "${discount.code}" - ${discount.name} (${discount.discount_type === 'percentage' ? discount.discount_value + '%' : '₱' + discount.discount_value})`,
+          'discount',
+          id,
+          ipAddress,
+          userAgent
+        ]
+      );
     }
 
     return result.rows[0];

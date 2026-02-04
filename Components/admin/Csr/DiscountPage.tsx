@@ -133,6 +133,24 @@ const guideTranslations = {
           description: "When cleaning up old discounts that are no longer needed"
         }
       ]
+    },
+    propertyGuide: {
+      title: "Property Selection Guide",
+      description: "Learn how to apply discounts to properties",
+      tips: [
+        {
+          title: "Apply to Specific Properties",
+          description: "Check the properties you want in the properties list when creating a discount. The discount will only apply to those selected properties."
+        },
+        {
+          title: "Apply to All Properties",
+          description: "Leave all properties unchecked (no selection) when creating a discount to apply it to all your properties automatically."
+        },
+        {
+          title: "Multiple Properties",
+          description: "You can select multiple properties at once using the checkboxes. Simply check all the properties where you want the discount to be available."
+        }
+      ]
     }
   },
   fil: {
@@ -212,6 +230,24 @@ const guideTranslations = {
           description: "Pag naglilinis ng mga lumang discounts"
         }
       ]
+    },
+    propertyGuide: {
+      title: "Property Selection Guide",
+      description: "Matuto kung paano mag-apply ng discounts sa properties",
+      tips: [
+        {
+          title: "I-apply sa Specific Properties",
+          description: "I-check ang properties na gusto mo sa properties list kapag lumilikha ng discount. Ang discount ay gagana lang sa selected properties."
+        },
+        {
+          title: "I-apply sa Lahat ng Properties",
+          description: "Iwanan na walang napili ang properties (no selection) para mag-apply ito sa lahat ng properties mo automatically."
+        },
+        {
+          title: "Multiple Properties",
+          description: "Pwede kang pumili ng multiple properties nang sabay-sabay gamit ang checkboxes. I-check lang lahat ng properties na gusto mo."
+        }
+      ]
     }
   }
 };
@@ -239,6 +275,7 @@ const DiscountPage = () => {
   const [showStatusGuide, setShowStatusGuide] = useState(false);
   const [showDiscountGuide, setShowDiscountGuide] = useState(false);
   const [showBulkGuide, setShowBulkGuide] = useState(false);
+  const [showPropertyGuide, setShowPropertyGuide] = useState(false);
   const [guideLanguage, setGuideLanguage] = useState<"en" | "fil">("en");
 
   const fetchData = async () => {
@@ -323,7 +360,7 @@ const DiscountPage = () => {
     setRows(prev => prev.filter(r => r.id !== id));
 
     try {
-      await deleteDiscount(id);
+      await deleteDiscount(id, session?.user?.id);
       toast.success("Discount deleted successfully");
     } catch (error) {
       setRows(oldRows);
@@ -339,7 +376,7 @@ const DiscountPage = () => {
     ));
 
     try {
-      await toggleDiscountStatus(discount.id, !discount.active);
+      await toggleDiscountStatus(discount.id, !discount.active, session?.user?.id);
       toast.success(`Discount ${!discount.active ? "activated" : "deactivated"}`);
     } catch (error) {
       setRows(oldRows);
@@ -373,7 +410,7 @@ const DiscountPage = () => {
         await Promise.all(selectedDiscounts.map(id => {
           const discount = rows.find(d => d.id === id);
           if (discount && !discount.active) {
-            return toggleDiscountStatus(id, true);
+            return toggleDiscountStatus(id, true, session?.user?.id);
           }
           return Promise.resolve();
         }));
@@ -383,7 +420,7 @@ const DiscountPage = () => {
         await Promise.all(selectedDiscounts.map(id => {
           const discount = rows.find(d => d.id === id);
           if (discount && discount.active) {
-            return toggleDiscountStatus(id, false);
+            return toggleDiscountStatus(id, false, session?.user?.id);
           }
           return Promise.resolve();
         }));
@@ -394,7 +431,7 @@ const DiscountPage = () => {
           setBulkActionLoading(false);
           return;
         }
-        await Promise.all(selectedDiscounts.map(id => deleteDiscount(id)));
+        await Promise.all(selectedDiscounts.map(id => deleteDiscount(id, session?.user?.id)));
         toast.success(`${selectedDiscounts.length} discount(s) deleted`);
       }
       
@@ -434,15 +471,8 @@ const DiscountPage = () => {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 flex-shrink-0 border border-gray-200 dark:border-gray-700 rounded-lg p-6 bg-white dark:bg-gray-800 shadow dark:shadow-gray-900">
         <div>
           <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Discount Management</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage promotional discounts for properties</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Create and manage promotional discounts for your properties</p>
         </div>
-        <button
-          onClick={() => setIsCreateModalOpen(true)}
-          className="flex items-center gap-2 bg-gradient-to-r from-brand-primary to-brand-primaryDark text-white px-4 py-2 rounded-lg hover:opacity-90 transition-opacity whitespace-nowrap font-medium shadow"
-        >
-          <Plus className="w-5 h-5" />
-          New Discount
-        </button>
       </div>
 
       {/* Status Guide */}
@@ -641,6 +671,51 @@ const DiscountPage = () => {
         )}
       </div>
 
+      {/* Property Selection Guide */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-6 flex-shrink-0 border border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between mb-2">
+          <button
+            onClick={() => setShowPropertyGuide(!showPropertyGuide)}
+            className="flex-1 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded-lg transition-colors"
+          >
+            <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100">{guideTranslations[guideLanguage].propertyGuide.title}</h4>
+            <ChevronRight className={`w-5 h-5 text-gray-600 dark:text-gray-300 transform transition-transform ${showPropertyGuide ? 'rotate-90' : ''}`} />
+          </button>
+          <div className="flex gap-1 ml-2">
+            {(['en', 'fil'] as const).map((lang) => (
+              <button
+                key={lang}
+                onClick={() => setGuideLanguage(lang)}
+                className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                  guideLanguage === lang
+                    ? 'bg-brand-primary text-white'
+                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                }`}
+              >
+                {lang.toUpperCase()}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {showPropertyGuide && (
+          <div className="mt-4">
+            <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">{guideTranslations[guideLanguage].propertyGuide.description}</p>
+            <div className="space-y-3">
+              {guideTranslations[guideLanguage].propertyGuide.tips.map((tip, idx) => (
+                <div key={idx} className="flex items-start gap-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 border border-blue-200 dark:border-blue-800">
+                  <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold">{idx + 1}</div>
+                  <div>
+                    <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{tip.title}</h5>
+                    <p className="text-xs text-gray-600 dark:text-gray-300 mt-1">{tip.description}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 flex-shrink-0">
         {[
@@ -729,6 +804,16 @@ const DiscountPage = () => {
         </div>
       )}
 
+      <div className="flex justify-start flex-shrink-0">
+        <button
+          onClick={() => setIsCreateModalOpen(true)}
+          className="flex items-center gap-2 bg-brand-primary text-white px-4 py-2 rounded-lg hover:opacity-90 transition-opacity whitespace-nowrap font-medium shadow"
+        >
+        <Plus className="w-5 h-5" />
+          New Discount
+        </button>
+      </div>
+
       {/* Filters */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-4 flex-shrink-0 border border-gray-200 dark:border-gray-700">
         <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
@@ -797,18 +882,10 @@ const DiscountPage = () => {
         </div>
       </div>
 
-      {/* Loading Indicator */}
-      {isLoading && (
-        <div className="flex items-center gap-3 bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-4 flex-shrink-0 border border-gray-200 dark:border-gray-700">
-          <Loader2 className="w-5 h-5 text-brand-primary animate-spin" />
-          <p className="text-sm text-gray-600 dark:text-gray-300 font-medium">Loading discount records...</p>
-        </div>
-      )}
-
       {/* Table Section - Fixed height and scrollable */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden flex-1 flex flex-col min-h-0 border border-gray-200 dark:border-gray-700">
         <div className="overflow-x-auto overflow-y-auto flex-1 h-[600px] max-h-[600px]">
-          <table className="w-full min-w-[1400px]">
+          <table className="w-full min-w-[800px]">
             <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 border-b-2 border-gray-200 dark:border-gray-600 sticky top-0 z-10">
               <tr>
                 <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
@@ -827,50 +904,26 @@ const DiscountPage = () => {
                   className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
                 >
                   <div className="flex items-center gap-2">
-                    Discount Code
+                    Discount Info
                     <ArrowUpDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600 dark:text-gray-300 dark:group-hover:text-gray-100" />
                   </div>
-                </th>
-                <th
-                  onClick={() => handleSort("name")}
-                  className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
-                >
-                  <div className="flex items-center gap-2">
-                    Discount Name
-                    <ArrowUpDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600 dark:text-gray-300 dark:group-hover:text-gray-100" />
-                  </div>
-                </th>
-                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                  Property
                 </th>
                 <th
                   onClick={() => handleSort("discount_value")}
-                  className="text-right py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
+                  className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
                 >
-                  <div className="flex items-center justify-end gap-2">
-                    Discount Value
+                  <div className="flex items-center gap-2">
+                    Value & Usage
                     <ArrowUpDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600 dark:text-gray-300 dark:group-hover:text-gray-100" />
                   </div>
-                </th>
-                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                  Usage
                 </th>
                 <th
                   onClick={() => handleSort("active")}
                   className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors whitespace-nowrap"
                 >
                   <div className="flex items-center justify-center gap-2">
-                    Status
+                    Status & Date
                     <ArrowUpDown className="w-4 h-4 text-gray-400 dark:text-gray-300" />
-                  </div>
-                </th>
-                <th
-                  onClick={() => handleSort("created_at")}
-                  className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
-                >
-                  <div className="flex items-center gap-2">
-                    Created Date
-                    <ArrowUpDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600 dark:text-gray-300 dark:group-hover:text-gray-100" />
                   </div>
                 </th>
                 <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap border border-gray-200 dark:border-gray-700">Actions</th>
@@ -888,48 +941,34 @@ const DiscountPage = () => {
                       <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
                         <div className="h-4 w-4 bg-gray-200 dark:bg-gray-700 rounded"></div>
                       </td>
-                      {/* Discount Code */}
+                      {/* Discount Info - Combined */}
                       <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
                         <div className="space-y-2">
                           <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
+                          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
+                          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-28"></div>
                         </div>
                       </td>
-                      {/* Discount Name */}
+                      {/* Value & Usage - Combined */}
                       <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
                         <div className="space-y-2">
-                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-36"></div>
-                        </div>
-                      </td>
-                      {/* Property */}
-                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
-                        <div className="space-y-2">
-                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-28"></div>
-                        </div>
-                      </td>
-                      {/* Discount Value */}
-                      <td className="py-4 px-4 text-right border border-gray-200 dark:border-gray-700">
-                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20 ml-auto"></div>
-                      </td>
-                      {/* Usage */}
-                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
-                        <div className="space-y-1">
+                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
                           <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
                           <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
                         </div>
                       </td>
-                      {/* Status */}
+                      {/* Status & Date - Combined */}
                       <td className="py-4 px-4 text-center border border-gray-200 dark:border-gray-700">
-                        <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded-full w-20 mx-auto"></div>
-                      </td>
-                      {/* Created Date */}
-                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
-                        <div className="space-y-1">
-                          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
+                        <div className="space-y-2 flex flex-col items-center">
+                          <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded-full w-20"></div>
+                          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
+                          <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
                         </div>
                       </td>
                       {/* Actions */}
                       <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
                         <div className="flex items-center justify-center gap-1">
+                          <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
                           <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
                           <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
                           <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
@@ -939,7 +978,7 @@ const DiscountPage = () => {
                   ))
               ) : paginatedRows.length === 0 ? (
                   <tr>
-                      <td colSpan={9} className="py-20 text-center border border-gray-200 dark:border-gray-700">
+                      <td colSpan={5} className="py-20 text-center border border-gray-200 dark:border-gray-700">
                           <Tag className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                           <p className="text-gray-500 dark:text-gray-400 font-medium">No discounts found</p>
                       </td>
@@ -956,38 +995,28 @@ const DiscountPage = () => {
                       />
                     </td>
                     <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
-                      <div className="flex flex-col gap-1">
-                        <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm font-mono">
+                      <div className="space-y-2">
+                        <div className="font-semibold text-gray-800 dark:text-gray-100 text-sm font-mono">
                           {highlightText(row.discount_code, searchTerm)}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
-                      <span className="text-sm text-gray-700 dark:text-gray-200">
-                        {highlightText(row.name, searchTerm)}
-                      </span>
-                    </td>
-                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
-                      <div className="space-y-1">
-                        <span className="text-sm text-gray-600 dark:text-gray-300">
-                          {row.haven_name || "All Properties"}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="py-4 px-4 text-right border border-gray-200 dark:border-gray-700">
-                      <div className="space-y-1">
-                        <div className="font-bold text-gray-800 dark:text-gray-100 text-sm">
-                          {highlightText(row.formatted_value, searchTerm)}
                         </div>
-                        {row.minimum_amount && (
-                          <div className="text-xs text-gray-500 dark:text-gray-400">
-                            Min: {row.formatted_minimum_amount}
-                          </div>
-                        )}
+                        <div className="text-sm text-gray-700 dark:text-gray-200">
+                          {highlightText(row.name, searchTerm)}
+                        </div>
+                        <div className="text-sm text-gray-600 dark:text-gray-300">
+                          {row.haven_name || "All Properties"}
+                        </div>
                       </div>
                     </td>
                     <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
                       <div className="space-y-2">
+                        <div className="font-bold text-gray-800 dark:text-gray-100 text-sm">
+                          {highlightText(row.formatted_value, searchTerm)}
+                        </div>
+                        {row.min_booking_amount && (
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                            Min: {row.formatted_minimum_amount}
+                          </div>
+                        )}
                         <div className="text-xs text-gray-600 dark:text-gray-300">
                           {row.max_uses ? (
                             <div className="space-y-1">
@@ -1013,23 +1042,21 @@ const DiscountPage = () => {
                       </div>
                     </td>
                     <td className="py-4 px-4 text-center border border-gray-200 dark:border-gray-700">
-                      <span
-                        className={`inline-block px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${
-                          row.active
-                            ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
-                            : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
-                        }`}
-                      >
-                        {row.active ? "Active" : "Inactive"}
-                      </span>
-                    </td>
-                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
-                      <div className="space-y-1">
+                      <div className="space-y-2 flex flex-col items-center">
+                        <span
+                          className={`inline-block px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${
+                            row.active
+                              ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+                              : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
+                          }`}
+                        >
+                          {row.active ? "Active" : "Inactive"}
+                        </span>
                         <div className="text-xs text-gray-600 dark:text-gray-300">
-                          {new Date(row.created_at).toLocaleDateString()}
+                          Start: {new Date(row.start_date).toLocaleDateString()}
                         </div>
                         <div className="text-xs text-gray-500 dark:text-gray-400">
-                          {new Date(row.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          End: {new Date(row.end_date).toLocaleDateString()}
                         </div>
                       </div>
                     </td>
@@ -1127,7 +1154,7 @@ const DiscountPage = () => {
                     onClick={() => setCurrentPage(pageNum)}
                     className={`px-4 py-2 rounded-lg transition-colors text-sm font-medium border ${
                       currentPage === pageNum
-                        ? "bg-gradient-to-r from-brand-primary to-brand-primaryDark text-white shadow-md border-brand-primary"
+                        ? "bg-brand-primary text-white shadow-md border-brand-primary"
                         : "border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-600"
                     }`}
                     disabled={totalPages === 0}
