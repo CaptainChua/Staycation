@@ -1,12 +1,17 @@
 "use client";
 
-import { Star, Video, X, Heart, Sparkles, MapPin, Tag, ChevronRight } from "lucide-react";
+import { Star, Video, X, Heart, MapPin, Tag, ChevronRight } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { useAddToWishlistMutation, useRemoveFromWishlistMutation, useCheckWishlistStatusQuery } from "@/redux/api/wishlistApi";
+import {
+  useAddToWishlistMutation,
+  useRemoveFromWishlistMutation,
+  useCheckWishlistStatusQuery,
+} from "@/redux/api/wishlistApi";
 import toast from "react-hot-toast";
+import { ensureGuestToken, getGuestIdentifier } from "@/lib/guest";
 
 interface Room {
   id: string;
@@ -34,44 +39,69 @@ interface RoomCardsProps {
   mode?: "select" | "browse"; // 'select' for filtered search, 'browse' for homepage
   compact?: boolean; // Optional compact mode for smaller card display
 }
-const RoomCard = ({ room, mode = "browse", compact = false }: RoomCardsProps) => {
+const RoomCard = ({
+  room,
+  mode = "browse",
+  compact: _compact = false,
+}: RoomCardsProps) => {
   const router = useRouter();
+  void _compact;
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
   const { data: session } = useSession();
   const userId = (session?.user as { id?: string })?.id;
 
   // Wishlist mutations and queries
   const [addToWishlist, { isLoading: isAdding }] = useAddToWishlistMutation();
-  const [removeFromWishlist, { isLoading: isRemoving }] = useRemoveFromWishlistMutation();
+  const [removeFromWishlist, { isLoading: isRemoving }] =
+    useRemoveFromWishlistMutation();
 
-  // Check if this room is in user's wishlist
-  const { data: wishlistStatus, isLoading: isCheckingWishlist, error: wishlistError, refetch: refetchWishlistStatus } = useCheckWishlistStatusQuery(
-    { userId: userId || '', havenId: room.uuid_id || room.id },
-    { 
-      skip: !userId || !(room.uuid_id || room.id),
+  // Check if this room is in user's wishlist (supports guest users)
+  const [userIdentifier, setUserIdentifier] = useState<string>(
+    () => userId || getGuestIdentifier() || "",
+  );
+  useEffect(() => {
+    if (!userId) return;
+    // Sync the identifier only when a logged-in user id becomes available.
+    // Schedule the update asynchronously to avoid cascading renders.
+    Promise.resolve().then(() => {
+      setUserIdentifier((prev) => (prev === userId ? prev : userId));
+    });
+  }, [userId]);
+  const {
+    data: wishlistStatus,
+    isLoading: isCheckingWishlist,
+    error: wishlistError,
+    refetch: refetchWishlistStatus,
+  } = useCheckWishlistStatusQuery(
+    { userId: userIdentifier, havenId: room.uuid_id || room.id },
+    {
+      skip: !userIdentifier || !(room.uuid_id || room.id),
       refetchOnMountOrArgChange: true,
-      refetchOnReconnect: true
-    }
+      refetchOnReconnect: true,
+    },
   );
 
   // Local state for optimistic updates
   const [optimisticFavorite, setOptimisticFavorite] = useState(false);
   const isFavorite = wishlistStatus?.isInWishlist || optimisticFavorite;
-  
+
   // Disable wishlist functionality if API is not available
-  const isWishlistDisabled = !!wishlistError && 'status' in wishlistError && wishlistError.status === 404;
+  const isWishlistDisabled =
+    !!wishlistError &&
+    "status" in wishlistError &&
+    wishlistError.status === 404;
 
   // Sync optimistic state with actual wishlist status when data loads
   useEffect(() => {
     if (wishlistStatus?.isInWishlist !== undefined) {
-      setOptimisticFavorite(false); // Reset optimistic state when real data arrives
+      Promise.resolve().then(() => setOptimisticFavorite(false)); // Reset optimistic state when real data arrives
     }
   }, [wishlistStatus?.isInWishlist]);
 
   // Handle wishlist errors - log only, no toast notifications
   useEffect(() => {
     if (wishlistError) {
-      console.error('Wishlist API Error:', wishlistError);
+      console.error("Wishlist API Error:", wishlistError);
       // No toast notification - handle errors silently
     }
   }, [wishlistError]);
@@ -89,12 +119,6 @@ const RoomCard = ({ room, mode = "browse", compact = false }: RoomCardsProps) =>
   const handleHeartClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
 
-    if (!userId) {
-      toast.error("Please login to add to wishlist");
-      router.push('/login');
-      return;
-    }
-
     const roomId = room.uuid_id || room.id;
     if (!roomId) {
       toast.error("Room ID not found");
@@ -108,14 +132,29 @@ const RoomCard = ({ room, mode = "browse", compact = false }: RoomCardsProps) =>
 
     try {
       if (newFavoriteState) {
-        // Add to wishlist
-        await addToWishlist({
-          user_id: userId,
-          haven_id: roomId
-        }).unwrap();
+        // Add to wishlist (support both logged-in and guest users)
+        if (userId) {
+          await addToWishlist({
+            user_id: userId,
+            haven_id: roomId,
+          }).unwrap();
+        } else {
+          // Guest user - ensure a guest token exists and use it
+          const guestToken = ensureGuestToken();
+          await addToWishlist({
+            guest_token: guestToken,
+            haven_id: roomId,
+          }).unwrap();
+          // Ensure hook sees the new guest identifier for subsequent checks
+          setUserIdentifier(`guest_${guestToken}`);
+        }
         toast.success("Added to wishlist");
-        // Force refetch to update UI immediately
-        refetchWishlistStatus();
+        // Force refetch to update UI immediately (hook will refetch on arg change)
+        try {
+          refetchWishlistStatus();
+        } catch {
+          /* ignore refetch errors */
+        }
       } else {
         // Remove from wishlist
         const wishlistId = wishlistStatus?.wishlistId;
@@ -123,16 +162,28 @@ const RoomCard = ({ room, mode = "browse", compact = false }: RoomCardsProps) =>
           await removeFromWishlist(wishlistId).unwrap();
           toast.success("Removed from wishlist");
           // Force refetch to update UI immediately
-          refetchWishlistStatus();
+          try {
+            refetchWishlistStatus();
+          } catch {
+            /* ignore refetch errors */
+          }
         } else {
           toast.error("Wishlist item not found");
           // Revert optimistic update on error
           setOptimisticFavorite(!newFavoriteState);
         }
       }
-    } catch (error: any) {
-      console.error('Wishlist error:', error);
-      toast.error(error?.data?.message || "Failed to update wishlist");
+    } catch (error: unknown) {
+      console.error("Wishlist error:", error);
+      let errorMessage = "Failed to update wishlist";
+      if (typeof error === "object" && error !== null) {
+        const e = error as { data?: { message?: string }; message?: string };
+        if (e.data?.message) errorMessage = e.data.message;
+        else if (e.message) errorMessage = e.message;
+      } else {
+        errorMessage = String(error);
+      }
+      toast.error(errorMessage);
       // Revert optimistic update on error
       setOptimisticFavorite(!newFavoriteState);
     }
@@ -152,13 +203,14 @@ const RoomCard = ({ room, mode = "browse", compact = false }: RoomCardsProps) =>
   // Extract YouTube video ID from URL and return a valid embed URL
   const getYouTubeEmbedUrl = (url: string | undefined) => {
     if (!url) return "";
-    
+
     // Regular expressions for different YouTube URL formats
-    const standardRegExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-    const shortsRegExp = /^.*youtube\.com\/shorts\/([^#\&\?]*).*/;
-    
+    const standardRegExp =
+      /^.*(youtu\.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const shortsRegExp = /^.*youtube\.com\/shorts\/([^#&?]*).*/;
+
     let videoId = null;
-    
+
     const shortsMatch = url.match(shortsRegExp);
     if (shortsMatch && shortsMatch[1].length === 11) {
       videoId = shortsMatch[1];
@@ -168,64 +220,76 @@ const RoomCard = ({ room, mode = "browse", compact = false }: RoomCardsProps) =>
         videoId = standardMatch[2];
       }
     }
-    
-    return videoId ? `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&rel=0` : "";
+
+    return videoId
+      ? `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&rel=0`
+      : "";
   };
 
   return (
     <div className="group cursor-pointer flex flex-col h-full border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
       {/* Single Image - Clickable with Airbnb-style rounded corners */}
       <div className="relative">
-        <div onClick={handleImageClick} className="relative overflow-hidden rounded-t-xl mb-0 flex-shrink-0 w-full h-32 sm:h-36 md:h-40 bg-gray-200 dark:bg-gray-700">
-          {room.images && room.images.length > 0 ? (
-          <Image
-            src={room.images[0]}
-            alt={room.name}
-            fill
-            className="object-cover w-full h-full"
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-          />
-        ) : (
-          <div className="w-full h-full bg-gradient-to-br from-gray-300 to-gray-400 dark:from-gray-600 dark:to-gray-700 flex items-center justify-center">
-            <span className="text-gray-500 dark:text-gray-400">No image</span>
-          </div>
-        )}
-
-        {/* Heart icon - top left */}
-        <button
-          onClick={handleHeartClick}
-          disabled={isAdding || isRemoving || isCheckingWishlist || isWishlistDisabled}
-          className="absolute top-3 left-3 p-2 rounded-full bg-black/60 dark:bg-gray-900/80 backdrop-blur-sm hover:bg-black/80 dark:hover:bg-gray-800 transition-all duration-200 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-          title={isWishlistDisabled ? "Wishlist feature temporarily unavailable" : userId ? "Add to wishlist" : "Login to add to wishlist"}
+        <div
+          onClick={handleImageClick}
+          className="relative overflow-hidden rounded-t-xl mb-0 flex-shrink-0 w-full h-32 sm:h-36 md:h-40 bg-gray-200 dark:bg-gray-700"
         >
-          {isAdding || isRemoving || isCheckingWishlist ? (
-            <div className="w-4 h-4 sm:w-5 sm:h-5 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
-          ) : (
-            <Heart
-              className={`w-4 h-4 sm:w-5 sm:h-5 transition-all duration-200 ${
-                isFavorite
-                  ? "fill-red-500 text-red-500"
-                  : "text-white"
-              }`}
+          {room.images && room.images.length > 0 ? (
+            <Image
+              src={room.images[0]}
+              alt={room.name}
+              fill
+              className="object-cover w-full h-full"
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-gray-300 to-gray-400 dark:from-gray-600 dark:to-gray-700 flex items-center justify-center">
+              <span className="text-gray-500 dark:text-gray-400">No image</span>
+            </div>
           )}
-        </button>
 
-        {/* Video button overlay - shows on hover */}
-        {room.youtubeUrl && mode === "browse" && (
+          {/* Heart icon - top left */}
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleVideoClick();
-            }}
-            className="absolute top-3 right-3 bg-white/95 dark:bg-gray-700/95 backdrop-blur-sm px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 flex items-center gap-1.5 shadow-lg hover:scale-105"
+            onClick={handleHeartClick}
+            disabled={
+              isAdding || isRemoving || isCheckingWishlist || isWishlistDisabled
+            }
+            className="absolute top-3 left-3 p-2 rounded-full bg-black/60 dark:bg-gray-900/80 backdrop-blur-sm hover:bg-black/80 dark:hover:bg-gray-800 transition-all duration-200 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+            title={
+              isWishlistDisabled
+                ? "Wishlist feature temporarily unavailable"
+                : userId
+                  ? "Add to wishlist"
+                  : "Save to this device (guest) - sign in to sync"
+            }
           >
-            <Video className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-brand-primary" />
-            <span className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-white">Video Tour</span>
+            {isAdding || isRemoving || isCheckingWishlist ? (
+              <div className="w-4 h-4 sm:w-5 sm:h-5 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+            ) : (
+              <Heart
+                className={`w-4 h-4 sm:w-5 sm:h-5 transition-all duration-200 ${
+                  isFavorite ? "fill-red-500 text-red-500" : "text-white"
+                }`}
+              />
+            )}
           </button>
-        )}
 
-      </div>
+          {/* Video button overlay - shows on hover */}
+          {room.youtubeUrl && mode === "browse" && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleVideoClick();
+              }}
+              className="absolute top-3 right-3 bg-white/95 dark:bg-gray-700/95 backdrop-blur-sm px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 flex items-center gap-1.5 shadow-lg hover:scale-105"
+            >
+              <Video className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-brand-primary" />
+              <span className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-white">
+                Video Tour
+              </span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Discount Section - Overlap Image and Details */}
@@ -233,10 +297,13 @@ const RoomCard = ({ room, mode = "browse", compact = false }: RoomCardsProps) =>
         <div className="bg-brand-primary dark:bg-brand-primary text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-md whitespace-nowrap">
           {room.discountPercentage && room.discountPercentage > 0
             ? `-${room.discountPercentage}% OFF`
-            : '-15% OFF'}
+            : "-15% OFF"}
         </div>
         <div className="flex items-center gap-1.5">
-          <Tag className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-yellow-600 dark:text-yellow-500" style={{animation: 'slideInScale 0.6s ease-out'}} />
+          <Tag
+            className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-yellow-600 dark:text-yellow-500"
+            style={{ animation: "slideInScale 0.6s ease-out" }}
+          />
           <div className="text-xs font-semibold text-yellow-700 dark:text-yellow-400">
             Summer Sale
           </div>
@@ -256,7 +323,10 @@ const RoomCard = ({ room, mode = "browse", compact = false }: RoomCardsProps) =>
       `}</style>
 
       {/* Content - Clean structure */}
-      <div className="flex flex-col flex-grow space-y-2 p-3" onClick={handleImageClick}>
+      <div
+        className="flex flex-col flex-grow space-y-2 p-3"
+        onClick={handleImageClick}
+      >
         {/* Price Section - Current price with original price next to it */}
         <div className="flex items-center justify-between gap-2 -mt-3">
           <div className="flex flex-col">
@@ -267,7 +337,7 @@ const RoomCard = ({ room, mode = "browse", compact = false }: RoomCardsProps) =>
               </div>
               <div className="flex items-center gap-1">
                 <span className="text-xs text-gray-500 dark:text-gray-400 line-through">
-                  {room.originalPrice || '₱3,150'}
+                  {room.originalPrice || "₱3,150"}
                 </span>
               </div>
             </div>
@@ -283,12 +353,17 @@ const RoomCard = ({ room, mode = "browse", compact = false }: RoomCardsProps) =>
               Save
             </div>
             <div className="text-xs sm:text-sm font-bold text-green-600 dark:text-green-400">
-              ₱{room.originalPrice && room.discountPercentage && room.discountPercentage > 0
+              ₱
+              {room.originalPrice &&
+              room.discountPercentage &&
+              room.discountPercentage > 0
                 ? (
-                    (parseFloat(room.originalPrice.replace('₱', '').replace(/,/g, '')) -
-                     parseFloat(room.price.replace('₱', '').replace(/,/g, '')))
-                  ).toLocaleString('en-PH')
-                : '525'}
+                    parseFloat(
+                      room.originalPrice.replace("₱", "").replace(/,/g, ""),
+                    ) -
+                    parseFloat(room.price.replace("₱", "").replace(/,/g, ""))
+                  ).toLocaleString("en-PH")
+                : "525"}
             </div>
           </div>
         </div>
@@ -307,7 +382,11 @@ const RoomCard = ({ room, mode = "browse", compact = false }: RoomCardsProps) =>
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
             <MapPin className="w-3 h-3" />
-            <span className="truncate">{room.tower || room.floor ? `${room.tower || ''}${room.tower && room.floor ? ', ' : ''}${room.floor ? `${room.floor} flr` : ''}` : 'Location'}</span>
+            <span className="truncate">
+              {room.tower || room.floor
+                ? `${room.tower || ""}${room.tower && room.floor ? ", " : ""}${room.floor ? `${room.floor} flr` : ""}`
+                : "Location"}
+            </span>
           </div>
           <div className="flex items-center gap-0.5">
             <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-brand-primary text-brand-primary" />
@@ -365,7 +444,10 @@ const RoomCard = ({ room, mode = "browse", compact = false }: RoomCardsProps) =>
             </div>
 
             {/* YouTube Video Embed */}
-            <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+            <div
+              className="relative w-full"
+              style={{ paddingBottom: "56.25%" }}
+            >
               <iframe
                 className="absolute top-0 left-0 w-full h-full"
                 src={getYouTubeEmbedUrl(room.youtubeUrl)}
