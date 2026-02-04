@@ -1,16 +1,17 @@
-'use client';
+"use client";
 
-import { Heart, MapPin, Star, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
-import Link from 'next/link';
-import Image from 'next/image';
-import toast, { Toaster } from 'react-hot-toast';
-import { useGetUserWishlistQuery, useRemoveFromWishlistMutation } from '@/redux/api/wishlistApi';
-import Footer from '@/Components/Footer';
-import SidebarLayout from '@/Components/SidebarLayout';
-import RoomCardSkeleton from '@/Components/Rooms/RoomCardSkeleton';
-import RoomCard from '@/Components/Rooms/RoomCard'; // Added missing import
-import RoomImageGallery from '@/Components/Rooms/RoomImageGallery';
-import { useState, useEffect } from 'react';
+import { Heart, ChevronLeft, ChevronRight } from "lucide-react";
+import Link from "next/link";
+import toast, { Toaster } from "react-hot-toast";
+import {
+  useGetUserWishlistQuery,
+  useRemoveFromWishlistMutation,
+} from "@/redux/api/wishlistApi";
+import SidebarLayout from "@/Components/SidebarLayout";
+import RoomCardSkeleton from "@/Components/Rooms/RoomCardSkeleton";
+import RoomCard from "@/Components/Rooms/RoomCard";
+import { useState, useEffect } from "react";
+import { getGuestIdentifier, getOrCreateGuestIdentifier } from "@/lib/guest";
 
 interface WishlistItem {
   id: string;
@@ -26,14 +27,42 @@ interface MyWishlistPageProps {
     success: boolean;
     data: WishlistItem[];
   };
-  userId: string;
+  userId?: string;
 }
 
 const MyWishlistPage = ({ initialData, userId }: MyWishlistPageProps) => {
-  // RTK Query hooks
-  const { data: wishlistData, isLoading, refetch } = useGetUserWishlistQuery(userId);
-  const [removeFromWishlist, { isLoading: isRemoving }] = useRemoveFromWishlistMutation();
-  
+  // Client-side user identifier (supports guest users)
+  const [clientUserId, setClientUserId] = useState<string>(userId || "");
+  useEffect(() => {
+    // If a logged-in user id is available, set it asynchronously to avoid synchronous setState in effect
+    if (userId) {
+      Promise.resolve().then(() => setClientUserId(userId));
+      return;
+    }
+
+    // For guests: try to read an existing guest identifier (no side-effects)
+    const guest = getGuestIdentifier();
+    if (guest) {
+      Promise.resolve().then(() => setClientUserId(guest));
+      return;
+    }
+
+    // No guest token yet - create one client-side and set it in a microtask
+    Promise.resolve().then(() => {
+      const created = getOrCreateGuestIdentifier();
+      if (created) setClientUserId(created);
+    });
+  }, [userId]);
+
+  // RTK Query hooks (skip until we have a client-side identifier)
+  const {
+    data: wishlistData,
+    isLoading,
+    refetch,
+  } = useGetUserWishlistQuery(clientUserId, { skip: !clientUserId });
+  const [removeFromWishlist, { isLoading: isRemoving }] =
+    useRemoveFromWishlistMutation();
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [isMobile, setIsMobile] = useState(false);
@@ -49,17 +78,17 @@ const MyWishlistPage = ({ initialData, userId }: MyWishlistPageProps) => {
     checkMobile();
 
     // Add event listener for window resize
-    window.addEventListener('resize', checkMobile);
+    window.addEventListener("resize", checkMobile);
 
     // Cleanup
     return () => {
-      window.removeEventListener('resize', checkMobile);
+      window.removeEventListener("resize", checkMobile);
     };
   }, []);
 
   // Use SSR data if RTK Query hasn't loaded yet, otherwise use RTK Query data
-  const wishlistItems = (wishlistData?.data || initialData?.data || []);
-  
+  const wishlistItems = wishlistData?.data || initialData?.data || [];
+
   // Pagination logic
   const totalRooms = wishlistItems.length;
   const totalPages = Math.ceil(totalRooms / ROOMS_PER_PAGE);
@@ -74,11 +103,11 @@ const MyWishlistPage = ({ initialData, userId }: MyWishlistPageProps) => {
   const handleRemoveFromWishlist = async (wishlistId: string) => {
     try {
       await removeFromWishlist(wishlistId).unwrap();
-      toast.success('Removed from wishlist');
+      toast.success("Removed from wishlist");
       refetch(); // Refetch the wishlist
     } catch (error) {
-      console.error('Error removing from wishlist:', error);
-      toast.error('Failed to remove from wishlist');
+      console.error("Error removing from wishlist:", error);
+      toast.error("Failed to remove from wishlist");
     }
   };
 
@@ -91,9 +120,7 @@ const MyWishlistPage = ({ initialData, userId }: MyWishlistPageProps) => {
           <div className="inline-flex items-center justify-center w-16 h-16 bg-brand-primary/10 dark:bg-brand-primary/20 backdrop-blur-sm rounded-full mb-6 border border-brand-primary/20 dark:border-brand-primary/30">
             <Heart className="w-8 h-8 text-brand-primary" />
           </div>
-          <h1 className="text-4xl md:text-5xl font-bold mb-4">
-            My Wishlist
-          </h1>
+          <h1 className="text-4xl md:text-5xl font-bold mb-4">My Wishlist</h1>
           <p className="text-lg md:text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
             View and manage your saved staycation havens
           </p>
@@ -110,7 +137,7 @@ const MyWishlistPage = ({ initialData, userId }: MyWishlistPageProps) => {
                 {/* Scroll hint skeleton */}
                 <div className="h-4 w-48 bg-gray-200 dark:bg-gray-700 rounded mb-2 animate-pulse"></div>
                 <div className="overflow-x-auto pb-2 -mx-4 px-4">
-                  <div className="flex gap-3" style={{ width: 'max-content' }}>
+                  <div className="flex gap-3" style={{ width: "max-content" }}>
                     {[1, 2, 3, 4, 5].map((skeleton) => (
                       <div key={skeleton} className="flex-shrink-0 w-40">
                         <RoomCardSkeleton compact={false} />
@@ -159,7 +186,7 @@ const MyWishlistPage = ({ initialData, userId }: MyWishlistPageProps) => {
                   <span>Scroll right to see more rooms</span>
                 </p>
                 <div className="overflow-x-auto pb-2 -mx-4 px-4">
-                  <div className="flex gap-3" style={{ width: 'max-content' }}>
+                  <div className="flex gap-3" style={{ width: "max-content" }}>
                     {displayedRooms.map((item: WishlistItem) => (
                       <div key={item.id} className="flex-shrink-0 w-40">
                         <RoomCard
@@ -179,7 +206,7 @@ const MyWishlistPage = ({ initialData, userId }: MyWishlistPageProps) => {
                             floor: "",
                             roomSize: "",
                             location: item.tower || "Quezon City",
-                            youtubeUrl: ""
+                            youtubeUrl: "",
                           }}
                           mode="browse"
                           compact={false}
@@ -218,7 +245,7 @@ const MyWishlistPage = ({ initialData, userId }: MyWishlistPageProps) => {
                         floor: "",
                         roomSize: "",
                         location: item.tower || "Quezon City",
-                        youtubeUrl: ""
+                        youtubeUrl: "",
                       }}
                       mode="browse"
                       compact={false}
@@ -244,50 +271,58 @@ const MyWishlistPage = ({ initialData, userId }: MyWishlistPageProps) => {
                   disabled={currentPage === 1}
                   className={`p-2 rounded-full transition-all duration-200 ${
                     currentPage === 1
-                      ? 'bg-gray-200 dark:bg-gray-700 cursor-not-allowed opacity-50'
-                      : 'bg-brand-primary hover:bg-brand-primaryDark'
+                      ? "bg-gray-200 dark:bg-gray-700 cursor-not-allowed opacity-50"
+                      : "bg-brand-primary hover:bg-brand-primaryDark"
                   }`}
                   aria-label="Previous page"
                 >
-                  <ChevronLeft className={`w-5 h-5 ${
-                    currentPage === 1
-                      ? 'text-gray-400 dark:text-gray-500'
-                      : 'text-white'
-                  }`} />
+                  <ChevronLeft
+                    className={`w-5 h-5 ${
+                      currentPage === 1
+                        ? "text-gray-400 dark:text-gray-500"
+                        : "text-white"
+                    }`}
+                  />
                 </button>
 
                 {/* Page Dots */}
                 <div className="flex gap-2 items-center">
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
-                    <button
-                      key={pageNum}
-                      onClick={() => handlePageChange(pageNum)}
-                      className={`transition-all duration-200 rounded-full ${
-                        currentPage === pageNum
-                          ? 'w-8 h-3 bg-brand-primary'
-                          : 'w-3 h-3 bg-gray-300 dark:bg-gray-600 hover:bg-brand-primary/50 dark:hover:bg-brand-primary/50'
-                      }`}
-                      aria-label={`Go to page ${pageNum}`}
-                    />
-                  ))}
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                    (pageNum) => (
+                      <button
+                        key={pageNum}
+                        onClick={() => handlePageChange(pageNum)}
+                        className={`transition-all duration-200 rounded-full ${
+                          currentPage === pageNum
+                            ? "w-8 h-3 bg-brand-primary"
+                            : "w-3 h-3 bg-gray-300 dark:bg-gray-600 hover:bg-brand-primary/50 dark:hover:bg-brand-primary/50"
+                        }`}
+                        aria-label={`Go to page ${pageNum}`}
+                      />
+                    ),
+                  )}
                 </div>
 
                 {/* Next Button */}
                 <button
-                  onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
+                  onClick={() =>
+                    handlePageChange(Math.min(totalPages, currentPage + 1))
+                  }
                   disabled={currentPage === totalPages}
                   className={`p-2 rounded-full transition-all duration-200 ${
                     currentPage === totalPages
-                      ? 'bg-gray-200 dark:bg-gray-700 cursor-not-allowed opacity-50'
-                      : 'bg-brand-primary hover:bg-brand-primaryDark'
+                      ? "bg-gray-200 dark:bg-gray-700 cursor-not-allowed opacity-50"
+                      : "bg-brand-primary hover:bg-brand-primaryDark"
                   }`}
                   aria-label="Next page"
                 >
-                  <ChevronRight className={`w-5 h-5 ${
-                    currentPage === totalPages
-                      ? 'text-gray-400 dark:text-gray-500'
-                      : 'text-white'
-                  }`} />
+                  <ChevronRight
+                    className={`w-5 h-5 ${
+                      currentPage === totalPages
+                        ? "text-gray-400 dark:text-gray-500"
+                        : "text-white"
+                    }`}
+                  />
                 </button>
               </div>
             )}
