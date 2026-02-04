@@ -61,24 +61,22 @@ const Navbar = () => {
   const navUserId = userId || guestIdentifier;
 
   useEffect(() => {
-    // If a real user is present, clear any guest identifier
+    // If an authenticated user is present, clear any guest identifier
     if (userId) {
       setGuestIdentifier(null);
       return;
     }
 
-    // Try to read an existing guest identifier (no side-effects)
+    // Try to read an existing guest identifier synchronously
     const existing = getGuestIdentifier();
     if (existing) {
       setGuestIdentifier(existing);
       return;
     }
 
-    // Otherwise create one client-side (deferred to avoid sync setState in effect)
-    Promise.resolve().then(() => {
-      const created = getOrCreateGuestIdentifier();
-      if (created) setGuestIdentifier(created);
-    });
+    // Create one client-side synchronously so the navbar can reflect guest status immediately
+    const created = getOrCreateGuestIdentifier();
+    if (created) setGuestIdentifier(created);
   }, [userId]);
 
   // Fetch user bookings (only for logged-in users) and wishlist counts (supports guest identifiers)
@@ -481,6 +479,15 @@ const Navbar = () => {
                   </div>
 
                   <div className="py-1">
+                    <button
+                      onClick={() => handleDropdownNavigation("/profile")}
+                      className="w-full px-4 py-2.5 flex items-center justify-between gap-3 transition-colors duration-150 text-left text-gray-700 dark:text-gray-300 hover:bg-red-50 dark:hover:bg-red-900/20"
+                    >
+                      <div className="flex items-center gap-3">
+                        <User className="w-4 h-4 text-brand-primary" />
+                        <span className="text-sm">My Profile</span>
+                      </div>
+                    </button>
                     <button
                       onClick={() => handleDropdownNavigation("/my-wishlist")}
                       className="w-full px-4 py-2.5 flex items-center justify-between gap-3 transition-colors duration-150 text-left text-gray-700 dark:text-gray-300 hover:bg-red-50 dark:hover:bg-red-900/20"
@@ -919,7 +926,7 @@ const Navbar = () => {
               <div className="space-y-3">
                 <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
                   <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center">
-                    <User className="w-6 h-6 text-gray-700" />
+                    <User className="w-6 h-6 text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-gray-800 dark:text-gray-100">
@@ -930,6 +937,17 @@ const Navbar = () => {
                     </p>
                   </div>
                 </div>
+
+                <button
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    router.push("/profile");
+                  }}
+                  className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-900/10 text-gray-800 dark:text-gray-200"
+                >
+                  <User className="w-5 h-5 text-brand-primary" />
+                  My Profile
+                </button>
 
                 <button
                   onClick={() => {
