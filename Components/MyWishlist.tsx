@@ -127,6 +127,28 @@ const MyWishlistPage = ({ initialData, userId }: MyWishlistPageProps) => {
         </div>
       </div>
 
+      {/* Guest Banner (when using guest session) */}
+      {!userId && clientUserId && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="rounded-lg p-3 bg-yellow-50 border border-yellow-200 text-yellow-900 flex items-center justify-between">
+            <div className="text-sm">
+              <strong className="font-medium">
+                You are browsing as a guest.
+              </strong>{" "}
+              Your wishlist is stored only in this browser. Sign in to save
+              &amp; sync across devices.
+            </div>
+            <div>
+              <Link href="/login?callbackUrl=/my-wishlist">
+                <button className="px-3 py-1 bg-yellow-600 text-white rounded">
+                  Sign in to sync
+                </button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {isLoading ? (
@@ -169,6 +191,23 @@ const MyWishlistPage = ({ initialData, userId }: MyWishlistPageProps) => {
             <p className="text-gray-600 mb-6">
               Start adding havens you love to your wishlist!
             </p>
+
+            {!userId && clientUserId && (
+              <div className="mb-4">
+                <p className="text-sm text-gray-500 mb-3">
+                  You are in a guest session — your wishlist is stored locally
+                  in this browser only.
+                </p>
+                <div className="flex items-center justify-center gap-3">
+                  <Link href="/login?callbackUrl=/my-wishlist">
+                    <button className="px-4 py-2 bg-yellow-600 text-white rounded-md">
+                      Sign in to save &amp; sync
+                    </button>
+                  </Link>
+                </div>
+              </div>
+            )}
+
             <Link href="/rooms">
               <button className="px-8 py-3 bg-brand-primary hover:bg-brand-primaryDark text-white rounded-lg font-medium transition-colors">
                 Browse Havens
