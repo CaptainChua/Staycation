@@ -27,6 +27,7 @@
     "@types/nodemailer": "^7.0.4",
     "anxious": "^0.0.0-security",
     "axios": "^1.13.2",
+    "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.3",
     "cloudinary": "^2.8.0",
     "critters": "^0.0.23",
