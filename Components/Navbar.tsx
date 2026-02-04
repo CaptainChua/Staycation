@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
+import { getGuestIdentifier, getOrCreateGuestIdentifier } from "@/lib/guest";
 import Image from "next/image";
 import {
   User,
@@ -31,7 +32,7 @@ interface UserData {
   profile_image_url?: string;
 }
 
-  const Navbar = () => {
+const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isHelpSidebarOpen, setIsHelpSidebarOpen] = useState(false);
@@ -53,19 +54,49 @@ interface UserData {
   // Get user ID for API calls
   const userId = (session?.user as UserData)?.id || null;
 
-  // Fetch user bookings and wishlist counts
+  // Guest identifier (if not authenticated)
+  const [guestIdentifier, setGuestIdentifier] = useState<string | null>(null);
+
+  // nav identifier - prefer the logged-in user id, otherwise use guest identifier (formatted as `guest_<token>`)
+  const navUserId = userId || guestIdentifier;
+
+  useEffect(() => {
+    // If a real user is present, clear any guest identifier
+    if (userId) {
+      setGuestIdentifier(null);
+      return;
+    }
+
+    // Try to read an existing guest identifier (no side-effects)
+    const existing = getGuestIdentifier();
+    if (existing) {
+      setGuestIdentifier(existing);
+      return;
+    }
+
+    // Otherwise create one client-side (deferred to avoid sync setState in effect)
+    Promise.resolve().then(() => {
+      const created = getOrCreateGuestIdentifier();
+      if (created) setGuestIdentifier(created);
+    });
+  }, [userId]);
+
+  // Fetch user bookings (only for logged-in users) and wishlist counts (supports guest identifiers)
   const { data: userBookings } = useGetUserBookingsQuery(
     { userId },
-    { skip: !userId }
+    { skip: !userId },
   );
-  const { data: userWishlist } = useGetUserWishlistQuery(
-    userId,
-    { skip: !userId }
-  );
+  const { data: userWishlist } = useGetUserWishlistQuery(navUserId, {
+    skip: !navUserId,
+  });
 
   // Calculate counts with better error handling
-  const bookingsCount = Array.isArray(userBookings) ? userBookings.length : (userBookings?.data?.length || 0);
-  const wishlistCount = Array.isArray(userWishlist) ? userWishlist.length : (userWishlist?.data?.length || 0);
+  const bookingsCount = Array.isArray(userBookings)
+    ? userBookings.length
+    : userBookings?.data?.length || 0;
+  const wishlistCount = Array.isArray(userWishlist)
+    ? userWishlist.length
+    : userWishlist?.data?.length || 0;
 
   const menuItems = ["Havens", "Contacts", "Location", "About"];
 
@@ -137,27 +168,27 @@ interface UserData {
   const handleDeleteAccount = async () => {
     setIsDeleting(true);
     try {
-      const response = await fetch('/api/auth/delete-account', {
-        method: 'POST',
+      const response = await fetch("/api/auth/delete-account", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
       });
 
       if (response.ok) {
-        console.log('✅ Account deleted successfully');
+        console.log("✅ Account deleted successfully");
         setIsDeleteModalOpen(false);
         setIsProfileOpen(false);
         // Sign out the user and redirect
-        await signOut({ callbackUrl: '/' });
+        await signOut({ callbackUrl: "/" });
       } else {
         const error = await response.json();
-        console.error('❌ Failed to delete account:', error);
-        alert('Failed to delete account. Please try again.');
+        console.error("❌ Failed to delete account:", error);
+        alert("Failed to delete account. Please try again.");
       }
     } catch (error) {
-      console.error('❌ Error deleting account:', error);
-      alert('An error occurred while deleting your account.');
+      console.error("❌ Error deleting account:", error);
+      alert("An error occurred while deleting your account.");
     } finally {
       setIsDeleting(false);
     }
@@ -189,7 +220,9 @@ interface UserData {
             />
             <span className="text-xl sm:text-2xl font-display text-brand-primary dark:text-brand-primary relative">
               taycation Haven
-              <sup className="text-xs text-brand-primary dark:text-brand-primary ml-0.5 font-normal">PH</sup>
+              <sup className="text-xs text-brand-primary dark:text-brand-primary ml-0.5 font-normal">
+                PH
+              </sup>
             </span>
           </div>
         </Link>
@@ -341,12 +374,12 @@ interface UserData {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          setTheme('dark');
+                          setTheme("dark");
                         }}
                         className={`p-1 rounded-full transition-all duration-200 ${
-                          theme === 'dark'
-                            ? 'bg-white dark:bg-gray-600 text-brand-primary shadow-sm'
-                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                          theme === "dark"
+                            ? "bg-white dark:bg-gray-600 text-brand-primary shadow-sm"
+                            : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                         }`}
                         aria-label="Dark mode"
                         title="Dark"
@@ -356,12 +389,12 @@ interface UserData {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          setTheme('light');
+                          setTheme("light");
                         }}
                         className={`p-1 rounded-full transition-all duration-200 ${
-                          theme === 'light'
-                            ? 'bg-white dark:bg-gray-600 text-brand-primary shadow-sm'
-                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                          theme === "light"
+                            ? "bg-white dark:bg-gray-600 text-brand-primary shadow-sm"
+                            : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                         }`}
                         aria-label="Light mode"
                         title="Light"
@@ -371,12 +404,12 @@ interface UserData {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          setTheme('system');
+                          setTheme("system");
                         }}
                         className={`p-1 rounded-full transition-all duration-200 ${
-                          theme === 'system'
-                            ? 'bg-white dark:bg-gray-600 text-brand-primary shadow-sm'
-                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                          theme === "system"
+                            ? "bg-white dark:bg-gray-600 text-brand-primary shadow-sm"
+                            : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                         }`}
                         aria-label="System mode"
                         title="System"
@@ -394,7 +427,9 @@ interface UserData {
                       className="w-full px-4 py-2.5 flex items-center gap-3 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors duration-150 text-left"
                     >
                       <Trash2 className="w-4 h-4" />
-                      <span className="text-sm font-medium">Delete Account</span>
+                      <span className="text-sm font-medium">
+                        Delete Account
+                      </span>
                     </button>
                     <button
                       onClick={async () => {
@@ -405,6 +440,65 @@ interface UserData {
                     >
                       <LogOut className="w-4 h-4" />
                       <span className="text-sm font-medium">Sign Out</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : guestIdentifier ? (
+            <div className="relative" ref={profileContainerRef}>
+              <button
+                onClick={toggleProfileDropdown}
+                className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-brand-primary dark:hover:border-brand-primary transition-colors duration-200"
+              >
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gray-200 flex items-center justify-center">
+                  <User className="w-4 h-4 text-gray-700" />
+                </div>
+                <span className="hidden sm:block font-medium text-gray-800 dark:text-gray-100 truncate text-sm">
+                  Guest
+                </span>
+                <ChevronDown
+                  className={`w-4 h-4 text-gray-500 dark:text-gray-400 transition-transform duration-200 ${isProfileOpen ? "rotate-180" : ""}`}
+                />
+              </button>
+
+              {isProfileOpen && (
+                <div className="absolute right-0 mt-2 w-52 sm:w-56 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden z-50">
+                  <div className="p-4 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-600">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
+                        <User className="w-5 h-5 text-gray-700" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-gray-900 dark:text-gray-100 truncate text-sm">
+                          Guest
+                        </p>
+                        <p className="text-xs text-gray-600 dark:text-gray-400 truncate">
+                          Signed in as guest
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="py-1">
+                    <button
+                      onClick={() => handleDropdownNavigation("/my-wishlist")}
+                      className="w-full px-4 py-2.5 flex items-center justify-between gap-3 transition-colors duration-150 text-left text-gray-700 dark:text-gray-300 hover:bg-red-50 dark:hover:bg-red-900/20"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Heart className="w-4 h-4 text-brand-primary" />
+                        <span className="text-sm">My Wishlist</span>
+                      </div>
+                      <span className="bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
+                        {wishlistCount}
+                      </span>
+                    </button>
+                    <button
+                      onClick={() => router.push("/login")}
+                      className="w-full px-4 py-2.5 flex items-center gap-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      <User className="w-4 h-4" />
+                      <span className="text-sm">Sign In / Register</span>
                     </button>
                   </div>
                 </div>
@@ -538,12 +632,12 @@ interface UserData {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            setTheme('dark');
+                            setTheme("dark");
                           }}
                           className={`p-1 rounded-full transition-all duration-200 ${
-                            theme === 'dark'
-                              ? 'bg-white dark:bg-gray-600 text-brand-primary shadow-sm'
-                              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                            theme === "dark"
+                              ? "bg-white dark:bg-gray-600 text-brand-primary shadow-sm"
+                              : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                           }`}
                           aria-label="Dark mode"
                           title="Dark"
@@ -553,12 +647,12 @@ interface UserData {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            setTheme('light');
+                            setTheme("light");
                           }}
                           className={`p-1 rounded-full transition-all duration-200 ${
-                            theme === 'light'
-                              ? 'bg-white dark:bg-gray-600 text-brand-primary shadow-sm'
-                              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                            theme === "light"
+                              ? "bg-white dark:bg-gray-600 text-brand-primary shadow-sm"
+                              : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                           }`}
                           aria-label="Light mode"
                           title="Light"
@@ -568,12 +662,12 @@ interface UserData {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            setTheme('system');
+                            setTheme("system");
                           }}
                           className={`p-1 rounded-full transition-all duration-200 ${
-                            theme === 'system'
-                              ? 'bg-white dark:bg-gray-600 text-brand-primary shadow-sm'
-                              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                            theme === "system"
+                              ? "bg-white dark:bg-gray-600 text-brand-primary shadow-sm"
+                              : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                           }`}
                           aria-label="System mode"
                           title="System"
@@ -596,6 +690,17 @@ interface UserData {
                   </div>
                 </div>
               )}
+            </div>
+          ) : guestIdentifier ? (
+            <div className="relative" ref={profileContainerRef}>
+              <button
+                onClick={toggleProfileDropdown}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-brand-primary dark:hover:border-brand-primary transition-colors duration-200"
+              >
+                <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center">
+                  <User className="w-4 h-4 text-gray-700" />
+                </div>
+              </button>
             </div>
           ) : (
             <Link href="/login">
@@ -773,11 +878,11 @@ interface UserData {
                 {/* Theme Toggle */}
                 <div className="flex items-center justify-center gap-0.5 bg-gray-100 dark:bg-gray-700 rounded-full p-0.5">
                   <button
-                    onClick={() => setTheme('dark')}
+                    onClick={() => setTheme("dark")}
                     className={`p-1 rounded-full transition-all duration-200 ${
-                      theme === 'dark'
-                        ? 'bg-white dark:bg-gray-600 text-brand-primary shadow-sm'
-                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                      theme === "dark"
+                        ? "bg-white dark:bg-gray-600 text-brand-primary shadow-sm"
+                        : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                     }`}
                     aria-label="Dark mode"
                     title="Dark"
@@ -785,11 +890,11 @@ interface UserData {
                     <Moon className="w-3 h-3" />
                   </button>
                   <button
-                    onClick={() => setTheme('light')}
+                    onClick={() => setTheme("light")}
                     className={`p-1 rounded-full transition-all duration-200 ${
-                      theme === 'light'
-                        ? 'bg-white dark:bg-gray-600 text-brand-primary shadow-sm'
-                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                      theme === "light"
+                        ? "bg-white dark:bg-gray-600 text-brand-primary shadow-sm"
+                        : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                     }`}
                     aria-label="Light mode"
                     title="Light"
@@ -797,11 +902,11 @@ interface UserData {
                     <Sun className="w-3 h-3" />
                   </button>
                   <button
-                    onClick={() => setTheme('system')}
+                    onClick={() => setTheme("system")}
                     className={`p-1 rounded-full transition-all duration-200 ${
-                      theme === 'system'
-                        ? 'bg-white dark:bg-gray-600 text-brand-primary shadow-sm'
-                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                      theme === "system"
+                        ? "bg-white dark:bg-gray-600 text-brand-primary shadow-sm"
+                        : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                     }`}
                     aria-label="System mode"
                     title="System"
@@ -809,6 +914,43 @@ interface UserData {
                     <Monitor className="w-3 h-3" />
                   </button>
                 </div>
+              </div>
+            ) : guestIdentifier ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
+                  <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center">
+                    <User className="w-6 h-6 text-gray-700" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-gray-800 dark:text-gray-100">
+                      Guest
+                    </p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Signed in as guest
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    router.push("/my-wishlist");
+                  }}
+                  className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-900/10 text-gray-800 dark:text-gray-200"
+                >
+                  <Heart className="w-5 h-5 text-brand-primary" />
+                  View Wishlist ({wishlistCount})
+                </button>
+
+                <button
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    router.push("/login");
+                  }}
+                  className="w-full bg-brand-primary hover:bg-brand-primaryDark text-white px-6 py-3 rounded-lg font-medium transform hover:scale-105 transition-all duration-300 shadow-md"
+                >
+                  Sign In / Register
+                </button>
               </div>
             ) : (
               <Link href="/login">
@@ -877,7 +1019,11 @@ interface UserData {
             {/* Modal Body */}
             <div className="px-6 py-4 space-y-4">
               <p className="text-gray-700 dark:text-gray-300 text-sm">
-                Are you sure you want to delete your account? This action <span className="font-semibold text-red-600 dark:text-red-400">cannot be undone</span>.
+                Are you sure you want to delete your account? This action{" "}
+                <span className="font-semibold text-red-600 dark:text-red-400">
+                  cannot be undone
+                </span>
+                .
               </p>
               <div className="bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 rounded-lg p-4 space-y-2">
                 <p className="text-xs font-semibold text-red-700 dark:text-red-400 uppercase">
