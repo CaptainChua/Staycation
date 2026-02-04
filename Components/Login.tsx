@@ -61,11 +61,21 @@ const Login = () => {
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-    // Clear error when user starts typing
-    setErrors((prev) => ({ ...prev, [name]: "" }));
-  };
+  const { name, value } = e.target;
+
+  // ❌ Disallow spaces in password fields
+  if ((name === "password" || name === "confirmPassword") && /\s/.test(value)) {
+    setErrors((prev) => ({
+      ...prev,
+      [name]: "Password must not contain spaces",
+    }));
+    return;
+  }
+
+  setFormData((prev) => ({ ...prev, [name]: value }));
+  setErrors((prev) => ({ ...prev, [name]: "" }));
+};
+
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
@@ -108,6 +118,9 @@ const Login = () => {
     if (!formData.password) {
       newErrors.password = "Password is required";
       isValid = false;
+    } else if (/\s/.test(formData.password)) {
+      newErrors.password = "Password must not contain spaces";
+      isValid = false;
     } else if (mode === "register" && formData.password.length < 8) {
       newErrors.password = "Password must be at least 8 characters";
       isValid = false;
@@ -122,6 +135,10 @@ const Login = () => {
         newErrors.confirmPassword = "Passwords do not match";
         isValid = false;
       }
+    }
+    if (mode === "register" && /\s/.test(formData.confirmPassword)) {
+      newErrors.confirmPassword = "Password must not contain spaces";
+      isValid = false;
     }
 
     setErrors(newErrors);
