@@ -213,7 +213,7 @@ const RoomCard = ({ room, mode = "browse", compact = false }: RoomCardsProps) =>
       </div>
 
       {/* Discount Section - Overlap Image and Details */}
-      <div className="flex items-center justify-center gap-3 px-4 py-2 bg-transparent rounded-lg shadow-sm border border-transparent -mt-5 mx-3 relative z-10 mb-3 overflow-hidden">
+      <div className="flex items-center justify-center gap-3 px-4 py-2 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm rounded-lg shadow-md border border-gray-200 dark:border-gray-700 -mt-5 mx-3 relative z-10 mb-3 overflow-hidden">
         <div className="bg-brand-primary dark:bg-brand-primary text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-md whitespace-nowrap">
           {room.discountPercentage && room.discountPercentage > 0
             ? `-${room.discountPercentage}% OFF`
