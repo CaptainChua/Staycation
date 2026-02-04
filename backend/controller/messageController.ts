@@ -25,7 +25,7 @@ export interface Message {
 
 // GET all conversations for a user
 export const getConversations = async (
-  req: NextRequest
+  req: NextRequest,
 ): Promise<NextResponse> => {
   try {
     const { searchParams } = new URL(req.url);
@@ -34,7 +34,7 @@ export const getConversations = async (
     if (!userId) {
       return NextResponse.json(
         { success: false, error: "User ID is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -72,18 +72,24 @@ export const getConversations = async (
       WHERE $1 = ANY(c.participant_ids)
       ORDER BY last_message_time DESC NULLS LAST
       `,
-      [userId]
+      [userId],
     );
 
     return NextResponse.json({
       success: true,
       data: result.rows,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error fetching conversations:", error);
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : typeof error === "string"
+          ? error
+          : "Failed to fetch conversations";
     return NextResponse.json(
-      { success: false, error: error.message || "Failed to fetch conversations" },
-      { status: 500 }
+      { success: false, error: errorMessage },
+      { status: 500 },
     );
   }
 };
@@ -91,7 +97,7 @@ export const getConversations = async (
 // GET messages for a conversation
 export const getMessages = async (
   req: NextRequest,
-  { params }: { params: Promise<{ conversationId: string }> }
+  { params }: { params: Promise<{ conversationId: string }> },
 ): Promise<NextResponse> => {
   try {
     const { conversationId } = await params;
@@ -99,7 +105,7 @@ export const getMessages = async (
     if (!conversationId) {
       return NextResponse.json(
         { success: false, error: "Conversation ID is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -117,26 +123,30 @@ export const getMessages = async (
       WHERE m.conversation_id = $1
       ORDER BY m.created_at ASC
       `,
-      [conversationId]
+      [conversationId],
     );
 
     return NextResponse.json({
       success: true,
       data: result.rows,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error fetching messages:", error);
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : typeof error === "string"
+          ? error
+          : "Failed to fetch messages";
     return NextResponse.json(
-      { success: false, error: error.message || "Failed to fetch messages" },
-      { status: 500 }
+      { success: false, error: errorMessage },
+      { status: 500 },
     );
   }
 };
 
 // POST send a message
-export const sendMessage = async (
-  req: NextRequest
-): Promise<NextResponse> => {
+export const sendMessage = async (req: NextRequest): Promise<NextResponse> => {
   try {
     const body = await req.json();
     const { conversation_id, sender_id, sender_name, message_text } = body;
@@ -144,7 +154,7 @@ export const sendMessage = async (
     if (!conversation_id || !sender_id || !sender_name || !message_text) {
       return NextResponse.json(
         { success: false, error: "Missing required fields" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -160,31 +170,37 @@ export const sendMessage = async (
       ) VALUES ($1, $2, $3, $4, false, timezone('Asia/Manila', NOW()))
       RETURNING *
       `,
-      [conversation_id, sender_id, sender_name, message_text]
+      [conversation_id, sender_id, sender_name, message_text],
     );
 
     // Update conversation's updated_at timestamp
     await pool.query(
       `UPDATE conversations SET updated_at = timezone('Asia/Manila', NOW()) WHERE id = $1`,
-      [conversation_id]
+      [conversation_id],
     );
 
     return NextResponse.json({
       success: true,
       data: result.rows[0],
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error sending message:", error);
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : typeof error === "string"
+          ? error
+          : "Failed to send message";
     return NextResponse.json(
-      { success: false, error: error.message || "Failed to send message" },
-      { status: 500 }
+      { success: false, error: errorMessage },
+      { status: 500 },
     );
   }
 };
 
 // POST mark messages as read
 export const markMessagesAsRead = async (
-  req: NextRequest
+  req: NextRequest,
 ): Promise<NextResponse> => {
   try {
     const body = await req.json();
@@ -193,7 +209,7 @@ export const markMessagesAsRead = async (
     if (!conversation_id || !user_id) {
       return NextResponse.json(
         { success: false, error: "Missing required fields" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -205,25 +221,31 @@ export const markMessagesAsRead = async (
       AND sender_id != $2
       AND is_read = false
       `,
-      [conversation_id, user_id]
+      [conversation_id, user_id],
     );
 
     return NextResponse.json({
       success: true,
       message: "Messages marked as read",
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error marking messages as read:", error);
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : typeof error === "string"
+          ? error
+          : "Failed to mark messages as read";
     return NextResponse.json(
-      { success: false, error: error.message || "Failed to mark messages as read" },
-      { status: 500 }
+      { success: false, error: errorMessage },
+      { status: 500 },
     );
   }
 };
 
 // POST create a new conversation
 export const createConversation = async (
-  req: NextRequest
+  req: NextRequest,
 ): Promise<NextResponse> => {
   try {
     const body = await req.json();
@@ -232,7 +254,7 @@ export const createConversation = async (
     if (!name || !type || !participant_ids || participant_ids.length === 0) {
       return NextResponse.json(
         { success: false, error: "Missing required fields" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -245,18 +267,24 @@ export const createConversation = async (
       ) VALUES ($1, $2, $3)
       RETURNING *
       `,
-      [name, type, participant_ids]
+      [name, type, participant_ids],
     );
 
     return NextResponse.json({
       success: true,
       data: result.rows[0],
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error creating conversation:", error);
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : typeof error === "string"
+          ? error
+          : "Failed to create conversation";
     return NextResponse.json(
-      { success: false, error: error.message || "Failed to create conversation" },
-      { status: 500 }
+      { success: false, error: errorMessage },
+      { status: 500 },
     );
   }
 };
