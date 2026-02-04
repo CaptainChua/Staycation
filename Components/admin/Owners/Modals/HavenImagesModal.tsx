@@ -110,7 +110,7 @@ const HavenImagesModal = ({
           relative border-2 border-dashed rounded-3xl p-12 text-center transition-all duration-300
           ${isDragging 
             ? 'border-brand-primary bg-brand-primary/5 scale-[1.01] shadow-lg' 
-            : 'border-gray-200 bg-white hover:border-brand-primary/40'}
+            : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-brand-primary/40'}
         `}
       >
         <input
@@ -125,8 +125,8 @@ const HavenImagesModal = ({
           <div className="bg-brand-primary/10 p-5 rounded-full mb-4 group-hover:scale-110 transition-transform">
             <Upload className="w-10 h-10 text-brand-primary" />
           </div>
-          <h3 className="text-xl font-bold text-gray-800 mb-2">Drag & Drop Images</h3>
-          <p className="text-gray-500 mb-6 max-w-xs mx-auto">
+          <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">Drag & Drop Images</h3>
+          <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-xs mx-auto">
             Support for JPG, PNG and WEBP. First image will be your <span className="text-brand-primary font-bold">Cover Photo</span>.
           </p>
           <label 
@@ -142,10 +142,10 @@ const HavenImagesModal = ({
       {(existingImages.length > 0 || havenImages.length > 0) && (
         <div className="space-y-4">
           <div className="flex justify-between items-center px-2">
-            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest">
+            <h3 className="text-sm font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">
               Gallery Preview ({existingImages.length + havenImages.length})
             </h3>
-            <span className="text-[10px] bg-green-100 text-green-600 px-2 py-1 rounded-full font-bold">
+            <span className="text-[10px] bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 px-2 py-1 rounded-full font-bold">
               READY TO UPLOAD
             </span>
           </div>
@@ -155,7 +155,7 @@ const HavenImagesModal = ({
             {existingImages.map((img, index) => (
               <div key={`existing-${index}`} className="relative group aspect-square">
                 {img.image_url ? (
-                  <div className="relative w-full h-full rounded-2xl overflow-hidden border-2 border-gray-100 group-hover:border-brand-primary/50 transition-all duration-[250ms] [transition-timing-function:cubic-bezier(0.4,0,0.2,1)] shadow-sm hover:scale-[1.03] hover:shadow-xl will-change-transform">
+                  <div className="relative w-full h-full rounded-2xl overflow-hidden border-2 border-gray-100 dark:border-gray-700 group-hover:border-brand-primary/50 transition-all duration-[250ms] [transition-timing-function:cubic-bezier(0.4,0,0.2,1)] shadow-sm hover:scale-[1.03] hover:shadow-xl will-change-transform">
                     <Image src={img.image_url} alt="Gallery" fill className="object-cover" />
                     {index === 0 && (
                       <div className="absolute top-3 left-3 bg-brand-primary text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-lg z-10">
@@ -165,14 +165,14 @@ const HavenImagesModal = ({
                     <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
                 ) : (
-                  <div className="w-full h-full bg-gray-100 rounded-2xl flex items-center justify-center border-2 border-dashed border-gray-200">
-                    <AlertCircle className="w-6 h-6 text-gray-300" />
+                  <div className="w-full h-full bg-gray-100 dark:bg-gray-800 rounded-2xl flex items-center justify-center border-2 border-dashed border-gray-200 dark:border-gray-700">
+                    <AlertCircle className="w-6 h-6 text-gray-300 dark:text-gray-600" />
                   </div>
                 )}
                 <button
                   type="button"
                   onClick={() => handleRemoveExistingImage(index)}
-                  className="absolute -top-2 -right-2 p-2 bg-white text-red-500 rounded-full shadow-xl opacity-0 group-hover:opacity-100 transition-all hover:bg-red-50 z-20 border border-gray-100"
+                  className="absolute -top-2 -right-2 p-2 bg-white dark:bg-gray-800 text-red-500 dark:text-red-400 rounded-full shadow-xl opacity-0 group-hover:opacity-100 transition-all hover:bg-red-50 dark:hover:bg-red-900/30 z-20 border border-gray-100 dark:border-gray-700"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
@@ -193,7 +193,7 @@ const HavenImagesModal = ({
                     )}
                     
                     {/* Simulated Progress Bar */}
-                    <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-gray-200">
+                    <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-gray-200 dark:bg-gray-700">
                       <div className="h-full bg-brand-primary animate-progress-flow" style={{ width: '100%' }} />
                     </div>
                     
@@ -204,7 +204,7 @@ const HavenImagesModal = ({
                   <button
                     type="button"
                     onClick={() => handleRemoveImage(index)}
-                    className="absolute -top-2 -right-2 p-2 bg-white text-red-500 rounded-full shadow-xl opacity-0 group-hover:opacity-100 transition-all hover:bg-red-50 z-20 border border-gray-100"
+                    className="absolute -top-2 -right-2 p-2 bg-white dark:bg-gray-800 text-red-500 dark:text-red-400 rounded-full shadow-xl opacity-0 group-hover:opacity-100 transition-all hover:bg-red-50 dark:hover:bg-red-900/30 z-20 border border-gray-100 dark:border-gray-700"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>

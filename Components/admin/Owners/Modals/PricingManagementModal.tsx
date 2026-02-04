@@ -68,17 +68,17 @@ const PricingManagementModal = ({
 
   const getInputClasses = (field: string) => {
     const isFieldTouched = touched[field];
-    const isFieldInvalid = isFieldTouched && errors?.[field];
-    const isFieldValid = isFieldTouched && !errors?.[field];
+    const isFieldInvalid = isFieldTouched && errors?.[field as keyof typeof errors];
+    const isFieldValid = isFieldTouched && !errors?.[field as keyof typeof errors];
 
-    let borderClass = "border-gray-200";
-    if (isFieldInvalid) borderClass = "border-red-500 bg-red-50/10";
-    if (isFieldValid) borderClass = "border-green-500 bg-green-50/10";
+    let borderClass = "border-gray-200 dark:border-gray-700";
+    if (isFieldInvalid) borderClass = "border-red-500 bg-red-50/10 dark:bg-red-900/10";
+    if (isFieldValid) borderClass = "border-green-500 bg-green-50/10 dark:bg-green-900/10";
 
     return {
-      label: "text-sm font-bold text-gray-700 mb-2 ml-1 uppercase tracking-wider",
+      label: "text-sm font-bold text-gray-700 dark:text-gray-300 mb-2 ml-1 uppercase tracking-wider",
       inputWrapper: [
-        "bg-white",
+        "bg-white dark:bg-gray-700",
         `border-2 ${borderClass}`,
         "hover:border-brand-primary/40",
         "focus-within:!border-brand-primary",
@@ -91,17 +91,17 @@ const PricingManagementModal = ({
         "h-14",
         "px-4"
       ].join(" "),
-      input: "text-base font-semibold text-gray-900 placeholder:text-gray-400",
-      errorMessage: "text-xs font-bold text-red-500 mt-1.5 ml-1 animate-in slide-in-from-top-1"
+      input: "text-base font-semibold text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500",
+      errorMessage: "text-xs font-bold text-red-500 dark:text-red-400 mt-1.5 ml-1 animate-in slide-in-from-top-1"
     };
   };
 
   return (
-    <div className="bg-white border border-gray-200 rounded-3xl p-8 shadow-sm transition-all duration-[250ms] [transition-timing-function:cubic-bezier(0.4,0,0.2,1)] hover:scale-[1.01] hover:shadow-md will-change-transform">
+    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-3xl p-8 shadow-sm transition-all duration-[250ms] [transition-timing-function:cubic-bezier(0.4,0,0.2,1)] hover:scale-[1.01] hover:shadow-md will-change-transform">
       <div className="space-y-8">
         {/* Weekday Rates */}
         <div>
-          <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2 mb-4">
+          <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2 mb-4">
             Rates Configuration
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -114,8 +114,8 @@ const PricingManagementModal = ({
               onChange={(e) => handleChange('six_hour_rate', e.target.value)}
               classNames={getInputClasses('six_hour_rate')}
               isInvalid={touched.six_hour_rate && !!errors?.six_hour_rate}
-              errorMessage={touched.six_hour_rate && errors?.six_hour_rate?._errors[0]}
-              startContent={<span className="text-gray-500 font-medium">₱</span>}
+              errorMessage={touched.six_hour_rate && (errors as any)?.six_hour_rate?._errors[0]}
+              startContent={<span className="text-gray-500 dark:text-gray-400 font-medium">₱</span>}
               isRequired
             />
             <Input
@@ -127,8 +127,8 @@ const PricingManagementModal = ({
               onChange={(e) => handleChange('ten_hour_rate', e.target.value)}
               classNames={getInputClasses('ten_hour_rate')}
               isInvalid={touched.ten_hour_rate && !!errors?.ten_hour_rate}
-              errorMessage={touched.ten_hour_rate && errors?.ten_hour_rate?._errors[0]}
-              startContent={<span className="text-gray-500 font-medium">₱</span>}
+              errorMessage={touched.ten_hour_rate && (errors as any)?.ten_hour_rate?._errors[0]}
+              startContent={<span className="text-gray-500 dark:text-gray-400 font-medium">₱</span>}
               isRequired
             />
             <Input
@@ -140,8 +140,8 @@ const PricingManagementModal = ({
               onChange={(e) => handleChange('weekday_rate', e.target.value)}
               classNames={getInputClasses('weekday_rate')}
               isInvalid={touched.weekday_rate && !!errors?.weekday_rate}
-              errorMessage={touched.weekday_rate && errors?.weekday_rate?._errors[0]}
-              startContent={<span className="text-gray-500 font-medium">₱</span>}
+              errorMessage={touched.weekday_rate && (errors as any)?.weekday_rate?._errors[0]}
+              startContent={<span className="text-gray-500 dark:text-gray-400 font-medium">₱</span>}
               isRequired
             />
             <Input
@@ -153,8 +153,8 @@ const PricingManagementModal = ({
               onChange={(e) => handleChange('weekend_rate', e.target.value)}
               classNames={getInputClasses('weekend_rate')}
               isInvalid={touched.weekend_rate && !!errors?.weekend_rate}
-              errorMessage={touched.weekend_rate && errors?.weekend_rate?._errors[0]}
-              startContent={<span className="text-gray-500 font-medium">₱</span>}
+              errorMessage={touched.weekend_rate && (errors as any)?.weekend_rate?._errors[0]}
+              startContent={<span className="text-gray-500 dark:text-gray-400 font-medium">₱</span>}
               isRequired
             />
           </div>

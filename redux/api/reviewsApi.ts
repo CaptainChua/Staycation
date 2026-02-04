@@ -104,6 +104,19 @@ export const reviewsApi = createApi({
       },
       providesTags: ["Review"],
     }),
+
+    // Get all reviews for an owner
+    getReviews: builder.query<
+      { success: boolean; data: Review[] },
+      void
+    >({
+      query() {
+        return {
+          url: "/reviews/all",
+        };
+      },
+      providesTags: ["Review"],
+    }),
   }),
 });
 
@@ -111,4 +124,5 @@ export const {
   useSubmitReviewMutation,
   useGetHavenReviewsQuery,
   useGetHavenReviewStatsQuery,
+  useGetReviewsQuery,
 } = reviewsApi;

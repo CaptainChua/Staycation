@@ -105,7 +105,10 @@ export const updateBookingDetails = async (
 
     let mainValidIdUrl: string | null = null;
     if (valid_id) {
-      const uploadResult = await upload_file(valid_id, "staycation-haven/valid-ids");
+      const uploadResult = await upload_file(
+        valid_id,
+        "staycation-haven/valid-ids",
+      );
       mainValidIdUrl = uploadResult.url;
     } else if (typeof valid_id_url === "string" && valid_id_url.trim()) {
       mainValidIdUrl = valid_id_url;
@@ -125,9 +128,15 @@ export const updateBookingDetails = async (
       for (const g of additional_guests) {
         let guestIdUrl: string | null = null;
         if (g?.validId) {
-          const uploadResult = await upload_file(g.validId, "staycation-haven/valid-ids");
+          const uploadResult = await upload_file(
+            g.validId,
+            "staycation-haven/valid-ids",
+          );
           guestIdUrl = uploadResult.url;
-        } else if (typeof g?.valid_id_url === "string" && g.valid_id_url.trim()) {
+        } else if (
+          typeof g?.valid_id_url === "string" &&
+          g.valid_id_url.trim()
+        ) {
           guestIdUrl = g.valid_id_url;
         }
         allGuests.push({
@@ -142,7 +151,9 @@ export const updateBookingDetails = async (
       }
     }
 
-    await client.query(`DELETE FROM booking_guests WHERE booking_id = $1`, [id]);
+    await client.query(`DELETE FROM booking_guests WHERE booking_id = $1`, [
+      id,
+    ]);
     for (const g of allGuests) {
       await client.query(
         `
@@ -165,9 +176,19 @@ export const updateBookingDetails = async (
 
     let paymentProofUrl: string | null = null;
     if (payment_proof) {
-      const uploadResult = await upload_file(payment_proof, "staycation-haven/payment-proofs");
+      const uploadResult = await upload_file(
+        payment_proof,
+        "staycation-haven/payment-proofs",
+      );
       paymentProofUrl = uploadResult.url;
     }
+
+    // Ensure amount_paid remains consistent with the provided remaining_balance.
+    // If remaining_balance was provided, compute amount_paid = total_amount - remaining_balance.
+    const paymentAmountPaid =
+      typeof remaining_balance !== "undefined" && remaining_balance !== null
+        ? Number(total_amount) - Number(remaining_balance)
+        : Number(down_payment ?? 0);
 
     const paymentUpdateRes = await client.query(
       `
@@ -178,8 +199,9 @@ export const updateBookingDetails = async (
             add_ons_total = $4,
             total_amount = $5,
             down_payment = $6,
-            remaining_balance = $7
-        WHERE booking_id = $8
+            amount_paid = $7,
+            remaining_balance = $8
+        WHERE booking_id = $9
         RETURNING id
       `,
       [
@@ -189,6 +211,7 @@ export const updateBookingDetails = async (
         add_ons_total,
         total_amount,
         down_payment,
+        paymentAmountPaid,
         remaining_balance,
         id,
       ],
@@ -199,9 +222,9 @@ export const updateBookingDetails = async (
         `
           INSERT INTO booking_payments (
             booking_id, payment_method, payment_proof_url, room_rate,
-            add_ons_total, total_amount, down_payment, remaining_balance
+            add_ons_total, total_amount, down_payment, amount_paid, remaining_balance
           )
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         `,
         [
           id,
@@ -211,17 +234,21 @@ export const updateBookingDetails = async (
           add_ons_total,
           total_amount,
           down_payment,
+          paymentAmountPaid,
           remaining_balance,
         ],
       );
     }
 
-    await client.query(`DELETE FROM booking_add_ons WHERE booking_id = $1`, [id]);
+    await client.query(`DELETE FROM booking_add_ons WHERE booking_id = $1`, [
+      id,
+    ]);
     if (add_ons && typeof add_ons === "object") {
       for (const [name, quantity] of Object.entries(add_ons)) {
         const quantityNum = Number(quantity);
         if (quantityNum > 0) {
-          const addOnPrice = ADD_ON_PRICES[name as keyof typeof ADD_ON_PRICES] || 0;
+          const addOnPrice =
+            ADD_ON_PRICES[name as keyof typeof ADD_ON_PRICES] || 0;
           await client.query(
             `
               INSERT INTO booking_add_ons (booking_id, name, price, quantity)
@@ -272,7 +299,8 @@ export const updateBookingDetails = async (
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Failed to update booking",
+        error:
+          error instanceof Error ? error.message : "Failed to update booking",
       },
       { status: 500 },
     );
@@ -301,12 +329,8 @@ interface AdditionalGuest {
 export interface Booking {
   id?: string;
   booking_id: string;
-  user_id?: string; // NULL for guest bookings, UUID for logged-in users
-  guest_first_name: string;
-  guest_last_name: string;
-  guest_email: string;
-  guest_phone: string;
-  room_name?: string;
+  user_id?: string;
+  room_name: string;
   check_in_date: string;
   check_out_date: string;
   check_in_time: string;
@@ -314,15 +338,6 @@ export interface Booking {
   adults: number;
   children: number;
   infants: number;
-  facebook_link?: string;
-  payment_method: string;
-  payment_proof_url?: string;
-  room_rate: number;
-  security_deposit: number;
-  add_ons_total: number;
-  total_amount: number;
-  down_payment: number;
-  remaining_balance: number;
   status:
     | "pending"
     | "approved"
@@ -345,17 +360,11 @@ export const createBooking = async (
     await client.query("BEGIN");
 
     const body = await req.json();
+    console.log("📥 createBooking body received");
+
     const {
       booking_id,
-      user_id, // Optional: null for guest, UUID for logged-in users
-      guest_first_name,
-      guest_last_name,
-      guest_age,
-      guest_gender,
-      guest_email,
-      guest_phone,
-      valid_id, // base64 string for main guest ID
-      additional_guests, // Array of additional guest objects
+      user_id,
       room_name,
       check_in_date,
       check_out_date,
@@ -364,17 +373,72 @@ export const createBooking = async (
       adults,
       children,
       infants,
+      // Main guest info
+      guest_first_name,
+      guest_last_name,
+      guest_email,
+      guest_phone,
+      guest_age,
+      guest_gender,
       facebook_link,
+      valid_id, // base64
+      // Additional guests
+      additional_guests = [],
+      // Payment info
       payment_method,
-      payment_proof, // base64 string
+      payment_proof, // base64
       room_rate,
       security_deposit,
       add_ons_total,
       total_amount,
       down_payment,
       remaining_balance,
-      add_ons,
+      // Add-ons
+      addOns = {},
     } = body;
+
+    // --- IDENTITY-BASED OVERLAP CHECK ---
+    const overlapCheckQuery = `
+      SELECT b.id, b.booking_id, b.status, b.check_in_date, b.check_out_date
+      FROM booking b
+      JOIN booking_guests bg ON b.id = bg.booking_id
+      WHERE b.room_name = $1
+        AND b.status NOT IN ('rejected', 'cancelled')
+        AND bg.first_name = $2
+        AND bg.last_name = $3
+        AND bg.email = $4
+        AND bg.phone = $5
+        AND (
+          (b.check_in_date, b.check_out_date) OVERLAPS ($6::DATE, $7::DATE)
+          OR b.check_in_date = $6::DATE
+          OR b.check_out_date = $7::DATE
+        )
+      LIMIT 1
+    `;
+
+    const overlapCheckValues = [
+      room_name,
+      guest_first_name,
+      guest_last_name,
+      guest_email,
+      guest_phone,
+      check_in_date,
+      check_out_date,
+    ];
+
+    const overlapResult = await client.query(overlapCheckQuery, overlapCheckValues);
+
+    if (overlapResult.rows.length > 0) {
+      await client.query("ROLLBACK");
+      return NextResponse.json(
+        {
+          success: false,
+          error: "You already have an existing booking for this room on the selected dates.",
+        },
+        { status: 400 }
+      );
+    }
+    // --- END CHECK ---
 
     // Step 1: Create main booking record
     const bookingQuery = `
@@ -410,18 +474,26 @@ export const createBooking = async (
       try {
         const uploadResult = await upload_file(
           valid_id,
-          "staycation-haven/valid-ids"
+          "staycation-haven/valid-ids",
         );
         validIdUrl = uploadResult.url;
       } catch (err: unknown) {
-        const e = err as { message?: string; http_code?: number; name?: string };
+        const e = err as {
+          message?: string;
+          http_code?: number;
+          name?: string;
+        };
         return NextResponse.json(
           {
             success: false,
             error: "Failed to upload valid ID.",
-            details: { message: e?.message, name: e?.name, http_code: e?.http_code },
+            details: {
+              message: e?.message,
+              name: e?.name,
+              http_code: e?.http_code,
+            },
           },
-          { status: 500 }
+          { status: 500 },
         );
       }
     }
@@ -490,14 +562,15 @@ export const createBooking = async (
 
     // Calculate payment amounts (security deposit is handled separately during checkout)
     const paymentTotalAmount = total_amount; // Full amount during booking (security deposit handled at checkout)
-    const paymentRemainingBalance = paymentTotalAmount - down_payment;
+    const paymentAmountPaid = Number(down_payment ?? 0); // initial collected amount
+    const paymentRemainingBalance = paymentTotalAmount - paymentAmountPaid;
 
     const paymentQuery = `
       INSERT INTO booking_payments (
         booking_id, payment_method, payment_proof_url, room_rate,
-        add_ons_total, total_amount, down_payment, remaining_balance
+        add_ons_total, total_amount, down_payment, amount_paid, remaining_balance
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
     `;
 
     const paymentValues = [
@@ -508,7 +581,9 @@ export const createBooking = async (
       add_ons_total,
       paymentTotalAmount,
       down_payment,
+      paymentAmountPaid,
       paymentRemainingBalance,
+      paymentAmountPaid,
     ];
 
     await client.query(paymentQuery, paymentValues);
@@ -557,34 +632,35 @@ export const createBooking = async (
 
     // Get the complete booking data for response (include the booking payment object)
     const completeBookingQuery = `
-      SELECT
-        b.*,
-        bg.first_name,
-        bg.last_name,
-        bg.email,
-        bg.phone,
-        bg.valid_id_url,
-        json_build_object(
-          'id', bp.id,
-          'payment_method', bp.payment_method,
-          'payment_proof_url', bp.payment_proof_url,
-          'room_rate', bp.room_rate,
-          'add_ons_total', bp.add_ons_total,
-          'total_amount', bp.total_amount,
-          'down_payment', bp.down_payment,
-          'remaining_balance', bp.remaining_balance,
-          'payment_status', bp.payment_status,
-          'rejection_reason', bp.rejection_reason,
-          'reviewed_by', bp.reviewed_by,
-          'reviewed_at', bp.reviewed_at,
-          'created_at', bp.created_at
-        ) AS booking_payment
-      FROM booking b
-      JOIN booking_guests bg ON b.id = bg.booking_id
-      JOIN booking_payments bp ON b.id = bp.booking_id
-      WHERE b.id = $1
-      LIMIT 1
-    `;
+    SELECT
+      b.*,
+      bg.first_name,
+      bg.last_name,
+      bg.email,
+      bg.phone,
+      bg.valid_id_url,
+      json_build_object(
+        'id', bp.id,
+        'payment_method', bp.payment_method,
+        'payment_proof_url', bp.payment_proof_url,
+        'room_rate', bp.room_rate,
+        'add_ons_total', bp.add_ons_total,
+        'total_amount', bp.total_amount,
+        'down_payment', bp.down_payment,
+        'amount_paid', bp.amount_paid,
+        'remaining_balance', bp.remaining_balance,
+        'payment_status', bp.payment_status,
+        'rejection_reason', bp.rejection_reason,
+        'reviewed_by', bp.reviewed_by,
+        'reviewed_at', bp.reviewed_at,
+        'created_at', bp.created_at
+      ) AS booking_payment
+    FROM booking b
+    JOIN booking_guests bg ON b.id = bg.booking_id
+    JOIN booking_payments bp ON b.id = bp.booking_id
+    WHERE b.id = $1
+    LIMIT 1
+  `;
 
     const completeResult = await client.query(completeBookingQuery, [
       bookingId,
@@ -632,6 +708,8 @@ export const createBooking = async (
       console.error("❌ Email sending error:", emailError);
       // Don't fail the whole request if email fails
     }
+
+    await client.query("COMMIT");
 
     return NextResponse.json(
       {
@@ -681,6 +759,7 @@ export const getAllBookings = async (
         bg.email as guest_email,
         bg.phone as guest_phone,
         bg.valid_id_url as valid_id_url,
+        bg.facebook_link,
         bp.payment_method,
         bp.payment_proof_url,
         bp.room_rate,
@@ -689,6 +768,9 @@ export const getAllBookings = async (
         bp.down_payment,
         bp.remaining_balance,
         COALESCE(bd.amount, 0) as security_deposit,
+        bd.deposit_status,
+        bd.payment_method as security_deposit_payment_method,
+        bd.payment_proof_url as security_deposit_payment_proof_url,
         bc.cleaning_status
       FROM booking b
       LEFT JOIN booking_guests bg ON b.id = bg.booking_id
@@ -811,21 +893,74 @@ export const getBookingById = async (
       GROUP BY b.id, h.tower, h.uuid_id, bp.total_amount, bp.down_payment, bp.remaining_balance, bp.payment_method, bp.payment_proof_url, bp.room_rate, bp.add_ons_total, bg.first_name, bg.last_name, bg.email, bg.phone, bg.valid_id_url, bd.amount
       LIMIT 1
     `;
+    const bookingResult = await pool.query(bookingQuery, [id]);
 
-    const result = await pool.query(query, [id]);
-
-    if (result.rows.length === 0) {
+    if (bookingResult.rows.length === 0) {
       return NextResponse.json(
         { success: false, error: "Booking not found" },
         { status: 404 },
       );
     }
 
-    console.log(`✅ Retrieved booking ${id} with room images`);
+    const booking = bookingResult.rows[0];
+
+    // Get all guests
+    const guestsQuery = `
+      SELECT * FROM booking_guests
+      WHERE booking_id = $1
+      ORDER BY created_at ASC
+    `;
+    const guestsResult = await pool.query(guestsQuery, [booking.id]);
+
+    // Get payment info
+    const paymentQuery = `
+      SELECT * FROM booking_payments
+      WHERE booking_id = $1
+      LIMIT 1
+    `;
+    const paymentResult = await pool.query(paymentQuery, [booking.id]);
+
+    // Get security deposit
+    const depositQuery = `
+      SELECT * FROM booking_security_deposits
+      WHERE booking_id = $1
+      LIMIT 1
+    `;
+    const depositResult = await pool.query(depositQuery, [booking.id]);
+
+    // Get add-ons
+    const addOnsQuery = `
+      SELECT * FROM booking_add_ons
+      WHERE booking_id = $1
+      ORDER BY name ASC
+    `;
+    const addOnsResult = await pool.query(addOnsQuery, [booking.id]);
+
+    // Get cleaning info
+    const cleaningQuery = `
+      SELECT * FROM booking_cleaning
+      WHERE booking_id = $1
+      LIMIT 1
+    `;
+    const cleaningResult = await pool.query(cleaningQuery, [booking.id]);
+
+    // Combine all data
+    const completeBooking = {
+      ...booking,
+      guests: guestsResult.rows,
+      main_guest: guestsResult.rows[0] || null,
+      additional_guests: guestsResult.rows.slice(1),
+      payment: paymentResult.rows[0] || null,
+      security_deposit: depositResult.rows[0] || null,
+      add_ons: addOnsResult.rows,
+      cleaning: cleaningResult.rows[0] || null,
+    };
+
+    console.log(`✅ Retrieved complete booking data for ${id}`);
 
     return NextResponse.json({
       success: true,
-      data: result.rows[0],
+      data: completeBooking,
     });
   } catch (error) {
     console.log("❌ Error getting booking:", error);
@@ -845,11 +980,7 @@ export const updateBookingStatus = async (
 ): Promise<NextResponse> => {
   try {
     const body = await req.json();
-    const {
-      id,
-      status,
-      rejection_reason,
-    } = body;
+    const { id, status, rejection_reason } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -863,13 +994,8 @@ export const updateBookingStatus = async (
 
     // If status is provided, validate it
     const validStatuses = [
-      "pending",
-      "approved",
-      "rejected",
-      "confirmed",
-      "checked-in",
-      "completed",
-      "cancelled",
+      "pending", "approved", "rejected", "confirmed",
+      "checked-in", "completed", "cancelled",
     ];
     if (typeof status !== "undefined" && status !== null) {
       if (typeof status !== "string" || !validStatuses.includes(status)) {
@@ -880,10 +1006,11 @@ export const updateBookingStatus = async (
       }
     }
 
+    // ✅ FIXED: Added ::uuid casting
     const query = `
       UPDATE booking
       SET status = $1, rejection_reason = $2, updated_at = NOW()
-      WHERE id = $3
+      WHERE id::text = $3 OR booking_id = $3
       RETURNING *
     `;
 
@@ -972,7 +1099,7 @@ export const updateBookingStatus = async (
       data: result.rows[0],
       message:
         typeof status === "string"
-          ? `Booking ${status} successfully` 
+          ? `Booking ${status} successfully`
           : "Booking updated successfully",
     });
   } catch (error) {
@@ -1021,7 +1148,7 @@ export const deleteBooking = async (
       );
     }
 
-    console.log("✅ Booking deleted:", result.rows[0]);
+    console.log("✅ Booking deleted (cascade):", result.rows[0]);
 
     return NextResponse.json({
       success: true,
@@ -1050,10 +1177,11 @@ export const getUserBookings = async (
 
   try {
     const { searchParams } = new URL(req.url);
-    const status = searchParams.get("status"); // upcoming, past, cancelled, all
+    const status = searchParams.get("status");
 
+    // ✅ FIXED: Added ::uuid casting
     let query = `
-      SELECT
+      SELECT 
         b.*,
         h.tower,
         h.uuid_id as haven_id,
@@ -1084,7 +1212,6 @@ export const getUserBookings = async (
 
     const values: string[] = [userId];
 
-    // Filter by status if provided
     if (status && status !== "all") {
       if (status === "upcoming") {
         query += ` AND b.status IN ('pending', 'approved', 'confirmed') AND b.check_in_date >= CURRENT_DATE`;
@@ -1147,6 +1274,7 @@ export const updateCleaningStatus = async (
 
     const validCleaningStatuses = [
       "pending",
+      "assigned",
       "in-progress",
       "cleaned",
       "inspected",
@@ -1156,7 +1284,7 @@ export const updateCleaningStatus = async (
         {
           success: false,
           error:
-            "Invalid cleaning status. Must be one of: pending, in-progress, cleaned, inspected",
+            "Invalid cleaning status. Must be one of: pending, assigned, in-progress, cleaned, inspected",
         },
         { status: 400 },
       );

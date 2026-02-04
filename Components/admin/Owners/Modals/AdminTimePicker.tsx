@@ -70,7 +70,7 @@ const AdminTimePicker = ({
   return (
     <div ref={containerRef} className="relative w-full">
       <div className="flex flex-col gap-2">
-        <label className="text-sm font-bold text-gray-700 ml-1 uppercase tracking-wider">
+        <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1 uppercase tracking-wider">
           {label}
         </label>
         
@@ -78,23 +78,23 @@ const AdminTimePicker = ({
           type="button"
           onClick={() => setIsOpen(!isOpen)}
           className={`
-            w-full h-14 flex items-center gap-3 px-4 bg-white border-2 rounded-2xl transition-all duration-300 text-left
+            w-full h-14 flex items-center gap-3 px-4 bg-white dark:bg-gray-700 border-2 rounded-2xl transition-all duration-300 text-left
             ${isOpen 
-              ? "border-brand-primary ring-4 ring-brand-primary/10" 
-              : "border-gray-200 hover:border-brand-primary/40 shadow-sm"}
+              ? "border-brand-primary ring-4 ring-brand-primary/10 dark:ring-brand-primary/20" 
+              : "border-gray-200 dark:border-gray-600 hover:border-brand-primary/40 shadow-sm"}
           `}
         >
-          <Clock className={`w-5 h-5 ${isOpen ? "text-brand-primary" : "text-gray-400"}`} />
+          <Clock className={`w-5 h-5 ${isOpen ? "text-brand-primary" : "text-gray-400 dark:text-gray-500"}`} />
           <div className="flex-1">
-            <p className="text-base font-semibold text-gray-900">
+            <p className="text-base font-semibold text-gray-900 dark:text-gray-100">
               {formatDisplayTime()}
             </p>
           </div>
-          <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`} />
+          <ChevronDown className={`w-5 h-5 text-gray-400 dark:text-gray-500 transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`} />
         </button>
         
         {helperText && (
-          <p className="text-[10px] text-gray-400 ml-1 font-medium italic">
+          <p className="text-[10px] text-gray-400 dark:text-gray-500 ml-1 font-medium italic">
             {helperText}
           </p>
         )}
@@ -107,14 +107,14 @@ const AdminTimePicker = ({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
-            className="absolute top-full left-0 mt-2 bg-white rounded-2xl border border-gray-100 shadow-2xl z-50 p-4 w-64 origin-top"
+            className="absolute top-full left-0 mt-2 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-2xl z-50 p-4 w-64 origin-top"
           >
             <div className="flex flex-col gap-4">
               {/* Selection Area */}
               <div className="flex justify-between gap-2">
                 {/* Hours */}
                 <div className="flex-1">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest text-center mb-2">Hour</p>
+                  <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest text-center mb-2">Hour</p>
                   <div className="h-40 overflow-y-auto scrollbar-hide flex flex-col gap-1 pr-1">
                     {hours.map((h) => (
                       <button
@@ -125,7 +125,7 @@ const AdminTimePicker = ({
                           py-2 rounded-lg text-sm font-bold transition-all
                           ${hour === h 
                             ? 'bg-brand-primary text-white shadow-md' 
-                            : 'text-gray-600 hover:bg-gray-50'}
+                            : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'}
                         `}
                       >
                         {String(h).padStart(2, '0')}
@@ -136,7 +136,7 @@ const AdminTimePicker = ({
 
                 {/* Minutes */}
                 <div className="flex-1">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest text-center mb-2">Min</p>
+                  <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest text-center mb-2">Min</p>
                   <div className="h-40 overflow-y-auto scrollbar-hide flex flex-col gap-1 pr-1">
                     {minutes.map((m) => (
                       <button
@@ -147,7 +147,7 @@ const AdminTimePicker = ({
                           py-2 rounded-lg text-sm font-bold transition-all
                           ${minute === m 
                             ? 'bg-brand-primary text-white shadow-md' 
-                            : 'text-gray-600 hover:bg-gray-50'}
+                            : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'}
                         `}
                       >
                         {String(m).padStart(2, '0')}
@@ -165,7 +165,7 @@ const AdminTimePicker = ({
                       px-3 py-3 rounded-xl text-xs font-black transition-all
                       ${!isPM 
                         ? 'bg-orange-500 text-white shadow-lg scale-105' 
-                        : 'bg-gray-50 text-gray-400 hover:bg-gray-100'}
+                        : 'bg-gray-50 dark:bg-gray-700 text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-600'}
                     `}
                   >
                     AM
@@ -177,7 +177,7 @@ const AdminTimePicker = ({
                       px-3 py-3 rounded-xl text-xs font-black transition-all
                       ${isPM 
                         ? 'bg-orange-600 text-white shadow-lg scale-105' 
-                        : 'bg-gray-50 text-gray-400 hover:bg-gray-100'}
+                        : 'bg-gray-50 dark:bg-gray-700 text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-600'}
                     `}
                   >
                     PM
@@ -189,7 +189,7 @@ const AdminTimePicker = ({
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="w-full py-2.5 bg-gray-900 text-white rounded-xl text-sm font-bold hover:bg-gray-800 transition-all flex items-center justify-center gap-2"
+                className="w-full py-2.5 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-xl text-sm font-bold hover:bg-gray-800 dark:hover:bg-gray-200 transition-all flex items-center justify-center gap-2"
               >
                 <Check className="w-4 h-4" />
                 Done

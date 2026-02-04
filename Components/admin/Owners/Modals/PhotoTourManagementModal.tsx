@@ -112,7 +112,7 @@ const PhotoTourManagementModal = ({
     <div className="flex flex-col md:flex-row gap-8 h-full min-h-[500px]">
       {/* Category Sidebar */}
       <div className="w-full md:w-72 flex flex-col gap-2">
-        <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 px-2">
+        <h3 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2 px-2">
           Room Categories
         </h3>
         {PHOTO_CATEGORIES.map((cat) => {
@@ -127,24 +127,24 @@ const PhotoTourManagementModal = ({
               className={`
                 flex items-center justify-between p-4 rounded-2xl border-2 transition-all duration-[250ms] [transition-timing-function:cubic-bezier(0.4,0,0.2,1)] text-left group hover:scale-[1.03] hover:shadow-lg will-change-transform
                 ${isActive 
-                  ? 'border-brand-primary bg-brand-primary/5 shadow-sm' 
-                  : 'border-transparent bg-white hover:bg-gray-50'}
+                  ? 'border-brand-primary bg-brand-primary/5 dark:bg-brand-primary/10 shadow-sm' 
+                  : 'border-transparent bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700'}
               `}
             >
               <div className="flex items-center gap-3">
                 <div className={`
                   p-2 rounded-lg transition-colors
-                  ${isCompleted ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'}
+                  ${isCompleted ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' : 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500'}
                   ${isActive && !isCompleted ? 'bg-brand-primary/10 text-brand-primary' : ''}
                 `}>
                   {isCompleted ? <CheckCircle2 className="w-4 h-4" /> : <Camera className="w-4 h-4" />}
                 </div>
                 <div>
-                  <p className={`text-sm font-bold ${isActive ? 'text-brand-primary' : 'text-gray-700'}`}>
+                  <p className={`text-sm font-bold ${isActive ? 'text-brand-primary' : 'text-gray-700 dark:text-gray-300'}`}>
                     {cat.label}
                   </p>
                   {cat.required && !isCompleted && (
-                    <span className="text-[10px] text-red-400 font-bold uppercase">Required</span>
+                    <span className="text-[10px] text-red-400 dark:text-red-400 font-bold uppercase">Required</span>
                   )}
                 </div>
               </div>
@@ -166,13 +166,13 @@ const PhotoTourManagementModal = ({
               transition={{ duration: 0.3 }}
               className="h-full"
             >
-              <div className="bg-white border border-gray-200 rounded-3xl p-8 shadow-sm transition-all duration-[250ms] [transition-timing-function:cubic-bezier(0.4,0,0.2,1)] hover:scale-[1.01] hover:shadow-md will-change-transform h-full flex flex-col">
+              <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-3xl p-8 shadow-sm transition-all duration-[250ms] [transition-timing-function:cubic-bezier(0.4,0,0.2,1)] hover:scale-[1.01] hover:shadow-md will-change-transform h-full flex flex-col">
                 <div className="flex items-start justify-between mb-8">
                   <div>
-                    <h2 className="text-2xl font-bold text-gray-800">{cat.label}</h2>
-                    <p className="text-gray-500 mt-1">{cat.description}</p>
+                    <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">{cat.label}</h2>
+                    <p className="text-gray-500 dark:text-gray-400 mt-1">{cat.description}</p>
                   </div>
-                  <div className="flex items-center gap-2 bg-blue-50 text-blue-600 px-4 py-2 rounded-full text-xs font-bold">
+                  <div className="flex items-center gap-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-4 py-2 rounded-full text-xs font-bold">
                     <Info className="w-4 h-4" />
                     STAGED PHOTOS PREFERRED
                   </div>
@@ -187,7 +187,7 @@ const PhotoTourManagementModal = ({
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="flex flex-col items-center justify-center border-2 border-dashed border-gray-200 rounded-2xl p-12 hover:border-brand-primary/50 hover:bg-brand-primary/5 transition-all cursor-pointer group h-full w-full"
+                        className="flex flex-col items-center justify-center border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-2xl p-12 hover:border-brand-primary/50 hover:bg-brand-primary/5 transition-all cursor-pointer group h-full w-full"
                       >
                         <input 
                           type="file" 
@@ -199,8 +199,8 @@ const PhotoTourManagementModal = ({
                         <div className="bg-brand-primary/10 p-6 rounded-full mb-4 group-hover:scale-110 transition-transform">
                           <Upload className="w-10 h-10 text-brand-primary" />
                         </div>
-                        <p className="font-bold text-gray-700 text-lg">Upload your first photo</p>
-                        <p className="text-sm text-gray-400 mt-1">Click or drag images here to begin</p>
+                        <p className="font-bold text-gray-700 dark:text-gray-200 text-lg">Upload your first photo</p>
+                        <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Click or drag images here to begin</p>
                       </motion.label>
                     ) : (
                       /* Post-Upload State: Image Grid + Add More Button */
@@ -216,12 +216,12 @@ const PhotoTourManagementModal = ({
                             .map((p, i) => ({ ...p, globalIdx: i }))
                             .filter(p => p.category?.toLowerCase().replace(/\s+/g, '') === cat.key.toLowerCase())
                             .map((photo, i) => (
-                              <div key={`ex-${i}`} className="relative aspect-[4/3] rounded-xl overflow-hidden border border-gray-100 group shadow-sm hover:scale-[1.03] hover:shadow-xl transition-all duration-[250ms] [transition-timing-function:cubic-bezier(0.4,0,0.2,1)] will-change-transform">
+                              <div key={`ex-${i}`} className="relative aspect-[4/3] rounded-xl overflow-hidden border border-gray-100 dark:border-gray-700 group shadow-sm hover:scale-[1.03] hover:shadow-xl transition-all duration-[250ms] [transition-timing-function:cubic-bezier(0.4,0,0.2,1)] will-change-transform">
                                 <Image src={photo.image_url!} alt="Existing" fill className="object-cover" />
                                 <button 
                                   type="button"
                                   onClick={() => removeExisting(photo.globalIdx!)}
-                                  className="absolute top-2 right-2 p-1.5 bg-white/90 text-red-500 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow-md z-10"
+                                  className="absolute top-2 right-2 p-1.5 bg-white/90 dark:bg-gray-800/90 text-red-500 dark:text-red-400 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow-md z-10"
                                 >
                                   <Trash2 className="w-4 h-4" />
                                 </button>
@@ -235,7 +235,7 @@ const PhotoTourManagementModal = ({
                               <button 
                                 type="button"
                                 onClick={() => removeNew(cat.key, i)}
-                                className="absolute top-2 right-2 p-1.5 bg-white/90 text-red-500 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow-md z-10"
+                                className="absolute top-2 right-2 p-1.5 bg-white/90 dark:bg-gray-800/90 text-red-500 dark:text-red-400 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow-md z-10"
                               >
                                 <Trash2 className="w-4 h-4" />
                               </button>
@@ -243,7 +243,7 @@ const PhotoTourManagementModal = ({
                           ))}
 
                           {/* Small "+" Add More Button Overlay */}
-                          <label className="relative aspect-[4/3] rounded-xl border-2 border-dashed border-brand-primary/30 flex flex-col items-center justify-center cursor-pointer hover:bg-brand-primary/5 transition-all group overflow-hidden bg-gray-50/30">
+                          <label className="relative aspect-[4/3] rounded-xl border-2 border-dashed border-brand-primary/30 flex flex-col items-center justify-center cursor-pointer hover:bg-brand-primary/5 transition-all group overflow-hidden bg-gray-50/30 dark:bg-gray-700/30">
                             <input 
                               type="file" 
                               multiple 

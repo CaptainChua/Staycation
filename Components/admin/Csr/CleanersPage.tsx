@@ -23,6 +23,7 @@ import {
   Calendar,
 } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { useGetCleaningTasksQuery } from "@/redux/api/cleanersApi";
 import ViewBookings from "./Modals/ViewBookings";
 import AssignCleanerModal from "./Modals/AssignCleanerModal";
@@ -188,11 +189,9 @@ function mapCleaningStatus(
   status: CleaningStatus;
   statusColor: string;
 } {
-  if (cleaning_status === "pending" && assigned_cleaner_id) {
-    return { status: "Assigned", statusColor: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300" };
-  }
-
   switch (cleaning_status) {
+    case "assigned":
+      return { status: "Assigned", statusColor: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300" };
     case "in-progress":
       return { status: "In Progress", statusColor: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300" };
     case "cleaned":
@@ -224,9 +223,31 @@ function formatDuration(startTime: string | null | undefined): string {
   return `${minutes}m`;
 }
 
+// Highlight search term in text
+function highlightText(text: string, searchTerm: string): React.ReactNode {
+  if (!searchTerm.trim()) return text;
+  
+  const regex = new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+  const parts = text.split(regex);
+  
+  return parts.map((part, index) => 
+    regex.test(part) ? (
+      <span key={index} className="bg-yellow-200 dark:bg-yellow-800 text-gray-900 dark:text-gray-100 px-0.5 rounded">
+        {part}
+      </span>
+    ) : (
+      part
+    )
+  );
+}
+
 export default function CleanersPage() {
+  const { data: session } = useSession();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | CleaningStatus>("all");
+  const [dateFilter, setDateFilter] = useState<"all" | "checkin-today" | "checkout-today" | "custom">("all");
+  const [customStartDate, setCustomStartDate] = useState("");
+  const [customEndDate, setCustomEndDate] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [entriesPerPage, setEntriesPerPage] = useState(10);
   const [sortField, setSortField] = useState<keyof CleanerRow | null>(null);
@@ -247,6 +268,7 @@ export default function CleanersPage() {
   }, []);
 
   const [isMounted, setIsMounted] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   // Ensure component is mounted before making API calls
   useEffect(() => {
@@ -264,7 +286,7 @@ export default function CleanersPage() {
     {
       pollingInterval: isMounted ? 10000 : 0, // Only poll when mounted
       skipPollingIfUnfocused: true,
-      refetchOnFocus: false, // Disabled to prevent setState during render
+      refetchOnFocus: true, // Enable refetch on focus for better refresh
       refetchOnReconnect: true,
       skip: !isMounted, // Skip query until component is mounted
     }
@@ -273,6 +295,18 @@ export default function CleanersPage() {
     isLoading: boolean;
     error: unknown;
     refetch: () => void;
+  };
+
+  // Manual refresh function
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await refetch();
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   const rows: CleanerRow[] = useMemo(() => {
@@ -341,9 +375,55 @@ export default function CleanersPage() {
 
       const matchesFilter = filterStatus === "all" || row.status === filterStatus;
 
-      return matchesSearch && matchesFilter;
+      // Date filtering logic
+      let matchesDateFilter = true;
+      if (dateFilter !== "all") {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Set to start of day
+        
+        // Find the original task to get the raw dates
+        const originalTask = cleaningTasks.find(task => task.cleaning_id === row.cleaning_id);
+        
+        if (originalTask) {
+          switch (dateFilter) {
+            case "checkin-today":
+              if (originalTask.check_in_date) {
+                const checkInDate = new Date(originalTask.check_in_date);
+                checkInDate.setHours(0, 0, 0, 0);
+                matchesDateFilter = checkInDate.getTime() === today.getTime();
+              } else {
+                matchesDateFilter = false;
+              }
+              break;
+            case "checkout-today":
+              if (originalTask.check_out_date) {
+                const checkOutDate = new Date(originalTask.check_out_date);
+                checkOutDate.setHours(0, 0, 0, 0);
+                matchesDateFilter = checkOutDate.getTime() === today.getTime();
+              } else {
+                matchesDateFilter = false;
+              }
+              break;
+            case "custom":
+              if (customStartDate && customEndDate && originalTask.check_out_date) {
+                const taskDate = new Date(originalTask.check_out_date);
+                const startDate = new Date(customStartDate);
+                const endDate = new Date(customEndDate);
+                endDate.setHours(23, 59, 59, 999); // Include end date
+                matchesDateFilter = taskDate >= startDate && taskDate <= endDate;
+              } else {
+                matchesDateFilter = false;
+              }
+              break;
+          }
+        } else {
+          matchesDateFilter = false;
+        }
+      }
+
+      return matchesSearch && matchesFilter && matchesDateFilter;
     });
-  }, [filterStatus, rows, searchTerm]);
+  }, [filterStatus, rows, searchTerm, dateFilter, customStartDate, customEndDate, cleaningTasks]);
 
   const sortedRows = useMemo(() => {
     const copy = [...filteredRows];
@@ -406,15 +486,6 @@ export default function CleanersPage() {
   const assignedCount = rows.filter((r) => r.status === "Assigned").length;
   const inProgressCount = rows.filter((r) => r.status === "In Progress").length;
   const completedCount = rows.filter((r) => r.status === "Completed").length;
-
-  // Don't render until component is mounted
-  if (!isMounted) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 text-brand-primary animate-spin" />
-      </div>
-    );
-  }
 
   return (
     <>
@@ -547,46 +618,35 @@ export default function CleanersPage() {
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4 flex-shrink-0">
-          {isLoading ? (
-            Array.from({ length: 5 }).map((_, i) => (
+          {[
+            { label: "Total Tasks", value: String(totalCount), color: "bg-orange-500", icon: Sparkles },
+            { label: "Unassigned", value: String(unassignedCount), color: "bg-gray-500", icon: Users },
+            { label: "Assigned", value: String(assignedCount), color: "bg-indigo-500", icon: ClipboardList },
+            { label: "In Progress", value: String(inProgressCount), color: "bg-yellow-500", icon: Clock },
+            { label: "Completed", value: String(completedCount), color: "bg-green-500", icon: CheckCircle },
+          ].map((stat, i) => {
+            const IconComponent = stat.icon;
+            return (
               <div
-                key={`stat-skel-${i}`}
-                className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow dark:shadow-gray-900 border border-gray-200 dark:border-gray-700"
+                key={i}
+                className={`${stat.color} text-white rounded-lg p-6 shadow dark:shadow-gray-900 hover:shadow-lg transition-all border border-gray-200 dark:border-gray-600`}
               >
                 <div className="flex items-center justify-between">
-                  <div className="space-y-3 w-full">
-                    <div className={`h-4 w-24 rounded ${skeletonPulse}`} />
-                    <div className={`h-8 w-16 rounded ${skeletonPulse}`} />
+                  <div>
+                    <p className="text-sm opacity-90">{stat.label}</p>
+                    <div className="text-3xl font-bold mt-2">
+                      {isLoading ? (
+                        <div className="w-16 h-8 bg-white/20 rounded animate-pulse" />
+                      ) : (
+                        stat.value
+                      )}
+                    </div>
                   </div>
-                  <div className={`w-12 h-12 rounded ${skeletonPulse}`} />
+                  <IconComponent className="w-12 h-12 opacity-50" />
                 </div>
               </div>
-            ))
-          ) : (
-            [
-              { label: "Total Tasks", value: String(totalCount), color: "bg-orange-500", icon: Sparkles },
-              { label: "Unassigned", value: String(unassignedCount), color: "bg-gray-500", icon: Users },
-              { label: "Assigned", value: String(assignedCount), color: "bg-indigo-500", icon: ClipboardList },
-              { label: "In Progress", value: String(inProgressCount), color: "bg-yellow-500", icon: Clock },
-              { label: "Completed", value: String(completedCount), color: "bg-green-500", icon: CheckCircle },
-            ].map((stat, i) => {
-              const IconComponent = stat.icon;
-              return (
-                <div
-                  key={i}
-                  className={`${stat.color} text-white rounded-lg p-6 shadow dark:shadow-gray-900 hover:shadow-lg transition-all border border-gray-200 dark:border-gray-600`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm opacity-90">{stat.label}</p>
-                      <p className="text-3xl font-bold mt-2">{stat.value}</p>
-                    </div>
-                    <IconComponent className="w-12 h-12 opacity-50" />
-                  </div>
-                </div>
-              );
-            })
-          )}
+            );
+          })}
         </div>
 
         {/* Filters */}
@@ -624,13 +684,6 @@ export default function CleanersPage() {
             </div>
 
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => refetch()}
-                className="p-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
-                title="Refresh Data"
-              >
-                <RefreshCw className={`w-4 h-4 text-gray-600 dark:text-gray-300 ${isLoading ? 'animate-spin' : ''}`} />
-              </button>
               <Filter className="w-5 h-5 text-gray-600 dark:text-gray-300" />
               <select
                 value={filterStatus}
@@ -649,6 +702,57 @@ export default function CleanersPage() {
                 <option value="In Progress">In Progress</option>
                 <option value="Completed">Completed</option>
               </select>
+              
+              {/* Date Filter */}
+              <select
+                value={dateFilter}
+                onChange={(e) => {
+                  const value = e.target.value as "all" | "checkin-today" | "checkout-today" | "custom";
+                  setDateFilter(value);
+                  setCurrentPage(1);
+                }}
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-orange-500"
+              >
+                <option value="all">All Dates</option>
+                <option value="checkin-today">Check-in Today</option>
+                <option value="checkout-today">Check-out Today</option>
+                <option value="custom">Custom Range</option>
+              </select>
+
+              {/* Custom Date Range Inputs */}
+              {dateFilter === "custom" && (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="date"
+                    value={customStartDate}
+                    onChange={(e) => {
+                      setCustomStartDate(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-orange-500 text-sm"
+                    placeholder="Start date"
+                  />
+                  <span className="text-gray-500 dark:text-gray-400">to</span>
+                  <input
+                    type="date"
+                    value={customEndDate}
+                    onChange={(e) => {
+                      setCustomEndDate(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-orange-500 text-sm"
+                    placeholder="End date"
+                  />
+                </div>
+              )}
+              <button
+                onClick={handleRefresh}
+                disabled={isRefreshing || isLoading}
+                className="p-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Refresh Data"
+              >
+                <RefreshCw className={`w-4 h-4 text-gray-600 dark:text-gray-300 ${(isRefreshing || isLoading) ? 'animate-spin' : ''}`} />
+              </button>
             </div>
           </div>
         </div>
@@ -717,12 +821,51 @@ export default function CleanersPage() {
               </thead>
               <tbody>
                 {isLoading ? (
-                  <tr>
-                    <td colSpan={6} className="py-20 text-center border border-gray-200 dark:border-gray-700">
-                      <Loader2 className="w-10 h-10 text-brand-primary animate-spin mx-auto mb-4" />
-                      <p className="text-gray-500 dark:text-gray-400 font-medium">Loading cleaning tasks...</p>
-                    </td>
-                  </tr>
+                  // Skeleton loading rows
+                  Array.from({ length: entriesPerPage }).map((_, idx) => (
+                    <tr
+                      key={`skeleton-${idx}`}
+                      className="border border-gray-200 dark:border-gray-700 animate-pulse"
+                    >
+                      {/* Booking ID */}
+                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
+                      </td>
+                      {/* Haven & Guest */}
+                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                        <div className="space-y-2">
+                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
+                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-28"></div>
+                          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-36"></div>
+                        </div>
+                      </td>
+                      {/* Check-in / Check-out */}
+                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                        <div className="space-y-1">
+                          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
+                          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
+                        </div>
+                      </td>
+                      {/* Assigned Cleaner */}
+                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                        <div className="space-y-1">
+                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-28"></div>
+                          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
+                        </div>
+                      </td>
+                      {/* Status */}
+                      <td className="py-4 px-4 text-center border border-gray-200 dark:border-gray-700">
+                        <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded-full w-20 mx-auto"></div>
+                      </td>
+                      {/* Actions */}
+                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                        <div className="flex items-center justify-center gap-1">
+                          <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+                          <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
                 ) : error ? (
                   <tr>
                     <td colSpan={6} className="py-20 text-center text-sm text-red-600 dark:text-red-400 border border-gray-200 dark:border-gray-700">
@@ -742,7 +885,9 @@ export default function CleanersPage() {
                     <tr key={`${row.cleaning_id}-${index}`} className="border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                       {/* Booking ID Column */}
                       <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
-                        <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm font-mono">{row.booking_id}</span>
+                        <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm font-mono">
+                          {highlightText(row.booking_id, searchTerm)}
+                        </span>
                       </td>
 
                       {/* Haven & Guest Column */}
@@ -750,11 +895,15 @@ export default function CleanersPage() {
                         <div className="space-y-2 min-w-[200px]">
                           <div className="flex items-center gap-2">
                             <MapPin className="w-4 h-4 text-orange-500 flex-shrink-0" />
-                            <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{row.haven}</span>
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                              {highlightText(row.haven, searchTerm)}
+                            </span>
                           </div>
                           <div className="flex items-center gap-2">
                             <User className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                            <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{row.guest}</span>
+                            <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm">
+                              {highlightText(row.guest, searchTerm)}
+                            </span>
                           </div>
                           {row.guest_email && (
                             <div className="text-xs text-blue-600 dark:text-blue-400 truncate">
@@ -791,7 +940,7 @@ export default function CleanersPage() {
                           <div className="flex items-center gap-2">
                             <Users className="w-4 h-4 text-gray-400 flex-shrink-0" />
                             <span className={`text-sm font-medium ${row.cleaner_name === "Unassigned" ? "text-gray-400 dark:text-gray-500 italic" : "text-gray-800 dark:text-gray-100"}`}>
-                              {row.cleaner_name}
+                              {highlightText(row.cleaner_name, searchTerm)}
                             </span>
                           </div>
                           {row.cleaning_time_in && (
@@ -945,6 +1094,7 @@ export default function CleanersPage() {
             onClose={handleCloseAssignModal}
             bookingId={assignmentBookingId}
             onSuccess={handleAssignmentSuccess}
+            currentUserId={session?.user?.id}
           />
         )}
       </div>

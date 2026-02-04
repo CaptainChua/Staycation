@@ -41,12 +41,11 @@ export const bookingsApi = createApi({
       invalidatesTags: ["Booking"],
     }),
 
-    // Update booking status
+    // Update booking status - FIXED: Send ID in body, not URL
     updateBookingStatus: builder.mutation({
       query(body) {
-        const { id } = body;
         return {
-          url: `/bookings/${id}`,
+          url: `/bookings`,  // ✅ FIXED: Removed /${id} from URL
           method: "PUT",
           body,
         };

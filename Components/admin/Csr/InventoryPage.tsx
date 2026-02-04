@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSession } from "next-auth/react";
 import AddItem from "./Modals/AddItem";
 import EditItem, { EditInventoryItemInput } from "./Modals/EditItem";
 import ViewItem, { ViewInventoryItem } from "./Modals/ViewItem";
@@ -293,6 +294,7 @@ const guideTranslations = {
 };
 
 export default function InventoryPage() {
+  const { data: session } = useSession();
   const [isAddItemOpen, setIsAddItemOpen] = useState(false);
   const [viewItem, setViewItem] = useState<ViewInventoryItem | null>(null);
   const [editItem, setEditItem] = useState<EditInventoryItemInput | null>(null);
@@ -300,6 +302,27 @@ export default function InventoryPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleteSuccess, setDeleteSuccess] = useState<string | null>(null);
+
+  // Activity logging helper
+  const logActivity = async (activityType: string, description: string, entityType: string = 'inventory', entityId?: string) => {
+    try {
+      await fetch('/api/activity-logs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          activityType,
+          description,
+          entityType,
+          entityId,
+        }),
+      });
+    } catch (error) {
+      console.error('Failed to log activity:', error);
+      // Don't show error to user as it's not critical
+    }
+  };
 
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | InventoryStatus>("all");
@@ -313,6 +336,7 @@ export default function InventoryPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [rows, setRows] = useState<InventoryRow[]>([]);
+  const [usageData, setUsageData] = useState<UsageRow[]>([]);
 
   // Guide states
   const [showStatusGuide, setShowStatusGuide] = useState(false);
@@ -356,6 +380,51 @@ export default function InventoryPage() {
     setRows(mapped);
   };
 
+  const loadUsageData = async () => {
+    try {
+      console.log('📊 Loading inventory usage data...');
+      const res = await fetch("/api/inventory/usage", {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+      });
+
+      if (!res.ok) {
+        console.error('❌ Failed to fetch usage data, status:', res.status);
+        const errorText = await res.text();
+        console.error('Error response:', errorText);
+        return;
+      }
+
+      const json: { success: boolean; data: UsageRow[] } = await res.json();
+      const usageRows = Array.isArray(json?.data) ? json.data : [];
+      console.log('✅ Usage data loaded:', usageRows.length, 'items');
+      if (usageRows.length > 0) {
+        console.log('Sample usage data:', usageRows[0]);
+      }
+      setUsageData(usageRows);
+    } catch (error) {
+      console.error('❌ Error loading usage data:', error);
+      // Don't throw error, just set empty array
+      setUsageData([]);
+    }
+  };
+
+  const handleManualRefresh = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      await loadInventory();
+      await loadUsageData();
+      // Log the manual refresh activity
+      logActivity('REFRESH_INVENTORY', `Manually refreshed inventory data (${rows.length} items loaded)`);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to load inventory");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     let mounted = true;
 
@@ -365,6 +434,7 @@ export default function InventoryPage() {
         setError(null);
 
         await loadInventory();
+        await loadUsageData();
       } catch (e: unknown) {
         if (!mounted) return;
         setError(e instanceof Error ? e.message : "Failed to load inventory");
@@ -380,32 +450,10 @@ export default function InventoryPage() {
     };
   }, []);
 
-  // Compute usage rows dynamically from inventory data
+  // Use fetched usage data from API based on delivered add-ons
   const usageRows = useMemo(() => {
-    if (!rows || rows.length === 0) return [];
-
-    // Only show items with low stock or out of stock as they indicate higher usage
-    return rows
-      .filter(row => row.status === "Low Stock" || row.status === "Out of Stock")
-      .map(row => {
-        // Calculate usage metrics based on stock levels
-        const stockDeficiency = Math.max(0, row.minimum_stock - row.current_stock);
-        const used_today = Math.ceil(stockDeficiency / 3); // Estimate daily usage
-        const used_week = stockDeficiency * 2; // Estimate weekly usage
-
-        // Determine trend based on current stock vs minimum threshold
-        const trend: "up" | "down" = row.current_stock < (row.minimum_stock / 2) ? "up" : "down";
-
-        return {
-          item_id: row.item_id,
-          name: row.item_name,
-          used_today,
-          used_week,
-          trend
-        };
-      })
-      .slice(0, 10); // Show top 10 most used items
-  }, [rows]);
+    return usageData || [];
+  }, [usageData]);
 
   const filteredRows = useMemo(() => {
     const term = searchTerm.toLowerCase();
@@ -468,6 +516,7 @@ export default function InventoryPage() {
       setRows([]);
       setLoading(true);
       await loadInventory();
+      await loadUsageData();
       setLoading(false);
       window.setTimeout(() => {
         setDeleteItem(null);
@@ -538,6 +587,8 @@ export default function InventoryPage() {
       .replace(/[^\d]/g, "");
 
     downloadBlob(csvLines.join("\n"), `inventory_${timestamp}.csv`, "text/csv;charset=utf-8;");
+    // Log the export activity
+    logActivity('EXPORT_INVENTORY_CSV', `Exported ${rowsToExport.length} inventory items to CSV`);
   };
 
   const escapeHtml = (value: string) =>
@@ -643,11 +694,14 @@ export default function InventoryPage() {
        .replace(/[^\d]/g, "");
 
      doc.save(`inventory_report_${timestamp}.pdf`);
+     
+     // Log the export activity
+     logActivity('EXPORT_INVENTORY_PDF', `Exported ${rowsToExport.length} inventory items to PDF`);
    } catch (error) {
      console.error("Error exporting PDF:", error);
      alert("Failed to export PDF. Please check the console for errors.");
    }
- };
+};
 
   return (
     <div className="space-y-6 animate-in fade-in duration-700 overflow-hidden h-full flex flex-col">
@@ -704,6 +758,7 @@ export default function InventoryPage() {
                   setRows([]);
                   setLoading(true);
                   await loadInventory();
+                  await loadUsageData();
                   setLoading(false);
                 } catch (e: unknown) {
                   setLoading(false);
@@ -733,6 +788,7 @@ export default function InventoryPage() {
                   );
                 }
                 await loadInventory();
+                await loadUsageData();
               }}
             />
           )}
@@ -997,7 +1053,13 @@ export default function InventoryPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm opacity-90">{stat.label}</p>
-                      <p className="text-3xl font-bold mt-2">{stat.value}</p>
+                      <div className="text-3xl font-bold mt-2">
+                        {loading ? (
+                          <div className="w-16 h-8 bg-white/20 rounded animate-pulse" />
+                        ) : (
+                          stat.value
+                        )}
+                      </div>
                     </div>
                     <IconComponent className="w-12 h-12 opacity-50" />
                   </div>
@@ -1055,55 +1117,41 @@ export default function InventoryPage() {
               </div>
 
               <div className="flex flex-wrap items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <Filter className="w-5 h-5 text-gray-600" />
-                  <select
-                    value={filterStatus}
-                    onChange={(e) => {
-                      setFilterStatus(
-                        e.target.value as "all" | InventoryStatus,
-                      );
-                      setCurrentPage(1);
-                    }}
-                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-brand-primary"
-                  >
-                    <option value="all">All Status</option>
-                    <option value="In Stock">In Stock</option>
-                    <option value="Low Stock">Low Stock</option>
-                    <option value="Out of Stock">Out of Stock</option>
-                  </select>
-                </div>
+                <Filter className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                <select
+                  value={filterStatus}
+                  onChange={(e) => {
+                    setFilterStatus(
+                      e.target.value as "all" | InventoryStatus,
+                    );
+                    setCurrentPage(1);
+                  }}
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-brand-primary"
+                >
+                  <option value="all">All Status</option>
+                  <option value="In Stock">In Stock</option>
+                  <option value="Low Stock">Low Stock</option>
+                  <option value="Out of Stock">Out of Stock</option>
+                </select>
 
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-600 whitespace-nowrap">
-                    Category
-                  </span>
-                  <select
-                    value={filterCategory}
-                    onChange={(e) => {
-                      setFilterCategory(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-brand-primary"
-                  >
-                    <option value="all">All Categories</option>
-                    {categoryOptions.map((category) => (
-                      <option key={category} value={category}>
-                        {category}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <select
+                  value={filterCategory}
+                  onChange={(e) => {
+                    setFilterCategory(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-brand-primary"
+                >
+                  <option value="all">All Categories</option>
+                  {categoryOptions.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={loadInventory}
-                    className="p-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
-                    title="Refresh Data"
-                  >
-                    <RefreshCw className={`w-4 h-4 text-gray-600 dark:text-gray-300 ${loading ? 'animate-spin' : ''}`} />
-                  </button>
+              <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={handleExportPdf}
@@ -1120,7 +1168,15 @@ export default function InventoryPage() {
                     <FileSpreadsheet className="w-4 h-4" />
                     Export Excel
                   </button>
-                </div>
+                  
+                <button
+                  type="button"
+                  onClick={handleManualRefresh}
+                  className="p-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                  title="Refresh Data"
+                >
+                  <RefreshCw className={`w-4 h-4 text-gray-600 dark:text-gray-300 ${loading ? 'animate-spin' : ''}`} />
+                </button>
               </div>
             </div>
           </div>
@@ -1215,17 +1271,45 @@ export default function InventoryPage() {
                 </thead>
                 <tbody>
                   {loading ? (
-                    <tr>
-                      <td
-                        colSpan={9}
-                        className="py-10 px-4 text-center text-sm text-gray-500 dark:text-gray-400"
+                    // Skeleton loading rows
+                    Array.from({ length: entriesPerPage }).map((_, idx) => (
+                      <tr
+                        key={`skeleton-${idx}`}
+                        className="border-b border-gray-100 dark:border-gray-700 animate-pulse"
                       >
-                        <div className="flex items-center justify-center gap-3">
-                          <span className="inline-block w-5 h-5 rounded-full border-2 border-gray-300 border-t-gray-600 animate-spin" />
-                          Loading inventory...
-                        </div>
-                      </td>
-                    </tr>
+                        <td className="py-4 px-4">
+                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
+                        </td>
+                        <td className="py-4 px-4">
+                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
+                        </td>
+                        <td className="py-4 px-4 text-center">
+                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24 mx-auto"></div>
+                        </td>
+                        <td className="py-4 px-4 text-center">
+                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-12 mx-auto"></div>
+                        </td>
+                        <td className="py-4 px-4 text-center">
+                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16 mx-auto"></div>
+                        </td>
+                        <td className="py-4 px-4 text-center">
+                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16 mx-auto"></div>
+                        </td>
+                        <td className="py-4 px-4 text-center">
+                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20 mx-auto"></div>
+                        </td>
+                        <td className="py-4 px-4 text-center">
+                          <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded-full w-20 mx-auto"></div>
+                        </td>
+                        <td className="py-4 px-4">
+                          <div className="flex items-center justify-center gap-1">
+                            <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+                            <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+                            <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
                   ) : paginatedRows.length === 0 ? (
                     <tr>
                       <td
@@ -1470,44 +1554,82 @@ export default function InventoryPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {usageRows.map((u) => (
-                    <tr
-                      key={u.item_id}
-                      className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                    >
-                      <td className="py-3 px-4">
-                        <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
-                          {u.name}
+                  {loading ? (
+                    // Skeleton loading rows
+                    Array.from({ length: 5 }).map((_, idx) => (
+                      <tr
+                        key={`skeleton-${idx}`}
+                        className="border-b border-gray-100 dark:border-gray-700 animate-pulse"
+                      >
+                        <td className="py-3 px-4">
+                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32 mb-2"></div>
+                          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-12 mx-auto"></div>
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-12 mx-auto"></div>
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16 mx-auto"></div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : usageRows.length === 0 ? (
+                    // Empty state
+                    <tr>
+                      <td colSpan={4} className="py-10 px-4 text-center">
+                        <Activity className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                        <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
+                          No usage data available
                         </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {u.item_id}
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                          Items will appear here once deliverables are marked as delivered
                         </p>
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
-                          {u.used_today}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
-                          {u.used_week}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        {u.trend === "up" ? (
-                          <span className="inline-flex items-center gap-1 text-sm font-semibold text-green-600">
-                            <TrendingUp className="w-4 h-4" />
-                            Up
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-sm font-semibold text-red-600">
-                            <TrendingDown className="w-4 h-4" />
-                            Down
-                          </span>
-                        )}
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    // Data rows
+                    usageRows.map((u) => (
+                      <tr
+                        key={u.item_id}
+                        className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                      >
+                        <td className="py-3 px-4">
+                          <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+                            {u.name}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {u.item_id}
+                          </p>
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                            {u.used_today}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                            {u.used_week}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          {u.trend === "up" ? (
+                            <span className="inline-flex items-center gap-1 text-sm font-semibold text-green-600">
+                              <TrendingUp className="w-4 h-4" />
+                              Up
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-sm font-semibold text-red-600">
+                              <TrendingDown className="w-4 h-4" />
+                              Down
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>

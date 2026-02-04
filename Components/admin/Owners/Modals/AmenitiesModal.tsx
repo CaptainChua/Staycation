@@ -6,7 +6,8 @@ import {
   Wifi, Tv, Coffee, Wind, Car, Waves, Utensils, 
   Dumbbell, Shield, Search, Check, Info, Flame,
   Waves as Pool, Bath, Snowflake, Monitor, Smartphone,
-  Speaker, Key, Zap
+  Speaker, Key, Zap, Refrigerator, CookingPot, UtensilsCrossed,
+  Bed, BedDouble, Shirt, Lightbulb, Dices
 } from "lucide-react";
 import toast from 'react-hot-toast';
 import { setCookie, getCookie } from "@/lib/cookieUtils";
@@ -20,27 +21,18 @@ interface AmenityItem {
 }
 
 const AMENITIES_LIST: AmenityItem[] = [
-  { id: "wifi", label: "High-Speed WiFi", icon: Wifi, category: "Essential" },
-  { id: "netflix", label: "Netflix / Streaming", icon: Monitor, category: "Essential" },
-  { id: "tv", label: "Smart TV", icon: Tv, category: "Essential" },
-  { id: "airConditioning", label: "Air Conditioning", icon: Snowflake, category: "Essential" },
-  { id: "kitchen", label: "Fully Equipped Kitchen", icon: Utensils, category: "Essential" },
-  { id: "towels", label: "Fresh Towels", icon: Bath, category: "Essential" },
-  
-  { id: "ps4", label: "PS4 / Gaming", icon: Smartphone, category: "Luxury" },
-  { id: "glowBed", label: "Glow Bed System", icon: Zap, category: "Luxury" },
-  { id: "poolAccess", label: "Pool Access", icon: Pool, category: "Luxury" },
-  { id: "speaker", label: "Bluetooth Speaker", icon: Speaker, category: "Luxury" },
-  
-  { id: "balcony", label: "Private Balcony", icon: Wind, category: "Comfort" },
-  { id: "coffee", label: "Coffee Maker", icon: Coffee, category: "Comfort" },
-  { id: "washerDryer", label: "Washer & Dryer", icon: Zap, category: "Comfort" },
-  
-  { id: "parking", label: "Secure Parking", icon: Car, category: "Essential" },
-  { id: "keyless", label: "Keyless Entry", icon: Key, category: "Safety" },
-  { id: "smokeAlarm", label: "Smoke Alarm", icon: Shield, category: "Safety" },
-  { id: "firstAid", label: "First Aid Kit", icon: Info, category: "Safety" },
-  { id: "fireExtinguisher", label: "Fire Extinguisher", icon: Flame, category: "Safety" },
+  { id: "wifi", label: "WiFi", icon: Wifi, category: "Essential" },
+  { id: "airConditioning", label: "Air conditioning", icon: Snowflake, category: "Essential" },
+  { id: "poolAccess", label: "Pool access", icon: Pool, category: "Luxury" },
+  { id: "netflix", label: "Netflix", icon: Monitor, category: "Essential" },
+  { id: "kitchen", label: "Kitchen", icon: Utensils, category: "Essential" },
+  { id: "parking", label: "Parking", icon: Car, category: "Essential" },
+  { id: "ps4", label: "PS4", icon: Smartphone, category: "Luxury" },
+  { id: "balcony", label: "Balcony", icon: Wind, category: "Comfort" },
+  { id: "washerDryer", label: "Washer/Dryer", icon: Zap, category: "Comfort" },
+  { id: "glowBed", label: "Glow Bed", icon: Zap, category: "Luxury" },
+  { id: "tv", label: "TV", icon: Tv, category: "Essential" },
+  { id: "towels", label: "Towels", icon: Bath, category: "Essential" },
 ];
 
 interface AmenitiesData {
@@ -112,14 +104,15 @@ const AmenitiesModal = ({
   const gridContent = (
     <div className="space-y-6">
       {/* Search Header */}
-      <div className="sticky top-0 z-10 bg-gray-50/50 pb-4">
+      <div className="sticky top-0 z-10 bg-gray-50/50 dark:bg-gray-900/50 pb-4 backdrop-blur-sm">
         <Input
           placeholder="Search amenities (e.g. WiFi, Pool, Safety...)"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          startContent={<Search className="w-4 h-4 text-gray-400" />}
+          startContent={<Search className="w-4 h-4 text-gray-400 dark:text-gray-500" />}
           classNames={{
-            inputWrapper: "bg-white border border-gray-200 focus-within:!border-brand-primary shadow-sm rounded-xl h-12"
+            inputWrapper: "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 focus-within:!border-brand-primary shadow-sm rounded-xl h-12",
+            input: "dark:text-gray-100"
           }}
         />
       </div>
@@ -127,7 +120,7 @@ const AmenitiesModal = ({
       {/* Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 pb-4">
         {filteredAmenities.map((item) => {
-          const isSelected = !!initialData[item.id];
+          const isSelected = !!selectedAmenities[item.id];
           const Icon = item.icon;
 
           return (
@@ -139,20 +132,20 @@ const AmenitiesModal = ({
                 relative flex flex-col items-center justify-center p-6 rounded-2xl border-2 transition-all duration-[250ms] [transition-timing-function:cubic-bezier(0.4,0,0.2,1)] group
                 hover:scale-[1.03] hover:shadow-xl will-change-transform
                 ${isSelected 
-                  ? 'border-brand-primary bg-brand-primary/5 shadow-md' 
-                  : 'border-gray-100 bg-white hover:border-brand-primary/30'}
+                  ? 'border-brand-primary bg-brand-primary/5 dark:bg-brand-primary/10 shadow-md' 
+                  : 'border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-800 hover:border-brand-primary/30'}
               `}
             >
               <div className={`
                 p-3 rounded-full mb-3 transition-colors duration-300
-                ${isSelected ? 'bg-brand-primary text-white' : 'bg-gray-50 text-gray-400 group-hover:text-brand-primary'}
+                ${isSelected ? 'bg-brand-primary text-white' : 'bg-gray-50 dark:bg-gray-700 text-gray-400 dark:text-gray-500 group-hover:text-brand-primary'}
               `}>
                 <Icon className="w-6 h-6" />
               </div>
-              <span className={`text-xs font-bold text-center leading-tight ${isSelected ? 'text-brand-primary' : 'text-gray-600'}`}>
+              <span className={`text-xs font-bold text-center leading-tight ${isSelected ? 'text-brand-primary' : 'text-gray-600 dark:text-gray-300'}`}>
                 {item.label}
               </span>
-              <span className="text-[9px] text-gray-400 mt-1 uppercase tracking-tighter font-medium">
+              <span className="text-[9px] text-gray-400 dark:text-gray-500 mt-1 uppercase tracking-tighter font-medium">
                 {item.category}
               </span>
 
@@ -169,7 +162,7 @@ const AmenitiesModal = ({
 
       {filteredAmenities.length === 0 && (
         <div className="text-center py-12">
-          <p className="text-gray-400 italic">No amenities found matching "{searchQuery}"</p>
+          <p className="text-gray-400 dark:text-gray-500 italic">No amenities found matching "{searchQuery}"</p>
         </div>
       )}
     </div>
