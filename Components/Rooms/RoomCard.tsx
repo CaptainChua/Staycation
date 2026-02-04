@@ -3,9 +3,10 @@
 import { Star, Video, X, Heart, Sparkles, MapPin, Tag, ChevronRight } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { useAddToWishlistMutation, useRemoveFromWishlistMutation, useCheckWishlistStatusQuery } from "@/redux/api/wishlistApi";
+import { useRoomDiscounts } from "@/hooks/useRoomDiscounts";
 import toast from "react-hot-toast";
 
 interface Room {
@@ -149,6 +150,62 @@ const RoomCard = ({ room, mode = "browse", compact = false }: RoomCardsProps) =>
     setIsVideoModalOpen(false);
   };
 
+  // Fetch discounts for this room
+  const { data: discountsData, isLoading: isLoadingDiscounts } = useRoomDiscounts(
+    room.uuid_id || room.id,
+    userId
+  );
+
+  // Calculate the best discount for this room
+  const bestDiscount = useMemo(() => {
+    if (!discountsData?.data || discountsData.data.length === 0) return null;
+    
+    const basePrice = parseFloat(room.price.replace('₱', '').replace(/,/g, ''));
+    
+    // Find the discount that gives the best savings
+    return discountsData.data.reduce((best, discount) => {
+      let savings = 0;
+      
+      if (discount.discount_type === 'percentage') {
+        savings = basePrice * (discount.discount_value / 100);
+      } else {
+        savings = discount.discount_value;
+      }
+      
+      // Check minimum booking requirement
+      if (discount.min_booking_amount && basePrice < discount.min_booking_amount) {
+        return best; // Skip this discount
+      }
+      
+      if (!best || savings > best.savings) {
+        return { ...discount, savings };
+      }
+      
+      return best;
+    }, null as (typeof discountsData.data[0] & { savings?: number }) | null);
+  }, [discountsData, room.price]);
+
+  // Calculate discounted price
+  const discountedPrice = useMemo(() => {
+    if (!bestDiscount) return room.price;
+    
+    const basePrice = parseFloat(room.price.replace('₱', '').replace(/,/g, ''));
+    let finalPrice = basePrice;
+    
+    if (bestDiscount.discount_type === 'percentage') {
+      finalPrice = basePrice * (1 - bestDiscount.discount_value / 100);
+    } else {
+      finalPrice = Math.max(0, basePrice - bestDiscount.discount_value);
+    }
+    
+    return `₱${finalPrice.toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  }, [bestDiscount, room.price]);
+
+  // Calculate original price (show the base price if there's a discount)
+  const displayOriginalPrice = bestDiscount ? room.price : undefined;
+  const displayCurrentPrice = bestDiscount ? discountedPrice : room.price;
+  const displayDiscountPercentage = bestDiscount?.discount_type === 'percentage' ? bestDiscount.discount_value : undefined;
+
   // Extract YouTube video ID from URL and return a valid embed URL
   const getYouTubeEmbedUrl = (url: string | undefined) => {
     if (!url) return "";
@@ -229,19 +286,51 @@ const RoomCard = ({ room, mode = "browse", compact = false }: RoomCardsProps) =>
       </div>
 
       {/* Discount Section - Overlap Image and Details */}
-      <div className="flex items-center justify-center gap-3 px-4 py-2 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm rounded-lg shadow-md border border-gray-200 dark:border-gray-700 -mt-5 mx-3 relative z-10 mb-3 overflow-hidden">
-        <div className="bg-brand-primary dark:bg-brand-primary text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-md whitespace-nowrap">
-          {room.discountPercentage && room.discountPercentage > 0
-            ? `-${room.discountPercentage}% OFF`
-            : '-15% OFF'}
+      {(bestDiscount || (!discountsData?.data || discountsData.data.length === 0 && !bestDiscount) || isLoadingDiscounts) && (
+        <div className="flex items-center justify-center gap-3 px-4 py-2 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm rounded-lg shadow-md border border-gray-200 dark:border-gray-700 -mt-5 mx-3 relative z-10 mb-3 overflow-hidden">
+          {isLoadingDiscounts ? (
+            <>
+              {/* Skeleton for discount badge */}
+              <div className="bg-gray-200 dark:bg-gray-700 text-gray-200 text-xs font-bold px-2.5 py-1 rounded-full shadow-md whitespace-nowrap animate-pulse">
+                Loading...
+              </div>
+              {/* Skeleton for discount name */}
+              <div className="flex items-center gap-1.5">
+                <div className="w-3.5 h-3.5 sm:w-4 sm:h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                <div className="text-xs font-semibold text-gray-200 dark:text-gray-700 animate-pulse">
+                  Loading discount...
+                </div>
+              </div>
+            </>
+          ) : bestDiscount ? (
+            <>
+              <div className="bg-brand-primary dark:bg-brand-primary text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-md whitespace-nowrap">
+                {bestDiscount.discount_type === 'percentage' 
+                  ? `-${bestDiscount.discount_value}% OFF`
+                  : `-₱${bestDiscount.discount_value.toLocaleString('en-PH')} OFF`}
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Tag className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-yellow-600 dark:text-yellow-500" style={{animation: 'slideInScale 0.6s ease-out'}} />
+                <div className="text-xs font-semibold text-yellow-700 dark:text-yellow-400">
+                  {bestDiscount.name}
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="bg-brand-primary/20 dark:bg-brand-primary/30 text-brand-primary dark:text-brand-primary text-xs font-bold px-2.5 py-1 rounded-full shadow-md whitespace-nowrap border border-brand-primary/30 dark:border-brand-primary/40">
+                Guest Favorite
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Heart className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-brand-primary dark:text-brand-primary" style={{animation: 'slideInScale 0.6s ease-out'}} />
+                <div className="text-xs font-semibold text-brand-primary dark:text-brand-primary">
+                  Popular Choice
+                </div>
+              </div>
+            </>
+          )}
         </div>
-        <div className="flex items-center gap-1.5">
-          <Tag className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-yellow-600 dark:text-yellow-500" style={{animation: 'slideInScale 0.6s ease-out'}} />
-          <div className="text-xs font-semibold text-yellow-700 dark:text-yellow-400">
-            Summer Sale
-          </div>
-        </div>
-      </div>
+      )}
       <style>{`
         @keyframes slideInScale {
           from {
@@ -263,13 +352,15 @@ const RoomCard = ({ room, mode = "browse", compact = false }: RoomCardsProps) =>
             {/* Current Price with Original Price */}
             <div className="flex items-center gap-2">
               <div className="text-lg sm:text-xl font-bold text-brand-primary">
-                {room.price}
+                {displayCurrentPrice}
               </div>
-              <div className="flex items-center gap-1">
-                <span className="text-xs text-gray-500 dark:text-gray-400 line-through">
-                  {room.originalPrice || '₱3,150'}
-                </span>
-              </div>
+              {displayOriginalPrice && (
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-gray-500 dark:text-gray-400 line-through">
+                    {displayOriginalPrice}
+                  </span>
+                </div>
+              )}
             </div>
             {/* Per Night Text */}
             <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -278,19 +369,16 @@ const RoomCard = ({ room, mode = "browse", compact = false }: RoomCardsProps) =>
           </div>
 
           {/* Savings Amount */}
-          <div className="text-right flex flex-col items-end justify-center bg-green-50 dark:bg-green-900/20 px-2 sm:px-2.5 py-1.5 sm:py-2 rounded-lg">
-            <div className="text-xs sm:text-xs font-semibold text-green-600 dark:text-green-400">
-              Save
+          {bestDiscount && (
+            <div className="text-right flex flex-col items-end justify-center bg-green-50 dark:bg-green-900/20 px-2 sm:px-2.5 py-1.5 sm:py-2 rounded-lg">
+              <div className="text-xs sm:text-xs font-semibold text-green-600 dark:text-green-400">
+                Save
+              </div>
+              <div className="text-xs sm:text-sm font-bold text-green-600 dark:text-green-400">
+                ₱{bestDiscount.savings?.toLocaleString('en-PH') || '0'}
+              </div>
             </div>
-            <div className="text-xs sm:text-sm font-bold text-green-600 dark:text-green-400">
-              ₱{room.originalPrice && room.discountPercentage && room.discountPercentage > 0
-                ? (
-                    (parseFloat(room.originalPrice.replace('₱', '').replace(/,/g, '')) -
-                     parseFloat(room.price.replace('₱', '').replace(/,/g, '')))
-                  ).toLocaleString('en-PH')
-                : '525'}
-            </div>
-          </div>
+          )}
         </div>
 
         {/* Room Name */}
