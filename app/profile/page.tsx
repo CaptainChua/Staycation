@@ -7,13 +7,16 @@ import { User, Mail, Calendar, Shield, Edit } from "lucide-react";
 import SidebarLayout from "@/Components/SidebarLayout";
 import Image from "next/image";
 import Link from "next/link";
+import { getGuestIdentifier } from "@/lib/guest";
 
 const ProfilePage = () => {
   const { data: session, status } = useSession();
   const router = useRouter();
 
   useEffect(() => {
-    if (status === "unauthenticated") {
+    // Only redirect to login when unauthenticated AND the visitor is not a guest.
+    // Guests are recognized by a local guest token (cookie).
+    if (status === "unauthenticated" && !getGuestIdentifier()) {
       router.push("/login");
     }
   }, [status, router]);
@@ -29,30 +32,45 @@ const ProfilePage = () => {
     );
   }
 
-  if (!session?.user) {
+  // Allow guests (users with a local guest token) to view this page without forcing a login redirect.
+  const guestId = getGuestIdentifier();
+  if (!session?.user && !guestId) {
     return null;
   }
+
+  // Provide a fallback display user object for guest viewers
+  const displayUser = session?.user || {
+    name: "Guest",
+    email: "",
+    image: undefined,
+    profile_image_url: undefined,
+  };
 
   const userInfo = [
     {
       icon: <User className="w-5 h-5 text-brand-primary" />,
       label: "Full Name",
-      value: session.user.name || "Not provided",
+      value: displayUser.name || "Guest",
     },
     {
       icon: <Mail className="w-5 h-5 text-brand-primary" />,
       label: "Email Address",
-      value: session.user.email || "Not provided",
+      value: displayUser.email || "Not provided",
     },
     {
       icon: <Calendar className="w-5 h-5 text-brand-primary" />,
       label: "Member Since",
-      value: new Date().toLocaleDateString("en-US", { year: "numeric", month: "long" }),
+      value: session?.user
+        ? new Date().toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "long",
+          })
+        : "Guest session",
     },
     {
       icon: <Shield className="w-5 h-5 text-brand-primary" />,
       label: "Account Status",
-      value: "Active",
+      value: session?.user ? "Active" : "Guest",
     },
   ];
 
@@ -64,9 +82,7 @@ const ProfilePage = () => {
           <div className="inline-flex items-center justify-center w-16 h-16 bg-brand-primary/10 dark:bg-brand-primary/20 backdrop-blur-sm rounded-full mb-6 border border-brand-primary/20 dark:border-brand-primary/30">
             <User className="w-8 h-8 text-brand-primary" />
           </div>
-          <h1 className="text-4xl md:text-5xl font-bold mb-4">
-            My Profile
-          </h1>
+          <h1 className="text-4xl md:text-5xl font-bold mb-4">My Profile</h1>
           <p className="text-lg md:text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
             Manage your account information and preferences
           </p>
@@ -79,10 +95,10 @@ const ProfilePage = () => {
           {/* Profile Header */}
           <div className="bg-brand-primary h-32 relative">
             <div className="absolute -bottom-16 left-8">
-              {session.user.image ? (
+              {displayUser.image ? (
                 <Image
-                  src={session.user.image}
-                  alt={session.user.name || "User"}
+                  src={displayUser.image}
+                  alt={displayUser.name || "Guest"}
                   width={128}
                   height={128}
                   className="rounded-full border-4 border-white shadow-lg object-cover"
@@ -100,17 +116,29 @@ const ProfilePage = () => {
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
               <div className="mb-4 md:mb-0">
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">
-                  {session.user.name}
+                  {displayUser.name}
                 </h2>
-                <p className="text-gray-600 dark:text-gray-300">{session.user.email}</p>
+                <p className="text-gray-600 dark:text-gray-300">
+                  {displayUser.email}
+                </p>
               </div>
-              <Link 
-                href="/profile/edit"
-                className="flex items-center gap-2 px-4 py-2 bg-brand-primary hover:bg-brand-primaryDark text-white rounded-lg font-medium transition-colors"
-              >
-                <Edit className="w-4 h-4" />
-                Edit Profile
-              </Link>
+              {session?.user ? (
+                <Link
+                  href="/profile/edit"
+                  className="flex items-center gap-2 px-4 py-2 bg-brand-primary hover:bg-brand-primaryDark text-white rounded-lg font-medium transition-colors"
+                >
+                  <Edit className="w-4 h-4" />
+                  Edit Profile
+                </Link>
+              ) : (
+                <Link
+                  href="/login?callbackUrl=/profile"
+                  className="flex items-center gap-2 px-4 py-2 bg-brand-primary hover:bg-brand-primaryDark text-white rounded-lg font-medium transition-colors"
+                >
+                  <Edit className="w-4 h-4" />
+                  Sign In to claim profile
+                </Link>
+              )}
             </div>
 
             {/* User Information Grid */}
@@ -126,7 +154,9 @@ const ProfilePage = () => {
                       {info.label}
                     </h3>
                   </div>
-                  <p className="text-gray-600 dark:text-gray-400 ml-8">{info.value}</p>
+                  <p className="text-gray-600 dark:text-gray-400 ml-8">
+                    {info.value}
+                  </p>
                 </div>
               ))}
             </div>
@@ -145,8 +175,10 @@ const ProfilePage = () => {
                 Booking History
               </h3>
             </div>
-            <p className="text-gray-600 dark:text-gray-300 mb-6">View your past and upcoming reservations</p>
-            <Link 
+            <p className="text-gray-600 dark:text-gray-300 mb-6">
+              View your past and upcoming reservations
+            </p>
+            <Link
               href="/bookings"
               className="inline-block px-6 py-2 bg-brand-primary/10 hover:bg-brand-primary/20 text-brand-primary font-medium rounded-lg transition-colors"
             >
@@ -164,8 +196,10 @@ const ProfilePage = () => {
                 Preferences
               </h3>
             </div>
-            <p className="text-gray-600 dark:text-gray-300 mb-6">Manage your account settings and preferences</p>
-            <Link 
+            <p className="text-gray-600 dark:text-gray-300 mb-6">
+              Manage your account settings and preferences
+            </p>
+            <Link
               href="/profile/settings"
               className="inline-block px-6 py-2 boo4g-brand-primary/10 hover:bg-brand-primary/20 text-brand-primary font-medium rounded-lg transition-colors"
             >
