@@ -367,355 +367,186 @@ const HotelRoomListings = ({ initialHavens }: HotelRoomListingsProps) => {
             </div>
           )}
 
-          {/* Filter Section */}
-          {!isLoading && (
-            <div className="mb-6">
-              {/* Mobile Filter Toggle */}
-              {isMobile && (
-                <div className="mb-4">
-                  <button
-                    onClick={() => setShowMobileFilters(!showMobileFilters)}
-                    className="w-full flex items-center justify-between px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:border-brand-primary dark:hover:border-brand-primary transition-colors"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Filter className="w-4 h-4" />
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Filters & Sort</span>
-                      {hasActiveFilters && (
-                        <span className="px-2 py-1 bg-brand-primary text-white text-xs rounded-full">
-                          {Object.values(selectedFilters).filter(v => Array.isArray(v) ? v.length > 0 : v !== '').length + (sortBy !== 'recommended' ? 1 : 0)}
-                        </span>
-                      )}
-                    </div>
-                    <ChevronDown className={`w-4 h-4 transition-transform ${showMobileFilters ? 'rotate-180' : ''}`} />
-                  </button>
-                </div>
-              )}
-
-              {/* Filter Content */}
-              <div className={`${isMobile ? (showMobileFilters ? 'block' : 'hidden') : 'block'}`}>
-                <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
-                  {/* Filter Pills */}
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300 mr-2">Filter by:</span>
-                    
-                    {/* Price Range Filter */}
-                    <div className="relative">
-                      <button
-                        onClick={() => {
-                          const options = ['0-2000', '2000-4000', '4000-6000', '6000+'];
-                          const currentIndex = options.indexOf(selectedFilters.priceRange);
-                          const nextIndex = (currentIndex + 1) % (options.length + 1);
-                          const nextValue: string = nextIndex === options.length ? '' : options[nextIndex];
-                          handleFilterChange('priceRange', nextValue);
-                        }}
-                        className={`px-3 py-1.5 bg-white dark:bg-gray-800 border rounded-full transition-colors text-sm whitespace-nowrap cursor-pointer ${
-                          selectedFilters.priceRange
-                            ? 'border-brand-primary bg-brand-primary/10 text-brand-primary'
-                            : 'border-gray-300 dark:border-gray-600 hover:border-brand-primary dark:hover:border-brand-primary'
-                        }`}
-                      >
-                        Price Range
-                        {selectedFilters.priceRange && (
-                          <span className="ml-1 text-xs">({selectedFilters.priceRange.replace('-', ' to ')})</span>
-                        )}
-                      </button>
-                      {!isMobile && selectedFilters.priceRange && (
-                        <button
-                          onClick={() => handleFilterChange('priceRange', selectedFilters.priceRange)}
-                          className="absolute -top-1 -right-1 w-4 h-4 bg-brand-primary text-white rounded-full text-xs flex items-center justify-center hover:bg-brand-primaryDark"
-                        >
-                          ×
-                        </button>
-                      )}
-                    </div>
-                    
-                    {/* Capacity Filter */}
-                    <div className="relative">
-                      <button
-                        onClick={() => {
-                          const options = ['1-2', '3-4', '5+'];
-                          const currentIndex = options.indexOf(selectedFilters.capacity);
-                          const nextIndex = (currentIndex + 1) % (options.length + 1);
-                          const nextValue: string = nextIndex === options.length ? '' : options[nextIndex];
-                          handleFilterChange('capacity', nextValue);
-                        }}
-                        className={`px-3 py-1.5 bg-white dark:bg-gray-800 border rounded-full transition-colors text-sm whitespace-nowrap cursor-pointer ${
-                          selectedFilters.capacity
-                            ? 'border-brand-primary bg-brand-primary/10 text-brand-primary'
-                            : 'border-gray-300 dark:border-gray-600 hover:border-brand-primary dark:hover:border-brand-primary'
-                        }`}
-                      >
-                        Capacity
-                        {selectedFilters.capacity && (
-                          <span className="ml-1 text-xs">({selectedFilters.capacity})</span>
-                        )}
-                      </button>
-                      {!isMobile && selectedFilters.capacity && (
-                        <button
-                          onClick={() => handleFilterChange('capacity', selectedFilters.capacity)}
-                          className="absolute -top-1 -right-1 w-4 h-4 bg-brand-primary text-white rounded-full text-xs flex items-center justify-center hover:bg-brand-primaryDark"
-                        >
-                          ×
-                        </button>
-                      )}
-                    </div>
-                    
-                    {/* Amenities Filter */}
-                    <div className="relative">
-                      <button
-                        onClick={() => {
-                          if (selectedFilters.amenities.length === 0) {
-                            // Select first available amenity
-                            const firstAmenity = uniqueAmenities[0];
-                            if (firstAmenity) handleAmenityToggle(firstAmenity);
-                          } else {
-                            // Clear all amenities
-                            setSelectedFilters(prev => ({ ...prev, amenities: [] }));
-                          }
-                        }}
-                        className={`px-3 py-1.5 bg-white dark:bg-gray-800 border rounded-full transition-colors text-sm whitespace-nowrap cursor-pointer ${
-                          selectedFilters.amenities.length > 0
-                            ? 'border-brand-primary bg-brand-primary/10 text-brand-primary'
-                            : 'border-gray-300 dark:border-gray-600 hover:border-brand-primary dark:hover:border-brand-primary'
-                        }`}
-                      >
-                        Amenities
-                        {selectedFilters.amenities.length > 0 && (
-                          <span className="ml-1 text-xs">({selectedFilters.amenities.length})</span>
-                        )}
-                      </button>
-                      {!isMobile && selectedFilters.amenities.length > 0 && (
-                        <button
-                          onClick={() => setSelectedFilters(prev => ({ ...prev, amenities: [] }))}
-                          className="absolute -top-1 -right-1 w-4 h-4 bg-brand-primary text-white rounded-full text-xs flex items-center justify-center hover:bg-brand-primaryDark"
-                        >
-                          ×
-                        </button>
-                      )}
-                    </div>
-                    
-                    {/* Rating Filter */}
-                    <div className="relative">
-                      <button
-                        onClick={() => {
-                          const options = ['4+', '4.5+'];
-                          const currentIndex = options.indexOf(selectedFilters.rating);
-                          const nextIndex = (currentIndex + 1) % (options.length + 1);
-                          const nextValue: string = nextIndex === options.length ? '' : options[nextIndex];
-                          handleFilterChange('rating', nextValue);
-                        }}
-                        className={`px-3 py-1.5 bg-white dark:bg-gray-800 border rounded-full transition-colors text-sm whitespace-nowrap cursor-pointer ${
-                          selectedFilters.rating
-                            ? 'border-brand-primary bg-brand-primary/10 text-brand-primary'
-                            : 'border-gray-300 dark:border-gray-600 hover:border-brand-primary dark:hover:border-brand-primary'
-                        }`}
-                      >
-                        {selectedFilters.rating || '4+ Stars'}
-                      </button>
-                      {!isMobile && selectedFilters.rating && (
-                        <button
-                          onClick={() => handleFilterChange('rating', selectedFilters.rating)}
-                          className="absolute -top-1 -right-1 w-4 h-4 bg-brand-primary text-white rounded-full text-xs flex items-center justify-center hover:bg-brand-primaryDark"
-                        >
-                          ×
-                        </button>
-                      )}
-                    </div>
-                    
-                    {/* Tower Filter */}
-                    <div className="relative">
-                      <button
-                        onClick={() => {
-                          const options = uniqueTowers;
-                          const currentIndex = options.indexOf(selectedFilters.tower);
-                          const nextIndex = (currentIndex + 1) % (options.length + 1);
-                          const nextValue: string = nextIndex === options.length ? '' : options[nextIndex];
-                          handleFilterChange('tower', nextValue);
-                        }}
-                        className={`px-3 py-1.5 bg-white dark:bg-gray-800 border rounded-full transition-colors text-sm whitespace-nowrap cursor-pointer ${
-                          selectedFilters.tower
-                            ? 'border-brand-primary bg-brand-primary/10 text-brand-primary'
-                            : 'border-gray-300 dark:border-gray-600 hover:border-brand-primary dark:hover:border-brand-primary'
-                        }`}
-                      >
-                        Tower
-                        {selectedFilters.tower && (
-                          <span className="ml-1 text-xs">({selectedFilters.tower})</span>
-                        )}
-                      </button>
-                      {!isMobile && selectedFilters.tower && (
-                        <button
-                          onClick={() => handleFilterChange('tower', selectedFilters.tower)}
-                          className="absolute -top-1 -right-1 w-4 h-4 bg-brand-primary text-white rounded-full text-xs flex items-center justify-center hover:bg-brand-primaryDark"
-                        >
-                          ×
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Sort Dropdown */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-600 dark:text-gray-400">Sort:</span>
-                    <select
-                      value={sortBy}
-                      onChange={(e) => setSortBy(e.target.value)}
-                      className="px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:border-brand-primary"
-                    >
-                      <option value="recommended">Recommended</option>
-                      <option value="price-low-high">Price: Low to High</option>
-                      <option value="price-high-low">Price: High to Low</option>
-                      <option value="rating">Rating</option>
-                      <option value="capacity">Capacity</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Mobile Filter Details */}
-                {isMobile && showMobileFilters && (
-                  <div className="mt-4 space-y-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    {/* Price Range Options */}
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Price Range</h4>
-                      <div className="space-y-2">
-                        {['0-2000', '2000-4000', '4000-6000', '6000+'].map(range => (
-                          <label key={range} className="flex items-center gap-2">
-                            <input
-                              type="radio"
-                              name="priceRange"
-                              checked={selectedFilters.priceRange === range}
-                              onChange={() => handleFilterChange('priceRange', range)}
-                              className="text-brand-primary focus:ring-brand-primary"
-                            />
-                            <span className="text-sm text-gray-600 dark:text-gray-400">
-                              {range === '0-2000' ? '₱0 - ₱2,000' :
-                               range === '2000-4000' ? '₱2,000 - ₱4,000' :
-                               range === '4000-6000' ? '₱4,000 - ₱6,000' :
-                               '₱6,000+'}
-                            </span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Capacity Options */}
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Capacity</h4>
-                      <div className="space-y-2">
-                        {['1-2', '3-4', '5+'].map(capacity => (
-                          <label key={capacity} className="flex items-center gap-2">
-                            <input
-                              type="radio"
-                              name="capacity"
-                              checked={selectedFilters.capacity === capacity}
-                              onChange={() => handleFilterChange('capacity', capacity)}
-                              className="text-brand-primary focus:ring-brand-primary"
-                            />
-                            <span className="text-sm text-gray-600 dark:text-gray-400">
-                              {capacity === '1-2' ? '1-2 Guests' :
-                               capacity === '3-4' ? '3-4 Guests' :
-                               '5+ Guests'}
-                            </span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Rating Options */}
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Rating</h4>
-                      <div className="space-y-2">
-                        {['4+', '4.5+'].map(rating => (
-                          <label key={rating} className="flex items-center gap-2">
-                            <input
-                              type="radio"
-                              name="rating"
-                              checked={selectedFilters.rating === rating}
-                              onChange={() => handleFilterChange('rating', rating)}
-                              className="text-brand-primary focus:ring-brand-primary"
-                            />
-                            <span className="text-sm text-gray-600 dark:text-gray-400">{rating} Stars</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Tower Options */}
-                    {uniqueTowers.length > 0 && (
-                      <div>
-                        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tower</h4>
-                        <div className="space-y-2">
-                          {uniqueTowers.map(tower => (
-                            <label key={tower} className="flex items-center gap-2">
-                              <input
-                                type="radio"
-                                name="tower"
-                                checked={selectedFilters.tower === tower}
-                                onChange={() => handleFilterChange('tower', tower)}
-                                className="text-brand-primary focus:ring-brand-primary"
-                              />
-                              <span className="text-sm text-gray-600 dark:text-gray-400">{tower}</span>
-                            </label>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Amenities Options */}
-                    {uniqueAmenities.length > 0 && (
-                      <div>
-                        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Amenities</h4>
-                        <div className="space-y-2 max-h-32 overflow-y-auto">
-                          {uniqueAmenities.slice(0, 10).map(amenity => (
-                            <label key={amenity} className="flex items-center gap-2">
-                              <input
-                                type="checkbox"
-                                checked={selectedFilters.amenities.includes(amenity)}
-                                onChange={() => handleAmenityToggle(amenity)}
-                                className="text-brand-primary focus:ring-brand-primary"
-                              />
-                              <span className="text-sm text-gray-600 dark:text-gray-400 capitalize">
-                                {amenity.replace(/_/g, ' ')}
-                              </span>
-                            </label>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Clear Filters Button */}
-                    {hasActiveFilters && (
-                      <button
-                        onClick={clearAllFilters}
-                        className="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors text-sm font-medium"
-                      >
-                        Clear All Filters
-                      </button>
-                    )}
-                  </div>
-                )}
-
-                {/* Desktop Clear Filters */}
-                {!isMobile && hasActiveFilters && (
-                  <div className="mt-3">
-                    <button
-                      onClick={clearAllFilters}
-                      className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors text-sm font-medium"
-                    >
-                      Clear All Filters
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Staycation Haven PH Brand Section */}
-          <div className="mb-6 flex items-start">
+          {/* Staycation Haven PH Brand Section with Filters */}
+          <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <h1 className="text-xl sm:text-2xl font-display font-bold text-gray-900 dark:text-white flex items-center gap-2">
               Staycation Haven PH
               <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6 text-brand-primary" />
             </h1>
+            
+            {/* Filter Section - Moved to right side */}
+            {!isLoading && (
+              <div className="flex flex-col items-end gap-2">
+                {/* Mobile Filter Toggle */}
+                {isMobile && (
+                  <button
+                    onClick={() => setShowMobileFilters(!showMobileFilters)}
+                    className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:border-brand-primary dark:hover:border-brand-primary transition-colors"
+                  >
+                    <Filter className="w-4 h-4" />
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Filters & Sort</span>
+                    {hasActiveFilters && (
+                      <span className="px-2 py-1 bg-brand-primary text-white text-xs rounded-full">
+                        {Object.values(selectedFilters).filter(v => Array.isArray(v) ? v.length > 0 : v !== '').length + (sortBy !== 'recommended' ? 1 : 0)}
+                      </span>
+                    )}
+                    <ChevronDown className={`w-4 h-4 transition-transform ${showMobileFilters ? 'rotate-180' : ''}`} />
+                  </button>
+                )}
+
+                {/* Filter Content - Desktop: Horizontal, Mobile: Hidden */}
+                <div className={`${isMobile ? (showMobileFilters ? 'block' : 'hidden') : 'block'}`}>
+                  <div className="flex flex-col lg:flex-row items-end gap-3">
+                    {/* Filter Pills - Desktop Only */}
+                    {!isMobile && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        {/* Price Range Filter */}
+                        <div className="relative">
+                          <button
+                            onClick={() => {
+                              const options = ['0-2000', '2000-4000', '4000-6000', '6000+'];
+                              const currentIndex = options.indexOf(selectedFilters.priceRange);
+                              const nextIndex = (currentIndex + 1) % (options.length + 1);
+                              const nextValue: string = nextIndex === options.length ? '' : options[nextIndex];
+                              handleFilterChange('priceRange', nextValue);
+                            }}
+                            className={`px-3 py-1.5 bg-white dark:bg-gray-800 border rounded-full transition-colors text-sm whitespace-nowrap cursor-pointer ${
+                              selectedFilters.priceRange
+                                ? 'border-brand-primary bg-brand-primary/10 text-brand-primary'
+                                : 'border-gray-300 dark:border-gray-600 hover:border-brand-primary dark:hover:border-brand-primary'
+                            }`}
+                          >
+                            Price
+                            {selectedFilters.priceRange && (
+                              <span className="ml-1 text-xs">({selectedFilters.priceRange.replace('-', ' to ')})</span>
+                            )}
+                          </button>
+                          {selectedFilters.priceRange && (
+                            <button
+                              onClick={() => handleFilterChange('priceRange', selectedFilters.priceRange)}
+                              className="absolute -top-1 -right-1 w-4 h-4 bg-brand-primary text-white rounded-full text-xs flex items-center justify-center hover:bg-brand-primaryDark"
+                            >
+                              ×
+                            </button>
+                          )}
+                        </div>
+                        
+                        {/* Capacity Filter */}
+                        <div className="relative">
+                          <button
+                            onClick={() => {
+                              const options = ['1-2', '3-4', '5+'];
+                              const currentIndex = options.indexOf(selectedFilters.capacity);
+                              const nextIndex = (currentIndex + 1) % (options.length + 1);
+                              const nextValue: string = nextIndex === options.length ? '' : options[nextIndex];
+                              handleFilterChange('capacity', nextValue);
+                            }}
+                            className={`px-3 py-1.5 bg-white dark:bg-gray-800 border rounded-full transition-colors text-sm whitespace-nowrap cursor-pointer ${
+                              selectedFilters.capacity
+                                ? 'border-brand-primary bg-brand-primary/10 text-brand-primary'
+                                : 'border-gray-300 dark:border-gray-600 hover:border-brand-primary dark:hover:border-brand-primary'
+                            }`}
+                          >
+                            Capacity
+                            {selectedFilters.capacity && (
+                              <span className="ml-1 text-xs">({selectedFilters.capacity})</span>
+                            )}
+                          </button>
+                          {selectedFilters.capacity && (
+                            <button
+                              onClick={() => handleFilterChange('capacity', selectedFilters.capacity)}
+                              className="absolute -top-1 -right-1 w-4 h-4 bg-brand-primary text-white rounded-full text-xs flex items-center justify-center hover:bg-brand-primaryDark"
+                            >
+                              ×
+                            </button>
+                          )}
+                        </div>
+                        
+                        {/* Rating Filter */}
+                        <div className="relative">
+                          <button
+                            onClick={() => {
+                              const options = ['4+', '4.5+'];
+                              const currentIndex = options.indexOf(selectedFilters.rating);
+                              const nextIndex = (currentIndex + 1) % (options.length + 1);
+                              const nextValue: string = nextIndex === options.length ? '' : options[nextIndex];
+                              handleFilterChange('rating', nextValue);
+                            }}
+                            className={`px-3 py-1.5 bg-white dark:bg-gray-800 border rounded-full transition-colors text-sm whitespace-nowrap cursor-pointer ${
+                              selectedFilters.rating
+                                ? 'border-brand-primary bg-brand-primary/10 text-brand-primary'
+                                : 'border-gray-300 dark:border-gray-600 hover:border-brand-primary dark:hover:border-brand-primary'
+                            }`}
+                          >
+                            Rating
+                            {selectedFilters.rating && (
+                              <span className="ml-1 text-xs">({selectedFilters.rating})</span>
+                            )}
+                          </button>
+                          {selectedFilters.rating && (
+                            <button
+                              onClick={() => handleFilterChange('rating', selectedFilters.rating)}
+                              className="absolute -top-1 -right-1 w-4 h-4 bg-brand-primary text-white rounded-full text-xs flex items-center justify-center hover:bg-brand-primaryDark"
+                            >
+                              ×
+                            </button>
+                          )}
+                        </div>
+                        
+                        {/* Tower Filter */}
+                        {uniqueTowers.length > 0 && (
+                          <div className="relative">
+                            <button
+                              onClick={() => {
+                                const options = uniqueTowers;
+                                const currentIndex = options.indexOf(selectedFilters.tower);
+                                const nextIndex = (currentIndex + 1) % (options.length + 1);
+                                const nextValue: string = nextIndex === options.length ? '' : options[nextIndex];
+                                handleFilterChange('tower', nextValue);
+                              }}
+                              className={`px-3 py-1.5 bg-white dark:bg-gray-800 border rounded-full transition-colors text-sm whitespace-nowrap cursor-pointer ${
+                                selectedFilters.tower
+                                  ? 'border-brand-primary bg-brand-primary/10 text-brand-primary'
+                                  : 'border-gray-300 dark:border-gray-600 hover:border-brand-primary dark:hover:border-brand-primary'
+                              }`}
+                            >
+                              Tower
+                              {selectedFilters.tower && (
+                                <span className="ml-1 text-xs">({selectedFilters.tower})</span>
+                              )}
+                            </button>
+                            {selectedFilters.tower && (
+                              <button
+                                onClick={() => handleFilterChange('tower', selectedFilters.tower)}
+                                className="absolute -top-1 -right-1 w-4 h-4 bg-brand-primary text-white rounded-full text-xs flex items-center justify-center hover:bg-brand-primaryDark"
+                              >
+                                ×
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Sort Dropdown - Always Visible */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-600 dark:text-gray-400">Sort:</span>
+                      <select
+                        value={sortBy}
+                        onChange={(e) => setSortBy(e.target.value)}
+                        className="px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:border-brand-primary"
+                      >
+                        <option value="recommended">Recommended</option>
+                        <option value="price-low-high">Price: Low to High</option>
+                        <option value="price-high-low">Price: High to Low</option>
+                        <option value="rating">Rating</option>
+                        <option value="capacity">Capacity</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Loading Skeletons */}
