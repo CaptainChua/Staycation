@@ -710,6 +710,14 @@ const HotelRoomListings = ({ initialHavens }: HotelRoomListingsProps) => {
             </div>
           )}
 
+          {/* Staycation Haven PH Brand Section */}
+          <div className="mb-6 flex items-start">
+            <h1 className="text-xl sm:text-2xl font-display font-bold text-gray-900 dark:text-white flex items-center gap-2">
+              Staycation Haven PH
+              <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6 text-brand-primary" />
+            </h1>
+          </div>
+
           {/* Loading Skeletons */}
           {isLoading && (
             <div className="space-y-12">
