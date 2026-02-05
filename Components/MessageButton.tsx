@@ -244,7 +244,7 @@ const MessageButton = () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          name: `Chat with ${employee.first_name} ${employee.last_name}`,
+          name: `${name?.trim() || "Guest"} • ${employee.first_name} ${employee.last_name}`,
           type: "guest",
           participant_ids: [guestId, employee.id],
         }),
