@@ -11,7 +11,7 @@ import SidebarLayout from "@/Components/SidebarLayout";
 import RoomCardSkeleton from "@/Components/Rooms/RoomCardSkeleton";
 import RoomCard from "@/Components/Rooms/RoomCard";
 import { useState, useEffect } from "react";
-import { getGuestIdentifier, getOrCreateGuestIdentifier } from "@/lib/guest";
+import { getGuestIdentifier, getOrCreateGuestIdentifier } from "../lib/guest";
 
 interface WishlistItem {
   id: string;
@@ -49,7 +49,7 @@ const MyWishlistPage = ({ initialData, userId }: MyWishlistPageProps) => {
 
     // No guest token yet - create one client-side and set it in a microtask
     Promise.resolve().then(() => {
-      const created = getOrCreateGuestIdentifier();
+      const created = getOrCreateGuestIdentifier(0);
       if (created) setClientUserId(created);
     });
   }, [userId]);
