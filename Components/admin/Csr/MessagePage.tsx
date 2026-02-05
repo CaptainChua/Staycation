@@ -22,6 +22,7 @@ import {
   useMarkMessagesAsReadMutation,
 } from "@/redux/api/messagesApi";
 import { useGetEmployeesQuery } from "@/redux/api/employeeApi";
+import { getGuestName } from "@/lib/guest";
 import toast from "react-hot-toast";
 import NewMessageModal from "./Modals/NewMessageModal";
 
@@ -82,8 +83,18 @@ const formatMessageTime = (timestamp: string) => {
 };
 
 const getActiveStatus = (lastMessageTime: string | undefined, type: string) => {
-  if (!lastMessageTime || type !== "internal") {
-    return { isActive: false, statusText: type === "internal" ? "Offline" : "Guest" };
+  if (!lastMessageTime) {
+    return {
+      isActive: false,
+      statusText: "Offline",
+    };
+  }
+
+  if (type === "guest") {
+    return {
+      isActive: false,
+      statusText: "Guest",
+    };
   }
 
   const now = new Date();
@@ -114,11 +125,25 @@ const Skeleton = ({ className }: { className: string }) => (
   <div className={`animate-pulse bg-gray-200 dark:bg-gray-800 ${className}`} />
 );
 
-export default function MessagePage({ onClose, initialConversationId }: MessagePageProps) {
+export default function MessagePage({
+  onClose,
+  initialConversationId,
+}: MessagePageProps) {
   const { data: session } = useSession();
   const userId = (session?.user as { id?: string })?.id;
+  const userEmail = (session?.user as { email?: string })?.email;
 
   const [search, setSearch] = useState("");
+  const [guestName] = useState<string | null>(() => getGuestName());
+
+  const currentUserName = useMemo(() => {
+    // If user is authenticated (Google login), use their name or email
+    if (session?.user) {
+      return session.user.name || userEmail || "";
+    }
+    // If user is a guest, use the guest name from sessionStorage
+    return guestName || "";
+  }, [session?.user, userEmail, guestName]);
   const [draft, setDraft] = useState("");
   const [isNewMessageModalOpen, setIsNewMessageModalOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -132,17 +157,22 @@ export default function MessagePage({ onClose, initialConversationId }: MessageP
     refetch: refetchConversations,
   } = useGetConversationsQuery(
     { userId: userId || "" },
-    { skip: !userId, pollingInterval: 5000 }
+    { skip: !userId, pollingInterval: 5000 },
   );
 
-  const conversations = useMemo(() => conversationsData?.data || [], [conversationsData?.data]);
+  const conversations = useMemo(
+    () => conversationsData?.data || [],
+    [conversationsData?.data],
+  );
 
   // Compute initial active conversation ID
   const getInitialActiveId = useCallback((): string | null => {
     if (conversations.length === 0) return null;
 
     if (initialConversationId) {
-      const exists = conversations.some((c: Conversation) => c.id === initialConversationId);
+      const exists = conversations.some(
+        (c: Conversation) => c.id === initialConversationId,
+      );
       if (exists) return initialConversationId;
     }
 
@@ -167,8 +197,14 @@ export default function MessagePage({ onClose, initialConversationId }: MessageP
   // Update activeId when initialConversationId changes - FIXED VERSION
   useEffect(() => {
     // Skip if we've already processed the initialConversationId
-    if (initialConversationId && conversations.length > 0 && !hasProcessedInitialConversationId.current) {
-      const exists = conversations.some((c: Conversation) => c.id === initialConversationId);
+    if (
+      initialConversationId &&
+      conversations.length > 0 &&
+      !hasProcessedInitialConversationId.current
+    ) {
+      const exists = conversations.some(
+        (c: Conversation) => c.id === initialConversationId,
+      );
       if (exists && initialConversationId !== activeId) {
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setActiveId(initialConversationId);
@@ -184,16 +220,22 @@ export default function MessagePage({ onClose, initialConversationId }: MessageP
     refetch: refetchMessages,
   } = useGetMessagesQuery(
     { conversationId: activeId || "" },
-    { skip: !activeId, pollingInterval: 3000 }
+    { skip: !activeId, pollingInterval: 3000 },
   );
 
   // Mutations
   const [sendMessage, { isLoading: isSending }] = useSendMessageMutation();
   const [markAsRead] = useMarkMessagesAsReadMutation();
 
-  const messages = useMemo(() => messagesData?.data || [], [messagesData?.data]);
+  const messages = useMemo(
+    () => messagesData?.data || [],
+    [messagesData?.data],
+  );
   const { data: employeesData } = useGetEmployeesQuery({});
-  const employees = useMemo(() => employeesData?.data || [], [employeesData?.data]);
+  const employees = useMemo(
+    () => employeesData?.data || [],
+    [employeesData?.data],
+  );
 
   const employeeMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -207,7 +249,7 @@ export default function MessagePage({ onClose, initialConversationId }: MessageP
   const employeeProfileImageById = useMemo(() => {
     const map: Record<string, string> = {};
     employees.forEach((emp: Employee) => {
-      if (emp?.id && emp?.profile_image_url) {
+      if (emp.id && emp.profile_image_url) {
         map[emp.id] = emp.profile_image_url;
       }
     });
@@ -230,41 +272,84 @@ export default function MessagePage({ onClose, initialConversationId }: MessageP
     scrollToBottom();
   }, [messages]);
 
-  const getConversationDisplayName = useCallback((conversation: Conversation | undefined | null) => {
-    if (!conversation) return "";
-    if (conversation.type === "guest") {
-      return conversation.name;
-    }
+  const getConversationDisplayName = useCallback(
+    (conversation: Conversation | undefined | null) => {
+      if (!conversation) return "";
 
-    const otherParticipantIds = (conversation.participant_ids || []).filter(
-      (id: string) => id !== userId
-    );
-    const otherNames = otherParticipantIds
-      .map((id: string) => employeeMap[id])
-      .filter(Boolean);
+      if (conversation.type === "guest" || conversation.type === "oauth") {
+        // For CSR staff viewing customer conversations, get the latest customer name from messages
+        if (session?.user && userId) {
+          // Find the most recent message from a customer (non-staff) in this conversation
+          const conversationMessages = messages.filter(
+            (m) => m.conversation_id === conversation.id,
+          );
+          const customerMessage = conversationMessages
+            .filter((m) => m.sender_id !== userId && !employeeMap[m.sender_id])
+            .sort(
+              (a, b) =>
+                new Date(b.created_at).getTime() -
+                new Date(a.created_at).getTime(),
+            )[0];
 
-    if (otherNames.length > 0) {
-      return otherNames.join(", ");
-    }
+          if (customerMessage?.sender_name) {
+            return customerMessage.sender_name;
+          }
 
-    return conversation.name;
-  }, [employeeMap, userId]);
+          // Fallback to conversation name parsing if no messages found
+          if (conversation.name) {
+            const parts = conversation.name.split(" • ");
+            return (
+              parts[0] || (conversation.type === "oauth" ? "User" : "Guest")
+            );
+          }
+
+          return conversation.type === "oauth" ? "User" : guestName || "Guest";
+        } else {
+          // This is a customer viewing, show employee name
+          if (conversation.name) {
+            const parts = conversation.name.split(" • ");
+            return parts[1] || "Staff";
+          }
+          return "Staff";
+        }
+      }
+
+      // For staff conversations, show the other participants' names
+      const otherParticipantIds = (conversation.participant_ids || []).filter(
+        (id: string) => id !== userId,
+      );
+      const otherNames = otherParticipantIds
+        .map((id: string) => employeeMap[id])
+        .filter(Boolean);
+
+      if (otherNames.length > 0) {
+        return otherNames.join(", ");
+      }
+
+      return conversation.name || "Conversation";
+    },
+    [employeeMap, userId, guestName, session?.user, messages],
+  );
 
   const activeConversation = useMemo(
     () => conversations.find((c) => c.id === activeId) ?? conversations[0],
-    [activeId, conversations]
+    [activeId, conversations],
   );
 
   const activeConversationName = getConversationDisplayName(activeConversation);
   const activeConversationOtherParticipantIds = userId
-    ? (activeConversation?.participant_ids || []).filter((id: string) => id !== userId)
-    : (activeConversation?.participant_ids || []);
+    ? (activeConversation?.participant_ids || []).filter(
+        (id: string) => id !== userId,
+      )
+    : activeConversation?.participant_ids || [];
   const activeConversationAvatarUrl =
-    activeConversation?.type !== "guest" && activeConversationOtherParticipantIds.length === 1
+    activeConversation?.type !== "guest" &&
+    activeConversationOtherParticipantIds.length === 1
       ? employeeProfileImageById[activeConversationOtherParticipantIds[0]]
       : undefined;
 
-  const showSkeletonConversations = isLoadingConversations && conversations.length === 0;
+  const showSkeletonConversations =
+    isLoadingConversations && conversations.length === 0;
   const showSkeletonMessages = isLoadingMessages && messages.length === 0;
 
   const filteredConversations = useMemo(() => {
@@ -287,7 +372,7 @@ export default function MessagePage({ onClose, initialConversationId }: MessageP
       await sendMessage({
         conversation_id: activeId,
         sender_id: userId,
-        sender_name: session?.user?.name || "CSR",
+        sender_name: currentUserName || "CSR",
         message_text: text,
       }).unwrap();
 
@@ -296,19 +381,27 @@ export default function MessagePage({ onClose, initialConversationId }: MessageP
       refetchConversations();
     } catch (error: unknown) {
       console.error("Failed to send message:", error);
-      const errorMessage = error && typeof error === 'object' && 'data' in error
-        ? (error as { data?: { error?: string } }).data?.error
-        : "Failed to send message";
+      const errorMessage =
+        error && typeof error === "object" && "data" in error
+          ? (error as { data?: { error?: string } }).data?.error
+          : "Failed to send message";
       toast.error(errorMessage || "Failed to send message");
     }
   };
 
   // Use useCallback for memoized functions - MOVED OUTSIDE CONDITIONAL RENDER
-  const memoizedFormatTime = useCallback((timestamp: string) => formatTime(timestamp), []);
-  const memoizedFormatMessageTime = useCallback((timestamp: string) => formatMessageTime(timestamp), []);
+  const memoizedFormatTime = useCallback(
+    (timestamp: string) => formatTime(timestamp),
+    [],
+  );
+  const memoizedFormatMessageTime = useCallback(
+    (timestamp: string) => formatMessageTime(timestamp),
+    [],
+  );
   const memoizedGetActiveStatus = useCallback(
-    (lastMessageTime: string | undefined, type: string) => getActiveStatus(lastMessageTime, type),
-    []
+    (lastMessageTime: string | undefined, type: string) =>
+      getActiveStatus(lastMessageTime, type),
+    [],
   );
 
   if (showSkeletonConversations) {
@@ -333,7 +426,10 @@ export default function MessagePage({ onClose, initialConversationId }: MessageP
               </div>
               <div className="flex-1 overflow-y-auto">
                 {Array.from({ length: 6 }).map((_, idx) => (
-                  <div key={idx} className="px-4 py-3 flex items-center gap-3 border-b border-gray-100 dark:border-gray-800">
+                  <div
+                    key={idx}
+                    className="px-4 py-3 flex items-center gap-3 border-b border-gray-100 dark:border-gray-800"
+                  >
                     <Skeleton className="w-11 h-11 rounded-full" />
                     <div className="flex-1 min-w-0 space-y-2">
                       <Skeleton className="h-4 w-40 rounded" />
@@ -355,8 +451,13 @@ export default function MessagePage({ onClose, initialConversationId }: MessageP
               </div>
               <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
                 {Array.from({ length: 8 }).map((_, idx) => (
-                  <div key={idx} className={`flex ${idx % 2 === 0 ? "justify-start" : "justify-end"}`}>
-                    <div className={`max-w-[75%] flex flex-col gap-2 ${idx % 2 === 0 ? "items-start" : "items-end"}`}>
+                  <div
+                    key={idx}
+                    className={`flex ${idx % 2 === 0 ? "justify-start" : "justify-end"}`}
+                  >
+                    <div
+                      className={`max-w-[75%] flex flex-col gap-2 ${idx % 2 === 0 ? "items-start" : "items-end"}`}
+                    >
                       <Skeleton className="h-10 w-48 rounded-2xl" />
                       <Skeleton className="h-3 w-16 rounded" />
                     </div>
@@ -381,15 +482,21 @@ export default function MessagePage({ onClose, initialConversationId }: MessageP
     <div className="animate-in fade-in duration-700">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Messages</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Review and respond to guest and internal chat updates.</p>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
+            Messages
+          </h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Review and respond to guest and internal chat updates.
+          </p>
         </div>
       </div>
       <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
         <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr]">
           <div className="border-b lg:border-b-0 lg:border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex flex-col h-[72vh]">
             <div className="h-16 px-4 flex items-center gap-3 border-b border-gray-200 dark:border-gray-800 bg-gradient-to-r from-brand-primaryLighter to-white dark:from-gray-900 dark:to-gray-900">
-              <p className="text-base font-bold text-gray-900 dark:text-gray-100">Chats</p>
+              <p className="text-base font-bold text-gray-900 dark:text-gray-100">
+                Chats
+              </p>
               <div className="ml-auto flex items-center gap-2">
                 <button
                   type="button"
@@ -433,14 +540,22 @@ export default function MessagePage({ onClose, initialConversationId }: MessageP
                 filteredConversations.map((c) => {
                   const isActive = c.id === activeId;
                   const conversationName = getConversationDisplayName(c);
-                  const activeStatus = memoizedGetActiveStatus(c.last_message_time, c.type);
+                  const activeStatus = memoizedGetActiveStatus(
+                    c.last_message_time,
+                    c.type,
+                  );
                   const otherParticipantIds = userId
-                    ? (c.participant_ids || []).filter((id: string) => id !== userId)
-                    : (c.participant_ids || []);
+                    ? (c.participant_ids || []).filter(
+                        (id: string) => id !== userId,
+                      )
+                    : c.participant_ids || [];
+
                   const avatarUrl =
-                    c.type !== "guest" && otherParticipantIds.length === 1
+                    c.type === "internal" && otherParticipantIds.length === 1
                       ? employeeProfileImageById[otherParticipantIds[0]]
                       : undefined;
+                  // TODO: Implement OAuth user profile pictures for c.type === "oauth"
+                  // Need to fetch profile pictures from users table for OAuth users
                   const avatarLetter = (conversationName || c.name || "?")
                     .charAt(0)
                     .toUpperCase();
@@ -466,7 +581,7 @@ export default function MessagePage({ onClose, initialConversationId }: MessageP
                               className="w-11 h-11 rounded-full object-cover"
                               onError={(e) => {
                                 const target = e.target as HTMLImageElement;
-                                target.style.display = 'none';
+                                target.style.display = "none";
                               }}
                             />
                           ) : (
@@ -484,7 +599,9 @@ export default function MessagePage({ onClose, initialConversationId }: MessageP
                           </p>
                           <span className="text-xs text-gray-400">•</span>
                           <p className="text-xs text-gray-400 whitespace-nowrap">
-                            {c.last_message_time ? memoizedFormatTime(c.last_message_time) : ""}
+                            {c.last_message_time
+                              ? memoizedFormatTime(c.last_message_time)
+                              : ""}
                           </p>
                         </div>
                         <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
@@ -515,17 +632,25 @@ export default function MessagePage({ onClose, initialConversationId }: MessageP
                       {activeConversationAvatarUrl ? (
                         <Image
                           src={activeConversationAvatarUrl}
-                          alt={activeConversationName || activeConversation.name || "Conversation"}
+                          alt={
+                            activeConversationName ||
+                            activeConversation.name ||
+                            "Conversation"
+                          }
                           width={40}
                           height={40}
                           className="w-10 h-10 object-cover"
                           onError={(e) => {
                             const target = e.target as HTMLImageElement;
-                            target.style.display = 'none';
+                            target.style.display = "none";
                           }}
                         />
                       ) : (
-                        (activeConversationName || activeConversation.name || "?")
+                        (
+                          activeConversationName ||
+                          activeConversation.name ||
+                          "?"
+                        )
                           .charAt(0)
                           .toUpperCase()
                       )}
@@ -535,18 +660,35 @@ export default function MessagePage({ onClose, initialConversationId }: MessageP
                         {activeConversationName || activeConversation.name}
                       </p>
                       <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                        {memoizedGetActiveStatus(activeConversation.last_message_time, activeConversation.type).statusText}
+                        {
+                          memoizedGetActiveStatus(
+                            activeConversation.last_message_time,
+                            activeConversation.type,
+                          ).statusText
+                        }
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
-                    <button type="button" className="p-2 rounded-full hover:bg-brand-primaryLighter transition-colors" title="Call">
+                    <button
+                      type="button"
+                      className="p-2 rounded-full hover:bg-brand-primaryLighter transition-colors"
+                      title="Call"
+                    >
                       <Phone className="w-5 h-5 text-brand-primary" />
                     </button>
-                    <button type="button" className="p-2 rounded-full hover:bg-brand-primaryLighter transition-colors" title="Video">
+                    <button
+                      type="button"
+                      className="p-2 rounded-full hover:bg-brand-primaryLighter transition-colors"
+                      title="Video"
+                    >
                       <Video className="w-5 h-5 text-brand-primary" />
                     </button>
-                    <button type="button" className="p-2 rounded-full hover:bg-brand-primaryLighter transition-colors" title="Info">
+                    <button
+                      type="button"
+                      className="p-2 rounded-full hover:bg-brand-primaryLighter transition-colors"
+                      title="Info"
+                    >
                       <Info className="w-5 h-5 text-brand-primary" />
                     </button>
                   </div>
@@ -555,9 +697,16 @@ export default function MessagePage({ onClose, initialConversationId }: MessageP
                 <div className="flex-1 overflow-y-auto bg-gradient-to-b from-gray-50 to-white dark:from-gray-950 dark:to-gray-900 px-4 py-4 space-y-3">
                   {showSkeletonMessages ? (
                     Array.from({ length: 6 }).map((_, idx) => (
-                      <div key={idx} className={`flex ${idx % 2 === 0 ? "justify-start" : "justify-end"}`}>
-                        <div className={`max-w-[75%] flex flex-col gap-2 ${idx % 2 === 0 ? "items-start" : "items-end"}`}>
-                          <Skeleton className={`h-10 ${idx % 2 === 0 ? "w-48" : "w-40"} rounded-2xl`} />
+                      <div
+                        key={idx}
+                        className={`flex ${idx % 2 === 0 ? "justify-start" : "justify-end"}`}
+                      >
+                        <div
+                          className={`max-w-[75%] flex flex-col gap-2 ${idx % 2 === 0 ? "items-start" : "items-end"}`}
+                        >
+                          <Skeleton
+                            className={`h-10 ${idx % 2 === 0 ? "w-48" : "w-40"} rounded-2xl`}
+                          />
                           <Skeleton className="h-3 w-16 rounded" />
                         </div>
                       </div>
@@ -570,13 +719,20 @@ export default function MessagePage({ onClose, initialConversationId }: MessageP
                     messages.map((m: Message) => {
                       const isMe = m.sender_id === userId;
                       const senderLabel = !isMe
-                        ? employeeMap[m.sender_id] ||
-                          m.sender_name ||
-                          (activeConversation?.type === "guest" ? "Guest" : "Staff")
+                        ? m.sender_name ||
+                          employeeMap[m.sender_id] ||
+                          (activeConversation?.type === "guest"
+                            ? "Guest"
+                            : "Staff")
                         : undefined;
                       return (
-                        <div key={m.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
-                          <div className={`max-w-[75%] ${isMe ? "items-end" : "items-start"} flex flex-col gap-1`}>
+                        <div
+                          key={m.id}
+                          className={`flex ${isMe ? "justify-end" : "justify-start"}`}
+                        >
+                          <div
+                            className={`max-w-[75%] ${isMe ? "items-end" : "items-start"} flex flex-col gap-1`}
+                          >
                             {!isMe && senderLabel && (
                               <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">
                                 {senderLabel}
@@ -591,14 +747,18 @@ export default function MessagePage({ onClose, initialConversationId }: MessageP
                             >
                               {m.message_text}
                             </div>
-                            <span className="text-[11px] text-gray-400">{memoizedFormatMessageTime(m.created_at)}</span>
+                            <span className="text-[11px] text-gray-400">
+                              {memoizedFormatMessageTime(m.created_at)}
+                            </span>
                           </div>
                         </div>
                       );
                     })
                   ) : (
                     <div className="flex items-center justify-center h-full text-center">
-                      <p className="text-gray-500">No messages yet. Start the conversation!</p>
+                      <p className="text-gray-500">
+                        No messages yet. Start the conversation!
+                      </p>
                     </div>
                   )}
                   <div ref={messagesEndRef} />
@@ -614,7 +774,11 @@ export default function MessagePage({ onClose, initialConversationId }: MessageP
                     >
                       <Plus className="w-5 h-5 text-brand-primary" />
                     </button>
-                    <button type="button" className="p-2 rounded-full hover:bg-brand-primaryLighter transition-colors" title="Attach">
+                    <button
+                      type="button"
+                      className="p-2 rounded-full hover:bg-brand-primaryLighter transition-colors"
+                      title="Attach"
+                    >
                       <ImageIcon className="w-5 h-5 text-brand-primary" />
                     </button>
                     <div className="flex-1 bg-gray-100 dark:bg-gray-800 rounded-full px-3 py-2 flex items-center gap-2 border border-gray-100 dark:border-gray-800 focus-within:bg-white dark:focus-within:bg-gray-900 focus-within:border-brand-primary/30 focus-within:ring-2 focus-within:ring-brand-primary/20">
@@ -631,7 +795,11 @@ export default function MessagePage({ onClose, initialConversationId }: MessageP
                         disabled={isSending}
                         className="flex-1 bg-transparent outline-none text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400"
                       />
-                      <button type="button" className="p-1.5 rounded-full hover:bg-brand-primaryLighter transition-colors" title="Emoji">
+                      <button
+                        type="button"
+                        className="p-1.5 rounded-full hover:bg-brand-primaryLighter transition-colors"
+                        title="Emoji"
+                      >
                         <Smile className="w-5 h-5 text-brand-primary" />
                       </button>
                     </div>
@@ -654,7 +822,9 @@ export default function MessagePage({ onClose, initialConversationId }: MessageP
               </>
             ) : (
               <div className="flex items-center justify-center h-full">
-                <p className="text-gray-500">Select a conversation to start messaging</p>
+                <p className="text-gray-500">
+                  Select a conversation to start messaging
+                </p>
               </div>
             )}
           </div>
