@@ -41,9 +41,32 @@ const EditProfilePage = () => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
+    
+    // For phone field: only allow digits and max 11 characters
+    if (name === "phone") {
+      const digitsOnly = value.replace(/\D/g, "").slice(0, 11);
+      setFormData((prev) => ({
+        ...prev,
+        [name]: digitsOnly,
+      }));
+      return;
+    }
+    
+    // Capitalize first letter of each word for name and other text fields
+    let processedValue = value;
+    if (name === "name" || name === "address" || name === "city" || name === "country") {
+      processedValue = value
+        .split(" ")
+        .map((word) => {
+          if (word.length === 0) return word;
+          return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+        })
+        .join(" ");
+    }
+    
     setFormData((prev) => ({
       ...prev,
-      [name]: value,
+      [name]: processedValue,
     }));
   };
 
@@ -60,16 +83,20 @@ const EditProfilePage = () => {
         body: JSON.stringify(formData),
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        throw new Error("Failed to update profile");
+        throw new Error(data.error || "Failed to update profile");
       }
 
+      console.log("✅ Profile updated:", data);
       toast.success("Profile updated successfully!");
-      router.push("/profile");
+      
+      // Navigate to profile page and force full reload to get fresh session
+      window.location.href = "/profile";
     } catch (error) {
       toast.error("Failed to update profile. Please try again.");
-      console.error("Error updating profile:", error);
-    } finally {
+      console.error("❌ Error updating profile:", error);
       setLoading(false);
     }
   };
@@ -228,7 +255,7 @@ const EditProfilePage = () => {
                 disabled={loading}
                 className="flex-1 px-6 py-3 bg-brand-primary hover:bg-brand-primaryDark text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? "Saving..." : "Save Changes"}
+                {loading ? "Saving..." : "Save changes"}
               </button>
               <Link
                 href="/profile"
