@@ -24,6 +24,7 @@ import {
   useCreateConversationMutation,
 } from "@/redux/api/messagesApi";
 import { useGetEmployeesQuery } from "@/redux/api/employeeApi";
+import { getGuestName } from "@/lib/guest";
 import toast from "react-hot-toast";
 import NewMessageModal from "@/Components/admin/Csr/Modals/NewMessageModal";
 
@@ -119,6 +120,7 @@ export default function MessagesPage() {
   // Persistent guest identifier so guests can create conversations and send messages
   // without requiring an account. Stored in localStorage as "guestId".
   const [guestId, setGuestId] = useState<string | null>(null);
+  const [guestName] = useState<string | null>(getGuestName());
 
   useEffect(() => {
     if (userId) {
@@ -269,9 +271,38 @@ export default function MessagesPage() {
   const getConversationDisplayName = useCallback(
     (conversation: Conversation | undefined | null) => {
       if (!conversation) return "";
-      if (conversation.type !== "internal")
-        return conversation.name || "Conversation";
 
+      if (conversation.type === "guest" || conversation.type === "oauth") {
+        if (conversation.name) {
+          // Conversation names are in format: "UserName • EmployeeName"
+          const parts = conversation.name.split(" • ");
+
+          // If current user is the customer (OAuth user or guest), show employee name
+          if (conversation.type === "oauth" && session?.user) {
+            // OAuth user viewing - show employee name (second part)
+            return parts[1] || "Staff";
+          } else if (conversation.type === "guest" && !session?.user) {
+            // Guest viewing - show employee name (second part)
+            return parts[1] || "Staff";
+          } else {
+            // Staff viewing OAuth/guest conversation - show customer name (first part)
+            return (
+              parts[0] || (conversation.type === "oauth" ? "User" : "Guest")
+            );
+          }
+        }
+
+        // Fallback for conversations without proper names
+        if (conversation.type === "oauth" && session?.user) {
+          return "Staff";
+        } else if (conversation.type === "guest" && !session?.user) {
+          return "Staff";
+        } else {
+          return conversation.type === "oauth" ? "User" : guestName || "Guest";
+        }
+      }
+
+      // For internal staff conversations, show other participants' names
       const otherParticipantIds = (conversation.participant_ids || []).filter(
         (id: string) => id !== userId,
       );
@@ -286,7 +317,7 @@ export default function MessagesPage() {
 
       return conversation.name || "Conversation";
     },
-    [employeeMap, userId],
+    [employeeMap, userId, guestName, session?.user],
   );
 
   const activeConversation = useMemo(
@@ -315,7 +346,7 @@ export default function MessagesPage() {
 
   const handleNewChatWithEmployee = (employee: Employee) => {
     // Create a new conversation with the selected employee (supports guest users)
-    const conversationName =
+    const employeeName =
       `${employee.first_name ?? ""} ${employee.last_name ?? ""}`.trim();
 
     const idToUse = currentUserId;
@@ -327,8 +358,10 @@ export default function MessagesPage() {
     (async () => {
       try {
         const result = await createConversation({
-          name: conversationName || employee.email || "Conversation",
-          type: userId ? "internal" : "guest",
+          name: session?.user
+            ? `${session.user.name || "User"} • ${employeeName || employee.email || "Employee"}`
+            : `${guestName || "Guest"} • ${employeeName || employee.email || "Employee"}`,
+          type: session?.user ? "oauth" : "guest",
           participant_ids: [idToUse, employee.id],
         }).unwrap();
 
@@ -362,7 +395,7 @@ export default function MessagesPage() {
       await sendMessage({
         conversation_id: activeId,
         sender_id: senderId,
-        sender_name: session?.user?.name || "Guest",
+        sender_name: session?.user?.name || guestName || "Guest",
         message_text: text,
       }).unwrap();
 
