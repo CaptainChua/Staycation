@@ -23,11 +23,38 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const all = searchParams.get("all");
     const userId = searchParams.get("userId");
+    const userIds = searchParams.get("userIds"); // Batch request for multiple users
 
     if (all === "true") {
       // Get all users (you might want to add admin check here)
       const users = await getAllUsers();
       return NextResponse.json({ users });
+    }
+
+    // Get multiple users by IDs for batch profile picture requests
+    if (userIds) {
+      try {
+        const idsArray = userIds.split(",").filter(Boolean);
+        if (idsArray.length === 0) {
+          return NextResponse.json({ users: [] });
+        }
+
+        const placeholders = idsArray
+          .map((_, index) => `$${index + 1}`)
+          .join(",");
+        const result = await pool.query(
+          `SELECT user_id, name, email, picture FROM users WHERE user_id IN (${placeholders})`,
+          idsArray,
+        );
+
+        return NextResponse.json({ users: result.rows });
+      } catch (error) {
+        console.error("Error fetching users by IDs:", error);
+        return NextResponse.json(
+          { message: "Error fetching users" },
+          { status: 500 },
+        );
+      }
     }
 
     // Get specific user by ID for profile pictures

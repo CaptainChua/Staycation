@@ -13,10 +13,7 @@ export const usersApi = createApi({
   tagTypes: ["Users"],
   endpoints: (builder) => ({
     // Get user profile by ID
-    getUserProfile: builder.query<
-      { user: User },
-      { userId: string }
-    >({
+    getUserProfile: builder.query<{ user: User }, { userId: string }>({
       query: ({ userId }) => ({
         url: `?userId=${userId}`,
         method: "GET",
@@ -35,6 +32,19 @@ export const usersApi = createApi({
       providesTags: ["Users"],
     }),
 
+    // Get multiple user profiles by IDs (batch request)
+    getUserProfiles: builder.query<{ users: User[] }, { userIds: string[] }>({
+      query: ({ userIds }) => ({
+        url: `?userIds=${userIds.join(",")}`,
+        method: "GET",
+      }),
+      providesTags: (result) =>
+        result?.users?.map((user) => ({
+          type: "Users" as const,
+          id: user.user_id,
+        })) || [],
+    }),
+
     // Get all users (admin)
     getAllUsers: builder.query<{ users: User[] }, void>({
       query: () => ({
@@ -48,6 +58,7 @@ export const usersApi = createApi({
 
 export const {
   useGetUserProfileQuery,
+  useGetUserProfilesQuery,
   useGetCurrentUserQuery,
   useGetAllUsersQuery,
 } = usersApi;

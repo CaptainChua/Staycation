@@ -22,6 +22,7 @@ import {
   useMarkMessagesAsReadMutation,
 } from "@/redux/api/messagesApi";
 import { useGetEmployeesQuery } from "@/redux/api/employeeApi";
+import { useGetUserProfilesQuery } from "@/redux/api/usersApi";
 import { getGuestName } from "@/lib/guest";
 import toast from "react-hot-toast";
 import NewMessageModal from "./Modals/NewMessageModal";
@@ -255,6 +256,32 @@ export default function MessagePage({
     });
     return map;
   }, [employees]);
+
+  // Get OAuth user IDs from conversations
+  const oauthUserIds = useMemo(() => {
+    return conversations
+      .filter((c) => c.type === "oauth")
+      .flatMap((c) => c.participant_ids || [])
+      .filter((id) => id !== userId)
+      .filter((id, index, self) => self.indexOf(id) === index); // unique
+  }, [conversations, userId]);
+
+  // Fetch OAuth user profile pictures
+  const { data: oauthUsersData } = useGetUserProfilesQuery(
+    { userIds: oauthUserIds },
+    { skip: oauthUserIds.length === 0 },
+  );
+
+  // Create map of OAuth user profile pictures
+  const oauthUserProfileImages = useMemo(() => {
+    const map: Record<string, string> = {};
+    oauthUsersData?.users?.forEach((user) => {
+      if (user.user_id && user.picture) {
+        map[user.user_id] = user.picture;
+      }
+    });
+    return map;
+  }, [oauthUsersData]);
 
   // Mark messages as read when opening a conversation
   useEffect(() => {
@@ -550,12 +577,21 @@ export default function MessagePage({
                       )
                     : c.participant_ids || [];
 
-                  const avatarUrl =
-                    c.type === "internal" && otherParticipantIds.length === 1
-                      ? employeeProfileImageById[otherParticipantIds[0]]
-                      : undefined;
-                  // TODO: Implement OAuth user profile pictures for c.type === "oauth"
-                  // Need to fetch profile pictures from users table for OAuth users
+                  const avatarUrl = (() => {
+                    if (
+                      c.type === "oauth" &&
+                      otherParticipantIds.length === 1
+                    ) {
+                      return oauthUserProfileImages[otherParticipantIds[0]];
+                    }
+                    if (
+                      c.type === "internal" &&
+                      otherParticipantIds.length === 1
+                    ) {
+                      return employeeProfileImageById[otherParticipantIds[0]];
+                    }
+                    return undefined;
+                  })();
                   const avatarLetter = (conversationName || c.name || "?")
                     .charAt(0)
                     .toUpperCase();
