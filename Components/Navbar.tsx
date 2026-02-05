@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
-import { getGuestIdentifier, getOrCreateGuestIdentifier } from "@/lib/guest";
+import { getGuestIdentifier, getGuestName } from "../lib/guest";
 import Image from "next/image";
 import {
   User,
@@ -42,7 +42,6 @@ const Navbar = () => {
   const { theme, setTheme } = useTheme();
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
   }, []);
 
@@ -55,7 +54,18 @@ const Navbar = () => {
   const userId = (session?.user as UserData)?.id || null;
 
   // Guest identifier (if not authenticated)
-  const [guestIdentifier, setGuestIdentifier] = useState<string | null>(null);
+  const [guestIdentifier, setGuestIdentifier] = useState<string | null>(() => {
+    if (typeof window !== "undefined") {
+      return getGuestIdentifier();
+    }
+    return null;
+  });
+  const [guestName, setGuestName] = useState<string | null>(() => {
+    if (typeof window !== "undefined") {
+      return getGuestName();
+    }
+    return null;
+  });
 
   // nav identifier - prefer the logged-in user id, otherwise use guest identifier (formatted as `guest_<token>`)
   const navUserId = userId || guestIdentifier;
@@ -64,6 +74,7 @@ const Navbar = () => {
     // If an authenticated user is present, clear any guest identifier
     if (userId) {
       setGuestIdentifier(null);
+      setGuestName(null);
       return;
     }
 
@@ -71,15 +82,32 @@ const Navbar = () => {
     const existing = getGuestIdentifier();
     if (existing) {
       setGuestIdentifier(existing);
+      // Also set the guest name
+      const name = getGuestName();
+      setGuestName(name);
       return;
     }
 
-    // Create one client-side synchronously so the navbar can reflect guest status immediately
-    const created = getOrCreateGuestIdentifier();
-    if (created) setGuestIdentifier(created);
+    // Do not create guest identifier automatically
+    setGuestIdentifier(null);
+    setGuestName(null);
   }, [userId]);
 
-  // Fetch user bookings (only for logged-in users) and wishlist counts (supports guest identifiers)
+  // Check for guest status on mount and pathname changes
+  useEffect(() => {
+    if (userId) return; // Skip if user is authenticated
+
+    const existing = getGuestIdentifier();
+    if (existing) {
+      setGuestIdentifier(existing);
+      const name = getGuestName();
+      setGuestName(name);
+    } else {
+      setGuestIdentifier(null);
+      setGuestName(null);
+    }
+  }, [userId, pathname]);
+
   const { data: userBookings } = useGetUserBookingsQuery(
     { userId },
     { skip: !userId },
@@ -452,8 +480,8 @@ const Navbar = () => {
                 <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gray-200 flex items-center justify-center">
                   <User className="w-4 h-4 text-gray-700" />
                 </div>
-                <span className="hidden sm:block font-medium text-gray-800 dark:text-gray-100 truncate text-sm">
-                  Guest
+                <span className="hidden sm:block font-medium text-gray-800 dark:text-gray-100 max-w-20 sm:max-w-32 truncate text-sm">
+                  {guestName || "Guest"}
                 </span>
                 <ChevronDown
                   className={`w-4 h-4 text-gray-500 dark:text-gray-400 transition-transform duration-200 ${isProfileOpen ? "rotate-180" : ""}`}
@@ -469,7 +497,7 @@ const Navbar = () => {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-gray-900 dark:text-gray-100 truncate text-sm">
-                          Guest
+                          {guestName || "Guest"}
                         </p>
                         <p className="text-xs text-gray-600 dark:text-gray-400 truncate">
                           Signed in as guest
@@ -929,8 +957,8 @@ const Navbar = () => {
                     <User className="w-6 h-6 text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-gray-800 dark:text-gray-100">
-                      Guest
+                    <p className="font-semibold text-gray-800 dark:text-gray-100 truncate">
+                      {guestName || "Guest"}
                     </p>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
                       Signed in as guest
