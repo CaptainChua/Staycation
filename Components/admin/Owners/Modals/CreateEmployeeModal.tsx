@@ -8,6 +8,8 @@ import { DatePicker } from "@nextui-org/date-picker";
 import { parseDate, toZoned } from "@internationalized/date";
 import type { DateValue } from "@internationalized/date";
 import { useCreateEmployeeMutation } from "@/redux/api/employeeApi";
+import { useCreateActivityLogMutation } from "@/redux/api/activityLogApi";
+import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
 import Image from "next/image";
 
@@ -17,7 +19,9 @@ interface CreateEmployeeModalProps {
 }
 
 const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
+  const { data: session } = useSession();
   const [createEmployee, { isLoading }] = useCreateEmployeeMutation();
+  const [createActivityLog] = useCreateActivityLogMutation();
   const formRef = useRef<HTMLFormElement>(null);
 
   const [formData, setFormData] = useState({
@@ -291,6 +295,20 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
       const result = await createEmployee(employeeData).unwrap();
 
       if (result.success) {
+        // Create activity log
+        try {
+          await createActivityLog({
+            employee_id: (session?.user as any)?.id,
+            action_type: "create",
+            description: `Created new staff: ${formData.firstName} ${formData.lastName}`,
+            details: `Role: ${formData.role}, Dept: ${formData.department}`,
+            entity_type: "staff",
+            entity_id: result.data.id
+          }).unwrap();
+        } catch (logError) {
+          console.error("Failed to create activity log:", logError);
+        }
+
         toast.success("Employee created successfully!");
         setFormData({
           firstName: "",
@@ -338,22 +356,22 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
     <>
       <div className="fixed inset-0 bg-black/50 z-40" onClick={onClose}></div>
       <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] shadow-2xl flex flex-col">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-4xl w-full max-h-[90vh] shadow-2xl flex flex-col border border-slate-200 dark:border-slate-800">
           {/* Header - Sticky */}
-          <div className="flex justify-between items-center p-6 border-b border-gray-200 bg-gradient-to-r from-orange-50 to-orange-100 rounded-t-2xl flex-shrink-0">
+          <div className="flex justify-between items-center p-6 border-b border-slate-200 dark:border-slate-800 bg-gradient-to-r from-orange-50 to-orange-100 dark:from-orange-950/20 dark:to-orange-900/10 rounded-t-2xl flex-shrink-0">
             <div>
-              <h2 className="text-2xl font-bold text-gray-800">
+              <h2 className="text-2xl font-bold text-slate-800 dark:text-white">
                 Create New Employee
               </h2>
-              <p className="text-sm text-gray-600 mt-1">
+              <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
                 Fill in the employee information below
               </p>
             </div>
             <button
               onClick={onClose}
-              className="p-2 hover:bg-white/50 rounded-full transition-colors"
+              className="p-2 hover:bg-white/50 dark:hover:bg-slate-800/50 rounded-full transition-colors"
             >
-              <X className="w-6 h-6 text-gray-600" />
+              <X className="w-6 h-6 text-slate-600 dark:text-slate-400" />
             </button>
           </div>
 
@@ -362,12 +380,12 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
             <div className="space-y-6">
               {/* Personal Information Section */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">
+                <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-800 pb-2">
                   Personal Information
                 </h3>
 
                 {/* Profile Picture Upload */}
-                <div className="flex flex-col items-center gap-4 p-6 bg-gray-50 rounded-lg border border-gray-200">
+                <div className="flex flex-col items-center gap-4 p-6 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
                   <div className="relative">
                     {profilePreview ? (
                       <div className="relative w-32 h-32 rounded-full overflow-hidden border-4 border-orange-500 shadow-lg">
@@ -379,8 +397,8 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                         />
                       </div>
                     ) : (
-                      <div className="w-32 h-32 rounded-full bg-gray-200 border-4 border-gray-300 flex items-center justify-center">
-                        <User className="w-16 h-16 text-gray-400" />
+                      <div className="w-32 h-32 rounded-full bg-slate-200 dark:bg-slate-800 border-4 border-slate-300 dark:border-slate-700 flex items-center justify-center">
+                        <User className="w-16 h-16 text-slate-400 dark:text-slate-600" />
                       </div>
                     )}
                   </div>
@@ -394,7 +412,7 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                         onChange={handleProfilePictureUpload}
                         className="hidden"
                       />
-                      <span className="inline-flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium cursor-pointer transition-colors">
+                      <span className="inline-flex items-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-medium cursor-pointer transition-colors text-sm">
                         <Upload className="w-4 h-4" />
                         {profilePreview ? "Change Photo" : "Upload Photo"}
                       </span>
@@ -404,14 +422,14 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       <button
                         type="button"
                         onClick={handleRemoveProfilePicture}
-                        className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium transition-colors"
+                        className="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-lg font-medium transition-colors text-sm"
                       >
                         Remove
                       </button>
                     )}
                   </div>
 
-                  <p className="text-xs text-gray-500 text-center">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 text-center font-medium">
                     Recommended: Square image, at least 400x400px
                   </p>
                 </div>
@@ -438,7 +456,9 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       isRequired
                       classNames={{
                         base: "w-full",
-                        label: "text-sm font-medium text-gray-700 mb-1",
+                        label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
+                        input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
+                        innerWrapper: "bg-transparent",
                       }}
                     />
                   </div>
@@ -463,7 +483,9 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       isRequired
                       classNames={{
                         base: "w-full",
-                        label: "text-sm font-medium text-gray-700 mb-1",
+                        label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
+                        input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
+                        innerWrapper: "bg-transparent",
                       }}
                     />
                   </div>
@@ -491,7 +513,9 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       isRequired
                       classNames={{
                         base: "w-full",
-                        label: "text-sm font-medium text-gray-700 mb-1",
+                        label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
+                        input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
+                        innerWrapper: "bg-transparent",
                       }}
                     />
                   </div>
@@ -516,7 +540,9 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       isRequired
                       classNames={{
                         base: "w-full",
-                        label: "text-sm font-medium text-gray-700 mb-1",
+                        label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
+                        input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
+                        innerWrapper: "bg-transparent",
                       }}
                     />
                   </div>
@@ -529,7 +555,7 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                     type="password"
                     name="password"
                     label="Password *"
-                    placeholder="Enter password (min 8 characters)"
+                    placeholder="Enter password"
                     labelPlacement="outside"
                     value={formData.password}
                     onChange={(e) => {
@@ -545,7 +571,9 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                     isRequired
                     classNames={{
                       base: "w-full",
-                      label: "text-sm font-medium text-gray-700 mb-1",
+                      label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
+                      input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
+                      innerWrapper: "bg-transparent",
                     }}
                   />
                 </div>
@@ -571,7 +599,9 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                     isRequired
                     classNames={{
                       base: "w-full",
-                      label: "text-sm font-medium text-gray-700 mb-1",
+                      label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
+                      input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
+                      innerWrapper: "bg-transparent",
                     }}
                   />
                 </div>
@@ -579,7 +609,7 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
 
               {/* Employment Details Section */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">
+                <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-800 pb-2">
                   Employment Details
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
@@ -595,7 +625,9 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       description="Auto-generated base on role"
                       classNames={{
                         base: "w-full",
-                        label: "text-sm font-medium text-gray-700 mb-1",
+                        label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
+                        input: "bg-slate-100 dark:bg-slate-800/50 dark:text-slate-300",
+                        description: "dark:text-slate-500",
                       }}
                     />
                   </div>
@@ -622,7 +654,9 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       isRequired
                       classNames={{
                         base: "w-full",
-                        label: "text-sm font-medium text-gray-700 mb-1",
+                        label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
+                        calendarContent: "dark:bg-slate-900",
+                        calendar: "dark:bg-slate-900 dark:text-white",
                       }}
                     />
                   </div>
@@ -642,11 +676,13 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       isRequired
                       classNames={{
                         base: "w-full",
-                        label: "text-sm font-medium text-gray-700 mb-1",
+                        label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
+                        trigger: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
+                        popoverContent: "dark:bg-slate-900 dark:text-white",
                       }}
                     >
                       {roles.map((role) => (
-                        <SelectItem key={role.value} value={role.value}>
+                        <SelectItem key={role.value} value={role.value} className="dark:text-slate-200 dark:hover:bg-slate-800">
                           {role.label}
                         </SelectItem>
                       ))}
@@ -667,11 +703,13 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       isRequired
                       classNames={{
                         base: "w-full",
-                        label: "text-sm font-medium text-gray-700 mb-1",
+                        label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
+                        trigger: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
+                        popoverContent: "dark:bg-slate-900 dark:text-white",
                       }}
                     >
                       {getAvailableDepartments().map((dept) => (
-                        <SelectItem key={dept.value} value={dept.value}>
+                        <SelectItem key={dept.value} value={dept.value} className="dark:text-slate-200 dark:hover:bg-slate-800">
                           {dept.label}
                         </SelectItem>
                       ))}
@@ -693,7 +731,8 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       isRequired
                       classNames={{
                         base: "w-full",
-                        label: "text-sm font-medium text-gray-700 mb-1",
+                        label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
+                        input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
                       }}
                     />
                   </div>
@@ -702,7 +741,7 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
 
               {/* Address Section */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">
+                <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-800 pb-2">
                   Address Information
                 </h3>
                 <div>
@@ -718,7 +757,8 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                     isRequired
                     classNames={{
                       base: "w-full",
-                      label: "text-sm font-medium text-gray-700 mb-1",
+                      label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
+                      input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
                     }}
                   />
                 </div>
@@ -736,7 +776,8 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       isRequired
                       classNames={{
                         base: "w-full",
-                        label: "text-sm font-medium text-gray-700 mb-1",
+                        label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
+                        input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
                       }}
                     />
                   </div>
@@ -753,7 +794,8 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       isRequired
                       classNames={{
                         base: "w-full",
-                        label: "text-sm font-medium text-gray-700 mb-1",
+                        label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
+                        input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
                       }}
                     />
                   </div>
@@ -762,7 +804,7 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
 
               {/* Emergency Contact Section */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">
+                <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-800 pb-2">
                   Emergency Contact
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
@@ -782,7 +824,8 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       isRequired
                       classNames={{
                         base: "w-full",
-                        label: "text-sm font-medium text-gray-700 mb-1",
+                        label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
+                        input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
                       }}
                     />
                   </div>
@@ -802,7 +845,8 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       isRequired
                       classNames={{
                         base: "w-full",
-                        label: "text-sm font-medium text-gray-700 mb-1",
+                        label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
+                        input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
                       }}
                     />
                   </div>
@@ -824,7 +868,8 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       isRequired
                       classNames={{
                         base: "w-full",
-                        label: "text-sm font-medium text-gray-700 mb-1",
+                        label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
+                        input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
                       }}
                     />
                   </div>
@@ -834,11 +879,11 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
           </form>
 
           {/* Footer - Sticky */}
-          <div className="flex gap-3 p-6 border-t border-gray-200 bg-gray-50 rounded-b-2xl flex-shrink-0">
+          <div className="flex gap-3 p-6 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 rounded-b-2xl flex-shrink-0">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
+              className="flex-1 px-6 py-3 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl hover:bg-white dark:hover:bg-slate-800 font-bold transition-all text-sm"
             >
               Cancel
             </button>
@@ -846,7 +891,7 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
               type="submit"
               onClick={handleSubmit}
               disabled={isLoading}
-              className="flex-1 px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 font-medium transition-colors shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="flex-1 px-6 py-3 bg-orange-600 text-white rounded-xl hover:bg-orange-700 font-bold transition-all shadow-lg shadow-orange-500/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm"
             >
               {isLoading && (
                 <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
