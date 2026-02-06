@@ -410,7 +410,7 @@ const ReservationsPage = () => {
       {/* Details Modal */}
       {selectedBooking && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-[#1e293b] rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white dark:bg-[#1e293b] rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             {/* Header */}
             <div className="sticky top-0 bg-[#a1823d] text-white p-6 rounded-t-2xl flex justify-between items-center">
               <div>
@@ -431,46 +431,46 @@ const ReservationsPage = () => {
               </div>
 
               {/* Main Guest Information */}
-              <div className="bg-[#334155] rounded-lg p-6 border border-[#475569]">
-                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+              <div className="bg-gray-50 dark:bg-[#334155] rounded-lg p-6 border border-gray-200 dark:border-[#475569]">
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                   <User className="w-5 h-5 text-[#d4a574]" />
                   Main Guest Information
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <p className="text-sm text-gray-400">Full Name</p>
-                    <p className="font-semibold text-white">
-                      {selectedBooking.guests?.[0]?.firstName || selectedBooking.guest_first_name || 'N/A'} {selectedBooking.guests?.[0]?.lastName || selectedBooking.guest_last_name || ''}
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Full Name</p>
+                    <p className="font-semibold text-gray-900 dark:text-white">
+                      {selectedBooking.guests?.[0]?.firstName || selectedBooking.guests?.[0]?.first_name || selectedBooking.guest_first_name || 'N/A'} {selectedBooking.guests?.[0]?.lastName || selectedBooking.guests?.[0]?.last_name || selectedBooking.guest_last_name || ''}
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-400">Email</p>
-                    <p className="font-semibold text-white">{selectedBooking.guests?.[0]?.email || selectedBooking.guest_email || 'N/A'}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Email</p>
+                    <p className="font-semibold text-gray-900 dark:text-white">{selectedBooking.guests?.[0]?.email || selectedBooking.guest_email || 'N/A'}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-400">Phone</p>
-                    <p className="font-semibold text-white">{selectedBooking.guests?.[0]?.phone || selectedBooking.guest_phone || 'N/A'}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Phone</p>
+                    <p className="font-semibold text-gray-900 dark:text-white">{selectedBooking.guests?.[0]?.phone || selectedBooking.guest_phone || 'N/A'}</p>
                   </div>
-                  {selectedBooking.guests?.[0]?.age && (
+                  {(selectedBooking.guests?.[0]?.age || selectedBooking.guest_age) && (
                     <div>
-                      <p className="text-sm text-gray-400">Age</p>
-                      <p className="font-semibold text-white">{selectedBooking.guests[0].age}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Age</p>
+                      <p className="font-semibold text-gray-900 dark:text-white">{selectedBooking.guests?.[0]?.age || selectedBooking.guest_age}</p>
                     </div>
                   )}
-                  {selectedBooking.guests?.[0]?.gender && (
+                  {(selectedBooking.guests?.[0]?.gender || selectedBooking.guest_gender) && (
                     <div>
-                      <p className="text-sm text-gray-400">Gender</p>
-                      <p className="font-semibold text-white capitalize">{selectedBooking.guests[0].gender}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Gender</p>
+                      <p className="font-semibold text-gray-900 dark:text-white capitalize">{selectedBooking.guests?.[0]?.gender || selectedBooking.guest_gender}</p>
                     </div>
                   )}
                   {selectedBooking.guests?.[0]?.facebook_link && (
                     <div>
-                      <p className="text-sm text-gray-400">Facebook</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Facebook</p>
                       <a 
                         href={selectedBooking.guests[0].facebook_link} 
                         target="_blank" 
                         rel="noopener noreferrer" 
-                        className="font-semibold text-blue-400 hover:underline"
+                        className="font-semibold text-blue-600 dark:text-blue-400 hover:underline"
                       >
                         View Profile
                       </a>
@@ -479,39 +479,39 @@ const ReservationsPage = () => {
                 </div>
                 {selectedBooking.guests?.[0]?.valid_id_url && (
                   <div className="mt-4">
-                    <p className="text-sm text-gray-400 mb-2">Valid ID</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Valid ID</p>
                     <img 
                       src={selectedBooking.guests[0].valid_id_url} 
                       alt="Valid ID" 
-                      className="max-w-xs rounded-lg border border-[#475569]"
+                      className="max-w-xs rounded-lg border border-gray-200 dark:border-[#475569]"
                     />
                   </div>
                 )}
               </div>
 
-              {/* Additional Guests */}
+              {/* Additional Guests - FIXED VERSION */}
               {selectedBooking.guests && selectedBooking.guests.length > 1 && (
-                <div className="bg-[#334155] rounded-lg p-6 border border-[#475569]">
-                  <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                <div className="bg-gray-50 dark:bg-[#334155] rounded-lg p-6 border border-gray-200 dark:border-[#475569]">
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                     <Users className="w-5 h-5 text-[#d4a574]" />
-                    Additional Guests ({selectedBooking.additional_guests.length})
+                    Additional Guests ({selectedBooking.guests.length - 1})
                   </h3>
                   <div className="space-y-3">
-                    {selectedBooking.additional_guests.map((guest: any, index: number) => (
-                      <div key={guest.id || index} className="bg-[#475569] p-4 rounded-lg">
+                    {selectedBooking.guests.slice(1).map((guest: any, index: number) => (
+                      <div key={guest.id || index} className="bg-gray-100 dark:bg-[#475569] p-4 rounded-lg">
                         <div className="flex justify-between items-start">
                           <div>
-                            <p className="font-semibold text-white">
-                              {guest.first_name} {guest.last_name}
+                            <p className="font-semibold text-gray-900 dark:text-white">
+                              {guest.firstName || guest.first_name} {guest.lastName || guest.last_name}
                             </p>
                             {guest.age && (
-                              <p className="text-sm text-gray-400">Age: {guest.age}</p>
+                              <p className="text-sm text-gray-600 dark:text-gray-400">Age: {guest.age}</p>
                             )}
                             {guest.gender && (
-                              <p className="text-sm text-gray-400 capitalize">Gender: {guest.gender}</p>
+                              <p className="text-sm text-gray-600 dark:text-gray-400 capitalize">Gender: {guest.gender}</p>
                             )}
                           </div>
-                          {guest.valid_id_url && (
+                          {(guest.valid_id_url || guest.validIdUrl) && (
                             <span className="text-xs bg-green-500 text-white px-2 py-1 rounded">✓ ID Verified</span>
                           )}
                         </div>
@@ -522,31 +522,31 @@ const ReservationsPage = () => {
               )}
 
               {/* Booking Details */}
-              <div className="bg-[#334155] rounded-lg p-6 border border-[#475569]">
-                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+              <div className="bg-gray-50 dark:bg-[#334155] rounded-lg p-6 border border-gray-200 dark:border-[#475569]">
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                   <Calendar className="w-5 h-5 text-[#d4a574]" />
                   Booking Details
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <p className="text-sm text-gray-400">Room/Haven</p>
-                    <p className="font-semibold text-white">{selectedBooking.room_name}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Room/Haven</p>
+                    <p className="font-semibold text-gray-900 dark:text-white">{selectedBooking.room_name}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-400">Guests</p>
-                    <p className="font-semibold text-white">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Guests</p>
+                    <p className="font-semibold text-gray-900 dark:text-white">
                       {selectedBooking.adults} Adults, {selectedBooking.children} Children, {selectedBooking.infants} Infants
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-400">Check-in</p>
-                    <p className="font-semibold text-white">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Check-in</p>
+                    <p className="font-semibold text-gray-900 dark:text-white">
                       {new Date(selectedBooking.check_in_date).toLocaleDateString()} at {selectedBooking.check_in_time}
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-400">Check-out</p>
-                    <p className="font-semibold text-white">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Check-out</p>
+                    <p className="font-semibold text-gray-900 dark:text-white">
                       {new Date(selectedBooking.check_out_date).toLocaleDateString()} at {selectedBooking.check_out_time}
                     </p>
                   </div>
@@ -555,45 +555,45 @@ const ReservationsPage = () => {
 
               {/* Payment Information */}
               {selectedBooking.payment && (
-                <div className="bg-[#334155] rounded-lg p-6 border border-[#475569]">
-                  <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                <div className="bg-gray-50 dark:bg-[#334155] rounded-lg p-6 border border-gray-200 dark:border-[#475569]">
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                     <CreditCard className="w-5 h-5 text-[#d4a574]" />
                     Payment Information
                   </h3>
                   <div className="space-y-2">
                     <div className="flex justify-between">
-                      <span className="text-gray-400">Payment Method</span>
-                      <span className="text-white font-semibold uppercase">{selectedBooking.payment.payment_method}</span>
+                      <span className="text-gray-600 dark:text-gray-400">Payment Method</span>
+                      <span className="text-gray-900 dark:text-white font-semibold uppercase">{selectedBooking.payment.payment_method}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-400">Room Rate</span>
-                      <span className="text-white font-semibold">₱{Number(selectedBooking.payment.room_rate).toLocaleString()}</span>
+                      <span className="text-gray-600 dark:text-gray-400">Room Rate</span>
+                      <span className="text-gray-900 dark:text-white font-semibold">₱{Number(selectedBooking.payment.room_rate).toLocaleString()}</span>
                     </div>
                     {selectedBooking.payment.add_ons_total > 0 && (
                       <div className="flex justify-between">
-                        <span className="text-gray-400">Add-ons</span>
-                        <span className="text-white font-semibold">₱{Number(selectedBooking.payment.add_ons_total).toLocaleString()}</span>
+                        <span className="text-gray-600 dark:text-gray-400">Add-ons</span>
+                        <span className="text-gray-900 dark:text-white font-semibold">₱{Number(selectedBooking.payment.add_ons_total).toLocaleString()}</span>
                       </div>
                     )}
-                    <div className="flex justify-between pt-2 border-t border-[#475569]">
-                      <span className="text-gray-400 font-bold">Total Amount</span>
-                      <span className="text-white font-bold text-lg">₱{Number(selectedBooking.payment.total_amount).toLocaleString()}</span>
+                    <div className="flex justify-between pt-2 border-t border-gray-300 dark:border-[#475569]">
+                      <span className="text-gray-700 dark:text-gray-400 font-bold">Total Amount</span>
+                      <span className="text-gray-900 dark:text-white font-bold text-lg">₱{Number(selectedBooking.payment.total_amount).toLocaleString()}</span>
                     </div>
-                    <div className="flex justify-between text-green-400">
+                    <div className="flex justify-between text-green-600 dark:text-green-400">
                       <span>Down Payment</span>
                       <span className="font-semibold">₱{Number(selectedBooking.payment.down_payment).toLocaleString()}</span>
                     </div>
-                    <div className="flex justify-between text-yellow-400">
+                    <div className="flex justify-between text-yellow-600 dark:text-yellow-400">
                       <span>Remaining Balance</span>
                       <span className="font-semibold">₱{Number(selectedBooking.payment.remaining_balance).toLocaleString()}</span>
                     </div>
                     {selectedBooking.payment.payment_proof_url && (
                       <div className="mt-4">
-                        <p className="text-sm text-gray-400 mb-2">Payment Proof</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Payment Proof</p>
                         <img 
                           src={selectedBooking.payment.payment_proof_url} 
                           alt="Payment Proof" 
-                          className="max-w-xs rounded-lg border border-[#475569]"
+                          className="max-w-xs rounded-lg border border-gray-200 dark:border-[#475569]"
                         />
                       </div>
                     )}
@@ -603,21 +603,21 @@ const ReservationsPage = () => {
 
               {/* Add-ons */}
               {selectedBooking.add_ons && selectedBooking.add_ons.length > 0 && (
-                <div className="bg-[#334155] rounded-lg p-6 border border-[#475569]">
-                  <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                <div className="bg-gray-50 dark:bg-[#334155] rounded-lg p-6 border border-gray-200 dark:border-[#475569]">
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                     <Package className="w-5 h-5 text-[#d4a574]" />
                     Add-ons ({selectedBooking.add_ons.length})
                   </h3>
                   <div className="space-y-2">
                     {selectedBooking.add_ons.map((addon: any) => (
-                      <div key={addon.id} className="flex justify-between items-center p-3 bg-[#475569] rounded">
+                      <div key={addon.id} className="flex justify-between items-center p-3 bg-gray-100 dark:bg-[#475569] rounded">
                         <div>
-                          <p className="text-white font-medium">{addon.name}</p>
-                          <p className="text-sm text-gray-400">
+                          <p className="text-gray-900 dark:text-white font-medium">{addon.name}</p>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
                             ₱{Number(addon.price).toLocaleString()} × {addon.quantity}
                           </p>
                         </div>
-                        <span className="text-white font-semibold">
+                        <span className="text-gray-900 dark:text-white font-semibold">
                           ₱{Number(addon.price * addon.quantity).toLocaleString()}
                         </span>
                       </div>
@@ -627,20 +627,20 @@ const ReservationsPage = () => {
               )}
 
               {/* Security Deposit */}
-              <div className="bg-[#334155] rounded-lg p-6 border border-[#475569]">
-                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+              <div className="bg-gray-50 dark:bg-[#334155] rounded-lg p-6 border border-gray-200 dark:border-[#475569]">
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                   <Wallet className="w-5 h-5 text-[#d4a574]" />
                   Security Deposit
                 </h3>
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-400">Amount</span>
-                    <span className="text-white font-semibold">
+                    <span className="text-gray-600 dark:text-gray-400">Amount</span>
+                    <span className="text-gray-900 dark:text-white font-semibold">
                       ₱{Number(selectedBooking.security_deposit || 0).toLocaleString()}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-400">Status</span>
+                    <span className="text-gray-600 dark:text-gray-400">Status</span>
                     <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
                       selectedBooking.deposit_status === 'returned' ? 'bg-green-500 text-white' :
                       selectedBooking.deposit_status === 'held' ? 'bg-blue-500 text-white' :
@@ -652,19 +652,19 @@ const ReservationsPage = () => {
                   </div>
                   {selectedBooking.security_deposit_payment_method && (
                     <div className="flex justify-between items-center">
-                      <span className="text-gray-400">Payment Method</span>
-                      <span className="text-white font-semibold uppercase">
+                      <span className="text-gray-600 dark:text-gray-400">Payment Method</span>
+                      <span className="text-gray-900 dark:text-white font-semibold uppercase">
                         {selectedBooking.security_deposit_payment_method}
                       </span>
                     </div>
                   )}
                   {selectedBooking.security_deposit_payment_proof_url && (
                     <div className="mt-4">
-                      <p className="text-sm text-gray-400 mb-2">Payment Proof</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Payment Proof</p>
                       <img 
                         src={selectedBooking.security_deposit_payment_proof_url} 
                         alt="Security Deposit Payment Proof" 
-                        className="max-w-xs rounded-lg border border-[#475569]"
+                        className="max-w-xs rounded-lg border border-gray-200 dark:border-[#475569]"
                       />
                     </div>
                   )}
@@ -672,7 +672,7 @@ const ReservationsPage = () => {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex gap-3 justify-end border-t border-[#475569] pt-6">
+              <div className="flex gap-3 justify-end border-t border-gray-300 dark:border-[#475569] pt-6">
                 {selectedBooking.status === "pending" && (
                   <>
                     <button 
@@ -711,7 +711,7 @@ const ReservationsPage = () => {
                 )}
                 <button 
                   onClick={closeModal} 
-                  className="px-6 py-3 border border-[#475569] text-gray-200 bg-[#334155] rounded-lg hover:bg-[#475569] transition-colors"
+                  className="px-6 py-3 border border-gray-300 dark:border-[#475569] text-gray-700 dark:text-gray-200 bg-white dark:bg-[#334155] rounded-lg hover:bg-gray-50 dark:hover:bg-[#475569] transition-colors"
                 >
                   Close
                 </button>
