@@ -116,6 +116,41 @@ export default function MessagesPage() {
   const { data: session } = useSession();
   const userId = (session?.user as { id?: string })?.id;
 
+  // Persistent guest identifier so guests can create conversations and send messages
+  // without requiring an account. Stored in localStorage as "guestId".
+  const [guestId, setGuestId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (userId) {
+      // If a user logs in, clear any in-memory guest id (we keep localStorage for continuity)
+      // Avoid setting state synchronously inside an effect to prevent cascading renders
+      setTimeout(() => setGuestId(null), 0);
+      return;
+    }
+    try {
+      let stored = localStorage.getItem("guestId") as string | null;
+      if (!stored) {
+        // Prefer crypto.randomUUID when available; avoid `any` casts for better typing
+        const globalCrypto = (
+          globalThis as unknown as { crypto?: { randomUUID?: () => string } }
+        ).crypto;
+        stored =
+          globalCrypto && typeof globalCrypto.randomUUID === "function"
+            ? globalCrypto.randomUUID()
+            : `guest_${Date.now()}`;
+        localStorage.setItem("guestId", stored);
+      }
+      // Defer setting state to avoid synchronous setState in an effect
+      setTimeout(() => setGuestId(stored), 0);
+    } catch (err) {
+      console.error("Failed to initialize guest id", err);
+      // localStorage might not be available in some environments; fallback to ephemeral id
+      setTimeout(() => setGuestId(`guest_${Date.now()}`), 0);
+    }
+  }, [userId]);
+
+  const currentUserId = userId || guestId;
+
   const [search, setSearch] = useState("");
   const [draft, setDraft] = useState("");
   const [isNewMessageModalOpen, setIsNewMessageModalOpen] = useState(false);
@@ -130,18 +165,21 @@ export default function MessagesPage() {
     isLoading: isLoadingConversations,
     refetch: refetchConversations,
   } = useGetConversationsQuery(
-    { userId: userId || "" }, // In a real app, this would come from auth
-    { skip: !userId, pollingInterval: 5000 }
+    { userId: currentUserId || "" }, // Support guest users via a persistent guestId
+    { skip: !currentUserId, pollingInterval: 5000 },
   );
 
   const conversations = useMemo(
-    () => (conversationsData?.data || []).filter((c: Conversation) => c.type === "internal"),
-    [conversationsData?.data]
+    () => conversationsData?.data || [],
+    [conversationsData?.data],
   );
 
   // Fetch CSR employees for selection
   const { data: employeesData } = useGetEmployeesQuery({});
-  const employees = useMemo(() => employeesData?.data || [], [employeesData?.data]);
+  const employees = useMemo(
+    () => employeesData?.data || [],
+    [employeesData?.data],
+  );
 
   const employeeMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -164,7 +202,11 @@ export default function MessagesPage() {
 
   // Filter employees to show only CSRs
   const csrEmployees: Employee[] = useMemo(() => {
-    return employees.filter((emp: Employee) => emp.email?.toLowerCase().includes("csr") || emp.employment_id?.toLowerCase().includes("csr"));
+    return employees.filter(
+      (emp: Employee) =>
+        emp.email?.toLowerCase().includes("csr") ||
+        emp.employment_id?.toLowerCase().includes("csr"),
+    );
   }, [employees]);
 
   // Compute initial active conversation ID
@@ -186,7 +228,7 @@ export default function MessagesPage() {
       }
       hasInitializedActiveId.current = true;
     }
-  }, [conversations.length, getInitialActiveId]);
+  }, [conversations.length, getInitialActiveId, activeId]);
 
   // Fetch messages for active conversation
   const {
@@ -195,7 +237,7 @@ export default function MessagesPage() {
     refetch: refetchMessages,
   } = useGetMessagesQuery(
     { conversationId: activeId || "" },
-    { skip: !activeId, pollingInterval: 3000 }
+    { skip: !activeId, pollingInterval: 3000 },
   );
 
   // Mutations
@@ -203,14 +245,17 @@ export default function MessagesPage() {
   const [markAsRead] = useMarkMessagesAsReadMutation();
   const [createConversation] = useCreateConversationMutation();
 
-  const messages = useMemo(() => messagesData?.data || [], [messagesData?.data]);
+  const messages = useMemo(
+    () => messagesData?.data || [],
+    [messagesData?.data],
+  );
 
   // Mark messages as read when opening a conversation
   useEffect(() => {
-    if (activeId && userId) {
-      markAsRead({ conversation_id: activeId, user_id: userId });
+    if (activeId && currentUserId) {
+      markAsRead({ conversation_id: activeId, user_id: currentUserId });
     }
-  }, [activeId, userId, markAsRead]);
+  }, [activeId, currentUserId, markAsRead]);
 
   // Auto-scroll to bottom when messages change
   const scrollToBottom = () => {
@@ -221,26 +266,32 @@ export default function MessagesPage() {
     scrollToBottom();
   }, [messages]);
 
-  const getConversationDisplayName = useCallback((conversation: Conversation | undefined | null) => {
-    if (!conversation) return "";
-    if (conversation.type !== "internal") return conversation.name || "Conversation";
+  const getConversationDisplayName = useCallback(
+    (conversation: Conversation | undefined | null) => {
+      if (!conversation) return "";
+      if (conversation.type !== "internal")
+        return conversation.name || "Conversation";
 
-    const otherParticipantIds = (conversation.participant_ids || []).filter((id: string) => id !== userId);
+      const otherParticipantIds = (conversation.participant_ids || []).filter(
+        (id: string) => id !== userId,
+      );
 
-    const otherNames = otherParticipantIds
-      .map((id: string) => employeeMap[id])
-      .filter(Boolean);
+      const otherNames = otherParticipantIds
+        .map((id: string) => employeeMap[id])
+        .filter(Boolean);
 
-    if (otherNames.length > 0) {
-      return otherNames.join(", ");
-    }
+      if (otherNames.length > 0) {
+        return otherNames.join(", ");
+      }
 
-    return conversation.name || "Conversation";
-  }, [employeeMap, userId]);
+      return conversation.name || "Conversation";
+    },
+    [employeeMap, userId],
+  );
 
   const activeConversation = useMemo(
     () => conversations.find((c) => c.id === activeId) ?? conversations[0],
-    [activeId, conversations]
+    [activeId, conversations],
   );
 
   const activeConversationName = getConversationDisplayName(activeConversation);
@@ -249,23 +300,27 @@ export default function MessagesPage() {
   const activeConversationAvatarUrl = useMemo(() => {
     if (!activeConversation) return undefined;
 
-    const otherParticipantIds = userId
-      ? (activeConversation.participant_ids || []).filter((id: string) => id !== userId)
-      : (activeConversation.participant_ids || []);
+    const otherParticipantIds = currentUserId
+      ? (activeConversation.participant_ids || []).filter(
+          (id: string) => id !== currentUserId,
+        )
+      : activeConversation.participant_ids || [];
 
     if (otherParticipantIds.length === 1) {
       return employeeProfileImageById[otherParticipantIds[0]];
     }
 
     return undefined;
-  }, [activeConversation, employeeProfileImageById, userId]);
+  }, [activeConversation, employeeProfileImageById, currentUserId]);
 
   const handleNewChatWithEmployee = (employee: Employee) => {
-    // Create a new conversation with the selected employee
-    const conversationName = `${employee.first_name ?? ""} ${employee.last_name ?? ""}`.trim();
-    if (!userId) {
-      toast.error("Please sign in to start a new chat");
-      router.push("/login");
+    // Create a new conversation with the selected employee (supports guest users)
+    const conversationName =
+      `${employee.first_name ?? ""} ${employee.last_name ?? ""}`.trim();
+
+    const idToUse = currentUserId;
+    if (!idToUse) {
+      toast.error("Unable to start chat. Please try again.");
       return;
     }
 
@@ -273,8 +328,8 @@ export default function MessagesPage() {
       try {
         const result = await createConversation({
           name: conversationName || employee.email || "Conversation",
-          type: "internal",
-          participant_ids: [userId, employee.id],
+          type: userId ? "internal" : "guest",
+          participant_ids: [idToUse, employee.id],
         }).unwrap();
 
         if (result.data?.id) {
@@ -295,12 +350,18 @@ export default function MessagesPage() {
 
   const handleSendMessage = async () => {
     const text = draft.trim();
-    if (!text || !activeId || !userId) return;
+    if (!text || !activeId) return;
+
+    const senderId = currentUserId;
+    if (!senderId) {
+      toast.error("Unable to send message. Please try again.");
+      return;
+    }
 
     try {
       await sendMessage({
         conversation_id: activeId,
-        sender_id: userId,
+        sender_id: senderId,
         sender_name: session?.user?.name || "Guest",
         message_text: text,
       }).unwrap();
@@ -336,8 +397,12 @@ export default function MessagesPage() {
       <div className="w-full max-w-7xl mx-auto animate-in fade-in duration-700">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Messages</h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400">Chat with our customer service team</p>
+            <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
+              Messages
+            </h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Chat with our customer service team
+            </p>
           </div>
           <button
             onClick={() => router.back()}
@@ -354,7 +419,9 @@ export default function MessagesPage() {
             {/* Conversations Sidebar */}
             <div className="border-b lg:border-b-0 lg:border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex flex-col h-[calc(100vh-180px)] sm:h-[65vh] lg:h-[72vh]">
               <div className="h-14 sm:h-16 px-3 sm:px-4 flex items-center justify-between border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
-                <p className="text-base font-bold text-gray-900 dark:text-gray-100">Chats</p>
+                <p className="text-base font-bold text-gray-900 dark:text-gray-100">
+                  Chats
+                </p>
                 <div className="ml-auto flex items-center gap-2">
                   <button
                     type="button"
@@ -388,18 +455,25 @@ export default function MessagesPage() {
                   </div>
                 ) : filteredConversations.length === 0 ? (
                   <div className="flex items-center justify-center py-10">
-                    <p className="text-gray-500 dark:text-gray-400">No conversations found</p>
+                    <p className="text-gray-500 dark:text-gray-400">
+                      No conversations found
+                    </p>
                   </div>
                 ) : (
                   filteredConversations.map((c) => {
                     const isActive = c.id === activeId;
                     const conversationName = getConversationDisplayName(c);
-                    const activeStatus = getActiveStatus(c.last_message_time, c.type);
-                    const otherParticipantIds = userId
-                      ? (c.participant_ids || []).filter((id: string) => id !== userId)
-                      : (c.participant_ids || []);
+                    const activeStatus = getActiveStatus(
+                      c.last_message_time,
+                      c.type,
+                    );
+                    const otherParticipantIds = currentUserId
+                      ? (c.participant_ids || []).filter(
+                          (id: string) => id !== currentUserId,
+                        )
+                      : c.participant_ids || [];
                     const avatarUrl =
-                      otherParticipantIds.length === 1
+                      c.type !== "guest" && otherParticipantIds.length === 1
                         ? employeeProfileImageById[otherParticipantIds[0]]
                         : undefined;
                     const avatarLetter = (conversationName || c.name || "?")
@@ -425,7 +499,9 @@ export default function MessagesPage() {
                             {avatarUrl ? (
                               <Image
                                 src={avatarUrl}
-                                alt={conversationName || c.name || "Conversation"}
+                                alt={
+                                  conversationName || c.name || "Conversation"
+                                }
                                 width={44}
                                 height={44}
                                 className="w-11 h-11 rounded-full object-cover"
@@ -449,7 +525,9 @@ export default function MessagesPage() {
                             </p>
                             <span className="text-xs text-gray-400">•</span>
                             <p className="text-xs text-gray-400 whitespace-nowrap">
-                              {c.last_message_time ? formatTime(c.last_message_time) : ""}
+                              {c.last_message_time
+                                ? formatTime(c.last_message_time)
+                                : ""}
                             </p>
                           </div>
                           <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
@@ -476,7 +554,9 @@ export default function MessagesPage() {
               {showEmployeeSelection ? (
                 <div className="h-full flex flex-col">
                   <div className="h-16 px-4 flex items-center justify-between border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 sticky top-0 z-10">
-                    <p className="text-base font-bold text-gray-900 dark:text-gray-100">Start New Chat</p>
+                    <p className="text-base font-bold text-gray-900 dark:text-gray-100">
+                      Start New Chat
+                    </p>
 
                     <button
                       onClick={() => setShowEmployeeSelection(false)}
@@ -489,7 +569,8 @@ export default function MessagesPage() {
 
                   <div className="flex-1 overflow-y-auto p-4">
                     <p className="text-center text-gray-500 dark:text-gray-400 mb-4">
-                      Select a customer service representative to start a conversation
+                      Select a customer service representative to start a
+                      conversation
                     </p>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       {csrEmployees.map((employee: Employee) => (
@@ -514,7 +595,9 @@ export default function MessagesPage() {
                                 />
                               ) : (
                                 <span className="text-lg">
-                                  {(employee.first_name || "")[0] || (employee.last_name || "")[0] || "?"}
+                                  {(employee.first_name || "")[0] ||
+                                    (employee.last_name || "")[0] ||
+                                    "?"}
                                 </span>
                               )}
                             </div>
@@ -546,7 +629,11 @@ export default function MessagesPage() {
                         {activeConversationAvatarUrl ? (
                           <Image
                             src={activeConversationAvatarUrl}
-                            alt={activeConversationName || activeConversation.name || "Conversation"}
+                            alt={
+                              activeConversationName ||
+                              activeConversation.name ||
+                              "Conversation"
+                            }
                             width={40}
                             height={40}
                             className="w-10 h-10 object-cover"
@@ -556,7 +643,11 @@ export default function MessagesPage() {
                             }}
                           />
                         ) : (
-                          (activeConversationName || activeConversation.name || "?")
+                          (
+                            activeConversationName ||
+                            activeConversation.name ||
+                            "?"
+                          )
                             .charAt(0)
                             .toUpperCase()
                         )}
@@ -566,18 +657,35 @@ export default function MessagesPage() {
                           {activeConversationName || activeConversation.name}
                         </p>
                         <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                          {getActiveStatus(activeConversation.last_message_time, activeConversation.type).statusText}
+                          {
+                            getActiveStatus(
+                              activeConversation.last_message_time,
+                              activeConversation.type,
+                            ).statusText
+                          }
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
-                      <button type="button" className="p-2 rounded-full hover:bg-brand-primaryLighter transition-colors" title="Call">
+                      <button
+                        type="button"
+                        className="p-2 rounded-full hover:bg-brand-primaryLighter transition-colors"
+                        title="Call"
+                      >
                         <Phone className="w-5 h-5 text-brand-primary" />
                       </button>
-                      <button type="button" className="p-2 rounded-full hover:bg-brand-primaryLighter transition-colors" title="Video">
+                      <button
+                        type="button"
+                        className="p-2 rounded-full hover:bg-brand-primaryLighter transition-colors"
+                        title="Video"
+                      >
                         <Video className="w-5 h-5 text-brand-primary" />
                       </button>
-                      <button type="button" className="p-2 rounded-full hover:bg-brand-primaryLighter transition-colors" title="Info">
+                      <button
+                        type="button"
+                        className="p-2 rounded-full hover:bg-brand-primaryLighter transition-colors"
+                        title="Info"
+                      >
                         <Info className="w-5 h-5 text-brand-primary" />
                       </button>
                     </div>
@@ -591,12 +699,14 @@ export default function MessagesPage() {
                       </div>
                     ) : messages.length === 0 ? (
                       <div className="flex items-center justify-center h-full">
-                        <p className="text-gray-500 dark:text-gray-400">No messages yet. Start the conversation!</p>
+                        <p className="text-gray-500 dark:text-gray-400">
+                          No messages yet. Start the conversation!
+                        </p>
                       </div>
                     ) : (
                       <>
                         {messages.map((m: Message) => {
-                          const isMe = m.sender_id === userId;
+                          const isMe = m.sender_id === currentUserId;
                           const senderLabel = !isMe
                             ? employeeMap[m.sender_id] ||
                               m.sender_name ||
@@ -604,8 +714,13 @@ export default function MessagesPage() {
                             : undefined;
 
                           return (
-                            <div key={m.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
-                              <div className={`max-w-[85%] sm:max-w-[75%] ${isMe ? "items-end" : "items-start"} flex flex-col gap-0.5 sm:gap-1`}>
+                            <div
+                              key={m.id}
+                              className={`flex ${isMe ? "justify-end" : "justify-start"}`}
+                            >
+                              <div
+                                className={`max-w-[85%] sm:max-w-[75%] ${isMe ? "items-end" : "items-start"} flex flex-col gap-0.5 sm:gap-1`}
+                              >
                                 {!isMe && senderLabel && (
                                   <span className="text-[10px] sm:text-xs font-semibold text-gray-500 dark:text-gray-400">
                                     {senderLabel}
@@ -620,7 +735,9 @@ export default function MessagesPage() {
                                 >
                                   {m.message_text}
                                 </div>
-                                <span className="text-[10px] sm:text-[11px] text-gray-400">{formatMessageTime(m.created_at)}</span>
+                                <span className="text-[10px] sm:text-[11px] text-gray-400">
+                                  {formatMessageTime(m.created_at)}
+                                </span>
                               </div>
                             </div>
                           );
@@ -633,7 +750,11 @@ export default function MessagesPage() {
                   {/* Message Input */}
                   <div className="border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-2 sm:px-4 py-2 sm:py-3">
                     <div className="flex items-center gap-1 sm:gap-2">
-                      <button type="button" className="p-2 rounded-full hover:bg-brand-primaryLighter transition-colors" title="Attach">
+                      <button
+                        type="button"
+                        className="p-2 rounded-full hover:bg-brand-primaryLighter transition-colors"
+                        title="Attach"
+                      >
                         <ImageIcon className="w-5 h-5 text-brand-primary" />
                       </button>
                       <div className="flex-1 bg-gray-100 dark:bg-gray-800 rounded-full px-2 sm:px-3 py-1.5 sm:py-2 flex items-center gap-1 sm:gap-2 border border-gray-200 dark:border-gray-700 focus-within:bg-brand-primaryLighter dark:focus-within:bg-gray-800 focus-within:border-brand-primary dark:focus-within:border-brand-primary focus-within:ring-2 focus-within:ring-brand-primary/20">
@@ -650,7 +771,11 @@ export default function MessagesPage() {
                           disabled={isSending}
                           className="flex-1 bg-transparent outline-none text-xs sm:text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400"
                         />
-                        <button type="button" className="p-2 rounded-full hover:bg-brand-primaryLighter transition-colors" title="Emoji">
+                        <button
+                          type="button"
+                          className="p-2 rounded-full hover:bg-brand-primaryLighter transition-colors"
+                          title="Emoji"
+                        >
                           <Smile className="w-5 h-5 text-brand-primary" />
                         </button>
                       </div>
@@ -672,7 +797,9 @@ export default function MessagesPage() {
                 </>
               ) : (
                 <div className="flex items-center justify-center h-full">
-                  <p className="text-gray-500 dark:text-gray-400">Select a conversation to start messaging</p>
+                  <p className="text-gray-500 dark:text-gray-400">
+                    Select a conversation to start messaging
+                  </p>
                 </div>
               )}
             </div>

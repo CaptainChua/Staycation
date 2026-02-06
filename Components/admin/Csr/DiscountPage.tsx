@@ -51,6 +51,7 @@ const highlightText = (text: string, searchTerm: string) => {
 import { getDiscounts, DiscountRecord, deleteDiscount, toggleDiscountStatus } from "@/app/admin/csr/actions";
 import { toast } from "react-hot-toast";
 import ViewDiscountModal from "./Modals/ViewDiscountModal";
+import DeleteConfirmation from "./Modals/DeleteConfirmation";
 import CreateDiscountModal from "./Modals/CreateDiscountModal";
 import EditDiscountModal from "./Modals/EditDiscountModal";
 
@@ -267,9 +268,12 @@ const DiscountPage = () => {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedDiscount, setSelectedDiscount] = useState<DiscountRecord | null>(null);
+  const [discountToDelete, setDiscountToDelete] = useState<DiscountRecord | null>(null);
   const [selectedDiscounts, setSelectedDiscounts] = useState<string[]>([]);
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   
   // Guide states
   const [showStatusGuide, setShowStatusGuide] = useState(false);
@@ -353,19 +357,34 @@ const DiscountPage = () => {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this discount?")) return;
+  const openDeleteModal = (discount: DiscountRecord) => {
+    setDiscountToDelete(discount);
+    setIsDeleteModalOpen(true);
+  };
 
+  const closeDeleteModal = () => {
+    if (isDeleting) return;
+    setIsDeleteModalOpen(false);
+    setDiscountToDelete(null);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!discountToDelete) return;
+    
+    setIsDeleting(true);
     const oldRows = [...rows];
-    setRows(prev => prev.filter(r => r.id !== id));
+    setRows(prev => prev.filter(r => r.id !== discountToDelete.id));
 
     try {
-      await deleteDiscount(id, session?.user?.id);
+      await deleteDiscount(discountToDelete.id, session?.user?.id);
       toast.success("Discount deleted successfully");
+      closeDeleteModal();
     } catch (error) {
       setRows(oldRows);
       toast.error("Failed to delete discount");
       console.error(error);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -1094,7 +1113,7 @@ const DiscountPage = () => {
                           className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
                           title="Delete Discount"
                           type="button"
-                          onClick={() => handleDelete(row.id)}
+                          onClick={() => openDeleteModal(row)}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -1220,6 +1239,18 @@ const DiscountPage = () => {
           setIsCreateModalOpen(false);
         }}
       />
+
+      {isDeleteModalOpen && discountToDelete && (
+        <DeleteConfirmation
+          itemName="discount"
+          itemId={discountToDelete.discount_code}
+          onCancel={closeDeleteModal}
+          onConfirm={handleConfirmDelete}
+          isDeleting={isDeleting}
+          confirmLabel="Delete discount"
+          title="Delete Discount"
+        />
+      )}
     </div>
   );
 };

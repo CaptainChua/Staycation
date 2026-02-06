@@ -39,8 +39,8 @@ interface ActivityLog {
   id: string;
   first_name?: string;
   last_name?: string;
-  action: string;
-  action_type: string;
+  description: string;
+  activity_type: string;
   details?: string;
   created_at: string;
   role?: string;
@@ -92,15 +92,15 @@ const StaffActivityPage = ({ onCreateClick, onEditClick }: StaffActivityPageProp
         );
       });
 
-  const activityLogs = activityLogsData?.data || [];
+  const activityLogs = activityLogsData?.data?.logs || [];
   const stats = statsData?.data || { active_csr: 0, active_cleaners: 0, logged_out: 0, total: 0 };
 
   const filteredLogs = activityLogs.filter((log: ActivityLog) => {
     const staffName = `${log.first_name || ''} ${log.last_name || ''}`.toLowerCase();
     const matchesSearch =
       staffName.includes(searchQuery.toLowerCase()) ||
-      log.action.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (log.details && log.details.toLowerCase().includes(searchQuery.toLowerCase()));
+      (log.description && log.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (log.activity_type && log.activity_type.toLowerCase().includes(searchQuery.toLowerCase()));
     return matchesSearch;
   });
 
@@ -403,24 +403,24 @@ const StaffActivityPage = ({ onCreateClick, onEditClick }: StaffActivityPageProp
                           </td>
                           <td className="py-4 px-6">
                             <div className="flex items-center gap-2">
-                              {getActionIcon(log.action_type)}
+                              {getActionIcon(log.activity_type)}
                               <span className="text-sm font-medium text-gray-800">
-                                {log.action}
+                                {log.description}
                               </span>
                             </div>
                           </td>
                           <td className="py-4 px-6">
                             <span className="text-sm text-gray-600">
-                              {log.details || '-'}
+                              {log.details || log.description || '-'}
                             </span>
                           </td>
                           <td className="py-4 px-6 text-center">
                             <span
                               className={`inline-block text-xs font-bold px-3 py-1.5 rounded-full ${getActionColor(
-                                log.action_type
+                                log.activity_type
                               )}`}
                             >
-                              {log.action}
+                              {log.description}
                             </span>
                           </td>
                         </tr>
