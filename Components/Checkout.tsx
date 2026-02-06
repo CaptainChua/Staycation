@@ -482,8 +482,12 @@ const Checkout = () => {
     return total + quantity * ADD_ON_PRICES[key as keyof AddOns];
   }, 0);
 
-  const totalAmount = roomRate + securityDeposit + addOnsTotal;
-  const remainingBalance = totalAmount - downPayment;
+  // Total amount for payment record (excluding security deposit - it's tracked separately)
+  const totalAmount = Math.round((roomRate + addOnsTotal) * 100) / 100;
+  const remainingBalance = Math.round((totalAmount - downPayment) * 100) / 100;
+
+  // Display total includes security deposit for UI purposes
+  const displayTotal = totalAmount + securityDeposit;
 
   // Update additional guests array when adults/children count changes
   const updateAdditionalGuests = (adults: number, children: number) => {
@@ -681,105 +685,64 @@ const Checkout = () => {
     }
   };
 
+  const [showCamera, setShowCamera] = useState(false);
+  const [cameraType, setCameraType] = useState<'id'>('id');
+  const [cameraGuestIndex, setCameraGuestIndex] = useState<number | undefined>(undefined);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [stream, setStream] = useState<MediaStream | null>(null);
+
   // Camera capture function for ID photos
-  const captureImage = async (type: 'id', guestIndex?: number) => {
+  const startCamera = async (type: 'id', guestIndex?: number) => {
+    setCameraType(type);
+    setCameraGuestIndex(guestIndex);
+    setShowCamera(true);
+
     try {
-      // Check if camera is available
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        toast.error('Camera is not available on this device');
-        return;
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' }
+      });
+      setStream(mediaStream);
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream;
       }
+    } catch (err) {
+      console.error("Error accessing camera:", err);
+      toast.error("Could not access camera. Please check permissions.");
+      setShowCamera(false);
+    }
+  };
 
-      // Request camera access
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { 
-          facingMode: 'environment' // Prefer back camera for ID capture
-        } 
-      });
+  const stopCamera = () => {
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      setStream(null);
+    }
+    setShowCamera(false);
+  };
 
-      // Create video element to show camera feed
-      const video = document.createElement('video');
-      video.srcObject = stream;
-      video.autoplay = true;
-      video.style.width = '100%';
-      video.style.maxWidth = '400px';
-
-      // Create canvas for capturing the image
+  const handleCapture = () => {
+    if (videoRef.current) {
       const canvas = document.createElement('canvas');
-      canvas.width = 800;
-      canvas.height = 600;
-
-      // Create modal for camera interface
-      const modal = document.createElement('div');
-      modal.className = 'fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4';
-      modal.innerHTML = `
-        <div class="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-2xl w-full">
-          <h3 class="text-lg font-semibold mb-4 text-gray-800 dark:text-white">Capture ID Photo</h3>
-          <div class="mb-4 border-2 border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden">
-            <video id="camera-video" class="w-full"></video>
-          </div>
-          <div class="flex gap-3 justify-center">
-            <button id="capture-btn" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13l-3-3m0 0l-3 3m3-3v12"></path>
-              </svg>
-              Capture
-            </button>
-            <button id="cancel-btn" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700">
-              Cancel
-            </button>
-          </div>
-        </div>
-      `;
-
-      document.body.appendChild(modal);
-      const videoElement = modal.querySelector('#camera-video') as HTMLVideoElement;
-      const captureBtn = modal.querySelector('#capture-btn') as HTMLButtonElement;
-      const cancelBtn = modal.querySelector('#cancel-btn') as HTMLButtonElement;
-
-      videoElement.srcObject = stream;
-
-      // Handle capture
-      captureBtn.addEventListener('click', () => {
-        const context = canvas.getContext('2d');
-        if (context) {
-          // Draw video frame to canvas
-          context.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-          
-          // Convert canvas to blob
-          canvas.toBlob((blob) => {
-            if (blob) {
-              const file = new File([blob], 'id-photo.jpg', { type: 'image/jpeg' });
-              
-              // Create a synthetic event to reuse handleFileChange
-              const syntheticEvent = {
-                target: {
-                  files: [file]
-                }
-              } as unknown as React.ChangeEvent<HTMLInputElement>;
-              
-              handleFileChange(syntheticEvent, type, guestIndex);
-              
-              // Clean up
-              stream.getTracks().forEach(track => track.stop());
-              document.body.removeChild(modal);
-              
-              toast.success('ID photo captured successfully!');
-            }
-          }, 'image/jpeg', 0.95);
-        }
-      });
-
-      // Handle cancel
-      cancelBtn.addEventListener('click', () => {
-        stream.getTracks().forEach(track => track.stop());
-        document.body.removeChild(modal);
-      });
-
-    } catch (error) {
-      console.error('Error accessing camera:', error);
-      toast.error('Failed to access camera. Please check permissions.');
+      canvas.width = videoRef.current.videoWidth;
+      canvas.height = videoRef.current.videoHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(videoRef.current, 0, 0);
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const file = new File([blob], 'id-photo.jpg', { type: 'image/jpeg' });
+            const syntheticEvent = {
+              target: {
+                files: [file]
+              }
+            } as unknown as React.ChangeEvent<HTMLInputElement>;
+            
+            handleFileChange(syntheticEvent, cameraType, cameraGuestIndex);
+            stopCamera();
+            toast.success('ID photo captured successfully!');
+          }
+        }, 'image/jpeg', 0.95);
+      }
     }
   };
 
@@ -1625,7 +1588,7 @@ const Checkout = () => {
                               
                               <button
                                 type="button"
-                                onClick={() => captureImage('id')}
+                                onClick={() => startCamera('id')}
                                 className="cursor-pointer inline-flex flex-col items-center justify-center p-6 bg-green-50 dark:bg-green-900/20 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors border-2 border-green-300 dark:border-green-500"
                               >
                                 <Camera className="w-12 h-12 text-green-600 dark:text-green-400 mb-3" />
@@ -1664,7 +1627,7 @@ const Checkout = () => {
                                       </label>
                                       <button
                                         type="button"
-                                        onClick={() => captureImage('id')}
+                                        onClick={() => startCamera('id')}
                                         className="px-3 py-1 bg-green-100 text-green-700 rounded-md text-sm hover:bg-green-200 transition-colors"
                                       >
                                         <Camera className="w-4 h-4 inline mr-1" />
@@ -1857,7 +1820,7 @@ const Checkout = () => {
                                   </div>
                                   <button
                                     type="button"
-                                    onClick={() => captureImage('id', index)}
+                                    onClick={() => startCamera('id', index)}
                                     className="cursor-pointer inline-flex flex-col items-center justify-center p-6 bg-green-50 dark:bg-green-900/20 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors border-2 border-green-300 dark:border-green-500"
                                   >
                                     <Camera className="w-12 h-12 text-green-600 dark:text-green-400 mb-3" />
@@ -1895,7 +1858,7 @@ const Checkout = () => {
                                           </label>
                                           <button
                                             type="button"
-                                            onClick={() => captureImage('id', index)}
+                                            onClick={() => startCamera('id', index)}
                                             className="px-3 py-1 bg-green-100 text-green-700 rounded-md text-sm hover:bg-green-200 transition-colors"
                                           >
                                             <Camera className="w-4 h-4 inline mr-1" />
@@ -2007,6 +1970,7 @@ const Checkout = () => {
                           checkOutDate={localCheckOutDate}
                           onCheckInChange={setLocalCheckInDate}
                           onCheckOutChange={setLocalCheckOutDate}
+                          havenId={bookingData.selectedRoom?.id}
                         />
                       </div>
 
@@ -2315,7 +2279,7 @@ const Checkout = () => {
                           )}
                           <div className="flex justify-between pt-2 border-t dark:border-gray-700 font-bold text-lg text-gray-800 dark:text-white">
                             <span>Total</span>
-                            <span className="text-orange-500">₱{totalAmount.toLocaleString()}</span>
+                            <span className="text-orange-500">₱{displayTotal.toLocaleString()}</span>
                           </div>
                         </div>
 
@@ -2331,7 +2295,7 @@ const Checkout = () => {
                           <div className="flex justify-between text-sm">
                             <span className="text-green-700 dark:text-green-300">Remaining Balance (Pay Upon Check-in)</span>
                             <span className="font-bold text-green-800 dark:text-green-200">
-                              ₱{(totalAmount - downPayment).toLocaleString()}
+                              ₱{(displayTotal - downPayment).toLocaleString()}
                             </span>
                           </div>
                         </div>
@@ -2637,35 +2601,6 @@ const Checkout = () => {
                         </p>
                       )}
                     </div>
-
-                    {/* Action Buttons */}
-                    <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-                      <button
-                        type="button"
-                        onClick={handleBack}
-                        className="flex-1 flex items-center justify-center gap-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-white font-semibold py-2 px-4 rounded-lg transition-all duration-300 text-sm"
-                      >
-                        <ArrowLeft className="w-5 h-5" />
-                        Back
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={isLoading}
-                        className="flex-1 bg-brand-primary hover:bg-brand-primaryDark text-white font-semibold py-2 px-4 rounded-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-                      >
-                        {isLoading ? (
-                          <span className="flex items-center justify-center gap-2">
-                            <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            Processing...
-                          </span>
-                        ) : (
-                          "Complete Booking"
-                        )}
-                      </button>
-                    </div>
                   </div>
                 )}
               </form>
@@ -2702,6 +2637,7 @@ const Checkout = () => {
                     checkOutDate={localCheckOutDate}
                     onCheckInChange={setLocalCheckInDate}
                     onCheckOutChange={setLocalCheckOutDate}
+                    havenId={bookingData.selectedRoom?.id}
                   />
                 </div>
 
@@ -2750,7 +2686,7 @@ const Checkout = () => {
                     <div className="flex justify-between pt-2 border-t border-gray-200 dark:border-gray-700">
                       <span className="font-bold text-gray-800 dark:text-white">Total</span>
                       <span className="font-bold text-brand-primary">
-                        {totalAmount > 0 ? `₱${totalAmount.toLocaleString()}` : "—"}
+                        {displayTotal > 0 ? `₱${displayTotal.toLocaleString()}` : "—"}
                       </span>
                     </div>
                   </div>
@@ -2844,6 +2780,7 @@ const Checkout = () => {
                 checkOutDate={localCheckOutDate}
                 onCheckInChange={setLocalCheckInDate}
                 onCheckOutChange={setLocalCheckOutDate}
+                havenId={bookingData.selectedRoom?.id}
               />
             </div>
 
@@ -2876,7 +2813,7 @@ const Checkout = () => {
                 <div className="flex items-center gap-3">
                   <div className="flex items-baseline gap-1">
                     <span className="text-lg font-bold text-gray-900 dark:text-white">
-                      {totalAmount > 0 ? `₱${totalAmount.toLocaleString()}` : "Select dates"}
+                      {displayTotal > 0 ? `₱${displayTotal.toLocaleString()}` : "Select dates"}
                     </span>
                     <span className="text-sm text-gray-500 dark:text-gray-400">total</span>
                   </div>
@@ -2996,6 +2933,59 @@ const Checkout = () => {
           </div>
         </div>
       </div>
+
+      {/* Camera Modal */}
+      {showCamera && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999] p-4 backdrop-blur-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-2xl w-full shadow-2xl animate-in zoom-in duration-300">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
+                <Camera className="w-6 h-6 text-brand-primary" />
+                Capture ID Photo
+              </h3>
+              <button 
+                onClick={stopCamera}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+              >
+                <X className="w-6 h-6 text-gray-500" />
+              </button>
+            </div>
+            
+            <div className="relative aspect-video mb-6 bg-black rounded-xl overflow-hidden shadow-inner border-2 border-gray-200 dark:border-gray-700">
+              <video 
+                ref={videoRef} 
+                autoPlay 
+                playsInline 
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 border-[30px] border-black/40 pointer-events-none">
+                <div className="w-full h-full border-2 border-white/50 rounded-sm" />
+              </div>
+              <p className="absolute bottom-4 left-0 right-0 text-center text-white text-sm bg-black/50 py-1 px-3 mx-auto w-fit rounded-full backdrop-blur-sm">
+                Align ID within the frame
+              </p>
+            </div>
+
+            <div className="flex gap-4">
+              <button
+                type="button"
+                onClick={stopCamera}
+                className="flex-1 px-6 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-semibold rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-all active:scale-95"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleCapture}
+                className="flex-1 px-6 py-3 bg-brand-primary text-white font-semibold rounded-xl hover:bg-brand-primaryDark shadow-lg shadow-brand-primary/30 transition-all active:scale-95 flex items-center justify-center gap-2"
+              >
+                <div className="w-3 h-3 bg-white rounded-full animate-pulse" />
+                Capture Photo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       </SidebarLayout>
     </>
   );

@@ -1,41 +1,41 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { X, User, Mail, Phone, MapPin, Calendar, Users as UsersIcon, DollarSign, CreditCard, Facebook, IdCard, Image as ImageIcon } from "lucide-react";
+import {
+  X,
+  User,
+  MapPin,
+  Calendar,
+  Eye,
+  ExternalLink,
+  Clock,
+  Users as UsersIcon
+} from "lucide-react";
 
 interface Booking {
-  id: string;
+  id?: string;
+  cleaning_id?: string;
   booking_id: string;
-  guest_first_name: string;
-  guest_last_name: string;
-  guest_email: string;
-  guest_phone: string;
-  guest_gender?: string;
-  room_name: string;
+  guest_first_name?: string;
+  guest_last_name?: string;
+  guest_email?: string;
+  guest_phone?: string;
+  haven?: string;
+  room_name?: string;
   check_in_date: string;
   check_out_date: string;
-  check_in_time: string;
-  check_out_time: string;
-  adults: number;
-  children: number;
-  infants: number;
-  facebook_link?: string;
-  payment_method: string;
-  payment_proof_url?: string;
-  valid_id_url?: string;
-  room_rate: number;
-  security_deposit: number;
-  add_ons_total: number;
-  total_amount: number;
-  down_payment: number;
-  remaining_balance: number;
-  status: string;
-  add_ons?: unknown;
-  additional_guests?: unknown;
-  user_id?: string;
-  created_at?: string;
-  updated_at?: string;
+  check_in_time?: string;
+  check_out_time?: string;
+  cleaning_status?: string;
+  cleaner_first_name?: string;
+  cleaner_last_name?: string;
+  cleaner_employment_id?: string;
+  cleaning_time_in?: string;
+  cleaning_time_out?: string;
+  cleaned_at?: string;
+  inspected_at?: string;
+  assigned_cleaner_id?: string;
 }
 
 interface ViewBookingsProps {
@@ -44,9 +44,9 @@ interface ViewBookingsProps {
 }
 
 export default function ViewBookings({ booking, onClose }: ViewBookingsProps) {
+  const modalRef = useRef<HTMLDivElement>(null);
   const [isMounted, setIsMounted] = useState(false);
 
-  // Set mounted state after component mounts - use requestAnimationFrame to avoid cascading renders
   useEffect(() => {
     const rafId = requestAnimationFrame(() => {
       setIsMounted(true);
@@ -57,314 +57,285 @@ export default function ViewBookings({ booking, onClose }: ViewBookingsProps) {
     };
   }, []);
 
+  const handleClickOutside = (event: MouseEvent) => {
+    const target = event.target as Node;
+    if (modalRef.current && !modalRef.current.contains(target)) {
+      onClose();
+    }
+  };
+
+  useEffect(() => {
+    if (isMounted) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => {
+        document.removeEventListener("mousedown", handleClickOutside);
+      };
+    }
+  }, [isMounted, onClose]);
+
   if (!isMounted) return null;
 
-  const guestName = `${booking.guest_first_name} ${booking.guest_last_name}`;
-  const totalGuests = booking.adults + booking.children + booking.infants;
-
-  const getStatusColor = (status: string) => {
-    const statusLower = status?.toLowerCase() || '';
-    switch (statusLower) {
-      case "approved":
-        return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300";
-      case "pending":
-        return "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300";
-      case "declined":
-        return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300";
-      case "checked-in":
-        return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300";
-      case "checked-out":
-        return "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300";
-      case "cancelled":
-        return "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300";
-      case "completed":
-        return "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300";
-      default:
-        return "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200";
-    }
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-PH", {
-      style: "currency",
-      currency: "PHP",
-    }).format(amount);
-  };
+  const guestName = `${booking.guest_first_name || ''} ${booking.guest_last_name || ''}`.trim() || 'N/A';
+  const cleanerName = booking.cleaner_first_name && booking.cleaner_last_name
+    ? `${booking.cleaner_first_name} ${booking.cleaner_last_name}`
+    : 'Unassigned';
+  const havenName = booking.haven || booking.room_name || 'N/A';
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-  };
-
-  const parseAdditionalGuests = () => {
+    if (!dateString) return 'N/A';
     try {
-      if (typeof booking.additional_guests === 'string') {
-        return JSON.parse(booking.additional_guests);
-      }
-      return Array.isArray(booking.additional_guests) ? booking.additional_guests : [];
+      return new Date(dateString).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      });
     } catch {
-      return [];
+      return dateString;
     }
   };
 
-  const additionalGuests = parseAdditionalGuests();
+  const formatTime = (timeString: string | undefined) => {
+    if (!timeString) return '';
+    try {
+      return new Date(`2000-01-01T${timeString}`).toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch {
+      return timeString;
+    }
+  };
+
+  const getStatusColor = (status: string | undefined) => {
+    switch (status?.toLowerCase()) {
+      case "pending":
+        return "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300";
+      case "in-progress":
+        return "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300";
+      case "cleaned":
+        return "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300";
+      case "inspected":
+        return "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300";
+      default:
+        return "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300";
+    }
+  };
+
+  const getStatusLabel = (status: string | undefined) => {
+    if (!status) return 'Unknown';
+    if (status === 'pending' && !booking.assigned_cleaner_id) return 'Unassigned';
+    if (status === 'pending' && booking.assigned_cleaner_id) return 'Assigned';
+    return status.charAt(0).toUpperCase() + status.slice(1).replace('-', ' ');
+  };
 
   return createPortal(
     <>
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9998]" onClick={onClose} />
-      <div className="fixed inset-0 flex items-center justify-center px-4 py-8 z-[9999]">
-        <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
-          {/* Header */}
-          <div className="flex items-center justify-between px-8 py-6 border-b border-gray-100 dark:border-gray-800 bg-gradient-to-r from-orange-50 to-yellow-50 dark:from-gray-900 dark:to-gray-900">
+      <div className="fixed inset-0 z-[9980] bg-black/50" aria-hidden="true" />
+      <div
+        ref={modalRef}
+        className="fixed z-[9991] w-full max-w-4xl max-h-[90vh] bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden"
+        style={{
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)'
+        }}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-500 rounded-lg">
+              <Eye className="w-5 h-5 text-white" />
+            </div>
             <div>
-              <p className="text-sm font-semibold text-orange-500 uppercase tracking-[0.2em]">
-                Booking Details
-              </p>
-              <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mt-1">
-                {booking.booking_id}
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                Cleaning Task Details
               </h2>
-              <div className="mt-2">
-                <span className={`inline-block px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider ${getStatusColor(booking.status)}`}>
-                  {booking.status}
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                View complete task information
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
+          >
+            <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-6 max-h-[calc(90vh-200px)] overflow-y-auto">
+          {/* Task Information */}
+          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-3">
+            <div className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+              <Clock className="w-4 h-4" />
+              Task Information
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Booking ID:</span>
+                <span className="text-sm font-mono text-gray-900 dark:text-gray-100">
+                  {booking.booking_id}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Status:</span>
+                <span className={`inline-block px-2 py-1 rounded-full text-xs font-bold ${getStatusColor(booking.cleaning_status)}`}>
+                  {getStatusLabel(booking.cleaning_status)}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Assigned Cleaner:</span>
+                <span className={`text-sm font-medium ${cleanerName === 'Unassigned' ? 'text-gray-400 dark:text-gray-500 italic' : 'text-gray-900 dark:text-gray-100'}`}>
+                  {cleanerName}
+                </span>
+              </div>
+              {booking.cleaner_employment_id && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Employee ID:</span>
+                  <span className="text-sm font-mono text-gray-900 dark:text-gray-100">
+                    {booking.cleaner_employment_id}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Booking Information */}
+          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-3">
+            <div className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+              <MapPin className="w-4 h-4" />
+              Booking Information
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Haven:</span>
+                <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                  {havenName}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Check-in:</span>
+                <span className="text-sm font-medium text-green-600 dark:text-green-400">
+                  {formatDate(booking.check_in_date)} {formatTime(booking.check_in_time)}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Check-out:</span>
+                <span className="text-sm font-medium text-red-600 dark:text-red-400">
+                  {formatDate(booking.check_out_date)} {formatTime(booking.check_out_time)}
                 </span>
               </div>
             </div>
-            <button
-              onClick={onClose}
-              className="p-2 rounded-full hover:bg-white/70 dark:hover:bg-gray-800 transition-colors"
-            >
-              <X className="w-6 h-6 text-gray-600 dark:text-gray-300" />
-            </button>
           </div>
 
-          {/* Content */}
-          <div className="flex-1 overflow-y-auto px-8 py-6 space-y-8">
-            {/* Guest Information */}
-            <section className="space-y-4">
-              <div>
-                <p className="text-sm font-semibold text-gray-500 uppercase tracking-[0.3em]">
-                  Guest Information
-                </p>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Primary Contact</h3>
+          {/* Guest Information */}
+          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-3">
+            <div className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+              <User className="w-4 h-4" />
+              Guest Information
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Name:</span>
+                <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                  {guestName}
+                </span>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <InfoField label="Full Name" icon={<User className="w-4 h-4" />} value={guestName} />
-                {booking.guest_gender && (
-                  <InfoField label="Gender" value={booking.guest_gender} capitalize />
-                )}
-                <InfoField label="Email Address" icon={<Mail className="w-4 h-4" />} value={booking.guest_email} />
-                <InfoField label="Phone Number" icon={<Phone className="w-4 h-4" />} value={booking.guest_phone} />
-                {booking.facebook_link && (
-                  <div className="md:col-span-2">
-                    <InfoField
-                      label="Facebook Profile"
-                      icon={<Facebook className="w-4 h-4" />}
-                      value={
-                        <a href={booking.facebook_link} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">
-                          {booking.facebook_link}
-                        </a>
-                      }
-                    />
-                  </div>
-                )}
-                {booking.valid_id_url && (
-                  <div className="md:col-span-2">
-                    <InfoField
-                      label="Valid ID"
-                      icon={<IdCard className="w-4 h-4" />}
-                      value={
-                        <a href={booking.valid_id_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-2">
-                          <ImageIcon className="w-4 h-4" />
-                          View Valid ID
-                        </a>
-                      }
-                    />
-                  </div>
-                )}
-              </div>
-            </section>
-
-            {/* Additional Guests */}
-            {additionalGuests.length > 0 && (
-              <section className="space-y-4">
-                <div>
-                  <p className="text-sm font-semibold text-gray-500 uppercase tracking-[0.3em]">
-                    Additional Guests
-                  </p>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                    {additionalGuests.length} {additionalGuests.length === 1 ? 'Guest' : 'Guests'}
-                  </h3>
+              {booking.guest_email && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Email:</span>
+                  <a href={`mailto:${booking.guest_email}`} className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline">
+                    {booking.guest_email}
+                  </a>
                 </div>
-                <div className="space-y-3">
-                  {additionalGuests.map((guest: { firstName?: string; lastName?: string; age?: string; gender?: string; validIdUrl?: string }, index: number) => (
-                    <div key={index} className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-4">
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                        <div>
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Name</p>
-                          <p className="font-semibold text-gray-800 dark:text-gray-100">{guest.firstName} {guest.lastName}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Age</p>
-                          <p className="font-semibold text-gray-800 dark:text-gray-100">{guest.age || 'N/A'}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Gender</p>
-                          <p className="font-semibold text-gray-800 dark:text-gray-100 capitalize">{guest.gender || 'N/A'}</p>
-                        </div>
-                        {guest.validIdUrl && (
-                          <div>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Valid ID</p>
-                            <a href={guest.validIdUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline text-xs">
-                              View ID
-                            </a>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+              )}
+              {booking.guest_phone && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Phone:</span>
+                  <a href={`tel:${booking.guest_phone}`} className="text-sm text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 underline">
+                    {booking.guest_phone}
+                  </a>
                 </div>
-              </section>
-            )}
-
-            {/* Booking Details */}
-            <section className="space-y-4">
-              <div>
-                <p className="text-sm font-semibold text-gray-500 uppercase tracking-[0.3em]">
-                  Reservation Details
-                </p>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Stay Information</h3>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <InfoField label="Haven" icon={<MapPin className="w-4 h-4" />} value={booking.room_name} />
-                <InfoField
-                  label="Total Guests"
-                  icon={<UsersIcon className="w-4 h-4" />}
-                  value={`${totalGuests} (Adults: ${booking.adults}, Children: ${booking.children}, Infants: ${booking.infants})`}
-                />
-
-                <InfoField
-                  label="Check-In"
-                  icon={<Calendar className="w-4 h-4" />}
-                  value={
-                    <div>
-                      <p className="font-semibold">{formatDate(booking.check_in_date)}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">{booking.check_in_time}</p>
-                    </div>
-                  }
-                />
-
-                <InfoField
-                  label="Check-Out"
-                  icon={<Calendar className="w-4 h-4" />}
-                  value={
-                    <div>
-                      <p className="font-semibold">{formatDate(booking.check_out_date)}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">{booking.check_out_time}</p>
-                    </div>
-                  }
-                />
-                {booking.created_at && (
-                  <div className="md:col-span-2">
-                    <InfoField label="Booked On" value={formatDate(booking.created_at)} />
-                  </div>
-                )}
-              </div>
-            </section>
-
-            {/* Payment Information */}
-            <section className="space-y-4">
-              <div>
-                <p className="text-sm font-semibold text-gray-500 uppercase tracking-[0.3em]">
-                  Payment Details
-                </p>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Billing Summary</h3>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <InfoField label="Haven Rate" icon={<DollarSign className="w-4 h-4" />} value={formatCurrency(booking.room_rate)} />
-                <InfoField label="Security Deposit" icon={<DollarSign className="w-4 h-4" />} value={formatCurrency(booking.security_deposit)} />
-                <InfoField label="Add-ons Total" icon={<DollarSign className="w-4 h-4" />} value={formatCurrency(booking.add_ons_total)} />
-                <InfoField
-                  label="Total Amount"
-                  icon={<DollarSign className="w-4 h-4" />}
-                  value={<span className="text-lg font-bold text-gray-900 dark:text-gray-100">{formatCurrency(booking.total_amount)}</span>}
-                />
-                <InfoField
-                  label="Down Payment"
-                  value={<span className="text-green-700 dark:text-green-300 font-semibold">{formatCurrency(booking.down_payment)}</span>}
-                />
-                <InfoField
-                  label="Remaining Balance"
-                  value={<span className="text-orange-700 dark:text-orange-300 font-semibold">{formatCurrency(booking.remaining_balance)}</span>}
-                />
-                <InfoField label="Payment Method" icon={<CreditCard className="w-4 h-4" />} value={booking.payment_method} capitalize />
-                {booking.payment_proof_url && (
-                  <InfoField
-                    label="Payment Proof"
-                    icon={<ImageIcon className="w-4 h-4" />}
-                    value={
-                      <a href={booking.payment_proof_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-2">
-                        <ImageIcon className="w-4 h-4" />
-                        View Payment Proof
-                      </a>
-                    }
-                  />
-                )}
-              </div>
-            </section>
-          </div>
-
-          {/* Footer actions */}
-          <div className="px-8 py-5 border-t border-gray-100 dark:border-gray-800 flex flex-col sm:flex-row justify-between gap-3 bg-white dark:bg-gray-900">
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              Last updated: {booking.updated_at ? formatDate(booking.updated_at) : 'N/A'}
-            </p>
-            <div className="flex gap-3 justify-end">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-200 font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition"
-              >
-                Close
-              </button>
-              <button
-                type="button"
-                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-yellow-500 text-white font-semibold shadow-lg shadow-orange-200/70 dark:shadow-none hover:from-orange-600 hover:to-yellow-600 transition"
-              >
-                Edit Booking
-              </button>
+              )}
             </div>
           </div>
+
+          {/* Cleaning Timeline */}
+          {(booking.cleaning_time_in || booking.cleaning_time_out || booking.cleaned_at || booking.inspected_at) && (
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+              <div className="flex items-center gap-2 text-sm font-semibold text-blue-700 dark:text-blue-300 mb-3">
+                <Calendar className="w-4 h-4" />
+                Cleaning Timeline
+              </div>
+              <div className="space-y-2">
+                {booking.cleaning_time_in && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600 dark:text-gray-400">Started:</span>
+                    <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                      {new Date(booking.cleaning_time_in).toLocaleString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </span>
+                  </div>
+                )}
+                {booking.cleaning_time_out && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600 dark:text-gray-400">Finished:</span>
+                    <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                      {new Date(booking.cleaning_time_out).toLocaleString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </span>
+                  </div>
+                )}
+                {booking.cleaned_at && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600 dark:text-gray-400">Cleaned At:</span>
+                    <span className="text-sm font-bold text-green-600 dark:text-green-400">
+                      {new Date(booking.cleaned_at).toLocaleString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </span>
+                  </div>
+                )}
+                {booking.inspected_at && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600 dark:text-gray-400">Inspected At:</span>
+                    <span className="text-sm font-bold text-blue-600 dark:text-blue-400">
+                      {new Date(booking.inspected_at).toLocaleString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex justify-end gap-2 p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 font-medium text-sm"
+          >
+            Close
+          </button>
         </div>
       </div>
     </>,
     document.body
   );
 }
-
-interface InfoFieldProps {
-  label: string;
-  value: React.ReactNode;
-  icon?: React.ReactNode;
-  capitalize?: boolean;
-}
-
-const InfoField = ({ label, value, icon, capitalize }: InfoFieldProps) => (
-  <div className="space-y-2">
-    <span className="text-sm font-medium text-gray-600 dark:text-gray-300">{label}</span>
-    <div className="relative">
-      {icon && (
-        <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-gray-400 dark:text-gray-500">
-          {icon}
-        </div>
-      )}
-      <div
-        className={`w-full rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-3 text-sm text-gray-800 dark:text-gray-100 ${icon ? "pl-9" : "pl-3"} ${capitalize ? "capitalize" : ""}`}
-      >
-        {value}
-      </div>
-    </div>
-  </div>
-);

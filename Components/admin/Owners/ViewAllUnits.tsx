@@ -57,16 +57,16 @@ const ViewAllUnits = ({ onAddUnitClick, hideHeader = false }: ViewAllUnitsProps)
   // RTK Query call
   const { data, isLoading, isError } = useGetAllAdminRoomsQuery({});
   const [deleteHaven, { isLoading: isDeleting }] = useDeleteHavenMutation();
-  const units: HavenUnit[] = data?.data || [];
+  const units: HavenUnit[] = data || [];
 
   // Filter Logic
   const filteredUnits = useMemo(() => {
     const term = searchQuery.toLowerCase();
     return units.filter((unit) => {
       const matchesSearch =
-        unit.haven_name.toLowerCase().includes(term) ||
-        unit.tower.toLowerCase().includes(term) ||
-        unit.view_type.toLowerCase().includes(term);
+        (unit.haven_name || "").toLowerCase().includes(term) ||
+        (unit.tower || "").toLowerCase().includes(term) ||
+        (unit.view_type || "").toLowerCase().includes(term);
       
       const matchesStatus = filterStatus === "all" || (unit.status || "Available").toLowerCase() === filterStatus.toLowerCase();
 

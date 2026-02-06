@@ -465,6 +465,51 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
     }));
   };
 
+  const validateTimes = (checkIn: string, checkOut: string, isSameDay: boolean) => {
+    if (!checkIn || !checkOut) return true;
+    if (!isSameDay) return true; // Different days, any time is technically valid for check-out
+
+    const [inH, inM] = checkIn.split(':').map(Number);
+    const [outH, outM] = checkOut.split(':').map(Number);
+    
+    const inTotal = inH * 60 + inM;
+    const outTotal = outH * 60 + outM;
+
+    // For same day, check-out must be after check-in
+    // Exception: 00:00 (midnight) is often considered next day in UI but 0 in value
+    if (outTotal === 0 && inTotal > 0) return true; 
+    
+    return outTotal > inTotal;
+  };
+
+  const handleTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    const isSameDay = checkInDate === checkOutDate;
+
+    setFormData(prev => {
+      const newFormData = { ...prev, [name]: value };
+      
+      // Auto-adjust if invalid
+      if (name === "checkInTime" && isSameDay) {
+        if (!validateTimes(value, prev.checkOutTime, true)) {
+          // If check-in is moved after check-out, push check-out forward or to next day
+          const [h, m] = value.split(':').map(Number);
+          const newOutH = (h + 2) % 24;
+          newFormData.checkOutTime = `${String(newOutH).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+          
+          if (newOutH < h) {
+            // Moved to next day, update checkOutDate if possible
+            const d = new Date(checkInDate);
+            d.setDate(d.getDate() + 1);
+            setCheckOutDate(d.toISOString().split('T')[0]);
+          }
+        }
+      }
+
+      return newFormData;
+    });
+  };
+
   const handleAddOnChange = (item: keyof AddOns, increment: boolean) => {
     setAddOns((prev) => ({
       ...prev,
@@ -1332,7 +1377,7 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                         name="checkInTime"
                         value={formData.checkInTime}
                         onChange={(e) => {
-                          handleInputChange(e);
+                          handleTimeChange(e);
                           setErrors(prev => ({...prev, checkInTime: ''}));
                         }}
                         className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
@@ -1356,7 +1401,7 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                         name="checkOutTime"
                         value={formData.checkOutTime}
                         onChange={(e) => {
-                          handleInputChange(e);
+                          handleTimeChange(e);
                           setErrors(prev => ({...prev, checkOutTime: ''}));
                         }}
                         className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${

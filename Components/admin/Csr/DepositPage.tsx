@@ -61,6 +61,224 @@ import BulkPartialModal from "./Modals/BulkPartialModal";
 
 type DepositStatus = "Pending" | "Held" | "Returned" | "Partial" | "Forfeited";
 
+// Translation content for guides
+const guideTranslations = {
+  en: {
+    statusGuide: {
+      title: "Deposit Status Guide",
+      statuses: [
+        {
+          name: "Pending",
+          description: "Waiting for payment (check-in) OR waiting for refund processing (check-out)"
+        },
+        {
+          name: "Held",
+          description: "Deposit is currently being held and will be processed after checkout"
+        },
+        {
+          name: "Returned",
+          description: "Full deposit amount has been refunded to guest"
+        },
+        {
+          name: "Partial",
+          description: "Only part of deposit refunded (deductions for damages/fees)"
+        },
+        {
+          name: "Forfeited",
+          description: "Entire deposit has been forfeited (no refund)"
+        }
+      ]
+    },
+    depositGuide: {
+      title: "How to Manage Security Deposits",
+      steps: [
+        {
+          title: "View Deposit Details",
+          description: "Click the eye icon to view full deposit details including guest information and payment proof"
+        },
+        {
+          title: "Mark as Held",
+          description: "Update status to \"Held\" when deposit payment is received and being held for the booking"
+        },
+        {
+          title: "Process Refund/Deduction",
+          description: "After checkout, mark as \"Returned\" for full refund or \"Partial\" if deductions apply"
+        },
+        {
+          title: "Handle Disputes",
+          description: "Mark as \"Forfeited\" if guest caused damages or disputes, with documented reason"
+        }
+      ],
+      actionGuideTitle: "Action Guide:",
+      actions: [
+        {
+          title: "Returned",
+          description: "Use when guest checked out with no issues and deposit should be fully refunded"
+        },
+        {
+          title: "Partial",
+          description: "Use when deducting for damages/cleaning/fees and refunding the remainder"
+        },
+        {
+          title: "Forfeited",
+          description: "Use when guest caused significant damages or violates terms (no refund)"
+        },
+        {
+          title: "Held",
+          description: "Use when payment is received but not yet processed for refund"
+        }
+      ]
+    },
+    bulkGuide: {
+      title: "Bulk Operations Guide",
+      steps: [
+        {
+          title: "Select Deposits",
+          description: "Check the checkboxes next to deposits you want to update, or use \"Select All\" in the table header"
+        },
+        {
+          title: "Choose Action",
+          description: "A bulk actions bar will appear at the top showing your selection with action buttons"
+        },
+        {
+          title: "Confirm Details",
+          description: "A modal will open asking for additional details (amounts, reasons, etc.)"
+        },
+        {
+          title: "Apply to All",
+          description: "The action will be applied to all selected deposits at once"
+        }
+      ],
+      whenToUseTitle: "When to Use Bulk Operations:",
+      useCases: [
+        {
+          title: "Mark as Held",
+          description: "When multiple deposits are received on the same day and need to be held together"
+        },
+        {
+          title: "Mark as Returned",
+          description: "When multiple guests check out without issues and all deposits should be refunded"
+        },
+        {
+          title: "Mark as Partial",
+          description: "When processing end-of-month deposits with deductions for each guest (specify amounts per deposit)"
+        },
+        {
+          title: "Mark as Forfeited",
+          description: "When multiple guests violated policies or caused damages (specify reason for all)"
+        }
+      ]
+    }
+  },
+  fil: {
+    statusGuide: {
+      title: "Deposit Status Guide",
+      statuses: [
+        {
+          name: "Pending",
+          description: "Naghihintay ng bayad (check-in) o refund (check-out)"
+        },
+        {
+          name: "Held",
+          description: "Nakahold ang deposit, ip-process pagkatapos ng check-out"
+        },
+        {
+          name: "Returned",
+          description: "Buong deposit ay na-refund na sa guest"
+        },
+        {
+          name: "Partial",
+          description: "Bahagi lang ng deposit ang na-refund (may damage/fees na ibinawas)"
+        },
+        {
+          name: "Forfeited",
+          description: "Walang natanggap na refund (walang refund)"
+        }
+      ]
+    },
+    depositGuide: {
+      title: "Paano mag-manage ng Deposits",
+      steps: [
+        {
+          title: "Tingnan ang Deposit Details",
+          description: "I-click ang mata na icon para makita ang lahat ng deposit info, guest details, at payment proof"
+        },
+        {
+          title: "I-mark as Held",
+          description: "I-update sa \"Held\" pag nakatanggap na ng deposit para sa booking"
+        },
+        {
+          title: "I-process ang Refund/Deduction",
+          description: "Pagkatapos ng check-out, i-mark as \"Returned\" para sa full refund o \"Partial\" kung may damages"
+        },
+        {
+          title: "Mag-handle ng Issues",
+          description: "I-mark as \"Forfeited\" kung may damage o problema, with documented reason"
+        }
+      ],
+      actionGuideTitle: "Paano gamitin:",
+      actions: [
+        {
+          title: "Returned",
+          description: "Gamitin pag walang problema ang guest at dapat buong refund ang deposit"
+        },
+        {
+          title: "Partial",
+          description: "Gamitin pag may diskwento para sa damage/cleaning at refund ang natitira"
+        },
+        {
+          title: "Forfeited",
+          description: "Gamitin pag ang guest ay nag-damage o nag-violate ng rules (walang refund)"
+        },
+        {
+          title: "Held",
+          description: "Gamitin pag nakatanggap na ng bayad pero hindi pa na-process ang refund"
+        }
+      ]
+    },
+    bulkGuide: {
+      title: "Bulk Operations Guide",
+      steps: [
+        {
+          title: "Pumili ng Deposits",
+          description: "I-check ang checkbox para sa deposits na gusto mong i-update, o gamitin \"Select All\" sa table"
+        },
+        {
+          title: "Pumili ng Action",
+          description: "Magpapakita ng bulk actions bar sa taas with action buttons"
+        },
+        {
+          title: "I-confirm ang Details",
+          description: "Magbubukas ang modal para sa additional details (amounts, reasons, etc.)"
+        },
+        {
+          title: "I-apply sa Lahat",
+          description: "Ang action ay ia-apply sa lahat ng selected deposits nang sabay-sabay"
+        }
+      ],
+      whenToUseTitle: "Kailan gamitin ang Bulk Operations:",
+      useCases: [
+        {
+          title: "Mark as Held",
+          description: "Pag maraming deposits na natanggap sa same day at kailangan mag-hold together"
+        },
+        {
+          title: "Mark as Returned",
+          description: "Pag maraming guests ang nag-check-out walang problema at lahat dapat ma-refund"
+        },
+        {
+          title: "Mark as Partial",
+          description: "Pag may end-of-month deposits na may diskwento para sa bawat guest (specify amounts)"
+        },
+        {
+          title: "Mark as Forfeited",
+          description: "Pag maraming guests ang nag-damage o nag-violate ng rules (specify reason para sa lahat)"
+        }
+      ]
+    }
+  }
+};
+
 export default function DepositPage() {
   const { data: session } = useSession();
   const employeeId = (session?.user as any)?.id;
@@ -81,6 +299,7 @@ export default function DepositPage() {
   const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
   const [isPartialModalOpen, setIsPartialModalOpen] = useState(false);
   const [isForfeitedModalOpen, setIsForfeitedModalOpen] = useState(false);
+  const [isHeldModalOpen, setIsHeldModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [selectedDeposit, setSelectedDeposit] = useState<DepositRecord | null>(null);
   const [isModalLoading, setIsModalLoading] = useState(false);
@@ -91,6 +310,10 @@ export default function DepositPage() {
   const [isBulkForfeitedModalOpen, setIsBulkForfeitedModalOpen] = useState(false);
   const [isBulkPartialModalOpen, setIsBulkPartialModalOpen] = useState(false);
   const [bulkAction, setBulkAction] = useState<string>("");
+  const [showStatusGuide, setShowStatusGuide] = useState(false);
+  const [showDepositGuide, setShowDepositGuide] = useState(false);
+  const [showBulkGuide, setShowBulkGuide] = useState(false);
+  const [guideLanguage, setGuideLanguage] = useState<"en" | "fil">("en");
 
   const fetchData = async () => {
     try {
@@ -677,13 +900,209 @@ export default function DepositPage() {
           <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Deposit Management</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage security deposits for bookings</p>
         </div>
-        <button
-          onClick={fetchData}
-          className="p-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
-          title="Refresh Data"
-        >
-          <RefreshCw className={`w-4 h-4 text-gray-600 dark:text-gray-300 ${isLoading ? 'animate-spin' : ''}`} />
-        </button>
+      </div>
+
+      {/* Status Guide */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-6 flex-shrink-0 border border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between mb-2">
+          <button
+            onClick={() => setShowStatusGuide(!showStatusGuide)}
+            className="flex-1 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded-lg transition-colors"
+          >
+            <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100">{guideTranslations[guideLanguage].statusGuide.title}</h4>
+            <ChevronRight className={`w-5 h-5 text-gray-600 dark:text-gray-300 transform transition-transform ${showStatusGuide ? 'rotate-90' : ''}`} />
+          </button>
+          <div className="flex gap-1 ml-2">
+            {(['en', 'fil'] as const).map((lang) => (
+              <button
+                key={lang}
+                onClick={() => setGuideLanguage(lang)}
+                className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                  guideLanguage === lang
+                    ? 'bg-brand-primary text-white'
+                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                }`}
+              >
+                {lang === 'en' ? 'EN' : 'FIL'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {showStatusGuide && (
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            {guideTranslations[guideLanguage].statusGuide.statuses.map((status, idx) => {
+              const statusColors: Record<string, { dot: string; icon?: string }> = {
+                Pending: { dot: 'bg-yellow-500' },
+                Held: { dot: 'bg-indigo-500' },
+                Returned: { dot: 'bg-green-500' },
+                Partial: { dot: 'bg-orange-500' },
+                Forfeited: { dot: 'bg-red-500' }
+              };
+              const color = statusColors[status.name] || { dot: 'bg-gray-500' };
+
+              return (
+                <div key={idx} className="flex items-start gap-3">
+                  <div className={`w-3 h-3 ${color.dot} rounded-full mt-1 flex-shrink-0`}></div>
+                  <div>
+                    <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{status.name}</h5>
+                    <p className="text-xs text-gray-600 dark:text-gray-300">{status.description}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* How to Manage Security Deposits Guide */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-6 flex-shrink-0 border border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between mb-2">
+          <button
+            onClick={() => setShowDepositGuide(!showDepositGuide)}
+            className="flex-1 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded-lg transition-colors"
+          >
+            <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100">{guideTranslations[guideLanguage].depositGuide.title}</h4>
+            <ChevronRight className={`w-5 h-5 text-gray-600 dark:text-gray-300 transform transition-transform ${showDepositGuide ? 'rotate-90' : ''}`} />
+          </button>
+          <div className="flex gap-1 ml-2">
+            {(['en', 'fil'] as const).map((lang) => (
+              <button
+                key={lang}
+                onClick={() => setGuideLanguage(lang)}
+                className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                  guideLanguage === lang
+                    ? 'bg-brand-primary text-white'
+                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                }`}
+              >
+                {lang === 'en' ? 'EN' : 'FIL'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {showDepositGuide && (
+          <div className="mt-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {guideTranslations[guideLanguage].depositGuide.steps.map((step, idx) => (
+                <div key={idx} className="flex items-start gap-3">
+                  <div className="w-8 h-8 bg-brand-primary text-white rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold">{idx + 1}</div>
+                  <div>
+                    <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{step.title}</h5>
+                    <p className="text-xs text-gray-600 dark:text-gray-300">{step.description}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+              <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm mb-3">{guideTranslations[guideLanguage].depositGuide.actionGuideTitle}</h5>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-gray-600 dark:text-gray-300">
+                {guideTranslations[guideLanguage].depositGuide.actions.map((action, idx) => {
+                  const getActionIconAndColor = (title: string) => {
+                    const iconMap: Record<string, { Icon: typeof CheckCircle; color: string }> = {
+                      Returned: { Icon: CheckCircle, color: 'text-green-600 dark:text-green-400' },
+                      Partial: { Icon: RotateCcw, color: 'text-orange-600 dark:text-orange-400' },
+                      Forfeited: { Icon: XCircle, color: 'text-red-600 dark:text-red-400' },
+                      Held: { Icon: Play, color: 'text-indigo-600 dark:text-indigo-400' }
+                    };
+                    return iconMap[title];
+                  };
+                  const iconData = getActionIconAndColor(action.title);
+
+                  return (
+                    <div key={idx} className="flex items-start gap-2">
+                      {iconData && <iconData.Icon className={`w-4 h-4 ${iconData.color} flex-shrink-0 mt-0.5`} />}
+                      <span><strong>{action.title}:</strong> {action.description}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Bulk Operations Guide */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-6 flex-shrink-0 border border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between mb-2">
+          <button
+            onClick={() => setShowBulkGuide(!showBulkGuide)}
+            className="flex-1 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded-lg transition-colors"
+          >
+            <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100">{guideTranslations[guideLanguage].bulkGuide.title}</h4>
+            <ChevronRight className={`w-5 h-5 text-gray-600 dark:text-gray-300 transform transition-transform ${showBulkGuide ? 'rotate-90' : ''}`} />
+          </button>
+          <div className="flex gap-1 ml-2">
+            {(['en', 'fil'] as const).map((lang) => (
+              <button
+                key={lang}
+                onClick={() => setGuideLanguage(lang)}
+                className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                  guideLanguage === lang
+                    ? 'bg-brand-primary text-white'
+                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                }`}
+              >
+                {lang === 'en' ? 'EN' : 'FIL'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {showBulkGuide && (
+          <div className="mt-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {guideTranslations[guideLanguage].bulkGuide.steps.map((step, idx) => (
+                <div key={idx} className="flex items-start gap-3">
+                  <div className="w-8 h-8 bg-brand-primary text-white rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold">{idx + 1}</div>
+                  <div>
+                    <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{step.title}</h5>
+                    <p className="text-xs text-gray-600 dark:text-gray-300">{step.description}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+              <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm mb-3">{guideTranslations[guideLanguage].bulkGuide.whenToUseTitle}</h5>
+              <div className="space-y-2 text-xs text-gray-600 dark:text-gray-300">
+                {guideTranslations[guideLanguage].bulkGuide.useCases.map((useCase, idx) => {
+                  const getUseCaseIcon = (title: string) => {
+                    const iconMap: Record<string, typeof Play> = {
+                      'Mark as Held': Play,
+                      'Mark as Returned': CheckCircle,
+                      'Mark as Partial': RotateCcw,
+                      'Mark as Forfeited': XCircle
+                    };
+                    return iconMap[title] || Play;
+                  };
+
+                  const getUseCaseColor = (title: string) => {
+                    const colorMap: Record<string, string> = {
+                      'Mark as Held': 'text-indigo-600 dark:text-indigo-400',
+                      'Mark as Returned': 'text-green-600 dark:text-green-400',
+                      'Mark as Partial': 'text-orange-600 dark:text-orange-400',
+                      'Mark as Forfeited': 'text-red-600 dark:text-red-400'
+                    };
+                    return colorMap[title] || 'text-gray-600 dark:text-gray-400';
+                  };
+
+                  const IconComponent = getUseCaseIcon(useCase.title);
+                  const iconColor = getUseCaseColor(useCase.title);
+
+                  return (
+                    <div key={idx} className="flex items-start gap-2">
+                      <IconComponent className={`w-4 h-4 ${iconColor} flex-shrink-0 mt-0.5`} />
+                      <span><strong>{useCase.title}:</strong> {useCase.description}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Summary Cards */}
@@ -703,7 +1122,13 @@ export default function DepositPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm opacity-90">{stat.label}</p>
-                  <p className="text-3xl font-bold mt-2">{stat.value}</p>
+                  <div className="text-3xl font-bold mt-2">
+                    {isLoading ? (
+                      <div className="w-16 h-8 bg-white/20 rounded animate-pulse" />
+                    ) : (
+                      stat.value
+                    )}
+                  </div>
                 </div>
                 <IconComponent className="w-12 h-12 opacity-50" />
               </div>
@@ -712,56 +1137,14 @@ export default function DepositPage() {
         })}
       </div>
 
-      {/* Status Explanation */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-6 flex-shrink-0 border border-gray-200 dark:border-gray-700">
-        <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4">Deposit Status Guide</h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          <div className="flex items-start gap-3">
-            <div className="w-3 h-3 bg-yellow-500 rounded-full mt-1 flex-shrink-0"></div>
-            <div>
-              <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">Pending</h5>
-              <p className="text-xs text-gray-600 dark:text-gray-300">Waiting for payment (check-in) OR waiting for refund processing (check-out)</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <div className="w-3 h-3 bg-indigo-500 rounded-full mt-1 flex-shrink-0"></div>
-            <div>
-              <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">Held</h5>
-              <p className="text-xs text-gray-600 dark:text-gray-300">Deposit is currently being held and will be processed after checkout</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <div className="w-3 h-3 bg-green-500 rounded-full mt-1 flex-shrink-0"></div>
-            <div>
-              <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">Returned</h5>
-              <p className="text-xs text-gray-600 dark:text-gray-300">Full deposit amount has been refunded to guest</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <div className="w-3 h-3 bg-orange-500 rounded-full mt-1 flex-shrink-0"></div>
-            <div>
-              <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">Partial</h5>
-              <p className="text-xs text-gray-600 dark:text-gray-300">Only part of deposit refunded (deductions for damages/fees)</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <div className="w-3 h-3 bg-red-500 rounded-full mt-1 flex-shrink-0"></div>
-            <div>
-              <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">Forfeited</h5>
-              <p className="text-xs text-gray-600 dark:text-gray-300">Entire deposit has been forfeited (no refund)</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Bulk Actions Bar */}
       {selectedDeposits.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-4 flex-shrink-0 border border-gray-200 dark:border-gray-700">
+        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg shadow dark:shadow-gray-900 p-4 flex-shrink-0 border-2 border-blue-200 dark:border-blue-800">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2">
-              <CheckSquare className="w-5 h-5 text-brand-primary" />
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                {selectedDeposits.length} deposit{selectedDeposits.length !== 1 ? 's' : ''} selected
+              <CheckSquare className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              <span className="text-sm font-bold text-blue-900 dark:text-blue-200">
+                {selectedDeposits.length} deposit{selectedDeposits.length !== 1 ? 's' : ''} selected for bulk operation
               </span>
             </div>
             <div className="flex items-center gap-2">
@@ -856,14 +1239,6 @@ export default function DepositPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <button 
-              onClick={exportToPDF}
-              className="px-4 py-2 bg-white dark:bg-gray-700 border-2 border-red-500 text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors font-medium text-sm flex items-center gap-2"
-              title="Export to PDF"
-            >
-              <Download className="w-4 h-4" />
-              Export PDF
-            </button>
             <Filter className="w-5 h-5 text-gray-600 dark:text-gray-300" />
             <select
               value={filterStatus}
@@ -924,9 +1299,32 @@ export default function DepositPage() {
                 />
               </div>
             )}
+            <button
+              onClick={exportToPDF}
+              className="px-4 py-2 bg-white dark:bg-gray-700 border-2 border-red-500 text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors font-medium text-sm flex items-center gap-2"
+              title="Export to PDF"
+            >
+              <Download className="w-4 h-4" />
+              Export PDF
+            </button>
+            <button
+              onClick={fetchData}
+              className="p-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+              title="Refresh Data"
+            >
+              <RefreshCw className={`w-4 h-4 text-gray-600 dark:text-gray-300 ${isLoading ? 'animate-spin' : ''}`} />
+            </button>
           </div>
         </div>
       </div>
+
+      {/* Loading Indicator */}
+      {isLoading && (
+        <div className="flex items-center gap-3 bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-4 flex-shrink-0 border border-gray-200 dark:border-gray-700">
+          <Loader2 className="w-5 h-5 text-brand-primary animate-spin" />
+          <p className="text-sm text-gray-600 dark:text-gray-300 font-medium">Loading deposit records...</p>
+        </div>
+      )}
 
       {/* Table Section - Fixed height and scrollable */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden flex-1 flex flex-col min-h-0 border border-gray-200 dark:border-gray-700">
@@ -1004,12 +1402,64 @@ export default function DepositPage() {
             </thead>
             <tbody>
               {isLoading ? (
-                  <tr>
-                      <td colSpan={8} className="py-20 text-center border border-gray-200 dark:border-gray-700">
-                          <Loader2 className="w-10 h-10 text-brand-primary animate-spin mx-auto mb-4" />
-                          <p className="text-gray-500 dark:text-gray-400 font-medium">Loading deposit records...</p>
+                  // Skeleton loading rows
+                  Array.from({ length: entriesPerPage }).map((_, idx) => (
+                    <tr
+                      key={`skeleton-${idx}`}
+                      className="border border-gray-200 dark:border-gray-700 animate-pulse"
+                    >
+                      {/* Select Checkbox */}
+                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                        <div className="h-4 w-4 bg-gray-200 dark:bg-gray-700 rounded"></div>
                       </td>
-                  </tr>
+                      {/* Deposit ID */}
+                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                        <div className="space-y-2">
+                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
+                          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
+                        </div>
+                      </td>
+                      {/* Haven & Booking */}
+                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                        <div className="space-y-2">
+                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-36"></div>
+                          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-28"></div>
+                          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
+                        </div>
+                      </td>
+                      {/* Guest */}
+                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                        <div className="space-y-2">
+                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
+                          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-40"></div>
+                          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-28"></div>
+                        </div>
+                      </td>
+                      {/* Amount */}
+                      <td className="py-4 px-4 text-right border border-gray-200 dark:border-gray-700">
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20 ml-auto"></div>
+                      </td>
+                      {/* Status */}
+                      <td className="py-4 px-4 text-center border border-gray-200 dark:border-gray-700">
+                        <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded-full w-20 mx-auto"></div>
+                      </td>
+                      {/* Check-in / Check-out */}
+                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                        <div className="space-y-1">
+                          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
+                          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
+                        </div>
+                      </td>
+                      {/* Actions */}
+                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                        <div className="flex items-center justify-center gap-1">
+                          <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+                          <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+                          <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
               ) : paginatedRows.length === 0 ? (
                   <tr>
                       <td colSpan={8} className="py-20 text-center border border-gray-200 dark:border-gray-700">
@@ -1018,8 +1468,8 @@ export default function DepositPage() {
                       </td>
                   </tr>
               ) : (
-                paginatedRows.map((row) => (
-                  <tr key={row.id} className="border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                paginatedRows.map((row, index) => (
+                  <tr key={`${row.id}-${index}`} className="border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                     <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
                       <input
                         type="checkbox"

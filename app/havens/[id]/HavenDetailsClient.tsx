@@ -36,7 +36,7 @@ interface Haven {
   six_hour_rate?: number;
   weekday_rate?: number;
   weekend_rate?: number;
-  images?: Array<{ url: string }>;
+  images?: Array<{ image_url: string }>;
   rating?: number;
   review_count?: number;
   capacity?: number;
@@ -66,7 +66,7 @@ const HavenDetailsClient = ({ havenId, havens }: HavenDetailsClientProps) => {
     name: haven.haven_name ?? haven.name ?? "Unnamed Haven",
     price: `₱${haven.six_hour_rate ?? haven.weekday_rate ?? haven.weekend_rate ?? "N/A"}`,
     pricePerNight: "per night",
-    images: haven.images?.map((img) => img.url) ?? [],
+    images: haven.images?.map((img) => img.image_url) ?? [],
     rating: haven.rating ?? 4.5,
     reviews: haven.review_count ?? 0,
     capacity: haven.capacity ?? 2,
@@ -80,10 +80,16 @@ const HavenDetailsClient = ({ havenId, havens }: HavenDetailsClientProps) => {
     location: haven.location,
     tower: haven.tower,
     floor: haven.floor,
+    sixHourCheckIn: haven.six_hour_check_in,
+    sixHourCheckOut: haven.six_hour_check_out,
+    tenHourCheckIn: haven.ten_hour_check_in,
+    tenHourCheckOut: haven.ten_hour_check_out,
+    twentyOneHourCheckIn: haven.twenty_one_hour_check_in,
+    twentyOneHourCheckOut: haven.twenty_one_hour_check_out,
     photoTour: haven.photo_tours
       ? haven.photo_tours.reduce((acc: Record<string, string[]>, item) => {
           acc[item.category] = acc[item.category] || [];
-          acc[item.category].push(item.url);
+          acc[item.category].push(item.image_url);
           return acc;
         }, {} as Record<string, string[]>)
       : {},

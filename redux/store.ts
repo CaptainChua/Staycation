@@ -1,5 +1,7 @@
 import { configureStore } from "@reduxjs/toolkit";
 import { setupListeners } from "@reduxjs/toolkit/query";
+import { persistStore, persistReducer } from "redux-persist";
+import storage from "redux-persist/lib/storage";
 import bookingReducer from "./slices/bookingSlice";
 import { employeeApi } from "./api/employeeApi";
 import { roomApi } from "./api/roomApi";
@@ -14,10 +16,20 @@ import { notificationsApi } from "./api/notificationsApi";
 import { reviewsApi } from "./api/reviewsApi";
 import { blockedDatesApi } from "./api/blockedDatesApi";
 import { adminUsersApi } from "./api/adminUsersApi";
+import { cleanersApi } from "./api/cleanersApi";
+import { partnersApi } from "./api/partnersApi";
+
+const persistConfig = {
+  key: 'root',
+  storage,
+  whitelist: ['booking'],
+};
+
+const persistedBookingReducer = persistReducer(persistConfig, bookingReducer);
 
 export const store = configureStore({
   reducer: {
-    booking: bookingReducer,
+    booking: persistedBookingReducer,
     [employeeApi.reducerPath]: employeeApi.reducer,
     [roomApi.reducerPath]: roomApi.reducer,
     [bookingsApi.reducerPath]: bookingsApi.reducer,
@@ -31,9 +43,15 @@ export const store = configureStore({
     [reviewsApi.reducerPath]: reviewsApi.reducer,
     [blockedDatesApi.reducerPath]: blockedDatesApi.reducer,
     [adminUsersApi.reducerPath]: adminUsersApi.reducer,
+    [cleanersApi.reducerPath]: cleanersApi.reducer,
+    [partnersApi.reducerPath]: partnersApi.reducer,
   },
   middleware: (getDefaultMiddleware) =>
-    getDefaultMiddleware()
+    getDefaultMiddleware({
+      serializableCheck: {
+        ignoredActions: ['persist/PERSIST'],
+      },
+    })
       .concat(employeeApi.middleware)
       .concat(roomApi.middleware)
       .concat(bookingsApi.middleware)
@@ -46,8 +64,12 @@ export const store = configureStore({
       .concat(notificationsApi.middleware)
       .concat(reviewsApi.middleware)
       .concat(blockedDatesApi.middleware)
-      .concat(adminUsersApi.middleware),
+      .concat(adminUsersApi.middleware)
+      .concat(cleanersApi.middleware)
+      .concat(partnersApi.middleware),
 });
+
+export const persistor = persistStore(store);
 
 setupListeners(store.dispatch);
 

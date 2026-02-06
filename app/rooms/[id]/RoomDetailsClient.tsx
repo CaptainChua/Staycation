@@ -9,10 +9,16 @@ interface HavenData {
   uuid_id: string;
   haven_name: string;
   six_hour_rate: number;
-  images?: Array<{ url: string }>;
+  images?: Array<{ image_url?: string; url?: string }>;
   rating?: number;
   review_count?: number;
   capacity: number;
+  six_hour_check_in?: string;
+  six_hour_check_out?: string;
+  ten_hour_check_in?: string;
+  ten_hour_check_out?: string;
+  twenty_one_hour_check_in?: string;
+  twenty_one_hour_check_out?: string;
   amenities?: Record<string, boolean>;
   description: string;
   full_description?: string;
@@ -21,7 +27,7 @@ interface HavenData {
   location?: string;
   tower?: string;
   floor?: string;
-  photo_tours?: Array<{ category: string; url: string }>;
+  photo_tours?: Array<{ category: string; image_url?: string; url?: string }>;
   youtube_url?: string;
 }
 
@@ -53,19 +59,22 @@ export default function RoomDetailsClient({ room: haven, recommendedRooms = [] }
   // Debug logging
   console.log("🏠 Room data received:", haven);
   console.log("🖼️ Raw images data:", haven.images);
-  console.log("🖼️ Mapped images:", haven.images?.map((img: { url: string }) => img.url) ?? []);
+  console.log("🖼️ Mapped images:", haven.images?.map((img: any) => img.image_url || img.url).filter(Boolean) ?? []);
 
   // Transform photo_tours array to photoTour object format
-  const transformPhotoTours = (photoTours?: Array<{ category: string; url: string }>) => {
+  const transformPhotoTours = (photoTours?: Array<{ category: string; image_url?: string; url?: string }>) => {
     if (!photoTours || photoTours.length === 0) return undefined;
 
     const photoTourObj: Record<string, string[]> = {};
-    photoTours.forEach(({ category, url }) => {
-      const key = category.toLowerCase().replace(/\s+/g, '');
-      if (!photoTourObj[key]) {
-        photoTourObj[key] = [];
+    photoTours.forEach((item) => {
+      const imageUrl = item.image_url || item.url;
+      if (imageUrl) {
+        const key = item.category.toLowerCase().replace(/\s+/g, '');
+        if (!photoTourObj[key]) {
+          photoTourObj[key] = [];
+        }
+        photoTourObj[key].push(imageUrl);
       }
-      photoTourObj[key].push(url);
     });
     return photoTourObj;
   };
@@ -77,7 +86,7 @@ export default function RoomDetailsClient({ room: haven, recommendedRooms = [] }
     name: haven.haven_name,
     price: `₱${haven.six_hour_rate}`,
     pricePerNight: 'per night',
-    images: haven.images?.map((img: { url: string }) => img.url) ?? [],
+    images: haven.images?.map((img: any) => img.image_url || img.url).filter(Boolean) ?? [],
     rating: haven.rating ?? 4.5,
     reviews: haven.review_count ?? 0,
     capacity: haven.capacity,
@@ -91,6 +100,12 @@ export default function RoomDetailsClient({ room: haven, recommendedRooms = [] }
     location: haven.location,
     tower: haven.tower,
     floor: haven.floor,
+    sixHourCheckIn: haven.six_hour_check_in,
+    sixHourCheckOut: haven.six_hour_check_out,
+    tenHourCheckIn: haven.ten_hour_check_in,
+    tenHourCheckOut: haven.ten_hour_check_out,
+    twentyOneHourCheckIn: haven.twenty_one_hour_check_in,
+    twentyOneHourCheckOut: haven.twenty_one_hour_check_out,
     photoTour: transformPhotoTours(haven.photo_tours)
   };
 
@@ -101,7 +116,7 @@ export default function RoomDetailsClient({ room: haven, recommendedRooms = [] }
     name: rec.haven_name,
     price: `₱${rec.six_hour_rate}`,
     pricePerNight: 'per night',
-    images: rec.images?.map((img: { url: string }) => img.url) ?? [],
+    images: rec.images?.map((img: any) => img.image_url || img.url).filter(Boolean) ?? [],
     rating: rec.rating ?? 4.5,
     reviews: rec.review_count ?? 0,
     capacity: rec.capacity,
@@ -115,6 +130,12 @@ export default function RoomDetailsClient({ room: haven, recommendedRooms = [] }
     location: rec.location,
     tower: rec.tower,
     floor: rec.floor,
+    sixHourCheckIn: rec.six_hour_check_in,
+    sixHourCheckOut: rec.six_hour_check_out,
+    tenHourCheckIn: rec.ten_hour_check_in,
+    tenHourCheckOut: rec.ten_hour_check_out,
+    twentyOneHourCheckIn: rec.twenty_one_hour_check_in,
+    twentyOneHourCheckOut: rec.twenty_one_hour_check_out,
     photoTour: transformPhotoTours(rec.photo_tours)
   }));
 

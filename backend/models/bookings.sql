@@ -77,6 +77,8 @@ CREATE TABLE booking_payments (
   reviewed_at TIMESTAMPTZ,
   rejection_reason TEXT,
 
+  amount_paid DECIMAL(10,2) NOT NULL,
+
   created_at TIMESTAMPTZ DEFAULT NOW(),
 
   CHECK (down_payment <= total_amount),
@@ -144,6 +146,7 @@ CREATE TABLE booking_cleaning (
   cleaning_status VARCHAR(20) NOT NULL DEFAULT 'pending'
     CHECK (cleaning_status IN (
       'pending',
+      'assigned',
       'in-progress',
       'cleaned',
       'inspected'

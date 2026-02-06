@@ -6,6 +6,15 @@ import pool from "../config/db";
 
 export const createHaven = async (req: NextRequest): Promise<NextResponse> => {
   try {
+    // Test database connection
+    try {
+      const testResult = await pool.query('SELECT 1 as test');
+      if (!testResult.rows.length) throw new Error("Database connection check failed");
+    } catch (dbError: any) {
+      console.error("❌ Database connection error in createHaven:", dbError.message);
+      return NextResponse.json({ success: false, message: "Haven can't save: Database connection error" }, { status: 500 });
+    }
+
     const body = await req.json();
 
     const {
@@ -23,13 +32,39 @@ export const createHaven = async (req: NextRequest): Promise<NextResponse> => {
       weekday_rate,
       weekend_rate,
       six_hour_check_in,
+      six_hour_check_out,
       ten_hour_check_in,
+      ten_hour_check_out,
       twenty_one_hour_check_in,
+      twenty_one_hour_check_out,
       amenities,
       haven_images,
       photo_tour_images,
       blocked_dates,
     } = body;
+
+    // Required fields validation
+    if (!haven_name || !tower || !floor || !view_type || !capacity || !room_size || !beds || !description) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Missing required fields",
+          message: "Haven can't save: Missing required information"
+        },
+        { status: 400 }
+      );
+    }
+
+    if (!six_hour_rate || !ten_hour_rate || !weekday_rate || !weekend_rate) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Pricing information is required",
+          message: "Haven can't save: Please provide all rates"
+        },
+        { status: 400 }
+      );
+    }
 
     let havenImageUrls: any[] = [];
     if (haven_images && haven_images.length > 0) {
@@ -37,7 +72,7 @@ export const createHaven = async (req: NextRequest): Promise<NextResponse> => {
         haven_images.map(async (image: string, index: number) => {
           const result = await upload_file(image, "staycation-haven/havens");
           return {
-            url: result.url,
+            image_url: result.url,
             public_id: result.public_id,
             display_order: index,
           };
@@ -57,7 +92,7 @@ export const createHaven = async (req: NextRequest): Promise<NextResponse> => {
               );
               return {
                 category,
-                url: result.url,
+                image_url: result.url,
                 public_id: result.public_id,
                 display_order: index,
               };
@@ -72,10 +107,10 @@ export const createHaven = async (req: NextRequest): Promise<NextResponse> => {
     INSERT INTO havens (
         haven_name, tower, floor, view_type, capacity, room_size, beds,
         description, youtube_url, six_hour_rate, ten_hour_rate, weekday_rate,
-        weekend_rate, six_hour_check_in, ten_hour_check_in, twenty_one_hour_check_in,
+        weekend_rate, six_hour_check_in, six_hour_check_out, ten_hour_check_in, ten_hour_check_out, twenty_one_hour_check_in, twenty_one_hour_check_out,
         amenities, created_at, updated_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, NOW(), NOW())
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, NOW(), NOW())
       RETURNING *
     `;
 
@@ -93,9 +128,12 @@ export const createHaven = async (req: NextRequest): Promise<NextResponse> => {
       ten_hour_rate,
       weekday_rate,
       weekend_rate,
-      six_hour_check_in || "09:00:00",
-      ten_hour_check_in || "09:00:00",
-      twenty_one_hour_check_in || "14:00:00",
+      six_hour_check_in || "09:00",
+      six_hour_check_out || "15:00",
+      ten_hour_check_in || "09:00",
+      ten_hour_check_out || "19:00",
+      twenty_one_hour_check_in || "14:00",
+      twenty_one_hour_check_out || "11:00",
       JSON.stringify(amenities || {}),
     ];
 
@@ -118,7 +156,7 @@ export const createHaven = async (req: NextRequest): Promise<NextResponse> => {
                     INSERT INTO haven_images (haven_id, image_url, cloudinary_public_id, display_order, uploaded_at)
                     VALUES ($1, $2, $3, $4, NOW())
                 `,
-          [havenId, img.url, img.public_id, img.display_order]
+          [havenId, img.image_url, img.public_id, img.display_order]
         );
       }
     }
@@ -129,7 +167,7 @@ export const createHaven = async (req: NextRequest): Promise<NextResponse> => {
           await pool.query(
             `INSERT INTO photo_tour_images (haven_id, category, image_url, cloudinary_public_id, display_order, uploaded_at)
              VALUES ($1, $2, $3, $4, $5, NOW())`,
-            [havenId, img.category, img.url, img.public_id, img.display_order]
+            [havenId, img.category, img.image_url, img.public_id, img.display_order]
           );
         }
       }
@@ -165,12 +203,13 @@ export const createHaven = async (req: NextRequest): Promise<NextResponse> => {
         message: "Haven created successfully",
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.log("❌ Error Creating haven:", error);
     return NextResponse.json(
       {
         success: false,
-        error: "Failed to create haven",
+        error: error.message || "Failed to create haven",
+        message: `Haven can't save: ${error.message || "An unexpected error occurred"}`
       },
       { status: 500 }
     );
@@ -187,9 +226,9 @@ export const getAllHavens = async (req: NextRequest): Promise<NextResponse> => {
 
     let query = `
       SELECT h.*,
-        json_agg(DISTINCT jsonb_build_object('id', hi.id, 'url', hi.image_url, 'display_order', hi.display_order))
+        json_agg(DISTINCT jsonb_build_object('id', hi.id, 'image_url', hi.image_url, 'display_order', hi.display_order))
           FILTER (WHERE hi.id IS NOT NULL) as images,
-        json_agg(DISTINCT jsonb_build_object('category', pti.category, 'url', pti.image_url, 'display_order', pti.display_order))
+        json_agg(DISTINCT jsonb_build_object('category', pti.category, 'image_url', pti.image_url, 'display_order', pti.display_order))
           FILTER (WHERE pti.id IS NOT NULL) as photo_tours
       FROM havens h
       LEFT JOIN haven_images hi ON h.uuid_id = hi.haven_id
@@ -238,6 +277,7 @@ export const getAllHavens = async (req: NextRequest): Promise<NextResponse> => {
       {
         success: false,
         error: error.message || "Failed to get havens",
+        message: "Unable to load havens at this time"
       },
       { status: 500 }
     );
@@ -297,7 +337,7 @@ export const getHavenById = async (
       console.log("📝 Getting full haven data...");
       const fullQuery = `
         SELECT h.*,
-          json_agg(DISTINCT jsonb_build_object('id', hi.id, 'url', hi.image_url, 'display_order', hi.display_order))
+          json_agg(DISTINCT jsonb_build_object('id', hi.id, 'image_url', hi.image_url, 'display_order', hi.display_order))
             FILTER (WHERE hi.id IS NOT NULL) as images,
           0 as rating,
           0 as review_count
@@ -352,6 +392,15 @@ export const getHavenById = async (
 
 export const updateHaven = async (req: NextRequest): Promise<NextResponse> => {
   try {
+    // Test database connection
+    try {
+      const testResult = await pool.query('SELECT 1 as test');
+      if (!testResult.rows.length) throw new Error("Database connection check failed");
+    } catch (dbError: any) {
+      console.error("❌ Database connection error in updateHaven:", dbError.message);
+      return NextResponse.json({ success: false, message: "Haven can't save: Database connection error" }, { status: 500 });
+    }
+
     const body = await req.json();
     const {
       id,
@@ -369,8 +418,11 @@ export const updateHaven = async (req: NextRequest): Promise<NextResponse> => {
       weekday_rate,
       weekend_rate,
       six_hour_check_in,
+      six_hour_check_out,
       ten_hour_check_in,
+      ten_hour_check_out,
       twenty_one_hour_check_in,
+      twenty_one_hour_check_out,
       amenities,
       haven_images,
       existing_images,
@@ -378,6 +430,18 @@ export const updateHaven = async (req: NextRequest): Promise<NextResponse> => {
       existing_photo_tours,
       blocked_dates
     } = body;
+
+    // Required fields validation
+    if (!id || !haven_name || !tower || !floor || !view_type || !capacity || !room_size || !beds || !description) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Missing required fields",
+          message: "Haven can't save: Missing required information"
+        },
+        { status: 400 }
+      );
+    }
 
     // Update haven basic info
     const query = `
@@ -396,11 +460,14 @@ export const updateHaven = async (req: NextRequest): Promise<NextResponse> => {
           weekday_rate = $12,
           weekend_rate = $13,
           six_hour_check_in = $14,
-          ten_hour_check_in = $15,
-          twenty_one_hour_check_in = $16,
-          amenities = $17,
+          six_hour_check_out = $15,
+          ten_hour_check_in = $16,
+          ten_hour_check_out = $17,
+          twenty_one_hour_check_in = $18,
+          twenty_one_hour_check_out = $19,
+          amenities = $20,
           updated_at = NOW()
-      WHERE uuid_id = $18
+      WHERE uuid_id = $21
       RETURNING *
     `;
 
@@ -418,9 +485,12 @@ export const updateHaven = async (req: NextRequest): Promise<NextResponse> => {
       ten_hour_rate,
       weekday_rate,
       weekend_rate,
-      six_hour_check_in || "09:00:00",
-      ten_hour_check_in || "09:00:00",
-      twenty_one_hour_check_in || "14:00:00",
+      six_hour_check_in || "09:00",
+      six_hour_check_out || "15:00",
+      ten_hour_check_in || "09:00",
+      ten_hour_check_out || "19:00",
+      twenty_one_hour_check_in || "14:00",
+      twenty_one_hour_check_out || "11:00",
       JSON.stringify(amenities || {}),
       id
     ];
@@ -445,13 +515,13 @@ export const updateHaven = async (req: NextRequest): Promise<NextResponse> => {
     );
 
     // Find images that were removed (exist in DB but not in existing_images array)
-    const existingImageUrls = (existing_images || []).map((img: any) => img.url);
+    const existingImageUrls = (existing_images || []).map((img: any) => img.image_url);
     const imagesToDelete = currentImagesResult.rows.filter(
       (img: any) => !existingImageUrls.includes(img.image_url)
     );
 
     // Find photo tours that were removed
-    const existingPhotoTourUrls = (existing_photo_tours || []).map((photo: any) => photo.url);
+    const existingPhotoTourUrls = (existing_photo_tours || []).map((photo: any) => photo.image_url);
     const photoToursToDelete = currentPhotoToursResult.rows.filter(
       (photo: any) => !existingPhotoTourUrls.includes(photo.image_url)
     );
@@ -478,7 +548,7 @@ export const updateHaven = async (req: NextRequest): Promise<NextResponse> => {
         haven_images.map(async (image: string, index: number) => {
           const result = await upload_file(image, "staycation-haven/havens");
           return {
-            url: result.url,
+            image_url: result.url,
             public_id: result.public_id,
             display_order: index,
           };
@@ -490,7 +560,7 @@ export const updateHaven = async (req: NextRequest): Promise<NextResponse> => {
         await pool.query(
           `INSERT INTO haven_images (haven_id, image_url, cloudinary_public_id, display_order, uploaded_at)
            VALUES ($1, $2, $3, $4, NOW())`,
-          [id, img.url, img.public_id, img.display_order]
+          [id, img.image_url, img.public_id, img.display_order]
         );
       }
     }
@@ -507,7 +577,7 @@ export const updateHaven = async (req: NextRequest): Promise<NextResponse> => {
               );
               return {
                 category,
-                url: result.url,
+                image_url: result.url,
                 public_id: result.public_id,
                 display_order: index,
               };
@@ -519,7 +589,7 @@ export const updateHaven = async (req: NextRequest): Promise<NextResponse> => {
             await pool.query(
               `INSERT INTO photo_tour_images (haven_id, category, image_url, cloudinary_public_id, display_order, uploaded_at)
                VALUES ($1, $2, $3, $4, $5, NOW())`,
-              [id, img.category, img.url, img.public_id, img.display_order]
+              [id, img.category, img.image_url, img.public_id, img.display_order]
             );
           }
         }
@@ -560,7 +630,8 @@ export const updateHaven = async (req: NextRequest): Promise<NextResponse> => {
     console.log("❌ Update haven error:", error);
     return NextResponse.json({
       success: false,
-      error: error.message || "Failed to update haven"
+      error: error.message || "Failed to update haven",
+      message: `Haven can't save: ${error.message || "An unexpected error occurred"}`
     }, { status: 500 });
   }
 }
@@ -644,7 +715,8 @@ export const deleteHaven = async (
     console.log("❌ Delete haven error:", error);
     return NextResponse.json({
       success: false,
-      error: error.message || "Failed to delete haven"
+      error: error.message || "Failed to delete haven",
+      message: "Unable to delete haven at this time"
     }, { status: 500 });
   }
 }
@@ -657,7 +729,7 @@ export const getAllAdminRooms = async (
         json_agg(
           DISTINCT jsonb_build_object(
             'id', hi.id,
-            'url', hi.image_url,
+            'image_url', hi.image_url,
             'display_order', hi.display_order
           )
         ) FILTER (WHERE hi.id IS NOT NULL) AS images,
@@ -665,7 +737,7 @@ export const getAllAdminRooms = async (
         json_agg(
           DISTINCT jsonb_build_object(
             'category', pti.category,
-            'url', pti.image_url,
+            'image_url', pti.image_url,
             'display_order', pti.display_order
           )
         ) FILTER (WHERE pti.id IS NOT NULL) AS photo_tours,
@@ -698,7 +770,11 @@ export const getAllAdminRooms = async (
   } catch (error) {
         console.error("❌ Admin get rooms error:", error);
     return NextResponse.json(
-      { success: false, message: "Failed to fetch admin rooms" },
+      { 
+        success: false, 
+        message: "Failed to fetch admin rooms: An unexpected error occurred",
+        error: error instanceof Error ? error.message : String(error)
+      },
       { status: 500 }
     );
   }

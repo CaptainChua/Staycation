@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { LogOut, Menu, X, Home, Users, MessageSquare, Settings, User, Bell, UserCircle, ChevronDown, BarChart3, Calendar, DollarSign, Wrench, Star, Shield, TrendingUp, TrendingDown, Building2, Sparkles, Headphones, CalendarOff, UsersRound, Moon, Sun, Monitor, CreditCard } from "lucide-react";
+import { LogOut, Menu, X, Home, Users, MessageSquare, Settings, User, Bell, UserCircle, ChevronDown, BarChart3, Calendar, DollarSign, Wrench, Star, Shield, TrendingUp, TrendingDown, Building2, Sparkles, Headphones, CalendarOff, UsersRound, Moon, Sun, Monitor, CreditCard, Handshake } from "lucide-react";
 import Image from "next/image";
 import { signOut, useSession } from "next-auth/react";
 import { useTheme } from "next-themes";
@@ -132,6 +132,7 @@ export default function OwnerSidebar({ sidebar, setSidebar, mobileMenuOpen, setM
       items: [
         { id: "staff", icon: Users, label: "Staff Management", color: "text-brand-primary" },
         { id: "userManagement", icon: UsersRound, label: "User Management", color: "text-teal-500" },
+        { id: "partnerManagement", icon: Handshake, label: "Partner Management", color: "text-indigo-500" },
       ],
     },
     {
