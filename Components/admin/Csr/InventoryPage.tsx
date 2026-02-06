@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 
 import { useEffect, useMemo, useState } from "react";
+import React from "react";
 import { useSession } from "next-auth/react";
 import AddItem from "./Modals/AddItem";
 import EditItem, { EditInventoryItemInput } from "./Modals/EditItem";
@@ -113,6 +114,15 @@ const formatDateTime = (value: unknown) => {
     hour: "2-digit",
     minute: "2-digit",
   }).format(d);
+};
+
+const highlightText = (text: string, searchTerm: string) => {
+  if (!searchTerm.trim()) return text;
+  const regex = new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+  const parts = text.split(regex);
+  return parts.map((part, index) =>
+    regex.test(part) ? <mark key={index} className="bg-yellow-200 dark:bg-yellow-800 rounded px-1">{part}</mark> : part
+  );
 };
 
 // Translation content for guides
@@ -1188,7 +1198,134 @@ export default function InventoryPage() {
           )}
 
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden">
-            <div className="overflow-x-auto">
+            <div className="lg:hidden space-y-4 bg-white dark:bg-gray-800 overflow-hidden p-4">
+              {loading ? (
+                <div className="space-y-4">
+                  {Array.from({ length: Math.min(entriesPerPage, 5) }).map((_, i) => (
+                    <div
+                      key={`inventory-mobile-skeleton-${i}`}
+                      className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 animate-pulse"
+                    >
+                      <div className="space-y-2">
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32" />
+                        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-44" />
+                        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-36" />
+                      </div>
+                      <div className="mt-3 grid grid-cols-2 gap-3">
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded" />
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded" />
+                      </div>
+                      <div className="mt-3 h-8 bg-gray-200 dark:bg-gray-700 rounded" />
+                    </div>
+                  ))}
+                </div>
+              ) : paginatedRows.length === 0 ? (
+                <div className="py-20 text-center border border-gray-200 dark:border-gray-700 rounded-lg">
+                  <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                  <p className="text-gray-500 dark:text-gray-400 font-medium">No inventory items found.</p>
+                </div>
+              ) : (
+                paginatedRows.map((row) => (
+                  <div key={row.item_id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                    <div className="font-semibold text-gray-800 dark:text-gray-100 text-sm truncate">
+                      {highlightText(row.item_id, searchTerm)}
+                    </div>
+                    <div className="text-sm text-gray-700 dark:text-gray-200 truncate mt-1">
+                      {highlightText(row.item_name, searchTerm)}
+                    </div>
+                    <div className="text-xs text-gray-600 dark:text-gray-300 truncate mt-1">
+                      Category: {highlightText(row.category, searchTerm)}
+                    </div>
+                    <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">Stock</div>
+                        <div className="font-bold text-gray-800 dark:text-gray-100">{row.current_stock}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">Unit</div>
+                        <div className="font-bold text-gray-800 dark:text-gray-100">{row.unit_type}</div>
+                      </div>
+                    </div>
+                    <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">Price</div>
+                        <div className="font-bold text-gray-800 dark:text-gray-100">
+                          {row.price_per_unit > 0 ? `₱${row.price_per_unit.toFixed(2)}` : "—"}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">Status</div>
+                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${row.statusColor}`}>
+                          {row.status}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="mt-3 text-xs text-gray-600 dark:text-gray-300">
+                      Last Restocked: {formatDateTime(row.last_restocked)}
+                    </div>
+                    <div className="mt-3 flex items-center justify-end gap-1">
+                      <button
+                        className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                        title="View"
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            await fetch(`/api/inventory?item_id=${row.item_id}`, {
+                              method: "GET",
+                              headers: { "Content-Type": "application/json" },
+                            });
+                          } catch (err) {
+                            console.error("Failed to log view action:", err);
+                          }
+                          setViewItem({
+                            item_id: row.item_id,
+                            item_name: row.item_name,
+                            category: row.category,
+                            current_stock: row.current_stock,
+                            minimum_stock: row.minimum_stock,
+                            unit_type: row.unit_type,
+                            price_per_unit: row.price_per_unit,
+                            last_restocked: row.last_restocked,
+                            status: row.status,
+                          });
+                        }}
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      <button
+                        className="p-2 text-brand-primary hover:bg-brand-primaryLighter rounded-lg transition-colors"
+                        title="Edit"
+                        type="button"
+                        onClick={() =>
+                          setEditItem({
+                            item_id: row.item_id,
+                            item_name: row.item_name,
+                            category: row.category,
+                            current_stock: row.current_stock,
+                            minimum_stock: row.minimum_stock,
+                            unit_type: row.unit_type,
+                            price_per_unit: row.price_per_unit,
+                            status: row.status,
+                          })
+                        }
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button
+                        className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                        title="Delete"
+                        type="button"
+                        onClick={() => setDeleteItem(row)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="hidden lg:block overflow-x-auto">
               <table className="w-full min-w-[1150px]">
                 <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 border-b-2 border-gray-200 dark:border-gray-600">
                   <tr>

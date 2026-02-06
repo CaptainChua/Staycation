@@ -1328,7 +1328,182 @@ export default function DepositPage() {
 
       {/* Table Section - Fixed height and scrollable */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden flex-1 flex flex-col min-h-0 border border-gray-200 dark:border-gray-700">
-        <div className="overflow-x-auto overflow-y-auto flex-1 h-[600px] max-h-[600px]">
+        <div className="lg:hidden space-y-4 bg-white dark:bg-gray-800 overflow-hidden p-4">
+          {isLoading ? (
+            <div className="space-y-4">
+              {Array.from({ length: Math.min(entriesPerPage, 5) }).map((_, i) => (
+                <div
+                  key={`deposits-mobile-skeleton-${i}`}
+                  className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 animate-pulse"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="space-y-2 flex-1">
+                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32" />
+                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-44" />
+                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-36" />
+                    </div>
+                    <div className="h-4 w-4 bg-gray-200 dark:bg-gray-700 rounded" />
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded" />
+                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded" />
+                  </div>
+                  <div className="mt-3 h-8 bg-gray-200 dark:bg-gray-700 rounded" />
+                </div>
+              ))}
+            </div>
+          ) : paginatedRows.length === 0 ? (
+            <div className="py-20 text-center border border-gray-200 dark:border-gray-700 rounded-lg">
+              <Wallet className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500 dark:text-gray-400 font-medium">No deposits found</p>
+            </div>
+          ) : (
+            paginatedRows.map((row, index) => (
+              <div key={`${row.id}-mobile-${index}`} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <div className="font-semibold text-gray-800 dark:text-gray-100 text-sm truncate">
+                        {highlightText(row.deposit_id, searchTerm)}
+                      </div>
+                      <span
+                        className={`inline-block px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${
+                          row.status === "Pending"
+                            ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300"
+                            : row.status === "Held"
+                            ? "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300"
+                            : row.status === "Returned"
+                            ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+                            : row.status === "Partial"
+                            ? "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300"
+                            : row.status === "Forfeited"
+                            ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
+                            : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                        }`}
+                      >
+                        {highlightText(row.status, searchTerm)}
+                      </span>
+                    </div>
+                    <div className="text-xs text-gray-600 dark:text-gray-300 truncate mt-1">
+                      {highlightText(row.haven, searchTerm)}
+                      {row.tower ? ` • ${highlightText(row.tower, searchTerm)}` : ""}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                      Booking: {highlightText(row.booking_id, searchTerm)}
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={selectedDeposits.includes(row.id)}
+                    onChange={(e) => handleSelectDeposit(row.id, e.target.checked)}
+                    className="w-4 h-4 text-brand-primary border-gray-300 rounded focus:ring-brand-primary flex-shrink-0 mt-1"
+                  />
+                </div>
+
+                <div className="mt-3 text-sm">
+                  <div className="text-xs text-gray-500 dark:text-gray-400">Guest</div>
+                  <div className="font-semibold text-gray-800 dark:text-gray-100 truncate">
+                    {highlightText(row.guest, searchTerm)}
+                  </div>
+                </div>
+
+                <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Amount</div>
+                    <div className="font-bold text-gray-800 dark:text-gray-100">
+                      {highlightText(row.formatted_amount, searchTerm)}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Payment</div>
+                    {row.payment_proof_url ? (
+                      <a
+                        href={row.payment_proof_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                        View Proof
+                      </a>
+                    ) : (
+                      <span className="text-xs text-gray-400 dark:text-gray-500 italic">No proof</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-3 text-xs text-gray-600 dark:text-gray-300">
+                  Check-in: {highlightText(row.checkin_date, searchTerm)}
+                </div>
+                <div className="text-xs text-gray-600 dark:text-gray-300">
+                  Check-out: {highlightText(row.checkout_date, searchTerm)}
+                </div>
+
+                <div className="mt-3 flex items-center justify-end gap-1">
+                  <button
+                    className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                    title="View Details"
+                    type="button"
+                    onClick={() => openViewModal(row)}
+                  >
+                    <Eye className="w-4 h-4" />
+                  </button>
+                  {row.status === "Pending" ? (
+                    <button
+                      className="p-2 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors"
+                      title="Mark as Held"
+                      type="button"
+                      onClick={() => handleStatusUpdate(row.id, "Held")}
+                    >
+                      <Loader2 className="w-4 h-4" />
+                    </button>
+                  ) : row.status === "Returned" || row.status === "Partial" || row.status === "Forfeited" ? (
+                    <span className="text-xs font-medium text-green-600 dark:text-green-400">Completed</span>
+                  ) : row.status === "Held" ? (
+                    <>
+                      <button
+                        className="p-2 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors"
+                        title="Mark as Held"
+                        type="button"
+                        onClick={() => handleStatusUpdate(row.id, "Held")}
+                      >
+                        <Loader2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg transition-colors"
+                        title="Mark Returned"
+                        type="button"
+                        onClick={() => openReturnModal(row)}
+                      >
+                        <CheckCircle className="w-4 h-4" />
+                      </button>
+                      <button
+                        className="p-2 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/30 rounded-lg transition-colors"
+                        title="Mark Partial"
+                        type="button"
+                        onClick={() => openPartialModal(row)}
+                      >
+                        <RotateCcw className="w-4 h-4" />
+                      </button>
+                      <button
+                        className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                        title="Mark Forfeited"
+                        type="button"
+                        onClick={() => openForfeitedModal(row)}
+                      >
+                        <XCircle className="w-4 h-4" />
+                      </button>
+                    </>
+                  ) : (
+                    <span className="text-xs text-gray-500 dark:text-gray-400">-</span>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="hidden lg:block overflow-x-auto overflow-y-auto flex-1 h-[600px] max-h-[600px]">
           <table className="w-full min-w-[1400px]">
             <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 border-b-2 border-gray-200 dark:border-gray-600 sticky top-0 z-10">
               <tr>
