@@ -4,11 +4,16 @@ import { ArrowRight, Mail, Eye, EyeOff, User, Lock } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAppDispatch } from "@/redux/hooks";
-import { setCheckInDate, setCheckOutDate, setGuests } from "@/redux/slices/bookingSlice";
+import {
+  setCheckInDate,
+  setCheckOutDate,
+  setGuests,
+} from "@/redux/slices/bookingSlice";
 import { signIn } from "next-auth/react";
 import { toast } from "react-hot-toast";
 import Footer from "./Footer";
 import Image from "next/image";
+import { ensureGuestToken } from "../lib/guest";
 
 const Login = () => {
   const [showEmailForm, setShowEmailForm] = useState(false);
@@ -20,6 +25,9 @@ const Login = () => {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isFacebookLoading, setIsFacebookLoading] = useState(false);
   const [isGuestLoading, setIsGuestLoading] = useState(false);
+  const [showGuestNameModal, setShowGuestNameModal] = useState(false);
+  const [guestName, setGuestName] = useState("");
+  const [guestNameError, setGuestNameError] = useState("");
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -61,24 +69,26 @@ const Login = () => {
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-  const { name, value } = e.target;
+    const { name, value } = e.target;
 
-  // ❌ Disallow spaces in password fields
-  if ((name === "password" || name === "confirmPassword") && /\s/.test(value)) {
-    setErrors((prev) => ({
-      ...prev,
-      [name]: "Password must not contain spaces",
-    }));
-    return;
-  }
+    // ❌ Disallow spaces in password fields
+    if (
+      (name === "password" || name === "confirmPassword") &&
+      /\s/.test(value)
+    ) {
+      setErrors((prev) => ({
+        ...prev,
+        [name]: "Password must not contain spaces",
+      }));
+      return;
+    }
 
-  setFormData((prev) => ({ ...prev, [name]: value }));
-  setErrors((prev) => ({ ...prev, [name]: "" }));
-};
-
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    setErrors((prev) => ({ ...prev, [name]: "" }));
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
+    if (e.key === "Enter") {
       e.preventDefault();
       if (showEmailForm) {
         if (mode === "login") {
@@ -160,7 +170,7 @@ const Login = () => {
       if (result?.error) {
         toast.error(result.error || "Invalid email or password", {
           duration: 4000,
-          position: 'top-center',
+          position: "top-center",
         });
         // Clear form fields on error
         setFormData({
@@ -176,7 +186,7 @@ const Login = () => {
       if (result?.ok) {
         toast.success("Login successful!", {
           duration: 3000,
-          position: 'top-center',
+          position: "top-center",
         });
         router.push("/rooms");
       }
@@ -184,7 +194,7 @@ const Login = () => {
       console.error("Login error:", error);
       toast.error("An error occurred during login", {
         duration: 4000,
-        position: 'top-center',
+        position: "top-center",
       });
       // Clear form fields on error
       setFormData({
@@ -208,9 +218,9 @@ const Login = () => {
         email: formData.email,
         password: formData.password,
       };
-      
+
       console.log("Sending registration request:", requestBody);
-      
+
       const response = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -218,7 +228,7 @@ const Login = () => {
       });
 
       console.log("Response status:", response.status);
-      
+
       let data;
       try {
         data = await response.json();
@@ -233,7 +243,7 @@ const Login = () => {
         const errorMessage = data.error || "Registration failed";
         toast.error(errorMessage, {
           duration: 4000,
-          position: 'top-center',
+          position: "top-center",
         });
         // Clear form fields on error
         setFormData({
@@ -248,7 +258,7 @@ const Login = () => {
 
       toast.success("Registration successful! Logging you in...", {
         duration: 3000,
-        position: 'top-center',
+        position: "top-center",
       });
 
       // Auto-login after registration
@@ -263,7 +273,7 @@ const Login = () => {
       } else {
         toast.error("Please login with your new account", {
           duration: 4000,
-          position: 'top-center',
+          position: "top-center",
         });
         setMode("login");
         setIsEmailLoading(false);
@@ -271,10 +281,13 @@ const Login = () => {
     } catch (error) {
       console.error("Registration error:", error);
       // Show more specific error message
-      const errorMessage = error instanceof Error ? error.message : "An error occurred during registration";
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "An error occurred during registration";
       toast.error(errorMessage, {
         duration: 4000,
-        position: 'top-center',
+        position: "top-center",
       });
       // Clear form fields on error
       setFormData({
@@ -288,7 +301,26 @@ const Login = () => {
   };
 
   const handleGuestLogin = () => {
+    setShowGuestNameModal(true);
+  };
+
+  const handleGuestNameSubmit = () => {
+    const name = guestName.trim();
+    if (!name) {
+      setGuestNameError("Please enter your full name");
+      return;
+    }
+
     setIsGuestLoading(true);
+    setShowGuestNameModal(false);
+
+    // Store guest name in sessionStorage (expires when tab/window closes)
+    if (typeof sessionStorage !== "undefined") {
+      sessionStorage.setItem("guestName", name);
+    }
+
+    // Create guest token for API usage (session-only)
+    ensureGuestToken(0);
 
     // Set smart defaults: today + tomorrow + 2 guests
     const today = new Date();
@@ -298,8 +330,8 @@ const Login = () => {
     // Format dates as YYYY-MM-DD for the date pickers
     const formatDate = (date: Date) => {
       const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
       return `${year}-${month}-${day}`;
     };
 
@@ -313,6 +345,84 @@ const Login = () => {
       setIsGuestLoading(false);
     }, 1500);
   };
+
+  // Guest Name Modal
+  if (showGuestNameModal) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col pt-14 sm:pt-16">
+        <div className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
+          <div className="w-full max-w-md">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 sm:p-8 border border-gray-200 dark:border-gray-700">
+              <div className="text-center mb-8">
+                <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-2">
+                  Continue as Guest
+                </h1>
+                <p className="text-gray-600 dark:text-gray-300">
+                  Please enter your full name to continue
+                </p>
+              </div>
+
+              <div className="space-y-4 mb-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Full Name
+                  </label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500" />
+                    <input
+                      type="text"
+                      value={guestName}
+                      onChange={(e) => {
+                        setGuestName(e.target.value);
+                        setGuestNameError("");
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          handleGuestNameSubmit();
+                        }
+                      }}
+                      placeholder="Enter your full name"
+                      className="w-full pl-10 pr-4 py-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent transition-all placeholder-gray-500 dark:placeholder-gray-400"
+                    />
+                  </div>
+                  {guestNameError && (
+                    <p className="text-red-600 dark:text-red-400 text-xs mt-1">
+                      {guestNameError}
+                    </p>
+                  )}
+                </div>
+
+                <button
+                  onClick={handleGuestNameSubmit}
+                  disabled={isGuestLoading}
+                  className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-lg bg-brand-primary hover:bg-brand-primaryDark text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isGuestLoading ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-orange-300/40 border-t-white rounded-full animate-spin"></div>
+                      <span>Processing...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Continue as Guest</span>
+                      <ArrowRight className="w-5 h-5" />
+                    </>
+                  )}
+                </button>
+
+                <button
+                  onClick={() => setShowGuestNameModal(false)}
+                  className="w-full py-2 px-4 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+                >
+                  Back
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col pt-14 sm:pt-16">
@@ -346,12 +456,16 @@ const Login = () => {
             <div className="text-center mb-8">
               <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-2">
                 {showEmailForm
-                  ? (mode === "login" ? "Welcome Back" : "Create Account")
+                  ? mode === "login"
+                    ? "Welcome Back"
+                    : "Create Account"
                   : "Welcome Back"}
               </h1>
               <p className="text-gray-600 dark:text-gray-300">
                 {showEmailForm
-                  ? (mode === "login" ? "Sign in to continue your booking" : "Join Staycation Haven today")
+                  ? mode === "login"
+                    ? "Sign in to continue your booking"
+                    : "Join Staycation Haven today"
                   : "Sign in to continue your booking"}
               </p>
             </div>
@@ -412,7 +526,9 @@ const Login = () => {
                         />
                       </div>
                       {errors.name && (
-                        <p className="text-red-600 dark:text-red-400 text-xs mt-1">{errors.name}</p>
+                        <p className="text-red-600 dark:text-red-400 text-xs mt-1">
+                          {errors.name}
+                        </p>
                       )}
                     </div>
                   )}
@@ -435,7 +551,9 @@ const Login = () => {
                       />
                     </div>
                     {errors.email && (
-                      <p className="text-red-600 dark:text-red-400 text-xs mt-1">{errors.email}</p>
+                      <p className="text-red-600 dark:text-red-400 text-xs mt-1">
+                        {errors.email}
+                      </p>
                     )}
                   </div>
 
@@ -460,11 +578,17 @@ const Login = () => {
                         onClick={() => setShowPassword(!showPassword)}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
                       >
-                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        {showPassword ? (
+                          <EyeOff className="w-5 h-5" />
+                        ) : (
+                          <Eye className="w-5 h-5" />
+                        )}
                       </button>
                     </div>
                     {errors.password && (
-                      <p className="text-red-600 dark:text-red-400 text-xs mt-1">{errors.password}</p>
+                      <p className="text-red-600 dark:text-red-400 text-xs mt-1">
+                        {errors.password}
+                      </p>
                     )}
                   </div>
 
@@ -487,32 +611,48 @@ const Login = () => {
                         />
                         <button
                           type="button"
-                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          onClick={() =>
+                            setShowConfirmPassword(!showConfirmPassword)
+                          }
                           className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
                         >
-                          {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                          {showConfirmPassword ? (
+                            <EyeOff className="w-5 h-5" />
+                          ) : (
+                            <Eye className="w-5 h-5" />
+                          )}
                         </button>
                       </div>
                       {errors.confirmPassword && (
-                        <p className="text-red-600 dark:text-red-400 text-xs mt-1">{errors.confirmPassword}</p>
+                        <p className="text-red-600 dark:text-red-400 text-xs mt-1">
+                          {errors.confirmPassword}
+                        </p>
                       )}
                     </div>
                   )}
 
                   {/* Submit Button */}
                   <button
-                    onClick={mode === "login" ? handleEmailLogin : handleRegister}
+                    onClick={
+                      mode === "login" ? handleEmailLogin : handleRegister
+                    }
                     disabled={isEmailLoading}
                     className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-lg bg-brand-primary hover:bg-brand-primaryDark text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isEmailLoading ? (
                       <>
                         <div className="w-5 h-5 border-2 border-orange-300/40 border-t-white rounded-full animate-spin"></div>
-                        <span>{mode === "login" ? "Logging in..." : "Creating account..."}</span>
+                        <span>
+                          {mode === "login"
+                            ? "Logging in..."
+                            : "Creating account..."}
+                        </span>
                       </>
                     ) : (
                       <>
-                        <span>{mode === "login" ? "Login" : "Create Account"}</span>
+                        <span>
+                          {mode === "login" ? "Login" : "Create Account"}
+                        </span>
                         <ArrowRight className="w-5 h-5" />
                       </>
                     )}
@@ -538,87 +678,101 @@ const Login = () => {
                   {/* Google Sign In */}
                   <button
                     onClick={() => handleSocialLogin("google")}
-                    disabled={isGoogleLoading || isFacebookLoading || isGuestLoading}
+                    disabled={
+                      isGoogleLoading || isFacebookLoading || isGuestLoading
+                    }
                     className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-lg bg-white border border-gray-300 hover:bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     aria-label="Continue with Google"
                   >
-                {isGoogleLoading ? (
-                  <>
-                    <div className="w-5 h-5 border-2 border-red-200 dark:border-red-900 border-t-red-600 dark:border-t-red-500 rounded-full animate-spin"></div>
-                    <span className="font-medium text-gray-700 dark:text-gray-300">
-                      Processing...
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <Mail className="w-5 h-5 text-red-600 dark:text-red-500" />
-                    <span className="font-medium text-gray-700 dark:text-gray-300">
-                      Continue with Google
-                    </span>
-                  </>
-                )}
-              </button>
+                    {isGoogleLoading ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-red-200 dark:border-red-900 border-t-red-600 dark:border-t-red-500 rounded-full animate-spin"></div>
+                        <span className="font-medium text-gray-700 dark:text-gray-300">
+                          Processing...
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <Mail className="w-5 h-5 text-red-600 dark:text-red-500" />
+                        <span className="font-medium text-gray-700 dark:text-gray-300">
+                          Continue with Google
+                        </span>
+                      </>
+                    )}
+                  </button>
                   {/* Facebook Sign In */}
                   <button
                     onClick={() => handleSocialLogin("facebook")}
-                    disabled={isGoogleLoading || isFacebookLoading || isGuestLoading}
+                    disabled={
+                      isGoogleLoading || isFacebookLoading || isGuestLoading
+                    }
                     className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-lg bg-white border border-gray-300 hover:bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     aria-label="Continue with Facebook"
                   >
-                {isFacebookLoading ? (
-                  <>
-                    <div className="w-5 h-5 border-2 border-blue-200 dark:border-blue-900 border-t-blue-600 dark:border-t-blue-500 rounded-full animate-spin"></div>
-                    <span className="font-medium text-gray-700 dark:text-gray-300">
-                      Processing...
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-5 h-5 text-blue-600 dark:text-blue-500" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-                    </svg>
-                    <span className="font-medium text-gray-700 dark:text-gray-300">
-                      Continue with Facebook
-                    </span>
-                  </>
-                )}
+                    {isFacebookLoading ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-blue-200 dark:border-blue-900 border-t-blue-600 dark:border-t-blue-500 rounded-full animate-spin"></div>
+                        <span className="font-medium text-gray-700 dark:text-gray-300">
+                          Processing...
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <svg
+                          className="w-5 h-5 text-blue-600 dark:text-blue-500"
+                          fill="currentColor"
+                          viewBox="0 0 24 24"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+                        </svg>
+                        <span className="font-medium text-gray-700 dark:text-gray-300">
+                          Continue with Facebook
+                        </span>
+                      </>
+                    )}
                   </button>
 
-                   {/* Continue with Haven Button */}
-                <button
-                  onClick={() => {
-                    setIsHavenLoading(true);
-                    setTimeout(() => {
-                      setShowEmailForm(true);
-                      setIsHavenLoading(false);
-                    }, 300);
-                  }}
-                  disabled={isGoogleLoading || isFacebookLoading || isGuestLoading || isHavenLoading}
-                  className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-lg bg-white border border-gray-300 hover:bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  aria-label="Continue with Haven"
-                >
-                {isHavenLoading ? (
-                  <>
-                    <div className="w-5 h-5 border-2 border-orange-200 dark:border-orange-900 border-t-orange-600 dark:border-t-orange-500 rounded-full animate-spin"></div>
-                    <span className="font-medium text-gray-700 dark:text-gray-300">
-                      Processing...
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <Image
-                      src="/haven_logo.png"
-                      alt="Haven"
-                      width={20}
-                      height={20}
-                      className="w-5 h-5 object-contain"
-                    />
-                    <span className="font-medium text-gray-700 dark:text-gray-300">
-                      Continue with Haven
-                    </span>
-                  </>
-                )}
-                </button>
+                  {/* Continue with Haven Button */}
+                  <button
+                    onClick={() => {
+                      setIsHavenLoading(true);
+                      setTimeout(() => {
+                        setShowEmailForm(true);
+                        setIsHavenLoading(false);
+                      }, 300);
+                    }}
+                    disabled={
+                      isGoogleLoading ||
+                      isFacebookLoading ||
+                      isGuestLoading ||
+                      isHavenLoading
+                    }
+                    className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-lg bg-white border border-gray-300 hover:bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    aria-label="Continue with Haven"
+                  >
+                    {isHavenLoading ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-orange-200 dark:border-orange-900 border-t-orange-600 dark:border-t-orange-500 rounded-full animate-spin"></div>
+                        <span className="font-medium text-gray-700 dark:text-gray-300">
+                          Processing...
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <Image
+                          src="/haven_logo.png"
+                          alt="Haven"
+                          width={20}
+                          height={20}
+                          className="w-5 h-5 object-contain"
+                        />
+                        <span className="font-medium text-gray-700 dark:text-gray-300">
+                          Continue with Haven
+                        </span>
+                      </>
+                    )}
+                  </button>
                 </div>
 
                 {/* Divider */}
@@ -637,21 +791,23 @@ const Login = () => {
                 <div className="mb-8">
                   <button
                     onClick={handleGuestLogin}
-                    disabled={isGoogleLoading || isFacebookLoading || isGuestLoading}
+                    disabled={
+                      isGoogleLoading || isFacebookLoading || isGuestLoading
+                    }
                     className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-lg bg-brand-primary hover:bg-brand-primaryDark text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     aria-label="Continue as Guest"
                   >
-                {isGuestLoading ? (
-                  <>
-                    <div className="w-5 h-5 border-2 border-orange-300/40 border-t-white rounded-full animate-spin"></div>
-                    <span>Processing...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Continue as Guest</span>
-                    <ArrowRight className="w-5 h-5" />
-                  </>
-                )}
+                    {isGuestLoading ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-orange-300/40 border-t-white rounded-full animate-spin"></div>
+                        <span>Processing...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Continue as Guest</span>
+                        <ArrowRight className="w-5 h-5" />
+                      </>
+                    )}
                   </button>
                   <p className="text-sm text-gray-500 dark:text-gray-400 mt-3 text-center">
                     Guest users can book rooms with smart defaults
