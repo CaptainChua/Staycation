@@ -1,4 +1,5 @@
 {
+  "$schema": "https://json.schemastore.org/package",
   "name": "staycation-haven2",
   "version": "0.1.0",
   "private": true,

@@ -583,7 +583,6 @@ export const createBooking = async (
       down_payment,
       paymentAmountPaid,
       paymentRemainingBalance,
-      paymentAmountPaid,
     ];
 
     await client.query(paymentQuery, paymentValues);
@@ -601,8 +600,8 @@ export const createBooking = async (
     await client.query(depositQuery, depositValues);
 
     // Step 5: Create add-ons records
-    if (add_ons && Object.keys(add_ons).length > 0) {
-      for (const [name, quantity] of Object.entries(add_ons)) {
+    if (addOns && Object.keys(addOns).length > 0) {
+      for (const [name, quantity] of Object.entries(addOns)) {
         const quantityNum = Number(quantity);
         if (quantityNum > 0) {
           const addOnPrice =
@@ -893,7 +892,7 @@ export const getBookingById = async (
       GROUP BY b.id, h.tower, h.uuid_id, bp.total_amount, bp.down_payment, bp.remaining_balance, bp.payment_method, bp.payment_proof_url, bp.room_rate, bp.add_ons_total, bg.first_name, bg.last_name, bg.email, bg.phone, bg.valid_id_url, bd.amount
       LIMIT 1
     `;
-    const bookingResult = await pool.query(bookingQuery, [id]);
+    const bookingResult = await pool.query(query, [id]);
 
     if (bookingResult.rows.length === 0) {
       return NextResponse.json(
@@ -910,7 +909,7 @@ export const getBookingById = async (
       WHERE booking_id = $1
       ORDER BY created_at ASC
     `;
-    const guestsResult = await pool.query(guestsQuery, [booking.id]);
+    const guestsResult = await pool.query(guestsQuery, [id]);
 
     // Get payment info
     const paymentQuery = `
@@ -918,7 +917,7 @@ export const getBookingById = async (
       WHERE booking_id = $1
       LIMIT 1
     `;
-    const paymentResult = await pool.query(paymentQuery, [booking.id]);
+    const paymentResult = await pool.query(paymentQuery, [id]);
 
     // Get security deposit
     const depositQuery = `
@@ -926,7 +925,7 @@ export const getBookingById = async (
       WHERE booking_id = $1
       LIMIT 1
     `;
-    const depositResult = await pool.query(depositQuery, [booking.id]);
+    const depositResult = await pool.query(depositQuery, [id]);
 
     // Get add-ons
     const addOnsQuery = `
@@ -934,7 +933,7 @@ export const getBookingById = async (
       WHERE booking_id = $1
       ORDER BY name ASC
     `;
-    const addOnsResult = await pool.query(addOnsQuery, [booking.id]);
+    const addOnsResult = await pool.query(addOnsQuery, [id]);
 
     // Get cleaning info
     const cleaningQuery = `
@@ -942,7 +941,7 @@ export const getBookingById = async (
       WHERE booking_id = $1
       LIMIT 1
     `;
-    const cleaningResult = await pool.query(cleaningQuery, [booking.id]);
+    const cleaningResult = await pool.query(cleaningQuery, [id]);
 
     // Combine all data
     const completeBooking = {

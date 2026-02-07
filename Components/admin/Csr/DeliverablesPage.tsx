@@ -693,7 +693,7 @@ const handleMarkAllDelivered = async (bookingId: string) => {
 
     try {
       const results = await Promise.allSettled(
-        (selectedBooking.items || []).map(item =>
+        (selectedBooking.items || []).map((item: DeliverableItem) =>
           fetch('/api/admin/deliverables', {
             method: 'PATCH',
             headers: {
@@ -716,7 +716,7 @@ const handleMarkAllDelivered = async (bookingId: string) => {
       // Update inventory stock for all delivered items
       if (selectedAction === 'delivered') {
         const inventoryUpdateResults = await Promise.allSettled(
-          (selectedBooking.items || []).map(item =>
+          (selectedBooking.items || []).map((item: DeliverableItem) =>
             updateInventoryStock(item.name, item.quantity)
           )
         );
@@ -1308,7 +1308,139 @@ const handleMarkAllDelivered = async (bookingId: string) => {
 
       {/* Table Section - Fixed height and scrollable */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden flex-1 flex flex-col min-h-0 border border-gray-200 dark:border-gray-700">
-        <div className="overflow-x-auto overflow-y-auto flex-1 h-[600px] max-h-[600px]">
+        <div className="lg:hidden space-y-4 bg-white dark:bg-gray-800 overflow-hidden p-4">
+          {isLoading ? (
+            <div className="space-y-4">
+              {Array.from({ length: Math.min(entriesPerPage, 5) }).map((_, i) => (
+                <div
+                  key={`deliverables-mobile-skeleton-${i}`}
+                  className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 animate-pulse"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="space-y-2 flex-1">
+                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-40" />
+                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-44" />
+                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-36" />
+                    </div>
+                    <div className="h-4 w-4 bg-gray-200 dark:bg-gray-700 rounded" />
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded" />
+                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded" />
+                  </div>
+                  <div className="mt-3 h-8 bg-gray-200 dark:bg-gray-700 rounded" />
+                </div>
+              ))}
+            </div>
+          ) : paginatedRows.length === 0 ? (
+            <div className="py-20 text-center border border-gray-200 dark:border-gray-700 rounded-lg">
+              <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500 dark:text-gray-400 font-medium">No deliverables found</p>
+            </div>
+          ) : (
+            paginatedRows.map((row) => (
+              <div key={`${row.id}-mobile`} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="font-semibold text-gray-800 dark:text-gray-100 text-sm truncate">
+                      {highlightText(row.deliverable_id, searchTerm)}
+                    </div>
+                    <div className="text-xs text-gray-600 dark:text-gray-300 truncate">
+                      {highlightText(row.haven, searchTerm)}
+                      {row.tower ? ` • ${highlightText(row.tower, searchTerm)}` : ""}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                      Booking: {highlightText(row.booking_id, searchTerm)}
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={selectedDeliverables.includes(row.id)}
+                    onChange={(e) => handleSelectDeliverable(row.id, e.target.checked)}
+                    className="w-4 h-4 text-brand-primary border-gray-300 rounded focus:ring-brand-primary flex-shrink-0 mt-1"
+                  />
+                </div>
+
+                <div className="mt-3 text-xs text-gray-600 dark:text-gray-300">
+                  Guest: {highlightText(row.guest, searchTerm)}
+                </div>
+
+                <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Total</div>
+                    <div className="font-bold text-gray-800 dark:text-gray-100">
+                      {highlightText(row.formatted_grand_total, searchTerm)}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Status</div>
+                    <span
+                      className={`inline-block px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${
+                        row.overall_status === "Pending"
+                          ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300"
+                          : row.overall_status === "Preparing"
+                          ? "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300"
+                          : row.overall_status === "Delivered"
+                          ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+                          : row.overall_status === "Cancelled"
+                          ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
+                          : row.overall_status === "Refunded"
+                          ? "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300"
+                          : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                      }`}
+                    >
+                      {highlightText(row.overall_status, searchTerm)}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mt-3 text-xs text-gray-600 dark:text-gray-300">
+                  Check-in: {highlightText(row.checkin_date, searchTerm)}
+                </div>
+                <div className="text-xs text-gray-600 dark:text-gray-300">
+                  Check-out: {highlightText(row.checkout_date, searchTerm)}
+                </div>
+
+                <div className="mt-3 flex items-center justify-end gap-1">
+                  <button
+                    className="p-2 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors"
+                    title="Mark All Preparing"
+                    type="button"
+                    onClick={() => handleMarkAllPreparing(row.id)}
+                  >
+                    <Play className="w-4 h-4" />
+                  </button>
+                  <button
+                    className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg transition-colors"
+                    title="Mark All Delivered"
+                    type="button"
+                    onClick={() => handleMarkAllDelivered(row.id)}
+                  >
+                    <Truck className="w-4 h-4" />
+                  </button>
+                  <button
+                    className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                    title="Cancel All"
+                    type="button"
+                    onClick={() => handleCancelAll(row.id)}
+                  >
+                    <XCircle className="w-4 h-4" />
+                  </button>
+                  <button
+                    className="p-2 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/30 rounded-lg transition-colors"
+                    title="Refund All"
+                    type="button"
+                    onClick={() => handleRefundAll(row.id)}
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="hidden lg:block overflow-x-auto overflow-y-auto flex-1 h-[600px] max-h-[600px]">
           <table className="w-full min-w-[1400px]">
             <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 border-b-2 border-gray-200 dark:border-gray-600 sticky top-0 z-10">
               <tr>
@@ -1881,7 +2013,29 @@ const handleMarkAllDelivered = async (bookingId: string) => {
         }}
         onConfirm={executeBulkSelectionAction}
         action={selectedAction}
-        selectedBookings={rows.filter(r => selectedDeliverables.includes(r.id))}
+        selectedBookings={rows.filter(r => selectedDeliverables.includes(r.id)).map(r => ({
+          id: r.id,
+          deliverable_id: r.deliverable_id,
+          guest: r.guest,
+          haven: r.haven,
+          checkin_date: r.checkin_date,
+          checkout_date: r.checkout_date,
+          overall_status: r.overall_status,
+          payment_status: r.payment_status || 'pending',
+          grand_total: r.grand_total,
+          formatted_grand_total: r.formatted_grand_total,
+          items: r.items.map(item => ({
+            id: item.id,
+            name: item.name,
+            quantity: item.quantity,
+            price: item.price,
+            formatted_price: item.formatted_price,
+            total: item.total_price,
+            formatted_total: item.formatted_total,
+            status: item.status,
+            notes: item.notes ?? undefined
+          }))
+        }))}
         isLoading={bulkActionLoading}
       />
     </div>

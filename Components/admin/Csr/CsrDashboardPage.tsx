@@ -542,7 +542,7 @@ export default function CsrDashboard() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-6 overflow-y-auto">
+        <nav className="flex-1 p-4 space-y-6 overflow-y-auto scrollbar-hide">
           {navCategories.map((category) => (
             <div key={category.category}>
               {sidebar && (
