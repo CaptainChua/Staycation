@@ -1,6 +1,6 @@
 "use client";
 
-import { Menu, X, Home, Calendar, CalendarDays, DollarSign, FileText, Users, Wallet, Package, Settings, Bell, ChevronDown, User, MessageSquare, BarChart3, Headphones, Moon, Sun, Monitor, Cloud, CloudRain, CloudSnow, Activity } from "lucide-react";
+import { Menu, X, Home, Calendar, CalendarDays, DollarSign, FileText, Users, Wallet, Package, Settings, Bell, ChevronDown, User, MessageSquare, BarChart3, Headphones, Moon, Sun, Monitor, Cloud, CloudRain, CloudSnow, Activity, Tag } from "lucide-react";
 import Image from "next/image";
 import { useMemo, useState, useEffect, useRef } from "react";
 import { useSession, signOut } from "next-auth/react";
@@ -11,6 +11,7 @@ import PaymentsPage from "./PaymentPage.tsx";
 import DeliverablesPage from "./DeliverablesPage";
 import CleanersPage from "./CleanersPage";
 import DepositsPage from "./DepositPage";
+import DiscountPage from "./DiscountPage";
 import SettingsPage from "./SettingsPage";
 import MessagePage from "./MessagePage";
 import ActivityLogsPage from "./ActivityLogsPage";
@@ -418,6 +419,12 @@ export default function CsrDashboard() {
           label: "Security Deposit",
           color: "text-indigo-500",
         },
+        {
+          id: "discounts",
+          icon: Tag,
+          label: "Discount Management",
+          color: "text-yellow-500",
+        },
       ],
     },
     {
@@ -535,7 +542,7 @@ export default function CsrDashboard() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-6 overflow-y-auto">
+        <nav className="flex-1 p-4 space-y-6 overflow-y-auto scrollbar-hide">
           {navCategories.map((category) => (
             <div key={category.category}>
               {sidebar && (
@@ -893,6 +900,7 @@ export default function CsrDashboard() {
             {page === "deliverables" && <DeliverablesPage />}
             {page === "cleaners" && <CleanersPage />}
             {page === "deposits" && <DepositsPage />}
+            {page === "discounts" && <DiscountPage />}
             {page === "inventory" && <InventoryPage />}
             {page === "profile" && <ProfilePage user={session?.user as AdminUser} onClose={() => {}} />}
             {page === "activity-logs" && <ActivityLogsPage />}

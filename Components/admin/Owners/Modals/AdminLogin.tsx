@@ -46,6 +46,8 @@ const AdminLogin = () => {
   const turnstileRef = useRef<HTMLDivElement>(null);
   const [showOtpVerification, setShowOtpVerification] = useState(false);
   const [otpEmail, setOtpEmail] = useState("");
+  const [otpPassword, setOtpPassword] = useState("");
+
   const [formData, setFormData] = useState<LoginFormState>({
     email: "",
     password: "",
@@ -107,17 +109,54 @@ const AdminLogin = () => {
     }
   };
 
-  const handleOtpSuccess = () => {
+  const handleOtpSuccess = async () => {
+  try {
+    toast.success("Account verified! Logging you in...");
+
+    const result = await signIn("credentials", {
+      email: otpEmail,
+      password: otpPassword,
+      redirect: false,
+    });
+
+    if (result?.error) {
+      toast.error("Account unlocked, but auto-login failed. Please login again.");
+      setShowOtpVerification(false);
+      return;
+    }
+
+    const { data: session } = await axios.get("/api/auth/session");
+
+    if (!session?.user) {
+      toast.error("Failed to create session. Please login again.");
+      setShowOtpVerification(false);
+      return;
+    }
+
+    const role = session.user.role?.toLowerCase();
+
+    switch (role) {
+      case "csr":
+        router.push("/admin/csr");
+        break;
+      case "owner":
+        router.push("/admin/owners");
+        break;
+      case "partner":
+        router.push("/admin/partners");
+        break;
+      case "cleaner":
+        router.push("/admin/cleaners");
+        break;
+      default:
+        router.push("/admin/owners");
+    }
+  } catch (error) {
+    console.error("Auto-login error:", error);
+    toast.error("Auto-login failed. Please login again.");
     setShowOtpVerification(false);
-    toast.success("Account unlocked! Please login again.");
-    // Reset form but keep email
-    setFormData(prev => ({
-      ...prev,
-      password: "",
-      error: null,
-      turnstileToken: null,
-    }));
-  };
+  }
+};
 
   const handleBackToLogin = () => {
     setShowOtpVerification(false);
@@ -168,15 +207,18 @@ const AdminLogin = () => {
       if (result?.error) {
         // Check if error indicates OTP is required
         if (result.error.includes("Account locked due to multiple failed attempts")) {
-          setOtpEmail(formData.email);
-          setShowOtpVerification(true);
-          setFormData((prev) => ({
-            ...prev,
-            isLoading: false,
-            error: null,
-          }));
-          return;
-        }
+        setOtpEmail(formData.email);
+        setOtpPassword(formData.password); // 🔑 store password
+        setShowOtpVerification(true);
+
+        setFormData((prev) => ({
+          ...prev,
+          isLoading: false,
+          error: null,
+        }));
+        return;
+      }
+
         
         setFormData((prev) => ({
           ...prev,

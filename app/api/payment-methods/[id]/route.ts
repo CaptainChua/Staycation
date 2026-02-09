@@ -7,9 +7,10 @@ import { authOptions } from '@/lib/auth';
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return NextResponse.json(
@@ -18,7 +19,6 @@ export async function PUT(
       );
     }
 
-    const id = params.id;
     const formData = await request.formData();
     
     // Extract form fields
@@ -131,9 +131,10 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return NextResponse.json(
@@ -142,7 +143,6 @@ export async function DELETE(
       );
     }
 
-    const id = params.id;
     const client = await pool.connect();
     
     // Get payment method details before deletion for logging

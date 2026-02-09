@@ -1,4 +1,5 @@
 {
+  "$schema": "https://json.schemastore.org/package",
   "name": "staycation-haven2",
   "version": "0.1.0",
   "private": true,
@@ -27,6 +28,7 @@
     "@types/nodemailer": "^7.0.4",
     "anxious": "^0.0.0-security",
     "axios": "^1.13.2",
+    "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.3",
     "cloudinary": "^2.8.0",
     "critters": "^0.0.23",
@@ -55,7 +57,7 @@
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
-    "@types/node": "^20",
+    "@types/node": "^20.19.31",
     "@types/pg": "^8.15.6",
     "@types/react": "^19",
     "@types/react-dom": "^19",

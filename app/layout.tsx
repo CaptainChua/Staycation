@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, MetadataRoute } from "next";
 import { Inter, Poppins } from "next/font/google";
 import "./globals.css";
 import { Providers } from '@/Components/Providers'
@@ -94,10 +94,13 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       { url: '/favicon.ico', sizes: 'any' },
+      { url: '/favicon-16x16v2.png', sizes: '16x16', type: 'image/png' },
       { url: '/favicon-32x32v2.png', sizes: '32x32', type: 'image/png' },
+      { url: '/android-chrome-196x196v2.png', sizes: '196x196', type: 'image/png' },
+      { url: '/android-chrome-512x512v2.png', sizes: '512x512', type: 'image/png' },
     ],
     apple: [
-      { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+      { url: '/apple-touch-iconv2.png', sizes: '180x180', type: 'image/png' },
     ],
   },
 };
@@ -115,9 +118,12 @@ export default function RootLayout({
           async
           defer
         />
+        <link rel="icon" href="/favicon-16x16v2.png" sizes="16x16" type="image/png" />
+        <link rel="icon" href="/favicon-32x32v2.png" sizes="32x32" type="image/png" />
+        <link rel="icon" href="/android-chrome-196x196v2.png" sizes="196x196" type="image/png" />
+        <link rel="icon" href="/android-chrome-512x512v2.png" sizes="512x512" type="image/png" />
         <link rel="icon" href="/favicon.ico" sizes="any" />
-        <link rel="icon" href="/favicon.ico" type="image/x-icon" sizes="16x16 32x32" />
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <link rel="apple-touch-icon" href="/apple-touch-iconv2.png" />
         <link rel="manifest" href="/site.webmanifest" />
         
         {/* Structured Data for SEO */}

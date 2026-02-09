@@ -82,14 +82,14 @@ const BasicInformationModal = ({
     const isFieldInvalid = isFieldTouched && errors?.[field];
     const isFieldValid = isFieldTouched && !errors?.[field];
 
-    let borderClass = "border-gray-200";
-    if (isFieldInvalid) borderClass = "border-red-500 bg-red-50/10";
-    if (isFieldValid) borderClass = "border-green-500 bg-green-50/10";
+    let borderClass = "border-gray-200 dark:border-gray-700";
+    if (isFieldInvalid) borderClass = "border-red-500 bg-red-50/10 dark:bg-red-900/10";
+    if (isFieldValid) borderClass = "border-green-500 bg-green-50/10 dark:bg-green-900/10";
 
     return {
-      label: "text-sm font-bold text-gray-700 mb-2 ml-1 uppercase tracking-wider",
+      label: "text-sm font-bold text-gray-700 dark:text-gray-300 mb-2 ml-1 uppercase tracking-wider",
       inputWrapper: [
-        "bg-white",
+        "bg-white dark:bg-gray-700",
         `border-2 ${borderClass}`,
         "hover:border-brand-primary/40",
         "focus-within:!border-brand-primary",
@@ -102,8 +102,8 @@ const BasicInformationModal = ({
         "h-14",
         "px-4"
       ].join(" "),
-      input: "text-base font-semibold text-gray-900 placeholder:text-gray-400",
-      errorMessage: "text-xs font-bold text-red-500 mt-1.5 ml-1 animate-in slide-in-from-top-1"
+      input: "text-base font-semibold text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500",
+      errorMessage: "text-xs font-bold text-red-500 dark:text-red-400 mt-1.5 ml-1 animate-in slide-in-from-top-1"
     };
   };
 
@@ -112,14 +112,14 @@ const BasicInformationModal = ({
     const isFieldInvalid = isFieldTouched && errors?.[field];
     const isFieldValid = isFieldTouched && !errors?.[field];
 
-    let borderClass = "border-gray-200";
-    if (isFieldInvalid) borderClass = "border-red-500 bg-red-50/10";
-    if (isFieldValid) borderClass = "border-green-500 bg-green-50/10";
+    let borderClass = "border-gray-200 dark:border-gray-700";
+    if (isFieldInvalid) borderClass = "border-red-500 bg-red-50/10 dark:bg-red-900/10";
+    if (isFieldValid) borderClass = "border-green-500 bg-green-50/10 dark:bg-green-900/10";
 
     return {
-      label: "text-sm font-bold text-gray-700 mb-2 ml-1 uppercase tracking-wider",
+      label: "text-sm font-bold text-gray-700 dark:text-gray-300 mb-2 ml-1 uppercase tracking-wider",
       trigger: [
-        "bg-white",
+        "bg-white dark:bg-gray-700",
         `border-2 ${borderClass}`,
         "hover:border-brand-primary/40",
         "focus-within:!border-brand-primary",
@@ -132,12 +132,12 @@ const BasicInformationModal = ({
         "h-14",
         "px-4"
       ].join(" "),
-      value: "text-base font-semibold text-gray-900"
+      value: "text-base font-semibold text-gray-900 dark:text-gray-100"
     };
   };
 
   return (
-    <div className="bg-white border border-gray-200 rounded-3xl p-8 shadow-sm transition-all duration-[250ms] [transition-timing-function:cubic-bezier(0.4,0,0.2,1)] hover:scale-[1.01] hover:shadow-md will-change-transform">
+    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-3xl p-8 shadow-sm transition-all duration-[250ms] [transition-timing-function:cubic-bezier(0.4,0,0.2,1)] hover:scale-[1.01] hover:shadow-md will-change-transform">
       <div className="space-y-6">
         <Input
           label="Haven Name"

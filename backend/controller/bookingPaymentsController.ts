@@ -304,6 +304,12 @@ export const updateBookingPayment = async (
     let payment_status_effective = payment_status;
     // keep an applied amount copy for activity logging after commit
     let appliedAmountForLog = 0;
+    // Fallback state for older DBs that enforce remaining_balance = total_amount - down_payment.
+    // These variables are populated when handling `collect_amount` so the fallback can
+    // update `down_payment` to satisfy legacy constraints if needed.
+    let prevDownForFallback: number | null = null;
+    let fallbackNewAmountPaid: number | null = null;
+    let fallbackNewRemaining: number | null = null;
     const collectAmountRaw =
       typeof collect_amount !== "undefined" ? collect_amount : undefined;
 
@@ -340,7 +346,7 @@ export const updateBookingPayment = async (
       // when the collected amount matches the submitted down payment (i.e. this
       // is an approval of a submitted payment). Otherwise, reject as insufficient.
       if (collectAmount < actualPrevRemaining) {
-        if (Number(cur.down_payment ?? 0) !== collectAmount) {
+        if (prevDown !== collectAmount) {
           await client.query("ROLLBACK");
           return NextResponse.json(
             {
@@ -360,12 +366,22 @@ export const updateBookingPayment = async (
       // Keep a copy to include in employee activity logs after the transaction commits
       appliedAmountForLog = appliedAmount;
 
-      const newDown = prevDown + appliedAmount;
-      // remaining_balance must equal total_amount - down_payment to satisfy DB constraint
-      const newRemaining = curTotalAmount - newDown;
+      const newAmountPaid = prevAmountPaid + appliedAmount;
+      const newRemaining = Math.max(0, actualPrevRemaining - appliedAmount);
 
-      // Update with computed incremental values
-      pushField("down_payment", newDown);
+      // Save fallback values for compatibility with older DB schemas that tie
+      // remaining_balance to down_payment. These are used only if the update
+      // fails due to a check-constraint violation.
+      prevDownForFallback = prevDown;
+      fallbackNewAmountPaid = newAmountPaid;
+      fallbackNewRemaining = newRemaining;
+
+      // Update with computed incremental values.
+      // Note: Do not modify the original submitted down_payment here — it should
+      // represent the original down payment and remain unchanged when collecting
+      // additional amounts. Only update cumulative fields like amount_paid and
+      // remaining_balance.
+      pushField("amount_paid", newAmountPaid);
       pushField("remaining_balance", newRemaining);
 
       // Default to approving the payment if payment_status wasn't provided explicitly
@@ -464,17 +480,145 @@ export const updateBookingPayment = async (
     `;
     values.push(id);
 
-    const updateRes = await client.query(query, values);
+    // Execute update and provide a fallback for older DBs that enforce
+    // remaining_balance = total_amount - down_payment (check constraint).
+    let updateRes;
+    let updatedPayment;
+    try {
+      updateRes = await client.query(query, values);
+      if (updateRes.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return NextResponse.json(
+          { success: false, error: "Booking payment not found" },
+          { status: 404 },
+        );
+      }
+      updatedPayment = updateRes.rows[0];
+    } catch (err) {
+      // Detect Postgres check-constraint violation (SQLSTATE 23514) or message text.
+      const errObj = (err as Record<string, unknown>) || {};
+      const errCode =
+        typeof errObj["code"] === "string" ? (errObj["code"] as string) : null;
+      const errMsg =
+        typeof errObj["message"] === "string"
+          ? (errObj["message"] as string)
+          : String(err);
+      const isCheckViolation =
+        errCode === "23514" || /violates check constraint/i.test(errMsg);
 
-    if (updateRes.rows.length === 0) {
-      await client.query("ROLLBACK");
-      return NextResponse.json(
-        { success: false, error: "Booking payment not found" },
-        { status: 404 },
-      );
+      if (isCheckViolation && prevDownForFallback !== null) {
+        // If this was a full settlement (i.e. the applied collection would reduce
+        // the remaining balance to zero), DO NOT perform the compatibility fallback
+        // that mutates `down_payment`. Mutating `down_payment` on full settlement
+        // changes the original down payment, which is not allowed. Instead, rollback
+        // and return a clear, actionable error. This forces a schema migration to
+        // the amount_paid-based model (preferred long-term).
+        if (Number(fallbackNewRemaining ?? 0) === 0) {
+          try {
+            await client.query("ROLLBACK");
+          } catch (_) {}
+
+          console.error(
+            "❌ Approve blocked by booking_payments check constraint: approving the full remaining balance would require mutating down_payment. Please run the DB migration to make remaining_balance derive from amount_paid (see backend/migrations/2026-01-30-fix-booking-payments.sql).",
+          );
+
+          return NextResponse.json(
+            {
+              success: false,
+              error:
+                "Cannot approve payment: database schema requires changing down_payment to reflect the applied amount. This operation would mutate the original down payment. Please run the migration to use amount_paid for remaining_balance (backend/migrations/2026-01-30-fix-booking-payments.sql) and try again.",
+            },
+            { status: 409 },
+          );
+        }
+
+        // Attempt fallback that also updates down_payment to satisfy legacy constraint
+        // (only allowed for non-full-settlement partial approvals for backward compatibility).
+        try {
+          await client.query("ROLLBACK");
+        } catch (_) {}
+
+        try {
+          await client.query("BEGIN");
+          const newDownFallback = prevDownForFallback + appliedAmountForLog;
+          const fbParts: string[] = [];
+          const fbValues: unknown[] = [];
+          let j = 1;
+
+          fbParts.push(`amount_paid = $${j++}`);
+          fbValues.push(fallbackNewAmountPaid ?? 0);
+
+          fbParts.push(`remaining_balance = $${j++}`);
+          fbValues.push(fallbackNewRemaining ?? 0);
+
+          fbParts.push(`down_payment = $${j++}`);
+          fbValues.push(newDownFallback);
+
+          if (typeof payment_status_effective !== "undefined") {
+            fbParts.push(`payment_status = $${j++}`);
+            fbValues.push(payment_status_effective ?? null);
+          }
+
+          if (typeof reviewed_by !== "undefined") {
+            fbParts.push(`reviewed_by = $${j++}`);
+            fbValues.push(reviewed_by ?? null);
+          }
+
+          if (
+            typeof reviewed_by !== "undefined" ||
+            typeof payment_status_effective !== "undefined"
+          ) {
+            fbParts.push(`reviewed_at = NOW()`);
+          }
+
+          const fbQuery = `
+            UPDATE booking_payments
+            SET ${fbParts.join(", ")}
+            WHERE id = $${j}
+            RETURNING *
+          `;
+          fbValues.push(id);
+
+          const fbRes = await client.query(fbQuery, fbValues);
+
+          if (fbRes.rows.length === 0) {
+            await client.query("ROLLBACK");
+            return NextResponse.json(
+              { success: false, error: "Booking payment not found" },
+              { status: 404 },
+            );
+          }
+
+          updatedPayment = fbRes.rows[0];
+        } catch (fbErr) {
+          await client.query("ROLLBACK").catch(() => {});
+          console.error("❌ Fallback update failed:", fbErr);
+          return NextResponse.json(
+            {
+              success: false,
+              error:
+                fbErr instanceof Error
+                  ? fbErr.message
+                  : "Failed to update booking payment (fallback)",
+            },
+            { status: 500 },
+          );
+        }
+      } else {
+        await client.query("ROLLBACK").catch(() => {});
+        console.error("❌ Error updating booking payment:", err);
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              err instanceof Error
+                ? err.message
+                : "Failed to update booking payment",
+          },
+          { status: 500 },
+        );
+      }
     }
-
-    const updatedPayment = updateRes.rows[0];
 
     // If payment_status_effective is rejected, update booking.status to rejected.
     // If payment_status_effective is approved and remaining_balance is zero, mark booking as approved (fully paid).

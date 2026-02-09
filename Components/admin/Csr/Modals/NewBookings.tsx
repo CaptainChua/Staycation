@@ -8,7 +8,6 @@
 
 import { useEffect, useState, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { useSession } from "next-auth/react";
 import {
   Calendar,
   Mail,
@@ -73,7 +72,7 @@ interface NewBookingModalProps {
     stay_type?: string;
     guests?: unknown;
   };
-  onSuccess?: () => void;
+  onSuccess?: (result?: { mode: "create" | "update"; id?: string; booking_id: string }) => void;
 }
 
 interface Haven {
@@ -132,9 +131,6 @@ const statusOptions = ["pending", "approved", "declined", "checked-in", "checked
 const paymentMethods = ["cash", "gcash", "bank-transfer", "credit-card"];
 
 export default function NewBookingModal({ onClose, initialBooking, onSuccess }: NewBookingModalProps) {
-  const { data: session } = useSession();
-  const employeeId = session?.user?.id;
-
   const [isMounted, setIsMounted] = useState(false);
   const [createBooking, { isLoading: isCreating }] = useCreateBookingMutation();
   const [updateBooking, { isLoading: isUpdating }] = useUpdateBookingStatusMutation();
@@ -186,27 +182,6 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
     guestKit: 0,
     extraSlippers: 0,
   });
-
-  const logEmployeeActivity = async (action: string, details: string, bookingId?: string) => {
-    if (!employeeId) return;
-    try {
-      await fetch('/api/admin/employee-activity', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          employeeId,
-          action,
-          details,
-          entityType: 'booking',
-          entityId: bookingId,
-        }),
-      });
-    } catch {
-      // ignore
-    }
-  };
 
   // If editing, fetch full booking details to ensure we can prefill everything
   useEffect(() => {
@@ -490,6 +465,51 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
     }));
   };
 
+  const validateTimes = (checkIn: string, checkOut: string, isSameDay: boolean) => {
+    if (!checkIn || !checkOut) return true;
+    if (!isSameDay) return true; // Different days, any time is technically valid for check-out
+
+    const [inH, inM] = checkIn.split(':').map(Number);
+    const [outH, outM] = checkOut.split(':').map(Number);
+    
+    const inTotal = inH * 60 + inM;
+    const outTotal = outH * 60 + outM;
+
+    // For same day, check-out must be after check-in
+    // Exception: 00:00 (midnight) is often considered next day in UI but 0 in value
+    if (outTotal === 0 && inTotal > 0) return true; 
+    
+    return outTotal > inTotal;
+  };
+
+  const handleTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    const isSameDay = checkInDate === checkOutDate;
+
+    setFormData(prev => {
+      const newFormData = { ...prev, [name]: value };
+      
+      // Auto-adjust if invalid
+      if (name === "checkInTime" && isSameDay) {
+        if (!validateTimes(value, prev.checkOutTime, true)) {
+          // If check-in is moved after check-out, push check-out forward or to next day
+          const [h, m] = value.split(':').map(Number);
+          const newOutH = (h + 2) % 24;
+          newFormData.checkOutTime = `${String(newOutH).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+          
+          if (newOutH < h) {
+            // Moved to next day, update checkOutDate if possible
+            const d = new Date(checkInDate);
+            d.setDate(d.getDate() + 1);
+            setCheckOutDate(d.toISOString().split('T')[0]);
+          }
+        }
+      }
+
+      return newFormData;
+    });
+  };
+
   const handleAddOnChange = (item: keyof AddOns, increment: boolean) => {
     setAddOns((prev) => ({
       ...prev,
@@ -706,16 +726,14 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
           id: initialBooking.id,
           ...bookingData,
         }).unwrap();
-        logEmployeeActivity('UPDATE_BOOKING', `Updated booking ${bookingIdState}`, initialBooking.id);
         toast.success("Booking updated successfully!");
+        onSuccess?.({ mode: "update", id: initialBooking.id, booking_id: bookingIdState });
       } else {
         const created = await createBooking(bookingData).unwrap();
         const createdId = (created as any)?.data?.id as string | undefined;
-        logEmployeeActivity('CREATE_BOOKING', `Created booking ${bookingIdState}`, createdId);
         toast.success("You've successfully added booking!");
+        onSuccess?.({ mode: "create", id: createdId, booking_id: bookingIdState });
       }
-
-      onSuccess?.();
       onClose();
     } catch (error) {
       const message = getApiErrorMessage(error);
@@ -1359,7 +1377,7 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                         name="checkInTime"
                         value={formData.checkInTime}
                         onChange={(e) => {
-                          handleInputChange(e);
+                          handleTimeChange(e);
                           setErrors(prev => ({...prev, checkInTime: ''}));
                         }}
                         className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
@@ -1383,7 +1401,7 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                         name="checkOutTime"
                         value={formData.checkOutTime}
                         onChange={(e) => {
-                          handleInputChange(e);
+                          handleTimeChange(e);
                           setErrors(prev => ({...prev, checkOutTime: ''}));
                         }}
                         className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
