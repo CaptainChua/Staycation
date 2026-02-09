@@ -32,7 +32,7 @@ export const createBookingPayment = async (
       total_amount,
       down_payment,
       amount_paid,
-      remaining_balance,
+      // remaining_balance is computed, not used from body
     } = body;
 
     if (!booking_id) {
@@ -58,9 +58,10 @@ export const createBookingPayment = async (
     const computedDown = Number(down_payment) || 0;
     const computedRemaining = computedTotal - computedDown;
     // amount_paid defaults to down_payment if not provided
-    const computedAmountPaid = typeof amount_paid !== "undefined" && amount_paid !== null
-      ? Number(amount_paid)
-      : computedDown;
+    const computedAmountPaid =
+      typeof amount_paid !== "undefined" && amount_paid !== null
+        ? Number(amount_paid)
+        : computedDown;
 
     const insertQuery = `
       INSERT INTO booking_payments (
@@ -325,7 +326,7 @@ export const updateBookingPayment = async (
 
       // Lock and read the current payment row so we can compute applied amount safely
       const currentRes = await client.query(
-        `SELECT down_payment, remaining_balance, total_amount FROM booking_payments WHERE id = $1 FOR UPDATE`,
+        `SELECT down_payment, remaining_balance, total_amount, amount_paid FROM booking_payments WHERE id = $1 FOR UPDATE`,
         [id],
       );
 
@@ -339,8 +340,8 @@ export const updateBookingPayment = async (
 
       const cur = currentRes.rows[0];
       const prevDown = Number(cur.down_payment ?? 0);
-      const curTotalAmount = Number(cur.total_amount ?? 0);
       const actualPrevRemaining = Number(cur.remaining_balance ?? 0);
+      const prevAmountPaid = Number(cur.amount_paid ?? 0);
 
       // If collecting less than the outstanding remaining balance, only allow it
       // when the collected amount matches the submitted down payment (i.e. this
@@ -391,7 +392,10 @@ export const updateBookingPayment = async (
     } else {
       // No collect_amount provided - allow direct updates to these fields
       // But we must ensure remaining_balance = total_amount - down_payment constraint
-      if (typeof down_payment !== "undefined" || typeof total_amount !== "undefined") {
+      if (
+        typeof down_payment !== "undefined" ||
+        typeof total_amount !== "undefined"
+      ) {
         // If down_payment or total_amount changes, we need to recalculate remaining_balance
         // Fetch current values first
         const currentRes = await client.query(
@@ -400,8 +404,14 @@ export const updateBookingPayment = async (
         );
         if (currentRes.rows.length > 0) {
           const cur = currentRes.rows[0];
-          const newTotal = typeof total_amount !== "undefined" ? Number(total_amount) : Number(cur.total_amount ?? 0);
-          const newDown = typeof down_payment !== "undefined" ? Number(down_payment) : Number(cur.down_payment ?? 0);
+          const newTotal =
+            typeof total_amount !== "undefined"
+              ? Number(total_amount)
+              : Number(cur.total_amount ?? 0);
+          const newDown =
+            typeof down_payment !== "undefined"
+              ? Number(down_payment)
+              : Number(cur.down_payment ?? 0);
           const newRemaining = newTotal - newDown;
 
           pushField("down_payment", newDown);
@@ -685,8 +695,7 @@ export const updateBookingPayment = async (
             guests: `${booking.adults} Adults, ${booking.children} Children, ${booking.infants} Infants`,
             paymentMethod:
               booking.payment_method || updatedPayment.payment_method,
-            downPayment:
-              booking.down_payment ?? updatedPayment.down_payment,
+            downPayment: booking.down_payment ?? updatedPayment.down_payment,
             totalAmount: booking.total_amount || updatedPayment.total_amount,
           };
 
