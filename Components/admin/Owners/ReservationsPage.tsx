@@ -23,6 +23,8 @@ import {
   useUpdateBookingStatusMutation,
 } from "@/redux/api/bookingsApi";
 import { Booking, AdditionalGuest } from "@/types/booking";
+import NewReservationModal from "./NewReservationModal";
+import toast from "react-hot-toast";
 
 const ReservationsPage = () => {
   const [filter, setFilter] = useState("all");
@@ -30,9 +32,18 @@ const ReservationsPage = () => {
   const [itemsPerPage, setItemsPerPage] = useState(5);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const { data, isLoading, refetch } = useGetBookingsQuery({});
+  const { data, isLoading, refetch } = useGetBookingsQuery(
+    {},
+    {
+      pollingInterval: 5000,
+      skipPollingIfUnfocused: true,
+      refetchOnFocus: true,
+      refetchOnReconnect: true,
+    }
+  );
   const [updateBookingStatus] = useUpdateBookingStatusMutation();
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [isNewReservationModalOpen, setIsNewReservationModalOpen] = useState(false);
 
   const reservations: Booking[] = data ?? [];
 
@@ -54,7 +65,9 @@ const ReservationsPage = () => {
 
   const handleApprove = async (bookingId: string) => {
     try {
-      await updateBookingStatus({
+      console.log('🔄 Approving booking:', bookingId);
+      
+      const result = await updateBookingStatus({
         id: bookingId,
         status: "approved",
       }).unwrap();
@@ -71,7 +84,9 @@ const ReservationsPage = () => {
     const reason = prompt("Please enter rejection reason:");
     if (!reason) return;
     try {
-      await updateBookingStatus({
+      console.log('🔄 Rejecting booking:', bookingId, 'Reason:', reason);
+      
+      const result = await updateBookingStatus({
         id: bookingId,
         status: "rejected",
         rejection_reason: reason,
@@ -93,16 +108,22 @@ const ReservationsPage = () => {
         return;
       }
 
-      await updateBookingStatus({
+      const mainGuest = booking.main_guest || booking.guests?.[0];
+
+      // Update booking status
+      const updateResult = await updateBookingStatus({
         id: bookingId,
         status: "checked-in",
       }).unwrap();
 
+      console.log('✅ Check-in status updated:', updateResult);
+
+      // Send check-in email
       try {
         const emailData = {
-          firstName: booking.guest_first_name,
-          lastName: booking.guest_last_name,
-          email: booking.guest_email,
+          firstName: mainGuest?.first_name || 'Guest',
+          lastName: mainGuest?.last_name || '',
+          email: mainGuest?.email || '',
           bookingId: booking.booking_id,
           roomName: booking.room_name,
           checkInDate: formatDateSafe(booking.check_in_date),
@@ -141,16 +162,23 @@ const ReservationsPage = () => {
         return;
       }
 
-      await updateBookingStatus({
+      const mainGuest = booking.main_guest || booking.guests?.[0];
+      const payment = booking.payment;
+
+      // Update booking status
+      const updateResult = await updateBookingStatus({
         id: bookingId,
         status: "completed",
       }).unwrap();
 
+      console.log('✅ Check-out status updated:', updateResult);
+
+      // Send check-out email
       try {
         const emailData = {
-          firstName: booking.guest_first_name,
-          lastName: booking.guest_last_name,
-          email: booking.guest_email,
+          firstName: mainGuest?.first_name || 'Guest',
+          lastName: mainGuest?.last_name || '',
+          email: mainGuest?.email || '',
           bookingId: booking.booking_id,
           roomName: booking.room_name,
           checkInDate: formatDateSafe(booking.check_in_date),
@@ -184,18 +212,18 @@ const ReservationsPage = () => {
     switch (status) {
       case "approved":
       case "confirmed":
-        return "bg-green-100 text-green-700";
+        return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
       case "pending":
-        return "bg-yellow-100 text-yellow-700";
+        return "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400";
       case "checked-in":
-        return "bg-blue-100 text-blue-700";
+        return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400";
       case "completed":
-        return "bg-gray-100 text-gray-700";
+        return "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300";
       case "rejected":
       case "cancelled":
-        return "bg-red-100 text-red-700";
+        return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400";
       default:
-        return "bg-gray-100 text-gray-700";
+        return "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300";
     }
   };
 
@@ -224,12 +252,40 @@ const ReservationsPage = () => {
   const endIndex = startIndex + itemsPerPage;
   const currentReservations = filteredReservations.slice(startIndex, endIndex);
 
-  const handleViewDetails = (booking: Booking) => {
-    setSelectedBooking(booking);
+  const handleViewDetails = async (booking: Booking) => {
+    try {
+      console.log('🔍 Viewing details for booking:', booking.id);
+      
+      // Fetch complete booking data with all related tables
+      const response = await fetch(`/api/bookings/${booking.id}`);
+      const result = await response.json();
+      
+      console.log('📥 Fetched complete booking:', result);
+      
+      if (result.success) {
+        setSelectedBooking(result.data);
+      } else {
+        toast.error('Failed to load booking details');
+      }
+    } catch (error) {
+      console.error('❌ Error loading booking details:', error);
+      toast.error('Failed to load booking details');
+    }
   };
 
   const closeModal = () => {
     setSelectedBooking(null);
+  };
+
+  const handleNewReservation = async (formData: any) => {
+    try {
+      // Refresh the bookings list after a new reservation is created
+      refetch();
+      toast.success("New reservation created successfully!");
+    } catch (error) {
+      console.error("Error creating reservation:", error);
+      toast.error("Failed to create reservation");
+    }
   };
 
   const goToFirstPage = () => setCurrentPage(1);
@@ -238,13 +294,24 @@ const ReservationsPage = () => {
     setCurrentPage((prev) => Math.min(prev + 1, totalPages));
   const goToPrevPage = () => setCurrentPage((prev) => Math.max(prev - 1, 1));
 
+  const statusCardsData = [
+    { key: 'pending', label: 'Pending', bg: 'bg-yellow-400 text-white', icon: <AlertCircle className="w-14 h-14" /> },
+    { key: 'approved', label: 'Approved', bg: 'bg-green-500 text-white', icon: <Check className="w-14 h-14" /> },
+    { key: 'confirmed', label: 'Confirmed', bg: 'bg-emerald-500 text-white', icon: <Calendar className="w-14 h-14" /> },
+    { key: 'checked-in', label: 'Checked In', bg: 'bg-blue-500 text-white', icon: <MapPin className="w-14 h-14" /> },
+    { key: 'completed', label: 'Completed', bg: 'bg-gray-500 text-white', icon: <Package className="w-14 h-14" /> },
+    { key: 'rejected', label: 'Rejected', bg: 'bg-red-500 text-white', icon: <X className="w-14 h-14" /> },
+    { key: 'cancelled', label: 'Cancelled', bg: 'bg-red-600 text-white', icon: <XCircle className="w-14 h-14" /> },
+  ];
+
   return (
     <>
       {/* Details Modal */}
       {selectedBooking && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-gradient-to-r from-orange-500 to-yellow-500 text-white p-6 rounded-t-2xl flex justify-between items-center">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto border border-slate-200 dark:border-slate-800">
+            {/* Header */}
+            <div className="sticky top-0 bg-[#a1823d] text-white p-6 rounded-t-2xl flex justify-between items-center z-10">
               <div>
                 <h2 className="text-2xl font-bold">Booking Details</h2>
                 <p className="text-sm opacity-90">
@@ -260,6 +327,7 @@ const ReservationsPage = () => {
             </div>
 
             <div className="p-6 space-y-6">
+              {/* Status Badge */}
               <div className="flex justify-center">
                 <span
                   className={`px-6 py-2 rounded-full text-sm font-semibold ${getStatusColor(selectedBooking.status)}`}
@@ -268,48 +336,49 @@ const ReservationsPage = () => {
                 </span>
               </div>
 
-              <div className="bg-gray-50 rounded-lg p-6">
-                <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                  <User className="w-5 h-5 text-orange-500" />
+              {/* Main Guest Information */}
+              <div className="bg-slate-100 dark:bg-[#334155] rounded-lg p-6 border border-slate-200 dark:border-[#475569]">
+                <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
+                  <User className="w-5 h-5 text-[#d4a574]" />
                   Main Guest Information
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <p className="text-sm text-gray-500">Full Name</p>
-                    <p className="font-semibold text-gray-800">
+                    <p className="text-sm text-slate-500 dark:text-gray-400">Full Name</p>
+                    <p className="font-semibold text-slate-900 dark:text-gray-100">
                       {selectedBooking.guest_first_name}{" "}
                       {selectedBooking.guest_last_name}
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">Email</p>
-                    <p className="font-semibold text-gray-800">
+                    <p className="text-sm text-slate-500 dark:text-gray-400">Email</p>
+                    <p className="font-semibold text-slate-900 dark:text-gray-100">
                       {selectedBooking.guest_email}
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">Phone</p>
-                    <p className="font-semibold text-gray-800">
+                    <p className="text-sm text-slate-500 dark:text-gray-400">Phone</p>
+                    <p className="font-semibold text-slate-900 dark:text-gray-100">
                       {selectedBooking.guest_phone}
                     </p>
                   </div>
 
                   {selectedBooking.guest_gender && (
                     <div>
-                      <p className="text-sm text-gray-500">Gender</p>
-                      <p className="font-semibold text-gray-800 capitalize">
+                      <p className="text-sm text-slate-500 dark:text-gray-400">Gender</p>
+                      <p className="font-semibold text-slate-900 dark:text-gray-100 capitalize">
                         {selectedBooking.guest_gender}
                       </p>
                     </div>
                   )}
                   {selectedBooking.facebook_link && (
                     <div>
-                      <p className="text-sm text-gray-500">Facebook</p>
+                      <p className="text-sm text-slate-500 dark:text-gray-400">Facebook</p>
                       <a
                         href={selectedBooking.facebook_link}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="font-semibold text-blue-600 hover:underline"
+                        className="font-semibold text-blue-600 dark:text-blue-400 hover:underline"
                       >
                         View Profile
                       </a>
@@ -318,12 +387,12 @@ const ReservationsPage = () => {
                 </div>
 
                 {selectedBooking.valid_id_url && (
-                  <div className="mt-6 pt-6 border-t border-gray-200">
-                    <h4 className="text-md font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                      <CreditCard className="w-4 h-4 text-blue-600" />
+                  <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-700">
+                    <h4 className="text-md font-semibold text-slate-800 dark:text-white mb-3 flex items-center gap-2">
+                      <CreditCard className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                       Valid ID
                     </h4>
-                    <div className="relative w-full max-w-md h-64 bg-gray-200 rounded-lg overflow-hidden">
+                    <div className="relative w-full max-w-md h-64 bg-slate-200 dark:bg-slate-800 rounded-lg overflow-hidden border border-slate-300 dark:border-slate-600">
                       <Image
                         src={selectedBooking.valid_id_url}
                         alt="Main Guest Valid ID"
@@ -335,7 +404,7 @@ const ReservationsPage = () => {
                       href={selectedBooking.valid_id_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="mt-2 inline-block text-blue-600 hover:underline text-sm"
+                      className="mt-2 inline-block text-blue-600 dark:text-blue-400 hover:underline text-sm"
                     >
                       Open in new tab →
                     </a>
@@ -344,8 +413,8 @@ const ReservationsPage = () => {
               </div>
 
               {selectedBooking.additional_guests?.length ? (
-                <div className="bg-gray-50 rounded-lg p-6">
-                  <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-6 border border-slate-200 dark:border-slate-700">
+                  <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
                     <User className="w-5 h-5 text-orange-500" />
                     Additional Guests (
                     {selectedBooking.additional_guests.length})
@@ -364,34 +433,34 @@ const ReservationsPage = () => {
                           return (
                             <div
                               key={index}
-                              className="bg-white rounded-lg p-4 border border-gray-200"
+                              className="bg-white dark:bg-slate-900 rounded-lg p-4 border border-slate-200 dark:border-slate-800"
                             >
-                              <h4 className="font-semibold text-orange-600 mb-3">
+                              <h4 className="font-semibold text-orange-600 dark:text-orange-400 mb-3">
                                 {guestType}
                               </h4>
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 <div>
-                                  <p className="text-sm text-gray-500">
+                                  <p className="text-sm text-slate-500 dark:text-gray-400">
                                     Full Name
                                   </p>
-                                  <p className="font-semibold text-gray-800">
+                                  <p className="font-semibold text-slate-900 dark:text-gray-100">
                                     {guest.firstName} {guest.lastName}
                                   </p>
                                 </div>
                                 {guest.age && (
                                   <div>
-                                    <p className="text-sm text-gray-500">Age</p>
-                                    <p className="font-semibold text-gray-800">
+                                    <p className="text-sm text-slate-500 dark:text-gray-400">Age</p>
+                                    <p className="font-semibold text-slate-900 dark:text-gray-100">
                                       {guest.age} years old
                                     </p>
                                   </div>
                                 )}
                                 {guest.gender && (
                                   <div>
-                                    <p className="text-sm text-gray-500">
+                                    <p className="text-sm text-slate-500 dark:text-gray-400">
                                       Gender
                                     </p>
-                                    <p className="font-semibold text-gray-800 capitalize">
+                                    <p className="font-semibold text-slate-900 dark:text-gray-100 capitalize">
                                       {guest.gender}
                                     </p>
                                   </div>
@@ -399,12 +468,12 @@ const ReservationsPage = () => {
                               </div>
 
                               {guest.validIdUrl && (
-                                <div className="mt-4 pt-4 border-t border-gray-100">
-                                  <h5 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                                    <CreditCard className="w-4 h-4 text-blue-600" />
+                                <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+                                  <h5 className="text-sm font-semibold text-slate-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                                    <CreditCard className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                                     Valid ID
                                   </h5>
-                                  <div className="relative w-full max-w-sm h-48 bg-gray-200 rounded-lg overflow-hidden">
+                                  <div className="relative w-full max-w-sm h-48 bg-slate-200 dark:bg-slate-800 rounded-lg overflow-hidden border border-slate-300 dark:border-slate-700">
                                     <Image
                                       src={guest.validIdUrl}
                                       alt={`${guest.firstName} ${guest.lastName} Valid ID`}
@@ -416,7 +485,7 @@ const ReservationsPage = () => {
                                     href={guest.validIdUrl}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="mt-2 inline-block text-blue-600 hover:underline text-sm"
+                                    className="mt-2 inline-block text-blue-600 dark:text-blue-400 hover:underline text-sm"
                                   >
                                     Open in new tab →
                                   </a>
@@ -481,7 +550,7 @@ const ReservationsPage = () => {
 
                 <button
                   onClick={closeModal}
-                  className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="px-6 py-3 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-gray-300 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                 >
                   Close
                 </button>
@@ -494,14 +563,17 @@ const ReservationsPage = () => {
       <div className="space-y-6 animate-in fade-in duration-700">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-gray-800 mb-2">
+            <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-2">
               Reservations
             </h1>
-            <p className="text-gray-600">
+            <p className="text-gray-600 dark:text-gray-400">
               Manage all your bookings and reservations
             </p>
           </div>
-          <button className="px-6 py-3 bg-gradient-to-r from-orange-500 to-yellow-500 text-white rounded-lg font-semibold hover:shadow-lg transition-all">
+          <button 
+            onClick={() => setIsNewReservationModalOpen(true)}
+            className="px-6 py-3 bg-yellow-600 text-white rounded-lg font-semibold hover:bg-yellow-700 transition-colors"
+          >
             + New Reservation
           </button>
         </div>
@@ -569,17 +641,17 @@ const ReservationsPage = () => {
           })}
         </div>
 
-        <div className="bg-white rounded-xl shadow-md p-4 border border-gray-200">
+        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-md p-4 border border-gray-200 dark:border-slate-800">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
             <div className="flex items-center gap-2">
-              <label className="text-sm text-gray-600">Show</label>
+              <label className="text-sm text-gray-600 dark:text-gray-400">Show</label>
               <select
                 value={itemsPerPage}
                 onChange={(e) => {
                   setItemsPerPage(Number(e.target.value));
                   setCurrentPage(1);
                 }}
-                className="border rounded-md px-2 py-1 text-sm"
+                className="border rounded-md px-2 py-1 text-sm dark:bg-slate-800 dark:border-slate-700 dark:text-gray-200"
               >
                 <option value={5}>5</option>
                 <option value={10}>10</option>
@@ -597,7 +669,7 @@ const ReservationsPage = () => {
                   setCurrentPage(1);
                 }}
                 placeholder="Search by booking ID or guest name..."
-                className="w-full border rounded-lg px-4 py-2 text-sm"
+                className="w-full border rounded-lg px-4 py-2 text-sm dark:bg-slate-800 dark:border-slate-700 dark:text-gray-200 focus:ring-2 focus:ring-yellow-500 outline-none"
               />
             </div>
 
@@ -608,7 +680,7 @@ const ReservationsPage = () => {
                   setFilter(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="border rounded-lg px-3 py-2 text-sm w-full"
+                className="border rounded-lg px-3 py-2 text-sm w-full dark:bg-slate-800 dark:border-slate-700 dark:text-gray-200"
               >
                 {[
                   "all",
@@ -635,58 +707,58 @@ const ReservationsPage = () => {
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500" />
             </div>
           ) : filteredReservations.length === 0 ? (
-            <div className="bg-white rounded-2xl shadow-lg p-12 border border-gray-200 text-center">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-lg p-12 border border-gray-200 dark:border-slate-800 text-center">
               <AlertCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-gray-800 mb-2">
+              <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-2">
                 No Reservations Found
               </h3>
-              <p className="text-gray-600">
+              <p className="text-gray-600 dark:text-gray-400">
                 There are no {filter !== "all" ? filter : ""} reservations at
                 the moment.
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[1100px]">
-                <thead className="bg-gray-50 border-b border-gray-200">
+            <div className="overflow-x-auto overflow-y-visible">
+              <table className="w-full min-w-[1400px]">
+                <thead className="bg-gray-50 dark:bg-slate-800 border-b-2 border-gray-200 dark:border-slate-700">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-tight">
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-tight">
                       ID
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-tight">
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-tight">
                       Guest
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-tight">
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-tight">
                       Haven
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-tight">
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-tight">
                       Check-In
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-tight">
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-tight">
                       Check-Out
                     </th>
-                    <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-tight">
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-tight">
                       Guests
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-tight">
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-tight">
                       Status
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-tight">
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-tight">
                       Amount
                     </th>
-                    <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-tight">
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-tight">
                       Actions
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-100">
+                <tbody className="bg-white dark:bg-slate-900 divide-y divide-gray-100 dark:divide-slate-800">
                   {currentReservations.map((reservation) => (
                     <tr
                       key={reservation.id}
-                      className="hover:bg-gray-50 transition-colors"
+                      className="hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors"
                     >
                       <td className="px-2 py-1.5 whitespace-nowrap">
-                        <span className="text-xs font-medium text-gray-900">
+                        <span className="text-xs font-medium text-gray-900 dark:text-gray-100">
                           {reservation.booking_id}
                         </span>
                       </td>
@@ -694,21 +766,21 @@ const ReservationsPage = () => {
                         <div className="flex items-start gap-1.5 min-w-[140px]">
                           <User className="w-3.5 h-3.5 text-gray-400 flex-shrink-0 mt-0.5" />
                           <div className="min-w-0">
-                            <div className="text-xs font-medium text-gray-900 truncate">
+                            <div className="text-xs font-medium text-gray-900 dark:text-gray-100 truncate">
                               {reservation.guest_first_name}{" "}
                               {reservation.guest_last_name}
                             </div>
-                            <div className="text-[10px] text-gray-500 truncate">
+                            <div className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
                               {reservation.guest_email}
                             </div>
-                            <div className="text-[10px] text-gray-500">
+                            <div className="text-[10px] text-gray-500 dark:text-gray-400">
                               {reservation.guest_phone}
                             </div>
                           </div>
                         </div>
                       </td>
                       <td className="px-2 py-1.5 whitespace-nowrap">
-                        <div className="flex items-center gap-1 text-xs text-gray-600">
+                        <div className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
                           <MapPin className="w-3.5 h-3.5 text-orange-500 flex-shrink-0" />
                           <span className="truncate max-w-[80px]">
                             {reservation.room_name || "N/A"}
@@ -716,28 +788,28 @@ const ReservationsPage = () => {
                         </div>
                       </td>
                       <td className="px-2 py-1.5 whitespace-nowrap">
-                        <div className="text-xs font-medium text-gray-900">
+                        <div className="text-xs font-medium text-gray-900 dark:text-gray-100">
                           {formatShortDate(reservation.check_in_date)}
                         </div>
-                        <div className="text-[10px] text-gray-500">
+                        <div className="text-[10px] text-gray-500 dark:text-gray-400">
                           {reservation.check_in_time}
                         </div>
                       </td>
                       <td className="px-2 py-1.5 whitespace-nowrap">
-                        <div className="text-xs font-medium text-gray-900">
+                        <div className="text-xs font-medium text-gray-900 dark:text-gray-100">
                           {formatShortDate(reservation.check_out_date)}
                         </div>
-                        <div className="text-[10px] text-gray-500">
+                        <div className="text-[10px] text-gray-500 dark:text-gray-400">
                           {reservation.check_out_time}
                         </div>
                       </td>
                       <td className="px-2 py-1.5 whitespace-nowrap text-center">
-                        <div className="text-base font-bold text-gray-900">
+                        <div className="text-base font-bold text-gray-900 dark:text-white">
                           {(reservation.adults || 0) +
                             (reservation.children || 0) +
                             (reservation.infants || 0)}
                         </div>
-                        <div className="text-[10px] text-gray-500">
+                        <div className="text-[10px] text-gray-500 dark:text-gray-400">
                           A:{reservation.adults || 0} C:
                           {reservation.children || 0} I:
                           {reservation.infants || 0}
@@ -751,10 +823,10 @@ const ReservationsPage = () => {
                         </span>
                       </td>
                       <td className="px-2 py-1.5 whitespace-nowrap">
-                        <div className="text-xs font-bold text-gray-900">
+                        <div className="text-xs font-bold text-gray-900 dark:text-white">
                           ₱{Number(reservation.total_amount).toLocaleString()}
                         </div>
-                        <div className="text-[10px] text-orange-600">
+                        <div className="text-[10px] text-orange-600 dark:text-orange-400">
                           Bal: ₱
                           {Number(
                             reservation.remaining_balance,
@@ -803,7 +875,7 @@ const ReservationsPage = () => {
 
                           <button
                             onClick={() => handleViewDetails(reservation)}
-                            className="p-1.5 border border-gray-300 text-gray-700 rounded hover:bg-gray-50"
+                            className="p-1.5 border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-50 dark:hover:bg-slate-800"
                             title="View Details"
                           >
                             <Eye className="w-4 h-4" />
@@ -819,8 +891,8 @@ const ReservationsPage = () => {
         </div>
 
         {!isLoading && filteredReservations.length > 0 && (
-          <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-3">
-            <div className="text-sm text-gray-700">
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4 border border-gray-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="text-sm text-gray-700 dark:text-gray-400">
               Showing {startIndex + 1} to{" "}
               {Math.min(endIndex, filteredReservations.length)} of{" "}
               {filteredReservations.length} entries
@@ -830,14 +902,14 @@ const ReservationsPage = () => {
               <button
                 onClick={goToFirstPage}
                 disabled={currentPage === 1}
-                className="p-1.5 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-700 dark:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <ChevronsLeft className="w-4 h-4" />
               </button>
               <button
                 onClick={goToPrevPage}
                 disabled={currentPage === 1}
-                className="p-1.5 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-700 dark:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
@@ -860,7 +932,7 @@ const ReservationsPage = () => {
                     className={`px-3 py-1.5 rounded text-sm transition-colors ${
                       currentPage === pageNum
                         ? "bg-orange-500 text-white"
-                        : "hover:bg-gray-100"
+                        : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-800"
                     }`}
                   >
                     {pageNum}
@@ -871,14 +943,14 @@ const ReservationsPage = () => {
               <button
                 onClick={goToNextPage}
                 disabled={currentPage === totalPages}
-                className="p-1.5 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-700 dark:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
               <button
                 onClick={goToLastPage}
                 disabled={currentPage === totalPages}
-                className="p-1.5 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-700 dark:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <ChevronsRight className="w-4 h-4" />
               </button>
@@ -886,6 +958,13 @@ const ReservationsPage = () => {
           </div>
         )}
       </div>
+
+      {/* New Reservation Modal */}
+      <NewReservationModal
+        isOpen={isNewReservationModalOpen}
+        onClose={() => setIsNewReservationModalOpen(false)}
+        onSubmit={handleNewReservation}
+      />
     </>
   );
 };

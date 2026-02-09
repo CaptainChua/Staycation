@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, HelpCircle } from "lucide-react";
 import SidebarLayout from "./SidebarLayout";
 
 interface FAQ {
@@ -82,17 +82,22 @@ const FAQs = () => {
   return (
     <SidebarLayout>
       {/* Hero Section */}
-      <div className="bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4">Frequently Asked Questions</h1>
-          <p className="text-lg md:text-xl opacity-90 max-w-2xl mx-auto">
-            Find quick answers to common questions about Staycation Haven
+      <div className="relative bg-gradient-to-br from-gray-100 via-gray-50 to-orange-50 dark:from-gray-800 dark:via-gray-700 dark:to-gray-800 text-gray-900 dark:text-white py-12 overflow-hidden border-b border-gray-200 dark:border-gray-700">
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-brand-primary/10 dark:bg-brand-primary/20 backdrop-blur-sm rounded-full mb-6 border border-brand-primary/20 dark:border-brand-primary/30">
+            <HelpCircle className="w-8 h-8 text-brand-primary" />
+          </div>
+          <h1 className="text-4xl md:text-5xl font-bold mb-4">
+            Frequently Asked Questions
+          </h1>
+          <p className="text-lg md:text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
+            Find answers to common questions about our staycation havens
           </p>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="space-y-4">
           {faqs.map((faq, index) => (
             <div

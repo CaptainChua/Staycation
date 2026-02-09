@@ -11,82 +11,36 @@ import {
   XCircle,
   Clock,
   ArrowUpDown,
+  Info,
   User,
   ChevronsLeft,
   ChevronLeft,
   ChevronRight,
   ChevronsRight,
   Image as ImageIcon,
+  CheckSquare,
+  Loader2,
 } from "lucide-react";
 import { useCallback, useMemo, useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
-
+import type { UpdateBookingPaymentPayload } from "@/types/bookingPayment";
 import {
-  useGetBookingsQuery,
-  useUpdateBookingStatusMutation,
-} from "@/redux/api/bookingsApi";
+  useGetBookingPaymentsQuery,
+  useUpdateBookingPaymentMutation,
+} from "@/redux/api/bookingPaymentsApi";
+import type { PaymentStatus, PaymentRow } from "./types";
+import { formatCurrency } from "./utils";
+import ApproveModal from "./Modals/ApproveModal";
+import RejectModal from "./Modals/RejectModal";
+import ChangeModal from "./Modals/ChangeModal";
+import ViewPaymentModal from "./Modals/ViewPaymentModal";
 
-import type { Booking } from "@/types/booking";
-type PaymentStatus = "Paid" | "Pending" | "Rejected";
+// Payment types are imported from ./types
 
-interface PaymentRow {
-  id?: string;
-  booking_id: string;
-  guest: string;
-  amount: string;
-  // numeric amount to allow numeric sorting
-  amountValue?: number;
-  payment_proof?: string | null;
-  status: PaymentStatus;
-  statusColor: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  booking?: any;
-}
+/* InfoField removed — unused in this file */
 
-interface InfoFieldProps {
-  label: string;
-  value: React.ReactNode;
-  icon?: React.ReactNode;
-  capitalize?: boolean;
-}
-
-function InfoField({ label, value, icon, capitalize }: InfoFieldProps) {
-  return (
-    <div className="space-y-2">
-      <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
-        {label}
-      </span>
-      <div className="relative">
-        {icon && (
-          <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-gray-400 dark:text-gray-300">
-            {icon}
-          </div>
-        )}
-        <div
-          className={`w-full rounded-2xl border border-gray-200 dark:border-gray-700 px-3 py-3 text-sm text-gray-800 dark:text-gray-100 dark:bg-gray-900 ${icon ? "pl-9" : "pl-3"} ${capitalize ? "capitalize" : ""}`}
-        >
-          {value}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-const currencyFormatter = new Intl.NumberFormat("en-PH", {
-  style: "currency",
-  currency: "PHP",
-});
-
-const formatCurrency = (amount: number) => currencyFormatter.format(amount);
-
-const formatDate = (dateString?: string | null) => {
-  if (!dateString) return "—";
-  return new Date(dateString).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-};
+// Currency and date formatting helpers moved to ./utils
 
 const mapStatusToUI = (status?: string | null): PaymentStatus => {
   const s = (status || "").toLowerCase();
@@ -106,33 +60,74 @@ const getStatusColorClass = (status?: string | null) => {
   return "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200";
 };
 
-// Small table skeleton rows (used while bookings are loading)
+/* Small table skeleton rows (used while bookings are loading) */
 const TableSkeleton = ({ rows = 5 }: { rows?: number }) => (
   <tbody>
     {Array.from({ length: rows }).map((_, i) => (
       <tr key={i} className="border-b border-gray-100 dark:border-gray-700">
+        {/* Select */}
+        <td className="py-4 px-4">
+          <div className="h-4 w-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+        </td>
+
+        {/* Booking ID */}
         <td className="py-4 px-4">
           <div className="h-4 w-28 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
         </td>
+
+        {/* Guest */}
         <td className="py-4 px-4">
           <div className="h-4 w-40 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
         </td>
+
+        {/* Total Amount */}
         <td className="py-4 px-4 text-right">
           <div className="h-4 w-16 mx-auto bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
         </td>
-        <td className="py-4 px-4 text-center">
-          <div className="h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded mx-auto animate-pulse" />
+
+        {/* Down Payment */}
+        <td className="py-4 px-4 text-right">
+          <div className="h-4 w-16 mx-auto bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
         </td>
-        <td className="py-4 px-4 text-center">
-          <div className="h-4 w-20 bg-gray-200 dark:bg-gray-700 rounded mx-auto animate-pulse" />
+
+        {/* Amount Paid */}
+        <td className="py-4 px-4 text-right">
+          <div className="h-4 w-16 mx-auto bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
         </td>
+
+        {/* Remaining Balance */}
+        <td className="py-4 px-4 text-right">
+          <div className="h-4 w-16 mx-auto bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+        </td>
+
+        {/* Payment Proof */}
+        <td className="py-4 px-4 text-center">
+          <div className="h-4 w-20 mx-auto bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+        </td>
+
+        {/* Status */}
+        <td className="py-4 px-4 text-center">
+          <div className="h-6 w-20 mx-auto bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse" />
+        </td>
+
+        {/* Actions */}
         <td className="py-4 px-4">
-          <div className="h-8 w-32 bg-gray-200 dark:bg-gray-700 rounded mx-auto animate-pulse" />
+          <div className="flex items-center justify-center gap-2">
+            <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+            <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+            <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+          </div>
         </td>
       </tr>
     ))}
   </tbody>
 );
+
+// RejectModal component moved to ./Modals/RejectModal
+
+// ApproveModal component moved to ./Modals/ApproveModal
+
+// ChangeModal component moved to ./Modals/ChangeModal
 
 export default function PaymentPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -143,6 +138,35 @@ export default function PaymentPage() {
   const [entriesPerPage, setEntriesPerPage] = useState(5);
   const [sortField, setSortField] = useState<keyof PaymentRow | null>(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const { data: session } = useSession();
+
+  const logEmployeeActivity = useCallback(
+    async (
+      activityType: string,
+      description: string,
+      entityType?: string | null,
+      entityId?: string | null,
+    ) => {
+      const employeeId = session?.user?.id;
+      if (!employeeId) return;
+      try {
+        await fetch("/api/admin/activity-logs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            employee_id: employeeId,
+            activity_type: activityType,
+            description,
+            entity_type: entityType ?? null,
+            entity_id: entityId ?? null,
+          }),
+        });
+      } catch (err) {
+        console.error("Failed to create employee activity log:", err);
+      }
+    },
+    [session?.user?.id],
+  );
 
   // Compute server-side filter status (map UI filter to DB values)
   const serverStatusParam =
@@ -152,21 +176,21 @@ export default function PaymentPage() {
         ? "approved"
         : filterStatus.toLowerCase();
 
-  // Fetch bookings from backend (use status query when a specific filter is selected)
+  // Fetch payments from backend (use status query when a specific filter is selected)
   const {
-    data: bookingsRaw = [],
-    isLoading: isBookingsLoading,
-    isFetching: isBookingsFetching,
+    data: paymentsRaw = [],
+    isLoading: isPaymentsLoading,
+    isFetching: isPaymentsFetching,
     refetch,
-  } = useGetBookingsQuery(
+  } = useGetBookingPaymentsQuery(
     serverStatusParam ? { status: serverStatusParam } : undefined,
   );
 
-  // Fetch all bookings for summary counts (unfiltered)
-  const { data: bookingsAll } = useGetBookingsQuery();
+  // Fetch all payments for summary counts (unfiltered)
+  const { data: paymentsAll } = useGetBookingPaymentsQuery();
 
   // Mutation for approve/reject
-  const [updateBookingStatus] = useUpdateBookingStatusMutation();
+  const [updateBookingPayment] = useUpdateBookingPaymentMutation();
 
   // Local UI state for modals and actions (local types used; avoid global booking types for now)
   const [selectedPayment, setSelectedPayment] = useState<PaymentRow | null>(
@@ -174,108 +198,209 @@ export default function PaymentPage() {
   );
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
-  const [rejectReason, setRejectReason] = useState("");
-  const [updatingBookingId, setUpdatingBookingId] = useState<string | null>(
+  const [updatingPaymentId, setUpdatingPaymentId] = useState<string | null>(
     null,
   );
+  // Tracks which action is currently being performed for the payment id above.
+  // This allows us to show the spinner on the correct action icon (approve vs reject).
+  const [updatingAction, setUpdatingAction] = useState<
+    "approve" | "reject" | null
+  >(null);
+  const [isApproveModalOpen, setIsApproveModalOpen] = useState(false);
+  const [isChangeModalOpen, setIsChangeModalOpen] = useState(false);
+  const [changeAmount, setChangeAmount] = useState<number>(0);
+
+  // Bulk selection state
+  const [selectedPayments, setSelectedPayments] = useState<string[]>([]);
+  const [bulkActionLoading, setBulkActionLoading] = useState(false);
 
   const payments = useMemo<PaymentRow[]>(() => {
-    return (bookingsRaw || []).map((b) => {
-      const amountValue = Number(b.total_amount ?? 0);
+    return (paymentsRaw || []).map((p) => {
+      const totalAmountValue = Number(p.total_amount ?? 0);
+      const downPaymentValue = Number(p.down_payment ?? 0);
+      // amount_paid may be null for older records — fall back to down_payment
+      const amountPaidValue = Number(p.amount_paid ?? p.down_payment ?? 0);
+      // Prefer an explicit stored remaining_balance if available; otherwise derive it from totals
+      const remainingValue =
+        typeof p.remaining_balance !== "undefined" &&
+        p.remaining_balance !== null
+          ? Math.max(0, Number(p.remaining_balance))
+          : Math.max(0, totalAmountValue - amountPaidValue);
+
       const row: PaymentRow = {
-        id: b.id,
-        booking_id: b.booking_id!,
-        guest: `${b.guest_first_name ?? ""} ${b.guest_last_name ?? ""}`.trim(),
-        amount: formatCurrency(amountValue),
-        amountValue,
-        payment_proof: b.payment_proof_url ?? undefined,
-        status: mapStatusToUI(b.status),
-        statusColor: getStatusColorClass(b.status),
+        id: p.id,
+        booking_id: p.booking_id ?? String(p.booking_fk ?? ""),
+        guest: `${p.guest_first_name ?? ""} ${p.guest_last_name ?? ""}`.trim(),
+        totalAmount: formatCurrency(totalAmountValue),
+        totalAmountValue,
+        downPayment: formatCurrency(downPaymentValue),
+        downPaymentValue,
+        amountPaid: formatCurrency(amountPaidValue),
+        amountPaidValue,
+        remaining: formatCurrency(remainingValue),
+        remainingValue,
+        payment_proof: p.payment_proof_url ?? undefined,
+        status: mapStatusToUI(p.payment_status),
+        statusColor: getStatusColorClass(p.payment_status),
         booking: {
-          id: b.id,
-          booking_id: b.booking_id,
-          guest_first_name: b.guest_first_name!,
-          guest_last_name: b.guest_last_name!,
-          guest_email: b.guest_email!,
-          guest_phone: b.guest_phone!,
-          down_payment: b.down_payment,
-          total_amount: b.total_amount,
-          remaining_balance: b.remaining_balance,
-          payment_proof_url: b.payment_proof_url,
-          payment_method: b.payment_method,
-          updated_at: b.updated_at,
-          status: b.status,
-          rejection_reason: b.rejection_reason,
+          id: p.booking_fk,
+          booking_id: p.booking_id,
+          guest_first_name: p.guest_first_name ?? undefined,
+          guest_last_name: p.guest_last_name ?? undefined,
+          guest_email: p.guest_email ?? undefined,
+          guest_phone: p.guest_phone ?? undefined,
+          down_payment: p.down_payment,
+          amount_paid: p.amount_paid,
+          total_amount: p.total_amount,
+          remaining_balance: p.remaining_balance,
+          payment_proof_url: p.payment_proof_url,
+          payment_method: p.payment_method,
+          updated_at: p.reviewed_at ?? p.created_at,
+          status: p.payment_status ?? undefined,
+          rejection_reason: p.rejection_reason,
         },
       };
       return row;
     });
-  }, [bookingsRaw]);
+  }, [paymentsRaw]);
 
   // combined loading flag for UI skeletons
-  const isLoadingTable = isBookingsLoading || isBookingsFetching;
+  const isLoadingTable = isPaymentsLoading || isPaymentsFetching;
 
   // Handlers
-  const handleView = useCallback((row: PaymentRow) => {
-    if (!row?.id) {
-      toast.error("Booking ID not available");
-      return;
-    }
-    setSelectedPayment(row);
-    setIsViewModalOpen(true);
-  }, []);
+  const handleView = useCallback(
+    (row: PaymentRow) => {
+      if (!row?.id) {
+        toast.error("Payment ID not available");
+        return;
+      }
+      // Log view action (fire-and-forget)
+      logEmployeeActivity?.(
+        "VIEW_PAYMENT",
+        `Viewed payment ${row.booking_id}`,
+        "payment",
+        row.id,
+      );
+      setSelectedPayment(row);
+      setIsViewModalOpen(true);
+    },
+    [logEmployeeActivity],
+  );
 
   const handleCloseView = useCallback(() => {
     setSelectedPayment(null);
     setIsViewModalOpen(false);
   }, []);
 
-  const handleApprove = useCallback(
-    async (row: PaymentRow, options?: { keepOpen?: boolean }) => {
-      if (!row?.id) {
-        toast.error("Booking ID not available");
+  const handleConfirmApprove = useCallback(
+    async (payment: PaymentRow, amount: number) => {
+      if (!payment?.id) {
+        toast.error("Payment ID not available");
         return;
       }
-      setUpdatingBookingId(row.id);
-      const toastId = toast.loading("Approving payment...");
-      try {
-        await updateBookingStatus({ id: row.id, status: "approved" }).unwrap();
-        toast.success("Payment approved", { id: toastId });
 
-        // Refresh bookings and optionally update the currently-open modal row
-        const refetchRes = await refetch();
-        const updatedBooking = (refetchRes?.data || []).find(
-          (b: Booking) => b.id === row.id,
+      setUpdatingPaymentId(payment.id);
+      setUpdatingAction("approve");
+
+      // Compute the change amount upfront and show the change modal immediately
+      const prevRemainingForChange = (() => {
+        const explicit = payment.booking?.remaining_balance;
+        if (typeof explicit !== "undefined" && explicit !== null)
+          return Number(explicit);
+        const totalAmt = Number(payment.booking?.total_amount ?? NaN);
+        const paidAmt = Number(
+          payment.booking?.amount_paid ?? payment.booking?.down_payment ?? 0,
         );
+        return !Number.isNaN(totalAmt) ? Math.max(0, totalAmt - paidAmt) : 0;
+      })();
+      const appliedAmountForChange = Math.min(
+        Math.max(Number(amount), 0),
+        Math.max(prevRemainingForChange, 0),
+      );
+      const changeAmt = Math.max(0, Number(amount) - appliedAmountForChange);
 
-        if (options?.keepOpen && updatedBooking) {
-          setSelectedPayment((prev) =>
-            prev && prev.id === row.id
-              ? {
-                  ...prev,
-                  status: mapStatusToUI(updatedBooking.status),
-                  statusColor: getStatusColorClass(updatedBooking.status),
-                  booking: {
-                    ...prev.booking,
-                    updated_at: updatedBooking.updated_at,
-                    status: updatedBooking.status,
-                    down_payment: updatedBooking.down_payment,
-                    total_amount: updatedBooking.total_amount,
-                    remaining_balance: updatedBooking.remaining_balance,
-                    payment_proof_url: updatedBooking.payment_proof_url,
-                  },
-                }
-              : prev,
-          );
-        }
+      // Optimistically close the approve modal and show the change modal so the
+      // user sees immediate feedback while the server processes the request.
+      setIsApproveModalOpen(false);
+      setChangeAmount(changeAmt);
+      setIsChangeModalOpen(true);
+      // Log change modal display
+      logEmployeeActivity?.(
+        "SHOW_CHANGE_MODAL",
+        `Displayed change modal for booking ${payment.booking_id} with change amount ${changeAmt}`,
+        "payment",
+        payment.id,
+      );
+
+      // Show an immediate success toast; we'll update it to an
+      // error message if the server rejects the mutation.
+      const toastId = toast.success("Payment approved");
+
+      // Log client-side attempt to approve
+      logEmployeeActivity?.(
+        "ATTEMPT_APPROVE_PAYMENT",
+        `Attempted to approve payment ${payment.booking_id} with amount ${amount}`,
+        "payment",
+        payment.id,
+      );
+
+      try {
+        // amount_paid is maintained server-side via collect_amount.
+        const payload: Partial<UpdateBookingPaymentPayload> & {
+          id: string;
+          collect_amount?: number;
+          reviewed_by?: string | null;
+        } = {
+          id: payment.id,
+          payment_status: "approved",
+          collect_amount: Number(amount),
+          reviewed_by: session?.user?.id ?? undefined,
+        };
+
+        await updateBookingPayment(payload).unwrap();
+        // optimistic update — no success toast (UI already reflects change)
+
+        // Refresh payments and update UI (server authoritative)
+        await refetch();
       } catch (err) {
         console.error("Approve error:", err);
-        toast.error("Failed to approve payment", { id: toastId });
+        let msg = "Failed to approve payment";
+        // Prefer server-provided message when available and perform safe type checks.
+        if (err && typeof err === "object") {
+          const errObj = err as Record<string, unknown>;
+          const data = errObj["data"];
+          if (data && typeof data === "object") {
+            const dataObj = data as Record<string, unknown>;
+            if (typeof dataObj["error"] === "string") {
+              msg = dataObj["error"] as string;
+            } else if (typeof dataObj["message"] === "string") {
+              msg = dataObj["message"] as string;
+            }
+          } else {
+            if (typeof errObj["error"] === "string") {
+              msg = errObj["error"] as string;
+            } else if (typeof errObj["message"] === "string") {
+              msg = errObj["message"] as string;
+            }
+          }
+        } else if (typeof err === "string") {
+          msg = err;
+        }
+        toast.error(
+          `Failed to approve payment: ${msg}. Reverting optimistic changes and restoring UI.`,
+          { id: toastId },
+        );
+
+        // Roll back UI changes if the mutation failed
+        setIsChangeModalOpen(false);
+        setChangeAmount(0);
+        setIsApproveModalOpen(true);
       } finally {
-        setUpdatingBookingId(null);
+        setUpdatingPaymentId(null);
+        setUpdatingAction(null);
       }
     },
-    [updateBookingStatus, refetch],
+    [updateBookingPayment, refetch, logEmployeeActivity, session],
   );
 
   const onSearchChange = (value: string) => {
@@ -286,49 +411,120 @@ export default function PaymentPage() {
     setCurrentPage(1);
   }, [searchTerm]);
 
-  const openRejectModal = useCallback((row: PaymentRow) => {
-    if (!row?.id) {
-      toast.error("Booking ID not available");
-      return;
-    }
-    // Keep the selected payment set so the reject modal has context,
-    // and close the view modal before opening the reject modal.
-    setSelectedPayment(row);
-    setRejectReason("");
-    setIsViewModalOpen(false);
-    setIsRejectModalOpen(true);
-  }, []);
+  const openRejectModal = useCallback(
+    (row: PaymentRow) => {
+      if (!row?.id) {
+        toast.error("Payment ID not available");
+        return;
+      }
+      // Log modal open
+      logEmployeeActivity?.(
+        "OPEN_REJECT_MODAL",
+        `Opened reject modal for booking ${row.booking_id}`,
+        "payment",
+        row.id,
+      );
+      // Keep the selected payment set so the reject modal has context,
+      // and close the view modal before opening the reject modal.
+      setSelectedPayment(row);
+      setIsViewModalOpen(false);
+      setIsRejectModalOpen(true);
+    },
+    [logEmployeeActivity],
+  );
 
-  const handleConfirmReject = useCallback(async () => {
-    if (!selectedPayment?.id) {
-      toast.error("Booking ID not available");
-      return;
-    }
-    setUpdatingBookingId(selectedPayment.id);
-    const toastId = toast.loading("Rejecting payment...");
-    try {
-      await updateBookingStatus({
-        id: selectedPayment.id,
-        status: "rejected",
-        rejection_reason: rejectReason || undefined,
-      }).unwrap();
-      toast.success("Payment rejected", { id: toastId });
-      refetch();
+  const handleConfirmReject = useCallback(
+    async (id: string, reason: string) => {
+      if (!id) {
+        toast.error("Payment ID not available");
+        return;
+      }
+      // Keep the selected payment so we can restore it if the mutation fails
+      const originalSelected = selectedPayment;
+
+      setUpdatingPaymentId(id);
+      setUpdatingAction("reject");
+
+      // Optimistically close modal and clear selection so the UI responds
       setIsRejectModalOpen(false);
       setSelectedPayment(null);
-    } catch (err) {
-      console.error("Reject error:", err);
-      toast.error("Failed to reject payment", { id: toastId });
-    } finally {
-      setUpdatingBookingId(null);
-    }
-  }, [selectedPayment, rejectReason, updateBookingStatus, refetch]);
+
+      // Show an immediate success toast; we'll update it if the
+      // server rejects the mutation.
+      const toastId = toast.success("Payment rejected");
+
+      // Log client-side attempt to reject
+      logEmployeeActivity?.(
+        "ATTEMPT_REJECT_PAYMENT",
+        `Attempted to reject payment ${id} with reason: ${reason || "N/A"}`,
+        "payment",
+        id,
+      );
+
+      try {
+        await updateBookingPayment({
+          id,
+          payment_status: "rejected",
+          rejection_reason: reason || undefined,
+          reviewed_by: session?.user?.id ?? undefined,
+        }).unwrap();
+        // optimistic update — no success toast (UI already reflects change)
+        refetch();
+      } catch (err) {
+        console.error("Reject error:", err);
+        let msg = "Failed to reject payment";
+        if (err && typeof err === "object") {
+          const errObj = err as Record<string, unknown>;
+          const data = errObj["data"];
+          if (data && typeof data === "object") {
+            const dataObj = data as Record<string, unknown>;
+            if (typeof dataObj["error"] === "string") {
+              msg = dataObj["error"] as string;
+            } else if (typeof dataObj["message"] === "string") {
+              msg = dataObj["message"] as string;
+            }
+          } else {
+            if (typeof errObj["error"] === "string") {
+              msg = errObj["error"] as string;
+            } else if (typeof errObj["message"] === "string") {
+              msg = errObj["message"] as string;
+            }
+          }
+        } else if (typeof err === "string") {
+          msg = err;
+        }
+        toast.error(
+          `Failed to reject payment: ${msg}. Reverting optimistic changes and restoring UI.`,
+          { id: toastId },
+        );
+
+        // Restore selection and reopen the reject modal so the user can retry
+        setSelectedPayment(originalSelected);
+        setIsRejectModalOpen(true);
+      } finally {
+        setUpdatingPaymentId(null);
+        setUpdatingAction(null);
+      }
+    },
+    [
+      updateBookingPayment,
+      refetch,
+      selectedPayment,
+      logEmployeeActivity,
+      session,
+    ],
+  );
 
   const handleCancelReject = useCallback(() => {
-    setRejectReason("");
+    logEmployeeActivity?.(
+      "CANCEL_REJECT_MODAL",
+      `Cancelled reject for payment ${selectedPayment?.booking_id ?? "N/A"}`,
+      "payment",
+      selectedPayment?.id ?? null,
+    );
     setIsRejectModalOpen(false);
     setSelectedPayment(null);
-  }, []);
+  }, [logEmployeeActivity, selectedPayment]);
 
   const filteredPayments = useMemo(() => {
     const q = (searchTerm || "").toLowerCase();
@@ -348,10 +544,25 @@ export default function PaymentPage() {
     const copy = [...filteredPayments];
     if (!sortField) return copy;
     return copy.sort((a, b) => {
-      // Numeric sort for amount (use amountValue)
-      if (sortField === "amount") {
-        const aNum = a.amountValue ?? 0;
-        const bNum = b.amountValue ?? 0;
+      // Numeric sorts for the new currency columns
+      if (sortField === "totalAmount") {
+        const aNum = a.totalAmountValue ?? 0;
+        const bNum = b.totalAmountValue ?? 0;
+        return sortDirection === "asc" ? aNum - bNum : bNum - aNum;
+      }
+      if (sortField === "downPayment") {
+        const aNum = a.downPaymentValue ?? 0;
+        const bNum = b.downPaymentValue ?? 0;
+        return sortDirection === "asc" ? aNum - bNum : bNum - aNum;
+      }
+      if (sortField === "amountPaid") {
+        const aNum = a.amountPaidValue ?? 0;
+        const bNum = b.amountPaidValue ?? 0;
+        return sortDirection === "asc" ? aNum - bNum : bNum - aNum;
+      }
+      if (sortField === "remaining") {
+        const aNum = a.remainingValue ?? 0;
+        const bNum = b.remainingValue ?? 0;
         return sortDirection === "asc" ? aNum - bNum : bNum - aNum;
       }
       const key = String(sortField);
@@ -372,6 +583,111 @@ export default function PaymentPage() {
   const endIndex = startIndex + entriesPerPage;
   const paginatedPayments = sortedPayments.slice(startIndex, endIndex);
 
+  // Visible IDs on the current page (filter out undefined ids for type-safety)
+  const visiblePaymentIds = paginatedPayments
+    .map((p) => p.id)
+    .filter((id): id is string => typeof id === "string");
+
+  // Bulk selection helpers & processing
+  const handleSelectPayment = (id: string, checked: boolean) => {
+    setSelectedPayments((prev) =>
+      checked ? [...prev, id] : prev.filter((p) => p !== id),
+    );
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      // Use only visible, defined ids for selection (avoids `undefined` values)
+      setSelectedPayments(visiblePaymentIds);
+    } else {
+      setSelectedPayments([]);
+    }
+  };
+
+  const processBulkApprove = async () => {
+    if (selectedPayments.length === 0) return;
+    setBulkActionLoading(true);
+    try {
+      await Promise.all(
+        selectedPayments.map((id) => {
+          // Find the corresponding payment row to determine the appropriate
+          // collect_amount (prefer submitted down_payment, otherwise use remaining)
+          const payment = payments.find((p) => p.id === id);
+          const submittedDown =
+            typeof payment?.booking?.down_payment === "number"
+              ? Number(payment!.booking!.down_payment)
+              : undefined;
+          const fallbackRemaining = Number(payment?.remainingValue ?? 0);
+          const collect_amount =
+            typeof submittedDown !== "undefined" && submittedDown > 0
+              ? submittedDown
+              : Math.max(0, fallbackRemaining);
+
+          const payload: Partial<UpdateBookingPaymentPayload> & {
+            id: string;
+            collect_amount?: number;
+            reviewed_by?: string | null;
+          } = {
+            id,
+            payment_status: "approved",
+            reviewed_by: session?.user?.id ?? undefined,
+          };
+
+          if (collect_amount > 0) {
+            payload.collect_amount = collect_amount;
+          }
+
+          return updateBookingPayment(payload).unwrap();
+        }),
+      );
+      toast.success(`${selectedPayments.length} payment(s) approved`);
+      logEmployeeActivity?.(
+        "BULK_APPROVE_PAYMENTS",
+        `Approved ${selectedPayments.length} payments`,
+        "payment",
+        null,
+      );
+      setSelectedPayments([]);
+      await refetch();
+    } catch (err) {
+      console.error("Bulk approve failed:", err);
+      toast.error("Failed to approve selected payments");
+    } finally {
+      setBulkActionLoading(false);
+    }
+  };
+
+  const processBulkReject = async (reason?: string) => {
+    if (selectedPayments.length === 0) return;
+    setBulkActionLoading(true);
+    try {
+      await Promise.all(
+        selectedPayments.map((id) =>
+          updateBookingPayment({
+            id,
+            payment_status: "rejected",
+            rejection_reason: reason || undefined,
+            reviewed_by: session?.user?.id ?? undefined,
+          }).unwrap(),
+        ),
+      );
+      toast.success(`${selectedPayments.length} payment(s) rejected`);
+      logEmployeeActivity?.(
+        "BULK_REJECT_PAYMENTS",
+        `Rejected ${selectedPayments.length} payments`,
+        "payment",
+        null,
+      );
+      setSelectedPayments([]);
+      await refetch();
+    } catch (err) {
+      console.error("Bulk reject failed:", err);
+      toast.error("Failed to reject selected payments");
+    } finally {
+      setBulkActionLoading(false);
+    }
+  };
+
   const handleSort = (field: keyof PaymentRow) => {
     if (sortField === field) {
       setSortDirection(sortDirection === "asc" ? "desc" : "asc");
@@ -381,16 +697,16 @@ export default function PaymentPage() {
     }
   };
 
-  // Use unfiltered bookings for summary counts so counts don't change with status filter
-  const totalCount = (bookingsAll || []).length;
-  const paidCount = (bookingsAll || []).filter(
-    (b) => mapStatusToUI(b.status) === "Paid",
+  // Use unfiltered payments for summary counts so counts don't change with status filter
+  const totalCount = (paymentsAll || []).length;
+  const paidCount = (paymentsAll || []).filter(
+    (p) => mapStatusToUI(p.payment_status) === "Paid",
   ).length;
-  const pendingCount = (bookingsAll || []).filter(
-    (b) => mapStatusToUI(b.status) === "Pending",
+  const pendingCount = (paymentsAll || []).filter(
+    (p) => mapStatusToUI(p.payment_status) === "Pending",
   ).length;
-  const rejectedCount = (bookingsAll || []).filter(
-    (b) => mapStatusToUI(b.status) === "Rejected",
+  const rejectedCount = (paymentsAll || []).filter(
+    (p) => mapStatusToUI(p.payment_status) === "Rejected",
   ).length;
 
   return (
@@ -450,6 +766,69 @@ export default function PaymentPage() {
           );
         })}
       </div>
+
+      {/* Bulk Actions Bar */}
+      {selectedPayments.length > 0 && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-4 flex-shrink-0 border border-gray-200 dark:border-gray-700 mb-4">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <CheckSquare className="w-5 h-5 text-brand-primary" />
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                {selectedPayments.length} payment
+                {selectedPayments.length !== 1 ? "s" : ""} selected
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => processBulkApprove()}
+                disabled={bulkActionLoading}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm flex items-center gap-2"
+                type="button"
+              >
+                {bulkActionLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" /> Processing...
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-4 h-4" /> Approve
+                  </>
+                )}
+              </button>
+
+              <button
+                onClick={() => {
+                  const reason = window.prompt("Rejection reason (optional):");
+                  if (reason === null) return;
+                  processBulkReject(reason);
+                }}
+                disabled={bulkActionLoading}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm flex items-center gap-2"
+                type="button"
+              >
+                {bulkActionLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" /> Processing...
+                  </>
+                ) : (
+                  <>
+                    <X className="w-4 h-4" /> Reject
+                  </>
+                )}
+              </button>
+
+              <button
+                onClick={() => setSelectedPayments([])}
+                disabled={bulkActionLoading}
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 font-medium text-sm"
+                type="button"
+              >
+                Clear Selection
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-4">
         <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
@@ -518,6 +897,20 @@ export default function PaymentPage() {
           <table className="w-full">
             <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 border-b-2 border-gray-200 dark:border-gray-600">
               <tr>
+                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={
+                        visiblePaymentIds.length > 0 &&
+                        selectedPayments.length === visiblePaymentIds.length
+                      }
+                      onChange={(e) => handleSelectAll(e.target.checked)}
+                      className="w-4 h-4 text-brand-primary border-gray-300 rounded focus:ring-brand-primary"
+                    />
+                    <span>Select</span>
+                  </div>
+                </th>
                 <th
                   onClick={() => handleSort("booking_id")}
                   className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
@@ -536,15 +929,53 @@ export default function PaymentPage() {
                     <ArrowUpDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600 dark:text-gray-300 dark:group-hover:text-gray-100" />
                   </div>
                 </th>
+
                 <th
-                  onClick={() => handleSort("amount")}
+                  onClick={() => handleSort("totalAmount")}
                   className="text-right py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
                 >
                   <div className="flex items-center justify-end gap-2">
-                    Amount
+                    Total Amount
                     <ArrowUpDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600 dark:text-gray-300 dark:group-hover:text-gray-100" />
                   </div>
                 </th>
+
+                <th
+                  onClick={() => handleSort("downPayment")}
+                  className="text-right py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
+                >
+                  <div className="flex items-center justify-end gap-2">
+                    Down Payment
+                    <ArrowUpDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600 dark:text-gray-300 dark:group-hover:text-gray-100" />
+                  </div>
+                </th>
+
+                <th
+                  onClick={() => handleSort("amountPaid")}
+                  className="text-right py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
+                >
+                  <div className="flex items-center justify-end gap-2">
+                    Amount Paid
+                    <ArrowUpDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600 dark:text-gray-300 dark:group-hover:text-gray-100" />
+                  </div>
+                </th>
+
+                <th
+                  onClick={() => handleSort("remaining")}
+                  className="text-right py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
+                >
+                  <div className="flex items-center justify-end gap-2">
+                    Remaining Balance
+                    <span
+                      title="Remaining Balance = Total Amount - Amount Paid"
+                      className="ml-1 text-gray-400 flex items-center"
+                    >
+                      <Info className="w-4 h-4" />
+                    </span>
+                    <ArrowUpDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600 dark:text-gray-300 dark:group-hover:text-gray-100" />
+                  </div>
+                </th>
+
                 <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
                   Payment Proof
                 </th>
@@ -568,9 +999,24 @@ export default function PaymentPage() {
               <tbody>
                 {paginatedPayments.map((payment) => (
                   <tr
-                    key={payment.booking_id}
+                    key={payment.id}
                     className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                   >
+                    <td className="py-4 px-4">
+                      <input
+                        type="checkbox"
+                        checked={
+                          payment.id
+                            ? selectedPayments.includes(payment.id)
+                            : false
+                        }
+                        onChange={(e) =>
+                          payment.id &&
+                          handleSelectPayment(payment.id, e.target.checked)
+                        }
+                        className="w-4 h-4 text-brand-primary border-gray-300 rounded focus:ring-brand-primary"
+                      />
+                    </td>
                     <td className="py-4 px-4">
                       <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm">
                         {payment.booking_id}
@@ -586,7 +1032,28 @@ export default function PaymentPage() {
                     </td>
                     <td className="py-4 px-4 text-right">
                       <span className="font-bold text-gray-800 dark:text-gray-100 text-sm whitespace-nowrap">
-                        {payment.amount}
+                        {payment.totalAmount}
+                      </span>
+                    </td>
+                    <td className="py-4 px-4 text-right">
+                      <span className="font-bold text-gray-800 dark:text-gray-100 text-sm whitespace-nowrap">
+                        {payment.downPayment}
+                      </span>
+                    </td>
+                    <td className="py-4 px-4 text-right">
+                      <span className="font-bold text-gray-800 dark:text-gray-100 text-sm whitespace-nowrap">
+                        {payment.amountPaid}
+                      </span>
+                    </td>
+                    <td className="py-4 px-4 text-right">
+                      <span
+                        className={`font-bold text-sm whitespace-nowrap ${
+                          (payment.remainingValue ?? 0) > 0
+                            ? "text-orange-700 dark:text-orange-300"
+                            : "text-green-700 dark:text-green-300"
+                        }`}
+                      >
+                        {payment.remaining}
                       </span>
                     </td>
                     <td className="py-4 px-4 text-center">
@@ -595,6 +1062,14 @@ export default function PaymentPage() {
                           href={payment.payment_proof}
                           target="_blank"
                           rel="noreferrer"
+                          onClick={() =>
+                            logEmployeeActivity?.(
+                              "VIEW_PAYMENT_PROOF",
+                              `Viewed payment proof for booking ${payment.booking_id}`,
+                              "payment",
+                              payment.id,
+                            )
+                          }
                           className="inline-flex items-center gap-2 px-3 py-2 text-sm font-semibold text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
                         >
                           <ImageIcon className="w-4 h-4" />
@@ -626,16 +1101,26 @@ export default function PaymentPage() {
                         </button>
 
                         <button
-                          onClick={() => handleApprove(payment)}
+                          onClick={() => {
+                            setSelectedPayment(payment);
+                            setIsApproveModalOpen(true);
+                            logEmployeeActivity?.(
+                              "OPEN_APPROVE_MODAL",
+                              `Opened approve modal for booking ${payment.booking_id}`,
+                              "payment",
+                              payment.id,
+                            );
+                          }}
                           disabled={
-                            !payment.id || updatingBookingId === payment.id
+                            !payment.id || updatingPaymentId === payment.id
                           }
                           className="p-2 inline-flex items-center justify-center text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                           title="Approve"
                           type="button"
                           aria-label={`Approve booking ${payment.booking_id}`}
                         >
-                          {updatingBookingId === payment.id ? (
+                          {updatingPaymentId === payment.id &&
+                          updatingAction === "approve" ? (
                             <svg
                               className="animate-spin inline-block align-middle h-4 w-4"
                               xmlns="http://www.w3.org/2000/svg"
@@ -664,14 +1149,38 @@ export default function PaymentPage() {
                         <button
                           onClick={() => openRejectModal(payment)}
                           disabled={
-                            !payment.id || updatingBookingId === payment.id
+                            !payment.id || updatingPaymentId === payment.id
                           }
                           className="p-2 inline-flex items-center justify-center text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                           title="Reject"
                           type="button"
                           aria-label={`Reject booking ${payment.booking_id}`}
                         >
-                          <X className="w-4 h-4" />
+                          {updatingPaymentId === payment.id &&
+                          updatingAction === "reject" ? (
+                            <svg
+                              className="animate-spin inline-block align-middle h-4 w-4"
+                              xmlns="http://www.w3.org/2000/svg"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                            >
+                              <circle
+                                className="opacity-25"
+                                cx="12"
+                                cy="12"
+                                r="10"
+                                stroke="currentColor"
+                                strokeWidth="4"
+                              />
+                              <path
+                                className="opacity-75"
+                                fill="currentColor"
+                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                              />
+                            </svg>
+                          ) : (
+                            <X className="w-4 h-4" />
+                          )}
                         </button>
                       </div>
                     </td>
@@ -723,17 +1232,30 @@ export default function PaymentPage() {
         ) : (
           paginatedPayments.map((payment) => (
             <div
-              key={payment.booking_id}
+              key={payment.id}
               className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-4 border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-transform duration-200 transform hover:-translate-y-1"
             >
               <div className="flex items-start justify-between mb-3 pb-3 border-b border-gray-200 dark:border-gray-600">
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                    Booking ID
-                  </p>
-                  <p className="font-bold text-gray-800 dark:text-gray-100">
-                    {payment.booking_id}
-                  </p>
+                <div className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    checked={
+                      payment.id ? selectedPayments.includes(payment.id) : false
+                    }
+                    onChange={(e) =>
+                      payment.id &&
+                      handleSelectPayment(payment.id, e.target.checked)
+                    }
+                    className="w-4 h-4 text-brand-primary border-gray-300 rounded focus:ring-brand-primary"
+                  />
+                  <div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                      Booking ID
+                    </p>
+                    <p className="font-bold text-gray-800 dark:text-gray-100">
+                      {payment.booking_id}
+                    </p>
+                  </div>
                 </div>
                 <span
                   className={`px-3 py-1 rounded-full text-xs font-bold ${payment.statusColor}`}
@@ -757,32 +1279,76 @@ export default function PaymentPage() {
               <div className="grid grid-cols-2 gap-3 mb-3 pb-3">
                 <div>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                    Amount
+                    Total Amount
                   </p>
                   <p className="font-bold text-gray-800 dark:text-gray-100">
-                    {payment.amount}
+                    {payment.totalAmount}
                   </p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                    Payment Proof
+                    Down Payment
                   </p>
-                  {payment.payment_proof ? (
-                    <a
-                      href={payment.payment_proof}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700 dark:hover:text-blue-400"
-                    >
-                      <ImageIcon className="w-4 h-4" />
-                      View
-                    </a>
-                  ) : (
-                    <span className="text-sm text-gray-400 dark:text-gray-500">
-                      No proof
-                    </span>
-                  )}
+                  <p className="font-bold text-gray-800 dark:text-gray-100">
+                    {payment.downPayment}
+                  </p>
                 </div>
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                    Amount Paid
+                  </p>
+                  <p className="font-bold text-gray-800 dark:text-gray-100">
+                    {payment.amountPaid}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-2">
+                    Remaining Balance
+                    <span
+                      title="Remaining Balance = Total Amount - Amount Paid"
+                      className="text-gray-400 flex items-center"
+                    >
+                      <Info className="w-3 h-3" />
+                    </span>
+                  </p>
+                  <p
+                    className={`font-bold ${
+                      (payment.remainingValue ?? 0) > 0
+                        ? "text-orange-700 dark:text-orange-300"
+                        : "text-green-700 dark:text-green-300"
+                    }`}
+                  >
+                    {payment.remaining}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mb-3 pb-3 border-b border-gray-200 dark:border-gray-600">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                  Payment Proof
+                </p>
+                {payment.payment_proof ? (
+                  <a
+                    href={payment.payment_proof}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={() =>
+                      logEmployeeActivity?.(
+                        "VIEW_PAYMENT_PROOF",
+                        `Viewed payment proof for booking ${payment.booking_id}`,
+                        "payment",
+                        payment.id,
+                      )
+                    }
+                    className="inline-flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700 dark:hover:text-blue-400"
+                  >
+                    <ImageIcon className="w-4 h-4" /> View
+                  </a>
+                ) : (
+                  <span className="text-sm text-gray-400 dark:text-gray-500">
+                    No proof
+                  </span>
+                )}
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-200 dark:border-gray-600">
@@ -797,14 +1363,24 @@ export default function PaymentPage() {
                 </button>
 
                 <button
-                  onClick={() => handleApprove(payment)}
-                  disabled={!payment.id || updatingBookingId === payment.id}
+                  onClick={() => {
+                    setSelectedPayment(payment);
+                    setIsApproveModalOpen(true);
+                    logEmployeeActivity?.(
+                      "OPEN_APPROVE_MODAL",
+                      `Opened approve modal for booking ${payment.booking_id}`,
+                      "payment",
+                      payment.id,
+                    );
+                  }}
+                  disabled={!payment.id || updatingPaymentId === payment.id}
                   className="p-2 inline-flex items-center justify-center text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   title="Approve"
                   type="button"
                   aria-label={`Approve booking ${payment.booking_id}`}
                 >
-                  {updatingBookingId === payment.id ? (
+                  {updatingPaymentId === payment.id &&
+                  updatingAction === "approve" ? (
                     <svg
                       className="animate-spin inline-block align-middle h-5 w-5"
                       xmlns="http://www.w3.org/2000/svg"
@@ -832,13 +1408,37 @@ export default function PaymentPage() {
 
                 <button
                   onClick={() => openRejectModal(payment)}
-                  disabled={!payment.id || updatingBookingId === payment.id}
+                  disabled={!payment.id || updatingPaymentId === payment.id}
                   className="p-2 inline-flex items-center justify-center text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   title="Reject"
                   type="button"
                   aria-label={`Reject booking ${payment.booking_id}`}
                 >
-                  <X className="w-4 h-4" />
+                  {updatingPaymentId === payment.id &&
+                  updatingAction === "reject" ? (
+                    <svg
+                      className="animate-spin inline-block align-middle h-4 w-4"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                      />
+                    </svg>
+                  ) : (
+                    <X className="w-4 h-4" />
+                  )}
                 </button>
               </div>
             </div>
@@ -932,275 +1532,36 @@ export default function PaymentPage() {
       </div>
 
       {/* Payment Details Modal (Booking Details styling, local implementation) */}
-      {isViewModalOpen && selectedPayment && (
-        <>
-          <div
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9998]"
-            onClick={handleCloseView}
-          />
-          <div className="fixed inset-0 flex items-center justify-center px-4 py-8 z-[9999]">
-            <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-5xl max-h-[60vh] flex flex-col overflow-hidden border border-gray-100 dark:border-gray-700">
-              {/* Header (sticky, gradient) */}
-              <div className="sticky top-0 bg-gradient-to-r from-orange-500 to-yellow-500 dark:from-orange-600 dark:to-yellow-600 text-white p-6 rounded-t-3xl flex justify-between items-center">
-                <div>
-                  <p className="text-sm font-semibold uppercase tracking-[0.2em] opacity-90">
-                    Payment Details
-                  </p>
-                  <h2 className="text-3xl font-bold mt-1">
-                    {selectedPayment.booking_id}
-                  </h2>
-                </div>
-                <button
-                  onClick={handleCloseView}
-                  className="p-2 rounded-full hover:bg-white/20 dark:hover:bg-white/10 transition-colors"
-                >
-                  <X className="w-6 h-6 text-white" />
-                </button>
-              </div>
+      <ViewPaymentModal
+        isOpen={isViewModalOpen}
+        payment={selectedPayment}
+        onClose={handleCloseView}
+      />
 
-              {/* Content */}
-              <div className="flex-1 overflow-y-auto px-8 py-6 space-y-8">
-                {/* Guest & Payment Info (status badge moved to the right side of this card header) */}
-                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 border border-gray-100 dark:border-gray-700">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
-                      <User className="w-5 h-5 text-orange-500" />
-                      Payment Information
-                    </h3>
-                    <span
-                      className={`px-4 py-2 rounded-full text-sm font-semibold ${getStatusColorClass(
-                        selectedPayment.booking?.status ??
-                          selectedPayment.status,
-                      )}`}
-                    >
-                      {(
-                        selectedPayment.booking?.status ??
-                        selectedPayment.status ??
-                        "unknown"
-                      )
-                        .toUpperCase()
-                        .replace("-", " ")}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <InfoField
-                      label="Booking ID"
-                      value={selectedPayment.booking_id}
-                    />
-                    <InfoField label="Guest" value={selectedPayment.guest} />
-                    <InfoField label="Amount" value={selectedPayment.amount} />
-                    <InfoField
-                      label="Payment Proof"
-                      value={
-                        selectedPayment.payment_proof ? (
-                          <a
-                            href={selectedPayment.payment_proof}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-2 text-sm font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
-                          >
-                            <ImageIcon className="w-4 h-4" /> View Proof
-                          </a>
-                        ) : (
-                          <span className="text-sm text-gray-400 dark:text-gray-400">
-                            No proof
-                          </span>
-                        )
-                      }
-                    />
-                    <InfoField
-                      label="Contact"
-                      value={
-                        selectedPayment.booking?.guest_email ??
-                        selectedPayment.guest
-                      }
-                    />
-                    {selectedPayment.booking?.status === "rejected" &&
-                      selectedPayment.booking?.rejection_reason && (
-                        <InfoField
-                          label="Rejection Reason"
-                          value={selectedPayment.booking.rejection_reason}
-                        />
-                      )}
-                  </div>
-                </div>
-
-                {/* Payment Summary */}
-                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 border border-gray-100 dark:border-gray-700">
-                  <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4">
-                    Payment Summary
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <InfoField
-                      label="Total Amount"
-                      value={
-                        <span className="text-lg font-bold text-gray-900 dark:text-gray-100">
-                          {formatCurrency(
-                            Number(selectedPayment.booking?.total_amount ?? 0),
-                          )}
-                        </span>
-                      }
-                    />
-                    <InfoField
-                      label="Down Payment"
-                      value={
-                        <span className="text-green-700 dark:text-green-300 font-semibold">
-                          {formatCurrency(
-                            Number(selectedPayment.booking?.down_payment ?? 0),
-                          )}
-                        </span>
-                      }
-                    />
-                    <InfoField
-                      label="Remaining Balance"
-                      value={
-                        <span className="text-orange-700 dark:text-orange-300 font-semibold">
-                          {formatCurrency(
-                            Number(
-                              selectedPayment.booking?.remaining_balance ?? 0,
-                            ),
-                          )}
-                        </span>
-                      }
-                    />
-                    <InfoField
-                      label="Payment Method"
-                      value={selectedPayment.booking?.payment_method ?? "—"}
-                      capitalize
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Footer (actions) */}
-              <div className="px-8 py-5 border-t border-gray-100 dark:border-gray-700 flex flex-col sm:flex-row justify-between gap-3 bg-white dark:bg-gray-900">
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Last updated:{" "}
-                  {selectedPayment.booking?.updated_at
-                    ? formatDate(selectedPayment.booking?.updated_at)
-                    : "N/A"}
-                </p>
-
-                <div className="flex gap-3 justify-end">
-                  <button
-                    type="button"
-                    onClick={handleCloseView}
-                    className="px-5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-200 font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition"
-                  >
-                    Close
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (!selectedPayment) return;
-                      await handleApprove(selectedPayment, { keepOpen: true });
-                    }}
-                    disabled={
-                      mapStatusToUI(
-                        selectedPayment.booking?.status ??
-                          selectedPayment.status,
-                      ) === "Paid" || updatingBookingId === selectedPayment.id
-                    }
-                    className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-yellow-500 dark:from-orange-600 dark:to-yellow-600 text-white font-semibold shadow-lg hover:from-orange-600 hover:to-yellow-600 dark:hover:from-orange-700 dark:hover:to-yellow-700 transition inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <CheckCircle className="w-4 h-4" /> Approve
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      // Close the view modal and open the reject modal without
-                      // clearing `selectedPayment` so the reject modal has its context.
-                      setRejectReason("");
-                      setIsViewModalOpen(false);
-                      setIsRejectModalOpen(true);
-                    }}
-                    disabled={
-                      mapStatusToUI(
-                        selectedPayment.booking?.status ??
-                          selectedPayment.status,
-                      ) === "Rejected" ||
-                      updatingBookingId === selectedPayment.id
-                    }
-                    className="px-6 py-2.5 rounded-xl bg-red-600 dark:bg-red-600 text-white font-semibold hover:bg-red-700 dark:hover:bg-red-700 transition inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <X className="w-4 h-4" /> Reject
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* Reject Booking Modal (uses selectedPayment) */}
-      {isRejectModalOpen && selectedPayment && (
-        <div className="fixed inset-0 z-[9999]">
-          <div
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm"
-            onClick={handleCancelReject}
-          />
-          <div className="fixed inset-0 flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-6 border border-gray-100 dark:border-gray-700">
-              <h3 className="text-lg font-bold mb-2 text-gray-900 dark:text-gray-100">
-                Reject Payment
-              </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                Provide a reason for rejecting the payment (optional).
-              </p>
-              <textarea
-                value={rejectReason}
-                onChange={(e) => setRejectReason(e.target.value)}
-                className="w-full p-3 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 mb-4"
-                rows={4}
-                placeholder="Rejection reason (optional)"
-              />
-              <div className="flex justify-end gap-3">
-                <button
-                  onClick={handleCancelReject}
-                  type="button"
-                  className="px-4 py-2 rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleConfirmReject}
-                  type="button"
-                  disabled={updatingBookingId === selectedPayment.id}
-                  className="px-4 py-2 rounded-lg bg-red-600 dark:bg-red-600 text-white hover:bg-red-700 dark:hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center"
-                >
-                  {updatingBookingId === selectedPayment.id ? (
-                    <svg
-                      className="animate-spin inline-block align-middle h-4 w-4"
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      />
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                      />
-                    </svg>
-                  ) : (
-                    <span className="font-semibold">Reject</span>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <RejectModal
+        key={`reject-${selectedPayment?.id}`}
+        isOpen={isRejectModalOpen}
+        payment={selectedPayment}
+        onCancelAction={handleCancelReject}
+        onConfirmAction={handleConfirmReject}
+        updatingPaymentId={updatingPaymentId}
+        updatingAction={updatingAction}
+      />
+      <ApproveModal
+        key={`approve-${selectedPayment?.id}`}
+        isOpen={isApproveModalOpen}
+        payment={selectedPayment}
+        onCancelAction={() => setIsApproveModalOpen(false)}
+        onConfirmAction={handleConfirmApprove}
+        updatingPaymentId={updatingPaymentId}
+        updatingAction={updatingAction}
+      />
+      <ChangeModal
+        key={`change-${selectedPayment?.id}`}
+        isOpen={isChangeModalOpen}
+        amount={changeAmount}
+        onCloseAction={() => setIsChangeModalOpen(false)}
+      />
     </div>
   );
 }

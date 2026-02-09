@@ -1,28 +1,12 @@
 "use client";
 
-import {
-  ChevronLeft,
-  ChevronRight,
-  DollarSign,
-  Plus,
-  Settings,
-  TrendingUp,
-  FileText,
-  Users,
-  Target,
-  Clock,
-} from "lucide-react";
-import { useState, useEffect, useRef } from "react";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
+import { Calendar, DollarSign, Users, Package, CreditCard, Sparkles, XCircle, TrendingUp, TrendingDown, Home, Clock, AlertTriangle, CheckCircle, RefreshCw, Building2, Star, BarChart3, Target, UserCheck } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { useGetRoomBookingsQuery } from "@/redux/api/bookingsApi";
+import { useGetHavensQuery } from "@/redux/api/roomApi";
+import { useGetBookingPaymentsQuery } from "@/redux/api/bookingPaymentsApi";
+import { useGetReviewsQuery } from "@/redux/api/reviewsApi";
 
 // Export Haven type for use in other components
 export type Haven = {
@@ -45,6 +29,7 @@ export type Haven = {
   six_hour_check_in?: string;
   ten_hour_check_in?: string;
   twenty_one_hour_check_in?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   amenities?: any;
   created_at?: string;
   updated_at?: string;
@@ -56,14 +41,57 @@ export type Haven = {
 };
 
 interface Booking {
+  id: string;
+  booking_id: string;
+  user_id?: string;
+  room_name: string;
   check_in_date: string;
   check_out_date: string;
-  status: 'approved' | 'checked-in' | 'confirmed' | string;
+  check_in_time: string;
+  check_out_time: string;
+  adults: number;
+  children: number;
+  infants: number;
+  status:
+    | "pending"
+    | "approved"
+    | "rejected"
+    | "confirmed"
+    | "checked-in"
+    | "completed"
+    | "cancelled";
+  rejection_reason?: string;
+  created_at: string;
+  updated_at: string;
+  // Payment data from booking_payments
+  booking_payments?: {
+    total_amount: number;
+    down_payment: number;
+    remaining_balance: number;
+    payment_method: string;
+  }[];
+  // Guest data from booking_guests
+  booking_guests?: {
+    first_name: string;
+    last_name: string;
+    email: string;
+    phone: string;
+  }[];
 }
 
-interface CalendarDay {
-  date: number;
-  status: "available" | "booked" | "blocked" | "past";
+interface Review {
+  id: string;
+  booking_id: string;
+  rating: number;
+  comment: string;
+  created_at: string;
+  booking?: {
+    room_name: string;
+    booking_guests?: {
+      first_name: string;
+      last_name: string;
+    }[];
+  };
 }
 
 interface DashboardPageProps {
@@ -71,8 +99,28 @@ interface DashboardPageProps {
   onPaymentClick: () => void;
   onBookingClick: () => void;
   onPoliciesClick: () => void;
-  onDateClick: (date: Date, haven: Haven) => void;
   havens: Haven[];
+}
+
+interface KPICard {
+  title: string;
+  value: string | number;
+  change?: number;
+  Icon: any;
+  color: string;
+  loading?: boolean;
+}
+
+interface ActivityItem {
+  id: string;
+  time: string;
+  action: string;
+  customer: string;
+  details: string;
+  status: string;
+  statusColor: string;
+  Icon: any;
+  iconColor: string;
 }
 
 const DashboardPage = ({
@@ -80,540 +128,395 @@ const DashboardPage = ({
   onPaymentClick,
   onBookingClick,
   onPoliciesClick,
-  onDateClick,
   havens,
 }: DashboardPageProps) => {
-  const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [selectedHaven, setSelectedHaven] = useState<Haven | null>(null);
-  const hasSetInitialHaven = useRef(false);
+  const { data: session } = useSession();
+  const userId = (session?.user as any)?.id;
+  const [refreshing, setRefreshing] = useState(false);
+  
+  // Fetch real data from APIs
+  const { data: bookingsData, isLoading: bookingsLoading, refetch: refetchBookings } = useGetRoomBookingsQuery();
+  const { data: paymentsData, isLoading: paymentsLoading, refetch: refetchPayments } = useGetBookingPaymentsQuery();
+  const { data: reviewsData, isLoading: reviewsLoading, refetch: refetchReviews } = useGetReviewsQuery();
 
-  // Set initial selected haven when havens data loads - fixed to avoid cascading renders
-useEffect(() => {
-  if (havens.length > 0 && !selectedHaven && !hasSetInitialHaven.current) {
-    // Check if the value would actually change
-    const newHaven = havens[0] as Haven;
-    const shouldUpdate = !selectedHaven || ((selectedHaven as Haven).uuid_id !== newHaven.uuid_id);
-    
-    if (shouldUpdate) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setSelectedHaven(newHaven);
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        refetchBookings(),
+        refetchPayments(),
+        refetchReviews()
+      ]);
+    } finally {
+      setRefreshing(false);
     }
-    hasSetInitialHaven.current = true;
-  }
-}, [havens, selectedHaven]);
+  };
 
-  // Fetch bookings for the selected haven with polling to auto-refresh
-  const { data: bookingsData } = useGetRoomBookingsQuery(
-    selectedHaven?.uuid_id || '',
-    {
-      skip: !selectedHaven?.uuid_id,
-      pollingInterval: 30000 // Refresh every 30 seconds
-    }
-  );
-
+  // Calculate owner-specific metrics
   const bookings: Booking[] = bookingsData?.data || [];
+  const payments = paymentsData?.data || [];
+  const reviews: Review[] = reviewsData?.data || [];
 
-  const monthName = currentMonth.toLocaleString("default", {
-    month: "long",
-    year: "numeric",
-  });
-  const daysInMonth = new Date(
-    currentMonth.getFullYear(),
-    currentMonth.getMonth() + 1,
-    0
-  ).getDate();
+  // Calculate revenue from approved payments
+  const totalRevenue = payments
+    .filter((payment: any) => payment.payment_status === 'approved')
+    .reduce((sum: number, payment: any) => sum + (Number(payment.total_amount) || 0), 0);
 
-  const today = new Date();
-  const isCurrentMonth =
-    currentMonth.getMonth() === today.getMonth() &&
-    currentMonth.getFullYear() === today.getFullYear();
+  // Calculate average rating
+  const averageRating = reviews.length > 0 
+    ? (reviews.reduce((sum: number, review: any) => sum + (review.overall_rating || 0), 0) / reviews.length).toFixed(1)
+    : '0.0';
 
-  // Helper function to check if a date is booked
-  const isDateBooked = (date: Date) => {
-    return bookings.some((booking) => {
-      // Normalize check-in and check-out dates to midnight
-      const checkIn = new Date(booking.check_in_date);
-      checkIn.setHours(0, 0, 0, 0);
-
-      const checkOut = new Date(booking.check_out_date);
-      checkOut.setHours(0, 0, 0, 0);
-
-      // Normalize the comparison date
-      const compareDate = new Date(date);
-      compareDate.setHours(0, 0, 0, 0);
-
-      // Check if date falls within booking range and status is approved/confirmed/checked-in
-      return compareDate >= checkIn && compareDate <= checkOut &&
-             (booking.status === 'approved' || booking.status === 'checked-in' || booking.status === 'confirmed');
-    });
+  // Calculate today's tasks
+  const today = new Date().toDateString();
+  const todayTasks = {
+    checkins: bookings.filter((booking) => 
+      new Date(booking.check_in_date).toDateString() === today
+    ).length,
+    checkouts: bookings.filter((booking) => 
+      new Date(booking.check_out_date).toDateString() === today
+    ).length,
+    pending: bookings.filter((booking) => booking.status === 'pending').length
   };
 
-  // Helper function to check if a date is blocked
-  const isDateBlocked = (date: Date) => {
-    if (!selectedHaven?.blocked_dates) return false;
-    return selectedHaven.blocked_dates.some((blocked) => {
-      const fromDate = new Date(blocked.from_date);
-      fromDate.setHours(0, 0, 0, 0);
+  // Calculate occupancy rate
+  const activeBookings = bookings.filter((booking) =>
+    ['approved', 'confirmed', 'checked-in'].includes(booking.status)
+  ).length;
+  const occupancyRate = havens.length > 0 ? Math.round((activeBookings / (havens.length * 30)) * 100) : 0;
 
-      const toDate = new Date(blocked.to_date);
-      toDate.setHours(0, 0, 0, 0);
-
-      const compareDate = new Date(date);
-      compareDate.setHours(0, 0, 0, 0);
-
-      return compareDate >= fromDate && compareDate <= toDate;
-    });
-  };
-
-  const calendarDays: CalendarDay[] = Array.from({ length: daysInMonth }, (_, i) => {
-    const dayNumber = i + 1;
-    const currentDate = new Date(
-      currentMonth.getFullYear(),
-      currentMonth.getMonth(),
-      dayNumber
-    );
-    const isPast = isCurrentMonth && dayNumber < today.getDate();
-
-    let status: CalendarDay["status"] = "available";
-    if (isPast) {
-      status = "past";
-    } else if (isDateBooked(currentDate)) {
-      status = "booked";
-    } else if (isDateBlocked(currentDate)) {
-      status = "blocked";
+  // KPI data for owner
+  const kpiData: KPICard[] = [
+    {
+      title: "Total Revenue",
+      value: `₱${totalRevenue.toLocaleString()}`,
+      Icon: DollarSign,
+      color: "bg-green-500",
+      loading: paymentsLoading
+    },
+    {
+      title: "Active Bookings",
+      value: activeBookings,
+      Icon: Calendar,
+      color: "bg-blue-500",
+      loading: bookingsLoading
+    },
+    {
+      title: "Average Rating",
+      value: `${averageRating} ⭐`,
+      Icon: Star,
+      color: "bg-yellow-500",
+      loading: reviewsLoading
+    },
+    {
+      title: "Occupancy Rate",
+      value: `${occupancyRate}%`,
+      Icon: Building2,
+      color: "bg-purple-500",
+      loading: bookingsLoading
     }
+  ];
 
+  // Recent bookings for activity
+  const activityItems: ActivityItem[] = bookings.slice(0, 5).map((booking, index) => {
+    const guest = booking.booking_guests?.[0];
+    const guestName = guest ? `${guest.first_name} ${guest.last_name}` : 'Guest';
+    
     return {
-      date: dayNumber,
-      status,
+      id: booking.id || `booking-${index}`,
+      time: new Date(booking.created_at).toLocaleTimeString('en-US', { 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      }),
+      action: 'New Booking',
+      customer: guestName,
+      details: `${booking.room_name} - ${booking.adults + booking.children} guests`,
+      status: booking.status,
+      statusColor: booking.status === 'confirmed' ? 'bg-green-100 text-green-700' : 
+                    booking.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 
+                    'bg-gray-100 text-gray-700',
+      Icon: Calendar,
+      iconColor: 'text-blue-600'
     };
   });
 
-  const handleDateClick = (day: CalendarDay) => {
-    if (day.status === "past" || day.status === "booked" || day.status === "blocked") {
-      return; // Don't allow clicking on unavailable dates
-    }
-
-    const clickedDate = new Date(
-      currentMonth.getFullYear(),
-      currentMonth.getMonth(),
-      day.date
-    );
-    if (selectedHaven) {
-      onDateClick(clickedDate, selectedHaven);
-    }
-  };
-
-  const getColor = (status: string) => {
-    switch (status) {
-      case "available":
-        return "bg-green-500 text-white";
-      case "booked":
-        return "bg-red-500 text-white";
-      case "blocked":
-        return "bg-orange-500 text-white";
-      case "past":
-        return "bg-gray-300 dark:bg-gray-600 text-gray-600 dark:text-gray-400";
-      default:
-        return "bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100";
-    }
-  };
-
-  const revenueData = [
-    { month: "Jan", revenue: 12000 },
-    { month: "Feb", revenue: 18000 },
-    { month: "Mar", revenue: 16000 },
-    { month: "Apr", revenue: 22000 },
-    { month: "May", revenue: 25000 },
-    { month: "Jun", revenue: 28000 },
-  ];
-
-  // Define KPI type for better type safety
-  interface KpiItem {
-    title: string;
-    value: string;
-    icon: any; // Lucide React icon component
-    color: string;
-  }
-
-  const kpis: KpiItem[] = [
-    {
-      title: "Total Revenue",
-      value: "₱121,000",
-      icon: DollarSign,
-      color: "bg-blue-500"
-    },
-    {
-      title: "Occupancy",
-      value: "78%",
-      icon: Users,
-      color: "bg-green-500",
-    },
-    { 
-      title: "Pending", 
-      value: "12", 
-      icon: Clock, 
-      color: "bg-orange-500" 
-    },
-    {
-      title: "Target",
-      value: "₱30,000",
-      icon: Target,
-      color: "bg-purple-500",
-    },
-  ];
-
   return (
-    <div className="space-y-6 animate-in fade-in duration-700">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {kpis.map((kpi, i) => {
-          const IconComponent = kpi.icon;
+    <div className="space-y-6 animate-in fade-in duration-700 overflow-hidden h-full flex flex-col">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 flex-shrink-0 border border-gray-200 dark:border-gray-700 rounded-lg p-6 bg-white dark:bg-gray-800 shadow dark:shadow-gray-900">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Owner Dashboard</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Monitor your property performance and guest satisfaction</p>
+        </div>
+        <button
+          onClick={handleRefresh}
+          disabled={refreshing}
+          className="p-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Refresh Data"
+        >
+          <RefreshCw className={`w-4 h-4 text-gray-600 dark:text-gray-300 ${refreshing ? 'animate-spin' : ''}`} />
+        </button>
+      </div>
+
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 flex-shrink-0">
+        {kpiData.map((kpi, i) => {
+          const IconComponent = kpi.Icon;
           return (
             <div
-              key={kpi.title}
-              className={`${kpi.color} text-white rounded-lg p-6 shadow dark:shadow-gray-900 hover:shadow-lg animate-in fade-in slide-in-from-bottom duration-500`}
-              style={{ animationDelay: `${i * 100}ms` }}
+              key={i}
+              className={`${kpi.color} text-white rounded-lg p-6 shadow dark:shadow-gray-900 hover:shadow-lg transition-all border border-gray-200 dark:border-gray-600`}
             >
               <div className="flex items-center justify-between">
-                <div>
+                <div className="flex-1">
                   <p className="text-sm opacity-90">{kpi.title}</p>
-                  <p className="text-3xl font-bold mt-2">{kpi.value}</p>
+                  <div className="text-3xl font-bold mt-2">
+                    {kpi.loading ? (
+                      <div className="w-16 h-8 bg-white/20 rounded animate-pulse" />
+                    ) : (
+                      kpi.value
+                    )}
+                  </div>
                 </div>
-                <IconComponent className="w-12 h-12 opacity-50" />
+                <IconComponent className="w-12 h-12 opacity-50 flex-shrink-0" />
               </div>
             </div>
           );
         })}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-6">
-          <h3 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">Revenue Overview</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={revenueData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" className="dark:opacity-20" />
-              <XAxis dataKey="month" stroke="#6b7280" className="dark:text-gray-400" />
-              <YAxis stroke="#6b7280" className="dark:text-gray-400" />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: 'rgba(255, 255, 255, 0.95)', 
-                  borderRadius: '0.5rem',
-                  border: 'none',
-                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                }}
-              />
-              <Line
-                type="monotone"
-                dataKey="revenue"
-                stroke="#f97316"
-                strokeWidth={2}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-6">
-          <div className="mb-4">
-            <label className="block text-sm font-semibold mb-2 text-gray-700 dark:text-gray-300">
-              Select Haven
-            </label>
-            <select
-              value={selectedHaven?.uuid_id || ''}
-              onChange={(e) => {
-                const selected = havens.find((h) => h.uuid_id === e.target.value);
-                if (selected) {
-                  setSelectedHaven(selected);
-                }
-              }}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
-            >
-              {havens.map((h) => (
-                <option key={h.uuid_id} value={h.uuid_id}>
-                  {h.haven_name || h.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <h3 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">Haven Booking Calendar</h3>
-
-          {/* Legend - At Top */}
-          <div className="flex justify-center flex-wrap gap-4 mb-4 pb-4 border-b border-gray-200 dark:border-gray-700">
-            <div className="flex gap-2 items-center">
-              <div className="w-4 h-4 bg-green-500 rounded"></div>
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Available - Click to book</span>
-            </div>
-            <div className="flex gap-2 items-center">
-              <div className="w-4 h-4 bg-red-500 rounded"></div>
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Booked</span>
-            </div>
-            <div className="flex gap-2 items-center">
-              <div className="w-4 h-4 bg-orange-500 rounded"></div>
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Blocked</span>
-            </div>
-            <div className="flex gap-2 items-center">
-              <div className="w-4 h-4 bg-gray-300 dark:bg-gray-600 rounded"></div>
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Past</span>
-            </div>
-          </div>
-
-          <div className="flex justify-between items-center mb-3">
-            <button
-              onClick={() =>
-                setCurrentMonth(
-                  new Date(
-                    currentMonth.getFullYear(),
-                    currentMonth.getMonth() - 1
-                  )
-                )
-              }
-              className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors text-gray-600 dark:text-gray-300"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <span className="font-semibold text-sm text-gray-800 dark:text-gray-100">{monthName}</span>
-            <button
-              onClick={() =>
-                setCurrentMonth(
-                  new Date(
-                    currentMonth.getFullYear(),
-                    currentMonth.getMonth() + 1
-                  )
-                )
-              }
-              className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors text-gray-600 dark:text-gray-300"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-
-          <div className="grid grid-cols-7 gap-2 mb-4">
-            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
-              <div
-                key={d}
-                className="text-sm font-bold text-center text-gray-700 dark:text-gray-300 py-2"
-              >
-                {d}
+      {/* Quick Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 flex-shrink-0">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-6 border border-gray-200 dark:border-gray-700">
+          <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4 flex items-center gap-2">
+            <Home className="w-5 h-5 text-brand-primary" />
+            Today&apos;s Overview
+          </h4>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-blue-600" />
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Check-ins</span>
               </div>
-            ))}
-            {calendarDays.map((day, i) => (
-              <button
-                key={i}
-                onClick={() => handleDateClick(day)}
-                disabled={day.status === "past" || day.status === "booked" || day.status === "blocked"}
-                className={`text-sm p-3 rounded-lg text-center font-bold transition-all ${getColor(
-                  day.status
-                )} ${
-                  day.status === "available"
-                    ? "hover:shadow-lg hover:scale-105 cursor-pointer"
-                    : "cursor-not-allowed opacity-75"
-                }`}
-              >
-                {day.date}
-              </button>
-            ))}
+              <span className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                {bookingsLoading ? (
+                  <div className="w-8 h-6 bg-blue-200 dark:bg-blue-800 rounded animate-pulse" />
+                ) : (
+                  todayTasks.checkins
+                )}
+              </span>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-orange-600" />
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Check-outs</span>
+              </div>
+              <span className="text-xl font-bold text-orange-600 dark:text-orange-400">
+                {bookingsLoading ? (
+                  <div className="w-8 h-6 bg-orange-200 dark:bg-orange-800 rounded animate-pulse" />
+                ) : (
+                  todayTasks.checkouts
+                )}
+              </span>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-yellow-600" />
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Pending</span>
+              </div>
+              <span className="text-xl font-bold text-yellow-600 dark:text-yellow-400">
+                {bookingsLoading ? (
+                  <div className="w-8 h-6 bg-yellow-200 dark:bg-yellow-800 rounded animate-pulse" />
+                ) : (
+                  todayTasks.pending
+                )}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-6 border border-gray-200 dark:border-gray-700">
+          <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4 flex items-center gap-2">
+            <Star className="w-5 h-5 text-brand-primary" />
+            Guest Satisfaction
+          </h4>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+              <div className="flex items-center gap-2">
+                <Star className="w-4 h-4 text-green-600" />
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Average Rating</span>
+              </div>
+              <span className="text-xl font-bold text-green-600 dark:text-green-400">
+                {reviewsLoading ? (
+                  <div className="w-12 h-6 bg-green-200 dark:bg-green-800 rounded animate-pulse" />
+                ) : (
+                  `${averageRating} ⭐`
+                )}
+              </span>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-blue-600" />
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Total Reviews</span>
+              </div>
+              <span className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                {reviewsLoading ? (
+                  <div className="w-8 h-6 bg-blue-200 dark:bg-blue-800 rounded animate-pulse" />
+                ) : (
+                  reviews.length
+                )}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-6 border border-gray-200 dark:border-gray-700">
+          <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4 flex items-center gap-2">
+            <Building2 className="w-5 h-5 text-brand-primary" />
+            Property Stats
+          </h4>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Total Havens</span>
+              </div>
+              <span className="text-xl font-bold text-purple-600 dark:text-purple-400">
+                {havens.length}
+              </span>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Occupancy Rate</span>
+              </div>
+              <span className="text-xl font-bold text-indigo-600 dark:text-indigo-400">
+                {bookingsLoading ? (
+                  <div className="w-12 h-6 bg-indigo-200 dark:bg-indigo-800 rounded animate-pulse" />
+                ) : (
+                  `${occupancyRate}%`
+                )}
+              </span>
+            </div>
           </div>
         </div>
       </div>
 
-      <div>
-        <h3 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">Quick Actions</h3>
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          <button
-            onClick={onAddUnitClick}
-            className="bg-blue-500 hover:bg-blue-600 text-white rounded-lg p-6 text-center transition-all shadow dark:shadow-gray-900"
-          >
-            <Plus className="w-6 h-6 mx-auto mb-2" />
-            <p className="font-bold text-sm">Add Unit</p>
-          </button>
-          <button
-            onClick={onBookingClick}
-            className="bg-purple-500 hover:bg-purple-600 text-white rounded-lg p-6 text-center transition-all shadow dark:shadow-gray-900"
-          >
-            <Settings className="w-6 h-6 mx-auto mb-2" />
-            <p className="font-bold text-sm">Booking Settings</p>
-          </button>
-          <button
-            onClick={onPaymentClick}
-            className="bg-green-500 hover:bg-green-600 text-white rounded-lg p-6 text-center transition-all shadow dark:shadow-gray-900"
-          >
-            <DollarSign className="w-6 h-6 mx-auto mb-2" />
-            <p className="font-bold text-sm">Payment Settings</p>
-          </button>
-          <button
-            onClick={onPoliciesClick}
-            className="bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg p-6 text-center transition-all shadow dark:shadow-gray-900"
-          >
-            <FileText className="w-6 h-6 mx-auto mb-2" />
-            <p className="font-bold text-sm">Policies</p>
-          </button>
-          <button className="bg-orange-500 hover:bg-orange-600 text-white rounded-lg p-6 text-center transition-all shadow dark:shadow-gray-900"
-            onClick={(e) => e.preventDefault()}
-          >
-            <TrendingUp className="w-6 h-6 mx-auto mb-2" />
-            <p className="font-bold text-sm">Finance</p>
-          </button>
+      {/* Recent Activity Table */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-6 flex-1 flex flex-col min-h-0 border border-gray-200 dark:border-gray-700">
+        <div className="flex justify-between items-center mb-4 flex-shrink-0">
+          <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">Recent Bookings</h3>
+          {bookingsLoading && (
+            <div className="w-6 h-6 border-2 border-brand-primary border-t-transparent rounded-full animate-spin" />
+          )}
         </div>
-      </div>
-
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-6">
-        <h3 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">Recent Activity</h3>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto overflow-y-auto flex-1 min-h-0">
           <table className="w-full">
-            <thead>
-              <tr className="border-b-2 border-gray-200 dark:border-gray-700">
-                <th className="text-left py-3 px-4 text-sm font-bold text-gray-700 dark:text-gray-300">
+            <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 border-b-2 border-gray-200 dark:border-gray-600">
+              <tr>
+                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
                   Time
                 </th>
-                <th className="text-left py-3 px-4 text-sm font-bold text-gray-700 dark:text-gray-300">
-                  Action
+                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                  Guest
                 </th>
-                <th className="text-left py-3 px-4 text-sm font-bold text-gray-700 dark:text-gray-300">
-                  User
-                </th>
-                <th className="text-left py-3 px-4 text-sm font-bold text-gray-700 dark:text-gray-300">
+                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
                   Details
                 </th>
-                <th className="text-left py-3 px-4 text-sm font-bold text-gray-700 dark:text-gray-300">
+                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                  Haven
+                </th>
+                <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
                   Status
                 </th>
               </tr>
             </thead>
             <tbody>
-              {[
-                {
-                  time: "2:30 PM",
-                  action: "User Login",
-                  user: "Maria Santos",
-                  role: "Cleaner",
-                  details: "Logged in from Admin Portal",
-                  status: "Success",
-                  statusColor: "bg-green-100 text-green-700",
-                  icon: "✓",
-                },
-                {
-                  time: "1:15 PM",
-                  action: "Booking Created",
-                  user: "Juan Dela Cruz",
-                  role: "CSR",
-                  details: "New booking for Haven 2 - March 15",
-                  status: "Completed",
-                  statusColor: "bg-blue-100 text-blue-700",
-                  icon: "📅",
-                },
-                {
-                  time: "12:45 PM",
-                  action: "Payment Received",
-                  user: "Guest #1234",
-                  role: "Guest",
-                  details: "₱5,000 payment for Haven 1",
-                  status: "Success",
-                  statusColor: "bg-green-100 text-green-700",
-                  icon: "💰",
-                },
-                {
-                  time: "12:00 PM",
-                  action: "User Login",
-                  user: "Rosa Garcia",
-                  role: "Cleaner",
-                  details: "Logged in from Mobile App",
-                  status: "Success",
-                  statusColor: "bg-green-100 text-green-700",
-                  icon: "✓",
-                },
-                {
-                  time: "11:30 AM",
-                  action: "Unit Updated",
-                  user: "Carlos Reyes",
-                  role: "Manager",
-                  details: "Updated Haven 3 availability",
-                  status: "Completed",
-                  statusColor: "bg-blue-100 text-blue-700",
-                  icon: "🏠",
-                },
-                {
-                  time: "10:45 AM",
-                  action: "User Logout",
-                  user: "Anna Martinez",
-                  role: "Partner",
-                  details: "Logged out from Admin Portal",
-                  status: "Success",
-                  statusColor: "bg-gray-100 text-gray-700",
-                  icon: "↩",
-                },
-                {
-                  time: "10:15 AM",
-                  action: "Booking Cancelled",
-                  user: "Guest #5678",
-                  role: "Guest",
-                  details: "Cancelled booking for Haven 4",
-                  status: "Cancelled",
-                  statusColor: "bg-red-100 text-red-700",
-                  icon: "✕",
-                },
-                {
-                  time: "9:30 AM",
-                  action: "Staff Created",
-                  user: "Admin",
-                  role: "Owner",
-                  details: "New employee added: Pedro Cruz",
-                  status: "Completed",
-                  statusColor: "bg-blue-100 text-blue-700",
-                  icon: "👤",
-                },
-              ].map((item, i) => (
-                <tr
-                  key={i}
-                  className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors animate-in fade-in duration-500"
-                  style={{ animationDelay: `${i * 50}ms` }}
-                >
-                  <td className="py-4 px-4">
-                    <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                      {item.time}
-                    </span>
-                  </td>
-                  <td className="py-4 px-4">
-                    <div className="flex items-center gap-2 text-gray-800 dark:text-gray-100">
-                      <span className="text-lg">{item.icon}</span>
-                      <span className="text-sm font-semibold">
-                        {item.action}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="py-4 px-4">
-                    <div>
-                      <p className="text-sm font-medium text-gray-800 dark:text-gray-100">
-                        {item.user}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">{item.role}</p>
-                    </div>
-                  </td>
-                  <td className="py-4 px-4">
-                    <span className="text-sm text-gray-600 dark:text-gray-300">
-                      {item.details}
-                    </span>
-                  </td>
-                  <td className="py-4 px-4 text-center">
-                    <span
-                      className={`inline-block text-xs font-bold px-3 py-1.5 rounded-full ${item.statusColor}`}
+              {bookingsLoading ? (
+                // Loading skeleton
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i} className="border-b border-gray-100 dark:border-gray-700">
+                    <td className="py-4 px-4">
+                      <div className="w-16 h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                    </td>
+                    <td className="py-4 px-4">
+                      <div className="w-24 h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                    </td>
+                    <td className="py-4 px-4">
+                      <div className="w-20 h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                    </td>
+                    <td className="py-4 px-4">
+                      <div className="w-32 h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                    </td>
+                    <td className="py-4 px-4 text-center">
+                      <div className="w-16 h-6 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse mx-auto" />
+                    </td>
+                  </tr>
+                ))
+              ) : activityItems.length > 0 ? (
+                activityItems.map((item) => {
+                  const ActivityIcon = item.Icon;
+                  return (
+                    <tr
+                      key={item.id}
+                      className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors animate-in fade-in duration-500"
                     >
-                      {item.status}
-                    </span>
+                      <td className="py-4 px-4">
+                        <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                          {item.time}
+                        </span>
+                      </td>
+                      <td className="py-4 px-4">
+                        <p className="text-sm font-medium text-gray-800 dark:text-gray-100">
+                          {item.customer}
+                        </p>
+                      </td>
+                      <td className="py-4 px-4">
+                        <span className="text-sm text-gray-600 dark:text-gray-300">
+                          {item.details}
+                        </span>
+                      </td>
+                      <td className="py-4 px-4">
+                        <div className="flex items-center gap-2">
+                          <ActivityIcon className={`w-4 h-4 ${item.iconColor}`} />
+                          <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+                            {item.action}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-4 px-4 text-center">
+                        <span
+                          className={`inline-block text-xs font-bold px-3 py-1.5 rounded-full ${item.statusColor}`}
+                        >
+                          {item.status}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })
+              ) : (
+                <tr>
+                  <td colSpan={5} className="py-8 text-center text-gray-500 dark:text-gray-400">
+                    No recent bookings found
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>
 
-        {/* Pagination or View All button */}
-        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center">
-          <p className="text-sm text-gray-600 dark:text-gray-300">Showing 8 of 127 activities</p>
-          <button className="text-sm font-semibold text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300 transition-colors">
-            View All Activity →
+        {/* Pagination */}
+        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600 flex justify-between items-center">
+          <p className="text-sm text-gray-600 dark:text-gray-300">
+            Showing {activityItems.length} of {bookings.length} bookings
+          </p>
+          <button 
+            onClick={onBookingClick}
+            className="text-sm font-semibold bg-gradient-to-r from-brand-primary to-brand-primaryDark bg-clip-text text-transparent hover:opacity-80 transition-opacity"
+          >
+            View All Bookings
           </button>
         </div>
       </div>
+
     </div>
   );
 };

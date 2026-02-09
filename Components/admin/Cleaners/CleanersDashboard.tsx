@@ -315,7 +315,8 @@ export default function CleanersDashboard() {
       <div
         className={`${
           sidebar ? "w-72" : "w-20"
-        } bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 transition-all duration-300 flex-col sticky top-0 self-start h-screen shadow-xl ${
+        } bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 transition-all duration-300 flex-col md:sticky md:top-0 h-screen shadow-xl flex-shrink-0
+        ${
           mobileMenuOpen
             ? "fixed inset-y-0 left-0 z-50 flex animate-in slide-in-from-left duration-300"
             : "hidden"
@@ -359,10 +360,11 @@ export default function CleanersDashboard() {
         </div>
 
         {/* Navigation Items */}
-        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+        <nav className="flex-1 p-4 space-y-2 overflow-y-auto scrollbar-hide">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = page === item.id;
+
             return (
               <button
                 key={item.id}

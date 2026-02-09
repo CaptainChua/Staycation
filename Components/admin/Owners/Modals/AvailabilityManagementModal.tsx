@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { createPortal } from "react-dom";
-import { X, Calendar, Trash2 } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { Calendar, Trash2, Info } from "lucide-react";
 import { Input } from "@nextui-org/input";
 import toast from 'react-hot-toast';
+import AdminDateRangePicker from "./AdminDateRangePicker";
 
 interface BlockedDate {
   id: number;
@@ -20,13 +20,16 @@ interface BlockedDateData {
 }
 
 interface AvailabilityManagementModalProps {
-  isOpen: boolean;
-  onClose: () => void;
   onSave: (dates: BlockedDate[]) => void;
   initialData?: BlockedDateData[];
+  isAddMode?: boolean;
 }
 
-const AvailabilityManagementModal = ({ isOpen, onClose, onSave, initialData }: AvailabilityManagementModalProps) => {
+const AvailabilityManagementModal = ({
+  onSave,
+  initialData,
+  isAddMode = false,
+}: AvailabilityManagementModalProps) => {
   const [blockedDates, setBlockedDates] = useState<BlockedDate[]>([]);
   const [blockDateForm, setBlockDateForm] = useState({
     fromDate: "",
@@ -36,16 +39,20 @@ const AvailabilityManagementModal = ({ isOpen, onClose, onSave, initialData }: A
 
   useEffect(() => {
     if (initialData) {
-      setBlockedDates(
-        initialData.map((date, index) => ({
-          id: index,
-          fromDate: date.from_date,
-          toDate: date.to_date,
-          reason: date.reason || "",
-        }))
-      );
+      const mappedDates = initialData.map((date, index) => ({
+        id: index, // Temporary ID, could be more robust
+        fromDate: date.from_date,
+        toDate: date.to_date,
+        reason: date.reason || "",
+      }));
+      
+      // Only update if the stringified content actually differs to avoid infinite loops
+      // if the parent accidentally passes a new reference of the same data.
+      if (JSON.stringify(mappedDates) !== JSON.stringify(blockedDates)) {
+        setBlockedDates(mappedDates);
+      }
     }
-  }, [initialData, isOpen]);
+  }, [initialData, blockedDates]);
 
   const handleAddBlockedDate = () => {
     if (blockDateForm.fromDate && blockDateForm.toDate) {
@@ -53,145 +60,158 @@ const AvailabilityManagementModal = ({ isOpen, onClose, onSave, initialData }: A
         toast.error("From date must be before or equal to To date");
         return;
       }
-      setBlockedDates([
+      const newBlockedDates = [
         ...blockedDates,
         {
           id: Date.now(),
           ...blockDateForm,
         },
-      ]);
+      ];
+      setBlockedDates(newBlockedDates);
       setBlockDateForm({ fromDate: "", toDate: "", reason: "" });
       toast.success("Blocked date added");
+      onSave(newBlockedDates); // Update parent state immediately
     } else {
       toast.error("Please select both from and to dates");
     }
   };
 
   const handleRemoveBlockedDate = (id: number) => {
-    setBlockedDates(blockedDates.filter((date) => date.id !== id));
+    const newBlockedDates = blockedDates.filter((date) => date.id !== id);
+    setBlockedDates(newBlockedDates);
     toast.success("Blocked date removed");
+    onSave(newBlockedDates); // Update parent state immediately
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSave(blockedDates);
-    toast.success("Availability management updated successfully!");
-    onClose();
+  const getInputClasses = (field: string) => {
+    return {
+      label: "text-sm font-bold text-gray-700 dark:text-gray-300 mb-2 ml-1 uppercase tracking-wider",
+      inputWrapper: [
+        "bg-white dark:bg-gray-700",
+        "border-2",
+        "border-gray-200 dark:border-gray-600",
+        "hover:border-brand-primary/40",
+        "focus-within:!border-brand-primary",
+        "focus-within:ring-4",
+        "focus-within:ring-brand-primary/10",
+        "shadow-sm",
+        "transition-all",
+        "duration-300",
+        "rounded-2xl",
+        "h-14",
+        "px-4",
+        isAddMode ? 'hover:!bg-white dark:hover:!bg-gray-700 data-[hover=true]:!bg-white dark:data-[hover=true]:!bg-gray-700' : ''
+      ].join(" "),
+      input: "text-base font-semibold text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500"
+    };
   };
 
-  const handleClose = () => {
-    setBlockDateForm({ fromDate: "", toDate: "", reason: "" });
-    onClose();
-  };
+  // Memoize blocked dates for the picker to avoid unnecessary re-renders
+  const existingBlockedDates = useMemo(() => 
+    blockedDates.map(d => ({ fromDate: d.fromDate, toDate: d.toDate })),
+  [blockedDates]);
 
-  if (!isOpen) return null;
-
-  const modalContent = (
-    <>
-      <div className="fixed inset-0 bg-black/50 z-[9998]" onClick={handleClose}></div>
-      <div className="fixed inset-0 flex items-center justify-center z-[9999] p-4">
-        <div className="bg-white rounded-2xl max-w-3xl w-full shadow-2xl" style={{ maxHeight: 'calc(100vh - 2rem)' }}>
-          {/* Header */}
-          <div className="flex justify-between items-center p-6 border-b border-gray-200 bg-gradient-to-r from-orange-50 to-yellow-50 rounded-t-2xl flex-shrink-0">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-800">Availability Management</h2>
-              <p className="text-sm text-gray-600 mt-1">Manage blocked dates and availability</p>
-            </div>
-            <button onClick={handleClose} className="p-2 hover:bg-white/50 rounded-full transition-colors">
-              <X className="w-6 h-6 text-gray-600" />
-            </button>
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2 mb-6 flex items-center gap-2">
+          <Calendar className="w-5 h-5 text-brand-primary" /> Availability Management
+        </h3>
+        
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-8 shadow-sm mb-8 transition-all duration-300 hover:shadow-md">
+          <div className="flex items-start gap-4 mb-8 bg-blue-50/50 dark:bg-blue-900/10 p-4 rounded-xl border border-blue-100 dark:border-blue-900/30">
+            <Info className="w-5 h-5 text-blue-500 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+            <p className="text-sm text-blue-800 dark:text-blue-300 leading-relaxed font-medium">
+              Select a date range and provide a reason to block this haven from being booked. 
+              The calendar view will show existing blocked dates to help you avoid overlaps.
+            </p>
           </div>
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6">
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2 mb-4">
-                  Blocked Dates
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                  <Input
-                    type="date"
-                    label="From Date"
-                    labelPlacement="outside"
-                    value={blockDateForm.fromDate}
-                    onChange={(e) => setBlockDateForm({ ...blockDateForm, fromDate: e.target.value })}
-                    classNames={{ label: "text-sm font-medium text-gray-700" }}
-                  />
-                  <Input
-                    type="date"
-                    label="To Date"
-                    labelPlacement="outside"
-                    value={blockDateForm.toDate}
-                    onChange={(e) => setBlockDateForm({ ...blockDateForm, toDate: e.target.value })}
-                    classNames={{ label: "text-sm font-medium text-gray-700" }}
-                  />
-                  <Input
-                    label="Reason"
-                    labelPlacement="outside"
-                    placeholder="e.g., Maintenance"
-                    value={blockDateForm.reason}
-                    onChange={(e) => setBlockDateForm({ ...blockDateForm, reason: e.target.value })}
-                    classNames={{ label: "text-sm font-medium text-gray-700" }}
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={handleAddBlockedDate}
-                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg mb-4"
-                >
-                  Add Blocked Date
-                </button>
-                {blockedDates.length > 0 && (
-                  <div className="space-y-2">
-                    {blockedDates.map((date) => (
-                      <div key={date.id} className="flex items-center justify-between p-3 bg-gray-50 border rounded-lg">
-                        <div className="flex items-center gap-2">
-                          <Calendar className="w-4 h-4 text-gray-500" />
-                          <div>
-                            <p className="text-sm font-medium">
-                              {date.fromDate} to {date.toDate}
-                            </p>
-                            {date.reason && <p className="text-xs text-gray-500">{date.reason}</p>}
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveBlockedDate(date.id)}
-                          className="p-1 text-red-500 hover:bg-red-100 rounded"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            <div className="space-y-2">
+              <AdminDateRangePicker 
+                fromDate={blockDateForm.fromDate}
+                toDate={blockDateForm.toDate}
+                onFromDateChange={(date) => setBlockDateForm(prev => ({ ...prev, fromDate: date }))}
+                onToDateChange={(date) => setBlockDateForm(prev => ({ ...prev, toDate: date }))}
+                blockedDates={existingBlockedDates}
+              />
             </div>
+            <div className="space-y-2">
+              <Input
+                label="Reason for Blocking"
+                labelPlacement="outside"
+                placeholder="e.g., General Maintenance, Owner Stay"
+                value={blockDateForm.reason}
+                onChange={(e) => setBlockDateForm({ ...blockDateForm, reason: e.target.value })}
+                classNames={getInputClasses('reason')}
+              />
+            </div>
+          </div>
 
-            {/* Footer */}
-            <div className="flex justify-end gap-3 mt-6 pt-6 border-t border-gray-200">
-              <button
-                type="button"
-                onClick={handleClose}
-                className="px-6 py-2.5 border-2 border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-100 transition-all"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="px-6 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg transition-all"
-              >
-                Save Changes
-              </button>
-            </div>
-          </form>
+          <button
+            type="button"
+            onClick={handleAddBlockedDate}
+            className={`
+              w-full lg:w-auto px-10 py-3.5 bg-brand-primary hover:bg-[#b57603] text-white rounded-xl font-bold transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2
+              ${(!blockDateForm.fromDate || !blockDateForm.toDate) ? 'opacity-50 cursor-not-allowed shadow-none' : ''}
+            `}
+            disabled={!blockDateForm.fromDate || !blockDateForm.toDate}
+          >
+            <Calendar className="w-5 h-5" />
+            Add Blocked Range
+          </button>
         </div>
-      </div>
-    </>
-  );
 
-  return typeof window !== 'undefined' ? createPortal(modalContent, document.body) : null;
+        {blockedDates.length > 0 ? (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">
+                Currently Blocked ({blockedDates.length})
+              </p>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {blockedDates.map((date) => (
+                <div key={date.id} className="flex items-center justify-between p-5 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl hover:border-brand-primary/30 dark:hover:border-brand-primary/40 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-lg group">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3.5 bg-brand-primary/5 dark:bg-brand-primary/10 rounded-2xl text-brand-primary group-hover:bg-brand-primary/10 transition-colors">
+                      <Calendar className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="text-base font-bold text-gray-800 dark:text-gray-100">{new Date(date.fromDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                        <span className="text-gray-300 dark:text-gray-600">→</span>
+                        <p className="text-base font-bold text-gray-800 dark:text-gray-100">{new Date(date.toDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                      </div>
+                      {date.reason && <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 font-medium">{date.reason}</p>}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveBlockedDate(date.id)}
+                    className="p-2.5 text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all"
+                    title="Remove blocked range"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="text-center py-20 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-3xl bg-gray-50/30 dark:bg-gray-800/20">
+            <div className="relative inline-block mb-4">
+              <Calendar className="w-16 h-16 text-gray-200 dark:text-gray-700" />
+              <Info className="w-6 h-6 text-brand-primary/40 dark:text-brand-primary/30 absolute -bottom-1 -right-1" />
+            </div>
+            <p className="text-gray-400 dark:text-gray-500 font-bold text-lg">No blocked dates scheduled</p>
+            <p className="text-gray-400 dark:text-gray-500 text-sm mt-1">This haven is currently available for all future dates.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 };
 
 export default AvailabilityManagementModal;

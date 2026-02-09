@@ -1,10 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { createPortal } from "react-dom";
-import { X } from "lucide-react";
-import { Input } from "@nextui-org/input";
-import toast from 'react-hot-toast';
+import { Input, Textarea } from "@nextui-org/input";
+import { z } from "zod";
+
+const detailsSchema = z.object({
+  capacity: z.string().refine(val => !isNaN(parseInt(val)) && parseInt(val) > 0, "Capacity must be a positive number"),
+  room_size: z.string().refine(val => !isNaN(parseFloat(val)) && parseFloat(val) > 0, "Room size must be a positive number"),
+  beds: z.string().min(1, "Number of beds is required"),
+  description: z.string().min(1, "Description is required"),
+});
 
 interface HavenDetailsData {
   capacity?: number | string;
@@ -14,21 +19,24 @@ interface HavenDetailsData {
 }
 
 interface HavenDetailsModalProps {
-  isOpen: boolean;
-  onClose: () => void;
   onSave: (data: HavenDetailsData) => void;
   initialData?: HavenDetailsData;
+  isAddMode?: boolean;
 }
 
-const HavenDetailsModal = ({ isOpen, onClose, onSave, initialData }: HavenDetailsModalProps) => {
-  const [formData, setFormData] = useState<HavenDetailsData>({
+const HavenDetailsModal = ({ 
+  onSave, 
+  initialData, 
+  isAddMode = false,
+}: HavenDetailsModalProps) => {
+  const [formData, setFormData] = useState<Record<string, string>>({
     capacity: "",
     room_size: "",
     beds: "",
     description: "",
   });
 
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (initialData) {
@@ -39,142 +47,105 @@ const HavenDetailsModal = ({ isOpen, onClose, onSave, initialData }: HavenDetail
         description: initialData.description || "",
       });
     }
-  }, [initialData, isOpen]);
+  }, [initialData]);
 
-  const validateForm = (): boolean => {
-    const newErrors: Record<string, string> = {};
+  const validation = detailsSchema.safeParse(formData);
+  const errors = !validation.success ? validation.error.format() : null;
 
-    if (!formData.capacity || formData.capacity === "") {
-      newErrors.capacity = "Maximum guests is required";
-    } else if (isNaN(parseInt(formData.capacity.toString()))) {
-      newErrors.capacity = "Maximum guests must be a number";
-    }
-
-    if (!formData.room_size || formData.room_size === "") {
-      newErrors.room_size = "Room size is required";
-    } else if (isNaN(parseFloat(formData.room_size.toString()))) {
-      newErrors.room_size = "Room size must be a number";
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+  const handleChange = (field: string, value: string) => {
+    const newData = { ...formData, [field]: value };
+    setFormData(newData);
+    setTouched(prev => ({ ...prev, [field]: true }));
+    onSave(newData);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (validateForm()) {
-      onSave({
-        capacity: parseInt((formData.capacity ?? "").toString()),
-        room_size: parseFloat((formData.room_size ?? "").toString()),
-        beds: formData.beds,
-        description: formData.description,
-      });
-      toast.success("Haven details saved successfully!");
-      onClose();
-    } else {
-      toast.error("Please fix the errors in the form");
-    }
+  const getInputClasses = (field: string) => {
+    const isFieldTouched = touched[field];
+    const isFieldInvalid = isFieldTouched && errors?.[field as keyof typeof errors];
+    const isFieldValid = isFieldTouched && !errors?.[field as keyof typeof errors];
+
+    let borderClass = "border-gray-200 dark:border-gray-700";
+    if (isFieldInvalid) borderClass = "border-red-500 bg-red-50/10 dark:bg-red-900/10";
+    if (isFieldValid) borderClass = "border-green-500 bg-green-50/10 dark:bg-green-900/10";
+
+    return {
+      label: "text-sm font-bold text-gray-700 dark:text-gray-300 mb-2 ml-1 uppercase tracking-wider",
+      inputWrapper: [
+        "bg-white dark:bg-gray-700",
+        `border-2 ${borderClass}`,
+        "hover:border-brand-primary/40",
+        "focus-within:!border-brand-primary",
+        "focus-within:ring-4",
+        "focus-within:ring-brand-primary/10",
+        "shadow-sm",
+        "transition-all",
+        "duration-300",
+        "rounded-2xl",
+        "h-14",
+        "px-4"
+      ].join(" "),
+      input: "text-base font-semibold text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500",
+      errorMessage: "text-xs font-bold text-red-500 dark:text-red-400 mt-1.5 ml-1 animate-in slide-in-from-top-1"
+    };
   };
 
-  const handleClose = () => {
-    setFormData({
-      capacity: "",
-      room_size: "",
-      beds: "",
-      description: "",
-    });
-    setErrors({});
-    onClose();
-  };
-
-  if (!isOpen) return null;
-
-  const modalContent = (
-    <>
-      <div className="fixed inset-0 bg-black/50 z-[9998]" onClick={handleClose}></div>
-      <div className="fixed inset-0 flex items-center justify-center z-[9999] p-4">
-        <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl">
-          {/* Header */}
-          <div className="flex justify-between items-center p-6 border-b border-gray-200 bg-gradient-to-r from-orange-50 to-yellow-50 rounded-t-2xl">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-800">Haven Details</h2>
-              <p className="text-sm text-gray-600 mt-1">Update haven specifications and description</p>
-            </div>
-            <button onClick={handleClose} className="p-2 hover:bg-white/50 rounded-full transition-colors">
-              <X className="w-6 h-6 text-gray-600" />
-            </button>
-          </div>
-
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="p-6">
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Input
-                  type="number"
-                  label="Maximum Guests"
-                  labelPlacement="outside"
-                  value={formData.capacity?.toString()}
-                  onChange={(e) => setFormData({ ...formData, capacity: e.target.value })}
-                  classNames={{ label: "text-sm font-medium text-gray-700" }}
-                  isInvalid={!!errors.capacity}
-                  errorMessage={errors.capacity}
-                  isRequired
-                />
-                <Input
-                  type="number"
-                  label="Room Size (sq.m)"
-                  labelPlacement="outside"
-                  value={formData.room_size?.toString()}
-                  onChange={(e) => setFormData({ ...formData, room_size: e.target.value })}
-                  classNames={{ label: "text-sm font-medium text-gray-700" }}
-                  isInvalid={!!errors.room_size}
-                  errorMessage={errors.room_size}
-                  isRequired
-                />
-              </div>
-              <Input
-                label="Beds Configuration"
-                labelPlacement="outside"
-                placeholder="e.g., 1 King + 1 Queen Bed"
-                value={formData.beds}
-                onChange={(e) => setFormData({ ...formData, beds: e.target.value })}
-                classNames={{ label: "text-sm font-medium text-gray-700" }}
-              />
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  rows={4}
-                  className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                  placeholder="Enter haven description..."
-                />
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="flex justify-end gap-3 mt-6 pt-6 border-t border-gray-200">
-              <button
-                type="button"
-                onClick={handleClose}
-                className="px-6 py-2.5 border-2 border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-100 transition-all"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="px-6 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg transition-all"
-              >
-                Save Changes
-              </button>
-            </div>
-          </form>
+  return (
+    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-3xl p-8 shadow-sm transition-all duration-[250ms] [transition-timing-function:cubic-bezier(0.4,0,0.2,1)] hover:scale-[1.01] hover:shadow-md will-change-transform">
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Input
+            type="number"
+            label="Capacity"
+            labelPlacement="outside"
+            placeholder="e.g., 4"
+            value={formData.capacity}
+            onChange={(e) => handleChange('capacity', e.target.value)}
+            classNames={getInputClasses('capacity')}
+            isInvalid={touched.capacity && !!errors?.capacity}
+            errorMessage={touched.capacity && (errors?.capacity as any)?._errors[0]}
+            isRequired
+          />
+          <Input
+            type="number"
+            label="Room Size (sqm)"
+            labelPlacement="outside"
+            placeholder="e.g., 35"
+            value={formData.room_size}
+            onChange={(e) => handleChange('room_size', e.target.value)}
+            classNames={getInputClasses('room_size')}
+            isInvalid={touched.room_size && !!errors?.room_size}
+            errorMessage={touched.room_size && (errors?.room_size as any)?._errors[0]}
+            isRequired
+          />
         </div>
+        <Input
+          label="Beds"
+          labelPlacement="outside"
+          placeholder="e.g., 2 Queen Beds"
+          value={formData.beds}
+          onChange={(e) => handleChange('beds', e.target.value)}
+          classNames={getInputClasses('beds')}
+          isInvalid={touched.beds && !!errors?.beds}
+          errorMessage={touched.beds && (errors?.beds as any)?._errors[0]}
+          isRequired
+        />
+        <Textarea
+          label="Description"
+          labelPlacement="outside"
+          placeholder="Describe the haven..."
+          value={formData.description}
+          onChange={(e) => handleChange('description', e.target.value)}
+          classNames={{
+            ...getInputClasses('description'),
+            inputWrapper: `${getInputClasses('description').inputWrapper} h-auto min-h-[120px] py-2`
+          }}
+          isInvalid={touched.description && !!errors?.description}
+          errorMessage={touched.description && (errors?.description as any)?._errors[0]}
+          isRequired
+        />
       </div>
-    </>
+    </div>
   );
-
-  return typeof window !== 'undefined' ? createPortal(modalContent, document.body) : null;
 };
 
 export default HavenDetailsModal;

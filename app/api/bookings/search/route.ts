@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/backend/config/db";
 
+const BOOKING_TABLE = (() => {
+  const raw = (process.env.BOOKING_TABLE_NAME || "booking").trim();
+  if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(raw)) return raw;
+  console.warn("Invalid BOOKING_TABLE_NAME, defaulting to 'booking'");
+  return "booking";
+})();
+
 export async function GET(req: NextRequest): Promise<NextResponse> {
   try {
     const { searchParams } = new URL(req.url);
@@ -14,7 +21,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     }
 
     const query = `
-      SELECT * FROM bookings
+      SELECT * FROM ${BOOKING_TABLE}
       WHERE booking_id = $1
     `;
 

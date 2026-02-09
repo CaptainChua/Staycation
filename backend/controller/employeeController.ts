@@ -308,7 +308,7 @@ export const deleteEmployee = async (req: NextRequest): Promise<NextResponse> =>
 };
 
 //Login Employee 
-export const loginEmployee = async (req: NextRequest):Promise <NextResponse> => {
+export const loginEmployee = async (req: NextRequest): Promise<NextResponse> => {
   try {
     const body = await req.json();
     const { email, password } = body;
@@ -317,10 +317,10 @@ export const loginEmployee = async (req: NextRequest):Promise <NextResponse> => 
       return NextResponse.json(
         { success: false, error: "Email and password are required"},
         { status: 400 }
-      )
+      );
     }
 
-    const findQuery = `SELECT id, first_name, last_name, email, phone, employment_id, hire_date, role, department, monthly_salary, street_address, city, zip_code, password, profile_image_url, emergency_contact_name, emergency_contact_phone, emergency_contact_relation FROM employees WHERE email = $1 LIMIT 1`;
+    const findQuery = `SELECT id, first_name, last_name, email, phone, employment_id, hire_date, role, department, monthly_salary, street_address, city, zip_code, password, profile_image_url, emergency_contact_name, emergency_contact_phone, emergency_contact_relation, login_attempts FROM employees WHERE email = $1 LIMIT 1`;
 
     const userResult = await pool.query(findQuery, [email]);
 
@@ -328,17 +328,72 @@ export const loginEmployee = async (req: NextRequest):Promise <NextResponse> => 
       return NextResponse.json(
         { success: false, error: "Invalid email or password"},
         { status: 401}
-      )
+      );
     }
 
     const employee = userResult.rows[0];
 
     const isMatch = await bcrypt.compare(password, employee.password);
     if (!isMatch) {
+      console.log(`❌ Invalid password for email: ${email}, current attempts: ${employee.login_attempts || 0}`);
+      
+      // Increment login attempts
+      try {
+        const updateResult = await pool.query(
+          `UPDATE employees SET login_attempts = login_attempts + 1, updated_at = NOW() WHERE email = $1`,
+          [email]
+        );
+        console.log(`✅ Login attempts updated for email: ${email}, rows affected: ${updateResult.rowCount}`);
+        
+        // Check if login attempts exceeded 3
+        const updatedEmployee = await pool.query(
+          `SELECT login_attempts FROM employees WHERE email = $1`,
+          [email]
+        );
+        
+        const attempts = updatedEmployee.rows[0]?.login_attempts || 0;
+        console.log(`📊 New login attempts count for ${email}: ${attempts}`);
+        
+        if (attempts >= 3) {
+          // Generate OTP and send email
+          const otp = Math.floor(100000 + Math.random() * 900000).toString();
+          const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiry
+          
+          // Remove existing OTP for this email and insert new one
+          await pool.query(
+            `DELETE FROM otp_verification WHERE email = $1 AND otp_type = 'ACCOUNT_LOCK'`,
+            [email]
+          );
+          
+          // Insert new OTP into otp_verification table
+          await pool.query(
+            `INSERT INTO otp_verification (email, otp_code, otp_type, expires_at, created_at)
+             VALUES ($1, $2, $3, $4, NOW())`,
+            [email, otp, 'ACCOUNT_LOCK', expiresAt]
+          );
+          
+          console.log(`🔒 Account locked for ${email}. OTP: ${otp}`);
+          
+          return NextResponse.json({
+            success: false,
+            error: "Account locked due to multiple failed attempts. Please check your email for OTP verification.",
+            requiresOtp: true,
+            email: email
+          }, { status: 423 });
+        }
+        
+      } catch (updateError: any) {
+        console.error('❌ Failed to update login attempts:', updateError.message);
+        console.error('Error details:', {
+          email: email,
+          error: updateError
+        });
+      }
+      
       return NextResponse.json(
         { success: false, error: "Invalid email or password" },
         { status: 401}
-      )
+      );
     }
 
     const adminRoles = ['Owner', 'Csr', 'Cleaner', 'Partner'];
@@ -348,11 +403,22 @@ export const loginEmployee = async (req: NextRequest):Promise <NextResponse> => 
         success: false, error: "You do not have admin access"
       },
       { status: 403 }
-    )
+      );
     }
 
-    console.log("Employee logged in. ", employee.email)
+    console.log("Employee logged in. ", employee.email);
     console.log("Attempting to create activity log for employee ID:", employee.id);
+
+    // Reset login attempts on successful login
+    try {
+      await pool.query(
+        `UPDATE employees SET login_attempts = 0, last_login = NOW(), updated_at = NOW() WHERE id = $1`,
+        [employee.id]
+      );
+      console.log(`✅ Login attempts reset for employee: ${employee.email}`);
+    } catch (resetError: any) {
+      console.error('❌ Failed to reset login attempts:', resetError.message);
+    }
 
     // Create activity log for login
     try {
@@ -402,11 +468,11 @@ export const loginEmployee = async (req: NextRequest):Promise <NextResponse> => 
         }
       },
       { status: 200 }
-    )
+    );
   } catch(error) {
-    console.log("Login failed")
+    console.log("Login failed");
     return NextResponse.json({
       success: false, error: "Login Failed"
-    })
+    });
   }
 }

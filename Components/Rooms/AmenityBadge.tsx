@@ -13,7 +13,16 @@ import {
     Droplets,
     Sofa,
     BedDouble,
-    WashingMachine
+    WashingMachine,
+    Refrigerator,
+    CookingPot,
+    UtensilsCrossed,
+    Bed,
+    Shirt,
+    Lightbulb,
+    Dices,
+    Speaker,
+    Bath
 } from "lucide-react";
 
 interface AmenityBadgeProps {
@@ -50,6 +59,20 @@ const AmenityBadge = ({amenity}:AmenityBadgeProps) => {
             'washerdryer': <WashingMachine className="w-4 h-4" />,
             'washer': <WashingMachine className="w-4 h-4" />,
             'dryer': <WashingMachine className="w-4 h-4" />,
+            'fridge': <Refrigerator className="w-4 h-4" />,
+            'refrigerator': <Refrigerator className="w-4 h-4" />,
+            'cookingset': <Utensils className="w-4 h-4" />,
+            'diningset': <UtensilsCrossed className="w-4 h-4" />,
+            'inductioncooker': <CookingPot className="w-4 h-4" />,
+            'ricecooker': <CookingPot className="w-4 h-4" />,
+            'hotcoldshower': <Bath className="w-4 h-4" />,
+            'doublebeds': <Bed className="w-4 h-4" />,
+            'pillowscomforters': <BedDouble className="w-4 h-4" />,
+            'clothesrack': <Shirt className="w-4 h-4" />,
+            'humidifier': <Wind className="w-4 h-4" />,
+            'ledlights': <Lightbulb className="w-4 h-4" />,
+            'boardgames': <Dices className="w-4 h-4" />,
+            'soundbar': <Speaker className="w-4 h-4" />,
         };
         
         return iconMap[normalizedName] || null;
@@ -80,13 +103,27 @@ const AmenityBadge = ({amenity}:AmenityBadgeProps) => {
             'washerDryer': 'Washer/Dryer',
             'washer': 'Washer',
             'dryer': 'Dryer',
+            'fridge': 'Refrigerator',
+            'refrigerator': 'Refrigerator',
+            'cookingset': 'Complete Cooking Set',
+            'diningset': 'Dining Set',
+            'inductioncooker': 'Induction Cooker',
+            'ricecooker': 'Rice Cooker',
+            'hotcoldshower': 'Hot/Cold Shower',
+            'doublebeds': '2 Double Beds',
+            'pillowscomforters': 'Pillows/Comforters',
+            'clothesrack': 'Clothes Rack',
+            'humidifier': 'Humidifier',
+            'ledlights': 'LED Lights',
+            'boardgames': 'Board Games',
+            'soundbar': 'Soundbar',
         };
         
         return textMap[normalizedName] || name.charAt(0).toUpperCase() + name.slice(1);
     }
 
   return (
-    <div className="flex items-center gap-2 px-3 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-xs sm:text-sm">
+    <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-xs sm:text-sm whitespace-nowrap">
       {getIcon(amenity)}
       <span>{formatText(amenity)}</span>
     </div>

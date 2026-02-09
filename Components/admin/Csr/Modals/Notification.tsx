@@ -3,22 +3,22 @@
 import { ReactNode, RefObject, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { BellRing, CheckCircle2, Clock, Info, X } from "lucide-react";
-
-interface Notification {
-  id: string;
-  title: string;
-  description: string;
-  timestamp: string;
-  type?: "info" | "success" | "warning";
-}
-
-type LocalNotification = Notification & { read: boolean };
+import { useGetNotificationsQuery, useUpdateNotificationsMutation, useMarkAllAsReadMutation, Notification } from "@/redux/api/notificationsApi";
+import toast from 'react-hot-toast';
 
 interface NotificationModalProps {
-  notifications: Notification[];
   onClose: () => void;
   onViewAll?: () => void;
   anchorRef?: RefObject<HTMLElement | null>;
+  userId?: string;
+  notifications?: Array<{
+    id: string;
+    title: string;
+    description: string;
+    timestamp: string;
+    type: 'info' | 'success' | 'warning';
+    read?: boolean;
+  }>;
 }
 
 const iconMap: Record<string, ReactNode> = {
@@ -42,13 +42,27 @@ const typeStyles: Record<NonNullable<Notification["type"]>, { wrapper: string; i
   },
 };
 
-export default function NotificationModal({ notifications, onClose, onViewAll, anchorRef }: NotificationModalProps) {
+export default function NotificationModal({ onClose, onViewAll, anchorRef, userId, notifications: propNotifications }: NotificationModalProps) {
   const [isMounted, setIsMounted] = useState(false);
   const [position, setPosition] = useState({ top: 96, right: 16 });
   const [filter, setFilter] = useState<"all" | "unread">("all");
-  const [items, setItems] = useState<LocalNotification[]>([]);
 
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Fetch notifications from API
+  const { data: apiNotifications = [], isLoading, error, refetch } = useGetNotificationsQuery(
+    { limit: 50 },
+    { 
+      pollingInterval: 30000, // Refresh every 30 seconds
+      skip: !userId 
+    }
+  );
+
+  // Use prop notifications if userId is not provided (mock/fallback behavior)
+  const notifications = userId ? apiNotifications : (propNotifications || []);
+
+  const [updateNotifications] = useUpdateNotificationsMutation();
+  const [markAllAsRead] = useMarkAllAsReadMutation();
 
   // Use requestAnimationFrame to avoid cascading renders
   useEffect(() => {
@@ -104,47 +118,34 @@ export default function NotificationModal({ notifications, onClose, onViewAll, a
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [anchorRef, onClose, isMounted]);
 
-  // Initialize items from notifications without triggering cascading renders
+  // Handle errors
   useEffect(() => {
-    if (!isMounted) return;
-    
-    // Use a timeout to batch the state update
-    const timeoutId = setTimeout(() => {
-      setItems((prev) => {
-        const prevMap = new Map(prev.map((n) => [n.id, n]));
-        return notifications.map((n) => {
-          const existing = prevMap.get(n.id);
-          return {
-            ...n,
-            read: existing?.read ?? false,
-          };
-        });
-      });
-    }, 0);
+    if (error) {
+      console.error('Failed to fetch notifications:', error);
+      toast.error('Failed to load notifications');
+    }
+  }, [error]);
 
-    return () => clearTimeout(timeoutId);
-  }, [notifications, isMounted]);
-
-  const unreadCount = items.filter((n) => !n.read).length;
-  const visibleItems = filter === "unread" ? items.filter((n) => !n.read) : items;
+  const unreadCount = notifications.filter((n) => !n.read).length;
+  const visibleItems = filter === "unread" ? notifications.filter((n) => !n.read) : notifications;
 
   if (!isMounted) return null;
 
   return createPortal(
-    <>
-      <div className="fixed inset-0 z-[9980]" aria-hidden="true" />
-      <div
-        ref={containerRef}
-        className="fixed z-[9991] w-full max-w-md md:max-w-sm"
-        style={{
-          top: position.top,
-          right: position.right,
-        }}
-      >
+    <div
+      ref={containerRef}
+      className="fixed z-[9991] w-full max-w-md md:max-w-sm"
+      style={{
+        top: position.top,
+        right: position.right,
+      }}
+    >
         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-h-[80vh] flex flex-col overflow-hidden border border-brand-primary/20 dark:border-gray-800">
-          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800 bg-gradient-to-r from-brand-primaryLighter to-white dark:from-gray-900 dark:to-gray-900">
-            <div className="flex items-center gap-2">
-              <BellRing className="w-5 h-5 text-brand-primary" />
+          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-brand-primary text-white flex items-center justify-center">
+                <BellRing className="w-6 h-6" />
+              </div>
               <div>
                 <p className="text-xs font-semibold tracking-[0.3em] text-brand-primary uppercase">
                   Notifications
@@ -193,11 +194,15 @@ export default function NotificationModal({ notifications, onClose, onViewAll, a
             <div className="ml-auto">
               <button
                 type="button"
-                onClick={() => {
-                  // Use setTimeout to batch the state update
-                  setTimeout(() => {
-                    setItems((prev) => prev.map((n) => ({ ...n, read: true })));
-                  }, 0);
+                onClick={async () => {
+                  try {
+                    await markAllAsRead().unwrap();
+                    toast.success('All notifications marked as read');
+                    refetch();
+                  } catch (error) {
+                    console.error('Failed to mark all as read:', error);
+                    toast.error('Failed to mark notifications as read');
+                  }
                 }}
                 className="text-sm font-semibold text-brand-primary hover:text-brand-primaryDark transition-colors"
               >
@@ -207,7 +212,26 @@ export default function NotificationModal({ notifications, onClose, onViewAll, a
           </div>
 
           <div className="flex-1 overflow-y-auto">
-            {visibleItems.length === 0 ? (
+            {isLoading ? (
+              <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                {[...Array(3)].map((_, index) => (
+                  <div key={index} className="px-6 py-4 flex items-start gap-3">
+                    <div className="relative flex-shrink-0">
+                      <div className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                        <div className="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-700 animate-pulse"></div>
+                      </div>
+                    </div>
+                    <div className="flex-1 min-w-0 space-y-2">
+                      <div className="space-y-1">
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-3/4"></div>
+                        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-full"></div>
+                      </div>
+                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-1/3"></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : visibleItems.length === 0 ? (
               <div className="text-center py-10 text-sm text-gray-500 dark:text-gray-400">You&apos;re all caught up!</div>
             ) : (
               <div className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -218,13 +242,19 @@ export default function NotificationModal({ notifications, onClose, onViewAll, a
                     <button
                       key={notification.id}
                       type="button"
-                      onClick={() => {
-                        // Use setTimeout to batch the state update
-                        setTimeout(() => {
-                          setItems((prev) =>
-                            prev.map((n) => (n.id === notification.id ? { ...n, read: true } : n))
-                          );
-                        }, 0);
+                      onClick={async () => {
+                        if (!notification.read) {
+                          try {
+                            await updateNotifications({
+                              notificationIds: [notification.id],
+                              markAs: 'read'
+                            }).unwrap();
+                            refetch();
+                          } catch (error) {
+                            console.error('Failed to mark notification as read:', error);
+                            toast.error('Failed to update notification');
+                          }
+                        }
                       }}
                       className={`w-full text-left px-6 py-4 flex items-start gap-3 transition-colors ${
                         notification.read
@@ -273,8 +303,7 @@ export default function NotificationModal({ notifications, onClose, onViewAll, a
             </button>
           </div>
         </div>
-      </div>
-    </>,
+    </div>,
     document.body
   );
 }

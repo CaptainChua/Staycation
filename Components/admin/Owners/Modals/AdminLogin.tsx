@@ -7,7 +7,7 @@ import {
   Lock,
   User,
 } from "lucide-react";
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { toast } from "react-hot-toast";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
@@ -15,6 +15,22 @@ import axios from "axios";
 import Image from "next/image";
 import Navbar from "@/Components/Navbar";
 import Footer from "@/Components/Footer";
+import OtpVerification from "@/Components/admin/Csr/OtpVerification";
+
+// TypeScript declaration for Turnstile
+declare global {
+  interface Window {
+    turnstile: {
+      render: (container: string | HTMLElement, params: {
+        sitekey: string;
+        callback?: (token: string) => void;
+        'expired-callback'?: () => void;
+        'error-callback'?: () => void;
+      }) => string;
+      remove: (widgetId: string) => void;
+    };
+  }
+}
 
 interface LoginFormState {
   email: string;
@@ -22,17 +38,60 @@ interface LoginFormState {
   showPassword: boolean;
   isLoading: boolean;
   error: string | null;
+  turnstileToken: string | null;
 }
 
 const AdminLogin = () => {
   const router = useRouter();
+  const turnstileRef = useRef<HTMLDivElement>(null);
+  const [showOtpVerification, setShowOtpVerification] = useState(false);
+  const [otpEmail, setOtpEmail] = useState("");
+  const [otpPassword, setOtpPassword] = useState("");
+
   const [formData, setFormData] = useState<LoginFormState>({
     email: "",
     password: "",
     showPassword: false,
     isLoading: false,
     error: null,
+    turnstileToken: null,
   });
+
+  useEffect(() => {
+    // Check if site key is available
+    const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+    
+    if (!siteKey) {
+      console.error("Turnstile site key is missing. Please set NEXT_PUBLIC_TURNSTILE_SITE_KEY in your environment variables.");
+      setFormData(prev => ({ 
+        ...prev, 
+        error: "Security configuration missing. Please contact administrator." 
+      }));
+      return;
+    }
+
+    // Initialize Turnstile widget
+    if (turnstileRef.current && window.turnstile) {
+      const widgetId = window.turnstile.render(turnstileRef.current, {
+        sitekey: siteKey,
+        callback: (token: string) => {
+          setFormData(prev => ({ ...prev, turnstileToken: token }));
+        },
+        'expired-callback': () => {
+          setFormData(prev => ({ ...prev, turnstileToken: null }));
+        },
+        'error-callback': () => {
+          setFormData(prev => ({ ...prev, turnstileToken: null }));
+        }
+      });
+
+      return () => {
+        if (widgetId && window.turnstile) {
+          window.turnstile.remove(widgetId);
+        }
+      };
+    }
+  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -48,6 +107,60 @@ const AdminLogin = () => {
       e.preventDefault();
       handleLogin();
     }
+  };
+
+  const handleOtpSuccess = async () => {
+  try {
+    toast.success("Account verified! Logging you in...");
+
+    const result = await signIn("credentials", {
+      email: otpEmail,
+      password: otpPassword,
+      redirect: false,
+    });
+
+    if (result?.error) {
+      toast.error("Account unlocked, but auto-login failed. Please login again.");
+      setShowOtpVerification(false);
+      return;
+    }
+
+    const { data: session } = await axios.get("/api/auth/session");
+
+    if (!session?.user) {
+      toast.error("Failed to create session. Please login again.");
+      setShowOtpVerification(false);
+      return;
+    }
+
+    const role = session.user.role?.toLowerCase();
+
+    switch (role) {
+      case "csr":
+        router.push("/admin/csr");
+        break;
+      case "owner":
+        router.push("/admin/owners");
+        break;
+      case "partner":
+        router.push("/admin/partners");
+        break;
+      case "cleaner":
+        router.push("/admin/cleaners");
+        break;
+      default:
+        router.push("/admin/owners");
+    }
+  } catch (error) {
+    console.error("Auto-login error:", error);
+    toast.error("Auto-login failed. Please login again.");
+    setShowOtpVerification(false);
+  }
+};
+
+  const handleBackToLogin = () => {
+    setShowOtpVerification(false);
+    setOtpEmail("");
   };
 
   const handleLogin = async () => {
@@ -68,6 +181,15 @@ const AdminLogin = () => {
       return;
     }
 
+    if (!formData.turnstileToken) {
+      setFormData((prev) => ({
+        ...prev,
+        error: "Please complete the security verification",
+      }));
+      toast.error("Please complete the security verification");
+      return;
+    }
+
     setFormData((prev) => ({
       ...prev,
       isLoading: true,
@@ -78,10 +200,26 @@ const AdminLogin = () => {
       const result = await signIn("credentials", {
         email: formData.email,
         password: formData.password,
+        turnstileToken: formData.turnstileToken,
         redirect: false,
       });
 
       if (result?.error) {
+        // Check if error indicates OTP is required
+        if (result.error.includes("Account locked due to multiple failed attempts")) {
+        setOtpEmail(formData.email);
+        setOtpPassword(formData.password); // 🔑 store password
+        setShowOtpVerification(true);
+
+        setFormData((prev) => ({
+          ...prev,
+          isLoading: false,
+          error: null,
+        }));
+        return;
+      }
+
+        
         setFormData((prev) => ({
           ...prev,
           isLoading: false,
@@ -124,6 +262,7 @@ const AdminLogin = () => {
           case 'cleaner': 
             router.push("/admin/cleaners");
             break;
+
           default:
             router.push("/admin/owners")
         }
@@ -170,144 +309,163 @@ const AdminLogin = () => {
           {/* Main Container */}
           <div className="w-full max-w-md">
 
-            {/* Login Card */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 sm:p-8 border border-gray-200 dark:border-gray-700">
-              {/* Logo/Home Link */}
-              <div className="flex justify-center mb-6">
-                <button
-                  onClick={() => router.push("/")}
-                  className="flex items-center gap-1 hover:opacity-80 transition-opacity"
-                  aria-label="Go to homepage"
-                >
-                  <Image
-                    src="/haven_logo.png"
-                    alt="Staycation Haven Logo"
-                    width={24}
-                    height={24}
-                    className="w-6 h-6 object-contain"
-                  />
-                  <span className="text-xl font-display text-brand-primary dark:text-brand-primary">
-                    taycation Haven
-                  </span>
-                </button>
-              </div>
-
-              {/* Title */}
-              <div className="text-center mb-8">
-                <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-2">
-                  Admin Login
-                </h1>
-                <p className="text-gray-600 dark:text-gray-300">
-                  Sign in to your admin account
-                </p>
-              </div>
-
-              {/* Login Form */}
-              <div className="space-y-3 mb-6">
-                {/* Email */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                    Email Address
-                  </label>
-                  <div className="relative">
-                    <User className="absolute left-4 top-3.5 w-5 h-5 text-gray-400 dark:text-gray-500" />
-                    <input
-                      type="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={handleInputChange}
-                      onKeyDown={handleKeyDown}
-                      placeholder="Enter your email"
-                      className="w-full pl-12 pr-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent transition-all duration-300 placeholder-gray-500 dark:placeholder-gray-400"
+            {/* Show OTP Verification if required */}
+            {showOtpVerification ? (
+              <OtpVerification
+                email={otpEmail}
+                onBack={handleBackToLogin}
+                onSuccess={handleOtpSuccess}
+              />
+            ) : (
+              /* Login Card */
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 sm:p-8 border border-gray-200 dark:border-gray-700">
+                {/* Logo/Home Link */}
+                <div className="flex justify-center mb-6">
+                  <button
+                    onClick={() => router.push("/")}
+                    className="flex items-center gap-1 hover:opacity-80 transition-opacity"
+                    aria-label="Go to homepage"
+                    suppressHydrationWarning
+                  >
+                    <Image
+                      src="/haven_logo.png"
+                      alt="Staycation Haven Logo"
+                      width={24}
+                      height={24}
+                      className="w-6 h-6 object-contain"
                     />
-                  </div>
+                    <span className="text-xl font-display text-brand-primary dark:text-brand-primary">
+                      taycation Haven
+                    </span>
+                  </button>
                 </div>
 
-                {/* Password Fieldd */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                    Password
-                  </label>
-                  <div className="relative">
-                    <Lock className="absolute left-4 top-3.5 w-5 h-5 text-gray-400 dark:text-gray-500" />
-                    <input
-                      type={formData.showPassword ? "text" : "password"}
-                      name="password"
-                      value={formData.password}
-                      onChange={handleInputChange}
-                      onKeyDown={handleKeyDown}
-                      placeholder="Enter your password"
-                      className="w-full pl-12 pr-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent transition-all duration-300 placeholder-gray-500 dark:placeholder-gray-400"
-                    />
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          showPassword: !prev.showPassword,
-                        }))
-                      }
-                      className="absolute right-4 top-3.5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                    >
-                      {formData.showPassword ? (
-                        <EyeOff className="w-5 h-5" />
-                      ) : (
-                        <Eye className="w-5 h-5" />
-                      )}
-                    </button>
-                  </div>
+                {/* Title */}
+                <div className="text-center mb-8">
+                  <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-2">
+                    Admin Login
+                  </h1>
+                  <p className="text-gray-600 dark:text-gray-300">
+                    Sign in to your admin account
+                  </p>
                 </div>
 
-                {/* Error Message */}
-                {formData.error && (
-                  <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-300 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-sm">
-                    {formData.error}
+                {/* Login Form */}
+                <div className="space-y-3 mb-6">
+                  {/* Email */}
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                      Email Address
+                    </label>
+                    <div className="relative">
+                      <User className="absolute left-4 top-3.5 w-5 h-5 text-gray-400 dark:text-gray-500" />
+                      <input
+                        type="email"
+                        name="email"
+                        value={formData.email}
+                        onChange={handleInputChange}
+                        onKeyDown={handleKeyDown}
+                        placeholder="Enter your email"
+                        className="w-full pl-12 pr-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent transition-all duration-300 placeholder-gray-500 dark:placeholder-gray-400"
+                        suppressHydrationWarning
+                      />
+                    </div>
                   </div>
-                )}
-              </div>
 
-              {/* Login Button */}
-              <div className="mb-8">
-                <button
-                  onClick={handleLogin}
-                  disabled={formData.isLoading}
-                  className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-lg bg-brand-primary hover:bg-brand-primaryDark text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  aria-label="Login"
-                >
-                  {formData.isLoading ? (
-                    <>
-                      <div className="w-5 h-5 border-2 border-orange-300/40 border-t-white rounded-full animate-spin"></div>
-                      <span>Logging in...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>Login</span>
-                      <ChevronRight className="w-5 h-5" />
-                    </>
+                  {/* Password Field */}
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                      Password
+                    </label>
+                    <div className="relative">
+                      <Lock className="absolute left-4 top-3.5 w-5 h-5 text-gray-400 dark:text-gray-500" />
+                      <input
+                        type={formData.showPassword ? "text" : "password"}
+                        name="password"
+                        value={formData.password}
+                        onChange={handleInputChange}
+                        onKeyDown={handleKeyDown}
+                        placeholder="Enter your password"
+                        className="w-full pl-12 pr-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent transition-all duration-300 placeholder-gray-500 dark:placeholder-gray-400"
+                        suppressHydrationWarning
+                      />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            showPassword: !prev.showPassword,
+                          }))
+                        }
+                        className="absolute right-4 top-3.5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                        suppressHydrationWarning
+                      >
+                        {formData.showPassword ? (
+                          <EyeOff className="w-5 h-5" />
+                        ) : (
+                          <Eye className="w-5 h-5" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Turnstile Widget */}
+                  <div>
+                    <div ref={turnstileRef} className="flex justify-center" />
+                  </div>
+
+                  {/* Error Message */}
+                  {formData.error && (
+                    <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-300 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-sm">
+                      {formData.error}
+                    </div>
                   )}
-                </button>
-              </div>
+                </div>
 
-              {/* Terms */}
-              <div className="text-center pt-6 border-t border-gray-200 dark:border-gray-700">
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  By continuing, you agree to our{" "}
-                  <a
-                    href="/terms"
-                    className="text-brand-primary hover:text-brand-primaryDark underline transition-colors"
+                {/* Login Button */}
+                <div className="mb-8">
+                  <button
+                    onClick={handleLogin}
+                    disabled={formData.isLoading}
+                    className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-lg bg-brand-primary hover:bg-brand-primaryDark text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    aria-label="Login"
+                    suppressHydrationWarning
                   >
-                    Terms
-                  </a>{" "}
-                  and{" "}
-                  <a
-                    href="/privacy"
-                    className="text-brand-primary hover:text-brand-primaryDark underline transition-colors"
-                  >
-                    Privacy Policy
-                  </a>
-                </p>
+                    {formData.isLoading ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-orange-300/40 border-t-white rounded-full animate-spin"></div>
+                        <span>Logging in...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Login</span>
+                        <ChevronRight className="w-5 h-5" />
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {/* Terms */}
+                <div className="text-center pt-6 border-t border-gray-200 dark:border-gray-700">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    By continuing, you agree to our{" "}
+                    <a
+                      href="/terms"
+                      className="text-brand-primary hover:text-brand-primaryDark underline transition-colors"
+                    >
+                      Terms
+                    </a>{" "}
+                    and{" "}
+                    <a
+                      href="/privacy"
+                      className="text-brand-primary hover:text-brand-primaryDark underline transition-colors"
+                    >
+                      Privacy Policy
+                    </a>
+                  </p>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
 

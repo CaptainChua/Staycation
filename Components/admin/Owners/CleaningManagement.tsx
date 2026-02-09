@@ -1,723 +1,1310 @@
 "use client";
 
-import { useState, useMemo } from "react";
 import {
-  Users,
-  Home,
-  CheckCircle,
-  AlertCircle,
-  Wrench,
-  Filter,
-  Search,
-  CheckCircle2,
-  Clock,
-  Eye,
   Sparkles,
-  ClipboardCheck,
+  Search,
+  Filter,
+  ArrowUpDown,
+  MapPin,
+  User,
+  Eye,
+  ClipboardList,
+  Loader2,
+  CheckCircle,
+  Users,
+  ChevronsLeft,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsRight,
+  UserPlus,
+  Clock,
+  PlayCircle,
+  RefreshCw,
+  Calendar,
 } from "lucide-react";
-import { useGetBookingsQuery, useUpdateCleaningStatusMutation } from "@/redux/api/bookingsApi";
-import toast from "react-hot-toast";
+import { useMemo, useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
+import { useGetCleaningTasksQuery } from "@/redux/api/cleanersApi";
+// Import modals from admin Csr folder
+import ViewBookings from "@/Components/admin/Csr/Modals/ViewBookings";
+import AssignCleanerModal from "@/Components/admin/Csr/Modals/AssignCleanerModal";
 
-type BookingStatus = "pending" | "approved" | "rejected" | "confirmed" | "checked-in" | "completed" | "cancelled";
-type CleaningStatus = "pending" | "in-progress" | "cleaned" | "inspected";
+type CleaningStatus = "Unassigned" | "Assigned" | "In Progress" | "Completed";
 
-interface Booking {
-  id: string;
+interface CleanerRow {
+  cleaning_id: string;
   booking_id: string;
-  guest_first_name: string;
-  guest_last_name: string;
-  guest_email: string;
-  guest_phone: string;
-  room_name: string;
-  check_in_date: string;
-  check_out_date: string;
-  check_in_time: string;
-  check_out_time: string;
-  status: BookingStatus;
-  cleaning_status: CleaningStatus;
-  created_at: string;
-  updated_at: string;
+  haven: string;
+  guest: string;
+  guest_email?: string;
+  guest_phone?: string;
+  check_in: string;
+  check_out: string;
+  cleaner_name: string;
+  cleaner_id?: string;
+  cleaning_time_in?: string;
+  cleaning_time_out?: string;
+  cleaned_at?: string;
+  status: CleaningStatus;
+  statusColor: string;
 }
 
-// Derive room status from booking status
-const getRoomStatus = (booking: Booking): "occupied" | "available" | "checkout-pending" => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+import { CleaningTask } from "@/redux/api/cleanersApi";
 
-  const checkIn = new Date(booking.check_in_date);
-  checkIn.setHours(0, 0, 0, 0);
+// Define the actual CleaningTask structure from API
+interface ExtendedCleaningTask {
+  cleaning_id: string;
+  booking_id: string;
+  haven: string;
+  guest_first_name?: string;
+  guest_last_name?: string;
+  guest_email?: string;
+  guest_phone?: string;
+  check_in_date: string;
+  check_out_date: string;
+  check_in_time?: string;
+  check_out_time?: string;
+  cleaner_first_name?: string;
+  cleaner_last_name?: string;
+  assigned_cleaner_id?: string | null;
+  cleaning_status?:
+    | "pending"
+    | "assigned"
+    | "in-progress"
+    | "cleaned"
+    | "inspected";
+  cleaning_time_in?: string | null;
+  cleaning_time_out?: string | null;
+  cleaned_at?: string | null;
+}
 
-  const checkOut = new Date(booking.check_out_date);
-  checkOut.setHours(0, 0, 0, 0);
-
-  // Room is occupied if guest has checked in and hasn't completed stay
-  if (booking.status === "checked-in") {
-    // Check if today is checkout day
-    if (today.getTime() === checkOut.getTime()) {
-      return "checkout-pending";
-    }
-    return "occupied";
-  }
-
-  // Room is available after completion or if not yet checked in
-  if (booking.status === "completed") {
-    return "available";
-  }
-
-  // For approved/confirmed bookings, check dates
-  if (booking.status === "approved" || booking.status === "confirmed") {
-    if (today >= checkIn && today <= checkOut) {
-      return "occupied";
-    }
-  }
-
-  return "available";
+// Translation content for guides
+const guideTranslations = {
+  en: {
+    statusGuide: {
+      title: "Cleaning Status Guide",
+      statuses: [
+        {
+          name: "Unassigned",
+          description: "No cleaner has been assigned to this task yet",
+        },
+        {
+          name: "Assigned",
+          description: "A cleaner has been assigned and is scheduled to clean",
+        },
+        {
+          name: "In Progress",
+          description: "Cleaning is currently being performed",
+        },
+        {
+          name: "Completed",
+          description: "Room has been cleaned and is ready for inspection",
+        },
+      ],
+    },
+    cleaningGuide: {
+      title: "How to Manage Cleaning Tasks",
+      steps: [
+        {
+          title: "View Task Details",
+          description:
+            "Click the eye icon to view full booking and guest details",
+        },
+        {
+          title: "Assign Cleaner",
+          description:
+            "Click the assign icon to assign a cleaner to unassigned tasks",
+        },
+        {
+          title: "Track Progress",
+          description: "Monitor the status as cleaners update their progress",
+        },
+        {
+          title: "Verify Completion",
+          description: "Review completed tasks and verify the room is ready",
+        },
+      ],
+      workflowTitle: "Cleaning Workflow:",
+      workflows: [
+        {
+          title: "Unassigned → Assigned",
+          description: "Assign a cleaner to the task after guest check-out",
+        },
+        {
+          title: "Assigned → In Progress",
+          description: "Cleaner starts the cleaning process",
+        },
+        {
+          title: "In Progress → Completed",
+          description: "Cleaner finishes and marks task as done",
+        },
+        {
+          title: "Completed → Ready",
+          description: "Room is verified and ready for next guest",
+        },
+      ],
+    },
+  },
+  fil: {
+    statusGuide: {
+      title: "Cleaning Status Guide",
+      statuses: [
+        {
+          name: "Unassigned",
+          description: "Wala pang cleaner na na-assign sa task na ito",
+        },
+        {
+          name: "Assigned",
+          description: "May cleaner na na-assign at naka-schedule na maglinis",
+        },
+        {
+          name: "In Progress",
+          description: "Kasalukuyang ginagawa ang paglilinis",
+        },
+        {
+          name: "Completed",
+          description: "Nalinis na ang room at ready na para sa inspection",
+        },
+      ],
+    },
+    cleaningGuide: {
+      title: "Paano Mag-manage ng Cleaning Tasks",
+      steps: [
+        {
+          title: "Tingnan ang Task Details",
+          description:
+            "I-click ang mata icon para makita ang buong booking at guest details",
+        },
+        {
+          title: "Mag-assign ng Cleaner",
+          description:
+            "I-click ang assign icon para mag-assign ng cleaner sa unassigned tasks",
+        },
+        {
+          title: "I-track ang Progress",
+          description:
+            "I-monitor ang status habang ina-update ng cleaners ang kanilang progress",
+        },
+        {
+          title: "I-verify ang Completion",
+          description:
+            "I-review ang completed tasks at i-verify na ready na ang room",
+        },
+      ],
+      workflowTitle: "Cleaning Workflow:",
+      workflows: [
+        {
+          title: "Unassigned → Assigned",
+          description:
+            "Mag-assign ng cleaner sa task pagkatapos ng guest check-out",
+        },
+        {
+          title: "Assigned → In Progress",
+          description: "Magsisimula ang cleaner sa paglilinis",
+        },
+        {
+          title: "In Progress → Completed",
+          description: "Tapos na ang cleaner at minark na done ang task",
+        },
+        {
+          title: "Completed → Ready",
+          description:
+            "Na-verify na ang room at ready na para sa susunod na guest",
+        },
+      ],
+    },
+  },
 };
 
-const CleaningManagement = () => {
-  // Fetch bookings data
-  const { data: bookings = [], isLoading, refetch } = useGetBookingsQuery({});
-  const [updateCleaningStatus] = useUpdateCleaningStatusMutation();
+const skeletonPulse = "animate-pulse bg-gray-100 dark:bg-gray-700/60";
 
-  // Filter states
-  const [roomStatusFilter, setRoomStatusFilter] = useState<"all" | "occupied" | "available" | "checkout-pending">("all");
-  const [cleaningStatusFilter, setCleaningStatusFilter] = useState<"all" | "pending" | "in-progress" | "cleaned" | "inspected">("all");
-  const [searchTerm, setSearchTerm] = useState("");
-
-  // Process bookings to get room data with statuses
-  const roomData = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    // Only include bookings with approved status and dates that are today or sooner
-    const activeBookings = (bookings as Booking[]).filter(
-      (b) => {
-        const checkInDate = new Date(b.check_in_date);
-        const checkOutDate = new Date(b.check_out_date);
-        checkInDate.setHours(0, 0, 0, 0);
-        checkOutDate.setHours(0, 0, 0, 0);
-        
-        const statusMatch = ["approved", "confirmed", "checked-in"].includes(b.status);
-        const checkInMatch = checkInDate <= today;
-        const checkOutMatch = checkOutDate <= today;
-        
-        // Debug logging for troubleshooting
-        if (b.room_name?.includes("experiemnt") || b.booking_id === "BK1768356599516") {
-          console.log("Debug booking:", {
-            room_name: b.room_name,
-            status: b.status,
-            check_in_date: b.check_in_date,
-            check_out_date: b.check_out_date,
-            statusMatch,
-            checkInMatch,
-            checkOutMatch,
-            today: today.toISOString().split('T')[0]
-          });
-        }
-        
-        return statusMatch && checkInMatch && checkOutMatch;
-      }
-    );
-
-    // Group by room name and get most recent booking for each room
-    const roomMap = new Map<string, Booking>();
-
-    activeBookings.forEach((booking) => {
-      const roomName = booking.room_name?.trim();
-      if (!roomName) return;
-
-      const existing = roomMap.get(roomName);
-      if (!existing || new Date(booking.check_in_date) > new Date(existing.check_in_date)) {
-        roomMap.set(roomName, booking);
-      }
-    });
-
-    return Array.from(roomMap.values()).map((booking) => ({
-      ...booking,
-      roomStatus: getRoomStatus(booking),
-      guestName: `${booking.guest_first_name} ${booking.guest_last_name}`,
-    }));
-  }, [bookings]);
-
-  // Filter rooms based on status and search
-  const filteredRooms = useMemo(() => {
-    return roomData.filter((room) => {
-      const matchesRoomStatus = roomStatusFilter === "all" || room.roomStatus === roomStatusFilter;
-      const matchesCleaningStatus = cleaningStatusFilter === "all" || room.cleaning_status === cleaningStatusFilter;
-      const matchesSearch =
-        room.room_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        room.guestName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        room.booking_id?.toLowerCase().includes(searchTerm.toLowerCase());
-
-      return matchesRoomStatus && matchesCleaningStatus && matchesSearch;
-    });
-  }, [roomData, roomStatusFilter, cleaningStatusFilter, searchTerm]);
-
-  // Handle cleaning status update
-  const handleCleaningStatusUpdate = async (bookingId: string, newStatus: CleaningStatus) => {
-    try {
-      await updateCleaningStatus({ id: bookingId, cleaning_status: newStatus }).unwrap();
-      toast.success(`Cleaning status updated to ${newStatus}`);
-      refetch();
-    } catch (error) {
-      console.error("Failed to update cleaning status:", error);
-      toast.error("Failed to update cleaning status");
-    }
-  };
-
-  const getRoomStatusColor = (status: "occupied" | "available" | "checkout-pending") => {
-    switch (status) {
-      case "occupied":
-        return "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800";
-      case "available":
-        return "bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800";
-      case "checkout-pending":
-        return "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800";
-      default:
-        return "bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700";
-    }
-  };
-
-  const getCleaningStatusColor = (status: CleaningStatus) => {
-    switch (status) {
-      case "pending":
-        return "bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800";
-      case "in-progress":
-        return "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800";
-      case "cleaned":
-        return "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800";
-      case "inspected":
-        return "bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800";
-      default:
-        return "bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700";
-    }
-  };
-
-  const getRoomStatusIcon = (status: "occupied" | "available" | "checkout-pending") => {
-    switch (status) {
-      case "occupied":
-        return <Users className="w-4 h-4" />;
-      case "available":
-        return <CheckCircle className="w-4 h-4" />;
-      case "checkout-pending":
-        return <Clock className="w-4 h-4" />;
-      default:
-        return <AlertCircle className="w-4 h-4" />;
-    }
-  };
-
-  const getCleaningStatusIcon = (status: CleaningStatus) => {
-    switch (status) {
-      case "pending":
-        return <Clock className="w-4 h-4" />;
-      case "in-progress":
-        return <Wrench className="w-4 h-4" />;
-      case "cleaned":
-        return <Sparkles className="w-4 h-4" />;
-      case "inspected":
-        return <ClipboardCheck className="w-4 h-4" />;
-      default:
-        return <AlertCircle className="w-4 h-4" />;
-    }
-  };
-
-  const getRoomStatusText = (status: "occupied" | "available" | "checkout-pending") => {
-    switch (status) {
-      case "occupied":
-        return "Occupied";
-      case "available":
-        return "Available";
-      case "checkout-pending":
-        return "Checkout Today";
-      default:
-        return "Unknown";
-    }
-  };
-
-  const getCleaningStatusText = (status: CleaningStatus) => {
-    switch (status) {
-      case "pending":
-        return "Pending";
-      case "in-progress":
-        return "In Progress";
-      case "cleaned":
-        return "Cleaned";
-      case "inspected":
-        return "Inspected";
-      default:
-        return "Unknown";
-    }
-  };
-
-  // Stats calculations
-  const totalRooms = filteredRooms.length;
-  const availableCount = filteredRooms.filter((room) => room.roomStatus === "available").length;
-  const occupiedCount = filteredRooms.filter((room) => room.roomStatus === "occupied").length;
-  const checkoutPendingCount = filteredRooms.filter((room) => room.roomStatus === "checkout-pending").length;
-  const cleaningPendingCount = filteredRooms.filter((room) => room.cleaning_status === "pending").length;
-  const cleaningInProgressCount = filteredRooms.filter((room) => room.cleaning_status === "in-progress").length;
-
-  const statCards = [
-    {
-      id: "total",
-      label: "Total Rooms",
-      value: totalRooms,
-      color: "bg-blue-500",
-      Icon: Home,
-    },
-    {
-      id: "occupied",
-      label: "Occupied",
-      value: occupiedCount,
-      color: "bg-red-500",
-      Icon: Users,
-    },
-    {
-      id: "checkout",
-      label: "Checkout Today",
-      value: checkoutPendingCount,
-      color: "bg-amber-500",
-      Icon: Clock,
-    },
-    {
-      id: "available",
-      label: "Available",
-      value: availableCount,
-      color: "bg-green-500",
-      Icon: CheckCircle,
-    },
-    {
-      id: "cleaning-pending",
-      label: "Needs Cleaning",
-      value: cleaningPendingCount,
-      color: "bg-orange-500",
-      Icon: Wrench,
-    },
-    {
-      id: "cleaning-progress",
-      label: "Being Cleaned",
-      value: cleaningInProgressCount,
-      color: "bg-indigo-500",
-      Icon: Sparkles,
-    },
-  ];
-
-  if (isLoading) {
-    return (
-      <div className="space-y-6 animate-in fade-in duration-700 min-h-screen">
-        <div className="space-y-4">
-          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/3 animate-pulse"></div>
-          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2 animate-pulse"></div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-          {[...Array(6)].map((_, i) => (
-            <div key={i} className="h-28 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse"></div>
-          ))}
-        </div>
-        <div className="h-96 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse"></div>
-      </div>
-    );
+function mapCleaningStatus(
+  cleaning_status?: ExtendedCleaningTask["cleaning_status"],
+  assigned_cleaner_id?: string | null,
+): {
+  status: CleaningStatus;
+  statusColor: string;
+} {
+  switch (cleaning_status) {
+    case "assigned":
+      return {
+        status: "Assigned",
+        statusColor:
+          "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300",
+      };
+    case "in-progress":
+      return {
+        status: "In Progress",
+        statusColor:
+          "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300",
+      };
+    case "cleaned":
+    case "inspected":
+      return {
+        status: "Completed",
+        statusColor:
+          "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
+      };
+    case "pending":
+    default:
+      return {
+        status: "Unassigned",
+        statusColor:
+          "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200",
+      };
   }
+}
+
+// Format duration helper
+function formatDuration(startTime: string | null | undefined): string {
+  if (!startTime) return "-";
+  const start = new Date(startTime);
+  const now = new Date();
+  const diffMs = now.getTime() - start.getTime();
+  if (diffMs < 0) return "-";
+
+  const hours = Math.floor(diffMs / (1000 * 60 * 60));
+  const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  }
+  return `${minutes}m`;
+}
+
+// Highlight search term in text
+function highlightText(text: string, searchTerm: string): React.ReactNode {
+  if (!searchTerm.trim()) return text;
+
+  const regex = new RegExp(
+    `(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`,
+    "gi",
+  );
+  const parts = text.split(regex);
+
+  return parts.map((part, index) =>
+    regex.test(part) ? (
+      <span
+        key={index}
+        className="bg-yellow-200 dark:bg-yellow-800 text-gray-900 dark:text-gray-100 px-0.5 rounded"
+      >
+        {part}
+      </span>
+    ) : (
+      part
+    ),
+  );
+}
+
+export default function CleaningManagement() {
+  const { data: session } = useSession();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterStatus, setFilterStatus] = useState<"all" | CleaningStatus>(
+    "all",
+  );
+  const [dateFilter, setDateFilter] = useState<
+    "all" | "checkin-today" | "checkout-today" | "custom"
+  >("all");
+  const [customStartDate, setCustomStartDate] = useState("");
+  const [customEndDate, setCustomEndDate] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [entriesPerPage, setEntriesPerPage] = useState(10);
+  const [sortField, setSortField] = useState<keyof CleanerRow | null>(null);
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const [selectedBooking, setSelectedBooking] =
+    useState<ExtendedCleaningTask | null>(null);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [assignmentBookingId, setAssignmentBookingId] = useState<string | null>(
+    null,
+  );
+  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+  const [showStatusGuide, setShowStatusGuide] = useState(false);
+  const [showCleaningGuide, setShowCleaningGuide] = useState(false);
+  const [guideLanguage, setGuideLanguage] = useState<"en" | "fil">("en");
+  const [now, setNow] = useState(() => Date.now());
+
+  // Update timer every minute for duration display
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const [isMounted, setIsMounted] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Ensure component is mounted before making API calls
+  useEffect(() => {
+    setIsMounted(true);
+    return () => setIsMounted(false);
+  }, []);
+
+  const {
+    data: cleaningTasks = [],
+    isLoading,
+    error,
+    refetch,
+  } = useGetCleaningTasksQuery(
+    {},
+    {
+      pollingInterval: isMounted ? 10000 : 0,
+      skipPollingIfUnfocused: true,
+      refetchOnFocus: true,
+      refetchOnReconnect: true,
+      skip: !isMounted,
+    },
+  ) as {
+    data: ExtendedCleaningTask[];
+    isLoading: boolean;
+    error: unknown;
+    refetch: () => void;
+  };
+
+  // Manual refresh function
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await refetch();
+    } catch (error) {
+      console.error("Error refreshing data:", error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  const rows: CleanerRow[] = useMemo(() => {
+    if (!Array.isArray(cleaningTasks)) return [];
+
+    return cleaningTasks
+      .filter((task) => Boolean(task?.cleaning_id))
+      .map((task) => {
+        const guestName =
+          `${task.guest_first_name ?? ""} ${task.guest_last_name ?? ""}`.trim() ||
+          "Guest";
+
+        // Format dates properly
+        const formatDateTime = (date: string, time: string) => {
+          if (!date && !time) return "Not specified";
+          try {
+            const dateStr = date
+              ? new Date(date).toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                })
+              : "";
+            const timeStr = time
+              ? new Date(`2000-01-01T${time}`).toLocaleTimeString("en-US", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
+              : "";
+            return `${dateStr} ${timeStr}`.trim() || "Not specified";
+          } catch (error) {
+            return "Invalid date";
+          }
+        };
+
+        const checkIn = formatDateTime(
+          task.check_in_date,
+          task.check_in_time || "",
+        );
+        const checkOut = formatDateTime(
+          task.check_out_date,
+          task.check_out_time || "",
+        );
+        const { status, statusColor } = mapCleaningStatus(
+          task.cleaning_status,
+          task.assigned_cleaner_id,
+        );
+
+        const cleanerName =
+          task.cleaner_first_name && task.cleaner_last_name
+            ? `${task.cleaner_first_name} ${task.cleaner_last_name}`
+            : "Unassigned";
+
+        return {
+          cleaning_id: task.cleaning_id || "",
+          booking_id: task.booking_id || "",
+          haven: task.haven || "Unknown",
+          guest: guestName,
+          guest_email: task.guest_email,
+          guest_phone: task.guest_phone,
+          check_in: checkIn,
+          check_out: checkOut,
+          cleaner_name: cleanerName,
+          cleaner_id: task.assigned_cleaner_id ?? undefined,
+          cleaning_time_in: task.cleaning_time_in ?? undefined,
+          cleaning_time_out: task.cleaning_time_out ?? undefined,
+          cleaned_at: task.cleaned_at ?? undefined,
+          status,
+          statusColor,
+        };
+      });
+  }, [cleaningTasks]);
+
+  const filteredRows = useMemo(() => {
+    return rows.filter((row) => {
+      const term = searchTerm.toLowerCase();
+      const matchesSearch =
+        row.booking_id.toLowerCase().includes(term) ||
+        row.guest.toLowerCase().includes(term) ||
+        row.haven.toLowerCase().includes(term) ||
+        row.cleaner_name.toLowerCase().includes(term);
+
+      const matchesFilter =
+        filterStatus === "all" || row.status === filterStatus;
+
+      // Date filtering logic
+      let matchesDateFilter = true;
+      if (dateFilter !== "all") {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const originalTask = cleaningTasks.find(
+          (task) => task.cleaning_id === row.cleaning_id,
+        );
+
+        if (originalTask) {
+          switch (dateFilter) {
+            case "checkin-today":
+              if (originalTask.check_in_date) {
+                const checkInDate = new Date(originalTask.check_in_date);
+                checkInDate.setHours(0, 0, 0, 0);
+                matchesDateFilter = checkInDate.getTime() === today.getTime();
+              } else {
+                matchesDateFilter = false;
+              }
+              break;
+            case "checkout-today":
+              if (originalTask.check_out_date) {
+                const checkOutDate = new Date(originalTask.check_out_date);
+                checkOutDate.setHours(0, 0, 0, 0);
+                matchesDateFilter = checkOutDate.getTime() === today.getTime();
+              } else {
+                matchesDateFilter = false;
+              }
+              break;
+            case "custom":
+              if (
+                customStartDate &&
+                customEndDate &&
+                originalTask.check_out_date
+              ) {
+                const checkOutDate = new Date(originalTask.check_out_date);
+                checkOutDate.setHours(0, 0, 0, 0);
+                const startDate = new Date(customStartDate);
+                startDate.setHours(0, 0, 0, 0);
+                const endDate = new Date(customEndDate);
+                endDate.setHours(23, 59, 59, 999);
+                matchesDateFilter =
+                  checkOutDate >= startDate && checkOutDate <= endDate;
+              } else {
+                matchesDateFilter = false;
+              }
+              break;
+          }
+        } else {
+          matchesDateFilter = false;
+        }
+      }
+
+      return matchesSearch && matchesFilter && matchesDateFilter;
+    });
+  }, [
+    rows,
+    searchTerm,
+    filterStatus,
+    dateFilter,
+    customStartDate,
+    customEndDate,
+    cleaningTasks,
+  ]);
+
+  const sortedRows = useMemo(() => {
+    if (!sortField) return filteredRows;
+
+    return [...filteredRows].sort((a, b) => {
+      const aVal = a[sortField];
+      const bVal = b[sortField];
+
+      if (aVal === undefined || aVal === null) return 1;
+      if (bVal === undefined || bVal === null) return -1;
+
+      if (typeof aVal === "string" && typeof bVal === "string") {
+        return sortDirection === "asc"
+          ? aVal.localeCompare(bVal)
+          : bVal.localeCompare(aVal);
+      }
+
+      if (aVal < bVal) return sortDirection === "asc" ? -1 : 1;
+      if (aVal > bVal) return sortDirection === "asc" ? 1 : -1;
+      return 0;
+    });
+  }, [filteredRows, sortField, sortDirection]);
+
+  const totalPages = Math.ceil(sortedRows.length / entriesPerPage);
+  const startIndex = (currentPage - 1) * entriesPerPage;
+  const endIndex = startIndex + entriesPerPage;
+  const currentRows = sortedRows.slice(startIndex, endIndex);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterStatus, dateFilter]);
+
+  const handleSort = (field: keyof CleanerRow) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDirection("asc");
+    }
+  };
+
+  const handleViewBooking = (bookingId: string) => {
+    const task = cleaningTasks.find((t) => t.booking_id === bookingId);
+    if (task) {
+      setSelectedBooking(task);
+      setIsViewModalOpen(true);
+    }
+  };
+
+  const handleAssignCleaner = (bookingId: string) => {
+    setAssignmentBookingId(bookingId);
+    setIsAssignModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsViewModalOpen(false);
+    setSelectedBooking(null);
+  };
+
+  const handleCloseAssignModal = () => {
+    setIsAssignModalOpen(false);
+    setAssignmentBookingId(null);
+  };
+
+  const handleAssignmentSuccess = () => {
+    // Refetch to update data
+  };
+
+  const totalCount = rows.length;
+  const unassignedCount = rows.filter((r) => r.status === "Unassigned").length;
+  const assignedCount = rows.filter((r) => r.status === "Assigned").length;
+  const inProgressCount = rows.filter((r) => r.status === "In Progress").length;
+  const completedCount = rows.filter((r) => r.status === "Completed").length;
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-700 min-h-screen">
-      {/* Header */}
-      <div className="space-y-4">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
+    <>
+      <div className="space-y-6 animate-in fade-in duration-700 overflow-hidden h-full flex flex-col">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 flex-shrink-0 border border-gray-200 dark:border-gray-700 rounded-lg p-6 bg-white dark:bg-gray-800 shadow dark:shadow-gray-900">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
               Cleaning Management
             </h1>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              Monitor room readiness, track cleaning status, and manage housekeeping tasks
+              Assign and track post check-out cleaning tasks
             </p>
           </div>
         </div>
-      </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        {statCards.map(({ id, label, value, color, Icon }) => (
-          <div
-            key={id}
-            className={`${color} text-white rounded-lg p-4 shadow dark:shadow-gray-900 hover:shadow-lg transition-all duration-200`}
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs opacity-90">{label}</p>
-                <p className="text-2xl font-bold mt-1">{value}</p>
-              </div>
-              <Icon className="w-8 h-8 opacity-40" />
+        {/* Status Guide */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-6 flex-shrink-0 border border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between mb-2">
+            <button
+              onClick={() => setShowStatusGuide(!showStatusGuide)}
+              className="flex-1 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded-lg transition-colors"
+            >
+              <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100">
+                {guideTranslations[guideLanguage].statusGuide.title}
+              </h4>
+              <ChevronRight
+                className={`w-5 h-5 text-gray-600 dark:text-gray-300 transform transition-transform ${showStatusGuide ? "rotate-90" : ""}`}
+              />
+            </button>
+            <div className="flex gap-1 ml-2">
+              {(["en", "fil"] as const).map((lang) => (
+                <button
+                  key={lang}
+                  onClick={() => setGuideLanguage(lang)}
+                  className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                    guideLanguage === lang
+                      ? "bg-brand-primary text-white"
+                      : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
+                  }`}
+                >
+                  {lang === "en" ? "EN" : "FIL"}
+                </button>
+              ))}
             </div>
           </div>
-        ))}
-      </div>
 
-      {/* Room Table */}
-      <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden">
-        {/* Search and Filter Bar */}
-        <div className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4">
-          <div className="flex flex-col lg:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500" />
-              <input
-                type="text"
-                placeholder="Search room, guest, or booking ID..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-11 pr-4 py-2.5 text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-brand-primary focus:border-brand-primary/80 transition"
-              />
+          {showStatusGuide && (
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {guideTranslations[guideLanguage].statusGuide.statuses.map(
+                (status, idx) => {
+                  const statusColors: Record<string, { dot: string }> = {
+                    Unassigned: { dot: "bg-gray-500" },
+                    Assigned: { dot: "bg-indigo-500" },
+                    "In Progress": { dot: "bg-yellow-500" },
+                    Completed: { dot: "bg-green-500" },
+                  };
+                  const color = statusColors[status.name] || {
+                    dot: "bg-gray-500",
+                  };
+
+                  return (
+                    <div key={idx} className="flex items-start gap-3">
+                      <div
+                        className={`w-3 h-3 ${color.dot} rounded-full mt-1 flex-shrink-0`}
+                      ></div>
+                      <div>
+                        <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">
+                          {status.name}
+                        </h5>
+                        <p className="text-xs text-gray-600 dark:text-gray-300">
+                          {status.description}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                },
+              )}
             </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-2">
-                <Filter className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                <span className="text-sm font-medium text-gray-600 dark:text-gray-300">Room:</span>
-                <select
-                  value={roomStatusFilter}
-                  onChange={(e) => setRoomStatusFilter(e.target.value as typeof roomStatusFilter)}
-                  className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-brand-primary focus:border-brand-primary/80 transition"
+          )}
+        </div>
+
+        {/* How to Manage Cleaning Tasks Guide */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-6 flex-shrink-0 border border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between mb-2">
+            <button
+              onClick={() => setShowCleaningGuide(!showCleaningGuide)}
+              className="flex-1 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded-lg transition-colors"
+            >
+              <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100">
+                {guideTranslations[guideLanguage].cleaningGuide.title}
+              </h4>
+              <ChevronRight
+                className={`w-5 h-5 text-gray-600 dark:text-gray-300 transform transition-transform ${showCleaningGuide ? "rotate-90" : ""}`}
+              />
+            </button>
+            <div className="flex gap-1 ml-2">
+              {(["en", "fil"] as const).map((lang) => (
+                <button
+                  key={lang}
+                  onClick={() => setGuideLanguage(lang)}
+                  className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                    guideLanguage === lang
+                      ? "bg-brand-primary text-white"
+                      : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
+                  }`}
                 >
-                  <option value="all">All</option>
-                  <option value="occupied">Occupied</option>
-                  <option value="available">Available</option>
-                  <option value="checkout-pending">Checkout Today</option>
-                </select>
+                  {lang === "en" ? "EN" : "FIL"}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {showCleaningGuide && (
+            <div className="mt-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {guideTranslations[guideLanguage].cleaningGuide.steps.map(
+                  (step, idx) => (
+                    <div key={idx} className="flex items-start gap-3">
+                      <div className="w-8 h-8 bg-brand-primary text-white rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold">
+                        {idx + 1}
+                      </div>
+                      <div>
+                        <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">
+                          {step.title}
+                        </h5>
+                        <p className="text-xs text-gray-600 dark:text-gray-300">
+                          {step.description}
+                        </p>
+                      </div>
+                    </div>
+                  ),
+                )}
               </div>
+
+              <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm mb-3">
+                  {guideTranslations[guideLanguage].cleaningGuide.workflowTitle}
+                </h5>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-gray-600 dark:text-gray-300">
+                  {guideTranslations[guideLanguage].cleaningGuide.workflows.map(
+                    (workflow, idx) => {
+                      const getWorkflowIcon = (title: string) => {
+                        if (title.includes("Unassigned"))
+                          return {
+                            Icon: Users,
+                            color: "text-gray-600 dark:text-gray-400",
+                          };
+                        if (title.includes("Assigned"))
+                          return {
+                            Icon: ClipboardList,
+                            color: "text-indigo-600 dark:text-indigo-400",
+                          };
+                        if (title.includes("In Progress"))
+                          return {
+                            Icon: PlayCircle,
+                            color: "text-yellow-600 dark:text-yellow-400",
+                          };
+                        return {
+                          Icon: CheckCircle,
+                          color: "text-green-600 dark:text-green-400",
+                        };
+                      };
+                      const iconData = getWorkflowIcon(workflow.title);
+
+                      return (
+                        <div key={idx} className="flex items-start gap-2">
+                          <iconData.Icon
+                            className={`w-4 h-4 ${iconData.color} flex-shrink-0 mt-0.5`}
+                          />
+                          <span>
+                            <strong>{workflow.title}:</strong>{" "}
+                            {workflow.description}
+                          </span>
+                        </div>
+                      );
+                    },
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 flex-shrink-0">
+          {[
+            {
+              label: "Total Tasks",
+              value: String(totalCount),
+              color: "bg-orange-500",
+              icon: Sparkles,
+            },
+            {
+              label: "Unassigned",
+              value: String(unassignedCount),
+              color: "bg-gray-500",
+              icon: Users,
+            },
+            {
+              label: "Assigned",
+              value: String(assignedCount),
+              color: "bg-indigo-500",
+              icon: ClipboardList,
+            },
+            {
+              label: "In Progress",
+              value: String(inProgressCount),
+              color: "bg-yellow-500",
+              icon: Clock,
+            },
+            {
+              label: "Completed",
+              value: String(completedCount),
+              color: "bg-green-500",
+              icon: CheckCircle,
+            },
+          ].map((stat, i) => {
+            const IconComponent = stat.icon;
+            return (
+              <div
+                key={i}
+                className={`${stat.color} text-white rounded-lg p-6 shadow dark:shadow-gray-900 hover:shadow-lg transition-all border border-gray-200 dark:border-gray-600`}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm opacity-90">{stat.label}</p>
+                    <div className="text-3xl font-bold mt-2">
+                      {isLoading ? (
+                        <div className="w-16 h-8 bg-white/20 rounded animate-pulse" />
+                      ) : (
+                        stat.value
+                      )}
+                    </div>
+                  </div>
+                  <IconComponent className="w-12 h-12 opacity-50" />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Filters */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-4 flex-shrink-0 border border-gray-200 dark:border-gray-700">
+          <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+            <div className="flex flex-col sm:flex-row gap-4 flex-1 w-full">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-gray-600 dark:text-gray-300">Cleaning:</span>
+                <label className="text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                  Show
+                </label>
                 <select
-                  value={cleaningStatusFilter}
-                  onChange={(e) => setCleaningStatusFilter(e.target.value as typeof cleaningStatusFilter)}
-                  className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-brand-primary focus:border-brand-primary/80 transition"
+                  value={entriesPerPage}
+                  onChange={(e) => {
+                    setEntriesPerPage(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-orange-500 text-sm"
                 >
-                  <option value="all">All</option>
-                  <option value="pending">Pending</option>
-                  <option value="in-progress">In Progress</option>
-                  <option value="cleaned">Cleaned</option>
-                  <option value="inspected">Inspected</option>
+                  <option value="5">5</option>
+                  <option value="10">10</option>
+                  <option value="25">25</option>
+                  <option value="50">50</option>
                 </select>
+                <label className="text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                  entries
+                </label>
               </div>
+
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500" />
+                <input
+                  type="text"
+                  placeholder="Search by booking ID, guest, haven, or cleaner..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-orange-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Filter className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+              <select
+                value={filterStatus}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (
+                    value === "all" ||
+                    [
+                      "Unassigned",
+                      "Assigned",
+                      "In Progress",
+                      "Completed",
+                    ].includes(value)
+                  ) {
+                    setFilterStatus(value as "all" | CleaningStatus);
+                  }
+                  setCurrentPage(1);
+                }}
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-orange-500"
+              >
+                <option value="all">All Status</option>
+                <option value="Unassigned">Unassigned</option>
+                <option value="Assigned">Assigned</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Completed">Completed</option>
+              </select>
+
+              {/* Date Filter */}
+              <select
+                value={dateFilter}
+                onChange={(e) => {
+                  const value = e.target.value as
+                    | "all"
+                    | "checkin-today"
+                    | "checkout-today"
+                    | "custom";
+                  setDateFilter(value);
+                  setCurrentPage(1);
+                }}
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-orange-500"
+              >
+                <option value="all">All Dates</option>
+                <option value="checkin-today">Check-in Today</option>
+                <option value="checkout-today">Check-out Today</option>
+                <option value="custom">Custom Range</option>
+              </select>
+
+              {/* Custom Date Range Inputs */}
+              {dateFilter === "custom" && (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="date"
+                    value={customStartDate}
+                    onChange={(e) => {
+                      setCustomStartDate(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-orange-500 text-sm"
+                    placeholder="Start date"
+                  />
+                  <span className="text-gray-500 dark:text-gray-400">to</span>
+                  <input
+                    type="date"
+                    value={customEndDate}
+                    onChange={(e) => {
+                      setCustomEndDate(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-orange-500 text-sm"
+                    placeholder="End date"
+                  />
+                </div>
+              )}
+              <button
+                onClick={handleRefresh}
+                disabled={isRefreshing || isLoading}
+                className="p-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Refresh Data"
+              >
+                <RefreshCw
+                  className={`w-4 h-4 text-gray-600 dark:text-gray-300 ${isRefreshing || isLoading ? "animate-spin" : ""}`}
+                />
+              </button>
             </div>
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[1100px]">
-            <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 border-b-2 border-gray-200 dark:border-gray-700">
-              <tr>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wide">
-                  Room
-                </th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wide">
-                  Room Status
-                </th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wide">
-                  Cleaning Status
-                </th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wide">
-                  Guest
-                </th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wide">
-                  Check In
-                </th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wide">
-                  Check Out
-                </th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wide">
-                  Booking ID
-                </th>
-                <th className="px-6 py-4 text-center text-sm font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wide">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-              {filteredRooms.length === 0 ? (
+        {/* Loading Indicator */}
+        {isLoading && (
+          <div className="flex items-center gap-3 bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-4 flex-shrink-0 border border-gray-200 dark:border-gray-700">
+            <Loader2 className="w-5 h-5 text-brand-primary animate-spin" />
+            <p className="text-sm text-gray-600 dark:text-gray-300 font-medium">
+              Loading cleaning tasks...
+            </p>
+          </div>
+        )}
+
+        {/* Table Section - Compact Layout */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden flex-1 flex flex-col min-h-0 border border-gray-200 dark:border-gray-700">
+          <div className="overflow-x-auto overflow-y-auto flex-1 h-[600px] max-h-[600px]">
+            <table className="w-full min-w-[1000px]">
+              <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 border-b-2 border-gray-200 dark:border-gray-600 sticky top-0 z-10">
                 <tr>
-                  <td colSpan={8} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
-                    No rooms found matching your criteria
-                  </td>
-                </tr>
-              ) : (
-                filteredRooms.map((room, index) => (
-                  <tr
-                    key={room.id}
-                    className="bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                    style={{ animationDelay: `${index * 30}ms` }}
+                  <th
+                    onClick={() => handleSort("booking_id")}
+                    className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap border border-gray-200 dark:border-gray-700"
                   >
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center">
-                          <Home className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
-                            {room.room_name}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div
-                        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border ${getRoomStatusColor(room.roomStatus)}`}
-                      >
-                        {getRoomStatusIcon(room.roomStatus)}
-                        <span>{getRoomStatusText(room.roomStatus)}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div
-                        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border ${getCleaningStatusColor(room.cleaning_status)}`}
-                      >
-                        {getCleaningStatusIcon(room.cleaning_status)}
-                        <span>{getCleaningStatusText(room.cleaning_status)}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-800 dark:text-gray-100">
-                      {room.guestName || "-"}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-300">
-                      {room.check_in_date
-                        ? new Date(room.check_in_date).toLocaleDateString()
-                        : "-"}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-300">
-                      {room.check_out_date
-                        ? new Date(room.check_out_date).toLocaleDateString()
-                        : "-"}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-300 font-mono">
-                      {room.booking_id || "-"}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center justify-center gap-2">
-                        {room.cleaning_status === "pending" && (
-                          <button
-                            type="button"
-                            onClick={() => handleCleaningStatusUpdate(room.id, "in-progress")}
-                            className="p-2 rounded-md border border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-900/50 dark:text-blue-300 dark:hover:bg-blue-900/30 transition-colors"
-                            title="Start Cleaning"
-                          >
-                            <Wrench className="w-4 h-4" />
-                          </button>
-                        )}
-                        {room.cleaning_status === "in-progress" && (
-                          <button
-                            type="button"
-                            onClick={() => handleCleaningStatusUpdate(room.id, "cleaned")}
-                            className="p-2 rounded-md border border-emerald-200 text-emerald-600 hover:bg-emerald-50 dark:border-emerald-900/50 dark:text-emerald-300 dark:hover:bg-emerald-900/30 transition-colors"
-                            title="Mark as Cleaned"
-                          >
-                            <Sparkles className="w-4 h-4" />
-                          </button>
-                        )}
-                        {room.cleaning_status === "cleaned" && (
-                          <button
-                            type="button"
-                            onClick={() => handleCleaningStatusUpdate(room.id, "inspected")}
-                            className="p-2 rounded-md border border-purple-200 text-purple-600 hover:bg-purple-50 dark:border-purple-900/50 dark:text-purple-300 dark:hover:bg-purple-900/30 transition-colors"
-                            title="Mark as Inspected"
-                          >
-                            <ClipboardCheck className="w-4 h-4" />
-                          </button>
-                        )}
-                        {room.cleaning_status === "inspected" && (
-                          <button
-                            type="button"
-                            onClick={() => handleCleaningStatusUpdate(room.id, "pending")}
-                            className="p-2 rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800 transition-colors"
-                            title="Reset to Pending"
-                          >
-                            <Clock className="w-4 h-4" />
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          className="p-2 rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800 transition-colors"
-                          title="View Details"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
+                    <div className="flex items-center gap-2">
+                      Booking ID
+                      <ArrowUpDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600 dark:text-gray-300 dark:group-hover:text-gray-100" />
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => handleSort("haven")}
+                    className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap border border-gray-200 dark:border-gray-700"
+                  >
+                    <div className="flex items-center gap-2">
+                      Haven & Guest
+                      <ArrowUpDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600 dark:text-gray-300 dark:group-hover:text-gray-100" />
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => handleSort("check_out")}
+                    className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap border border-gray-200 dark:border-gray-700"
+                  >
+                    <div className="flex items-center gap-2">
+                      Check-in / Check-out
+                      <ArrowUpDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600 dark:text-gray-300 dark:group-hover:text-gray-100" />
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => handleSort("cleaner_name")}
+                    className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap border border-gray-200 dark:border-gray-700"
+                  >
+                    <div className="flex items-center gap-2">
+                      Assigned Cleaner
+                      <ArrowUpDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600 dark:text-gray-300 dark:group-hover:text-gray-100" />
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => handleSort("status")}
+                    className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap border border-gray-200 dark:border-gray-700"
+                  >
+                    <div className="flex items-center justify-center gap-2">
+                      Status
+                      <ArrowUpDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600 dark:text-gray-300 dark:group-hover:text-gray-100" />
+                    </div>
+                  </th>
+                  <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap border border-gray-200 dark:border-gray-700">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                {isLoading ? (
+                  // Loading skeletons
+                  Array.from({ length: 5 }).map((_, idx) => (
+                    <tr key={idx}>
+                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                        <div className={`h-4 rounded ${skeletonPulse}`}></div>
+                      </td>
+                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                        <div className={`h-4 rounded ${skeletonPulse}`}></div>
+                      </td>
+                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                        <div className={`h-4 rounded ${skeletonPulse}`}></div>
+                      </td>
+                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                        <div className={`h-4 rounded ${skeletonPulse}`}></div>
+                      </td>
+                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                        <div className={`h-4 rounded ${skeletonPulse}`}></div>
+                      </td>
+                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                        <div className={`h-4 rounded ${skeletonPulse}`}></div>
+                      </td>
+                    </tr>
+                  ))
+                ) : currentRows.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={6}
+                      className="py-12 text-center text-gray-500 dark:text-gray-400"
+                    >
+                      <div className="flex flex-col items-center gap-2">
+                        <Loader2 className="w-10 h-10 text-gray-300 dark:text-gray-600" />
+                        <p className="text-sm">No cleaning tasks found</p>
                       </div>
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  currentRows.map((row) => (
+                    <tr
+                      key={row.cleaning_id}
+                      className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                    >
+                      {/* Booking ID */}
+                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                        <span className="font-mono text-sm font-semibold text-gray-900 dark:text-gray-100">
+                          {highlightText(row.booking_id, searchTerm)}
+                        </span>
+                      </td>
+
+                      {/* Haven & Guest */}
+                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <MapPin className="w-4 h-4 text-orange-500 flex-shrink-0" />
+                            <span className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                              {highlightText(row.haven, searchTerm)}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <User className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                            <div className="text-sm text-gray-700 dark:text-gray-300">
+                              {highlightText(row.guest, searchTerm)}
+                            </div>
+                          </div>
+                          {row.guest_email && (
+                            <div className="text-xs text-gray-500 dark:text-gray-400 ml-6">
+                              {row.guest_email}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Check-in / Check-out */}
+                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                        <div className="space-y-1 text-xs">
+                          <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                            <span className="text-gray-600 dark:text-gray-400">
+                              In:
+                            </span>
+                            <span className="font-medium text-green-700 dark:text-green-300">
+                              {row.check_in}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                            <span className="text-gray-600 dark:text-gray-400">
+                              Out:
+                            </span>
+                            <span className="font-medium text-red-700 dark:text-red-300">
+                              {row.check_out}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Assigned Cleaner */}
+                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <Users className="w-4 h-4 text-gray-400" />
+                            <span
+                              className={`text-sm font-medium ${
+                                row.cleaner_name === "Unassigned"
+                                  ? "text-gray-400 dark:text-gray-500 italic"
+                                  : "text-gray-800 dark:text-gray-100"
+                              }`}
+                            >
+                              {highlightText(row.cleaner_name, searchTerm)}
+                            </span>
+                          </div>
+                          {row.cleaning_time_in && (
+                            <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                              <Clock className="w-3 h-3" />
+                              Started:{" "}
+                              {new Date(
+                                row.cleaning_time_in,
+                              ).toLocaleTimeString([], {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </div>
+                          )}
+                          {row.cleaning_time_in &&
+                            !row.cleaning_time_out &&
+                            row.status === "In Progress" && (
+                              <div className="flex items-center gap-2 text-xs text-indigo-600 dark:text-indigo-400">
+                                <Calendar className="w-3 h-3" />
+                                Duration: {formatDuration(row.cleaning_time_in)}
+                              </div>
+                            )}
+                          {row.cleaned_at && (
+                            <div className="flex items-center gap-2 text-xs text-green-600 dark:text-green-400">
+                              <CheckCircle className="w-3 h-3" />
+                              Completed:{" "}
+                              {new Date(row.cleaned_at).toLocaleString([], {
+                                month: "short",
+                                day: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Status */}
+                      <td className="py-4 px-4 text-center border border-gray-200 dark:border-gray-700">
+                        <span
+                          className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${row.statusColor}`}
+                        >
+                          {row.status}
+                        </span>
+                      </td>
+
+                      {/* Actions */}
+                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            onClick={() => handleViewBooking(row.booking_id)}
+                            className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                            title="View details"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          {row.status === "Unassigned" && (
+                            <button
+                              onClick={() =>
+                                handleAssignCleaner(row.booking_id)
+                              }
+                              className="p-2 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors"
+                              title="Assign cleaner"
+                            >
+                              <UserPlus className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination */}
+          <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-6 py-4">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                Showing {sortedRows.length === 0 ? 0 : startIndex + 1} to{" "}
+                {Math.min(endIndex, sortedRows.length)} of {sortedRows.length}{" "}
+                entries
+                {(searchTerm ||
+                  filterStatus !== "all" ||
+                  dateFilter !== "all") &&
+                  ` (filtered from ${rows.length} total)`}
+              </p>
+              <div className="flex gap-1">
+                <button
+                  onClick={() => setCurrentPage(1)}
+                  disabled={currentPage === 1}
+                  className="p-2 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronsLeft className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setCurrentPage(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+
+                {/* Page numbers */}
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
+                  }
+
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`px-4 py-2 border rounded transition-colors ${
+                        currentPage === pageNum
+                          ? "bg-brand-primary text-white border-brand-primary"
+                          : "border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+
+                <button
+                  onClick={() => setCurrentPage(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setCurrentPage(totalPages)}
+                  disabled={currentPage === totalPages}
+                  className="p-2 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronsRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Summary Section */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 pb-6">
-        <div className="bg-white dark:bg-gray-900 rounded-lg shadow dark:shadow-gray-900 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-800 bg-gradient-to-r from-amber-50 to-amber-100 dark:from-amber-900/40 dark:to-amber-900/20">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-              Checkout Today - Needs Cleaning
-            </h2>
-            <p className="text-sm text-gray-600 dark:text-gray-300">
-              Rooms checking out today that require cleaning
-            </p>
-          </div>
-          <div className="divide-y divide-gray-100 dark:divide-gray-800 max-h-80 overflow-y-auto">
-            {filteredRooms
-              .filter((r) => r.roomStatus === "checkout-pending" && r.cleaning_status === "pending")
-              .map((room) => (
-                <div
-                  key={room.id}
-                  className="px-6 py-4 flex items-center justify-between"
-                >
-                  <div>
-                    <p className="font-semibold text-gray-800 dark:text-gray-100">
-                      {room.room_name}
-                    </p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      Guest: {room.guestName}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => handleCleaningStatusUpdate(room.id, "in-progress")}
-                    className="px-3 py-1.5 text-xs font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 rounded-full hover:bg-blue-200 dark:hover:bg-blue-900/60 transition-colors"
-                  >
-                    Start Cleaning
-                  </button>
-                </div>
-              ))}
-            {filteredRooms.filter(
-              (r) => r.roomStatus === "checkout-pending" && r.cleaning_status === "pending"
-            ).length === 0 && (
-              <div className="px-6 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
-                No rooms checking out today need cleaning
-              </div>
-            )}
-          </div>
-        </div>
+      {/* Modals */}
+      {isViewModalOpen && selectedBooking && (
+        <ViewBookings
+          booking={selectedBooking as any}
+          onClose={handleCloseModal}
+        />
+      )}
 
-        <div className="bg-white dark:bg-gray-900 rounded-lg shadow dark:shadow-gray-900 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-800 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/40 dark:to-blue-900/20">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-              Currently Being Cleaned
-            </h2>
-            <p className="text-sm text-gray-600 dark:text-gray-300">
-              Rooms with cleaning in progress
-            </p>
-          </div>
-          <div className="divide-y divide-gray-100 dark:divide-gray-800 max-h-80 overflow-y-auto">
-            {filteredRooms
-              .filter((r) => r.cleaning_status === "in-progress")
-              .map((room) => (
-                <div
-                  key={room.id}
-                  className="px-6 py-4 flex items-center justify-between"
-                >
-                  <div>
-                    <p className="font-semibold text-gray-800 dark:text-gray-100">
-                      {room.room_name}
-                    </p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      Booking: {room.booking_id}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => handleCleaningStatusUpdate(room.id, "cleaned")}
-                    className="px-3 py-1.5 text-xs font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 rounded-full hover:bg-emerald-200 dark:hover:bg-emerald-900/60 transition-colors"
-                  >
-                    Mark Cleaned
-                  </button>
-                </div>
-              ))}
-            {filteredRooms.filter((r) => r.cleaning_status === "in-progress").length === 0 && (
-              <div className="px-6 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
-                No rooms currently being cleaned
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-gray-900 rounded-lg shadow dark:shadow-gray-900 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-800 bg-gradient-to-r from-emerald-50 to-emerald-100 dark:from-emerald-900/40 dark:to-emerald-900/20">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-              Cleaned - Awaiting Inspection
-            </h2>
-            <p className="text-sm text-gray-600 dark:text-gray-300">
-              Rooms that have been cleaned and need inspection
-            </p>
-          </div>
-          <div className="divide-y divide-gray-100 dark:divide-gray-800 max-h-80 overflow-y-auto">
-            {filteredRooms
-              .filter((r) => r.cleaning_status === "cleaned")
-              .map((room) => (
-                <div
-                  key={room.id}
-                  className="px-6 py-4 flex items-center justify-between"
-                >
-                  <div>
-                    <p className="font-semibold text-gray-800 dark:text-gray-100">
-                      {room.room_name}
-                    </p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      Booking: {room.booking_id}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => handleCleaningStatusUpdate(room.id, "inspected")}
-                    className="px-3 py-1.5 text-xs font-semibold bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 rounded-full hover:bg-purple-200 dark:hover:bg-purple-900/60 transition-colors"
-                  >
-                    Approve Inspection
-                  </button>
-                </div>
-              ))}
-            {filteredRooms.filter((r) => r.cleaning_status === "cleaned").length === 0 && (
-              <div className="px-6 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
-                No rooms awaiting inspection
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-gray-900 rounded-lg shadow dark:shadow-gray-900 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-800 bg-gradient-to-r from-purple-50 to-purple-100 dark:from-purple-900/40 dark:to-purple-900/20">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-              Ready for Guests
-            </h2>
-            <p className="text-sm text-gray-600 dark:text-gray-300">
-              Rooms that are inspected and ready
-            </p>
-          </div>
-          <div className="divide-y divide-gray-100 dark:divide-gray-800 max-h-80 overflow-y-auto">
-            {filteredRooms
-              .filter((r) => r.cleaning_status === "inspected" && r.roomStatus === "available")
-              .map((room) => (
-                <div
-                  key={room.id}
-                  className="px-6 py-4 flex items-center justify-between"
-                >
-                  <div>
-                    <p className="font-semibold text-gray-800 dark:text-gray-100">
-                      {room.room_name}
-                    </p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      Booking: {room.booking_id}
-                    </p>
-                  </div>
-                  <span className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300 rounded-full">
-                    <CheckCircle2 className="w-3 h-3" />
-                    Ready
-                  </span>
-                </div>
-              ))}
-            {filteredRooms.filter(
-              (r) => r.cleaning_status === "inspected" && r.roomStatus === "available"
-            ).length === 0 && (
-              <div className="px-6 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
-                No rooms currently ready for guests
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
+      {assignmentBookingId && (
+        <AssignCleanerModal
+          isOpen={isAssignModalOpen}
+          onClose={handleCloseAssignModal}
+          bookingId={assignmentBookingId}
+          onSuccess={handleAssignmentSuccess}
+          currentUserId={session?.user?.id}
+        />
+      )}
+    </>
   );
-};
-
-export default CleaningManagement;
+}

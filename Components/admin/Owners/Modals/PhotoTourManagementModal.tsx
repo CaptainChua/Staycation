@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { createPortal } from "react-dom";
-import { X, Upload, Trash2 } from "lucide-react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { Upload, Trash2, CheckCircle2, Circle, Camera, Info, Plus } from "lucide-react";
 import Image from 'next/image';
 import toast from 'react-hot-toast';
+import { motion, AnimatePresence } from "framer-motion";
+import { setCookie, getCookie } from "@/lib/cookieUtils";
+import SubModalWrapper from "./SubModalWrapper";
 
 interface PhotoTourData {
   category?: string;
@@ -12,209 +14,279 @@ interface PhotoTourData {
   [key: string]: unknown;
 }
 
+interface PhotoCategory {
+  key: string;
+  label: string;
+  description: string;
+  required: boolean;
+}
+
+const PHOTO_CATEGORIES: PhotoCategory[] = [
+  { key: "livingArea", label: "Living Area", description: "Sofa, entertainment, and general layout", required: true },
+  { key: "bedroom", label: "Bedroom", description: "Bed, linens, and bedroom decor", required: true },
+  { key: "kitchenette", label: "Kitchenette", description: "Cooking area, fridge, and appliances", required: true },
+  { key: "fullBathroom", label: "Full Bathroom", description: "Shower, toilet, and vanity", required: true },
+  { key: "diningArea", label: "Dining Area", description: "Table and seating arrangements", required: false },
+  { key: "exterior", label: "Exterior / View", description: "Building outside and window views", required: false },
+  { key: "pool", label: "Pool / Amenities", description: "Common areas and pool facilities", required: false },
+  { key: "garage", label: "Parking / Garage", description: "Parking slots and access points", required: false },
+  { key: "additional", label: "Additional", description: "Any other details you want to show", required: false },
+];
+
 interface PhotoTourManagementModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (photoTours: Record<string, File[]>, existingPhotoTours: PhotoTourData[]) => void;
+  onSave: (data: { photoTourImages: Record<string, File[]>, existingPhotoTours: PhotoTourData[] }) => void;
   initialPhotoTours?: PhotoTourData[];
+  mode?: 'modal' | 'step';
+  onNext?: () => void;
+  onBack?: () => void;
+  isLastStep?: boolean;
 }
 
-const PhotoTourManagementModal = ({ isOpen, onClose, onSave, initialPhotoTours }: PhotoTourManagementModalProps) => {
-  const [photoTourImages, setPhotoTourImages] = useState<Record<string, File[]>>({
-    livingArea: [],
-    kitchenette: [],
-    diningArea: [],
-    fullBathroom: [],
-    garage: [],
-    exterior: [],
-    pool: [],
-    bedroom: [],
-    additional: [],
-  });
+const PhotoTourManagementModal = ({ 
+  isOpen, 
+  onClose, 
+  onSave, 
+  initialPhotoTours = [], 
+  mode = 'modal',
+  onNext,
+  onBack,
+  isLastStep = false,
+  currentPhotoTourImages = {}
+}: PhotoTourManagementModalProps & { currentPhotoTourImages?: Record<string, File[]> }) => {
+  const [activeCategory, setActiveCategory] = useState<string>("livingArea");
 
-  const [existingPhotoTours, setExistingPhotoTours] = useState<PhotoTourData[]>([]);
-
-  const photoTourCategories = [
-    { key: "livingArea", label: "Living Area" },
-    { key: "kitchenette", label: "Kitchenette" },
-    { key: "diningArea", label: "Dining Area" },
-    { key: "fullBathroom", label: "Full Bathroom" },
-    { key: "garage", label: "Garage" },
-    { key: "exterior", label: "Exterior" },
-    { key: "pool", label: "Pool" },
-    { key: "bedroom", label: "Bedroom" },
-    { key: "additional", label: "Additional Photos" },
-  ];
-
-  useEffect(() => {
-    if (initialPhotoTours) {
-      setExistingPhotoTours(initialPhotoTours);
-    }
-  }, [initialPhotoTours, isOpen]);
-
-  const handlePhotoTourUpload = (category: string, e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUpload = (category: string, e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const filesArray = Array.from(e.target.files);
-      setPhotoTourImages({
-        ...photoTourImages,
-        [category]: [...photoTourImages[category], ...filesArray],
-      });
-      toast.success(`${filesArray.length} image(s) added to ${photoTourCategories.find(c => c.key === category)?.label}`);
+      const newImages = {
+        ...currentPhotoTourImages,
+        [category]: [...(currentPhotoTourImages[category] || []), ...filesArray],
+      };
+      onSave({ photoTourImages: newImages, existingPhotoTours: initialPhotoTours });
+      toast.success(`Added to ${category}`);
     }
   };
 
-  const handleRemovePhotoTourImage = (category: string, index: number) => {
-    setPhotoTourImages({
-      ...photoTourImages,
-      [category]: photoTourImages[category].filter((_, i) => i !== index),
-    });
-    toast.success("Photo removed");
+  const removeNew = (category: string, index: number) => {
+    const newImages = {
+      ...currentPhotoTourImages,
+      [category]: (currentPhotoTourImages[category] || []).filter((_, i) => i !== index),
+    };
+    onSave({ photoTourImages: newImages, existingPhotoTours: initialPhotoTours });
   };
 
-  const handleRemoveExistingPhotoTour = (photoIndex: number) => {
-    setExistingPhotoTours(existingPhotoTours.filter((_, i) => i !== photoIndex));
-    toast.success("Photo removed");
+  const removeExisting = (photoIndex: number) => {
+    const newExisting = initialPhotoTours.filter((_, i) => i !== photoIndex);
+    setCookie("haven_existing_photo_tours", JSON.stringify(newExisting));
+    onSave({ photoTourImages: currentPhotoTourImages, existingPhotoTours: newExisting });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSave(photoTourImages, existingPhotoTours);
-    toast.success("Photo tour updated successfully!");
-    onClose();
+  const getCategoryStatus = (key: string) => {
+    const hasExisting = initialPhotoTours.some(p => p.category?.toLowerCase().replace(/\s+/g, '') === key.toLowerCase());
+    const hasNew = (currentPhotoTourImages[key]?.length || 0) > 0;
+    return hasExisting || hasNew;
   };
 
-  const handleClose = () => {
-    setPhotoTourImages({
-      livingArea: [],
-      kitchenette: [],
-      diningArea: [],
-      fullBathroom: [],
-      garage: [],
-      exterior: [],
-      pool: [],
-      bedroom: [],
-      additional: [],
-    });
-    setExistingPhotoTours([]);
-    onClose();
+  const isAllRequiredFilled = useMemo(() => {
+    const mandatoryCategories = ['livingArea', 'bedroom', 'kitchenette', 'fullBathroom'];
+    return mandatoryCategories.every(cat => getCategoryStatus(cat));
+  }, [currentPhotoTourImages, initialPhotoTours]);
+
+  const handleSave = () => {
+    if (!isAllRequiredFilled) {
+      toast.error("Please provide at least one photo for all required categories");
+      return;
+    }
+    onSave({ photoTourImages: currentPhotoTourImages, existingPhotoTours: initialPhotoTours });
+    if (mode === 'step' && onNext) {
+      onNext();
+    } else {
+      toast.success("Photo tour saved!");
+      onClose();
+    }
   };
 
-  if (!isOpen) return null;
-
-  const modalContent = (
-    <>
-      <div className="fixed inset-0 bg-black/50 z-[9998]" onClick={handleClose}></div>
-      <div className="fixed inset-0 flex items-center justify-center z-[9999] p-4">
-        <div className="bg-white rounded-2xl max-w-5xl w-full shadow-2xl" style={{ maxHeight: 'calc(100vh - 2rem)' }}>
-          {/* Header */}
-          <div className="flex justify-between items-center p-6 border-b border-gray-200 bg-gradient-to-r from-orange-50 to-yellow-50 rounded-t-2xl flex-shrink-0">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-800">Photo Tour Management</h2>
-              <p className="text-sm text-gray-600 mt-1">Upload and organize photo tour images by category</p>
-            </div>
-            <button onClick={handleClose} className="p-2 hover:bg-white/50 rounded-full transition-colors">
-              <X className="w-6 h-6 text-gray-600" />
+  const content = (
+    <div className="flex flex-col md:flex-row gap-8 h-full min-h-[500px]">
+      {/* Category Sidebar */}
+      <div className="w-full md:w-72 flex flex-col gap-2">
+        <h3 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2 px-2">
+          Room Categories
+        </h3>
+        {PHOTO_CATEGORIES.map((cat) => {
+          const isCompleted = getCategoryStatus(cat.key);
+          const isActive = activeCategory === cat.key;
+          
+          return (
+            <button
+              key={cat.key}
+              type="button"
+              onClick={() => setActiveCategory(cat.key)}
+              className={`
+                flex items-center justify-between p-4 rounded-2xl border-2 transition-all duration-[250ms] [transition-timing-function:cubic-bezier(0.4,0,0.2,1)] text-left group hover:scale-[1.03] hover:shadow-lg will-change-transform
+                ${isActive 
+                  ? 'border-brand-primary bg-brand-primary/5 dark:bg-brand-primary/10 shadow-sm' 
+                  : 'border-transparent bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700'}
+              `}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`
+                  p-2 rounded-lg transition-colors
+                  ${isCompleted ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' : 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500'}
+                  ${isActive && !isCompleted ? 'bg-brand-primary/10 text-brand-primary' : ''}
+                `}>
+                  {isCompleted ? <CheckCircle2 className="w-4 h-4" /> : <Camera className="w-4 h-4" />}
+                </div>
+                <div>
+                  <p className={`text-sm font-bold ${isActive ? 'text-brand-primary' : 'text-gray-700 dark:text-gray-300'}`}>
+                    {cat.label}
+                  </p>
+                  {cat.required && !isCompleted && (
+                    <span className="text-[10px] text-red-400 dark:text-red-400 font-bold uppercase">Required</span>
+                  )}
+                </div>
+              </div>
+              {isActive && <div className="w-1.5 h-1.5 bg-brand-primary rounded-full animate-pulse" />}
             </button>
-          </div>
-
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {photoTourCategories.map((category) => {
-                const existingCategoryPhotos = existingPhotoTours
-                  .map((photo: PhotoTourData, globalIndex: number) => ({ ...photo, globalIndex }))
-                  .filter(
-                    (photo: PhotoTourData & { globalIndex: number }) => photo.category?.toLowerCase().replace(/\s+/g, '') === category.key.toLowerCase()
-                  );
-
-                return (
-                  <div key={category.key} className="border border-gray-200 rounded-lg p-4">
-                    <p className="text-sm font-semibold text-gray-800 mb-2">{category.label}</p>
-                    <label htmlFor={`photo-tour-${category.key}`} className="inline-flex items-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm cursor-pointer">
-                      <Upload className="w-4 h-4" />
-                      Upload
-                    </label>
-                    <input
-                      id={`photo-tour-${category.key}`}
-                      type="file"
-                      multiple
-                      accept="image/*"
-                      onChange={(e) => handlePhotoTourUpload(category.key, e)}
-                      className="hidden"
-                    />
-
-                    {/* Display existing photos */}
-                    {existingCategoryPhotos.length > 0 && (
-                      <div className="mt-3 space-y-2">
-                        <p className="text-xs text-gray-500 mb-1">Existing ({existingCategoryPhotos.length})</p>
-                        {existingCategoryPhotos.map((photo: PhotoTourData & { globalIndex?: number, url?: string }, index: number) => (
-                          <div key={`existing-${index}`} className="flex items-center justify-between p-2 bg-blue-50 rounded">
-                            {(photo.image_url || photo.url) ? (
-                              <Image src={(photo.image_url || photo.url)!} alt="Photo tour" width={40} height={40} className="w-10 h-10 object-cover rounded" />
-                            ) : (
-                              <div className="w-10 h-10 bg-gray-200 rounded flex items-center justify-center">
-                                <span className="text-gray-400 text-xs">No img</span>
-                              </div>
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveExistingPhotoTour(photo.globalIndex || 0)}
-                              className="p-1 text-red-500 hover:bg-red-100 rounded"
-                              title="Delete photo"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Display newly uploaded photos */}
-                    {photoTourImages[category.key]?.length > 0 && (
-                      <div className="mt-3 space-y-2">
-                        <p className="text-xs text-gray-500 mb-1">New ({photoTourImages[category.key].length})</p>
-                        {photoTourImages[category.key].map((file, index) => (
-                          <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                            <Image src={URL.createObjectURL(file)} alt="New photo tour" width={40} height={40} className="w-10 h-10 object-cover rounded" />
-                            <button
-                              type="button"
-                              onClick={() => handleRemovePhotoTourImage(category.key, index)}
-                              className="p-1 text-red-500"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Footer */}
-            <div className="flex justify-end gap-3 mt-6 pt-6 border-t border-gray-200">
-              <button
-                type="button"
-                onClick={handleClose}
-                className="px-6 py-2.5 border-2 border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-100 transition-all"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="px-6 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg transition-all"
-              >
-                Save Changes
-              </button>
-            </div>
-          </form>
-        </div>
+          );
+        })}
       </div>
-    </>
+
+      {/* Main Upload Content */}
+      <div className="flex-1 space-y-6">
+        <AnimatePresence mode="wait">
+          {PHOTO_CATEGORIES.map((cat) => cat.key === activeCategory && (
+            <motion.div 
+              key={cat.key}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.3 }}
+              className="h-full"
+            >
+              <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-3xl p-8 shadow-sm transition-all duration-[250ms] [transition-timing-function:cubic-bezier(0.4,0,0.2,1)] hover:scale-[1.01] hover:shadow-md will-change-transform h-full flex flex-col">
+                <div className="flex items-start justify-between mb-8">
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">{cat.label}</h2>
+                    <p className="text-gray-500 dark:text-gray-400 mt-1">{cat.description}</p>
+                  </div>
+                  <div className="flex items-center gap-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-4 py-2 rounded-full text-xs font-bold">
+                    <Info className="w-4 h-4" />
+                    STAGED PHOTOS PREFERRED
+                  </div>
+                </div>
+
+                <div className="flex-1 relative min-h-[300px]">
+                  <AnimatePresence mode="wait">
+                    {!getCategoryStatus(cat.key) ? (
+                      /* Empty State: Large Upload Box */
+                      <motion.label
+                        key="empty-upload"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="flex flex-col items-center justify-center border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-2xl p-12 hover:border-brand-primary/50 hover:bg-brand-primary/5 transition-all cursor-pointer group h-full w-full"
+                      >
+                        <input 
+                          type="file" 
+                          multiple 
+                          accept="image/*" 
+                          className="hidden" 
+                          onChange={(e) => handleUpload(cat.key, e)} 
+                        />
+                        <div className="bg-brand-primary/10 p-6 rounded-full mb-4 group-hover:scale-110 transition-transform">
+                          <Upload className="w-10 h-10 text-brand-primary" />
+                        </div>
+                        <p className="font-bold text-gray-700 dark:text-gray-200 text-lg">Upload your first photo</p>
+                        <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Click or drag images here to begin</p>
+                      </motion.label>
+                    ) : (
+                      /* Post-Upload State: Image Grid + Add More Button */
+                      <motion.div
+                        key="gallery-view"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="h-full w-full flex flex-col"
+                      >
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 relative">
+                          {/* Existing */}
+                          {initialPhotoTours
+                            .map((p, i) => ({ ...p, globalIdx: i }))
+                            .filter(p => p.category?.toLowerCase().replace(/\s+/g, '') === cat.key.toLowerCase())
+                            .map((photo, i) => (
+                              <div key={`ex-${i}`} className="relative aspect-[4/3] rounded-xl overflow-hidden border border-gray-100 dark:border-gray-700 group shadow-sm hover:scale-[1.03] hover:shadow-xl transition-all duration-[250ms] [transition-timing-function:cubic-bezier(0.4,0,0.2,1)] will-change-transform">
+                                <Image src={photo.image_url!} alt="Existing" fill className="object-cover" />
+                                <button 
+                                  type="button"
+                                  onClick={() => removeExisting(photo.globalIdx!)}
+                                  className="absolute top-2 right-2 p-1.5 bg-white/90 dark:bg-gray-800/90 text-red-500 dark:text-red-400 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow-md z-10"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            ))}
+                          {/* New */}
+                          {currentPhotoTourImages[cat.key]?.map((file, i) => (
+                            <div key={`new-${i}`} className="relative aspect-[4/3] rounded-xl overflow-hidden border-2 border-brand-primary/20 group shadow-sm hover:scale-[1.03] hover:shadow-xl transition-all duration-[250ms] [transition-timing-function:cubic-bezier(0.4,0,0.2,1)] will-change-transform">
+                              <Image src={URL.createObjectURL(file)} alt="New" fill className="object-cover" />
+                              <div className="absolute inset-0 bg-brand-primary/10" />
+                              <button 
+                                type="button"
+                                onClick={() => removeNew(cat.key, i)}
+                                className="absolute top-2 right-2 p-1.5 bg-white/90 dark:bg-gray-800/90 text-red-500 dark:text-red-400 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow-md z-10"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ))}
+
+                          {/* Small "+" Add More Button Overlay */}
+                          <label className="relative aspect-[4/3] rounded-xl border-2 border-dashed border-brand-primary/30 flex flex-col items-center justify-center cursor-pointer hover:bg-brand-primary/5 transition-all group overflow-hidden bg-gray-50/30 dark:bg-gray-700/30">
+                            <input 
+                              type="file" 
+                              multiple 
+                              accept="image/*" 
+                              className="hidden" 
+                              onChange={(e) => handleUpload(cat.key, e)} 
+                            />
+                            <div className="bg-brand-primary text-white p-2 rounded-full shadow-lg group-hover:scale-110 transition-transform">
+                              <Plus className="w-5 h-5" />
+                            </div>
+                            <span className="text-[10px] font-bold text-brand-primary mt-2 uppercase tracking-widest">Add More</span>
+                          </label>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </div>
+    </div>
   );
 
-  return typeof window !== 'undefined' ? createPortal(modalContent, document.body) : null;
+  if (mode === 'step') return content;
+
+  return (
+    <SubModalWrapper
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Room Photo Tour"
+      subtitle="Organize photos by room category"
+      onSave={handleSave}
+      maxWidth="max-w-6xl"
+      mode={mode}
+      onBack={onBack}
+      saveLabel={mode === 'step' ? (isLastStep ? "Finish & Save" : "Next") : "Save Changes"}
+      backLabel={mode === 'step' ? "Back" : "Cancel"}
+    >
+      {content}
+    </SubModalWrapper>
+  );
 };
 
 export default PhotoTourManagementModal;

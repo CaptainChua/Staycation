@@ -1,42 +1,44 @@
-import { redirect } from 'next/navigation';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import MyWishlistClient from "@/Components/MyWishlist";
 
 export const metadata = {
-  title: "My Wishlist - Staycation Haven"
-}
+  title: "Staycation Haven | My Wishlist",
+};
 
 const getWishlist = async (userId: string) => {
   try {
     const res = await fetch(`${process.env.API_URL}/api/wishlist/${userId}`, {
-      cache: 'no-store',
+      cache: "no-store",
       headers: {
-        'Content-Type': 'application/json',
-      }
+        "Content-Type": "application/json",
+      },
     });
 
     if (!res.ok) {
-      throw new Error('Failed to fetch wishlist');
+      throw new Error("Failed to fetch wishlist");
     }
 
     return res.json();
   } catch (error) {
-    console.error('Error fetching wishlist:', error);
+    console.error("Error fetching wishlist:", error);
     return { success: false, data: [] };
   }
-}
+};
 
 const MyWishlistPage = async () => {
   const session = await getServerSession(authOptions);
 
-  if (!session?.user?.id) {
-    redirect('/login?callbackUrl=/my-wishlist');
-  }
+  // Don't create guest cookies server-side. If the user is authenticated we fetch their wishlist.
+  // Guest users will get a client-side guest token (handled in the client component).
+  const userIdentifier = session?.user?.id ?? null;
+  const initialData = userIdentifier
+    ? await getWishlist(userIdentifier)
+    : { success: false, data: [] };
 
-  const initialData = await getWishlist(session.user.id);
-
-  return <MyWishlistClient initialData={initialData} userId={session.user.id} />;
-}
+  return (
+    <MyWishlistClient initialData={initialData} userId={userIdentifier ?? ""} />
+  );
+};
 
 export default MyWishlistPage;

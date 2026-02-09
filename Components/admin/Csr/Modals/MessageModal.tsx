@@ -139,87 +139,84 @@ export default function MessageModal({
   const topConversations = conversations.slice(0, 5);
 
   return createPortal(
-    <>
-      <div className="fixed inset-0 z-[9980]" aria-hidden="true" />
-      <div
-        ref={containerRef}
-        className="fixed z-[9991] w-full max-w-md md:max-w-sm"
-        style={{
-          top: position.top,
-          right: position.right,
-        }}
-      >
-        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-brand-primary/20 dark:border-gray-800 overflow-hidden">
-          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800 bg-gradient-to-r from-brand-primaryLighter to-white dark:from-gray-900 dark:to-gray-900">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-brand-primary to-brand-primaryDark text-white flex items-center justify-center">
-                <MessageSquare className="w-6 h-6" />
-              </div>
-              <div>
-                <p className="text-xs font-semibold tracking-[0.3em] text-brand-primary uppercase">
-                  Messages
-                </p>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Inbox</h2>
-                  {unreadTotal > 0 && (
-                    <span className="text-sm text-gray-500 dark:text-gray-400">
-                      • {unreadTotal} unread
-                    </span>
-                  )}
-                </div>
+    <div
+      ref={containerRef}
+      className="fixed z-[9991] w-full max-w-md md:max-w-sm"
+      style={{
+        top: position.top,
+        right: position.right,
+      }}
+    >
+      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-brand-primary/20 dark:border-gray-800 overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-full bg-brand-primary text-white flex items-center justify-center">
+              <MessageSquare className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-xs font-semibold tracking-[0.3em] text-brand-primary uppercase">
+                Messages
+              </p>
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Inbox</h2>
+                {unreadTotal > 0 && (
+                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                    • {unreadTotal} unread
+                  </span>
+                )}
               </div>
             </div>
-            <button
-              onClick={onClose}
-              className="p-2 rounded-full hover:bg-brand-primaryLighter dark:hover:bg-gray-800 transition-colors text-gray-500 dark:text-gray-300"
-              type="button"
-              aria-label="Close messages"
-            >
-              <svg viewBox="0 0 24 24" className="w-5 h-5" stroke="currentColor" fill="none">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
           </div>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-full hover:bg-brand-primaryLighter dark:hover:bg-gray-800 transition-colors text-gray-500 dark:text-gray-300"
+            type="button"
+            aria-label="Close messages"
+          >
+            <svg viewBox="0 0 24 24" className="w-5 h-5" stroke="currentColor" fill="none">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
 
-          <div className="max-h-[70vh] overflow-y-auto">
-            {isLoading ? (
-              <div className="divide-y divide-gray-100 dark:divide-gray-800">
-                {Array.from({ length: 5 }).map((_, idx) => (
-                  <div key={idx} className="px-6 py-4 flex items-start gap-3">
-                    <div className="relative flex-shrink-0">
-                      <Skeleton className="w-12 h-12 rounded-full" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <Skeleton className="h-4 w-32 rounded" />
-                        <Skeleton className="h-3 w-16 rounded" />
-                      </div>
-                      <Skeleton className="h-3 w-40 rounded mt-2" />
-                      <Skeleton className="h-3 w-20 rounded mt-2" />
-                    </div>
+        <div className="max-h-[70vh] overflow-y-auto">
+          {isLoading ? (
+            <div className="divide-y divide-gray-100 dark:divide-gray-800">
+              {Array.from({ length: 5 }).map((_, idx) => (
+                <div key={idx} className="px-6 py-4 flex items-start gap-3">
+                  <div className="relative flex-shrink-0">
+                    <Skeleton className="w-12 h-12 rounded-full" />
                   </div>
-                ))}
-              </div>
-            ) : topConversations.length === 0 ? (
-              <div className="text-center py-10 text-sm text-gray-500 dark:text-gray-400">
-                No conversations yet. Start messaging guests or teammates!
-              </div>
-            ) : (
-              <div className="divide-y divide-gray-100 dark:divide-gray-800">
-                {topConversations.map((conversation) => (
-                  (() => {
-                    const displayName = getConversationDisplayName(conversation);
-                    const otherParticipantIds = currentUserId
-                      ? (conversation.participant_ids || []).filter((id) => id !== currentUserId)
-                      : (conversation.participant_ids || []);
-                    const avatarUrl =
-                      conversation.type !== "guest" && otherParticipantIds.length === 1
-                        ? employeeProfileImageById?.[otherParticipantIds[0]]
-                        : undefined;
-                    const avatarLetter = (displayName || conversation.name || "?")
-                      .charAt(0)
-                      .toUpperCase();
-                    return (
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <Skeleton className="h-4 w-32 rounded" />
+                      <Skeleton className="h-3 w-16 rounded" />
+                    </div>
+                    <Skeleton className="h-3 w-40 rounded mt-2" />
+                    <Skeleton className="h-3 w-20 rounded mt-2" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : topConversations.length === 0 ? (
+            <div className="text-center py-10 text-sm text-gray-500 dark:text-gray-400">
+              No conversations yet. Start messaging guests or teammates!
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-100 dark:divide-gray-800">
+              {topConversations.map((conversation) => {
+                const displayName = getConversationDisplayName(conversation);
+                const otherParticipantIds = currentUserId
+                  ? (conversation.participant_ids || []).filter((id) => id !== currentUserId)
+                  : (conversation.participant_ids || []);
+                const avatarUrl =
+                  conversation.type !== "guest" && otherParticipantIds.length === 1
+                    ? employeeProfileImageById?.[otherParticipantIds[0]]
+                    : undefined;
+                const avatarLetter = (displayName || conversation.name || "?")
+                  .charAt(0)
+                  .toUpperCase();
+                return (
                   <button
                     key={conversation.id}
                     type="button"
@@ -234,7 +231,7 @@ export default function MessageModal({
                     className="w-full text-left px-6 py-4 flex items-start gap-3 hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors"
                   >
                     <div className="relative flex-shrink-0">
-                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-brand-primary to-brand-primaryDark text-white font-semibold flex items-center justify-center overflow-hidden">
+                      <div className="w-12 h-12 rounded-full bg-brand-primary text-white font-semibold flex items-center justify-center overflow-hidden">
                         {avatarUrl ? (
                           <Image
                             src={avatarUrl}
@@ -244,7 +241,7 @@ export default function MessageModal({
                             className="w-12 h-12 object-cover"
                             onError={(e) => {
                               const target = e.target as HTMLImageElement;
-                              target.style.display = 'none';
+                              target.style.display = "none";
                             }}
                           />
                         ) : (
@@ -276,29 +273,27 @@ export default function MessageModal({
                       )}
                     </div>
                   </button>
-                    );
-                  })()
-                ))}
-              </div>
-            )}
-          </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
-          <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900">
-            <button
-              onClick={() => {
-                if (onViewAll) onViewAll();
-                onClose();
-              }}
-              className="inline-flex items-center gap-2 text-sm font-semibold text-brand-primary hover:text-brand-primaryDark transition-colors"
-              type="button"
-            >
-              View all messages
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          </div>
+        <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900">
+          <button
+            onClick={() => {
+              if (onViewAll) onViewAll();
+              onClose();
+            }}
+            className="inline-flex items-center gap-2 text-sm font-semibold text-brand-primary hover:text-brand-primaryDark transition-colors"
+            type="button"
+          >
+            View all messages
+            <ArrowRight className="w-4 h-4" />
+          </button>
         </div>
       </div>
-    </>,
+    </div>,
     document.body
   );
 }

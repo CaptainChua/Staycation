@@ -1,10 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { createPortal } from "react-dom";
-import { X } from "lucide-react";
 import { Input } from "@nextui-org/input";
-import toast from 'react-hot-toast';
+import { z } from "zod";
+
+const pricingSchema = z.object({
+  six_hour_rate: z.string().refine(val => !isNaN(parseFloat(val)) && parseFloat(val) > 0, "6-hour rate must be a positive number"),
+  ten_hour_rate: z.string().refine(val => !isNaN(parseFloat(val)) && parseFloat(val) > 0, "10-hour rate must be a positive number"),
+  weekday_rate: z.string().refine(val => !isNaN(parseFloat(val)) && parseFloat(val) > 0, "Weekday rate must be a positive number"),
+  weekend_rate: z.string().refine(val => !isNaN(parseFloat(val)) && parseFloat(val) > 0, "Weekend rate must be a positive number"),
+});
 
 interface PricingData {
   six_hour_rate?: number | string;
@@ -14,21 +19,24 @@ interface PricingData {
 }
 
 interface PricingManagementModalProps {
-  isOpen: boolean;
-  onClose: () => void;
   onSave: (data: PricingData) => void;
   initialData?: PricingData;
+  isAddMode?: boolean;
 }
 
-const PricingManagementModal = ({ isOpen, onClose, onSave, initialData }: PricingManagementModalProps) => {
-  const [formData, setFormData] = useState<PricingData>({
+const PricingManagementModal = ({ 
+  onSave, 
+  initialData, 
+  isAddMode = false,
+}: PricingManagementModalProps) => {
+  const [formData, setFormData] = useState<Record<string, string>>({
     six_hour_rate: "",
     ten_hour_rate: "",
     weekday_rate: "",
     weekend_rate: "",
   });
 
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (initialData) {
@@ -39,201 +47,121 @@ const PricingManagementModal = ({ isOpen, onClose, onSave, initialData }: Pricin
         weekend_rate: initialData.weekend_rate?.toString() || "",
       });
     }
-  }, [initialData, isOpen]);
+  }, [initialData]);
 
-  const validateForm = (): boolean => {
-    const newErrors: Record<string, string> = {};
+  const validation = pricingSchema.safeParse(formData);
+  const errors = !validation.success ? validation.error.format() : null;
 
-    if (!formData.six_hour_rate || formData.six_hour_rate === "") {
-      newErrors.six_hour_rate = "6-hour rate is required";
-    } else if (isNaN(parseFloat(formData.six_hour_rate.toString()))) {
-      newErrors.six_hour_rate = "6-hour rate must be a number";
-    }
-
-    if (!formData.ten_hour_rate || formData.ten_hour_rate === "") {
-      newErrors.ten_hour_rate = "10-hour rate is required";
-    } else if (isNaN(parseFloat(formData.ten_hour_rate.toString()))) {
-      newErrors.ten_hour_rate = "10-hour rate must be a number";
-    }
-
-    if (!formData.weekday_rate || formData.weekday_rate === "") {
-      newErrors.weekday_rate = "Weekday rate is required";
-    } else if (isNaN(parseFloat(formData.weekday_rate.toString()))) {
-      newErrors.weekday_rate = "Weekday rate must be a number";
-    }
-
-    if (!formData.weekend_rate || formData.weekend_rate === "") {
-      newErrors.weekend_rate = "Weekend rate is required";
-    } else if (isNaN(parseFloat(formData.weekend_rate.toString()))) {
-      newErrors.weekend_rate = "Weekend rate must be a number";
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (validateForm()) {
-      onSave({
-        six_hour_rate: parseFloat((formData.six_hour_rate ?? "").toString()),
-        ten_hour_rate: parseFloat((formData.ten_hour_rate ?? "").toString()),
-        weekday_rate: parseFloat((formData.weekday_rate ?? "").toString()),
-        weekend_rate: parseFloat((formData.weekend_rate ?? "").toString()),
-      });
-      toast.success("Pricing updated successfully!");
-      onClose();
-    } else {
-      toast.error("Please fix the errors in the form");
-    }
-  };
-
-  const handleClose = () => {
-    setFormData({
-      six_hour_rate: "",
-      ten_hour_rate: "",
-      weekday_rate: "",
-      weekend_rate: "",
+  const handleChange = (field: string, value: string) => {
+    const newData = { ...formData, [field]: value };
+    setFormData(newData);
+    setTouched(prev => ({ ...prev, [field]: true }));
+    
+    // Pass back to parent for its validation
+    onSave({
+      six_hour_rate: newData.six_hour_rate,
+      ten_hour_rate: newData.ten_hour_rate,
+      weekday_rate: newData.weekday_rate,
+      weekend_rate: newData.weekend_rate,
     });
-    setErrors({});
-    onClose();
   };
 
-  if (!isOpen) return null;
+  const getInputClasses = (field: string) => {
+    const isFieldTouched = touched[field];
+    const isFieldInvalid = isFieldTouched && errors?.[field as keyof typeof errors];
+    const isFieldValid = isFieldTouched && !errors?.[field as keyof typeof errors];
 
-  const modalContent = (
-    <>
-      <div className="fixed inset-0 bg-black/50 z-[9998]" onClick={handleClose}></div>
-      <div className="fixed inset-0 flex items-center justify-center z-[9999] p-4">
-        <div className="bg-white rounded-2xl max-w-3xl w-full shadow-2xl">
-          {/* Header */}
-          <div className="flex justify-between items-center p-6 border-b border-gray-200 bg-gradient-to-r from-orange-50 to-yellow-50 rounded-t-2xl">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-800">Pricing Management</h2>
-              <p className="text-sm text-gray-600 mt-1">Update haven pricing rates</p>
-            </div>
-            <button onClick={handleClose} className="p-2 hover:bg-white/50 rounded-full transition-colors">
-              <X className="w-6 h-6 text-gray-600" />
-            </button>
+    let borderClass = "border-gray-200 dark:border-gray-700";
+    if (isFieldInvalid) borderClass = "border-red-500 bg-red-50/10 dark:bg-red-900/10";
+    if (isFieldValid) borderClass = "border-green-500 bg-green-50/10 dark:bg-green-900/10";
+
+    return {
+      label: "text-sm font-bold text-gray-700 dark:text-gray-300 mb-2 ml-1 uppercase tracking-wider",
+      inputWrapper: [
+        "bg-white dark:bg-gray-700",
+        `border-2 ${borderClass}`,
+        "hover:border-brand-primary/40",
+        "focus-within:!border-brand-primary",
+        "focus-within:ring-4",
+        "focus-within:ring-brand-primary/10",
+        "shadow-sm",
+        "transition-all",
+        "duration-300",
+        "rounded-2xl",
+        "h-14",
+        "px-4"
+      ].join(" "),
+      input: "text-base font-semibold text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500",
+      errorMessage: "text-xs font-bold text-red-500 dark:text-red-400 mt-1.5 ml-1 animate-in slide-in-from-top-1"
+    };
+  };
+
+  return (
+    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-3xl p-8 shadow-sm transition-all duration-[250ms] [transition-timing-function:cubic-bezier(0.4,0,0.2,1)] hover:scale-[1.01] hover:shadow-md will-change-transform">
+      <div className="space-y-8">
+        {/* Weekday Rates */}
+        <div>
+          <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2 mb-4">
+            Rates Configuration
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Input
+              type="number"
+              label="6-Hour Rate"
+              labelPlacement="outside"
+              placeholder="0.00"
+              value={formData.six_hour_rate}
+              onChange={(e) => handleChange('six_hour_rate', e.target.value)}
+              classNames={getInputClasses('six_hour_rate')}
+              isInvalid={touched.six_hour_rate && !!errors?.six_hour_rate}
+              errorMessage={touched.six_hour_rate && (errors as any)?.six_hour_rate?._errors[0]}
+              startContent={<span className="text-gray-500 dark:text-gray-400 font-medium">₱</span>}
+              isRequired
+            />
+            <Input
+              type="number"
+              label="10-Hour Rate"
+              labelPlacement="outside"
+              placeholder="0.00"
+              value={formData.ten_hour_rate}
+              onChange={(e) => handleChange('ten_hour_rate', e.target.value)}
+              classNames={getInputClasses('ten_hour_rate')}
+              isInvalid={touched.ten_hour_rate && !!errors?.ten_hour_rate}
+              errorMessage={touched.ten_hour_rate && (errors as any)?.ten_hour_rate?._errors[0]}
+              startContent={<span className="text-gray-500 dark:text-gray-400 font-medium">₱</span>}
+              isRequired
+            />
+            <Input
+              type="number"
+              label="Weekday (21-Hour) Rate"
+              labelPlacement="outside"
+              placeholder="0.00"
+              value={formData.weekday_rate}
+              onChange={(e) => handleChange('weekday_rate', e.target.value)}
+              classNames={getInputClasses('weekday_rate')}
+              isInvalid={touched.weekday_rate && !!errors?.weekday_rate}
+              errorMessage={touched.weekday_rate && (errors as any)?.weekday_rate?._errors[0]}
+              startContent={<span className="text-gray-500 dark:text-gray-400 font-medium">₱</span>}
+              isRequired
+            />
+            <Input
+              type="number"
+              label="Weekend (21-Hour) Rate"
+              labelPlacement="outside"
+              placeholder="0.00"
+              value={formData.weekend_rate}
+              onChange={(e) => handleChange('weekend_rate', e.target.value)}
+              classNames={getInputClasses('weekend_rate')}
+              isInvalid={touched.weekend_rate && !!errors?.weekend_rate}
+              errorMessage={touched.weekend_rate && (errors as any)?.weekend_rate?._errors[0]}
+              startContent={<span className="text-gray-500 dark:text-gray-400 font-medium">₱</span>}
+              isRequired
+            />
           </div>
-
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="p-6">
-            <div className="space-y-6">
-              {/* Weekday Rates */}
-              <div>
-                <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2 mb-4">
-                  Weekday Rates
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Input
-                    type="number"
-                    label="6-Hour Rate"
-                    labelPlacement="outside"
-                    placeholder="₱ 0.00"
-                    value={formData.six_hour_rate?.toString()}
-                    onChange={(e) => setFormData({ ...formData, six_hour_rate: e.target.value })}
-                    classNames={{ label: "text-sm font-medium text-gray-700" }}
-                    isInvalid={!!errors.six_hour_rate}
-                    errorMessage={errors.six_hour_rate}
-                    startContent={<span className="text-gray-500">₱</span>}
-                    isRequired
-                  />
-                  <Input
-                    type="number"
-                    label="10-Hour Rate"
-                    labelPlacement="outside"
-                    placeholder="₱ 0.00"
-                    value={formData.ten_hour_rate?.toString()}
-                    onChange={(e) => setFormData({ ...formData, ten_hour_rate: e.target.value })}
-                    classNames={{ label: "text-sm font-medium text-gray-700" }}
-                    isInvalid={!!errors.ten_hour_rate}
-                    errorMessage={errors.ten_hour_rate}
-                    startContent={<span className="text-gray-500">₱</span>}
-                    isRequired
-                  />
-                  <Input
-                    type="number"
-                    label="21-Hour Rate"
-                    labelPlacement="outside"
-                    placeholder="₱ 0.00"
-                    value={formData.weekday_rate?.toString()}
-                    onChange={(e) => setFormData({ ...formData, weekday_rate: e.target.value })}
-                    classNames={{ label: "text-sm font-medium text-gray-700" }}
-                    isInvalid={!!errors.weekday_rate}
-                    errorMessage={errors.weekday_rate}
-                    startContent={<span className="text-gray-500">₱</span>}
-                    isRequired
-                  />
-                </div>
-              </div>
-
-              {/* Weekend Rates */}
-              <div>
-                <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2 mb-4">
-                  Weekend Rates
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Input
-                    type="number"
-                    label="6-Hour Rate"
-                    labelPlacement="outside"
-                    placeholder="₱ 0.00"
-                    value={formData.six_hour_rate?.toString()}
-                    onChange={(e) => setFormData({ ...formData, six_hour_rate: e.target.value })}
-                    classNames={{ label: "text-sm font-medium text-gray-700" }}
-                    startContent={<span className="text-gray-500">₱</span>}
-                  />
-                  <Input
-                    type="number"
-                    label="10-Hour Rate"
-                    labelPlacement="outside"
-                    placeholder="₱ 0.00"
-                    value={formData.ten_hour_rate?.toString()}
-                    onChange={(e) => setFormData({ ...formData, ten_hour_rate: e.target.value })}
-                    classNames={{ label: "text-sm font-medium text-gray-700" }}
-                    startContent={<span className="text-gray-500">₱</span>}
-                  />
-                  <Input
-                    type="number"
-                    label="21-Hour Rate"
-                    labelPlacement="outside"
-                    placeholder="₱ 0.00"
-                    value={formData.weekend_rate?.toString()}
-                    onChange={(e) => setFormData({ ...formData, weekend_rate: e.target.value })}
-                    classNames={{ label: "text-sm font-medium text-gray-700" }}
-                    isInvalid={!!errors.weekend_rate}
-                    errorMessage={errors.weekend_rate}
-                    startContent={<span className="text-gray-500">₱</span>}
-                    isRequired
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="flex justify-end gap-3 mt-6 pt-6 border-t border-gray-200">
-              <button
-                type="button"
-                onClick={handleClose}
-                className="px-6 py-2.5 border-2 border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-100 transition-all"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="px-6 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg transition-all"
-              >
-                Save Changes
-              </button>
-            </div>
-          </form>
         </div>
       </div>
-    </>
+    </div>
   );
-
-  return typeof window !== 'undefined' ? createPortal(modalContent, document.body) : null;
 };
 
 export default PricingManagementModal;

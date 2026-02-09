@@ -32,8 +32,9 @@ const Footer = () => {
                 height={24}
                 className="w-6 h-6 object-contain"
               />
-              <span className="text-xl sm:text-2xl font-display text-brand-primary dark:text-brand-primary">
+              <span className="text-xl sm:text-2xl font-display text-brand-primary dark:text-brand-primary relative">
                 taycation Haven
+                <sup className="text-xs text-brand-primary dark:text-brand-primary ml-0.5 font-normal">PH</sup>
               </span>
             </div>
             <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed font-light">
@@ -75,7 +76,7 @@ const Footer = () => {
                 { href: '/contacts', label: 'Contact Us' },
                 { href: '/about', label: 'About Us' },
                 { href: '/location', label: 'Our Locations' },
-                { href: 'mailto:support@staycationhaven.ph', label: 'Customer Support', isExternal: true },
+                { href: 'https://mail.google.com/mail/?view=cm&fs=1&to=support@staycationhaven.ph',label: 'Customer Support',isExternal: true},
                 { href: '/rooms', label: 'Browse Havens' },
                 { href: '/help-center', label: 'Help Center' }
               ].map((item) => (
@@ -83,6 +84,8 @@ const Footer = () => {
                   {item.isExternal ? (
                     <a
                       href={item.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
                       className={`text-sm hover:text-brand-primary transition-colors flex items-center gap-1.5 group ${pathname === item.href ? 'text-brand-primary font-semibold' : 'text-gray-700 dark:text-gray-300'}`}
                     >
                       <ChevronRight className="w-3 h-3 group-hover:translate-x-1 transition-transform flex-shrink-0" />

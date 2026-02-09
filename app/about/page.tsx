@@ -14,8 +14,8 @@ import SidebarLayout from "@/Components/SidebarLayout";
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: "Staycation Haven | About",
-  description: "Learn about Staycation Haven - your premier destination for flexible, comfortable, and affordable urban staycations in Quezon City.",
+  title: "About",
+  description: "Learn about Staycation Haven PH - your premier destination for flexible, comfortable, and affordable urban staycations in Quezon City.",
 };
 
 const AboutPage = () => {
@@ -94,15 +94,16 @@ const AboutPage = () => {
   return (
     <SidebarLayout>
       {/* Hero Section */}
-      <div className="bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <div className="relative bg-gradient-to-br from-gray-100 via-gray-50 to-orange-50 dark:from-gray-800 dark:via-gray-700 dark:to-gray-800 text-gray-900 dark:text-white py-12 overflow-hidden border-b border-gray-200 dark:border-gray-700">
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-brand-primary/10 dark:bg-brand-primary/20 backdrop-blur-sm rounded-full mb-6 border border-brand-primary/20 dark:border-brand-primary/30">
+            <Building2 className="w-8 h-8 text-brand-primary" />
+          </div>
           <h1 className="text-4xl md:text-5xl font-bold mb-4">
             About Staycation Haven
           </h1>
-          <p className="text-lg md:text-xl opacity-90 max-w-3xl mx-auto">
-            Your premier destination for flexible, comfortable, and affordable
-            urban staycations. We transform ordinary spaces into extraordinary
-            experiences.
+          <p className="text-lg md:text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
+            Your premier destination for flexible, comfortable, and affordable urban staycations
           </p>
         </div>
       </div>

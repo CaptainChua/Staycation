@@ -1,24 +1,42 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { createPortal } from "react-dom";
-import { X } from "lucide-react";
-import { Checkbox } from "@nextui-org/checkbox";
+import { useState, useMemo, useEffect } from "react";
+import { Input } from "@nextui-org/input";
+import { 
+  Wifi, Tv, Coffee, Wind, Car, Waves, Utensils, 
+  Dumbbell, Shield, Search, Check, Info, Flame,
+  Waves as Pool, Bath, Snowflake, Monitor, Smartphone,
+  Speaker, Key, Zap, Refrigerator, CookingPot, UtensilsCrossed,
+  Bed, BedDouble, Shirt, Lightbulb, Dices
+} from "lucide-react";
 import toast from 'react-hot-toast';
+import { setCookie, getCookie } from "@/lib/cookieUtils";
+import SubModalWrapper from "./SubModalWrapper";
+
+interface AmenityItem {
+  id: string;
+  label: string;
+  icon: React.ElementType;
+  category: "Essential" | "Comfort" | "Luxury" | "Safety";
+}
+
+const AMENITIES_LIST: AmenityItem[] = [
+  { id: "wifi", label: "WiFi", icon: Wifi, category: "Essential" },
+  { id: "airConditioning", label: "Air conditioning", icon: Snowflake, category: "Essential" },
+  { id: "poolAccess", label: "Pool access", icon: Pool, category: "Luxury" },
+  { id: "netflix", label: "Netflix", icon: Monitor, category: "Essential" },
+  { id: "kitchen", label: "Kitchen", icon: Utensils, category: "Essential" },
+  { id: "parking", label: "Parking", icon: Car, category: "Essential" },
+  { id: "ps4", label: "PS4", icon: Smartphone, category: "Luxury" },
+  { id: "balcony", label: "Balcony", icon: Wind, category: "Comfort" },
+  { id: "washerDryer", label: "Washer/Dryer", icon: Zap, category: "Comfort" },
+  { id: "glowBed", label: "Glow Bed", icon: Zap, category: "Luxury" },
+  { id: "tv", label: "TV", icon: Tv, category: "Essential" },
+  { id: "towels", label: "Towels", icon: Bath, category: "Essential" },
+];
 
 interface AmenitiesData {
-  wifi?: boolean;
-  netflix?: boolean;
-  ps4?: boolean;
-  glowBed?: boolean;
-  airConditioning?: boolean;
-  kitchen?: boolean;
-  balcony?: boolean;
-  tv?: boolean;
-  poolAccess?: boolean;
-  parking?: boolean;
-  washerDryer?: boolean;
-  towels?: boolean;
+  [key: string]: boolean;
 }
 
 interface AmenitiesModalProps {
@@ -26,145 +44,148 @@ interface AmenitiesModalProps {
   onClose: () => void;
   onSave: (data: AmenitiesData) => void;
   initialData?: AmenitiesData;
+  mode?: 'modal' | 'step';
+  onNext?: () => void;
+  onBack?: () => void;
+  isLastStep?: boolean;
 }
 
-const AmenitiesModal = ({ isOpen, onClose, onSave, initialData }: AmenitiesModalProps) => {
-  const [amenities, setAmenities] = useState<AmenitiesData>({
-    wifi: false,
-    netflix: false,
-    ps4: false,
-    glowBed: false,
-    airConditioning: false,
-    kitchen: false,
-    balcony: false,
-    tv: false,
-    poolAccess: false,
-    parking: false,
-    washerDryer: false,
-    towels: false,
-  });
-
-  const amenitiesList = [
-    { key: "wifi", label: "WiFi" },
-    { key: "netflix", label: "Netflix" },
-    { key: "ps4", label: "PS4" },
-    { key: "glowBed", label: "Glow Bed" },
-    { key: "airConditioning", label: "Air Conditioning" },
-    { key: "kitchen", label: "Kitchen" },
-    { key: "balcony", label: "Balcony" },
-    { key: "tv", label: "TV" },
-    { key: "poolAccess", label: "Pool Access" },
-    { key: "parking", label: "Parking" },
-    { key: "washerDryer", label: "Washer/Dryer" },
-    { key: "towels", label: "Towels" },
-  ];
+const AmenitiesModal = ({
+  isOpen,
+  onClose,
+  onSave,
+  initialData,
+  mode = 'modal',
+  onNext,
+  onBack,
+  isLastStep = false
+}: AmenitiesModalProps) => {
+  const [selectedAmenities, setSelectedAmenities] = useState<AmenitiesData>({});
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     if (initialData) {
-      setAmenities({
-        wifi: initialData.wifi || false,
-        netflix: initialData.netflix || false,
-        ps4: initialData.ps4 || false,
-        glowBed: initialData.glowBed || false,
-        airConditioning: initialData.airConditioning || false,
-        kitchen: initialData.kitchen || false,
-        balcony: initialData.balcony || false,
-        tv: initialData.tv || false,
-        poolAccess: initialData.poolAccess || false,
-        parking: initialData.parking || false,
-        washerDryer: initialData.washerDryer || false,
-        towels: initialData.towels || false,
-      });
+      setSelectedAmenities(initialData);
     }
   }, [initialData, isOpen]);
 
-  const handleAmenityChange = (key: string, checked: boolean) => {
-    setAmenities({
-      ...amenities,
-      [key]: checked,
-    });
+  const filteredAmenities = useMemo(() => {
+    return AMENITIES_LIST.filter(item => 
+      item.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.category.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [searchQuery]);
+
+  const toggleAmenity = (id: string) => {
+    const newData = {
+      ...selectedAmenities,
+      [id]: !selectedAmenities[id],
+    };
+    setSelectedAmenities(newData);
+    setCookie("haven_amenities", JSON.stringify(newData));
+    onSave(newData); // Update parent in real-time
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSave(amenities);
-    toast.success("Amenities updated successfully!");
-    onClose();
+  const isAnySelected = useMemo(() => Object.values(selectedAmenities).some(val => val === true), [selectedAmenities]);
+
+  const handleSave = () => {
+    if (!isAnySelected) {
+      toast.error("Please select at least one amenity");
+      return;
+    }
+    onSave(selectedAmenities);
+    if (mode === 'step' && onNext) {
+      onNext();
+    } else {
+      toast.success("Amenities updated successfully!");
+      onClose();
+    }
   };
-
-  const handleClose = () => {
-    setAmenities({
-      wifi: false,
-      netflix: false,
-      ps4: false,
-      glowBed: false,
-      airConditioning: false,
-      kitchen: false,
-      balcony: false,
-      tv: false,
-      poolAccess: false,
-      parking: false,
-      washerDryer: false,
-      towels: false,
-    });
-    onClose();
-  };
-
-  if (!isOpen) return null;
-
-  const modalContent = (
-    <>
-      <div className="fixed inset-0 bg-black/50 z-[9998]" onClick={handleClose}></div>
-      <div className="fixed inset-0 flex items-center justify-center z-[9999] p-4">
-        <div className="bg-white rounded-2xl max-w-3xl w-full shadow-2xl">
-          {/* Header */}
-          <div className="flex justify-between items-center p-6 border-b border-gray-200 bg-gradient-to-r from-orange-50 to-yellow-50 rounded-t-2xl">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-800">Amenities</h2>
-              <p className="text-sm text-gray-600 mt-1">Select available amenities for this haven</p>
-            </div>
-            <button onClick={handleClose} className="p-2 hover:bg-white/50 rounded-full transition-colors">
-              <X className="w-6 h-6 text-gray-600" />
-            </button>
-          </div>
-
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="p-6">
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-              {amenitiesList.map((amenity) => (
-                <Checkbox
-                  key={amenity.key}
-                  isSelected={amenities[amenity.key as keyof AmenitiesData] as boolean}
-                  onValueChange={(checked) => handleAmenityChange(amenity.key, checked)}
-                >
-                  {amenity.label}
-                </Checkbox>
-              ))}
-            </div>
-
-            {/* Footer */}
-            <div className="flex justify-end gap-3 mt-6 pt-6 border-t border-gray-200">
-              <button
-                type="button"
-                onClick={handleClose}
-                className="px-6 py-2.5 border-2 border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-100 transition-all"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="px-6 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg transition-all"
-              >
-                Save Changes
-              </button>
-            </div>
-          </form>
-        </div>
+  const gridContent = (
+    <div className="space-y-6">
+      {/* Search Header */}
+      <div className="sticky top-0 z-10 bg-gray-50/50 dark:bg-gray-900/50 pb-4 backdrop-blur-sm">
+        <Input
+          placeholder="Search amenities (e.g. WiFi, Pool, Safety...)"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          startContent={<Search className="w-4 h-4 text-gray-400 dark:text-gray-500" />}
+          classNames={{
+            inputWrapper: "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 focus-within:!border-brand-primary shadow-sm rounded-xl h-12",
+            input: "dark:text-gray-100"
+          }}
+        />
       </div>
-    </>
+
+      {/* Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 pb-4">
+        {filteredAmenities.map((item) => {
+          const isSelected = !!selectedAmenities[item.id];
+          const Icon = item.icon;
+
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => toggleAmenity(item.id)}
+              className={`
+                relative flex flex-col items-center justify-center p-6 rounded-2xl border-2 transition-all duration-[250ms] [transition-timing-function:cubic-bezier(0.4,0,0.2,1)] group
+                hover:scale-[1.03] hover:shadow-xl will-change-transform
+                ${isSelected 
+                  ? 'border-brand-primary bg-brand-primary/5 dark:bg-brand-primary/10 shadow-md' 
+                  : 'border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-800 hover:border-brand-primary/30'}
+              `}
+            >
+              <div className={`
+                p-3 rounded-full mb-3 transition-colors duration-300
+                ${isSelected ? 'bg-brand-primary text-white' : 'bg-gray-50 dark:bg-gray-700 text-gray-400 dark:text-gray-500 group-hover:text-brand-primary'}
+              `}>
+                <Icon className="w-6 h-6" />
+              </div>
+              <span className={`text-xs font-bold text-center leading-tight ${isSelected ? 'text-brand-primary' : 'text-gray-600 dark:text-gray-300'}`}>
+                {item.label}
+              </span>
+              <span className="text-[9px] text-gray-400 dark:text-gray-500 mt-1 uppercase tracking-tighter font-medium">
+                {item.category}
+              </span>
+
+              {/* Selection Checkmark */}
+              {isSelected && (
+                <div className="absolute top-2 right-2 bg-brand-primary text-white rounded-full p-0.5">
+                  <Check className="w-3 h-3 stroke-[3]" />
+                </div>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {filteredAmenities.length === 0 && (
+        <div className="text-center py-12">
+          <p className="text-gray-400 dark:text-gray-500 italic">No amenities found matching "{searchQuery}"</p>
+        </div>
+      )}
+    </div>
   );
 
-  return typeof window !== 'undefined' ? createPortal(modalContent, document.body) : null;
+  if (mode === 'step') return gridContent;
+
+  return (
+    <SubModalWrapper
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Amenities"
+      subtitle="Select available amenities for this haven"
+      onSave={handleSave}
+      maxWidth="max-w-4xl"
+      mode={mode}
+      onBack={onBack}
+      saveLabel={mode === 'step' ? (isLastStep ? "Finish & Save" : "Next") : "Save Changes"}
+      backLabel={mode === 'step' ? "Back" : "Cancel"}
+    >
+      {gridContent}
+    </SubModalWrapper>
+  );
 };
 
 export default AmenitiesModal;
