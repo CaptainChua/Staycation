@@ -1,4 +1,25 @@
 User-agent: *
 Allow: /
+Allow: /rooms
+Allow: /about
+Allow: /contact
+Allow: /auth
+Disallow: /admin
+Disallow: /api/
+Disallow: /_next/
+Disallow: /static/
 
-Sitemap: https://www.staycationhavenph.com/sitemap.xml
+# Allow search engines to crawl images
+Allow: /Images/
+Allow: *.png
+Allow: *.jpg
+Allow: *.jpeg
+Allow: *.gif
+Allow: *.webp
+Allow: *.svg
+
+# Sitemap location
+Sitemap: https://staycationhavenph.com/sitemap
+
+# Crawl delay (optional, be nice to servers)
+Crawl-delay: 1

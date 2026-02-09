@@ -104,6 +104,15 @@ export default function BookingsPage() {
     }
   };
 
+  const handleBookingSaved = (result?: { mode: "create" | "update"; id?: string; booking_id: string }) => {
+    if (!result) return;
+    if (result.mode === "update") {
+      logEmployeeActivity('UPDATE_BOOKING', `Updated booking ${result.booking_id}`, result.id);
+      return;
+    }
+    logEmployeeActivity('CREATE_BOOKING', `Created booking ${result.booking_id}`, result.id);
+  };
+
   // Fetch bookings from API
   const { data: bookings = [], isLoading, error } = useGetBookingsQuery(
     {},
@@ -666,7 +675,7 @@ export default function BookingsPage() {
       return;
     }
     // TODO: Implement bulk view modal or navigation
-    toast.info(`Viewing ${selectedBookings.length} selected bookings`);
+    toast(`Viewing ${selectedBookings.length} selected bookings`);
   };
 
   const handleSelectAll = () => {
@@ -1672,17 +1681,17 @@ export default function BookingsPage() {
       )}
 
       {isNewBookingModalOpen && (
-        <NewBookings onClose={() => setIsNewBookingModalOpen(false)} />
+        <NewBookings
+          onClose={() => setIsNewBookingModalOpen(false)}
+          onSuccess={handleBookingSaved}
+        />
       )}
 
       {isEditBookingModalOpen && editingBooking && (
         <NewBookings
           onClose={handleCloseEditModal}
           initialBooking={editingBooking}
-          onSuccess={() => {
-            toast.success("Booking updated");
-            logEmployeeActivity('UPDATE_BOOKING', `Updated booking ${editingBooking.booking_id}`, editingBooking.id);
-          }}
+          onSuccess={handleBookingSaved}
         />
       )}
 

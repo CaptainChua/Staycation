@@ -9,6 +9,7 @@ import { bookingsApi } from "./api/bookingsApi";
 import { bookingPaymentsApi } from "./api/bookingPaymentsApi";
 import { wishlistApi } from "./api/wishlistApi";
 import { messagesApi } from "./api/messagesApi";
+import { usersApi } from "./api/usersApi";
 import { activityLogApi } from "./api/activityLogApi";
 import { analyticsApi } from "./api/analyticsApi";
 import { reportApi } from "./api/reportApi";
@@ -17,11 +18,12 @@ import { reviewsApi } from "./api/reviewsApi";
 import { blockedDatesApi } from "./api/blockedDatesApi";
 import { adminUsersApi } from "./api/adminUsersApi";
 import { cleanersApi } from "./api/cleanersApi";
+import { partnersApi } from "./api/partnersApi";
 
 const persistConfig = {
-  key: 'root',
+  key: "root",
   storage,
-  whitelist: ['booking'],
+  whitelist: ["booking"],
 };
 
 const persistedBookingReducer = persistReducer(persistConfig, bookingReducer);
@@ -35,6 +37,7 @@ export const store = configureStore({
     [bookingPaymentsApi.reducerPath]: bookingPaymentsApi.reducer,
     [wishlistApi.reducerPath]: wishlistApi.reducer,
     [messagesApi.reducerPath]: messagesApi.reducer,
+    [usersApi.reducerPath]: usersApi.reducer,
     [activityLogApi.reducerPath]: activityLogApi.reducer,
     [analyticsApi.reducerPath]: analyticsApi.reducer,
     [reportApi.reducerPath]: reportApi.reducer,
@@ -43,11 +46,12 @@ export const store = configureStore({
     [blockedDatesApi.reducerPath]: blockedDatesApi.reducer,
     [adminUsersApi.reducerPath]: adminUsersApi.reducer,
     [cleanersApi.reducerPath]: cleanersApi.reducer,
+    [partnersApi.reducerPath]: partnersApi.reducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
       serializableCheck: {
-        ignoredActions: ['persist/PERSIST'],
+        ignoredActions: ["persist/PERSIST"],
       },
     })
       .concat(employeeApi.middleware)
@@ -56,6 +60,7 @@ export const store = configureStore({
       .concat(bookingPaymentsApi.middleware)
       .concat(wishlistApi.middleware)
       .concat(messagesApi.middleware)
+      .concat(usersApi.middleware)
       .concat(activityLogApi.middleware)
       .concat(analyticsApi.middleware)
       .concat(reportApi.middleware)
@@ -63,7 +68,8 @@ export const store = configureStore({
       .concat(reviewsApi.middleware)
       .concat(blockedDatesApi.middleware)
       .concat(adminUsersApi.middleware)
-      .concat(cleanersApi.middleware),
+      .concat(cleanersApi.middleware)
+      .concat(partnersApi.middleware),
 });
 
 export const persistor = persistStore(store);

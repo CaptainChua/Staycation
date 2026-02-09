@@ -1,18 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/backend/config/db";
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const bookingId = params.id;
-
-    if (!bookingId) {
-      return NextResponse.json(
-        { success: false, error: "Booking ID is required" },
-        { status: 400 }
-      );
-    }
-
-    // Query to find cleaning task by booking identifier
+    const { id: bookingId } = await params;
     const query = `
       SELECT 
         bc.id::text as cleaning_id,

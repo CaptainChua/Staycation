@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Mail, Lock, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { signIn } from "next-auth/react";
+
 
 interface OtpVerificationProps {
   email: string;
@@ -11,7 +13,7 @@ interface OtpVerificationProps {
 export default function OtpVerification({ email, onBack, onSuccess }: OtpVerificationProps) {
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [isLoading, setIsLoading] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(600); // 10 minutes in seconds
+  const [timeLeft, setTimeLeft] = useState(180); // 10 minutes in seconds
   const [canResend, setCanResend] = useState(false);
 
   // Handle OTP input change
@@ -63,7 +65,7 @@ export default function OtpVerification({ email, onBack, onSuccess }: OtpVerific
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const otpValue = otp.join('');
-    
+
     if (otpValue.length !== 6) {
       toast.error('Please enter all 6 digits');
       return;
@@ -72,11 +74,10 @@ export default function OtpVerification({ email, onBack, onSuccess }: OtpVerific
     setIsLoading(true);
 
     try {
+      // 1️⃣ Verify OTP first
       const response = await fetch('/api/admin/verify-otp', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: email,
           otp: otpValue,
@@ -90,14 +91,30 @@ export default function OtpVerification({ email, onBack, onSuccess }: OtpVerific
         throw new Error(data.error || 'Invalid OTP');
       }
 
-      toast.success('Account unlocked successfully!');
-      onSuccess();
+      toast.success('OTP verified! Logging in...');
+
+      // 2️⃣ Auto-login using credentials provider
+      const signInResult = await signIn('credentials', {
+        email: email,
+        isOtpLogin: true, // 🔑 This bypasses password + Turnstile
+        redirect: false,  // We'll handle redirect manually
+      });
+
+      if (signInResult?.ok) {
+      toast.success('Account unlocked & logged in successfully!');
+      // Redirect to dashboard
+      window.location.href = '/dashboard'; // replace with your protected route
+    } else {
+      throw new Error(signInResult?.error || 'Failed to log in');
+    }
+
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to verify OTP');
+      toast.error(error instanceof Error ? error.message : 'OTP verification failed');
     } finally {
       setIsLoading(false);
     }
   };
+
 
   // Handle resend OTP
   const handleResend = async () => {
@@ -122,7 +139,7 @@ export default function OtpVerification({ email, onBack, onSuccess }: OtpVerific
       }
 
       toast.success('OTP sent successfully!');
-      setTimeLeft(600); // Reset timer
+      setTimeLeft(180); // Reset timer
       setCanResend(false);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to resend OTP');
@@ -144,7 +161,7 @@ export default function OtpVerification({ email, onBack, onSuccess }: OtpVerific
   }, [timeLeft, canResend]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-brand-primary to-brand-primaryDark flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[#1F2937] flex items-center rounded-2xl justify-center p-4">
       <div className="w-full max-w-md">
         {/* Back Button */}
         <button
@@ -156,9 +173,9 @@ export default function OtpVerification({ email, onBack, onSuccess }: OtpVerific
         </button>
 
         {/* Main Card */}
-        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl overflow-hidden">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl overflow-hidden">
           {/* Header */}
-          <div className="bg-gradient-to-r from-brand-primary to-brand-primaryDark p-8 text-center">
+          <div className="bg-[#1F2937] p-8 text-center">
             <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
               <Mail className="w-8 h-8 text-white" />
             </div>
@@ -170,7 +187,7 @@ export default function OtpVerification({ email, onBack, onSuccess }: OtpVerific
           </div>
 
           {/* Form */}
-          <div className="p-8">
+          <div className="p-8 bg-[#1F2937]">
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* OTP Input */}
               <div>

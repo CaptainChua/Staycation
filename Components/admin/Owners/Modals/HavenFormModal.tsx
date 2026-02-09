@@ -53,8 +53,11 @@ interface HavenData {
   weekday_rate?: number;
   weekend_rate?: number;
   six_hour_check_in?: string;
+  six_hour_check_out?: string;
   ten_hour_check_in?: string;
+  ten_hour_check_out?: string;
   twenty_one_hour_check_in?: string;
+  twenty_one_hour_check_out?: string;
   amenities?: Record<string, boolean>;
   images?: ImageData[];
   photo_tours?: PhotoTourData[];
@@ -177,23 +180,26 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
     weekdayRate: "",
     weekendRate: "",
     sixHourCheckIn: "09:00",
+    sixHourCheckOut: "15:00",
     tenHourCheckIn: "09:00",
+    tenHourCheckOut: "19:00",
     twentyOneHourCheckIn: "14:00",
+    twentyOneHourCheckOut: "11:00",
     description: "",
     youtubeUrl: "",
     amenities: {
-      wifi: false,
-      netflix: false,
-      ps4: false,
-      glowBed: false,
-      airConditioning: false,
-      kitchen: false,
-      balcony: false,
-      tv: false,
-      poolAccess: false,
-      parking: false,
-      washerDryer: false,
-      towels: false,
+      wifi: true,
+      airConditioning: true,
+      poolAccess: true,
+      netflix: true,
+      kitchen: true,
+      parking: true,
+      ps4: true,
+      balcony: true,
+      washerDryer: true,
+      glowBed: true,
+      tv: true,
+      towels: true,
     },
   });
 
@@ -232,20 +238,23 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
         weekdayRate: initialData.weekday_rate?.toString() || "",
         weekendRate: initialData.weekend_rate?.toString() || "",
         sixHourCheckIn: initialData.six_hour_check_in || "09:00",
+        sixHourCheckOut: initialData.six_hour_check_out || "15:00",
         tenHourCheckIn: initialData.ten_hour_check_in || "09:00",
+        tenHourCheckOut: initialData.ten_hour_check_out || "19:00",
         twentyOneHourCheckIn: initialData.twenty_one_hour_check_in || "14:00",
+        twentyOneHourCheckOut: initialData.twenty_one_hour_check_out || "11:00",
         amenities: {
           wifi: initialData.amenities?.wifi || false,
-          netflix: initialData.amenities?.netflix || false,
-          ps4: initialData.amenities?.ps4 || false,
-          glowBed: initialData.amenities?.glowBed || false,
           airConditioning: initialData.amenities?.airConditioning || false,
-          kitchen: initialData.amenities?.kitchen || false,
-          balcony: initialData.amenities?.balcony || false,
-          tv: initialData.amenities?.tv || false,
           poolAccess: initialData.amenities?.poolAccess || false,
+          netflix: initialData.amenities?.netflix || false,
+          kitchen: initialData.amenities?.kitchen || false,
           parking: initialData.amenities?.parking || false,
+          ps4: initialData.amenities?.ps4 || false,
+          balcony: initialData.amenities?.balcony || false,
           washerDryer: initialData.amenities?.washerDryer || false,
+          glowBed: initialData.amenities?.glowBed || false,
+          tv: initialData.amenities?.tv || false,
           towels: initialData.amenities?.towels || false,
         },
       });
@@ -292,8 +301,11 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
       setFormData(prev => ({
         ...prev,
         sixHourCheckIn: data.six_hour_check_in || "09:00",
+        sixHourCheckOut: data.six_hour_check_out || "15:00",
         tenHourCheckIn: data.ten_hour_check_in || "09:00",
+        tenHourCheckOut: data.ten_hour_check_out || "19:00",
         twentyOneHourCheckIn: data.twenty_one_hour_check_in || "14:00",
+        twentyOneHourCheckOut: data.twenty_one_hour_check_out || "11:00",
       }));
     } else if (stepId === 'availability') {
       setBlockedDates(data);
@@ -388,26 +400,27 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
       weekdayRate: "",
       weekendRate: "",
       sixHourCheckIn: "09:00",
+      sixHourCheckOut: "15:00",
       tenHourCheckIn: "09:00",
+      tenHourCheckOut: "19:00",
       twentyOneHourCheckIn: "14:00",
+      twentyOneHourCheckOut: "11:00",
       description: "",
       youtubeUrl: "",
-      amenities: {
-        wifi: false,
-        netflix: false,
-        ps4: false,
-        glowBed: false,
-        airConditioning: false,
-        kitchen: false,
-        balcony: false,
-        tv: false,
-        poolAccess: false,
-        parking: false,
-        washerDryer: false,
-        towels: false,
-      },
-    });
-    setHavenImages([]);
+                amenities: {
+                  wifi: true,
+                  airConditioning: true,
+                  poolAccess: true,
+                  netflix: true,
+                  kitchen: true,
+                  parking: true,
+                  ps4: true,
+                  balcony: true,
+                  washerDryer: true,
+                  glowBed: true,
+                  tv: true,
+                  towels: true,
+                },        });    setHavenImages([]);
     setExistingImages([]);
     setPhotoTourImages({
       livingArea: [],
@@ -481,8 +494,10 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
   };
 
   const handleSubmit = async () => {
+    console.log("🚀 [HavenFormModal] Starting submit process...");
     try {
       // 1. Process Images
+      console.log("🖼️ [HavenFormModal] Processing images...");
       const havenImagesBase64 = await Promise.all(
         havenImages.map((file) => {
           return new Promise<string>((resolve, reject) => {
@@ -525,9 +540,12 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
         ten_hour_rate: parseFloat(formData.tenHourRate),
         weekday_rate: parseFloat(formData.weekdayRate),
         weekend_rate: parseFloat(formData.weekendRate),
-        six_hour_check_in: formData.sixHourCheckIn + ":00",
-        ten_hour_check_in: formData.tenHourCheckIn + ":00",
-        twenty_one_hour_check_in: formData.twentyOneHourCheckIn + ":00",
+        six_hour_check_in: formData.sixHourCheckIn,
+        six_hour_check_out: formData.sixHourCheckOut,
+        ten_hour_check_in: formData.tenHourCheckIn,
+        ten_hour_check_out: formData.tenHourCheckOut,
+        twenty_one_hour_check_in: formData.twentyOneHourCheckIn,
+        twenty_one_hour_check_out: formData.twentyOneHourCheckOut,
         amenities: formData.amenities,
         haven_images: havenImagesBase64,
         photo_tour_images: photoTourBase64,
@@ -538,6 +556,8 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
         }))
       };
 
+      console.log("📦 [HavenFormModal] Request Payload:", { ...payload, haven_images: `${payload.haven_images.length} images`, photo_tour_images: "..." });
+
       let result;
       if (isEditMode) {
         // Edit Mode
@@ -547,23 +567,34 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
           existing_images: existingImages,
           existing_photo_tours: existingPhotoTours,
         };
+        console.log("🔄 [HavenFormModal] Calling updateHaven mutation...");
         result = await updateHaven(updatePayload).unwrap();
       } else {
         // Add Mode
+        console.log("✨ [HavenFormModal] Calling createHaven mutation...");
         result = await createHaven(payload).unwrap();
       }
+
+      console.log("✅ [HavenFormModal] Mutation Success:", result);
 
       if (result.success || (isEditMode && !result.error)) {
         toast.success(isEditMode ? "Haven updated successfully!" : "Haven created successfully!");
         handleClose();
+      } else {
+        // In case success is false but didn't throw
+        const msg = result.message || result.error || "Haven can't save";
+        toast.error(msg);
       }
     } catch (error: unknown) {
-      console.error(isEditMode ? "Error updating haven:" : "Error creating haven:", error);
+      console.error("❌ [HavenFormModal] Submit Error:", error);
       let errorMessage = isEditMode ? "Failed to update haven" : "Failed to create haven";
+      
       if (typeof error === 'object' && error !== null) {
-        const apiError = error as ApiError;
-        errorMessage = apiError?.data?.error || apiError?.message || errorMessage;
+        const apiError = error as any;
+        // Handle RTK Query error structure
+        errorMessage = apiError?.data?.message || apiError?.data?.error || apiError?.message || errorMessage;
       }
+      
       toast.error(errorMessage);
     }
   };
@@ -607,9 +638,12 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
 
   const checkInInitialData = useMemo(() => ({
     six_hour_check_in: formData.sixHourCheckIn,
+    six_hour_check_out: formData.sixHourCheckOut,
     ten_hour_check_in: formData.tenHourCheckIn,
+    ten_hour_check_out: formData.tenHourCheckOut,
     twenty_one_hour_check_in: formData.twentyOneHourCheckIn,
-  }), [formData.sixHourCheckIn, formData.tenHourCheckIn, formData.twentyOneHourCheckIn]);
+    twenty_one_hour_check_out: formData.twentyOneHourCheckOut,
+  }), [formData.sixHourCheckIn, formData.sixHourCheckOut, formData.tenHourCheckIn, formData.tenHourCheckOut, formData.twentyOneHourCheckIn, formData.twentyOneHourCheckOut]);
 
   const availabilityInitialData = useMemo(() => blockedDates.map(date => ({
     from_date: date.fromDate,
@@ -640,12 +674,12 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
               // Submitting is now handled by the last step's "Finish & Save" button,
               // which internally calls handleSubmit.
             }}
-            className="bg-white rounded-2xl max-w-6xl w-full max-h-[90vh] shadow-2xl flex flex-col animate-in zoom-in-95 duration-200"
+            className="bg-white dark:bg-gray-900 rounded-2xl max-w-6xl w-full max-h-[90vh] shadow-2xl flex flex-col animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()} // Prevent closing modal when clicking inside form
           >
             
             {/* Header */}
-            <div className="flex justify-between items-center p-6 border-b border-brand-primary/20 bg-brand-primary text-white rounded-t-2xl flex-shrink-0 shadow-sm relative transition-all duration-[250ms] [transition-timing-function:cubic-bezier(0.4,0,0.2,1)] hover:brightness-110 hover:scale-[1.01] hover:shadow-lg will-change-transform cursor-default">
+            <div className="flex justify-between items-center p-6 border-b border-brand-primary/20 dark:border-brand-primary/40 bg-brand-primary text-white rounded-t-2xl flex-shrink-0 shadow-sm relative transition-all duration-[250ms] [transition-timing-function:cubic-bezier(0.4,0,0.2,1)] hover:brightness-110 hover:scale-[1.01] hover:shadow-lg will-change-transform cursor-default">
               <div>
                 <h2 className="text-2xl font-bold">{isEditMode ? "Edit Haven" : "Add New Haven"}</h2>
                 <p className="text-sm opacity-90 mt-1">
@@ -658,32 +692,32 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
             </div>
   
             {/* Stepper Header */}
-            <div className="p-6 bg-white border-b border-gray-200 shadow-sm flex-shrink-0">
+            <div className="p-6 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 shadow-sm flex-shrink-0">
               <div className="flex justify-between items-center">
                 {STEPS.map((step, index) => {
                   const status = getStepStatus(index);
                   const isActive = index === currentStepIndex;
   
-                  let iconColorClass = 'text-gray-400';
-                  let textColorClass = 'text-gray-500';
-                  let borderColorClass = 'border-gray-300';
-                  let backgroundColorClass = 'bg-gray-50';
+                  let iconColorClass = 'text-gray-400 dark:text-gray-600';
+                  let textColorClass = 'text-gray-500 dark:text-gray-400';
+                  let borderColorClass = 'border-gray-300 dark:border-gray-700';
+                  let backgroundColorClass = 'bg-gray-50 dark:bg-gray-800/50';
   
                   if (status === StepStatus.Completed) {
-                    iconColorClass = 'text-green-500';
-                    textColorClass = 'text-green-600';
-                    borderColorClass = 'border-green-500';
-                    backgroundColorClass = 'bg-green-50';
+                    iconColorClass = 'text-green-500 dark:text-green-400';
+                    textColorClass = 'text-green-600 dark:text-green-400';
+                    borderColorClass = 'border-green-500 dark:border-green-400';
+                    backgroundColorClass = 'bg-green-50 dark:bg-green-900/20';
                   } else if (status === StepStatus.Incomplete) {
-                    iconColorClass = 'text-yellow-500';
-                    textColorClass = 'text-yellow-600';
-                    borderColorClass = 'border-yellow-500';
-                    backgroundColorClass = 'bg-yellow-50';
+                    iconColorClass = 'text-yellow-500 dark:text-yellow-400';
+                    textColorClass = 'text-yellow-600 dark:text-yellow-400';
+                    borderColorClass = 'border-yellow-500 dark:border-yellow-400';
+                    backgroundColorClass = 'bg-yellow-50 dark:bg-yellow-900/20';
                   } else if (isActive) {
                     iconColorClass = 'text-brand-primary';
                     textColorClass = 'text-brand-primary';
                     borderColorClass = 'border-brand-primary';
-                    backgroundColorClass = 'bg-brand-primary/10';
+                    backgroundColorClass = 'bg-brand-primary/10 dark:bg-brand-primary/20';
                   }
   
                   const isClickable = isEditMode && !isLoading;
@@ -701,16 +735,16 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
                       <div className={`relative flex items-center justify-center w-10 h-10 rounded-full border-2 ${borderColorClass} ${backgroundColorClass}`}>
                         <step.icon className={`w-5 h-5 ${iconColorClass}`} />
                         {status === StepStatus.Completed && (
-                          <CheckCircle2 className="absolute -top-1 -right-1 w-5 h-5 text-green-500 bg-white rounded-full" />
+                          <CheckCircle2 className="absolute -top-1 -right-1 w-5 h-5 text-green-500 dark:text-green-400 bg-white dark:bg-gray-900 rounded-full" />
                         )}
                         {status === StepStatus.Incomplete && (
-                          <AlertCircle className="absolute -top-1 -right-1 w-5 h-5 text-yellow-500 bg-white rounded-full" />
+                          <AlertCircle className="absolute -top-1 -right-1 w-5 h-5 text-yellow-500 dark:text-yellow-400 bg-white dark:bg-gray-900 rounded-full" />
                         )}
                       </div>
                       <p className={`text-xs mt-2 text-center font-medium ${textColorClass}`}>{step.label}</p>
                       {index < STEPS.length - 1 && (
                         <div className={`absolute left-[calc(50%+20px)] top-5 h-0.5 w-[calc(100%-40px)] transform -translate-y-1/2 
-                        ${index < currentStepIndex || status === StepStatus.Completed ? 'bg-brand-primary' : 'bg-gray-200'}`}></div>
+                        ${index < currentStepIndex || status === StepStatus.Completed ? 'bg-brand-primary' : 'bg-gray-200 dark:bg-gray-800'}`}></div>
                       )}
                     </button>
                   );
@@ -719,7 +753,7 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
             </div>
   
             {/* Body - Current Step Component */}
-            <div className="flex-1 overflow-y-auto p-6 bg-gray-50/50 relative overflow-x-hidden">
+            <div className="flex-1 overflow-y-auto p-6 bg-gray-50/50 dark:bg-gray-950/30 relative overflow-x-hidden">
               <AnimatePresence mode="wait">
                 {STEPS.map((step, index) => {
                   if (index === currentStepIndex) {
@@ -773,18 +807,18 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
             </div>
   
             {/* Sticky Footer */}
-            <div className="sticky bottom-0 z-10 flex justify-between items-center p-6 border-t border-gray-200 bg-white rounded-b-2xl flex-shrink-0">
-               <div className="flex gap-4 text-sm text-gray-500">
-                  <div className="flex items-center gap-1"><Circle className="w-3 h-3 text-gray-400" /> Not Started</div>
-                  <div className="flex items-center gap-1"><AlertCircle className="w-3 h-3 text-yellow-500" /> Incomplete</div>
-                  <div className="flex items-center gap-1"><CheckCircle2 className="w-3 h-3 text-green-500" /> Completed</div>
+            <div className="sticky bottom-0 z-10 flex justify-between items-center p-6 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 rounded-b-2xl flex-shrink-0">
+               <div className="flex gap-4 text-sm text-gray-500 dark:text-gray-400">
+                  <div className="flex items-center gap-1"><Circle className="w-3 h-3 text-gray-400 dark:text-gray-600" /> Not Started</div>
+                  <div className="flex items-center gap-1"><AlertCircle className="w-3 h-3 text-yellow-500 dark:text-yellow-400" /> Incomplete</div>
+                  <div className="flex items-center gap-1"><CheckCircle2 className="w-3 h-3 text-green-500 dark:text-green-400" /> Completed</div>
                </div>
   
               <div className="flex gap-3">
                 <button
                   type="button"
                   onClick={handleClose}
-                  className="px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
+                  className="px-6 py-2.5 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 font-medium transition-colors"
                   disabled={isLoading}
                 >
                   Cancel
@@ -794,7 +828,7 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
                   <button
                     type="button"
                     onClick={handleBack}
-                    className="px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
+                    className="px-6 py-2.5 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 font-medium transition-colors"
                     disabled={isLoading}
                   >
                     Back

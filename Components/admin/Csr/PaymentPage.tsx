@@ -18,7 +18,8 @@ import {
   ChevronRight,
   ChevronsRight,
   Image as ImageIcon,
-  CreditCard,
+  CheckSquare,
+  Loader2,
 } from "lucide-react";
 import { useCallback, useMemo, useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
@@ -28,80 +29,18 @@ import {
   useGetBookingPaymentsQuery,
   useUpdateBookingPaymentMutation,
 } from "@/redux/api/bookingPaymentsApi";
+import type { PaymentStatus, PaymentRow } from "./types";
+import { formatCurrency } from "./utils";
+import ApproveModal from "./Modals/ApproveModal";
+import RejectModal from "./Modals/RejectModal";
+import ChangeModal from "./Modals/ChangeModal";
+import ViewPaymentModal from "./Modals/ViewPaymentModal";
 
-type PaymentStatus = "Paid" | "Pending" | "Rejected";
+// Payment types are imported from ./types
 
-interface PaymentRow {
-  id?: string;
-  booking_id: string;
-  guest: string;
+/* InfoField removed — unused in this file */
 
-  // Formatted and numeric totals for display/sorting
-  totalAmount: string;
-  totalAmountValue?: number;
-
-  // Original down payment submitted
-  downPayment: string;
-  downPaymentValue?: number;
-
-  // Cumulative amount paid so far (amount_paid)
-  amountPaid: string;
-  amountPaidValue?: number;
-  // Remaining balance (total - amount_paid), non-negative
-  remaining: string;
-  remainingValue?: number;
-
-  payment_proof?: string | null;
-  status: PaymentStatus;
-  statusColor: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  booking?: any;
-}
-
-interface InfoFieldProps {
-  label: string;
-  value: React.ReactNode;
-  icon?: React.ReactNode;
-  capitalize?: boolean;
-}
-
-function InfoField({ label, value, icon, capitalize }: InfoFieldProps) {
-  return (
-    <div className="space-y-2">
-      <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
-        {label}
-      </span>
-      <div className="relative">
-        {icon && (
-          <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-gray-400 dark:text-gray-300">
-            {icon}
-          </div>
-        )}
-        <div
-          className={`w-full rounded-2xl border border-gray-200 dark:border-gray-700 px-3 py-3 text-sm text-gray-800 dark:text-gray-100 dark:bg-gray-900 ${icon ? "pl-9" : "pl-3"} ${capitalize ? "capitalize" : ""}`}
-        >
-          {value}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-const currencyFormatter = new Intl.NumberFormat("en-PH", {
-  style: "currency",
-  currency: "PHP",
-});
-
-const formatCurrency = (amount: number) => currencyFormatter.format(amount);
-
-const formatDate = (dateString?: string | null) => {
-  if (!dateString) return "—";
-  return new Date(dateString).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-};
+// Currency and date formatting helpers moved to ./utils
 
 const mapStatusToUI = (status?: string | null): PaymentStatus => {
   const s = (status || "").toLowerCase();
@@ -121,428 +60,74 @@ const getStatusColorClass = (status?: string | null) => {
   return "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200";
 };
 
-// Small table skeleton rows (used while bookings are loading)
+/* Small table skeleton rows (used while bookings are loading) */
 const TableSkeleton = ({ rows = 5 }: { rows?: number }) => (
   <tbody>
     {Array.from({ length: rows }).map((_, i) => (
       <tr key={i} className="border-b border-gray-100 dark:border-gray-700">
+        {/* Select */}
+        <td className="py-4 px-4">
+          <div className="h-4 w-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+        </td>
+
+        {/* Booking ID */}
         <td className="py-4 px-4">
           <div className="h-4 w-28 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
         </td>
+
+        {/* Guest */}
         <td className="py-4 px-4">
           <div className="h-4 w-40 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
         </td>
+
+        {/* Total Amount */}
         <td className="py-4 px-4 text-right">
           <div className="h-4 w-16 mx-auto bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
         </td>
-        <td className="py-4 px-4 text-center">
-          <div className="h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded mx-auto animate-pulse" />
+
+        {/* Down Payment */}
+        <td className="py-4 px-4 text-right">
+          <div className="h-4 w-16 mx-auto bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
         </td>
-        <td className="py-4 px-4 text-center">
-          <div className="h-4 w-20 bg-gray-200 dark:bg-gray-700 rounded mx-auto animate-pulse" />
+
+        {/* Amount Paid */}
+        <td className="py-4 px-4 text-right">
+          <div className="h-4 w-16 mx-auto bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
         </td>
+
+        {/* Remaining Balance */}
+        <td className="py-4 px-4 text-right">
+          <div className="h-4 w-16 mx-auto bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+        </td>
+
+        {/* Payment Proof */}
+        <td className="py-4 px-4 text-center">
+          <div className="h-4 w-20 mx-auto bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+        </td>
+
+        {/* Status */}
+        <td className="py-4 px-4 text-center">
+          <div className="h-6 w-20 mx-auto bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse" />
+        </td>
+
+        {/* Actions */}
         <td className="py-4 px-4">
-          <div className="h-8 w-32 bg-gray-200 dark:bg-gray-700 rounded mx-auto animate-pulse" />
+          <div className="flex items-center justify-center gap-2">
+            <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+            <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+            <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+          </div>
         </td>
       </tr>
     ))}
   </tbody>
 );
 
-function RejectModal({
-  isOpen,
-  payment,
-  onCancel,
-  onConfirm,
-  updatingPaymentId,
-}: {
-  isOpen: boolean;
-  payment: PaymentRow | null;
-  onCancel: () => void;
-  onConfirm: (id: string, reason: string) => Promise<void>;
-  updatingPaymentId: string | null;
-}) {
-  const [localReason, setLocalReason] = useState("");
+// RejectModal component moved to ./Modals/RejectModal
 
-  if (!isOpen || !payment) return null;
+// ApproveModal component moved to ./Modals/ApproveModal
 
-  return (
-    <div className="fixed inset-0 z-[9999]">
-      <div
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={onCancel}
-      />
-      <div className="fixed inset-0 flex items-center justify-center p-4">
-        <div className="fixed z-[9991] w-full max-w-md max-h-[90vh] bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-          {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-red-500 rounded-lg">
-                <XCircle className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                  Reject Payment
-                </h2>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Provide a reason for rejecting the payment (optional).
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={onCancel}
-              className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
-            >
-              <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-            </button>
-          </div>
-
-          <div className="p-6 space-y-6 max-h-[calc(90vh-200px)] overflow-y-auto">
-            {/* Payment Information */}
-            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-3">
-              <div className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
-                <User className="w-4 h-4" />
-                Payment Information
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                    Payer:
-                  </span>
-                  <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                    {payment.guest}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                    Payment ID:
-                  </span>
-                  <span className="text-sm font-mono text-gray-900 dark:text-gray-100">
-                    {payment.id}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                    Amount:
-                  </span>
-                  <span className="text-sm text-gray-900 dark:text-gray-100">
-                    {formatCurrency(Number(payment.booking?.down_payment ?? 0))}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Rejection Reason (optional)
-              </label>
-              <textarea
-                value={localReason}
-                onChange={(e) => setLocalReason(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                rows={4}
-                placeholder="Rejection reason (optional)"
-              />
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div className="flex justify-end gap-2 p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-            <button
-              onClick={onCancel}
-              type="button"
-              className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 font-medium text-sm"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={() => onConfirm(payment.id!, localReason)}
-              type="button"
-              disabled={updatingPaymentId === payment.id}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center"
-            >
-              {updatingPaymentId === payment.id ? (
-                <svg
-                  className="animate-spin inline-block align-middle h-4 w-4"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  />
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                  />
-                </svg>
-              ) : (
-                <>
-                  <XCircle className="w-4 h-4" />
-                  <span className="font-semibold ml-1">Reject</span>
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ApproveModal({
-  isOpen,
-  payment,
-  onCancel,
-  onConfirm,
-  updatingPaymentId,
-}: {
-  isOpen: boolean;
-  payment: PaymentRow | null;
-  onCancel: () => void;
-  onConfirm: (payment: PaymentRow, amount: number) => Promise<void>;
-  updatingPaymentId: string | null;
-}) {
-  const [localAmount, setLocalAmount] = useState<string>("");
-
-  useEffect(() => {
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
-    if (payment && isOpen) {
-      // Default the input to the submitted payment amount (if present), otherwise
-      // fallback to the remaining balance. This makes approving a submitted proof
-      // fast (amount prefilled) while still being convenient for check-in
-      // collections (remaining balance prefilled).
-      timeoutId = setTimeout(() => {
-        const explicitRemaining = payment.booking?.remaining_balance;
-        const remaining =
-          typeof explicitRemaining !== "undefined" && explicitRemaining !== null
-            ? Number(explicitRemaining)
-            : !Number.isNaN(Number(payment.booking?.total_amount ?? NaN))
-              ? Math.max(
-                  0,
-                  Number(payment.booking?.total_amount ?? 0) -
-                    Number(
-                      payment.booking?.amount_paid ??
-                        payment.booking?.down_payment ??
-                        0,
-                    ),
-                )
-              : 0;
-        setLocalAmount(remaining > 0 ? String(remaining) : "");
-      }, 0);
-    }
-    return () => {
-      if (timeoutId !== null) clearTimeout(timeoutId);
-    };
-  }, [payment, isOpen]);
-
-  if (!isOpen || !payment) return null;
-
-  const amountNum = parseFloat(localAmount || "0");
-
-  // Compute previous remaining (prefer server value, otherwise derive).
-  // We require full settlement when this modal is being used to collect the
-  // remaining balance (i.e. when there is no submitted down payment).
-  const submitted = Number(payment.booking?.down_payment ?? 0);
-  const explicitRemaining = payment.booking?.remaining_balance;
-  const prevRemaining =
-    typeof explicitRemaining !== "undefined" && explicitRemaining !== null
-      ? Number(explicitRemaining)
-      : !Number.isNaN(Number(payment.booking?.total_amount ?? NaN))
-        ? Math.max(
-            0,
-            Number(payment.booking?.total_amount ?? 0) -
-              Number(
-                payment.booking?.amount_paid ??
-                  payment.booking?.down_payment ??
-                  0,
-              ),
-          )
-        : 0;
-
-  // Underpay = this is a direct collection (no submitted down payment) AND
-  // the entered amount is less than the remaining balance.
-  const isUnderpay = submitted <= 0 && amountNum < prevRemaining;
-
-  const handleConfirm = () => {
-    if (isNaN(amountNum) || amountNum < 0) {
-      toast.error("Please enter a valid amount");
-      return;
-    }
-    if (isUnderpay) {
-      toast.error(`Amount must be at least ${formatCurrency(prevRemaining)}`);
-      return;
-    }
-    onConfirm(payment, amountNum);
-  };
-
-  return (
-    <div className="fixed inset-0 z-[9999]">
-      <div
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={onCancel}
-      />
-      <div className="fixed inset-0 flex items-center justify-center p-4">
-        <div className="fixed z-[9991] w-full max-w-md max-h-[90vh] bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-          {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-500 rounded-lg">
-                <CheckCircle className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                  Approve Payment
-                </h2>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Enter the amount to be recorded and approve the payment.
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={onCancel}
-              className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
-            >
-              <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-            </button>
-          </div>
-
-          <div className="p-6 space-y-6 max-h-[calc(90vh-200px)] overflow-y-auto">
-            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-3">
-              <div className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                <DollarSign className="w-4 h-4" />
-                Payment Summary
-              </div>
-              <div className="grid grid-cols-2 gap-4 text-sm text-gray-700 dark:text-gray-300">
-                <div>
-                  <div className="text-xs text-gray-500">Total Amount</div>
-                  <div className="text-lg font-bold text-gray-900 dark:text-gray-100">
-                    {payment.totalAmount}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xs text-gray-500">Remaining Balance</div>
-                  <div className="text-lg font-bold text-orange-700 dark:text-orange-300">
-                    {payment.remaining}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Amount to collect
-              </label>
-              <input
-                type="number"
-                value={localAmount}
-                onChange={(e) => setLocalAmount(e.target.value)}
-                min="0"
-                step="0.01"
-                placeholder=""
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-green-500 focus:border-green-500"
-              />
-              {isUnderpay && (
-                <div className="text-sm text-red-600 mt-2">
-                  Amount must be at least {formatCurrency(prevRemaining)}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div className="flex justify-end gap-2 p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-            <button
-              onClick={onCancel}
-              className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 font-medium text-sm"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleConfirm}
-              disabled={
-                updatingPaymentId === payment.id ||
-                isNaN(amountNum) ||
-                amountNum < 0 ||
-                isUnderpay
-              }
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center gap-2 text-sm"
-            >
-              {updatingPaymentId === payment.id ? (
-                <>
-                  <div className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  Processing...
-                </>
-              ) : (
-                <>
-                  <CheckCircle className="w-4 h-4" />
-                  Confirm Approve
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ChangeModal({
-  isOpen,
-  amount,
-  onClose,
-}: {
-  isOpen: boolean;
-  amount: number;
-  onClose: () => void;
-}) {
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 z-[9999]">
-      <div className="fixed inset-0 bg-black/50" onClick={onClose} />
-      <div className="fixed inset-0 flex items-center justify-center p-4">
-        <div className="fixed z-[9991] w-full max-w-md bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden p-6">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-orange-500 rounded-lg">
-              <DollarSign className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                Change
-              </h2>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Please return the following change to the guest
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-6 text-center">
-            <div className="text-sm text-gray-500">Change Amount</div>
-            <div className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-2">
-              {formatCurrency(amount)}
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-2 p-4">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 font-medium text-sm"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
+// ChangeModal component moved to ./Modals/ChangeModal
 
 export default function PaymentPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -616,9 +201,18 @@ export default function PaymentPage() {
   const [updatingPaymentId, setUpdatingPaymentId] = useState<string | null>(
     null,
   );
+  // Tracks which action is currently being performed for the payment id above.
+  // This allows us to show the spinner on the correct action icon (approve vs reject).
+  const [updatingAction, setUpdatingAction] = useState<
+    "approve" | "reject" | null
+  >(null);
   const [isApproveModalOpen, setIsApproveModalOpen] = useState(false);
   const [isChangeModalOpen, setIsChangeModalOpen] = useState(false);
   const [changeAmount, setChangeAmount] = useState<number>(0);
+
+  // Bulk selection state
+  const [selectedPayments, setSelectedPayments] = useState<string[]>([]);
+  const [bulkActionLoading, setBulkActionLoading] = useState(false);
 
   const payments = useMemo<PaymentRow[]>(() => {
     return (paymentsRaw || []).map((p) => {
@@ -706,6 +300,7 @@ export default function PaymentPage() {
       }
 
       setUpdatingPaymentId(payment.id);
+      setUpdatingAction("approve");
 
       // Compute the change amount upfront and show the change modal immediately
       const prevRemainingForChange = (() => {
@@ -802,6 +397,7 @@ export default function PaymentPage() {
         setIsApproveModalOpen(true);
       } finally {
         setUpdatingPaymentId(null);
+        setUpdatingAction(null);
       }
     },
     [updateBookingPayment, refetch, logEmployeeActivity, session],
@@ -847,6 +443,7 @@ export default function PaymentPage() {
       const originalSelected = selectedPayment;
 
       setUpdatingPaymentId(id);
+      setUpdatingAction("reject");
 
       // Optimistically close modal and clear selection so the UI responds
       setIsRejectModalOpen(false);
@@ -906,6 +503,7 @@ export default function PaymentPage() {
         setIsRejectModalOpen(true);
       } finally {
         setUpdatingPaymentId(null);
+        setUpdatingAction(null);
       }
     },
     [
@@ -984,6 +582,111 @@ export default function PaymentPage() {
   const startIndex = (currentPage - 1) * entriesPerPage;
   const endIndex = startIndex + entriesPerPage;
   const paginatedPayments = sortedPayments.slice(startIndex, endIndex);
+
+  // Visible IDs on the current page (filter out undefined ids for type-safety)
+  const visiblePaymentIds = paginatedPayments
+    .map((p) => p.id)
+    .filter((id): id is string => typeof id === "string");
+
+  // Bulk selection helpers & processing
+  const handleSelectPayment = (id: string, checked: boolean) => {
+    setSelectedPayments((prev) =>
+      checked ? [...prev, id] : prev.filter((p) => p !== id),
+    );
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      // Use only visible, defined ids for selection (avoids `undefined` values)
+      setSelectedPayments(visiblePaymentIds);
+    } else {
+      setSelectedPayments([]);
+    }
+  };
+
+  const processBulkApprove = async () => {
+    if (selectedPayments.length === 0) return;
+    setBulkActionLoading(true);
+    try {
+      await Promise.all(
+        selectedPayments.map((id) => {
+          // Find the corresponding payment row to determine the appropriate
+          // collect_amount (prefer submitted down_payment, otherwise use remaining)
+          const payment = payments.find((p) => p.id === id);
+          const submittedDown =
+            typeof payment?.booking?.down_payment === "number"
+              ? Number(payment!.booking!.down_payment)
+              : undefined;
+          const fallbackRemaining = Number(payment?.remainingValue ?? 0);
+          const collect_amount =
+            typeof submittedDown !== "undefined" && submittedDown > 0
+              ? submittedDown
+              : Math.max(0, fallbackRemaining);
+
+          const payload: Partial<UpdateBookingPaymentPayload> & {
+            id: string;
+            collect_amount?: number;
+            reviewed_by?: string | null;
+          } = {
+            id,
+            payment_status: "approved",
+            reviewed_by: session?.user?.id ?? undefined,
+          };
+
+          if (collect_amount > 0) {
+            payload.collect_amount = collect_amount;
+          }
+
+          return updateBookingPayment(payload).unwrap();
+        }),
+      );
+      toast.success(`${selectedPayments.length} payment(s) approved`);
+      logEmployeeActivity?.(
+        "BULK_APPROVE_PAYMENTS",
+        `Approved ${selectedPayments.length} payments`,
+        "payment",
+        null,
+      );
+      setSelectedPayments([]);
+      await refetch();
+    } catch (err) {
+      console.error("Bulk approve failed:", err);
+      toast.error("Failed to approve selected payments");
+    } finally {
+      setBulkActionLoading(false);
+    }
+  };
+
+  const processBulkReject = async (reason?: string) => {
+    if (selectedPayments.length === 0) return;
+    setBulkActionLoading(true);
+    try {
+      await Promise.all(
+        selectedPayments.map((id) =>
+          updateBookingPayment({
+            id,
+            payment_status: "rejected",
+            rejection_reason: reason || undefined,
+            reviewed_by: session?.user?.id ?? undefined,
+          }).unwrap(),
+        ),
+      );
+      toast.success(`${selectedPayments.length} payment(s) rejected`);
+      logEmployeeActivity?.(
+        "BULK_REJECT_PAYMENTS",
+        `Rejected ${selectedPayments.length} payments`,
+        "payment",
+        null,
+      );
+      setSelectedPayments([]);
+      await refetch();
+    } catch (err) {
+      console.error("Bulk reject failed:", err);
+      toast.error("Failed to reject selected payments");
+    } finally {
+      setBulkActionLoading(false);
+    }
+  };
 
   const handleSort = (field: keyof PaymentRow) => {
     if (sortField === field) {
@@ -1064,6 +767,69 @@ export default function PaymentPage() {
         })}
       </div>
 
+      {/* Bulk Actions Bar */}
+      {selectedPayments.length > 0 && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-4 flex-shrink-0 border border-gray-200 dark:border-gray-700 mb-4">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <CheckSquare className="w-5 h-5 text-brand-primary" />
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                {selectedPayments.length} payment
+                {selectedPayments.length !== 1 ? "s" : ""} selected
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => processBulkApprove()}
+                disabled={bulkActionLoading}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm flex items-center gap-2"
+                type="button"
+              >
+                {bulkActionLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" /> Processing...
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-4 h-4" /> Approve
+                  </>
+                )}
+              </button>
+
+              <button
+                onClick={() => {
+                  const reason = window.prompt("Rejection reason (optional):");
+                  if (reason === null) return;
+                  processBulkReject(reason);
+                }}
+                disabled={bulkActionLoading}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm flex items-center gap-2"
+                type="button"
+              >
+                {bulkActionLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" /> Processing...
+                  </>
+                ) : (
+                  <>
+                    <X className="w-4 h-4" /> Reject
+                  </>
+                )}
+              </button>
+
+              <button
+                onClick={() => setSelectedPayments([])}
+                disabled={bulkActionLoading}
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 font-medium text-sm"
+                type="button"
+              >
+                Clear Selection
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-4">
         <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
           <div className="flex flex-col sm:flex-row gap-4 flex-1 w-full">
@@ -1131,6 +897,20 @@ export default function PaymentPage() {
           <table className="w-full">
             <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 border-b-2 border-gray-200 dark:border-gray-600">
               <tr>
+                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={
+                        visiblePaymentIds.length > 0 &&
+                        selectedPayments.length === visiblePaymentIds.length
+                      }
+                      onChange={(e) => handleSelectAll(e.target.checked)}
+                      className="w-4 h-4 text-brand-primary border-gray-300 rounded focus:ring-brand-primary"
+                    />
+                    <span>Select</span>
+                  </div>
+                </th>
                 <th
                   onClick={() => handleSort("booking_id")}
                   className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
@@ -1219,9 +999,24 @@ export default function PaymentPage() {
               <tbody>
                 {paginatedPayments.map((payment) => (
                   <tr
-                    key={payment.booking_id}
+                    key={payment.id}
                     className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                   >
+                    <td className="py-4 px-4">
+                      <input
+                        type="checkbox"
+                        checked={
+                          payment.id
+                            ? selectedPayments.includes(payment.id)
+                            : false
+                        }
+                        onChange={(e) =>
+                          payment.id &&
+                          handleSelectPayment(payment.id, e.target.checked)
+                        }
+                        className="w-4 h-4 text-brand-primary border-gray-300 rounded focus:ring-brand-primary"
+                      />
+                    </td>
                     <td className="py-4 px-4">
                       <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm">
                         {payment.booking_id}
@@ -1324,7 +1119,8 @@ export default function PaymentPage() {
                           type="button"
                           aria-label={`Approve booking ${payment.booking_id}`}
                         >
-                          {updatingPaymentId === payment.id ? (
+                          {updatingPaymentId === payment.id &&
+                          updatingAction === "approve" ? (
                             <svg
                               className="animate-spin inline-block align-middle h-4 w-4"
                               xmlns="http://www.w3.org/2000/svg"
@@ -1360,7 +1156,31 @@ export default function PaymentPage() {
                           type="button"
                           aria-label={`Reject booking ${payment.booking_id}`}
                         >
-                          <X className="w-4 h-4" />
+                          {updatingPaymentId === payment.id &&
+                          updatingAction === "reject" ? (
+                            <svg
+                              className="animate-spin inline-block align-middle h-4 w-4"
+                              xmlns="http://www.w3.org/2000/svg"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                            >
+                              <circle
+                                className="opacity-25"
+                                cx="12"
+                                cy="12"
+                                r="10"
+                                stroke="currentColor"
+                                strokeWidth="4"
+                              />
+                              <path
+                                className="opacity-75"
+                                fill="currentColor"
+                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                              />
+                            </svg>
+                          ) : (
+                            <X className="w-4 h-4" />
+                          )}
                         </button>
                       </div>
                     </td>
@@ -1412,17 +1232,30 @@ export default function PaymentPage() {
         ) : (
           paginatedPayments.map((payment) => (
             <div
-              key={payment.booking_id}
+              key={payment.id}
               className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-4 border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-transform duration-200 transform hover:-translate-y-1"
             >
               <div className="flex items-start justify-between mb-3 pb-3 border-b border-gray-200 dark:border-gray-600">
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                    Booking ID
-                  </p>
-                  <p className="font-bold text-gray-800 dark:text-gray-100">
-                    {payment.booking_id}
-                  </p>
+                <div className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    checked={
+                      payment.id ? selectedPayments.includes(payment.id) : false
+                    }
+                    onChange={(e) =>
+                      payment.id &&
+                      handleSelectPayment(payment.id, e.target.checked)
+                    }
+                    className="w-4 h-4 text-brand-primary border-gray-300 rounded focus:ring-brand-primary"
+                  />
+                  <div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                      Booking ID
+                    </p>
+                    <p className="font-bold text-gray-800 dark:text-gray-100">
+                      {payment.booking_id}
+                    </p>
+                  </div>
                 </div>
                 <span
                   className={`px-3 py-1 rounded-full text-xs font-bold ${payment.statusColor}`}
@@ -1546,7 +1379,8 @@ export default function PaymentPage() {
                   type="button"
                   aria-label={`Approve booking ${payment.booking_id}`}
                 >
-                  {updatingPaymentId === payment.id ? (
+                  {updatingPaymentId === payment.id &&
+                  updatingAction === "approve" ? (
                     <svg
                       className="animate-spin inline-block align-middle h-5 w-5"
                       xmlns="http://www.w3.org/2000/svg"
@@ -1580,7 +1414,31 @@ export default function PaymentPage() {
                   type="button"
                   aria-label={`Reject booking ${payment.booking_id}`}
                 >
-                  <X className="w-4 h-4" />
+                  {updatingPaymentId === payment.id &&
+                  updatingAction === "reject" ? (
+                    <svg
+                      className="animate-spin inline-block align-middle h-4 w-4"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                      />
+                    </svg>
+                  ) : (
+                    <X className="w-4 h-4" />
+                  )}
                 </button>
               </div>
             </div>
@@ -1674,242 +1532,35 @@ export default function PaymentPage() {
       </div>
 
       {/* Payment Details Modal (Booking Details styling, local implementation) */}
-      {isViewModalOpen && selectedPayment && (
-        <>
-          <div
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9998]"
-            onClick={handleCloseView}
-          />
-          <div className="fixed inset-0 flex items-center justify-center px-4 py-8 z-[9999]">
-            <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-5xl max-h-[60vh] flex flex-col overflow-hidden border border-gray-100 dark:border-gray-700">
-              {/* Header */}
-              <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-orange-500 rounded-lg">
-                    <CreditCard className="w-5 h-5 text-white" />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                      Payment Details
-                    </h2>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      Booking: {selectedPayment.booking_id}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={handleCloseView}
-                  className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
-                >
-                  <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                </button>
-              </div>
-
-              {/* Content */}
-              <div className="p-6 space-y-6 max-h-[calc(90vh-200px)] overflow-y-auto">
-                {/* Guest & Payment Info (status badge moved to the right side of this card header) */}
-                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 border border-gray-100 dark:border-gray-700">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
-                      <User className="w-5 h-5 text-orange-500" />
-                      Payment Information
-                    </h3>
-                    <span
-                      className={`px-4 py-2 rounded-full text-sm font-semibold ${getStatusColorClass(
-                        selectedPayment.booking?.status ??
-                          selectedPayment.status,
-                      )}`}
-                    >
-                      {(
-                        selectedPayment.booking?.status ??
-                        selectedPayment.status ??
-                        "unknown"
-                      )
-                        .toUpperCase()
-                        .replace("-", " ")}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <InfoField
-                      label="Booking ID"
-                      value={selectedPayment.booking_id}
-                    />
-                    <InfoField label="Guest" value={selectedPayment.guest} />
-                    <InfoField
-                      label="Amount"
-                      value={
-                        <span className="text-lg font-bold text-gray-900 dark:text-gray-100">
-                          {formatCurrency(
-                            Number(selectedPayment.booking?.down_payment ?? 0),
-                          )}
-                        </span>
-                      }
-                    />
-                    <InfoField
-                      label="Payment Proof"
-                      value={
-                        selectedPayment.payment_proof ? (
-                          <a
-                            href={selectedPayment.payment_proof}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-2 text-sm font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
-                          >
-                            <ImageIcon className="w-4 h-4" /> View Proof
-                          </a>
-                        ) : (
-                          <span className="text-sm text-gray-400 dark:text-gray-400">
-                            No proof
-                          </span>
-                        )
-                      }
-                    />
-                    <InfoField
-                      label="Contact"
-                      value={
-                        selectedPayment.booking?.guest_email ??
-                        selectedPayment.guest
-                      }
-                    />
-                    {selectedPayment.booking?.status === "rejected" &&
-                      selectedPayment.booking?.rejection_reason && (
-                        <InfoField
-                          label="Rejection Reason"
-                          value={selectedPayment.booking.rejection_reason}
-                        />
-                      )}
-                  </div>
-                </div>
-
-                {/* Payment Summary */}
-                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 border border-gray-100 dark:border-gray-700">
-                  <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4">
-                    Payment Summary
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <InfoField
-                      label="Total Amount"
-                      value={
-                        <span className="text-lg font-bold text-gray-900 dark:text-gray-100">
-                          {selectedPayment.totalAmount}
-                        </span>
-                      }
-                    />
-                    <InfoField
-                      label="Down Payment"
-                      value={
-                        <span className="text-green-700 dark:text-green-300 font-semibold">
-                          {formatCurrency(
-                            Number(selectedPayment.booking?.down_payment ?? 0),
-                          )}
-                        </span>
-                      }
-                    />
-                    <InfoField
-                      label="Amount Paid"
-                      value={
-                        <span className="text-green-700 dark:text-green-300 font-semibold">
-                          {selectedPayment.amountPaid}
-                        </span>
-                      }
-                    />
-                    <InfoField
-                      label="Remaining Balance"
-                      value={
-                        <span
-                          className={`font-semibold ${
-                            Number(selectedPayment.remainingValue ?? 0) > 0
-                              ? "text-orange-700 dark:text-orange-300"
-                              : "text-green-700 dark:text-green-300"
-                          }`}
-                        >
-                          {selectedPayment.remaining}
-                        </span>
-                      }
-                    />
-                    <InfoField
-                      label="Payment Method"
-                      value={selectedPayment.booking?.payment_method ?? "—"}
-                      capitalize
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Footer (actions) */}
-              <div className="flex items-center justify-between gap-2 p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Last updated:{" "}
-                  {selectedPayment.booking?.updated_at
-                    ? formatDate(selectedPayment.booking?.updated_at)
-                    : "N/A"}
-                </p>
-
-                <div className="flex gap-3 justify-end">
-                  <button
-                    type="button"
-                    onClick={handleCloseView}
-                    className="px-5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-200 font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition"
-                  >
-                    Close
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!selectedPayment) return;
-                      setIsApproveModalOpen(true);
-                    }}
-                    disabled={
-                      mapStatusToUI(
-                        selectedPayment.booking?.status ??
-                          selectedPayment.status,
-                      ) === "Paid" || updatingPaymentId === selectedPayment.id
-                    }
-                    className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-yellow-500 dark:from-orange-600 dark:to-yellow-600 text-white font-semibold shadow-lg hover:from-orange-600 hover:to-yellow-600 dark:hover:from-orange-700 dark:hover:to-yellow-700 transition inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <CheckCircle className="w-4 h-4" /> Approve
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsViewModalOpen(false);
-                      setIsRejectModalOpen(true);
-                    }}
-                    className="px-6 py-2.5 rounded-xl bg-red-600 text-white font-semibold hover:bg-red-700 transition inline-flex items-center gap-2"
-                  >
-                    <XCircle className="w-4 h-4" /> Reject
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
+      <ViewPaymentModal
+        isOpen={isViewModalOpen}
+        payment={selectedPayment}
+        onClose={handleCloseView}
+      />
 
       <RejectModal
         key={`reject-${selectedPayment?.id}`}
         isOpen={isRejectModalOpen}
         payment={selectedPayment}
-        onCancel={handleCancelReject}
-        onConfirm={handleConfirmReject}
+        onCancelAction={handleCancelReject}
+        onConfirmAction={handleConfirmReject}
         updatingPaymentId={updatingPaymentId}
+        updatingAction={updatingAction}
       />
       <ApproveModal
         key={`approve-${selectedPayment?.id}`}
         isOpen={isApproveModalOpen}
         payment={selectedPayment}
-        onCancel={() => setIsApproveModalOpen(false)}
-        onConfirm={handleConfirmApprove}
+        onCancelAction={() => setIsApproveModalOpen(false)}
+        onConfirmAction={handleConfirmApprove}
         updatingPaymentId={updatingPaymentId}
+        updatingAction={updatingAction}
       />
       <ChangeModal
         key={`change-${selectedPayment?.id}`}
         isOpen={isChangeModalOpen}
         amount={changeAmount}
-        onClose={() => setIsChangeModalOpen(false)}
+        onCloseAction={() => setIsChangeModalOpen(false)}
       />
     </div>
   );

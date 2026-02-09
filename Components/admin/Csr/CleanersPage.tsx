@@ -190,8 +190,6 @@ function mapCleaningStatus(
   statusColor: string;
 } {
   switch (cleaning_status) {
-    case "assigned":
-      return { status: "Assigned", statusColor: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300" };
     case "in-progress":
       return { status: "In Progress", statusColor: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300" };
     case "cleaned":
@@ -767,7 +765,101 @@ export default function CleanersPage() {
 
         {/* Table Section - Compact Layout */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden flex-1 flex flex-col min-h-0 border border-gray-200 dark:border-gray-700">
-          <div className="overflow-x-auto overflow-y-auto flex-1 h-[600px] max-h-[600px]">
+          <div className="lg:hidden space-y-4 bg-white dark:bg-gray-800 overflow-hidden p-4">
+            {isLoading ? (
+              <div className="space-y-4">
+                {Array.from({ length: Math.min(entriesPerPage, 5) }).map((_, i) => (
+                  <div
+                    key={`cleaners-mobile-skeleton-${i}`}
+                    className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 animate-pulse"
+                  >
+                    <div className="space-y-2">
+                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32" />
+                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-44" />
+                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-36" />
+                    </div>
+                    <div className="mt-3 grid grid-cols-2 gap-3">
+                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded" />
+                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded" />
+                    </div>
+                    <div className="mt-3 h-8 bg-gray-200 dark:bg-gray-700 rounded" />
+                  </div>
+                ))}
+              </div>
+            ) : error ? (
+              <div className="py-20 text-center border border-gray-200 dark:border-gray-700 rounded-lg">
+                <Sparkles className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <p className="text-gray-500 dark:text-gray-400 font-medium">Failed to load cleaning tasks. Please refresh.</p>
+              </div>
+            ) : paginatedRows.length === 0 ? (
+              <div className="py-20 text-center border border-gray-200 dark:border-gray-700 rounded-lg">
+                <Sparkles className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <p className="text-gray-500 dark:text-gray-400 font-medium">No cleaning tasks found.</p>
+              </div>
+            ) : (
+              paginatedRows.map((row, index) => (
+                <div key={`${row.cleaning_id}-mobile-${index}`} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="font-semibold text-gray-800 dark:text-gray-100 text-sm font-mono truncate">
+                        {highlightText(row.booking_id, searchTerm)}
+                      </div>
+                      <div className="text-xs text-gray-600 dark:text-gray-300 truncate mt-1">
+                        {highlightText(row.haven, searchTerm)}
+                      </div>
+                      <div className="text-xs text-gray-600 dark:text-gray-300 truncate">
+                        Guest: {highlightText(row.guest, searchTerm)}
+                      </div>
+                    </div>
+                    <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${row.statusColor}`}>
+                      {row.status}
+                    </span>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">Check-in</div>
+                      <div className="text-xs font-semibold text-green-700 dark:text-green-300">{row.check_in}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">Check-out</div>
+                      <div className="text-xs font-semibold text-red-700 dark:text-red-300">{row.check_out}</div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 text-sm">
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Assigned Cleaner</div>
+                    <div className={`text-sm font-medium ${row.cleaner_name === "Unassigned" ? "text-gray-400 dark:text-gray-500 italic" : "text-gray-800 dark:text-gray-100"}`}>
+                      {highlightText(row.cleaner_name, searchTerm)}
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex items-center justify-end gap-1">
+                    <button
+                      className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                      title="View details"
+                      type="button"
+                      onClick={() => handleViewBooking(row.booking_id)}
+                    >
+                      <Eye className="w-4 h-4" />
+                    </button>
+                    {row.status === "Unassigned" && (
+                      <button
+                        className="p-2 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors"
+                        title="Assign cleaner"
+                        type="button"
+                        onClick={() => handleAssignCleaner(row.booking_id)}
+                      >
+                        <UserPlus className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="hidden lg:block overflow-x-auto overflow-y-auto flex-1 h-[600px] max-h-[600px]">
             <table className="w-full min-w-[1000px]">
               <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 border-b-2 border-gray-200 dark:border-gray-600 sticky top-0 z-10">
                 <tr>

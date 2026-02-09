@@ -191,14 +191,14 @@ const AdminDateRangePicker = ({
     return (
       <div className="flex-1 min-w-0">
         <div className="mb-4 text-center">
-          <h3 className="text-sm font-bold text-gray-900">
+          <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100">
             {getMonthName(monthOffset)}
           </h3>
         </div>
 
         <div className="grid grid-cols-7 gap-1 mb-2">
           {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((day) => (
-            <div key={day} className="text-center text-[10px] font-bold text-gray-400 uppercase tracking-tighter">
+            <div key={day} className="text-center text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-tighter">
               {day}
             </div>
           ))}
@@ -225,15 +225,15 @@ const AdminDateRangePicker = ({
                   aspect-square w-full flex items-center justify-center rounded-full text-xs font-bold transition-all duration-200
                   relative
                   ${isPast
-                    ? "text-gray-300 cursor-not-allowed"
+                    ? "text-gray-300 dark:text-gray-600 cursor-not-allowed"
                     : isBlocked
-                    ? "text-gray-300 bg-gray-50 cursor-not-allowed line-through"
-                    : "cursor-pointer hover:bg-gray-100"
+                    ? "text-gray-300 dark:text-gray-600 bg-gray-50 dark:bg-gray-700/50 cursor-not-allowed line-through"
+                    : "cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"
                   }
                   ${isFrom || isTo
                     ? "!bg-brand-primary text-white shadow-md z-10"
                     : isInRange || isHoveredRange
-                    ? "bg-brand-primary/10 text-brand-primary"
+                    ? "bg-brand-primary/10 dark:bg-brand-primary/20 text-brand-primary"
                     : ""
                   }
                   ${isHovered && !isFrom && !isTo
@@ -254,24 +254,24 @@ const AdminDateRangePicker = ({
   return (
     <div ref={containerRef} className="relative w-full">
       <div className="flex flex-col gap-2">
-        <label className="text-sm font-medium text-gray-700">Date Range</label>
+        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Date Range</label>
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
           className={`
-            w-full h-12 flex items-center gap-3 px-4 bg-white border rounded-lg transition-all duration-200 text-left
-            ${isOpen ? "border-brand-primary ring-1 ring-brand-primary/20" : "border-gray-300 hover:border-brand-primary/60"}
+            w-full h-12 flex items-center gap-3 px-4 bg-white dark:bg-gray-700 border rounded-lg transition-all duration-200 text-left
+            ${isOpen ? "border-brand-primary ring-1 ring-brand-primary/20 dark:ring-brand-primary/40" : "border-gray-300 dark:border-gray-600 hover:border-brand-primary/60"}
           `}
         >
-          <CalendarIcon className={`w-5 h-5 ${isOpen ? "text-brand-primary" : "text-gray-400"}`} />
+          <CalendarIcon className={`w-5 h-5 ${isOpen ? "text-brand-primary" : "text-gray-400 dark:text-gray-500"}`} />
           <div className="flex-1">
-            <p className={`text-sm font-semibold ${fromDate ? "text-gray-900" : "text-gray-400"}`}>
+            <p className={`text-sm font-semibold ${fromDate ? "text-gray-900 dark:text-gray-100" : "text-gray-400 dark:text-gray-500"}`}>
               {formatDateRange()}
             </p>
           </div>
           {(fromDate || toDate) && (
              <X 
-              className="w-4 h-4 text-gray-400 hover:text-red-500 cursor-pointer" 
+              className="w-4 h-4 text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 cursor-pointer" 
               onClick={(e) => {
                 e.stopPropagation();
                 onFromDateChange("");
@@ -284,15 +284,15 @@ const AdminDateRangePicker = ({
       </div>
 
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl border border-gray-200 shadow-2xl z-50 p-6 w-full sm:w-[600px] animate-in fade-in zoom-in-95 duration-200">
+        <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-2xl z-50 p-6 w-full sm:w-[600px] animate-in fade-in zoom-in-95 duration-200">
           <div className="flex items-center justify-between mb-6">
             <button
               type="button"
               onClick={() => canGoBack && setCurrentMonthOffset(currentMonthOffset - 1)}
               disabled={!canGoBack}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-all disabled:opacity-30"
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all disabled:opacity-30"
             >
-              <ChevronLeft className="w-5 h-5 text-gray-700" />
+              <ChevronLeft className="w-5 h-5 text-gray-700 dark:text-gray-300" />
             </button>
 
             <div className="text-center">
@@ -305,9 +305,9 @@ const AdminDateRangePicker = ({
               type="button"
               onClick={() => canGoForward && setCurrentMonthOffset(currentMonthOffset + 1)}
               disabled={!canGoForward}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-all disabled:opacity-30"
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all disabled:opacity-30"
             >
-              <ChevronRight className="w-5 h-5 text-gray-700" />
+              <ChevronRight className="w-5 h-5 text-gray-700 dark:text-gray-300" />
             </button>
           </div>
 
@@ -318,21 +318,21 @@ const AdminDateRangePicker = ({
             </div>
           </div>
 
-          <div className="mt-6 pt-6 border-t border-gray-100 flex items-center justify-between gap-4">
+          <div className="mt-6 pt-6 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between gap-4">
              <div className="flex gap-4">
                 <div className="flex items-center gap-1.5">
                   <div className="w-3 h-3 bg-brand-primary rounded-sm"></div>
-                  <span className="text-[10px] font-bold text-gray-500 uppercase">Selected</span>
+                  <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase">Selected</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-3 bg-gray-50 border border-gray-200 rounded-sm"></div>
-                  <span className="text-[10px] font-bold text-gray-500 uppercase">Blocked</span>
+                  <div className="w-3 h-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-sm"></div>
+                  <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase">Blocked</span>
                 </div>
              </div>
              <button
               type="button"
               onClick={() => setIsOpen(false)}
-              className="px-4 py-2 bg-gray-900 text-white text-xs font-bold rounded-lg hover:bg-gray-800 transition-all"
+              className="px-4 py-2 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-xs font-bold rounded-lg hover:bg-gray-800 dark:hover:bg-gray-200 transition-all"
              >
                Done
              </button>

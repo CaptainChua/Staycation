@@ -275,9 +275,9 @@ const SearchBarSticky = () => {
               <Sparkles className="w-2.5 h-2.5" />
               <span>Search</span>
             </div>
-            <div className="grid grid-cols-2 gap-0 items-center">
+            <div className="space-y-2">
               {/* Location Selector */}
-              <div className="relative px-3 py-2 border-r border-gray-200 dark:border-gray-700">
+              <div className="relative px-3 py-2 border-b border-gray-200 dark:border-gray-700">
                 <LocationSelector
                   selectedLocation={selectedLocation}
                   onLocationSelect={(location) => {
@@ -291,7 +291,7 @@ const SearchBarSticky = () => {
               </div>
 
               {/* Date Range Picker */}
-              <div className="relative px-3 py-2">
+              <div className="relative px-3 py-2 border-b border-gray-200 dark:border-gray-700">
                 <DateRangePicker
                   checkInDate={checkInDate}
                   checkOutDate={checkOutDate}
@@ -301,8 +301,8 @@ const SearchBarSticky = () => {
                 />
               </div>
 
-              {/* Guest Selector - Added back for tablet */}
-              <div className="col-span-2 px-3 py-2 border-t border-gray-200 dark:border-gray-700 mt-2">
+              {/* Guest Selector */}
+              <div className="relative px-3 py-2">
                 <GuestSelector
                   guests={guests}
                   onGuestChange={handleGuestChange}
@@ -310,8 +310,8 @@ const SearchBarSticky = () => {
                 />
               </div>
 
-              {/* Search Button - Takes full width on tablet */}
-              <div className="col-span-2 relative px-3 py-2 flex items-center justify-center mt-2">
+              {/* Search Button */}
+              <div className="relative px-3 py-2 flex items-center justify-center">
                 <button
                   onClick={handleSearch}
                   className="w-full bg-brand-primary hover:bg-brand-primaryDark text-white font-medium py-2 px-4 rounded-full transition-colors text-sm"
