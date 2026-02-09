@@ -155,7 +155,7 @@ export default function PaymentPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             employee_id: employeeId,
-            activity_type: activityType,
+            action_type: activityType,
             description,
             entity_type: entityType ?? null,
             entity_id: entityId ?? null,
