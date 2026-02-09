@@ -9,6 +9,10 @@ import {
   ChefHat,
   Sofa,
   Sparkles,
+  CalendarCheck,
+  User,
+  Home,
+  AlertCircle,
 } from "lucide-react";
 import React, { useEffect, useState, useCallback } from "react";
 
@@ -26,12 +30,21 @@ type Category = {
   icon?: React.ComponentType<{ className?: string }>;
 };
 
+type Haven = {
+  id: string;
+  name: string;
+  address?: string;
+  status?: string;
+  bookingId?: string;
+  guestName?: string;
+  checkOutDate?: string;
+  cleaningStatus?: string;
+};
+
 export default function CleaningChecklistPage() {
-  const [havens, setHavens] = useState<{ id: string; name: string }[]>([]);
+  const [havens, setHavens] = useState<Haven[]>([]);
   const [selectedHavenId, setSelectedHavenId] = useState<string | null>(null);
-  const [selectedHavenName, setSelectedHavenName] = useState<string | null>(
-    null,
-  );
+  const [selectedHaven, setSelectedHaven] = useState<Haven | null>(null);
   const [isHavensLoading, setIsHavensLoading] = useState<boolean>(true);
 
   const [checklist, setChecklist] = useState<Category[]>([]);
@@ -47,7 +60,7 @@ export default function CleaningChecklistPage() {
     General: Sparkles,
   };
 
-  // Fetch havens on mount
+  // Fetch havens on mount (only checked-out ones that need cleaning)
   useEffect(() => {
     let mounted = true;
 
@@ -61,9 +74,20 @@ export default function CleaningChecklistPage() {
         if (!mounted) return;
         if (Array.isArray(data)) {
           setHavens(data);
-          if (!selectedHavenId && data.length > 0) {
-            setSelectedHavenId(data[0].id);
-            setSelectedHavenName(data[0].name);
+          if (data.length > 0) {
+            // If the currently selected haven is no longer in the list, reset
+            const stillExists = selectedHavenId
+              ? data.find((h: Haven) => h.id === selectedHavenId)
+              : null;
+            if (!stillExists) {
+              setSelectedHavenId(data[0].id);
+              setSelectedHaven(data[0]);
+            } else {
+              setSelectedHaven(stillExists);
+            }
+          } else {
+            setSelectedHavenId(null);
+            setSelectedHaven(null);
           }
         } else {
           toast.error("Failed to load havens");
@@ -72,7 +96,7 @@ export default function CleaningChecklistPage() {
         console.error("Error loading havens", err);
         toast.error("Failed to load havens");
       } finally {
-        setIsHavensLoading(false);
+        if (mounted) setIsHavensLoading(false);
       }
     };
 
@@ -80,7 +104,8 @@ export default function CleaningChecklistPage() {
     return () => {
       mounted = false;
     };
-  }, [selectedHavenId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Fetch checklist for a haven
   const fetchChecklist = useCallback(
@@ -99,7 +124,7 @@ export default function CleaningChecklistPage() {
           setChecklistId(checklist.id);
           setChecklist(checklist.categories || []);
           const found = havens.find((h) => h.id === checklist.haven_id);
-          setSelectedHavenName(found?.name ?? "");
+          if (found) setSelectedHaven(found);
         } else {
           throw new Error(payload.error || "Failed to load checklist");
         }
@@ -122,9 +147,20 @@ export default function CleaningChecklistPage() {
     } else {
       setChecklist([]);
       setChecklistId(null);
-      setSelectedHavenName(null);
+      setSelectedHaven(null);
     }
   }, [selectedHavenId, fetchChecklist]);
+
+  // Update selectedHaven when haven selection changes
+  const handleHavenChange = (havenId: string | null) => {
+    setSelectedHavenId(havenId);
+    if (havenId) {
+      const found = havens.find((h) => h.id === havenId);
+      setSelectedHaven(found ?? null);
+    } else {
+      setSelectedHaven(null);
+    }
+  };
 
   const toggleTask = async (taskId: string) => {
     let newCompleted = false;
@@ -154,10 +190,6 @@ export default function CleaningChecklistPage() {
         throw new Error(payload?.error || "Failed to update task");
       }
 
-      // If the server moved this task to a different checklist (e.g. during dedupe),
-      // the returned task will include the authoritative `checklist_id`. If that
-      // differs from the checklist currently shown, refresh the checklist for the
-      // haven so the UI stays in sync.
       const returnedTask = payload?.data?.task;
       if (
         returnedTask &&
@@ -187,14 +219,6 @@ export default function CleaningChecklistPage() {
     }
   };
 
-  // saveProgress removed: toggles update the DB immediately when toggled,
-  // so an explicit 'Save Progress' action is no longer necessary.
-
-  // submitChecklist removed — checklist changes are saved automatically when you toggle tasks.
-  // If you'd like a final 'Submit' action that does additional business work
-  // (e.g., update a booking's cleaning status or send notifications), tell me what
-  // you want Submit to do and I will implement that behavior here.
-
   const totalTasks = checklist.reduce((acc, cat) => acc + cat.tasks.length, 0);
   const completedTasks = checklist.reduce(
     (acc, cat: Category) =>
@@ -204,6 +228,41 @@ export default function CleaningChecklistPage() {
   const progress =
     totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
 
+  // Empty state: no havens need cleaning
+  if (!isHavensLoading && havens.length === 0) {
+    return (
+      <div className="space-y-6 animate-in fade-in duration-700">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
+            Cleaning Checklist
+          </h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            Complete cleaning tasks for checked-out havens
+          </p>
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-12 flex flex-col items-center justify-center text-center">
+          <div className="bg-green-100 dark:bg-green-900/30 p-4 rounded-full mb-4">
+            <CheckCircle2 className="w-12 h-12 text-green-500 dark:text-green-400" />
+          </div>
+          <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">
+            All Clean!
+          </h2>
+          <p className="text-gray-500 dark:text-gray-400 max-w-md">
+            There are no havens that need cleaning right now. Havens will appear
+            here once guests have checked out and cleaning is needed.
+          </p>
+          <div className="mt-6 flex items-center gap-2 text-sm text-gray-400 dark:text-gray-500">
+            <AlertCircle className="w-4 h-4" />
+            <span>
+              Cleaning tasks are created automatically after guest checkout
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 animate-in fade-in duration-700">
       <div className="flex items-center justify-between gap-4">
@@ -212,7 +271,7 @@ export default function CleaningChecklistPage() {
             Cleaning Checklist
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Complete all tasks for {selectedHavenName ?? "—"}
+            Complete cleaning tasks for checked-out havens
           </p>
         </div>
 
@@ -229,18 +288,53 @@ export default function CleaningChecklistPage() {
             <select
               id="haven-select"
               value={selectedHavenId ?? ""}
-              onChange={(e) => setSelectedHavenId(e.target.value || null)}
+              onChange={(e) => handleHavenChange(e.target.value || null)}
               className="w-full rounded-lg border-gray-200 bg-white dark:bg-gray-800 text-sm py-2 px-3"
             >
               {havens.map((h) => (
                 <option key={h.id} value={h.id}>
                   {h.name}
+                  {h.guestName ? ` — ${h.guestName}` : ""}
                 </option>
               ))}
             </select>
           )}
         </div>
       </div>
+
+      {/* Booking Info Card */}
+      {selectedHaven && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-4 border-l-4 border-brand-primary">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+            <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
+              <Home className="w-4 h-4 text-brand-primary" />
+              <span className="font-medium">{selectedHaven.name}</span>
+              {selectedHaven.address && (
+                <span className="text-gray-400 dark:text-gray-500">
+                  ({selectedHaven.address})
+                </span>
+              )}
+            </div>
+            {selectedHaven.guestName && (
+              <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                <User className="w-4 h-4" />
+                <span>Guest: {selectedHaven.guestName}</span>
+              </div>
+            )}
+            {selectedHaven.checkOutDate && (
+              <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                <CalendarCheck className="w-4 h-4" />
+                <span>Checked out: {selectedHaven.checkOutDate}</span>
+              </div>
+            )}
+            {selectedHaven.bookingId && (
+              <div className="text-xs text-gray-400 dark:text-gray-500">
+                Booking #{selectedHaven.bookingId}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Progress Overview */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-6">
