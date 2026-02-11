@@ -133,7 +133,7 @@ const fetchBookings = async () => {
 };
 
 
-  const handleApprove = (id: number) => {
+  const handleApprove = (id: string) => {
       // optimistic UI update handled in async function below
       void (async () => {
         try {
@@ -154,7 +154,7 @@ const fetchBookings = async () => {
       })();
   };
 
-  const handleDecline = (id: number) => {
+  const handleDecline = (id: string) => {
       void (async () => {
         try {
           const body = { id: id, status: "rejected", rejection_reason: "Declined by owner" };
