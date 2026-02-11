@@ -410,13 +410,15 @@ export default function CsrDashboard() {
         {
           id: "payments",
           icon: DollarSign,
-          label: "Payment Management",
+          label: "Guest Down Payment",
+          subtitle: "Management",
           color: "text-purple-500",
         },
         {
           id: "deposits",
           icon: Wallet,
-          label: "Security Deposit",
+          label: "Guest Security Deposit",
+          subtitle: "Management",
           color: "text-indigo-500",
         },
         {
@@ -573,9 +575,20 @@ export default function CsrDashboard() {
                         }`}
                       />
                       {sidebar && (
-                        <span className="text-sm font-semibold truncate">
-                          {item.label}
-                        </span>
+                        <div className="flex flex-col items-start min-w-0">
+                          <span className="text-sm font-semibold truncate">
+                            {item.label}
+                          </span>
+                          {item.subtitle && (
+                            <span className={`text-xs ${
+                              page === item.id
+                                ? "text-white/80"
+                                : "text-gray-500 dark:text-gray-400"
+                            }`}>
+                              {item.subtitle}
+                            </span>
+                          )}
+                        </div>
                       )}
                     </button>
                   );
