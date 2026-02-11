@@ -125,12 +125,21 @@ export const getAllBookingPayments = async (
         bp.*,
         b.booking_id as booking_id,
         b.id as booking_fk,
+        b.check_in_date,
+        b.check_in_time,
+        b.check_out_date,
+        b.check_out_time,
+        COALESCE(bd.amount, 0) as security_deposit,
+        bd.deposit_status,
         bg.first_name as guest_first_name,
         bg.last_name as guest_last_name,
         bg.email as guest_email,
-        bg.phone as guest_phone
+        bg.phone as guest_phone,
+        bg.facebook_link,
+        bg.valid_id_url
       FROM booking_payments bp
       LEFT JOIN booking b ON bp.booking_id = b.id
+      LEFT JOIN booking_security_deposits bd ON b.id = bd.booking_id
       LEFT JOIN booking_guests bg ON bg.booking_id = b.id
         AND bg.id = (
           SELECT id FROM booking_guests WHERE booking_id = b.id ORDER BY id LIMIT 1
@@ -196,12 +205,21 @@ export const getBookingPaymentById = async (
         bp.*,
         b.booking_id as booking_id,
         b.id as booking_fk,
+        b.check_in_date,
+        b.check_in_time,
+        b.check_out_date,
+        b.check_out_time,
+        COALESCE(bd.amount, 0) as security_deposit,
+        bd.deposit_status,
         bg.first_name as guest_first_name,
         bg.last_name as guest_last_name,
         bg.email as guest_email,
-        bg.phone as guest_phone
+        bg.phone as guest_phone,
+        bg.facebook_link,
+        bg.valid_id_url
       FROM booking_payments bp
       LEFT JOIN booking b ON bp.booking_id = b.id
+      LEFT JOIN booking_security_deposits bd ON b.id = bd.booking_id
       LEFT JOIN booking_guests bg ON bg.booking_id = b.id
         AND bg.id = (
           SELECT id FROM booking_guests WHERE booking_id = b.id ORDER BY id LIMIT 1
@@ -275,7 +293,16 @@ export const updateBookingPayment = async (
     } = body || {};
 
     // Validate payment_status if provided
-    const validStatuses = ["pending", "approved", "rejected", "refunded"];
+    const validStatuses = [
+      "pending",
+      "approved",
+      "rejected",
+      "refunded",
+      "pending_down_payment",
+      "approved_down_payment",
+      "pending_full_payment",
+      "approved_full_payment",
+    ];
     if (typeof payment_status !== "undefined" && payment_status !== null) {
       if (
         typeof payment_status !== "string" ||
