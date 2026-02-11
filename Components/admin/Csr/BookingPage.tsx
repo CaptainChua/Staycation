@@ -13,6 +13,7 @@ import toast from "react-hot-toast";
 import DeleteConfirmation from "./Modals/DeleteConfirmation";
 import ExportBookingsModal from "./Modals/ExportBookingsModal";
 import TotalBreakdown from "./TotalBreakdown";
+import { DateRangeWithDays } from "./Column";
 
 interface BookingData {
   id: string;
@@ -1265,16 +1266,13 @@ export default function BookingsPage() {
                         </div>
                       </td>
                       <td className="py-4 px-4">
-                        <div className="text-sm text-gray-600 dark:text-gray-300 space-y-2">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-semibold text-gray-500">Check-In:</span>
-                            <span className="whitespace-nowrap">{formatDate(booking.check_in_date)} {booking.check_in_time}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-semibold text-gray-500">Check-Out:</span>
-                            <span className="whitespace-nowrap">{formatDate(booking.check_out_date)} {booking.check_out_time}</span>
-                          </div>
-                        </div>
+                        <DateRangeWithDays
+                          checkInDate={booking.check_in_date}
+                          checkInTime={booking.check_in_time}
+                          checkOutDate={booking.check_out_date}
+                          checkOutTime={booking.check_out_time}
+                          isCompact={true}
+                        />
                       </td>
                       <td className="py-4 px-4 text-right">
                         <TotalBreakdown
@@ -1497,18 +1495,13 @@ export default function BookingsPage() {
                 {/* Dates */}
                 <div className="mb-3 pb-3 border-b border-gray-200 dark:border-gray-700">
                   <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Stay Dates</p>
-                  <div className="space-y-3">
-                    <div>
-                      <span className="text-xs font-semibold text-gray-500">Check-In:</span>
-                      <p className="text-sm font-medium text-gray-700 dark:text-gray-200">{formatDate(booking.check_in_date)}</p>
-                      <p className="text-xs text-gray-500">{booking.check_in_time}</p>
-                    </div>
-                    <div>
-                      <span className="text-xs font-semibold text-gray-500">Check-Out:</span>
-                      <p className="text-sm font-medium text-gray-700 dark:text-gray-200">{formatDate(booking.check_out_date)}</p>
-                      <p className="text-xs text-gray-500">{booking.check_out_time}</p>
-                    </div>
-                  </div>
+                  <DateRangeWithDays
+                    checkInDate={booking.check_in_date}
+                    checkInTime={booking.check_in_time}
+                    checkOutDate={booking.check_out_date}
+                    checkOutTime={booking.check_out_time}
+                    isCompact={false}
+                  />
                 </div>
 
                 {/* Total and Actions */}
