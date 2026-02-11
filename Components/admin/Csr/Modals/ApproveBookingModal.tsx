@@ -21,6 +21,7 @@ import {
   CheckCircle
 } from "lucide-react";
 import TotalBreakdown from "../TotalBreakdown";
+import PaymentCollectionModal from "./PaymentCollectionModal";
 
 interface Booking {
   id: string;
@@ -51,6 +52,7 @@ interface Booking {
   total_amount: number;
   down_payment: number;
   remaining_balance: number;
+  payment_status?: string;
   status: string;
   add_ons?: unknown;
   additional_guests?: unknown;
@@ -72,6 +74,7 @@ interface ApproveBookingModalProps {
 export default function ApproveBookingModal({ booking, bookings, onClose, onApprove, onBulkApprove, isLoading = false, isBulk = false }: ApproveBookingModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
   const [isMounted, setIsMounted] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
 
   useEffect(() => {
     const rafId = requestAnimationFrame(() => {
@@ -168,18 +171,29 @@ export default function ApproveBookingModal({ booking, bookings, onClose, onAppr
     }
   };
 
+  const handlePaymentConfirm = (paymentData: {
+    amountCollected: number;
+    change: number;
+    paymentMethod: string;
+  }) => {
+    setShowPaymentModal(false);
+    handleApprove();
+  };
+
   return createPortal(
     <>
-      <div className="fixed inset-0 z-[9980] bg-black/50" aria-hidden="true" />
-      <div
-        ref={modalRef}
-        className="fixed z-[9991] w-full max-w-4xl max-h-[90vh] bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden"
-        style={{
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)'
-        }}
-      >
+      {!showPaymentModal && (
+        <>
+          <div className="fixed inset-0 z-[9980] bg-black/50" aria-hidden="true" />
+          <div
+            ref={modalRef}
+            className="fixed z-[9991] w-full max-w-4xl max-h-[90vh] bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden"
+            style={{
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)'
+            }}
+          >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
           <div className="flex items-center gap-3">
@@ -365,6 +379,7 @@ export default function ApproveBookingModal({ booking, bookings, onClose, onAppr
                       totalAmount={booking.total_amount}
                       downPayment={booking.down_payment}
                       remainingBalance={booking.remaining_balance}
+                      paymentStatus={booking.payment_status}
                       isCompact={false}
                     />
                   </div>
@@ -384,24 +399,41 @@ export default function ApproveBookingModal({ booking, bookings, onClose, onAppr
             Cancel
           </button>
           <button
-            onClick={handleApprove}
+            onClick={() => {
+              if (isBulk) {
+                handleApprove();
+              } else {
+                setShowPaymentModal(true);
+              }
+            }}
             disabled={isLoading}
             className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             {isLoading ? (
               <>
                 <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                {isBulk ? 'Approving...' : 'Approving...'}
+                {isBulk ? 'Approving...' : 'Proceeding...'}
               </>
             ) : (
               <>
                 <CheckCircle className="w-4 h-4" />
-                {isBulk ? `Approve ${selectedBookings.length} Bookings` : 'Approve Booking'}
+                {isBulk ? `Approve ${selectedBookings.length} Bookings` : 'Proceed with Payment'}
               </>
             )}
           </button>
         </div>
       </div>
+        </>
+      )}
+
+      {booking && (
+        <PaymentCollectionModal
+          booking={booking}
+          isOpen={showPaymentModal}
+          onClose={() => setShowPaymentModal(false)}
+          onConfirm={handlePaymentConfirm}
+        />
+      )}
     </>,
     document.body
   );
