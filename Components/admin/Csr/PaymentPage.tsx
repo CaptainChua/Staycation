@@ -30,11 +30,13 @@ import {
   useUpdateBookingPaymentMutation,
 } from "@/redux/api/bookingPaymentsApi";
 import type { PaymentStatus, PaymentRow } from "./types";
-import { formatCurrency } from "./utils";
+import { formatCurrency, formatDate } from "./utils";
 import ApproveModal from "./Modals/ApproveModal";
 import RejectModal from "./Modals/RejectModal";
 import ChangeModal from "./Modals/ChangeModal";
 import ViewPaymentModal from "./Modals/ViewPaymentModal";
+import TotalBreakdown from "./TotalBreakdown";
+import { GuestDetailsColumn, DateRangeWithDays, BookingIdWithProof } from "./Column";
 
 // Payment types are imported from ./types
 
@@ -44,18 +46,21 @@ import ViewPaymentModal from "./Modals/ViewPaymentModal";
 
 const mapStatusToUI = (status?: string | null): PaymentStatus => {
   const s = (status || "").toLowerCase();
-  if (s === "approved" || s === "confirmed") return "Paid";
-  if (s === "rejected" || s === "declined") return "Rejected";
-  return "Pending";
+  if (s === "approved_down_payment") return "Down payment approved";
+  if (s === "pending_down_payment") return "Down payment pending";
+  if (s === "approved_full_payment") return "Full payment approved";
+  if (s === "pending_full_payment") return "Full payment pending";
+  if (s === "rejected") return "Rejected";
+  return "Down payment pending";
 };
 
 const getStatusColorClass = (status?: string | null) => {
   const s = (status || "").toLowerCase();
-  if (s === "approved" || s === "confirmed")
+  if (s === "approved_down_payment" || s === "approved_full_payment")
     return "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300";
-  if (s === "pending")
+  if (s === "pending_down_payment" || s === "pending_full_payment")
     return "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300";
-  if (s === "rejected" || s === "declined")
+  if (s === "rejected")
     return "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300";
   return "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200";
 };
@@ -75,39 +80,34 @@ const TableSkeleton = ({ rows = 5 }: { rows?: number }) => (
           <div className="h-4 w-28 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
         </td>
 
-        {/* Guest */}
+        {/* Guest Details */}
         <td className="py-4 px-4">
-          <div className="h-4 w-40 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+          <div className="space-y-2">
+            <div className="h-4 w-40 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+            <div className="h-3 w-48 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+            <div className="h-3 w-32 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+          </div>
         </td>
 
-        {/* Total Amount */}
-        <td className="py-4 px-4 text-right">
-          <div className="h-4 w-16 mx-auto bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+        {/* Check-in / Check-out */}
+        <td className="py-4 px-4">
+          <div className="space-y-2">
+            <div className="h-3 w-36 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+            <div className="h-3 w-36 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+          </div>
         </td>
 
-        {/* Down Payment */}
+        {/* Total */}
         <td className="py-4 px-4 text-right">
-          <div className="h-4 w-16 mx-auto bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-        </td>
-
-        {/* Amount Paid */}
-        <td className="py-4 px-4 text-right">
-          <div className="h-4 w-16 mx-auto bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-        </td>
-
-        {/* Remaining Balance */}
-        <td className="py-4 px-4 text-right">
-          <div className="h-4 w-16 mx-auto bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+          <div className="space-y-1">
+            <div className="h-4 w-20 ml-auto bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+            <div className="h-3 w-24 ml-auto bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+          </div>
         </td>
 
         {/* Payment Proof */}
         <td className="py-4 px-4 text-center">
           <div className="h-4 w-20 mx-auto bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-        </td>
-
-        {/* Status */}
-        <td className="py-4 px-4 text-center">
-          <div className="h-6 w-20 mx-auto bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse" />
         </td>
 
         {/* Actions */}
@@ -172,9 +172,17 @@ export default function PaymentPage() {
   const serverStatusParam =
     filterStatus === "all"
       ? undefined
-      : filterStatus === "Paid"
-        ? "approved"
-        : filterStatus.toLowerCase();
+      : filterStatus === "Down payment approved"
+        ? "approved_down_payment"
+        : filterStatus === "Full payment approved"
+          ? "approved_full_payment"
+          : filterStatus === "Down payment pending"
+            ? "pending_down_payment"
+            : filterStatus === "Full payment pending"
+              ? "pending_full_payment"
+              : filterStatus === "Rejected"
+                ? "rejected"
+                : undefined;
 
   // Fetch payments from backend (use status query when a specific filter is selected)
   const {
@@ -231,6 +239,18 @@ export default function PaymentPage() {
         id: p.id,
         booking_id: p.booking_id ?? String(p.booking_fk ?? ""),
         guest: `${p.guest_first_name ?? ""} ${p.guest_last_name ?? ""}`.trim(),
+        guest_email: p.guest_email ?? undefined,
+        guest_phone: p.guest_phone ?? undefined,
+        facebook_link: p.facebook_link ?? undefined,
+        valid_id_url: p.valid_id_url ?? undefined,
+        check_in_date: p.check_in_date ?? undefined,
+        check_in_time: p.check_in_time ?? undefined,
+        check_out_date: p.check_out_date ?? undefined,
+        check_out_time: p.check_out_time ?? undefined,
+        roomRate: Number(p.room_rate ?? 0),
+        addOnsTotal: Number(p.add_ons_total ?? 0),
+        security_deposit: Number(p.security_deposit ?? 0),
+        deposit_status: p.deposit_status ?? undefined,
         totalAmount: formatCurrency(totalAmountValue),
         totalAmountValue,
         downPayment: formatCurrency(downPaymentValue),
@@ -240,6 +260,7 @@ export default function PaymentPage() {
         remaining: formatCurrency(remainingValue),
         remainingValue,
         payment_proof: p.payment_proof_url ?? undefined,
+        payment_method: p.payment_method ?? undefined,
         status: mapStatusToUI(p.payment_status),
         statusColor: getStatusColorClass(p.payment_status),
         booking: {
@@ -293,7 +314,7 @@ export default function PaymentPage() {
   }, []);
 
   const handleConfirmApprove = useCallback(
-    async (payment: PaymentRow, amount: number) => {
+    async (payment: PaymentRow) => {
       if (!payment?.id) {
         toast.error("Payment ID not available");
         return;
@@ -302,66 +323,59 @@ export default function PaymentPage() {
       setUpdatingPaymentId(payment.id);
       setUpdatingAction("approve");
 
-      // Compute the change amount upfront and show the change modal immediately
-      const prevRemainingForChange = (() => {
-        const explicit = payment.booking?.remaining_balance;
-        if (typeof explicit !== "undefined" && explicit !== null)
-          return Number(explicit);
-        const totalAmt = Number(payment.booking?.total_amount ?? NaN);
-        const paidAmt = Number(
-          payment.booking?.amount_paid ?? payment.booking?.down_payment ?? 0,
-        );
-        return !Number.isNaN(totalAmt) ? Math.max(0, totalAmt - paidAmt) : 0;
-      })();
-      const appliedAmountForChange = Math.min(
-        Math.max(Number(amount), 0),
-        Math.max(prevRemainingForChange, 0),
-      );
-      const changeAmt = Math.max(0, Number(amount) - appliedAmountForChange);
-
-      // Optimistically close the approve modal and show the change modal so the
-      // user sees immediate feedback while the server processes the request.
-      setIsApproveModalOpen(false);
-      setChangeAmount(changeAmt);
-      setIsChangeModalOpen(true);
-      // Log change modal display
-      logEmployeeActivity?.(
-        "SHOW_CHANGE_MODAL",
-        `Displayed change modal for booking ${payment.booking_id} with change amount ${changeAmt}`,
-        "payment",
-        payment.id,
-      );
-
-      // Show an immediate success toast; we'll update it to an
-      // error message if the server rejects the mutation.
-      const toastId = toast.success("Payment approved");
-
       // Log client-side attempt to approve
       logEmployeeActivity?.(
         "ATTEMPT_APPROVE_PAYMENT",
-        `Attempted to approve payment ${payment.booking_id} with amount ${amount}`,
+        `Attempted to approve down payment for booking ${payment.booking_id}`,
         "payment",
         payment.id,
       );
 
       try {
-        // amount_paid is maintained server-side via collect_amount.
+        // Update payment status only - don't update remaining balance
         const payload: Partial<UpdateBookingPaymentPayload> & {
           id: string;
-          collect_amount?: number;
           reviewed_by?: string | null;
         } = {
           id: payment.id,
-          payment_status: "approved",
-          collect_amount: Number(amount),
+          payment_status: "approved_down_payment",
           reviewed_by: session?.user?.id ?? undefined,
         };
 
         await updateBookingPayment(payload).unwrap();
-        // optimistic update — no success toast (UI already reflects change)
+
+        // Send approval email to guest
+        try {
+          const guestName = payment.guest || "Guest";
+          const downPaymentAmount = payment.downPayment || "₱0.00";
+          const roomName = payment.room_name || undefined;
+          const remainingBalance = payment.remaining || undefined;
+
+          await fetch("/api/send-down-payment-approval-email", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              email: payment.guest_email,
+              guestName,
+              bookingId: payment.booking_id,
+              downPaymentAmount,
+              roomName,
+              remainingBalance,
+              propertyAddress: "M Place South Triangle Tower D, Panay Ave, Diliman, Quezon City, 1103 Metro Manila",
+            }),
+          });
+        } catch (emailError) {
+          console.error("Failed to send approval email:", emailError);
+          // Don't fail the operation if email fails
+        }
+
+        toast.success("Down payment approved and email sent to guest");
 
         // Refresh payments and update UI (server authoritative)
         await refetch();
+
+        // Close modal on successful approval
+        setIsApproveModalOpen(false);
       } catch (err) {
         console.error("Approve error:", err);
         let msg = "Failed to approve payment";
@@ -386,14 +400,9 @@ export default function PaymentPage() {
         } else if (typeof err === "string") {
           msg = err;
         }
-        toast.error(
-          `Failed to approve payment: ${msg}. Reverting optimistic changes and restoring UI.`,
-          { id: toastId },
-        );
+        toast.error(`Failed to approve payment: ${msg}`);
 
-        // Roll back UI changes if the mutation failed
-        setIsChangeModalOpen(false);
-        setChangeAmount(0);
+        // Keep modal open on error so user can see the state
         setIsApproveModalOpen(true);
       } finally {
         setUpdatingPaymentId(null);
@@ -629,7 +638,7 @@ export default function PaymentPage() {
             reviewed_by?: string | null;
           } = {
             id,
-            payment_status: "approved",
+            payment_status: "approved_down_payment",
             reviewed_by: session?.user?.id ?? undefined,
           };
 
@@ -700,10 +709,10 @@ export default function PaymentPage() {
   // Use unfiltered payments for summary counts so counts don't change with status filter
   const totalCount = (paymentsAll || []).length;
   const paidCount = (paymentsAll || []).filter(
-    (p) => mapStatusToUI(p.payment_status) === "Paid",
+    (p) => mapStatusToUI(p.payment_status) === "Down payment approved",
   ).length;
   const pendingCount = (paymentsAll || []).filter(
-    (p) => mapStatusToUI(p.payment_status) === "Pending",
+    (p) => mapStatusToUI(p.payment_status) === "Down payment pending",
   ).length;
   const rejectedCount = (paymentsAll || []).filter(
     (p) => mapStatusToUI(p.payment_status) === "Rejected",
@@ -731,13 +740,13 @@ export default function PaymentPage() {
             icon: DollarSign,
           },
           {
-            label: "Paid",
+            label: "Down payment approved",
             value: String(paidCount),
             color: "bg-emerald-500",
             icon: CheckCircle,
           },
           {
-            label: "Pending",
+            label: "Down payment pending",
             value: String(pendingCount),
             color: "bg-yellow-500",
             icon: Clock,
@@ -875,7 +884,13 @@ export default function PaymentPage() {
                 const value = e.target.value;
                 if (
                   value === "all" ||
-                  ["Paid", "Pending", "Rejected"].includes(value)
+                  [
+                    "Down payment approved",
+                    "Down payment pending",
+                    "Full payment approved",
+                    "Full payment pending",
+                    "Rejected",
+                  ].includes(value)
                 ) {
                   setFilterStatus(value as "all" | PaymentStatus);
                 }
@@ -884,20 +899,22 @@ export default function PaymentPage() {
               className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-orange-500"
             >
               <option value="all">All Status</option>
-              <option value="Paid">Paid</option>
-              <option value="Pending">Pending</option>
+              <option value="Down payment pending">Down payment pending</option>
+              <option value="Down payment approved">Down payment approved</option>
+              <option value="Full payment pending">Full payment pending</option>
+              <option value="Full payment approved">Full payment approved</option>
               <option value="Rejected">Rejected</option>
             </select>
           </div>
         </div>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden hidden lg:block">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden hidden lg:block border border-gray-200 dark:border-gray-700">
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full border-collapse">
             <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 border-b-2 border-gray-200 dark:border-gray-600">
               <tr>
-                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap border border-gray-200 dark:border-gray-700">
                   <div className="flex items-center gap-2">
                     <input
                       type="checkbox"
@@ -913,82 +930,35 @@ export default function PaymentPage() {
                 </th>
                 <th
                   onClick={() => handleSort("booking_id")}
-                  className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
+                  className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap border border-gray-200 dark:border-gray-700"
                 >
                   <div className="flex items-center gap-2">
                     Booking ID
                     <ArrowUpDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600 dark:text-gray-300 dark:group-hover:text-gray-100" />
                   </div>
                 </th>
-                <th
-                  onClick={() => handleSort("guest")}
-                  className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
-                >
-                  <div className="flex items-center gap-2">
-                    Guest
-                    <ArrowUpDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600 dark:text-gray-300 dark:group-hover:text-gray-100" />
-                  </div>
+                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap border border-gray-200 dark:border-gray-700">
+                  Guest Details
+                </th>
+
+                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap border border-gray-200 dark:border-gray-700">
+                  Check-in / Check-out
                 </th>
 
                 <th
                   onClick={() => handleSort("totalAmount")}
-                  className="text-right py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
+                  className="text-right py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap border border-gray-200 dark:border-gray-700"
                 >
                   <div className="flex items-center justify-end gap-2">
-                    Total Amount
+                    Total
                     <ArrowUpDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600 dark:text-gray-300 dark:group-hover:text-gray-100" />
                   </div>
                 </th>
 
-                <th
-                  onClick={() => handleSort("downPayment")}
-                  className="text-right py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
-                >
-                  <div className="flex items-center justify-end gap-2">
-                    Down Payment
-                    <ArrowUpDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600 dark:text-gray-300 dark:group-hover:text-gray-100" />
-                  </div>
+                <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap border border-gray-200 dark:border-gray-700">
+                  Payment Proof & Method
                 </th>
-
-                <th
-                  onClick={() => handleSort("amountPaid")}
-                  className="text-right py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
-                >
-                  <div className="flex items-center justify-end gap-2">
-                    Amount Paid
-                    <ArrowUpDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600 dark:text-gray-300 dark:group-hover:text-gray-100" />
-                  </div>
-                </th>
-
-                <th
-                  onClick={() => handleSort("remaining")}
-                  className="text-right py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
-                >
-                  <div className="flex items-center justify-end gap-2">
-                    Remaining Balance
-                    <span
-                      title="Remaining Balance = Total Amount - Amount Paid"
-                      className="ml-1 text-gray-400 flex items-center"
-                    >
-                      <Info className="w-4 h-4" />
-                    </span>
-                    <ArrowUpDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600 dark:text-gray-300 dark:group-hover:text-gray-100" />
-                  </div>
-                </th>
-
-                <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                  Payment Proof
-                </th>
-                <th
-                  onClick={() => handleSort("status")}
-                  className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors whitespace-nowrap"
-                >
-                  <div className="flex items-center justify-center gap-2">
-                    Status
-                    <ArrowUpDown className="w-4 h-4 text-gray-400 dark:text-gray-300" />
-                  </div>
-                </th>
-                <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap border border-gray-200 dark:border-gray-700">
                   Actions
                 </th>
               </tr>
@@ -1002,7 +972,7 @@ export default function PaymentPage() {
                     key={payment.id}
                     className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                   >
-                    <td className="py-4 px-4">
+                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
                       <input
                         type="checkbox"
                         checked={
@@ -1017,78 +987,85 @@ export default function PaymentPage() {
                         className="w-4 h-4 text-brand-primary border-gray-300 rounded focus:ring-brand-primary"
                       />
                     </td>
-                    <td className="py-4 px-4">
+                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
                       <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm">
                         {payment.booking_id}
                       </span>
                     </td>
-                    <td className="py-4 px-4">
-                      <div className="flex items-center gap-2 min-w-[200px]">
-                        <User className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                        <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm">
-                          {payment.guest}
-                        </span>
+                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                      <GuestDetailsColumn
+                        guestName={payment.guest}
+                        guestEmail={payment.guest_email}
+                        guestPhone={payment.guest_phone}
+                        facebookLink={payment.facebook_link}
+                        validIdUrl={payment.valid_id_url}
+                        isCompact={true}
+                      />
+                    </td>
+                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                      <DateRangeWithDays
+                        checkInDate={payment.check_in_date}
+                        checkInTime={payment.check_in_time}
+                        checkOutDate={payment.check_out_date}
+                        checkOutTime={payment.check_out_time}
+                        isCompact={true}
+                      />
+                    </td>
+                    <td className="py-4 px-4 text-right border border-gray-200 dark:border-gray-700">
+                      <TotalBreakdown
+                        roomRate={payment.roomRate ?? 0}
+                        securityDeposit={payment.security_deposit ?? 0}
+                        depositStatus={payment.deposit_status ?? "pending"}
+                        addOnsTotal={payment.addOnsTotal ?? 0}
+                        totalAmount={payment.totalAmountValue ?? 0}
+                        downPayment={payment.downPaymentValue ?? 0}
+                        remainingBalance={payment.remainingValue ?? 0}
+                        paymentStatus={payment.status.includes("approved") ? "Approved" : "Pending"}
+                        isCompact={true}
+                      />
+                    </td>
+                    <td className="py-4 px-4 text-center border border-gray-200 dark:border-gray-700">
+                      <div className="space-y-3">
+                        <div className="space-y-2">
+                          {payment.payment_method && (
+                            <div className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                              <span className="capitalize">{payment.payment_method}</span>
+                            </div>
+                          )}
+                          {payment.payment_proof ? (
+                            <a
+                              href={payment.payment_proof}
+                              target="_blank"
+                              rel="noreferrer"
+                              onClick={() =>
+                                logEmployeeActivity?.(
+                                  "VIEW_PAYMENT_PROOF",
+                                  `Viewed payment proof for booking ${payment.booking_id}`,
+                                  "payment",
+                                  payment.id,
+                                )
+                              }
+                              className="inline-flex items-center gap-2 px-3 py-2 text-sm font-semibold text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                            >
+                              <ImageIcon className="w-4 h-4" />
+                              View
+                            </a>
+                          ) : (
+                            <span className="text-sm text-gray-400 dark:text-gray-500">
+                              No proof
+                            </span>
+                          )}
+                        </div>
+                        <div className="border-t border-gray-200 dark:border-gray-700 pt-2">
+                          <span
+                            className={`inline-block px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${payment.statusColor}`}
+                          >
+                            {payment.status}
+                          </span>
+                        </div>
                       </div>
                     </td>
-                    <td className="py-4 px-4 text-right">
-                      <span className="font-bold text-gray-800 dark:text-gray-100 text-sm whitespace-nowrap">
-                        {payment.totalAmount}
-                      </span>
-                    </td>
-                    <td className="py-4 px-4 text-right">
-                      <span className="font-bold text-gray-800 dark:text-gray-100 text-sm whitespace-nowrap">
-                        {payment.downPayment}
-                      </span>
-                    </td>
-                    <td className="py-4 px-4 text-right">
-                      <span className="font-bold text-gray-800 dark:text-gray-100 text-sm whitespace-nowrap">
-                        {payment.amountPaid}
-                      </span>
-                    </td>
-                    <td className="py-4 px-4 text-right">
-                      <span
-                        className={`font-bold text-sm whitespace-nowrap ${
-                          (payment.remainingValue ?? 0) > 0
-                            ? "text-orange-700 dark:text-orange-300"
-                            : "text-green-700 dark:text-green-300"
-                        }`}
-                      >
-                        {payment.remaining}
-                      </span>
-                    </td>
-                    <td className="py-4 px-4 text-center">
-                      {payment.payment_proof ? (
-                        <a
-                          href={payment.payment_proof}
-                          target="_blank"
-                          rel="noreferrer"
-                          onClick={() =>
-                            logEmployeeActivity?.(
-                              "VIEW_PAYMENT_PROOF",
-                              `Viewed payment proof for booking ${payment.booking_id}`,
-                              "payment",
-                              payment.id,
-                            )
-                          }
-                          className="inline-flex items-center gap-2 px-3 py-2 text-sm font-semibold text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
-                        >
-                          <ImageIcon className="w-4 h-4" />
-                          View
-                        </a>
-                      ) : (
-                        <span className="text-sm text-gray-400 dark:text-gray-500">
-                          No proof
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-4 px-4 text-center">
-                      <span
-                        className={`inline-block px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${payment.statusColor}`}
-                      >
-                        {payment.status}
-                      </span>
-                    </td>
-                    <td className="py-4 px-4">
+                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
                       <div className="flex items-center justify-center gap-1">
                         <button
                           onClick={() => handleView(payment)}
@@ -1100,88 +1077,92 @@ export default function PaymentPage() {
                           <Eye className="w-4 h-4" />
                         </button>
 
-                        <button
-                          onClick={() => {
-                            setSelectedPayment(payment);
-                            setIsApproveModalOpen(true);
-                            logEmployeeActivity?.(
-                              "OPEN_APPROVE_MODAL",
-                              `Opened approve modal for booking ${payment.booking_id}`,
-                              "payment",
-                              payment.id,
-                            );
-                          }}
-                          disabled={
-                            !payment.id || updatingPaymentId === payment.id
-                          }
-                          className="p-2 inline-flex items-center justify-center text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                          title="Approve"
-                          type="button"
-                          aria-label={`Approve booking ${payment.booking_id}`}
-                        >
-                          {updatingPaymentId === payment.id &&
-                          updatingAction === "approve" ? (
-                            <svg
-                              className="animate-spin inline-block align-middle h-4 w-4"
-                              xmlns="http://www.w3.org/2000/svg"
-                              fill="none"
-                              viewBox="0 0 24 24"
+                        {payment.payment_status !== "approved_down_payment" && (
+                          <>
+                            <button
+                              onClick={() => {
+                                setSelectedPayment(payment);
+                                setIsApproveModalOpen(true);
+                                logEmployeeActivity?.(
+                                  "OPEN_APPROVE_MODAL",
+                                  `Opened approve modal for booking ${payment.booking_id}`,
+                                  "payment",
+                                  payment.id,
+                                );
+                              }}
+                              disabled={
+                                !payment.id || updatingPaymentId === payment.id
+                              }
+                              className="p-2 inline-flex items-center justify-center text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              title="Approve"
+                              type="button"
+                              aria-label={`Approve booking ${payment.booking_id}`}
                             >
-                              <circle
-                                className="opacity-25"
-                                cx="12"
-                                cy="12"
-                                r="10"
-                                stroke="currentColor"
-                                strokeWidth="4"
-                              />
-                              <path
-                                className="opacity-75"
-                                fill="currentColor"
-                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                              />
-                            </svg>
-                          ) : (
-                            <Check className="w-4 h-4" />
-                          )}
-                        </button>
+                              {updatingPaymentId === payment.id &&
+                              updatingAction === "approve" ? (
+                                <svg
+                                  className="animate-spin inline-block align-middle h-4 w-4"
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <circle
+                                    className="opacity-25"
+                                    cx="12"
+                                    cy="12"
+                                    r="10"
+                                    stroke="currentColor"
+                                    strokeWidth="4"
+                                  />
+                                  <path
+                                    className="opacity-75"
+                                    fill="currentColor"
+                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                                  />
+                                </svg>
+                              ) : (
+                                <Check className="w-4 h-4" />
+                              )}
+                            </button>
 
-                        <button
-                          onClick={() => openRejectModal(payment)}
-                          disabled={
-                            !payment.id || updatingPaymentId === payment.id
-                          }
-                          className="p-2 inline-flex items-center justify-center text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                          title="Reject"
-                          type="button"
-                          aria-label={`Reject booking ${payment.booking_id}`}
-                        >
-                          {updatingPaymentId === payment.id &&
-                          updatingAction === "reject" ? (
-                            <svg
-                              className="animate-spin inline-block align-middle h-4 w-4"
-                              xmlns="http://www.w3.org/2000/svg"
-                              fill="none"
-                              viewBox="0 0 24 24"
+                            <button
+                              onClick={() => openRejectModal(payment)}
+                              disabled={
+                                !payment.id || updatingPaymentId === payment.id
+                              }
+                              className="p-2 inline-flex items-center justify-center text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              title="Reject"
+                              type="button"
+                              aria-label={`Reject booking ${payment.booking_id}`}
                             >
-                              <circle
-                                className="opacity-25"
-                                cx="12"
-                                cy="12"
-                                r="10"
-                                stroke="currentColor"
-                                strokeWidth="4"
-                              />
-                              <path
-                                className="opacity-75"
-                                fill="currentColor"
-                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                              />
-                            </svg>
-                          ) : (
-                            <X className="w-4 h-4" />
-                          )}
-                        </button>
+                              {updatingPaymentId === payment.id &&
+                              updatingAction === "reject" ? (
+                                <svg
+                                  className="animate-spin inline-block align-middle h-4 w-4"
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <circle
+                                    className="opacity-25"
+                                    cx="12"
+                                    cy="12"
+                                    r="10"
+                                    stroke="currentColor"
+                                    strokeWidth="4"
+                                  />
+                                  <path
+                                    className="opacity-75"
+                                    fill="currentColor"
+                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                                  />
+                                </svg>
+                              ) : (
+                                <XCircle className="w-4 h-4" />
+                              )}
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -1257,98 +1238,88 @@ export default function PaymentPage() {
                     </p>
                   </div>
                 </div>
-                <span
-                  className={`px-3 py-1 rounded-full text-xs font-bold ${payment.statusColor}`}
-                >
-                  {payment.status}
-                </span>
               </div>
 
               <div className="mb-3 pb-3 border-b border-gray-200 dark:border-gray-600">
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                  Guest
-                </p>
-                <div className="flex items-center gap-2">
-                  <User className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                  <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm">
-                    {payment.guest}
-                  </span>
-                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Guest Details</p>
+                <GuestDetailsColumn
+                  guestName={payment.guest}
+                  guestEmail={payment.guest_email}
+                  guestPhone={payment.guest_phone}
+                  facebookLink={payment.facebook_link}
+                  validIdUrl={payment.valid_id_url}
+                  isCompact={false}
+                />
               </div>
 
-              <div className="grid grid-cols-2 gap-3 mb-3 pb-3">
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                    Total Amount
-                  </p>
-                  <p className="font-bold text-gray-800 dark:text-gray-100">
-                    {payment.totalAmount}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                    Down Payment
-                  </p>
-                  <p className="font-bold text-gray-800 dark:text-gray-100">
-                    {payment.downPayment}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                    Amount Paid
-                  </p>
-                  <p className="font-bold text-gray-800 dark:text-gray-100">
-                    {payment.amountPaid}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-2">
-                    Remaining Balance
+              <div className="mb-3 pb-3 border-b border-gray-200 dark:border-gray-600">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Stay Dates</p>
+                <DateRangeWithDays
+                  checkInDate={payment.check_in_date}
+                  checkInTime={payment.check_in_time}
+                  checkOutDate={payment.check_out_date}
+                  checkOutTime={payment.check_out_time}
+                  isCompact={false}
+                />
+              </div>
+
+              <div className="mb-3 pb-3 border-b border-gray-200 dark:border-gray-600">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Total</p>
+                <TotalBreakdown
+                  roomRate={payment.roomRate ?? 0}
+                  securityDeposit={payment.security_deposit ?? 0}
+                  depositStatus={payment.deposit_status ?? "pending"}
+                  addOnsTotal={payment.addOnsTotal ?? 0}
+                  totalAmount={payment.totalAmountValue ?? 0}
+                  downPayment={payment.downPaymentValue ?? 0}
+                  remainingBalance={payment.remainingValue ?? 0}
+                  paymentStatus={payment.status.includes("approved") ? "Approved" : "Pending"}
+                  isCompact={true}
+                />
+              </div>
+
+              <div className="mb-3 pb-3 border-b border-gray-200 dark:border-gray-600">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                  Payment Proof & Method
+                </p>
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    {payment.payment_method && (
+                      <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        <span className="capitalize">{payment.payment_method}</span>
+                      </div>
+                    )}
+                    {payment.payment_proof ? (
+                      <a
+                        href={payment.payment_proof}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={() =>
+                          logEmployeeActivity?.(
+                            "VIEW_PAYMENT_PROOF",
+                            `Viewed payment proof for booking ${payment.booking_id}`,
+                            "payment",
+                            payment.id,
+                          )
+                        }
+                        className="inline-flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700 dark:hover:text-blue-400"
+                      >
+                        <ImageIcon className="w-4 h-4" /> View Proof
+                      </a>
+                    ) : (
+                      <span className="text-sm text-gray-400 dark:text-gray-500">
+                        No proof
+                      </span>
+                    )}
+                  </div>
+                  <div className="border-t border-gray-200 dark:border-gray-700 pt-2">
                     <span
-                      title="Remaining Balance = Total Amount - Amount Paid"
-                      className="text-gray-400 flex items-center"
+                      className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${payment.statusColor}`}
                     >
-                      <Info className="w-3 h-3" />
+                      {payment.status}
                     </span>
-                  </p>
-                  <p
-                    className={`font-bold ${
-                      (payment.remainingValue ?? 0) > 0
-                        ? "text-orange-700 dark:text-orange-300"
-                        : "text-green-700 dark:text-green-300"
-                    }`}
-                  >
-                    {payment.remaining}
-                  </p>
+                  </div>
                 </div>
-              </div>
-
-              <div className="mb-3 pb-3 border-b border-gray-200 dark:border-gray-600">
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                  Payment Proof
-                </p>
-                {payment.payment_proof ? (
-                  <a
-                    href={payment.payment_proof}
-                    target="_blank"
-                    rel="noreferrer"
-                    onClick={() =>
-                      logEmployeeActivity?.(
-                        "VIEW_PAYMENT_PROOF",
-                        `Viewed payment proof for booking ${payment.booking_id}`,
-                        "payment",
-                        payment.id,
-                      )
-                    }
-                    className="inline-flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700 dark:hover:text-blue-400"
-                  >
-                    <ImageIcon className="w-4 h-4" /> View
-                  </a>
-                ) : (
-                  <span className="text-sm text-gray-400 dark:text-gray-500">
-                    No proof
-                  </span>
-                )}
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-200 dark:border-gray-600">
@@ -1362,84 +1333,88 @@ export default function PaymentPage() {
                   <Eye className="w-4 h-4" />
                 </button>
 
-                <button
-                  onClick={() => {
-                    setSelectedPayment(payment);
-                    setIsApproveModalOpen(true);
-                    logEmployeeActivity?.(
-                      "OPEN_APPROVE_MODAL",
-                      `Opened approve modal for booking ${payment.booking_id}`,
-                      "payment",
-                      payment.id,
-                    );
-                  }}
-                  disabled={!payment.id || updatingPaymentId === payment.id}
-                  className="p-2 inline-flex items-center justify-center text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Approve"
-                  type="button"
-                  aria-label={`Approve booking ${payment.booking_id}`}
-                >
-                  {updatingPaymentId === payment.id &&
-                  updatingAction === "approve" ? (
-                    <svg
-                      className="animate-spin inline-block align-middle h-5 w-5"
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
+                {payment.payment_status !== "approved_down_payment" && (
+                  <>
+                    <button
+                      onClick={() => {
+                        setSelectedPayment(payment);
+                        setIsApproveModalOpen(true);
+                        logEmployeeActivity?.(
+                          "OPEN_APPROVE_MODAL",
+                          `Opened approve modal for booking ${payment.booking_id}`,
+                          "payment",
+                          payment.id,
+                        );
+                      }}
+                      disabled={!payment.id || updatingPaymentId === payment.id}
+                      className="p-2 inline-flex items-center justify-center text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Approve"
+                      type="button"
+                      aria-label={`Approve booking ${payment.booking_id}`}
                     >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      />
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                      />
-                    </svg>
-                  ) : (
-                    <CheckCircle className="w-5 h-5" />
-                  )}
-                </button>
+                      {updatingPaymentId === payment.id &&
+                      updatingAction === "approve" ? (
+                        <svg
+                          className="animate-spin inline-block align-middle h-5 w-5"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          />
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                          />
+                        </svg>
+                      ) : (
+                        <CheckCircle className="w-5 h-5" />
+                      )}
+                    </button>
 
-                <button
-                  onClick={() => openRejectModal(payment)}
-                  disabled={!payment.id || updatingPaymentId === payment.id}
-                  className="p-2 inline-flex items-center justify-center text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Reject"
-                  type="button"
-                  aria-label={`Reject booking ${payment.booking_id}`}
-                >
-                  {updatingPaymentId === payment.id &&
-                  updatingAction === "reject" ? (
-                    <svg
-                      className="animate-spin inline-block align-middle h-4 w-4"
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
+                    <button
+                      onClick={() => openRejectModal(payment)}
+                      disabled={!payment.id || updatingPaymentId === payment.id}
+                      className="p-2 inline-flex items-center justify-center text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Reject"
+                      type="button"
+                      aria-label={`Reject booking ${payment.booking_id}`}
                     >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      />
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                      />
-                    </svg>
-                  ) : (
-                    <X className="w-4 h-4" />
-                  )}
-                </button>
+                      {updatingPaymentId === payment.id &&
+                      updatingAction === "reject" ? (
+                        <svg
+                          className="animate-spin inline-block align-middle h-4 w-4"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          />
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                          />
+                        </svg>
+                      ) : (
+                        <X className="w-4 h-4" />
+                      )}
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           ))
@@ -1493,10 +1468,10 @@ export default function PaymentPage() {
                   <button
                     key={pageNum}
                     onClick={() => setCurrentPage(pageNum)}
-                    className={`px-4 py-2 rounded-lg transition-colors text-sm font-medium ${
+                    className={`px-4 py-2 rounded-lg transition-colors text-sm font-medium border ${
                       currentPage === pageNum
-                        ? "bg-orange-500 text-white shadow-md"
-                        : "border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-600"
+                        ? "bg-gradient-to-r from-brand-primary to-brand-primaryDark text-white shadow-md border-brand-primary"
+                        : "border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-600"
                     }`}
                     disabled={totalPages === 0}
                     type="button"
