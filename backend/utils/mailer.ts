@@ -387,7 +387,7 @@ export function getPartnerWelcomeEmailTemplate(
   `;
 }
 
-// Down Payment Approval Email Template
+// Down Payment Approval Email Template - Agoda-like Design
 export function getDownPaymentApprovalEmailTemplate(
   guestName: string,
   bookingId: string,
@@ -396,495 +396,173 @@ export function getDownPaymentApprovalEmailTemplate(
   remainingBalance?: string,
   propertyAddress?: string
 ): string {
+  const approvalDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+
   return `
     <!DOCTYPE html>
     <html lang="en">
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Down Payment Approved - Staycation Haven</title>
-      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
+      <title>Payment Confirmed - Staycation Haven</title>
+      <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
       <style>
-        * {
-          margin: 0;
-          padding: 0;
-          box-sizing: border-box;
-        }
-
-        body {
-          font-family: 'Inter', sans-serif;
-          line-height: 1.6;
-          color: #374151;
-          background: #fafafa;
-          padding: 20px;
-        }
-
-        .wrapper {
-          max-width: 650px;
-          margin: 0 auto;
-        }
-
-        .email-container {
-          background: white;
-          border-radius: 14px;
-          overflow: hidden;
-          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
-        }
-
-        .hero {
-          background: linear-gradient(135deg, #F97316 0%, #EA580C 100%);
-          color: white;
-          padding: 50px 40px;
-          text-align: center;
-          position: relative;
-        }
-
-        .hero::before {
-          content: '';
-          position: absolute;
-          top: 0;
-          right: 0;
-          width: 300px;
-          height: 300px;
-          background: rgba(255, 255, 255, 0.1);
-          border-radius: 50%;
-          transform: translate(100px, -100px);
-        }
-
-        .hero-content {
-          position: relative;
-          z-index: 1;
-        }
-
-        .badge {
-          display: inline-block;
-          background: rgba(255, 255, 255, 0.2);
-          color: white;
-          padding: 8px 16px;
-          border-radius: 20px;
-          font-size: 12px;
-          font-weight: 600;
-          margin-bottom: 16px;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-        }
-
-        .hero h1 {
-          font-family: 'Poppins', sans-serif;
-          font-size: 36px;
-          font-weight: 800;
-          margin-bottom: 8px;
-          letter-spacing: -1px;
-        }
-
-        .hero p {
-          font-size: 16px;
-          opacity: 0.95;
-          margin: 0;
-        }
-
-        .content {
-          padding: 45px 40px;
-        }
-
-        .greeting {
-          font-size: 22px;
-          font-weight: 700;
-          color: #111827;
-          margin-bottom: 20px;
-        }
-
-        .intro-text {
-          color: #6B7280;
-          font-size: 15px;
-          line-height: 1.8;
-          margin-bottom: 32px;
-        }
-
-        .info-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 16px;
-          margin-bottom: 28px;
-        }
-
-        .info-box {
-          background: linear-gradient(135deg, #FFF8F3 0%, #FFFBF8 100%);
-          border: 1px solid #FECACA;
-          border-radius: 10px;
-          padding: 18px;
-        }
-
-        .info-box.accent {
-          background: linear-gradient(135deg, #FFF5F0 0%, #FFF9F7 100%);
-          border-color: #FDBAA1;
-        }
-
-        .info-label {
-          font-size: 11px;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-          color: #D97706;
-          font-weight: 700;
-          margin-bottom: 8px;
-        }
-
-        .info-value {
-          font-size: 16px;
-          font-weight: 700;
-          color: #1F2937;
-        }
-
-        .info-value.amount {
-          color: #F97316;
-          font-size: 18px;
-        }
-
-        .separator {
-          height: 1px;
-          background: #E5E7EB;
-          margin: 32px 0;
-        }
-
-        .section-title {
-          font-family: 'Poppins', sans-serif;
-          font-size: 16px;
-          font-weight: 700;
-          color: #111827;
-          margin-bottom: 16px;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-
-        .section-icon {
-          font-size: 18px;
-        }
-
-        .property-box {
-          background: #F3F4F6;
-          border-left: 4px solid #F97316;
-          padding: 18px;
-          border-radius: 8px;
-          margin-bottom: 24px;
-        }
-
-        .property-address {
-          font-size: 14px;
-          line-height: 1.7;
-          color: #4B5563;
-          font-weight: 500;
-        }
-
-        .payment-summary {
-          background: #FAFAFA;
-          border: 1px solid #E5E7EB;
-          border-radius: 10px;
-          padding: 24px;
-          margin-bottom: 24px;
-        }
-
-        .payment-row {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 12px 0;
-          border-bottom: 1px solid #E5E7EB;
-        }
-
-        .payment-row:last-child {
-          border-bottom: none;
-        }
-
-        .payment-label {
-          font-size: 14px;
-          color: #6B7280;
-          font-weight: 500;
-        }
-
-        .payment-value {
-          font-size: 15px;
-          font-weight: 700;
-          color: #1F2937;
-        }
-
-        .payment-value.highlight {
-          color: #F97316;
-          font-size: 16px;
-        }
-
-        .payment-value.pending {
-          color: #DC2626;
-        }
-
-        .action-box {
-          background: linear-gradient(135deg, #FEF3C7 0%, #FEFCE8 100%);
-          border: 1px solid #FDE047;
-          border-radius: 10px;
-          padding: 24px;
-          margin-bottom: 24px;
-          text-align: center;
-        }
-
-        .action-title {
-          font-family: 'Poppins', sans-serif;
-          font-size: 16px;
-          font-weight: 700;
-          color: #92400E;
-          margin-bottom: 12px;
-        }
-
-        .action-text {
-          font-size: 14px;
-          color: #78350F;
-          line-height: 1.6;
-          margin-bottom: 16px;
-        }
-
-        .cta-button {
-          display: inline-block;
-          background: linear-gradient(135deg, #F97316 0%, #EA580C 100%);
-          color: white;
-          padding: 12px 32px;
-          text-decoration: none;
-          border-radius: 8px;
-          font-weight: 600;
-          font-size: 14px;
-          transition: transform 0.2s;
-        }
-
-        .cta-button:hover {
-          transform: translateY(-2px);
-        }
-
-        .next-steps {
-          background: #F0F9FF;
-          border-left: 4px solid #3B82F6;
-          padding: 20px;
-          border-radius: 8px;
-          margin-bottom: 24px;
-        }
-
-        .next-steps-title {
-          font-weight: 700;
-          color: #1E40AF;
-          margin-bottom: 12px;
-          font-size: 14px;
-        }
-
-        .next-steps-list {
-          list-style: none;
-          padding: 0;
-          margin: 0;
-        }
-
-        .next-steps-list li {
-          font-size: 13px;
-          color: #1E3A8A;
-          margin: 8px 0;
-          padding-left: 20px;
-          position: relative;
-        }
-
-        .next-steps-list li:before {
-          content: '→';
-          position: absolute;
-          left: 0;
-          font-weight: 700;
-        }
-
-        .closing {
-          color: #6B7280;
-          font-size: 14px;
-          line-height: 1.7;
-          text-align: center;
-          margin-bottom: 8px;
-        }
-
-        .footer {
-          background: linear-gradient(135deg, #1F2937 0%, #111827 100%);
-          color: #D1D5DB;
-          padding: 35px 40px;
-          text-align: center;
-          border-top: 1px solid #374151;
-        }
-
-        .footer-logo {
-          font-family: 'Poppins', sans-serif;
-          font-size: 18px;
-          font-weight: 800;
-          color: white;
-          margin-bottom: 16px;
-        }
-
-        .footer-text {
-          font-size: 13px;
-          line-height: 1.8;
-          margin: 10px 0;
-        }
-
-        .footer-divider {
-          height: 1px;
-          background: #4B5563;
-          margin: 16px 0;
-        }
-
-        .footer-copyright {
-          font-size: 12px;
-          color: #9CA3AF;
-        }
-
-        @media only screen and (max-width: 600px) {
-          .content {
-            padding: 30px 20px;
-          }
-          .hero {
-            padding: 35px 20px;
-          }
-          .hero h1 {
-            font-size: 28px;
-          }
-          .info-grid {
-            grid-template-columns: 1fr;
-          }
-          .payment-summary {
-            padding: 16px;
-          }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Roboto', sans-serif; line-height: 1.5; color: #333; background: #f5f5f5; }
+        .wrapper { max-width: 600px; margin: 0 auto; background: white; }
+        .header { background: #fff; padding: 20px 30px; border-bottom: 1px solid #eee; text-align: left; }
+        .logo { font-size: 20px; font-weight: 700; color: #ff6b35; }
+        .content { padding: 30px; }
+        .status-box { background: #e8f5e9; border-left: 4px solid #4caf50; padding: 15px; margin-bottom: 25px; border-radius: 4px; }
+        .status-title { font-size: 16px; font-weight: 700; color: #2e7d32; margin-bottom: 5px; }
+        .status-text { font-size: 13px; color: #558b2f; }
+        .greeting { font-size: 18px; font-weight: 700; color: #333; margin-bottom: 12px; }
+        .intro { font-size: 14px; color: #666; line-height: 1.6; margin-bottom: 25px; }
+        .section { margin-bottom: 25px; }
+        .section-title { font-size: 13px; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
+        .booking-card { background: #f9f9f9; border: 1px solid #eee; border-radius: 4px; padding: 15px; margin-bottom: 15px; }
+        .card-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; font-size: 14px; }
+        .card-row:last-child { border-bottom: none; }
+        .card-label { color: #999; font-weight: 500; }
+        .card-value { font-weight: 600; color: #333; }
+        .card-value.amount { color: #ff6b35; font-size: 16px; }
+        .card-value.highlight { color: #d32f2f; }
+        .property-info { background: #fafafa; border-left: 3px solid #ff6b35; padding: 15px; border-radius: 2px; margin-bottom: 15px; }
+        .property-name { font-size: 14px; font-weight: 600; color: #333; margin-bottom: 8px; }
+        .property-address { font-size: 13px; color: #666; line-height: 1.6; }
+        .divider { height: 1px; background: #eee; margin: 20px 0; }
+        .payment-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+        .payment-table td { padding: 12px 0; border-bottom: 1px solid #eee; font-size: 14px; }
+        .payment-table td:first-child { color: #666; }
+        .payment-table td:last-child { text-align: right; font-weight: 600; color: #333; }
+        .payment-table tr:last-child td { border-bottom: none; font-weight: 700; font-size: 15px; }
+        .payment-table tr:last-child td:last-child { color: #ff6b35; }
+        .cta-box { background: #fff3e0; border-radius: 4px; padding: 20px; text-align: center; margin: 25px 0; }
+        .cta-text { font-size: 14px; color: #666; margin-bottom: 15px; line-height: 1.6; }
+        .cta-button { display: inline-block; background: #ff6b35; color: white; padding: 12px 32px; text-decoration: none; border-radius: 4px; font-weight: 600; font-size: 14px; }
+        .cta-button:hover { background: #ff5722; }
+        .tips { background: #f0f4f8; border-radius: 4px; padding: 15px; margin: 20px 0; }
+        .tips-title { font-size: 13px; font-weight: 700; color: #1565c0; margin-bottom: 10px; }
+        .tips-list { list-style: none; }
+        .tips-list li { font-size: 13px; color: #555; padding: 6px 0; padding-left: 20px; position: relative; }
+        .tips-list li:before { content: '✓'; position: absolute; left: 0; color: #4caf50; font-weight: 700; }
+        .footer { background: #f5f5f5; padding: 25px 30px; border-top: 1px solid #eee; text-align: center; }
+        .footer-text { font-size: 12px; color: #999; margin: 8px 0; line-height: 1.6; }
+        .footer-divider { height: 1px; background: #eee; margin: 15px 0; }
+        .footer-copyright { font-size: 11px; color: #bbb; }
+        @media (max-width: 600px) {
+          .content { padding: 20px; }
+          .header { padding: 15px 20px; }
+          .card-row { flex-direction: column; }
+          .card-value { margin-top: 5px; }
         }
       </style>
     </head>
     <body>
       <div class="wrapper">
-        <div class="email-container">
-          <!-- Hero Section -->
-          <div class="hero">
-            <div class="hero-content">
-              <div class="badge">✓ Payment Confirmed</div>
-              <h1>Down Payment Approved</h1>
-              <p>Your booking is now secured</p>
-            </div>
+        <!-- Header -->
+        <div class="header">
+          <div class="logo">🏡 Staycation Haven</div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="content">
+          <!-- Status -->
+          <div class="status-box">
+            <div class="status-title">✓ Payment Confirmed</div>
+            <div class="status-text">Your down payment has been approved</div>
           </div>
 
-          <!-- Main Content -->
-          <div class="content">
-            <div class="greeting">Hello ${guestName},</div>
+          <!-- Greeting -->
+          <div class="greeting">Hi ${guestName},</div>
+          <p class="intro">
+            Great news! Your down payment of <strong>${downPaymentAmount}</strong> has been successfully approved. Your reservation is confirmed, and you're all set to check in.
+          </p>
 
-            <p class="intro-text">
-              We're delighted to inform you that we have successfully approved the <strong>down payment</strong> for your upcoming stay at <strong>Staycation Haven</strong>. Your booking is now confirmed and you're all set to check in!
-            </p>
-
-            <!-- Key Info Grid -->
-            <div class="info-grid">
-              <div class="info-box">
-                <div class="info-label">Booking ID</div>
-                <div class="info-value">#${bookingId}</div>
+          <!-- Booking Details -->
+          <div class="section">
+            <div class="section-title">Booking Details</div>
+            <div class="booking-card">
+              <div class="card-row">
+                <span class="card-label">Booking ID</span>
+                <span class="card-value">#${bookingId}</span>
               </div>
-              <div class="info-box accent">
-                <div class="info-label">Down Payment</div>
-                <div class="info-value amount">${downPaymentAmount}</div>
-              </div>
-            </div>
-
-            <div class="separator"></div>
-
-            <!-- Property Information -->
-            <div class="section-title">
-              <span class="section-icon">📍</span>
-              Your Haven Location
-            </div>
-            <div class="property-box">
-              <div class="property-address">
-                ${propertyAddress || 'M Place South Triangle Tower D, Panay Ave, Diliman, Quezon City, 1103 Metro Manila'}
-              </div>
-            </div>
-
-            ${roomName ? `
-            <div class="info-grid" style="margin-bottom: 24px;">
-              <div class="info-box">
-                <div class="info-label">Room/Haven</div>
-                <div class="info-value">${roomName}</div>
-              </div>
-              <div class="info-box">
-                <div class="info-label">Approval Date</div>
-                <div class="info-value">${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
-              </div>
-            </div>
-            ` : `
-            <div class="info-box" style="margin-bottom: 24px;">
-              <div class="info-label">Approval Date</div>
-              <div class="info-value">${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
-            </div>
-            `}
-
-            <!-- Payment Summary -->
-            <div class="section-title">
-              <span class="section-icon">💳</span>
-              Payment Summary
-            </div>
-            <div class="payment-summary">
-              <div class="payment-row">
-                <span class="payment-label">Down Payment</span>
-                <span class="payment-value highlight">${downPaymentAmount}</span>
-              </div>
-              ${remainingBalance ? `
-              <div class="payment-row">
-                <span class="payment-label">Remaining Balance</span>
-                <span class="payment-value pending">${remainingBalance}</span>
+              ${roomName ? `
+              <div class="card-row">
+                <span class="card-label">Property</span>
+                <span class="card-value">${roomName}</span>
               </div>
               ` : ''}
-              <div class="payment-row">
-                <span class="payment-label">Status</span>
-                <span class="payment-value" style="color: #059669;">Approved ✓</span>
+              <div class="card-row">
+                <span class="card-label">Approved On</span>
+                <span class="card-value">${approvalDate}</span>
               </div>
             </div>
-
-            <!-- Action Box -->
-            <div class="action-box">
-              <div class="action-title">🎉 Ready to Check In?</div>
-              <div class="action-text">
-                Your approved down payment confirms your reservation. You can now proceed with your check-in on your scheduled date. We'll send you detailed check-in instructions soon!
-              </div>
-              <a href="mailto:staycationhaven9@gmail.com" class="cta-button">Contact Us</a>
-            </div>
-
-            <!-- Next Steps -->
-            <div class="section-title">
-              <span class="section-icon">📋</span>
-              What Happens Next
-            </div>
-            <div class="next-steps">
-              <div class="next-steps-title">Important Steps to Follow:</div>
-              <ul class="next-steps-list">
-                <li>You will receive detailed check-in instructions via email</li>
-                <li>Please review the property guidelines and house rules</li>
-                <li>Confirm your arrival time at least 24 hours before check-in</li>
-                ${remainingBalance ? `<li>Complete the remaining balance payment before check-in date</li>` : ''}
-                <li>Save this email for your reference</li>
-              </ul>
-            </div>
-
-            <p class="closing">
-              If you have any questions or concerns, don't hesitate to reach out to our team. We're here to help!
-            </p>
-
-            <p class="closing">
-              <strong>Warm regards,</strong><br>
-              <strong>The Staycation Haven Team</strong>
-            </p>
           </div>
 
-          <!-- Footer -->
-          <div class="footer">
-            <div class="footer-logo">🏡 Staycation Haven</div>
-            <div class="footer-text">
-              📧 staycationhaven9@gmail.com<br>
-              📱 +63 123 456 7890
+          <!-- Property Location -->
+          ${propertyAddress ? `
+          <div class="section">
+            <div class="section-title">Location</div>
+            <div class="property-info">
+              <div class="property-address">${propertyAddress}</div>
             </div>
-            <div class="footer-divider"></div>
-            <div class="footer-copyright">
-              &copy; ${new Date().getFullYear()} Staycation Haven. All rights reserved.<br>
-              Experience Your Perfect Staycation
+          </div>
+          ` : ''}
+
+          <!-- Payment Breakdown -->
+          <div class="section">
+            <div class="section-title">Payment Breakdown</div>
+            <table class="payment-table">
+              <tr>
+                <td>Down Payment</td>
+                <td class="amount">${downPaymentAmount}</td>
+              </tr>
+              ${remainingBalance ? `
+              <tr>
+                <td>Remaining Balance</td>
+                <td class="highlight">${remainingBalance}</td>
+              </tr>
+              ` : ''}
+              <tr>
+                <td>Status</td>
+                <td style="color: #4caf50;">Approved</td>
+              </tr>
+            </table>
+          </div>
+
+          <!-- CTA -->
+          <div class="cta-box">
+            <p class="cta-text">Ready to check in? We'll send you check-in instructions and house rules soon.</p>
+            <a href="mailto:staycationhaven9@gmail.com" class="cta-button">Contact Us for Details</a>
+          </div>
+
+          <!-- Next Steps -->
+          <div class="section">
+            <div class="section-title">What's Next</div>
+            <div class="tips">
+              <div class="tips-title">Important Steps:</div>
+              <ul class="tips-list">
+                <li>Check your email for check-in instructions</li>
+                <li>Review house rules and property guidelines</li>
+                <li>Confirm your arrival date (24 hours before)</li>
+                ${remainingBalance ? `<li>Complete remaining balance payment before check-in</li>` : ''}
+              </ul>
             </div>
+          </div>
+
+          <p style="font-size: 14px; color: #666; margin-top: 20px; line-height: 1.6;">
+            If you have any questions, feel free to reach out to our support team. We're here to help make your stay amazing!
+          </p>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+          <div class="footer-text">Staycation Haven</div>
+          <div class="footer-text">📧 staycationhaven9@gmail.com | 📱 +63 123 456 7890</div>
+          <div class="footer-divider"></div>
+          <div class="footer-copyright">
+            © ${new Date().getFullYear()} Staycation Haven. All rights reserved. | Experience Your Perfect Staycation
           </div>
         </div>
       </div>
