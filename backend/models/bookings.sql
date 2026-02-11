@@ -65,10 +65,12 @@ CREATE TABLE booking_payments (
   down_payment DECIMAL(10,2) NOT NULL,
   remaining_balance DECIMAL(10,2) NOT NULL,
 
-  payment_status VARCHAR(20) NOT NULL DEFAULT 'pending'
+  payment_status VARCHAR(25) NOT NULL DEFAULT 'pending_down_payment'
     CHECK (payment_status IN (
-      'pending',
-      'approved',
+      'pending_down_payment',
+      'approved_down_payment',
+      'pending_full_payment',
+      'approved_full_payment',
       'rejected',
       'refunded'
     )),
