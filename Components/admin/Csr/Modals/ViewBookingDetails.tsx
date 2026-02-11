@@ -50,6 +50,7 @@ interface Booking {
   total_amount: number;
   down_payment: number;
   remaining_balance: number;
+  payment_status?: string;
   status: string;
   add_ons?: unknown;
   additional_guests?: unknown;
@@ -410,7 +411,7 @@ export default function ViewBookingDetails({ booking, onClose }: ViewBookingDeta
                   totalAmount={booking.total_amount}
                   downPayment={booking.down_payment}
                   remainingBalance={booking.remaining_balance}
-                  status={booking.status}
+                  paymentStatus={booking.payment_status}
                   isCompact={false}
                 />
               </div>

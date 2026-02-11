@@ -45,6 +45,7 @@ export interface BookingListItem {
   // Payment summary (lists often show a summary)
   payment_method?: string | null;
   payment_proof_url?: string | null;
+  payment_status?: string | null;
   down_payment?: number | null;
   total_amount?: number | null;
   remaining_balance?: number | null;
