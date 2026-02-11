@@ -761,6 +761,7 @@ export const getAllBookings = async (
         bg.facebook_link,
         bp.payment_method,
         bp.payment_proof_url,
+        bp.payment_status,
         bp.room_rate,
         bp.add_ons_total,
         bp.total_amount,
