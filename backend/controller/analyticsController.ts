@@ -34,29 +34,39 @@ export interface MonthlyRevenue {
 export async function fetchAnalyticsSummary(period: string = '30'): Promise<AnalyticsSummary> {
   const currentStatsQuery = `
     SELECT
-      COALESCE(SUM(total_amount), 0) as total_revenue,
-      COUNT(*) as total_bookings,
+      COALESCE(SUM(CASE
+        WHEN bp.payment_status = 'approved_down_payment' THEN bp.down_payment
+        WHEN bp.payment_status = 'approved_full_payment' THEN bp.total_amount
+        ELSE 0
+      END), 0) as total_revenue,
+      COUNT(DISTINCT b.id) as total_bookings,
       COUNT(DISTINCT CASE
-        WHEN user_id IS NOT NULL THEN user_id::text
-        ELSE guest_email
+        WHEN b.user_id IS NOT NULL THEN b.user_id::text
+        ELSE b.guest_email
       END) as new_guests
-    FROM ${BOOKING_TABLE}
-    WHERE created_at >= NOW() - INTERVAL '${period} days'
-      AND status IN ('approved', 'confirmed', 'checked-in', 'completed')
+    FROM ${BOOKING_TABLE} b
+    LEFT JOIN booking_payments bp ON b.id = bp.booking_id
+    WHERE b.created_at >= NOW() - INTERVAL '${period} days'
+      AND b.status IN ('approved', 'confirmed', 'checked-in', 'completed')
   `;
 
   const previousStatsQuery = `
     SELECT
-      COALESCE(SUM(total_amount), 0) as total_revenue,
-      COUNT(*) as total_bookings,
+      COALESCE(SUM(CASE
+        WHEN bp.payment_status = 'approved_down_payment' THEN bp.down_payment
+        WHEN bp.payment_status = 'approved_full_payment' THEN bp.total_amount
+        ELSE 0
+      END), 0) as total_revenue,
+      COUNT(DISTINCT b.id) as total_bookings,
       COUNT(DISTINCT CASE
-        WHEN user_id IS NOT NULL THEN user_id::text
-        ELSE guest_email
+        WHEN b.user_id IS NOT NULL THEN b.user_id::text
+        ELSE b.guest_email
       END) as new_guests
-    FROM ${BOOKING_TABLE}
-    WHERE created_at >= NOW() - INTERVAL '${parseInt(period) * 2} days'
-      AND created_at < NOW() - INTERVAL '${period} days'
-      AND status IN ('approved', 'confirmed', 'checked-in', 'completed')
+    FROM ${BOOKING_TABLE} b
+    LEFT JOIN booking_payments bp ON b.id = bp.booking_id
+    WHERE b.created_at >= NOW() - INTERVAL '${parseInt(period) * 2} days'
+      AND b.created_at < NOW() - INTERVAL '${period} days'
+      AND b.status IN ('approved', 'confirmed', 'checked-in', 'completed')
   `;
 
   const occupancyQuery = `
@@ -135,14 +145,19 @@ export async function fetchAnalyticsSummary(period: string = '30'): Promise<Anal
 export async function fetchRevenueByRoom(period: string = '30'): Promise<RevenueByRoom[]> {
   const query = `
     SELECT
-      room_name,
-      COALESCE(SUM(total_amount), 0) as revenue,
-      COUNT(*) as bookings
-    FROM ${BOOKING_TABLE}
-    WHERE created_at >= NOW() - INTERVAL '${period} days'
-      AND status IN ('approved', 'confirmed', 'checked-in', 'completed')
-      AND room_name IS NOT NULL
-    GROUP BY room_name
+      b.room_name,
+      COALESCE(SUM(CASE
+        WHEN bp.payment_status = 'approved_down_payment' THEN bp.down_payment
+        WHEN bp.payment_status = 'approved_full_payment' THEN bp.total_amount
+        ELSE 0
+      END), 0) as revenue,
+      COUNT(DISTINCT b.id) as bookings
+    FROM ${BOOKING_TABLE} b
+    LEFT JOIN booking_payments bp ON b.id = bp.booking_id
+    WHERE b.created_at >= NOW() - INTERVAL '${period} days'
+      AND b.status IN ('approved', 'confirmed', 'checked-in', 'completed')
+      AND b.room_name IS NOT NULL
+    GROUP BY b.room_name
     ORDER BY revenue DESC
   `;
 
@@ -158,12 +173,17 @@ export async function fetchRevenueByRoom(period: string = '30'): Promise<Revenue
 export async function fetchMonthlyRevenue(months: string = '6'): Promise<MonthlyRevenue[]> {
   const query = `
     SELECT
-      TO_CHAR(created_at, 'Mon') as month,
-      EXTRACT(MONTH FROM created_at) as month_num,
-      COALESCE(SUM(total_amount), 0) as revenue
-    FROM ${BOOKING_TABLE}
-    WHERE created_at >= NOW() - INTERVAL '${months} months'
-      AND status IN ('approved', 'confirmed', 'checked-in', 'completed')
+      TO_CHAR(b.created_at, 'Mon') as month,
+      EXTRACT(MONTH FROM b.created_at) as month_num,
+      COALESCE(SUM(CASE
+        WHEN bp.payment_status = 'approved_down_payment' THEN bp.down_payment
+        WHEN bp.payment_status = 'approved_full_payment' THEN bp.total_amount
+        ELSE 0
+      END), 0) as revenue
+    FROM ${BOOKING_TABLE} b
+    LEFT JOIN booking_payments bp ON b.id = bp.booking_id
+    WHERE b.created_at >= NOW() - INTERVAL '${months} months'
+      AND b.status IN ('approved', 'confirmed', 'checked-in', 'completed')
     GROUP BY month, month_num
     ORDER BY month_num ASC
   `;
@@ -185,30 +205,40 @@ export const getAnalyticsSummary = async (req: NextRequest): Promise<NextRespons
     // Get current period stats
     const currentStatsQuery = `
       SELECT
-        COALESCE(SUM(total_amount), 0) as total_revenue,
-        COUNT(*) as total_bookings,
+        COALESCE(SUM(CASE
+          WHEN bp.payment_status = 'approved_down_payment' THEN bp.down_payment
+          WHEN bp.payment_status = 'approved_full_payment' THEN bp.total_amount
+          ELSE 0
+        END), 0) as total_revenue,
+        COUNT(DISTINCT b.id) as total_bookings,
         COUNT(DISTINCT CASE
-          WHEN user_id IS NOT NULL THEN user_id::text
-          ELSE guest_email
+          WHEN b.user_id IS NOT NULL THEN b.user_id::text
+          ELSE b.guest_email
         END) as new_guests
-      FROM ${BOOKING_TABLE}
-      WHERE created_at >= NOW() - INTERVAL '${period} days'
-        AND status IN ('approved', 'confirmed', 'checked-in', 'completed')
+      FROM ${BOOKING_TABLE} b
+      LEFT JOIN booking_payments bp ON b.id = bp.booking_id
+      WHERE b.created_at >= NOW() - INTERVAL '${period} days'
+        AND b.status IN ('approved', 'confirmed', 'checked-in', 'completed')
     `;
 
     // Get previous period stats for comparison
     const previousStatsQuery = `
       SELECT
-        COALESCE(SUM(total_amount), 0) as total_revenue,
-        COUNT(*) as total_bookings,
+        COALESCE(SUM(CASE
+          WHEN bp.payment_status = 'approved_down_payment' THEN bp.down_payment
+          WHEN bp.payment_status = 'approved_full_payment' THEN bp.total_amount
+          ELSE 0
+        END), 0) as total_revenue,
+        COUNT(DISTINCT b.id) as total_bookings,
         COUNT(DISTINCT CASE
-          WHEN user_id IS NOT NULL THEN user_id::text
-          ELSE guest_email
+          WHEN b.user_id IS NOT NULL THEN b.user_id::text
+          ELSE b.guest_email
         END) as new_guests
-      FROM ${BOOKING_TABLE}
-      WHERE created_at >= NOW() - INTERVAL '${parseInt(period) * 2} days'
-        AND created_at < NOW() - INTERVAL '${period} days'
-        AND status IN ('approved', 'confirmed', 'checked-in', 'completed')
+      FROM ${BOOKING_TABLE} b
+      LEFT JOIN booking_payments bp ON b.id = bp.booking_id
+      WHERE b.created_at >= NOW() - INTERVAL '${parseInt(period) * 2} days'
+        AND b.created_at < NOW() - INTERVAL '${period} days'
+        AND b.status IN ('approved', 'confirmed', 'checked-in', 'completed')
     `;
 
     // Get occupancy rate - calculate based on booked days vs total available days
@@ -311,14 +341,19 @@ export const getRevenueByRoom = async (req: NextRequest): Promise<NextResponse> 
 
     const query = `
       SELECT
-        room_name,
-        COALESCE(SUM(total_amount), 0) as revenue,
-        COUNT(*) as bookings
-      FROM ${BOOKING_TABLE}
-      WHERE created_at >= NOW() - INTERVAL '${period} days'
-        AND status IN ('approved', 'confirmed', 'checked-in', 'completed')
-        AND room_name IS NOT NULL
-      GROUP BY room_name
+        b.room_name,
+        COALESCE(SUM(CASE
+          WHEN bp.payment_status = 'approved_down_payment' THEN bp.down_payment
+          WHEN bp.payment_status = 'approved_full_payment' THEN bp.total_amount
+          ELSE 0
+        END), 0) as revenue,
+        COUNT(DISTINCT b.id) as bookings
+      FROM ${BOOKING_TABLE} b
+      LEFT JOIN booking_payments bp ON b.id = bp.booking_id
+      WHERE b.created_at >= NOW() - INTERVAL '${period} days'
+        AND b.status IN ('approved', 'confirmed', 'checked-in', 'completed')
+        AND b.room_name IS NOT NULL
+      GROUP BY b.room_name
       ORDER BY revenue DESC
     `;
 
@@ -354,12 +389,17 @@ export const getMonthlyRevenue = async (req: NextRequest): Promise<NextResponse>
 
     const query = `
       SELECT
-        TO_CHAR(created_at, 'Mon') as month,
-        EXTRACT(MONTH FROM created_at) as month_num,
-        COALESCE(SUM(total_amount), 0) as revenue
-      FROM ${BOOKING_TABLE}
-      WHERE created_at >= NOW() - INTERVAL '${months} months'
-        AND status IN ('approved', 'confirmed', 'checked-in', 'completed')
+        TO_CHAR(b.created_at, 'Mon') as month,
+        EXTRACT(MONTH FROM b.created_at) as month_num,
+        COALESCE(SUM(CASE
+          WHEN bp.payment_status = 'approved_down_payment' THEN bp.down_payment
+          WHEN bp.payment_status = 'approved_full_payment' THEN bp.total_amount
+          ELSE 0
+        END), 0) as revenue
+      FROM ${BOOKING_TABLE} b
+      LEFT JOIN booking_payments bp ON b.id = bp.booking_id
+      WHERE b.created_at >= NOW() - INTERVAL '${months} months'
+        AND b.status IN ('approved', 'confirmed', 'checked-in', 'completed')
       GROUP BY month, month_num
       ORDER BY month_num ASC
     `;
