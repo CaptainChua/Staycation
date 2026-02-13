@@ -183,9 +183,9 @@ const MyWishlistPage = ({ initialData, userId }: MyWishlistPageProps) => {
           </div>
         ) : wishlistItems.length === 0 ? (
           /* Empty State */
-          <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-12 text-center">
             <Heart className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
               Your wishlist is empty
             </h3>
             <p className="text-gray-600 mb-6">
