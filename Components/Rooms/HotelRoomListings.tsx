@@ -397,8 +397,8 @@ const HotelRoomListings = ({ initialHavens }: HotelRoomListingsProps) => {
                 {/* Filter Content - Desktop: Horizontal, Mobile: Hidden */}
                 <div className={`${isMobile ? (showMobileFilters ? 'block' : 'hidden') : 'block'}`}>
                   <div className="flex flex-col lg:flex-row items-end gap-3">
-                    {/* Filter Pills - Desktop Only */}
-                    {!isMobile && (
+                    {/* Filter Pills */}
+                    {(!isMobile || showMobileFilters) && (
                       <div className="flex flex-wrap items-center gap-2">
                         {/* Price Range Filter */}
                         <div className="relative">
