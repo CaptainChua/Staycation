@@ -44,6 +44,7 @@ interface BookingData {
   total_amount: number;
   down_payment: number;
   remaining_balance: number;
+  payment_status?: string;
   status: string;
   add_ons?: unknown;
   additional_guests?: unknown;
@@ -1276,13 +1277,14 @@ export default function BookingsPage() {
                       </td>
                       <td className="py-4 px-4 text-right">
                         <TotalBreakdown
-                          roomRate={booking.room_rate}
-                          securityDeposit={booking.security_deposit}
-                          depositStatus={booking.deposit_status}
-                          addOnsTotal={booking.add_ons_total}
-                          totalAmount={booking.total_amount}
-                          downPayment={booking.down_payment}
-                          remainingBalance={booking.remaining_balance}
+                          roomRate={booking.room_rate ?? 0}
+                          securityDeposit={booking.security_deposit ?? 0}
+                          depositStatus={booking.deposit_status ?? "pending"}
+                          addOnsTotal={booking.add_ons_total ?? 0}
+                          totalAmount={booking.total_amount ?? 0}
+                          downPayment={booking.down_payment ?? 0}
+                          remainingBalance={booking.remaining_balance ?? 0}
+                          paymentStatus={booking.payment_status?.includes("approved") ? "Approved" : "Pending"}
                           isCompact={true}
                         />
                       </td>
@@ -1508,26 +1510,35 @@ export default function BookingsPage() {
                 <div className="flex items-start justify-between pt-3 border-t border-gray-200 dark:border-gray-700">
                   <div className="flex-1">
                     <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Total Amount</p>
-                    <p className="font-bold text-gray-800 dark:text-gray-100 text-lg">{formatCurrency(booking.total_amount + 1000)}</p>
                     {(() => {
-                      const isDepositPaid = booking.deposit_status?.toLowerCase() !== 'pending';
+                      const depositStatus = booking.deposit_status ?? "pending";
+                      const isDepositPaid = depositStatus.toLowerCase() === 'paid';
+                      const displayTotal = isDepositPaid
+                        ? booking.total_amount
+                        : booking.total_amount + 1000;
                       const balance = isDepositPaid
                         ? (booking.total_amount - booking.down_payment)
                         : (booking.total_amount + 1000 - booking.down_payment);
-                      return balance > 0 && (
-                        <p className="text-xs text-orange-600 dark:text-orange-400">
-                          Balance: {formatCurrency(balance)}
-                        </p>
+                      return (
+                        <>
+                          <p className="font-bold text-gray-800 dark:text-gray-100 text-lg">{formatCurrency(displayTotal)}</p>
+                          {balance > 0 && (
+                            <p className="text-xs text-orange-600 dark:text-orange-400">
+                              Balance: {formatCurrency(balance)}
+                            </p>
+                          )}
+                        </>
                       );
                     })()}
                     <TotalBreakdown
-                      roomRate={booking.room_rate}
-                      securityDeposit={booking.security_deposit}
-                      depositStatus={booking.deposit_status}
-                      addOnsTotal={booking.add_ons_total}
-                      totalAmount={booking.total_amount}
-                      downPayment={booking.down_payment}
-                      remainingBalance={booking.remaining_balance}
+                      roomRate={booking.room_rate ?? 0}
+                      securityDeposit={booking.security_deposit ?? 0}
+                      depositStatus={booking.deposit_status ?? "pending"}
+                      addOnsTotal={booking.add_ons_total ?? 0}
+                      totalAmount={booking.total_amount ?? 0}
+                      downPayment={booking.down_payment ?? 0}
+                      remainingBalance={booking.remaining_balance ?? 0}
+                      paymentStatus={booking.payment_status?.includes("approved") ? "Approved" : "Pending"}
                       isCompact={false}
                     />
                   </div>
