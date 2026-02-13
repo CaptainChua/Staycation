@@ -393,7 +393,8 @@ export default function CsrDashboard() {
         {
           id: "bookings",
           icon: Calendar,
-          label: "Bookings Management",
+          label: "Guest Bookings",
+          subtitle: "Management",
           color: "text-green-500",
         },
         {
@@ -435,13 +436,15 @@ export default function CsrDashboard() {
         {
           id: "deliverables",
           icon: FileText,
-          label: "Deliverables Management",
+          label: "Guest Deliverables",
+          subtitle: "Assign deliverables",
           color: "text-pink-500",
         },
         {
           id: "cleaners",
           icon: Users,
           label: "Cleaners Management",
+          subtitle: "Assign Cleaners",
           color: "text-brand-primary",
         },
         {
