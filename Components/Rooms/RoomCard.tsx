@@ -5,10 +5,14 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useMemo } from "react";
 import { useSession } from "next-auth/react";
-import { useAddToWishlistMutation, useRemoveFromWishlistMutation, useCheckWishlistStatusQuery } from "@/redux/api/wishlistApi";
+import {
+  useAddToWishlistMutation,
+  useRemoveFromWishlistMutation,
+  useCheckWishlistStatusQuery,
+} from "@/redux/api/wishlistApi";
 import { useRoomDiscounts } from "@/hooks/useRoomDiscounts";
 import toast from "react-hot-toast";
-import { ensureGuestToken, getGuestIdentifier } from "@/lib/guest";
+import { getGuestIdentifier, getGuestToken } from "@/lib/guest";
 
 interface Room {
   id: string;
@@ -129,23 +133,35 @@ const RoomCard = ({
 
     try {
       if (newFavoriteState) {
-        // Add to wishlist (support both logged-in and guest users)
+        // Add to wishlist (only for logged-in users and explicit guests)
         if (userId) {
           await addToWishlist({
             user_id: userId,
             haven_id: roomId,
           }).unwrap();
+          toast.success("Added to wishlist");
+        } else if (getGuestIdentifier()) {
+          // Explicit guest user - use existing guest token
+          const guestToken = getGuestToken();
+          if (guestToken) {
+            await addToWishlist({
+              guest_token: guestToken,
+              haven_id: roomId,
+            }).unwrap();
+            toast.success("Added to wishlist");
+          } else {
+            toast.error("Guest session expired. Please sign in again.");
+            setOptimisticFavorite(false);
+            return;
+          }
         } else {
-          // Guest user - ensure a guest token exists and use it
-          const guestToken = ensureGuestToken();
-          await addToWishlist({
-            guest_token: guestToken,
-            haven_id: roomId,
-          }).unwrap();
-          // Ensure hook sees the new guest identifier for subsequent checks
-          setUserIdentifier(`guest_${guestToken}`);
+          // Anonymous user - don't allow wishlist
+          toast.error(
+            "Please sign in or continue as guest to save to wishlist",
+          );
+          setOptimisticFavorite(false);
+          return;
         }
-        toast.success("Added to wishlist");
         // Force refetch to update UI immediately (hook will refetch on arg change)
         try {
           refetchWishlistStatus();
@@ -198,60 +214,63 @@ const RoomCard = ({
   };
 
   // Fetch discounts for this room
-  const { data: discountsData, isLoading: isLoadingDiscounts } = useRoomDiscounts(
-    room.uuid_id || room.id,
-    userId
-  );
+  const { data: discountsData, isLoading: isLoadingDiscounts } =
+    useRoomDiscounts(room.uuid_id || room.id, userId);
 
   // Calculate the best discount for this room
   const bestDiscount = useMemo(() => {
     if (!discountsData?.data || discountsData.data.length === 0) return null;
-    
-    const basePrice = parseFloat(room.price.replace('₱', '').replace(/,/g, ''));
-    
+
+    const basePrice = parseFloat(room.price.replace("₱", "").replace(/,/g, ""));
+
     // Find the discount that gives the best savings
-    return discountsData.data.reduce((best, discount) => {
-      let savings = 0;
-      
-      if (discount.discount_type === 'percentage') {
-        savings = basePrice * (discount.discount_value / 100);
-      } else {
-        savings = discount.discount_value;
-      }
-      
-      // Check minimum booking requirement
-      if (discount.min_booking_amount && basePrice < discount.min_booking_amount) {
-        return best; // Skip this discount
-      }
-      
-      if (!best || savings > best.savings) {
-        return { ...discount, savings };
-      }
-      
-      return best;
-    }, null as (typeof discountsData.data[0] & { savings?: number }) | null);
+    return discountsData.data.reduce(
+      (best, discount) => {
+        let savings = 0;
+
+        if (discount.discount_type === "percentage") {
+          savings = basePrice * (discount.discount_value / 100);
+        } else {
+          savings = discount.discount_value;
+        }
+
+        // Check minimum booking requirement
+        if (
+          discount.min_booking_amount &&
+          basePrice < discount.min_booking_amount
+        ) {
+          return best; // Skip this discount
+        }
+
+        if (!best || savings > (best.savings || 0)) {
+          return { ...discount, savings };
+        }
+
+        return best;
+      },
+      null as ((typeof discountsData.data)[0] & { savings?: number }) | null,
+    );
   }, [discountsData, room.price]);
 
   // Calculate discounted price
   const discountedPrice = useMemo(() => {
     if (!bestDiscount) return room.price;
-    
-    const basePrice = parseFloat(room.price.replace('₱', '').replace(/,/g, ''));
+
+    const basePrice = parseFloat(room.price.replace("₱", "").replace(/,/g, ""));
     let finalPrice = basePrice;
-    
-    if (bestDiscount.discount_type === 'percentage') {
+
+    if (bestDiscount.discount_type === "percentage") {
       finalPrice = basePrice * (1 - bestDiscount.discount_value / 100);
     } else {
       finalPrice = Math.max(0, basePrice - bestDiscount.discount_value);
     }
-    
-    return `₱${finalPrice.toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+
+    return `₱${finalPrice.toLocaleString("en-PH", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
   }, [bestDiscount, room.price]);
 
   // Calculate original price (show the base price if there's a discount)
   const displayOriginalPrice = bestDiscount ? room.price : undefined;
   const displayCurrentPrice = bestDiscount ? discountedPrice : room.price;
-  const displayDiscountPercentage = bestDiscount?.discount_type === 'percentage' ? bestDiscount.discount_value : undefined;
 
   // Extract YouTube video ID from URL and return a valid embed URL
   const getYouTubeEmbedUrl = (url: string | undefined) => {
@@ -346,7 +365,10 @@ const RoomCard = ({
       </div>
 
       {/* Discount Section - Overlap Image and Details */}
-      {(bestDiscount || (!discountsData?.data || discountsData.data.length === 0 && !bestDiscount) || isLoadingDiscounts) && (
+      {(bestDiscount ||
+        !discountsData?.data ||
+        (discountsData.data.length === 0 && !bestDiscount) ||
+        isLoadingDiscounts) && (
         <div className="flex items-center justify-center gap-3 px-4 py-2 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm rounded-lg shadow-md border border-gray-200 dark:border-gray-700 -mt-5 mx-3 relative z-10 mb-3 overflow-hidden">
           {isLoadingDiscounts ? (
             <>
@@ -365,12 +387,15 @@ const RoomCard = ({
           ) : bestDiscount ? (
             <>
               <div className="bg-brand-primary dark:bg-brand-primary text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-md whitespace-nowrap">
-                {bestDiscount.discount_type === 'percentage' 
+                {bestDiscount.discount_type === "percentage"
                   ? `-${bestDiscount.discount_value}% OFF`
-                  : `-₱${bestDiscount.discount_value.toLocaleString('en-PH')} OFF`}
+                  : `-₱${bestDiscount.discount_value.toLocaleString("en-PH")} OFF`}
               </div>
               <div className="flex items-center gap-1.5">
-                <Tag className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-yellow-600 dark:text-yellow-500" style={{animation: 'slideInScale 0.6s ease-out'}} />
+                <Tag
+                  className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-yellow-600 dark:text-yellow-500"
+                  style={{ animation: "slideInScale 0.6s ease-out" }}
+                />
                 <div className="text-xs font-semibold text-yellow-700 dark:text-yellow-400">
                   {bestDiscount.name}
                 </div>
@@ -382,7 +407,10 @@ const RoomCard = ({
                 Guest Favorite
               </div>
               <div className="flex items-center gap-1.5">
-                <Heart className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-brand-primary dark:text-brand-primary" style={{animation: 'slideInScale 0.6s ease-out'}} />
+                <Heart
+                  className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-brand-primary dark:text-brand-primary"
+                  style={{ animation: "slideInScale 0.6s ease-out" }}
+                />
                 <div className="text-xs font-semibold text-brand-primary dark:text-brand-primary">
                   Popular Choice
                 </div>
@@ -439,7 +467,7 @@ const RoomCard = ({
                     Save
                   </div>
                   <div className="text-xs sm:text-sm font-bold text-green-600 dark:text-green-400">
-                    ₱{bestDiscount?.savings?.toLocaleString('en-PH') || '0'}
+                    ₱{bestDiscount?.savings?.toLocaleString("en-PH") || "0"}
                   </div>
                 </>
               )}

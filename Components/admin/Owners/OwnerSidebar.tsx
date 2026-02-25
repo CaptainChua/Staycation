@@ -214,7 +214,7 @@ export default function OwnerSidebar({ sidebar, setSidebar, mobileMenuOpen, setM
         </div>
 
         {/* Navigation */}
-        <nav className={`flex-1 p-4 space-y-1 overflow-y-auto ${
+        <nav className={`flex-1 p-4 space-y-1 overflow-y-auto scrollbar-hide ${
           !sidebar
             ? "[&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
             : ""

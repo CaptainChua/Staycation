@@ -464,12 +464,35 @@ export const authOptions: NextAuthOptions = {
     
     async session({ session, token }) {
       if (session.user) {
+        // ALWAYS fetch the latest user data from the database to ensure fresh data
+        try {
+          const userEmail = session.user.email;
+          const result = await pool.query(
+            "SELECT user_id, name, email, picture FROM users WHERE email = $1",
+            [userEmail]
+          );
+
+          if (result.rows[0]) {
+            const dbUser = result.rows[0];
+            // Update session with latest data from database
+            session.user.name = dbUser.name;
+            session.user.email = dbUser.email;
+            if (dbUser.picture) {
+              session.user.image = dbUser.picture;
+            }
+            session.user.id = dbUser.user_id;
+            console.log("✅ Session refreshed with latest data from DB - Name:", dbUser.name);
+          }
+        } catch (error) {
+          console.error("⚠️ Error fetching fresh user data in session callback:", error);
+          // Continue with existing token data if DB query fails
+        }
+
         // Priority 1: Use the database user_id stored in JWT (fastest path)
         if (token.db_id) {
           // Ensure db_id is converted to string properly
           const dbIdStr = typeof token.db_id === 'string' ? token.db_id : String(token.db_id);
           session.user.id = dbIdStr;
-          console.log("✅ Session created with DB ID from JWT:", dbIdStr);
         }
         // Priority 2: For OAuth users (Google or Facebook) without stored DB ID
         // Check if token.role is 'google' or 'facebook' OR token.sub exists
@@ -497,7 +520,6 @@ export const authOptions: NextAuthOptions = {
               const userId = result.rows[0].user_id;
               const userIdStr = typeof userId === 'string' ? userId : String(userId);
               session.user.id = userIdStr;
-              console.log("✅ OAuth user session created with DB ID:", userIdStr);
             } else {
               // Fallback to token sub if user not found in DB (shouldn't happen if upsert worked)
               console.warn("⚠️ User not found in database by provider ID, using token.sub:", token.sub);
@@ -511,18 +533,15 @@ export const authOptions: NextAuthOptions = {
         // Priority 3: For credential users (employees or regular users with role), use token.id or token.sub
         else if (token.role && token.role !== 'google' && token.role !== 'facebook' && token.role !== 'haven') {
           session.user.id = token.id || token.sub!;
-          console.log("✅ Session created with employee/credential ID:", token.id || token.sub);
         }
         // Priority 4: Fallback to token.sub or token.id
         else {
           session.user.id = token.id || token.sub!;
-          console.log("⚠️ Using fallback ID:", token.id || token.sub);
         }
 
         // Add role if available
         if (token.role) {
           (session.user as { role?: string }).role = token.role as string;
-          console.log("✅ Session created with role:", token.role);
         }
       }
       return session;

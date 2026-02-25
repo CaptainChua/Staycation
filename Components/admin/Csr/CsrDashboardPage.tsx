@@ -393,7 +393,8 @@ export default function CsrDashboard() {
         {
           id: "bookings",
           icon: Calendar,
-          label: "Bookings Management",
+          label: "Guest Bookings",
+          subtitle: "Management",
           color: "text-green-500",
         },
         {
@@ -410,13 +411,15 @@ export default function CsrDashboard() {
         {
           id: "payments",
           icon: DollarSign,
-          label: "Payment Management",
+          label: "Guest Down Payment",
+          subtitle: "Management",
           color: "text-purple-500",
         },
         {
           id: "deposits",
           icon: Wallet,
-          label: "Security Deposit",
+          label: "Guest Security Deposit",
+          subtitle: "Management",
           color: "text-indigo-500",
         },
         {
@@ -433,13 +436,15 @@ export default function CsrDashboard() {
         {
           id: "deliverables",
           icon: FileText,
-          label: "Deliverables Management",
+          label: "Guest Deliverables",
+          subtitle: "Assign deliverables",
           color: "text-pink-500",
         },
         {
           id: "cleaners",
           icon: Users,
           label: "Cleaners Management",
+          subtitle: "Assign Cleaners",
           color: "text-brand-primary",
         },
         {
@@ -542,7 +547,7 @@ export default function CsrDashboard() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-6 overflow-y-auto">
+        <nav className="flex-1 p-4 space-y-6 overflow-y-auto scrollbar-hide">
           {navCategories.map((category) => (
             <div key={category.category}>
               {sidebar && (
@@ -573,9 +578,20 @@ export default function CsrDashboard() {
                         }`}
                       />
                       {sidebar && (
-                        <span className="text-sm font-semibold truncate">
-                          {item.label}
-                        </span>
+                        <div className="flex flex-col items-start min-w-0">
+                          <span className="text-sm font-semibold truncate">
+                            {item.label}
+                          </span>
+                          {item.subtitle && (
+                            <span className={`text-xs ${
+                              page === item.id
+                                ? "text-white/80"
+                                : "text-gray-500 dark:text-gray-400"
+                            }`}>
+                              {item.subtitle}
+                            </span>
+                          )}
+                        </div>
                       )}
                     </button>
                   );

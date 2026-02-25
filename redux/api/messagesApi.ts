@@ -3,7 +3,7 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 interface Conversation {
   id: string;
   name: string;
-  type: "internal" | "guest";
+  type: "internal" | "guest" | "oauth";
   participant_ids: string[];
   last_message?: string;
   last_message_time?: string;
@@ -92,7 +92,7 @@ export const messagesApi = createApi({
       { success: boolean; data: Conversation },
       {
         name: string;
-        type: "internal" | "guest";
+        type: "internal" | "guest" | "oauth";
         participant_ids: string[];
       }
     >({
