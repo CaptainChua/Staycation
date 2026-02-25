@@ -7,6 +7,8 @@ import { Select, SelectItem } from "@nextui-org/select";
 import { DatePicker } from "@nextui-org/date-picker";
 import { parseDate, type DateValue } from "@internationalized/date";
 import { useUpdateEmployeeMutation } from "@/redux/api/employeeApi";
+import { useCreateActivityLogMutation } from "@/redux/api/activityLogApi";
+import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
 import Image from "next/image";
 
@@ -39,7 +41,9 @@ interface EditEmployeeModalProps {
 }
 
 const EditEmployeeModal = ({ isOpen, onClose, employee }: EditEmployeeModalProps) => {
+  const { data: session } = useSession();
   const [updateEmployee, { isLoading }] = useUpdateEmployeeMutation();
+  const [createActivityLog] = useCreateActivityLogMutation();
 
   // Track which employee ID we've initialized for
   const initializedEmployeeId = useRef<string | null>(null);
@@ -211,6 +215,20 @@ const EditEmployeeModal = ({ isOpen, onClose, employee }: EditEmployeeModalProps
       const result = await updateEmployee(employeeData).unwrap();
 
       if (result.success) {
+        // Create activity log
+        try {
+          await createActivityLog({
+            employee_id: (session?.user as any)?.id,
+            action_type: "update",
+            description: `Updated staff: ${formData.firstName} ${formData.lastName}`,
+            details: `Changes applied to ${formData.firstName}'s profile`,
+            entity_type: "staff",
+            entity_id: employee?.id
+          }).unwrap();
+        } catch (logError) {
+          console.error("Failed to create activity log:", logError);
+        }
+
         toast.success("Employee updated successfully!");
         handleClose();
       }
@@ -234,16 +252,16 @@ const EditEmployeeModal = ({ isOpen, onClose, employee }: EditEmployeeModalProps
     <>
       <div className="fixed inset-0 bg-black/50 z-40" onClick={handleClose}></div>
       <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] shadow-2xl flex flex-col">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-4xl w-full max-h-[90vh] shadow-2xl flex flex-col border border-slate-200 dark:border-slate-800">
           {/* Header */}
-          <div className="flex justify-between items-center p-6 border-b border-gray-200 bg-gradient-to-r from-orange-50 to-orange-100 rounded-t-2xl flex-shrink-0">
+          <div className="flex justify-between items-center p-6 border-b border-slate-200 dark:border-slate-800 bg-gradient-to-r from-orange-50 to-orange-100 dark:from-orange-950/20 dark:to-orange-900/10 rounded-t-2xl flex-shrink-0">
             <div>
-              <h2 className="text-2xl font-bold text-gray-800">Edit Employee</h2>
-              <p className="text-sm text-gray-600 mt-1">Update employee information</p>
+              <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Edit Employee</h2>
+              <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">Update employee information</p>
             </div>
             <button
               onClick={handleClose}
-              className="text-gray-500 hover:text-gray-700 p-2 hover:bg-white/50 rounded-full transition-colors"
+              className="text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-2 hover:bg-white/50 dark:hover:bg-slate-800/50 rounded-full transition-colors"
             >
               <X className="w-6 h-6" />
             </button>
@@ -256,7 +274,7 @@ const EditEmployeeModal = ({ isOpen, onClose, employee }: EditEmployeeModalProps
               <div className="flex flex-col items-center">
                 <div className="relative">
                   {profilePreview ? (
-                    <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-orange-200">
+                    <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-orange-200 dark:border-orange-900/50">
                       <Image
                         src={profilePreview}
                         alt="Profile"
@@ -266,7 +284,7 @@ const EditEmployeeModal = ({ isOpen, onClose, employee }: EditEmployeeModalProps
                       />
                     </div>
                   ) : (
-                    <div className="w-32 h-32 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white text-4xl font-bold border-4 border-orange-200">
+                    <div className="w-32 h-32 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white text-4xl font-bold border-4 border-orange-200 dark:border-orange-900/50">
                       {formData.firstName.charAt(0)}
                       {formData.lastName.charAt(0)}
                     </div>
@@ -275,7 +293,7 @@ const EditEmployeeModal = ({ isOpen, onClose, employee }: EditEmployeeModalProps
                     <button
                       type="button"
                       onClick={handleRemoveProfilePicture}
-                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1.5 hover:bg-red-600 transition-colors shadow-lg"
+                      className="absolute -top-2 -right-2 bg-rose-500 text-white rounded-full p-1.5 hover:bg-rose-600 transition-colors shadow-lg"
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -283,7 +301,7 @@ const EditEmployeeModal = ({ isOpen, onClose, employee }: EditEmployeeModalProps
                 </div>
                 <label
                   htmlFor="profilePicture"
-                  className="mt-4 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 cursor-pointer transition-colors flex items-center gap-2"
+                  className="mt-4 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 cursor-pointer transition-colors flex items-center gap-2 font-semibold text-sm"
                 >
                   <Upload className="w-4 h-4" />
                   Change Profile Picture
@@ -306,8 +324,9 @@ const EditEmployeeModal = ({ isOpen, onClose, employee }: EditEmployeeModalProps
                   onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                   required
                   classNames={{
-                    label: "text-sm font-medium",
-                    input: "text-sm",
+                    label: "text-sm font-semibold text-slate-700 dark:text-slate-300",
+                    input: "text-sm dark:text-white",
+                    inputWrapper: "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700",
                   }}
                 />
                 <Input
@@ -317,8 +336,9 @@ const EditEmployeeModal = ({ isOpen, onClose, employee }: EditEmployeeModalProps
                   onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
                   required
                   classNames={{
-                    label: "text-sm font-medium",
-                    input: "text-sm",
+                    label: "text-sm font-semibold text-slate-700 dark:text-slate-300",
+                    input: "text-sm dark:text-white",
+                    inputWrapper: "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700",
                   }}
                 />
                 <Input
@@ -329,8 +349,9 @@ const EditEmployeeModal = ({ isOpen, onClose, employee }: EditEmployeeModalProps
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   required
                   classNames={{
-                    label: "text-sm font-medium",
-                    input: "text-sm",
+                    label: "text-sm font-semibold text-slate-700 dark:text-slate-300",
+                    input: "text-sm dark:text-white",
+                    inputWrapper: "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700",
                   }}
                 />
                 <Input
@@ -340,8 +361,9 @@ const EditEmployeeModal = ({ isOpen, onClose, employee }: EditEmployeeModalProps
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   required
                   classNames={{
-                    label: "text-sm font-medium",
-                    input: "text-sm",
+                    label: "text-sm font-semibold text-slate-700 dark:text-slate-300",
+                    input: "text-sm dark:text-white",
+                    inputWrapper: "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700",
                   }}
                 />
               </div>
@@ -353,8 +375,9 @@ const EditEmployeeModal = ({ isOpen, onClose, employee }: EditEmployeeModalProps
                   value={formData.employeeId}
                   isReadOnly
                   classNames={{
-                    label: "text-sm font-medium",
-                    input: "text-sm bg-gray-100",
+                    label: "text-sm font-semibold text-slate-700 dark:text-slate-300",
+                    input: "text-sm dark:text-slate-400",
+                    inputWrapper: "bg-slate-100 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700",
                   }}
                 />
                 <Select
@@ -364,12 +387,14 @@ const EditEmployeeModal = ({ isOpen, onClose, employee }: EditEmployeeModalProps
                   onChange={(e) => setFormData({ ...formData, role: e.target.value, department: "" })}
                   required
                   classNames={{
-                    label: "text-sm font-medium",
-                    value: "text-sm",
+                    label: "text-sm font-semibold text-slate-700 dark:text-slate-300",
+                    value: "text-sm dark:text-white",
+                    trigger: "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700",
+                    popoverContent: "dark:bg-slate-900 dark:text-white",
                   }}
                 >
                   {roles.map((role) => (
-                    <SelectItem key={role.value} value={role.value}>
+                    <SelectItem key={role.value} value={role.value} className="dark:text-slate-200 dark:hover:bg-slate-800">
                       {role.label}
                     </SelectItem>
                   ))}
@@ -382,12 +407,14 @@ const EditEmployeeModal = ({ isOpen, onClose, employee }: EditEmployeeModalProps
                   required
                   isDisabled={!formData.role}
                   classNames={{
-                    label: "text-sm font-medium",
-                    value: "text-sm",
+                    label: "text-sm font-semibold text-slate-700 dark:text-slate-300",
+                    value: "text-sm dark:text-white",
+                    trigger: "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700",
+                    popoverContent: "dark:bg-slate-900 dark:text-white",
                   }}
                 >
                   {getAvailableDepartments().map((dept: { value: string; label: string }) => (
-                    <SelectItem key={dept.value} value={dept.value}>
+                    <SelectItem key={dept.value} value={dept.value} className="dark:text-slate-200 dark:hover:bg-slate-800">
                       {dept.label}
                     </SelectItem>
                   ))}
@@ -402,7 +429,9 @@ const EditEmployeeModal = ({ isOpen, onClose, employee }: EditEmployeeModalProps
                     }
                   }}
                   classNames={{
-                    label: "text-sm font-medium",
+                    label: "text-sm font-semibold text-slate-700 dark:text-slate-300",
+                    calendarContent: "dark:bg-slate-900",
+                    calendar: "dark:bg-slate-900 dark:text-white",
                   }}
                 />
                 <Input
@@ -413,8 +442,9 @@ const EditEmployeeModal = ({ isOpen, onClose, employee }: EditEmployeeModalProps
                   onChange={(e) => setFormData({ ...formData, salary: e.target.value })}
                   required
                   classNames={{
-                    label: "text-sm font-medium",
-                    input: "text-sm",
+                    label: "text-sm font-semibold text-slate-700 dark:text-slate-300",
+                    input: "text-sm dark:text-white",
+                    inputWrapper: "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700",
                   }}
                 />
                 <Select
@@ -424,12 +454,14 @@ const EditEmployeeModal = ({ isOpen, onClose, employee }: EditEmployeeModalProps
                   onChange={(e) => setFormData({ ...formData, status: e.target.value })}
                   required
                   classNames={{
-                    label: "text-sm font-medium",
-                    value: "text-sm",
+                    label: "text-sm font-semibold text-slate-700 dark:text-slate-300",
+                    value: "text-sm dark:text-white",
+                    trigger: "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700",
+                    popoverContent: "dark:bg-slate-900 dark:text-white",
                   }}
                 >
                   {statusOptions.map((status) => (
-                    <SelectItem key={status.value} value={status.value}>
+                    <SelectItem key={status.value} value={status.value} className="dark:text-slate-200 dark:hover:bg-slate-800">
                       {status.label}
                     </SelectItem>
                   ))}
@@ -445,8 +477,9 @@ const EditEmployeeModal = ({ isOpen, onClose, employee }: EditEmployeeModalProps
                   onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                   className="md:col-span-2"
                   classNames={{
-                    label: "text-sm font-medium",
-                    input: "text-sm",
+                    label: "text-sm font-semibold text-slate-700 dark:text-slate-300",
+                    input: "text-sm dark:text-white",
+                    inputWrapper: "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700",
                   }}
                 />
                 <Input
@@ -455,8 +488,9 @@ const EditEmployeeModal = ({ isOpen, onClose, employee }: EditEmployeeModalProps
                   value={formData.city}
                   onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                   classNames={{
-                    label: "text-sm font-medium",
-                    input: "text-sm",
+                    label: "text-sm font-semibold text-slate-700 dark:text-slate-300",
+                    input: "text-sm dark:text-white",
+                    inputWrapper: "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700",
                   }}
                 />
                 <Input
@@ -465,15 +499,16 @@ const EditEmployeeModal = ({ isOpen, onClose, employee }: EditEmployeeModalProps
                   value={formData.zipCode}
                   onChange={(e) => setFormData({ ...formData, zipCode: e.target.value })}
                   classNames={{
-                    label: "text-sm font-medium",
-                    input: "text-sm",
+                    label: "text-sm font-semibold text-slate-700 dark:text-slate-300",
+                    input: "text-sm dark:text-white",
+                    inputWrapper: "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700",
                   }}
                 />
               </div>
 
               {/* Emergency Contact Section */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">
+                <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-800 pb-2">
                   Emergency Contact
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -483,8 +518,9 @@ const EditEmployeeModal = ({ isOpen, onClose, employee }: EditEmployeeModalProps
                     value={formData.emergencyContactName}
                     onChange={(e) => setFormData({ ...formData, emergencyContactName: e.target.value })}
                     classNames={{
-                      label: "text-sm font-medium",
-                      input: "text-sm",
+                      label: "text-sm font-semibold text-slate-700 dark:text-slate-300",
+                      input: "text-sm dark:text-white",
+                      inputWrapper: "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700",
                     }}
                   />
                   <Input
@@ -493,8 +529,9 @@ const EditEmployeeModal = ({ isOpen, onClose, employee }: EditEmployeeModalProps
                     value={formData.emergencyContactPhone}
                     onChange={(e) => setFormData({ ...formData, emergencyContactPhone: e.target.value })}
                     classNames={{
-                      label: "text-sm font-medium",
-                      input: "text-sm",
+                      label: "text-sm font-semibold text-slate-700 dark:text-slate-300",
+                      input: "text-sm dark:text-white",
+                      inputWrapper: "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700",
                     }}
                   />
                   <Input
@@ -503,8 +540,9 @@ const EditEmployeeModal = ({ isOpen, onClose, employee }: EditEmployeeModalProps
                     value={formData.emergencyContactRelation}
                     onChange={(e) => setFormData({ ...formData, emergencyContactRelation: e.target.value })}
                     classNames={{
-                      label: "text-sm font-medium",
-                      input: "text-sm",
+                      label: "text-sm font-semibold text-slate-700 dark:text-slate-300",
+                      input: "text-sm dark:text-white",
+                      inputWrapper: "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700",
                     }}
                   />
                 </div>
@@ -513,11 +551,11 @@ const EditEmployeeModal = ({ isOpen, onClose, employee }: EditEmployeeModalProps
           </form>
 
           {/* Footer */}
-          <div className="flex justify-end gap-3 p-6 border-t border-gray-200 flex-shrink-0">
+          <div className="flex justify-end gap-3 p-6 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 rounded-b-2xl flex-shrink-0">
             <button
               type="button"
               onClick={handleClose}
-              className="px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+              className="px-6 py-2.5 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl hover:bg-white dark:hover:bg-slate-800 transition-all font-bold text-sm"
               disabled={isLoading}
             >
               Cancel
@@ -525,7 +563,7 @@ const EditEmployeeModal = ({ isOpen, onClose, employee }: EditEmployeeModalProps
             <button
               onClick={handleSubmit}
               disabled={isLoading}
-              className="px-6 py-2.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-6 py-2.5 bg-orange-600 text-white rounded-xl hover:bg-orange-700 transition-all font-bold shadow-lg shadow-orange-500/20 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
             >
               {isLoading ? "Updating..." : "Update Employee"}
             </button>

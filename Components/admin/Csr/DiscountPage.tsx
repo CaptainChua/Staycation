@@ -903,7 +903,158 @@ const DiscountPage = () => {
 
       {/* Table Section - Fixed height and scrollable */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden flex-1 flex flex-col min-h-0 border border-gray-200 dark:border-gray-700">
-        <div className="overflow-x-auto overflow-y-auto flex-1 h-[600px] max-h-[600px]">
+        <div className="lg:hidden space-y-4 bg-white dark:bg-gray-800 overflow-hidden p-4">
+          {isLoading ? (
+            <div className="space-y-4">
+              {Array.from({ length: Math.min(entriesPerPage, 5) }).map((_, i) => (
+                <div
+                  key={`discounts-mobile-skeleton-${i}`}
+                  className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 animate-pulse"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="space-y-2 flex-1">
+                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32" />
+                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-44" />
+                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-36" />
+                    </div>
+                    <div className="h-4 w-4 bg-gray-200 dark:bg-gray-700 rounded" />
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded" />
+                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded" />
+                  </div>
+                  <div className="mt-3 h-8 bg-gray-200 dark:bg-gray-700 rounded" />
+                </div>
+              ))}
+            </div>
+          ) : paginatedRows.length === 0 ? (
+            <div className="py-20 text-center border border-gray-200 dark:border-gray-700 rounded-lg">
+              <Tag className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500 dark:text-gray-400 font-medium">No discounts found</p>
+            </div>
+          ) : (
+            paginatedRows.map((row, index) => (
+              <div key={`${row.id}-mobile-${index}`} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <div className="font-semibold text-gray-800 dark:text-gray-100 text-sm font-mono truncate">
+                        {highlightText(row.discount_code, searchTerm)}
+                      </div>
+                      <span
+                        className={`inline-block px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${
+                          row.active
+                            ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+                            : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
+                        }`}
+                      >
+                        {row.active ? "Active" : "Inactive"}
+                      </span>
+                    </div>
+                    <div className="text-sm text-gray-700 dark:text-gray-200 truncate mt-1">
+                      {highlightText(row.name, searchTerm)}
+                    </div>
+                    <div className="text-xs text-gray-600 dark:text-gray-300 truncate">
+                      {row.haven_name || "All Properties"}
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={selectedDiscounts.includes(row.id)}
+                    onChange={(e) => handleSelectDiscount(row.id, e.target.checked)}
+                    className="w-4 h-4 text-brand-primary border-gray-300 rounded focus:ring-brand-primary flex-shrink-0 mt-1"
+                  />
+                </div>
+
+                <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Value</div>
+                    <div className="font-bold text-gray-800 dark:text-gray-100">
+                      {highlightText(row.formatted_value, searchTerm)}
+                    </div>
+                    {row.min_booking_amount && (
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        Min: {row.formatted_minimum_amount}
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Usage</div>
+                    {row.max_uses ? (
+                      <div className="text-xs text-gray-600 dark:text-gray-300">
+                        <div>{row.used_count}/{row.max_uses} used</div>
+                        <div className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden mt-1">
+                          <div
+                            className="h-full bg-blue-500 transition-all"
+                            style={{ width: `${row.usage_percentage}%` }}
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-green-600 dark:text-green-400 font-medium text-xs">Unlimited</div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Start</div>
+                    <div className="text-xs text-gray-600 dark:text-gray-300">
+                      {new Date(row.start_date).toLocaleDateString()}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">End</div>
+                    <div className="text-xs text-gray-600 dark:text-gray-300">
+                      {new Date(row.end_date).toLocaleDateString()}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-3 flex items-center justify-end gap-1">
+                  <button
+                    className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                    title="View Details"
+                    type="button"
+                    onClick={() => openViewModal(row)}
+                  >
+                    <Eye className="w-4 h-4" />
+                  </button>
+                  <button
+                    className="p-2 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded-lg transition-colors"
+                    title="Edit Discount"
+                    type="button"
+                    onClick={() => openEditModal(row)}
+                  >
+                    <Edit className="w-4 h-4" />
+                  </button>
+                  <button
+                    className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg transition-colors"
+                    title={row.active ? "Deactivate" : "Activate"}
+                    type="button"
+                    onClick={() => handleToggleStatus(row)}
+                  >
+                    {row.active ? (
+                      <ToggleRight className="w-4 h-4" />
+                    ) : (
+                      <ToggleLeft className="w-4 h-4" />
+                    )}
+                  </button>
+                  <button
+                    className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                    title="Delete Discount"
+                    type="button"
+                    onClick={() => openDeleteModal(row)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="hidden lg:block overflow-x-auto overflow-y-auto flex-1 h-[600px] max-h-[600px]">
           <table className="w-full min-w-[800px]">
             <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 border-b-2 border-gray-200 dark:border-gray-600 sticky top-0 z-10">
               <tr>

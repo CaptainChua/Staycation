@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect} from "react";
 import {
   Calendar,
   Search,
@@ -31,7 +31,7 @@ import {
 import toast from "react-hot-toast";
 
 interface Booking {
-  id: number;
+  id: string;
   bookingRef: string;
   guestName: string;
   email: string;
@@ -41,10 +41,10 @@ interface Booking {
   checkOut: string;
   guests: number;
   amount: number;
-  rateType: string;
-  status: "pending" | "approved" | "declined";
+  rateType?: string;
+  status: "pending" | "approved" | "declined" | "rejected" | "confirmed" | "checked-in" | "completed" | "cancelled";
   createdAt: string;
-  message?: string;
+  message?: string | null;
 }
 
 const GuestAssistancePage = () => {
@@ -57,93 +57,120 @@ const GuestAssistancePage = () => {
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
 
-  // Sample booking data (unchanged)
-  const [bookings, setBookings] = useState<Booking[]>([
-    {
-      id: 1,
-      bookingRef: "BK-2025-001",
-      guestName: "Juan Dela Cruz",
-      email: "juan@email.com",
-      phone: "+63 912 345 6789",
-      havenName: "Haven 1",
-      checkIn: "2025-01-15",
-      checkOut: "2025-01-16",
-      guests: 4,
-      amount: 1999,
-      rateType: "21H Weekend",
-      status: "pending",
-      createdAt: "2025-01-10 10:30 AM",
-      message: "Hi, planning a family gathering. Need early check-in if possible.",
-    },
-    {
-      id: 2,
-      bookingRef: "BK-2025-002",
-      guestName: "Maria Santos",
-      email: "maria@email.com",
-      phone: "+63 917 234 5678",
-      havenName: "Haven 3",
-      checkIn: "2025-01-20",
-      checkOut: "2025-01-21",
-      guests: 2,
-      amount: 2500,
-      rateType: "21H Weekday",
-      status: "pending",
-      createdAt: "2025-01-10 11:45 AM",
-    },
-    {
-      id: 3,
-      bookingRef: "BK-2025-003",
-      guestName: "Carlos Reyes",
-      email: "carlos@email.com",
-      phone: "+63 920 345 6789",
-      havenName: "Haven 2",
-      checkIn: "2025-01-18",
-      checkOut: "2025-01-18",
-      guests: 6,
-      amount: 1800,
-      rateType: "10H",
-      status: "approved",
-      createdAt: "2025-01-09 3:20 PM",
-    },
-    {
-      id: 4,
-      bookingRef: "BK-2025-004",
-      guestName: "Anna Martinez",
-      email: "anna@email.com",
-      phone: "+63 918 456 7890",
-      havenName: "Haven 4",
-      checkIn: "2025-01-22",
-      checkOut: "2025-01-22",
-      guests: 3,
-      amount: 999,
-      rateType: "6H",
-      status: "declined",
-      createdAt: "2025-01-09 1:10 PM",
-      message: "Sorry, need to cancel due to schedule conflict.",
-    },
-    {
-      id: 5,
-      bookingRef: "BK-2025-005",
-      guestName: "Pedro Garcia",
-      email: "pedro@email.com",
-      phone: "+63 915 567 8901",
-      havenName: "Haven 5",
-      checkIn: "2025-01-25",
-      checkOut: "2025-01-26",
-      guests: 5,
-      amount: 2100,
-      rateType: "21H Weekend",
-      status: "pending",
-      createdAt: "2025-01-10 2:15 PM",
-    },
-  ]);
+ const [bookings, setBookings] = useState<Booking[]>([]);
+const [loading, setLoading] = useState(true);
 
-  const handleApprove = (id: number) => {
-    setBookings(bookings.map((b) => (b.id === id ? { ...b, status: "approved" } : b)));
+useEffect(() => {
+  fetchBookings();
+}, []);
+
+const fetchBookings = async () => {
+  try {
+    // Request only the booking table columns from the backend (Neon)
+    const res = await fetch("/api/bookings?raw=true");
+    const json = await res.json();
+    const rows = Array.isArray(json?.data) ? json.data : [];
+
+    const mapped: Booking[] = rows.map((r: any) => {
+      const guestsCount = Number(r.adults || 0) + Number(r.children || 0) + Number(r.infants || 0);
+      const createdAt = r.created_at ? new Date(r.created_at).toLocaleString() : "";
+
+      return {
+        id: String(r.id),
+        bookingRef: String(r.booking_id || r.id),
+        guestName: "", // guest info not stored directly on booking table
+        email: "",
+        phone: "",
+        havenName: r.room_name || "",
+        checkIn: r.check_in_date || "",
+        checkOut: r.check_out_date || "",
+        guests: guestsCount,
+        amount: 0,
+        rateType: undefined,
+        status: (r.status as Booking["status"]) || "pending",
+        createdAt,
+        message: r.rejection_reason || null,
+      };
+    });
+
+    setBookings(mapped);
+    // Fetch main guest info for each booking and merge into list
+    try {
+      await Promise.all(
+        mapped.map(async (b) => {
+          try {
+            const res = await fetch(`/api/bookings/${b.id}`);
+            if (!res.ok) return;
+            const json = await res.json();
+            const data = json?.data;
+            if (!data) return;
+            const mainGuest = data.main_guest || (Array.isArray(data.guests) && data.guests[0]) || null;
+            const guestName = mainGuest ? `${mainGuest.firstName || mainGuest.first_name || ""} ${mainGuest.lastName || mainGuest.last_name || ""}`.trim() : "";
+            const email = mainGuest?.email || data.guest_email || "";
+            const phone = mainGuest?.phone || data.guest_phone || "";
+            const amountVal = Number(
+              data.total_amount ??
+                data.totalAmount ??
+                data.booking_payment?.total_amount ??
+                (data.booking_payment && data.booking_payment.total_amount) ??
+                0,
+            );
+
+            setBookings((prev) => prev.map((p) => (p.id === b.id ? { ...p, guestName: guestName || p.guestName, email: email || p.email, phone: phone || p.phone, amount: amountVal || p.amount } : p)));
+          } catch (e) {
+            // ignore per-booking failure
+          }
+        }),
+      );
+    } catch (e) {
+      // ignore
+    }
+  } catch (error) {
+    console.error("Failed to fetch bookings:", error);
+  } finally {
+    setLoading(false);
+  }
+};
+
+
+  const handleApprove = (id: string) => {
+      // optimistic UI update handled in async function below
+      void (async () => {
+        try {
+          // send update to backend
+          const body = { id: id, status: "approved" };
+          const res = await fetch(`/api/bookings`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          if (!res.ok) throw new Error("Failed to update booking");
+          setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, status: "approved" } : b)));
+          toast.success("Booking approved");
+        } catch (err) {
+          console.error(err);
+          toast.error("Failed to approve booking");
+        }
+      })();
   };
 
-  const handleDecline = (id: number) => {
-    setBookings(bookings.map((b) => (b.id === id ? { ...b, status: "declined" } : b)));
+  const handleDecline = (id: string) => {
+      void (async () => {
+        try {
+          const body = { id: id, status: "rejected", rejection_reason: "Declined by owner" };
+          const res = await fetch(`/api/bookings`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          if (!res.ok) throw new Error("Failed to update booking");
+          setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, status: "rejected", message: "Declined by owner" } : b)));
+          toast.error("Booking declined");
+        } catch (err) {
+          console.error(err);
+          toast.error("Failed to decline booking");
+        }
+      })();
   };
 
   const getStatusColor = (status: string) => {
@@ -160,27 +187,36 @@ const GuestAssistancePage = () => {
   };
 
   // Stats
-  const stats = useMemo(() => {
-    return {
-      total: bookings.length,
-      pending: bookings.filter(b => b.status === "pending").length,
-      approved: bookings.filter(b => b.status === "approved").length,
-      declined: bookings.filter(b => b.status === "declined").length,
-    };
-  }, [bookings]);
+const stats = useMemo(() => {
+  if (!Array.isArray(bookings)) {
+    return { total: 0, pending: 0, approved: 0, declined: 0 };
+  }
 
-  // Filter
+  return {
+    total: bookings.length,
+    pending: bookings.filter(b => b.status === "pending").length,
+    approved: bookings.filter(b => b.status === "approved").length,
+    declined: bookings.filter(b => b.status === "declined" || b.status === "rejected").length,
+  };
+}, [bookings]);
+
+
   const filteredBookings = useMemo(() => {
-    return bookings.filter((booking) => {
-      const matchesSearch =
-        booking.guestName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        booking.bookingRef.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        booking.havenName.toLowerCase().includes(searchTerm.toLowerCase());
+  if (!Array.isArray(bookings)) return [];
 
-      const matchesFilter = filterStatus === "all" || booking.status === filterStatus;
-      return matchesSearch && matchesFilter;
-    });
-  }, [bookings, searchTerm, filterStatus]);
+  return bookings.filter((booking) => {
+    const matchesSearch =
+      (booking.guestName || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      booking.bookingRef.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (booking.havenName || "").toLowerCase().includes(searchTerm.toLowerCase());
+
+    const normalizedFilter = filterStatus === "declined" ? "rejected" : filterStatus;
+    const matchesStatus = normalizedFilter === "all" ? true : booking.status === normalizedFilter;
+
+    return matchesSearch && matchesStatus;
+  });
+}, [bookings, searchTerm]);
+
 
   // Sort
   const sortedBookings = useMemo(() => {
@@ -238,9 +274,48 @@ const GuestAssistancePage = () => {
     }
   };
 
-  const handleViewBooking = (booking: Booking) => {
-    setSelectedBooking(booking);
-    setIsViewModalOpen(true);
+  const handleViewBooking = async (booking: Booking) => {
+    // Fetch full booking details (includes guests/payments) for the modal
+    try {
+      const res = await fetch(`/api/bookings/${booking.id}`);
+      if (!res.ok) {
+        setSelectedBooking(booking);
+        setIsViewModalOpen(true);
+        return;
+      }
+      const json = await res.json();
+      const data = json?.data || {};
+
+      const mainGuest = (data.main_guest || (data.guests && data.guests[0]) || {});
+      const guestName = [mainGuest.firstName || data.guest_first_name, mainGuest.lastName || data.guest_last_name].filter(Boolean).join(" ") || "Guest";
+      const email = mainGuest.email || data.guest_email || "";
+      const phone = mainGuest.phone || data.guest_phone || "";
+      const amount = Number(data.total_amount ?? (data.booking_payment && data.booking_payment.total_amount) ?? 0);
+
+      const detailed: Booking = {
+        id: String(data.id || booking.id),
+        bookingRef: String(data.booking_id || booking.bookingRef),
+        guestName,
+        email,
+        phone,
+        havenName: data.room_name || booking.havenName || "",
+        checkIn: data.check_in_date || booking.checkIn,
+        checkOut: data.check_out_date || booking.checkOut,
+        guests: Number(data.adults || 0) + Number(data.children || 0) + Number(data.infants || 0),
+        amount,
+        rateType: data.room_rate ? String(data.room_rate) : booking.rateType,
+        status: (data.status as Booking["status"]) || booking.status,
+        createdAt: data.created_at ? new Date(data.created_at).toLocaleString() : booking.createdAt,
+        message: data.rejection_reason || booking.message || null,
+      };
+
+      setSelectedBooking(detailed);
+      setIsViewModalOpen(true);
+    } catch (error) {
+      console.error("Failed to fetch booking details:", error);
+      setSelectedBooking(booking);
+      setIsViewModalOpen(true);
+    }
   };
 
   const handleCloseModal = () => {

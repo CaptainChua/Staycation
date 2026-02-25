@@ -13,6 +13,7 @@ import toast from "react-hot-toast";
 import DeleteConfirmation from "./Modals/DeleteConfirmation";
 import ExportBookingsModal from "./Modals/ExportBookingsModal";
 import TotalBreakdown from "./TotalBreakdown";
+import { DateRangeWithDays } from "./Column";
 
 interface BookingData {
   id: string;
@@ -43,6 +44,7 @@ interface BookingData {
   total_amount: number;
   down_payment: number;
   remaining_balance: number;
+  payment_status?: string;
   status: string;
   add_ons?: unknown;
   additional_guests?: unknown;
@@ -102,6 +104,15 @@ export default function BookingsPage() {
     } catch {
       // ignore
     }
+  };
+
+  const handleBookingSaved = (result?: { mode: "create" | "update"; id?: string; booking_id: string }) => {
+    if (!result) return;
+    if (result.mode === "update") {
+      logEmployeeActivity('UPDATE_BOOKING', `Updated booking ${result.booking_id}`, result.id);
+      return;
+    }
+    logEmployeeActivity('CREATE_BOOKING', `Created booking ${result.booking_id}`, result.id);
   };
 
   // Fetch bookings from API
@@ -1256,26 +1267,24 @@ export default function BookingsPage() {
                         </div>
                       </td>
                       <td className="py-4 px-4">
-                        <div className="text-sm text-gray-600 dark:text-gray-300 space-y-2">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-semibold text-gray-500">Check-In:</span>
-                            <span className="whitespace-nowrap">{formatDate(booking.check_in_date)} {booking.check_in_time}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-semibold text-gray-500">Check-Out:</span>
-                            <span className="whitespace-nowrap">{formatDate(booking.check_out_date)} {booking.check_out_time}</span>
-                          </div>
-                        </div>
+                        <DateRangeWithDays
+                          checkInDate={booking.check_in_date}
+                          checkInTime={booking.check_in_time}
+                          checkOutDate={booking.check_out_date}
+                          checkOutTime={booking.check_out_time}
+                          isCompact={true}
+                        />
                       </td>
                       <td className="py-4 px-4 text-right">
                         <TotalBreakdown
-                          roomRate={booking.room_rate}
-                          securityDeposit={booking.security_deposit}
-                          depositStatus={booking.deposit_status}
-                          addOnsTotal={booking.add_ons_total}
-                          totalAmount={booking.total_amount}
-                          downPayment={booking.down_payment}
-                          remainingBalance={booking.remaining_balance}
+                          roomRate={booking.room_rate ?? 0}
+                          securityDeposit={booking.security_deposit ?? 0}
+                          depositStatus={booking.deposit_status ?? "pending"}
+                          addOnsTotal={booking.add_ons_total ?? 0}
+                          totalAmount={booking.total_amount ?? 0}
+                          downPayment={booking.down_payment ?? 0}
+                          remainingBalance={booking.remaining_balance ?? 0}
+                          paymentStatus={booking.payment_status?.includes("approved") ? "Approved" : "Pending"}
                           isCompact={true}
                         />
                       </td>
@@ -1488,44 +1497,48 @@ export default function BookingsPage() {
                 {/* Dates */}
                 <div className="mb-3 pb-3 border-b border-gray-200 dark:border-gray-700">
                   <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Stay Dates</p>
-                  <div className="space-y-3">
-                    <div>
-                      <span className="text-xs font-semibold text-gray-500">Check-In:</span>
-                      <p className="text-sm font-medium text-gray-700 dark:text-gray-200">{formatDate(booking.check_in_date)}</p>
-                      <p className="text-xs text-gray-500">{booking.check_in_time}</p>
-                    </div>
-                    <div>
-                      <span className="text-xs font-semibold text-gray-500">Check-Out:</span>
-                      <p className="text-sm font-medium text-gray-700 dark:text-gray-200">{formatDate(booking.check_out_date)}</p>
-                      <p className="text-xs text-gray-500">{booking.check_out_time}</p>
-                    </div>
-                  </div>
+                  <DateRangeWithDays
+                    checkInDate={booking.check_in_date}
+                    checkInTime={booking.check_in_time}
+                    checkOutDate={booking.check_out_date}
+                    checkOutTime={booking.check_out_time}
+                    isCompact={false}
+                  />
                 </div>
 
                 {/* Total and Actions */}
                 <div className="flex items-start justify-between pt-3 border-t border-gray-200 dark:border-gray-700">
                   <div className="flex-1">
                     <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Total Amount</p>
-                    <p className="font-bold text-gray-800 dark:text-gray-100 text-lg">{formatCurrency(booking.total_amount + 1000)}</p>
                     {(() => {
-                      const isDepositPaid = booking.deposit_status?.toLowerCase() !== 'pending';
+                      const depositStatus = booking.deposit_status ?? "pending";
+                      const isDepositPaid = depositStatus.toLowerCase() === 'paid';
+                      const displayTotal = isDepositPaid
+                        ? booking.total_amount
+                        : booking.total_amount + 1000;
                       const balance = isDepositPaid
                         ? (booking.total_amount - booking.down_payment)
                         : (booking.total_amount + 1000 - booking.down_payment);
-                      return balance > 0 && (
-                        <p className="text-xs text-orange-600 dark:text-orange-400">
-                          Balance: {formatCurrency(balance)}
-                        </p>
+                      return (
+                        <>
+                          <p className="font-bold text-gray-800 dark:text-gray-100 text-lg">{formatCurrency(displayTotal)}</p>
+                          {balance > 0 && (
+                            <p className="text-xs text-orange-600 dark:text-orange-400">
+                              Balance: {formatCurrency(balance)}
+                            </p>
+                          )}
+                        </>
                       );
                     })()}
                     <TotalBreakdown
-                      roomRate={booking.room_rate}
-                      securityDeposit={booking.security_deposit}
-                      depositStatus={booking.deposit_status}
-                      addOnsTotal={booking.add_ons_total}
-                      totalAmount={booking.total_amount}
-                      downPayment={booking.down_payment}
-                      remainingBalance={booking.remaining_balance}
+                      roomRate={booking.room_rate ?? 0}
+                      securityDeposit={booking.security_deposit ?? 0}
+                      depositStatus={booking.deposit_status ?? "pending"}
+                      addOnsTotal={booking.add_ons_total ?? 0}
+                      totalAmount={booking.total_amount ?? 0}
+                      downPayment={booking.down_payment ?? 0}
+                      remainingBalance={booking.remaining_balance ?? 0}
+                      paymentStatus={booking.payment_status?.includes("approved") ? "Approved" : "Pending"}
                       isCompact={false}
                     />
                   </div>
@@ -1672,17 +1685,17 @@ export default function BookingsPage() {
       )}
 
       {isNewBookingModalOpen && (
-        <NewBookings onClose={() => setIsNewBookingModalOpen(false)} />
+        <NewBookings
+          onClose={() => setIsNewBookingModalOpen(false)}
+          onSuccess={handleBookingSaved}
+        />
       )}
 
       {isEditBookingModalOpen && editingBooking && (
         <NewBookings
           onClose={handleCloseEditModal}
           initialBooking={editingBooking}
-          onSuccess={() => {
-            toast.success("Booking updated");
-            logEmployeeActivity('UPDATE_BOOKING', `Updated booking ${editingBooking.booking_id}`, editingBooking.id);
-          }}
+          onSuccess={handleBookingSaved}
         />
       )}
 

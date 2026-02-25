@@ -8,7 +8,6 @@
 
 import { useEffect, useState, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { useSession } from "next-auth/react";
 import {
   Calendar,
   Mail,
@@ -73,7 +72,7 @@ interface NewBookingModalProps {
     stay_type?: string;
     guests?: unknown;
   };
-  onSuccess?: () => void;
+  onSuccess?: (result?: { mode: "create" | "update"; id?: string; booking_id: string }) => void;
 }
 
 interface Haven {
@@ -132,9 +131,6 @@ const statusOptions = ["pending", "approved", "declined", "checked-in", "checked
 const paymentMethods = ["cash", "gcash", "bank-transfer", "credit-card"];
 
 export default function NewBookingModal({ onClose, initialBooking, onSuccess }: NewBookingModalProps) {
-  const { data: session } = useSession();
-  const employeeId = session?.user?.id;
-
   const [isMounted, setIsMounted] = useState(false);
   const [createBooking, { isLoading: isCreating }] = useCreateBookingMutation();
   const [updateBooking, { isLoading: isUpdating }] = useUpdateBookingStatusMutation();
@@ -186,27 +182,6 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
     guestKit: 0,
     extraSlippers: 0,
   });
-
-  const logEmployeeActivity = async (action: string, details: string, bookingId?: string) => {
-    if (!employeeId) return;
-    try {
-      await fetch('/api/admin/employee-activity', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          employeeId,
-          action,
-          details,
-          entityType: 'booking',
-          entityId: bookingId,
-        }),
-      });
-    } catch {
-      // ignore
-    }
-  };
 
   // If editing, fetch full booking details to ensure we can prefill everything
   useEffect(() => {
@@ -751,16 +726,14 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
           id: initialBooking.id,
           ...bookingData,
         }).unwrap();
-        logEmployeeActivity('UPDATE_BOOKING', `Updated booking ${bookingIdState}`, initialBooking.id);
         toast.success("Booking updated successfully!");
+        onSuccess?.({ mode: "update", id: initialBooking.id, booking_id: bookingIdState });
       } else {
         const created = await createBooking(bookingData).unwrap();
         const createdId = (created as any)?.data?.id as string | undefined;
-        logEmployeeActivity('CREATE_BOOKING', `Created booking ${bookingIdState}`, createdId);
         toast.success("You've successfully added booking!");
+        onSuccess?.({ mode: "create", id: createdId, booking_id: bookingIdState });
       }
-
-      onSuccess?.();
       onClose();
     } catch (error) {
       const message = getApiErrorMessage(error);

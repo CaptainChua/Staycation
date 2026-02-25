@@ -37,7 +37,11 @@ import {
 } from "@/redux/api/wishlistApi";
 import { useGetHavenReviewsQuery } from "@/redux/api/reviewsApi";
 import toast from "react-hot-toast";
-import { ensureGuestToken, getOrCreateGuestIdentifier } from "@/lib/guest";
+import {
+  getOrCreateGuestIdentifier,
+  getGuestIdentifier,
+  getGuestToken,
+} from "@/lib/guest";
 import AmenityBadge from "./AmenityBadge";
 import RoomCard from "./RoomCard";
 import dynamic from "next/dynamic";
@@ -161,7 +165,7 @@ const RoomsDetailsPage = ({
   // Create a stable identifier for wishlist API calls. For guests we generate/reuse a guest token.
   const [userIdentifier, setUserIdentifier] = useState<string>(() => {
     if (userId) return userId;
-    if (typeof window !== "undefined") return getOrCreateGuestIdentifier();
+    if (typeof window !== "undefined") return getOrCreateGuestIdentifier(0);
     return "";
   });
 
@@ -367,18 +371,25 @@ const RoomsDetailsPage = ({
           if (result.success) {
             toast.success("Added to wishlist");
           }
-        } else {
-          // Guest user: ensure guest token exists and use it to add to wishlist
-          const guestToken = ensureGuestToken();
-          const result = await addToWishlist({
-            guest_token: guestToken,
-            haven_id: room.id,
-          }).unwrap();
-          if (result.success) {
-            toast.success("Added to wishlist");
-            // update identifier so checks use the guest token going forward
-            setUserIdentifier(`guest_${guestToken}`);
+        } else if (getGuestIdentifier()) {
+          // Explicit guest user - use existing guest token
+          const guestToken = getGuestToken();
+          if (guestToken) {
+            const result = await addToWishlist({
+              guest_token: guestToken,
+              haven_id: room.id,
+            }).unwrap();
+            if (result.success) {
+              toast.success("Added to wishlist");
+            }
+          } else {
+            toast.error("Guest session expired. Please sign in again.");
           }
+        } else {
+          // Anonymous user - don't allow wishlist
+          toast.error(
+            "Please sign in or continue as guest to save to wishlist",
+          );
         }
       }
     } catch (error: unknown) {
@@ -506,7 +517,7 @@ const RoomsDetailsPage = ({
       {/* Main Content with Top Padding for Navbar */}
       <div className="pt-14 sm:pt-16 flex-1">
         {/* Header Bar */}
-        <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-14 sm:top-16 z-50 relative pointer-events-auto">
+        <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 top-14 sm:top-16 z-50 relative pointer-events-auto">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
             <div className="flex items-center justify-between">
               <button

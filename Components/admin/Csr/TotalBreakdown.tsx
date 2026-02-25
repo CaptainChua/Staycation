@@ -10,6 +10,7 @@ interface TotalBreakdownProps {
   totalAmount: number;
   downPayment?: number;
   remainingBalance?: number;
+  paymentStatus?: string;
   isCompact?: boolean;
 }
 
@@ -24,6 +25,7 @@ export default function TotalBreakdown({
   totalAmount,
   downPayment = 0,
   remainingBalance = 0,
+  paymentStatus,
   isCompact = false
 }: TotalBreakdownProps) {
   const formatCurrency = (amount: number) => {
@@ -36,12 +38,14 @@ export default function TotalBreakdown({
   // Always use default security deposit amount (₱1,000)
   const displaySecurityDeposit = DEFAULT_SECURITY_DEPOSIT;
 
-  // Check if security deposit is paid (not 'pending')
-  const isDepositPaid = depositStatus?.toLowerCase() !== 'pending';
+  // Check if security deposit is paid (only when explicitly 'paid')
+  const isDepositPaid = depositStatus?.toLowerCase() === 'paid';
 
-  // Calculate display total (totalAmount from DB + security deposit)
-  // The database total_amount does NOT include security deposit, so we add it for display
-  const displayTotal = totalAmount + displaySecurityDeposit;
+  // Calculate display total
+  // Only include deposit in total if it hasn't been paid yet
+  const displayTotal = isDepositPaid
+    ? totalAmount  // Deposit paid: don't include it in the total display
+    : totalAmount + displaySecurityDeposit; // Deposit not paid: include it
 
   const breakdownItems = [
     {
@@ -65,106 +69,203 @@ export default function TotalBreakdown({
   ];
 
   const hasValidDownPayment = downPayment > 0;
+
+  // Check if down payment is pending (not approved yet)
+  const isDownPaymentPending = paymentStatus?.toLowerCase().includes('pending');
+
+  // Check if down payment is approved
+  const isDownPaymentApproved = paymentStatus?.toLowerCase().includes('approved');
+
   // Calculate actual remaining balance
-  // If deposit is paid, exclude it from balance. If not paid, include it.
-  const actualRemainingBalance = isDepositPaid
-    ? (totalAmount - downPayment)  // Deposit paid: exclude from balance
-    : (displayTotal - downPayment); // Deposit not paid: include in balance
+  // Base calculation: total amount that needs to be paid
+  let baseAmount = isDepositPaid
+    ? totalAmount  // Deposit already paid, don't include it
+    : displayTotal; // Deposit not paid, include it in the balance
+
+  // Start with base amount minus down payment
+  let actualRemainingBalance = baseAmount - downPayment;
+
+  // If down payment is pending, add it back to the balance (it hasn't been paid yet)
+  if (isDownPaymentPending && hasValidDownPayment) {
+    actualRemainingBalance += downPayment;
+  }
+
+  // Ensure we don't return NaN
+  if (isNaN(actualRemainingBalance)) {
+    actualRemainingBalance = remainingBalance || 0;
+  }
+
   const hasRemainingBalance = actualRemainingBalance > 0;
+
+  // Format payment status display
+  const getStatusDisplay = () => {
+    if (!paymentStatus) return '';
+    if (paymentStatus.toLowerCase().includes('approved')) return 'Approved';
+    if (paymentStatus.toLowerCase().includes('pending')) return 'Pending';
+    return paymentStatus;
+  };
+
+  // Get status color
+  const getStatusColor = () => {
+    if (!paymentStatus) return 'text-gray-600';
+    if (paymentStatus.toLowerCase().includes('approved')) return 'text-green-600';
+    if (paymentStatus.toLowerCase().includes('pending')) return 'text-yellow-600';
+    return 'text-gray-600';
+  };
 
   if (isCompact) {
     return (
-      <div className="text-sm text-right space-y-1">
-        {/* Total */}
-        <div className="font-bold text-gray-800 dark:text-gray-100">
-          {formatCurrency(displayTotal)}
+      <div className="text-sm space-y-2">
+        {/* Total row */}
+        <div className="bg-gray-100 dark:bg-gray-700 rounded px-2 py-1">
+          <div className="flex items-center justify-between">
+            <span className="font-bold text-gray-700 dark:text-gray-300">Total</span>
+            <span className="font-bold text-gray-800 dark:text-gray-100">
+              {formatCurrency(displayTotal)}
+            </span>
+          </div>
         </div>
-        
+
         {/* Breakdown items */}
         <div className="space-y-1">
           {breakdownItems.map((item, index) => {
-            // For security deposit, check if deposit_status is not 'Pending'
-            const isDepositPaid = item.label === "Deposit" && depositStatus?.toLowerCase() !== 'pending';
-            
+            const isDepositPaid = item.label === "Deposit" && depositStatus?.toLowerCase() === 'paid';
+
             return (
-              <div key={index} className="flex items-center justify-end gap-1 text-xs">
-                <span className={`${item.color} font-medium`}>{item.label}:</span>
-                <span className="text-gray-600 dark:text-gray-300">
-                  {formatCurrency(item.amount)} 
-                  {item.label === "Deposit" && (
-                    <span className={`ml-1 ${isDepositPaid ? 'text-green-600' : 'text-red-600'}`}>
+              <div key={index} className="border-b border-gray-200 dark:border-gray-600 pb-1">
+                <div className="flex items-center justify-between text-xs">
+                  <span className={`${item.color} font-semibold`}>{item.label}</span>
+                  <span className="text-gray-600 dark:text-gray-300">
+                    {formatCurrency(item.amount)}
+                  </span>
+                </div>
+                {item.label === "Deposit" && (
+                  <div className="flex items-center justify-end mt-0.5 text-xs">
+                    <span className={`${isDepositPaid ? 'text-green-600' : 'text-red-600'}`}>
                       ({isDepositPaid ? 'Paid' : 'Not Paid'})
                     </span>
-                  )}
-                </span>
+                  </div>
+                )}
               </div>
             );
           })}
         </div>
-        
+
         {/* Payment status */}
         {hasValidDownPayment && (
-          <div className="flex items-center justify-end gap-1 text-xs">
-            <CreditCard className="w-3 h-3 text-blue-500" />
-            <span className="text-blue-600 font-medium">Paid:</span>
-            <span className="text-blue-600">{formatCurrency(downPayment)}</span>
+          <div className="border-b border-gray-200 dark:border-gray-600 pb-1">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-blue-600 font-semibold">Down Payment</span>
+              <span className="text-blue-600 font-medium">{formatCurrency(downPayment)}</span>
+            </div>
+            {paymentStatus && (
+              <div className="flex items-center justify-end mt-0.5 text-xs">
+                <span className={`font-semibold ${getStatusColor()}`}>
+                  ({getStatusDisplay()})
+                </span>
+              </div>
+            )}
           </div>
         )}
 
-        {/* Always show balance */}
-        <div className="flex items-center justify-end gap-1 text-xs">
-          <span className="text-orange-600 font-medium">Balance:</span>
-          <span className="text-orange-600">{formatCurrency(actualRemainingBalance)}</span>
+        {/* Balance row */}
+        <div className="bg-orange-50 dark:bg-orange-900/20 rounded px-2 py-1 border border-orange-200 dark:border-orange-700">
+          <div className="flex items-center justify-between">
+            <span className="text-orange-700 dark:text-orange-400 font-semibold">Balance</span>
+            <span className="text-orange-700 dark:text-orange-400 font-bold">
+              {formatCurrency(actualRemainingBalance)}
+            </span>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-2">
-      <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 space-y-2">
+    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+      {/* Header */}
+      <div className="bg-gray-50 dark:bg-gray-700 px-4 py-2 border-b border-gray-200 dark:border-gray-600">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-bold text-gray-700 dark:text-gray-300">Item</span>
+          <div className="flex items-center gap-8">
+            <span className="text-sm font-bold text-gray-700 dark:text-gray-300 text-right w-32">Amount</span>
+            <span className="text-sm font-bold text-gray-700 dark:text-gray-300 text-right w-24">Status</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Breakdown items */}
+      <div className="divide-y divide-gray-200 dark:divide-gray-600">
         {breakdownItems.map((item, index) => {
-          // For security deposit, check if deposit_status is not 'Pending'
-          const isDepositPaid = item.label === "Deposit" && depositStatus?.toLowerCase() !== 'pending';
-          
+          const isDepositPaid = item.label === "Deposit" && depositStatus?.toLowerCase() === 'paid';
+
           return (
-            <div key={index} className="flex items-center justify-between text-sm">
-              <div className="flex items-center gap-2">
-                <item.icon className={`w-4 h-4 ${item.color}`} />
-                <span className="text-gray-600 dark:text-gray-400">{item.label}</span>
-              </div>
-              <span className="font-medium text-gray-800 dark:text-gray-200">
-                {formatCurrency(item.amount)}
-                {item.label === "Deposit" && (
-                  <span className={`ml-1 ${isDepositPaid ? 'text-green-600' : 'text-red-600'}`}>
-                    ({isDepositPaid ? 'Paid' : 'Not Paid'})
+            <div key={index} className="px-4 py-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <item.icon className={`w-4 h-4 ${item.color}`} />
+                  <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">{item.label}</span>
+                </div>
+                <div className="flex items-center gap-8">
+                  <span className="text-sm font-semibold text-gray-800 dark:text-gray-100 text-right w-32">
+                    {formatCurrency(item.amount)}
                   </span>
-                )}
-              </span>
+                  {item.label === "Deposit" && (
+                    <span className={`text-xs font-bold text-right w-24 ${
+                      isDepositPaid ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                      {isDepositPaid ? 'Paid' : 'Not Paid'}
+                    </span>
+                  )}
+                  {item.label !== "Deposit" && (
+                    <span className="text-sm text-gray-400 text-right w-24">—</span>
+                  )}
+                </div>
+              </div>
             </div>
           );
         })}
-        
-        <div className="border-t border-gray-200 dark:border-gray-600 pt-2 mt-2">
-          <div className="flex items-center justify-between text-sm font-bold">
-            <span className="text-gray-700 dark:text-gray-300">Total Amount</span>
-            <span className="text-gray-800 dark:text-gray-100">{formatCurrency(displayTotal)}</span>
-          </div>
-          
-          {hasValidDownPayment && (
-            <div className="flex items-center justify-between text-sm mt-2">
-              <div className="flex items-center gap-2">
-                <CreditCard className="w-4 h-4 text-blue-500" />
-                <span className="text-gray-600 dark:text-gray-400">Down Payment</span>
-              </div>
-              <span className="font-medium text-blue-600">{formatCurrency(downPayment)}</span>
-            </div>
-          )}
 
-          {/* Always show remaining balance */}
-          <div className="flex items-center justify-between text-sm mt-2">
-            <span className="text-gray-600 dark:text-gray-400">Remaining Balance</span>
-            <span className="font-medium text-orange-600">{formatCurrency(actualRemainingBalance)}</span>
+        {/* Total Amount */}
+        <div className="px-4 py-3 bg-gray-100 dark:bg-gray-700">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-bold text-gray-700 dark:text-gray-300">Total Amount</span>
+            <div className="flex items-center gap-8">
+              <span className="text-sm font-bold text-gray-800 dark:text-gray-100 text-right w-32">
+                {formatCurrency(displayTotal)}
+              </span>
+              <span className="text-sm text-gray-400 text-right w-24">—</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Down Payment */}
+        {hasValidDownPayment && (
+          <div className="px-4 py-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-blue-700 dark:text-blue-400">Down Payment</span>
+              <div className="flex items-center gap-8">
+                <span className="text-sm font-semibold text-blue-600 dark:text-blue-400 text-right w-32">
+                  {formatCurrency(downPayment)}
+                </span>
+                <span className={`text-xs font-bold text-right w-24 ${getStatusColor()}`}>
+                  {getStatusDisplay()}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Remaining Balance */}
+        <div className="px-4 py-3 bg-orange-50 dark:bg-orange-900/20">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-bold text-orange-700 dark:text-orange-400">Balance</span>
+            <div className="flex items-center gap-8">
+              <span className="text-sm font-bold text-orange-700 dark:text-orange-400 text-right w-32">
+                {formatCurrency(actualRemainingBalance)}
+              </span>
+              <span className="text-sm text-gray-400 text-right w-24">—</span>
+            </div>
           </div>
         </div>
       </div>

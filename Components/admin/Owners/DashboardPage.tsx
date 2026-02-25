@@ -82,8 +82,9 @@ interface Booking {
 interface Review {
   id: string;
   booking_id: string;
-  rating: number;
-  comment: string;
+  rating?: number;
+  overall_rating?: number;
+  comment?: string;
   created_at: string;
   booking?: {
     room_name: string;
@@ -135,7 +136,8 @@ const DashboardPage = ({
   const [refreshing, setRefreshing] = useState(false);
   
   // Fetch real data from APIs
-  const { data: bookingsData, isLoading: bookingsLoading, refetch: refetchBookings } = useGetRoomBookingsQuery();
+  const havenIdFromProps = havens && havens.length > 0 ? havens[0].uuid_id : undefined;
+  const { data: bookingsData, isLoading: bookingsLoading, refetch: refetchBookings } = useGetRoomBookingsQuery(havenIdFromProps, { skip: !havenIdFromProps });
   const { data: paymentsData, isLoading: paymentsLoading, refetch: refetchPayments } = useGetBookingPaymentsQuery();
   const { data: reviewsData, isLoading: reviewsLoading, refetch: refetchReviews } = useGetReviewsQuery();
 
@@ -154,7 +156,7 @@ const DashboardPage = ({
 
   // Calculate owner-specific metrics
   const bookings: Booking[] = bookingsData?.data || [];
-  const payments = paymentsData?.data || [];
+  const payments = paymentsData || [];
   const reviews: Review[] = reviewsData?.data || [];
 
   // Calculate revenue from approved payments
