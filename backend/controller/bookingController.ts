@@ -749,7 +749,48 @@ export const getAllBookings = async (
   try {
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status");
+    const raw = searchParams.get("raw");
 
+    // If raw=true, return only the booking table columns (no joins)
+    if (raw === "true") {
+      let rawQuery = `
+        SELECT
+          id,
+          booking_id,
+          user_id,
+          room_name,
+          check_in_date,
+          check_out_date,
+          check_in_time,
+          check_out_time,
+          adults,
+          children,
+          infants,
+          status,
+          rejection_reason,
+          has_security_deposit,
+          created_at,
+          updated_at
+        FROM booking
+      `;
+
+      const values: any[] = [];
+      if (status) {
+        rawQuery += " WHERE status = $1";
+        values.push(status);
+      }
+
+      rawQuery += " ORDER BY created_at DESC";
+
+      const result = await pool.query(rawQuery, values);
+      return NextResponse.json({
+        success: true,
+        data: result.rows,
+        count: result.rows.length,
+      });
+    }
+
+    // Default behavior: enriched booking data with joins
     let query = `
       SELECT
         b.*,
