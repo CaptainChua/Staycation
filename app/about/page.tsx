@@ -73,20 +73,20 @@ const AboutPage = () => {
     {
       name: "Maria Santos",
       role: "Founder & CEO",
-      image: "/Images/shlogo.png",
+      image: "/haven_logo.png",
       description:
         "Passionate about creating unique urban staycation experiences.",
     },
     {
       name: "Juan Dela Cruz",
       role: "Operations Manager",
-      image: "/Images/shlogo.png",
+      image: "/haven_logo.png",
       description: "Ensuring every guest has a seamless and memorable stay.",
     },
     {
       name: "Ana Reyes",
       role: "Guest Relations",
-      image: "/Images/shlogo.png",
+      image: "/haven_logo.png",
       description: "Dedicated to making every guest feel welcome and valued.",
     },
   ];
