@@ -64,6 +64,7 @@ export const updateBookingDetails = async (
       "checked-in",
       "completed",
       "cancelled",
+      "failed",
     ];
     if (typeof status !== "undefined" && status !== null) {
       if (typeof status !== "string" || !validStatuses.includes(status)) {
@@ -345,7 +346,8 @@ export interface Booking {
     | "confirmed"
     | "checked-in"
     | "completed"
-    | "cancelled";
+    | "cancelled"
+    | "failed";
   add_ons?: AddOnItem[];
   created_at?: string;
   updated_at?: string;
@@ -995,7 +997,7 @@ export const updateBookingStatus = async (
     // If status is provided, validate it
     const validStatuses = [
       "pending", "approved", "rejected", "confirmed",
-      "checked-in", "completed", "cancelled",
+      "checked-in", "completed", "cancelled", "failed",
     ];
     if (typeof status !== "undefined" && status !== null) {
       if (typeof status !== "string" || !validStatuses.includes(status)) {

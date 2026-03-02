@@ -22,7 +22,8 @@ CREATE TABLE booking (
       'confirmed',
       'checked-in',
       'completed',
-      'cancelled'
+      'cancelled',
+      'failed'
     )),
 
   rejection_reason TEXT,

@@ -128,7 +128,7 @@ const ADD_ON_PRICES = {
   extraSlippers: 30,
 };
 
-const statusOptions = ["pending", "approved", "declined", "checked-in", "checked-out", "cancelled", "completed"];
+const statusOptions = ["pending", "approved", "declined", "checked-in", "checked-out", "cancelled", "completed", "failed"];
 const paymentMethods = ["cash", "gcash", "bank-transfer", "credit-card"];
 
 export default function NewBookingModal({ onClose, initialBooking, onSuccess }: NewBookingModalProps) {
