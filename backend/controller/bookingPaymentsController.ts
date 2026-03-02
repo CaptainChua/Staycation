@@ -52,11 +52,9 @@ export const createBookingPayment = async (
       paymentProofUrl = uploadResult.url;
     }
 
-    // Ensure proper number conversion and calculate remaining_balance to satisfy DB constraint
-    // The constraint requires: remaining_balance = total_amount - down_payment
+    // Ensure proper number conversion.
     const computedTotal = Number(total_amount) || 0;
     const computedDown = Number(down_payment) || 0;
-    const computedRemaining = computedTotal - computedDown;
     // amount_paid defaults to down_payment if not provided
     const computedAmountPaid =
       typeof amount_paid !== "undefined" && amount_paid !== null
@@ -66,9 +64,9 @@ export const createBookingPayment = async (
     const insertQuery = `
       INSERT INTO booking_payments (
         booking_id, payment_method, payment_proof_url, room_rate,
-        add_ons_total, total_amount, down_payment, remaining_balance, amount_paid, created_at
+        add_ons_total, total_amount, down_payment, amount_paid, created_at
       )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW())
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW())
       RETURNING *
     `;
 
@@ -80,7 +78,6 @@ export const createBookingPayment = async (
       add_ons_total ?? 0,
       computedTotal,
       computedDown,
-      computedRemaining,
       computedAmountPaid,
     ];
 
