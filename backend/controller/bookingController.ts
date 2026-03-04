@@ -332,13 +332,13 @@ export interface Booking {
   children: number;
   infants: number;
   status:
-    | "pending"
-    | "approved"
-    | "rejected"
-    | "confirmed"
-    | "checked-in"
-    | "completed"
-    | "cancelled";
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "confirmed"
+  | "checked-in"
+  | "completed"
+  | "cancelled";
   add_ons?: AddOnItem[];
   created_at?: string;
   updated_at?: string;
@@ -1047,6 +1047,19 @@ export const updateBookingStatus = async (
 
     const values = [status, rejection_reason ?? null, id];
     const result = await pool.query(query, values);
+
+    // If booking approved, also approve the down payment
+    if (status === "approved" && result.rows.length > 0) {
+      const bookingUuid = result.rows[0].id;
+      await pool.query(
+        `
+        UPDATE booking_payments
+        SET payment_status = 'approved_down_payment', reviewed_at = NOW()
+        WHERE booking_id = $1 AND payment_status = 'pending_down_payment'
+        `,
+        [bookingUuid],
+      );
+    }
 
     if (result.rows.length === 0) {
       return NextResponse.json(
