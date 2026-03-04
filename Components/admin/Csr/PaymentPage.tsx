@@ -247,6 +247,7 @@ export default function PaymentPage() {
         check_in_time: p.check_in_time ?? undefined,
         check_out_date: p.check_out_date ?? undefined,
         check_out_time: p.check_out_time ?? undefined,
+        room_name: p.room_name ?? undefined,
         roomRate: Number(p.room_rate ?? 0),
         addOnsTotal: Number(p.add_ons_total ?? 0),
         security_deposit: Number(p.security_deposit ?? 0),
@@ -261,6 +262,7 @@ export default function PaymentPage() {
         remainingValue,
         payment_proof: p.payment_proof_url ?? undefined,
         payment_method: p.payment_method ?? undefined,
+        payment_status: p.payment_status ?? undefined,
         status: mapStatusToUI(p.payment_status),
         statusColor: getStatusColorClass(p.payment_status),
         booking: {

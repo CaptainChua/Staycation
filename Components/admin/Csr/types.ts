@@ -52,6 +52,8 @@ export interface PaymentRow {
 
   payment_proof?: string | null;
   payment_method?: string;
+  payment_status?: string;
+  room_name?: string;
   status: PaymentStatus;
   statusColor: string;
   booking?: BookingPayment["booking"];
