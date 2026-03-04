@@ -6,7 +6,15 @@
  * responses (consistent with the project's existing booking types).
  */
 
-export type PaymentStatus = "pending" | "approved" | "rejected" | "refunded";
+export type PaymentStatus =
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "refunded"
+  | "pending_down_payment"
+  | "approved_down_payment"
+  | "pending_full_payment"
+  | "approved_full_payment";
 
 /**
  * A booking payment record returned by the API. Some endpoints may include
@@ -42,6 +50,21 @@ export interface BookingPayment {
   guest_last_name?: string | null;
   guest_email?: string | null;
   guest_phone?: string | null;
+
+  // Optional (joined) guest identity / contact fields
+  facebook_link?: string | null;
+  valid_id_url?: string | null;
+
+  // Optional (joined) booking schedule fields
+  check_in_date?: string | null;
+  check_in_time?: string | null;
+  check_out_date?: string | null;
+  check_out_time?: string | null;
+
+  // Optional (joined) room/security deposit fields
+  room_name?: string | null;
+  security_deposit?: number | null;
+  deposit_status?: string | null;
 
   // Optional nested booking object (some endpoints may return this)
   booking?: {

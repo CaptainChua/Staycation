@@ -45,7 +45,6 @@ export const updateBookingDetails = async (
       add_ons_total,
       total_amount,
       down_payment,
-      remaining_balance,
       add_ons,
     } = body;
 
@@ -183,12 +182,9 @@ export const updateBookingDetails = async (
       paymentProofUrl = uploadResult.url;
     }
 
-    // Ensure amount_paid remains consistent with the provided remaining_balance.
-    // If remaining_balance was provided, compute amount_paid = total_amount - remaining_balance.
-    const paymentAmountPaid =
-      typeof remaining_balance !== "undefined" && remaining_balance !== null
-        ? Number(total_amount) - Number(remaining_balance)
-        : Number(down_payment ?? 0);
+    // Keep amount_paid consistent with the initial down payment.
+    // remaining_balance is computed/managed by the DB schema in this project.
+    const paymentAmountPaid = Number(down_payment ?? 0);
 
     const paymentUpdateRes = await client.query(
       `
@@ -199,9 +195,8 @@ export const updateBookingDetails = async (
             add_ons_total = $4,
             total_amount = $5,
             down_payment = $6,
-            amount_paid = $7,
-            remaining_balance = $8
-        WHERE booking_id = $9
+            amount_paid = $7
+        WHERE booking_id = $8
         RETURNING id
       `,
       [
@@ -212,7 +207,6 @@ export const updateBookingDetails = async (
         total_amount,
         down_payment,
         paymentAmountPaid,
-        remaining_balance,
         id,
       ],
     );
@@ -222,9 +216,9 @@ export const updateBookingDetails = async (
         `
           INSERT INTO booking_payments (
             booking_id, payment_method, payment_proof_url, room_rate,
-            add_ons_total, total_amount, down_payment, amount_paid, remaining_balance
+            add_ons_total, total_amount, down_payment, amount_paid
           )
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         `,
         [
           id,
@@ -235,7 +229,6 @@ export const updateBookingDetails = async (
           total_amount,
           down_payment,
           paymentAmountPaid,
-          remaining_balance,
         ],
       );
     }
@@ -273,7 +266,7 @@ export const updateBookingDetails = async (
           bg.valid_id_url,
           bp.total_amount,
           bp.down_payment,
-          bp.remaining_balance,
+          bp.amount_paid,
           bp.payment_method,
           bp.payment_proof_url,
           bp.room_rate,
@@ -392,7 +385,6 @@ export const createBooking = async (
       add_ons_total,
       total_amount,
       down_payment,
-      remaining_balance,
       // Add-ons
       addOns = {},
     } = body;
@@ -563,14 +555,13 @@ export const createBooking = async (
     // Calculate payment amounts (security deposit is handled separately during checkout)
     const paymentTotalAmount = total_amount; // Full amount during booking (security deposit handled at checkout)
     const paymentAmountPaid = Number(down_payment ?? 0); // initial collected amount
-    const paymentRemainingBalance = paymentTotalAmount - paymentAmountPaid;
 
     const paymentQuery = `
       INSERT INTO booking_payments (
         booking_id, payment_method, payment_proof_url, room_rate,
-        add_ons_total, total_amount, down_payment, amount_paid, remaining_balance
+        add_ons_total, total_amount, down_payment, amount_paid
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
     `;
 
     const paymentValues = [
@@ -582,7 +573,6 @@ export const createBooking = async (
       paymentTotalAmount,
       down_payment,
       paymentAmountPaid,
-      paymentRemainingBalance,
     ];
 
     await client.query(paymentQuery, paymentValues);

@@ -1093,7 +1093,6 @@ const Checkout = () => {
         add_ons_total: addOnsTotal,
         total_amount: totalAmount,
         down_payment: downPayment,
-        remaining_balance: remainingBalance,
         add_ons: addOns,
       };
 
