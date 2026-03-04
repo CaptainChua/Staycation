@@ -3,12 +3,12 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { DepositRecord } from "@/app/admin/csr/actions";
-import { 
-  X, 
-  Wallet, 
-  MapPin, 
-  User, 
-  Eye, 
+import {
+  X,
+  Wallet,
+  MapPin,
+  User,
+  Eye,
   ExternalLink,
   Calendar,
   DollarSign
@@ -20,10 +20,10 @@ interface ViewDepositModalProps {
   deposit: DepositRecord | null;
 }
 
-export default function ViewDepositModal({ 
-  isOpen, 
-  onClose, 
-  deposit 
+export default function ViewDepositModal({
+  isOpen,
+  onClose,
+  deposit
 }: ViewDepositModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
 
@@ -96,19 +96,18 @@ export default function ViewDepositModal({
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Status:</span>
-                <span className={`inline-block px-2 py-1 rounded-full text-xs font-bold ${
-                  deposit.status === "Pending"
+                <span className={`inline-block px-2 py-1 rounded-full text-xs font-bold ${deposit.status === "Pending"
                     ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300"
-                    : deposit.status === "Held"
-                    ? "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300"
-                    : deposit.status === "Returned"
-                    ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
-                    : deposit.status === "Partial"
-                    ? "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300"
-                    : deposit.status === "Forfeited"
-                    ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
-                    : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
-                }`}>
+                    : deposit.status === "Paid"
+                      ? "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300"
+                      : deposit.status === "Returned"
+                        ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+                        : deposit.status === "Partial"
+                          ? "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300"
+                          : deposit.status === "Forfeited"
+                            ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
+                            : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                  }`}>
                   {deposit.status}
                 </span>
               </div>

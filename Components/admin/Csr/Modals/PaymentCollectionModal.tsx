@@ -55,6 +55,7 @@ export default function PaymentCollectionModal({
   booking,
   onClose,
   isOpen,
+  onConfirm,
 }: PaymentCollectionModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
   const [isMounted, setIsMounted] = useState(false);
@@ -88,15 +89,30 @@ export default function PaymentCollectionModal({
     }
   }, [isMounted, isOpen, onClose]);
 
+  // Calculate true balance including unpaid deposit
+  const isDepositPaid = booking.deposit_status?.toLowerCase() === 'paid' || booking.deposit_status?.toLowerCase() === 'held';
+  const displaySecurityDeposit = 1000;
+
+  // Total cost = Room + Add-ons + Deposit
+  const baseTotalCost = (booking.total_amount || 0) + displaySecurityDeposit;
+
+  // Amount already paid (the down payment recorded in DB)
+  // We assume here that for "Payment Collection" (at check-in), the down payment is already "approved" in reality 
+  // or we just subtract what's in booking.down_payment.
+  const downPaymentPaid = booking.down_payment || 0;
+  const depositAlreadyPaid = isDepositPaid ? displaySecurityDeposit : 0;
+
+  const trueRemainingBalance = baseTotalCost - downPaymentPaid - depositAlreadyPaid;
+
   // Handle amount input and auto-calculate change
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setAmountCollected(value);
 
-    // Calculate change based on remaining balance
+    // Calculate change based on true remaining balance
     if (value) {
       const amount = parseFloat(value);
-      const changeAmount = amount - booking.remaining_balance;
+      const changeAmount = amount - trueRemainingBalance;
       setChange(changeAmount >= 0 ? changeAmount : 0);
     } else {
       setChange(0);
@@ -215,9 +231,14 @@ export default function PaymentCollectionModal({
               <div className="bg-white dark:bg-gray-700 rounded-lg p-3 border-l-4 border-blue-500">
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Amount Due</span>
-                  <span className="text-lg font-bold text-blue-600 dark:text-blue-400">
-                    {formatCurrency(booking.remaining_balance)}
-                  </span>
+                  <div className="flex flex-col items-end">
+                    <span className="text-lg font-bold text-blue-600 dark:text-blue-400">
+                      {formatCurrency(trueRemainingBalance)}
+                    </span>
+                    {!isDepositPaid && (
+                      <span className="text-[10px] font-black text-indigo-500 uppercase tracking-tight -mt-1">Includes Security Deposit</span>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -232,7 +253,7 @@ export default function PaymentCollectionModal({
                     type="number"
                     value={amountCollected}
                     onChange={handleAmountChange}
-                    placeholder="0.00"
+                    placeholder={trueRemainingBalance.toString()}
                     className="w-full pl-9 pr-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-semibold text-sm"
                   />
                 </div>
@@ -287,7 +308,7 @@ export default function PaymentCollectionModal({
                 });
               }
             }}
-            disabled={!amountCollected || parseFloat(amountCollected) < booking.remaining_balance}
+            disabled={!amountCollected || parseFloat(amountCollected) < trueRemainingBalance}
             className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             <CheckCircle className="w-4 h-4" />
