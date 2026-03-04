@@ -25,7 +25,8 @@ import {
   Square,
   Play,
   XCircle,
-  Download
+  Download,
+  Shield
 } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
@@ -33,11 +34,11 @@ import { useSession } from "next-auth/react";
 // Highlight text function
 const highlightText = (text: string, searchTerm: string) => {
   if (!searchTerm.trim()) return text;
-  
+
   const regex = new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
   const parts = text.split(regex);
-  
-  return parts.map((part, index) => 
+
+  return parts.map((part, index) =>
     regex.test(part) ? (
       <span key={index} className="bg-yellow-200 dark:bg-yellow-800 text-yellow-900 dark:text-yellow-100 font-medium">
         {part}
@@ -59,7 +60,7 @@ import BulkReturnedModal from "./Modals/BulkReturnedModal";
 import BulkForfeitedModal from "./Modals/BulkForfeitedModal";
 import BulkPartialModal from "./Modals/BulkPartialModal";
 
-type DepositStatus = "Pending" | "Held" | "Returned" | "Partial" | "Forfeited";
+type DepositStatus = "Pending" | "Paid" | "Returned" | "Partial" | "Forfeited";
 
 // Translation content for guides
 const guideTranslations = {
@@ -72,8 +73,8 @@ const guideTranslations = {
           description: "Waiting for payment (check-in) OR waiting for refund processing (check-out)"
         },
         {
-          name: "Held",
-          description: "Deposit is currently being held and will be processed after checkout"
+          name: "Paid",
+          description: "Deposit is currently being held/paid and will be processed after checkout"
         },
         {
           name: "Returned",
@@ -97,8 +98,8 @@ const guideTranslations = {
           description: "Click the eye icon to view full deposit details including guest information and payment proof"
         },
         {
-          title: "Mark as Held",
-          description: "Update status to \"Held\" when deposit payment is received and being held for the booking"
+          title: "Mark as Paid",
+          description: "Update status to \"Paid\" when deposit payment is received and being held for the booking"
         },
         {
           title: "Process Refund/Deduction",
@@ -124,7 +125,7 @@ const guideTranslations = {
           description: "Use when guest caused significant damages or violates terms (no refund)"
         },
         {
-          title: "Held",
+          title: "Paid",
           description: "Use when payment is received but not yet processed for refund"
         }
       ]
@@ -152,8 +153,8 @@ const guideTranslations = {
       whenToUseTitle: "When to Use Bulk Operations:",
       useCases: [
         {
-          title: "Mark as Held",
-          description: "When multiple deposits are received on the same day and need to be held together"
+          title: "Mark as Paid",
+          description: "When multiple deposits are received on the same day and need to be marked as paid together"
         },
         {
           title: "Mark as Returned",
@@ -179,8 +180,8 @@ const guideTranslations = {
           description: "Naghihintay ng bayad (check-in) o refund (check-out)"
         },
         {
-          name: "Held",
-          description: "Nakahold ang deposit, ip-process pagkatapos ng check-out"
+          name: "Paid",
+          description: "Bayad na ang deposit, ip-process pagkatapos ng check-out"
         },
         {
           name: "Returned",
@@ -204,8 +205,8 @@ const guideTranslations = {
           description: "I-click ang mata na icon para makita ang lahat ng deposit info, guest details, at payment proof"
         },
         {
-          title: "I-mark as Held",
-          description: "I-update sa \"Held\" pag nakatanggap na ng deposit para sa booking"
+          title: "I-mark as Paid",
+          description: "I-update sa \"Paid\" pag nakatanggap na ng deposit para sa booking"
         },
         {
           title: "I-process ang Refund/Deduction",
@@ -231,7 +232,7 @@ const guideTranslations = {
           description: "Gamitin pag ang guest ay nag-damage o nag-violate ng rules (walang refund)"
         },
         {
-          title: "Held",
+          title: "Paid",
           description: "Gamitin pag nakatanggap na ng bayad pero hindi pa na-process ang refund"
         }
       ]
@@ -259,8 +260,8 @@ const guideTranslations = {
       whenToUseTitle: "Kailan gamitin ang Bulk Operations:",
       useCases: [
         {
-          title: "Mark as Held",
-          description: "Pag maraming deposits na natanggap sa same day at kailangan mag-hold together"
+          title: "Mark as Paid",
+          description: "Pag maraming deposits na natanggap sa same day at kailangan mag-mark as paid together"
         },
         {
           title: "Mark as Returned",
@@ -282,7 +283,7 @@ const guideTranslations = {
 export default function DepositPage() {
   const { data: session } = useSession();
   const employeeId = (session?.user as any)?.id;
-  
+
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | string>("all");
   const [filterDate, setFilterDate] = useState<"all" | "today_checkin" | "today_checkout" | "custom_range">("all");
@@ -320,7 +321,7 @@ export default function DepositPage() {
       setIsLoading(true);
       // Client-side pagination: Fetch ALL data once
       const data = await getDeposits();
-      
+
       // CRITICAL: Overwrite state completely. Do NOT append.
       setRows(data);
     } catch (error) {
@@ -341,7 +342,7 @@ export default function DepositPage() {
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
-    
+
     return rows.filter((row) => {
       const matchesSearch =
         row.deposit_id.toLowerCase().includes(term) ||
@@ -350,9 +351,9 @@ export default function DepositPage() {
         row.haven.toLowerCase().includes(term);
 
       const matchesFilter = filterStatus === "all" || row.status === filterStatus;
-      
+
       let matchesDateFilter = false;
-      
+
       if (filterDate === "all") {
         matchesDateFilter = true;
       } else if (filterDate === "today_checkin") {
@@ -365,7 +366,7 @@ export default function DepositPage() {
         const endDate = new Date(customEndDate);
         endDate.setHours(23, 59, 59, 999);
         matchesDateFilter = (row.checkin_date_raw >= startDate && row.checkin_date_raw <= endDate) ||
-                          (row.checkout_date_raw >= startDate && row.checkout_date_raw <= endDate);
+          (row.checkout_date_raw >= startDate && row.checkout_date_raw <= endDate);
       }
 
       return matchesSearch && matchesFilter && matchesDateFilter;
@@ -378,12 +379,12 @@ export default function DepositPage() {
     return copy.sort((a, b) => {
       const aVal = a[sortField];
       const bVal = b[sortField];
-      
+
       const aSortable = (typeof aVal === 'string' ? aVal : String(aVal)).toLowerCase();
       const bSortable = (typeof bVal === 'string' ? bVal : String(bVal)).toLowerCase();
-      
+
       if (sortField === 'deposit_amount') {
-          return sortDirection === "asc" ? (a.deposit_amount - b.deposit_amount) : (b.deposit_amount - a.deposit_amount);
+        return sortDirection === "asc" ? (a.deposit_amount - b.deposit_amount) : (b.deposit_amount - a.deposit_amount);
       }
 
       if (aSortable < bSortable) return sortDirection === "asc" ? -1 : 1;
@@ -397,7 +398,7 @@ export default function DepositPage() {
   const totalPages = Math.ceil(sortedRows.length / entriesPerPage);
   const startIndex = (currentPage - 1) * entriesPerPage;
   const endIndex = startIndex + entriesPerPage;
-  
+
   // This MUST be a new array slice every render
   const paginatedRows = sortedRows.slice(startIndex, endIndex);
 
@@ -411,16 +412,16 @@ export default function DepositPage() {
   };
 
   const handleStatusUpdate = async (id: string, newStatus: string) => {
-      const oldRows = [...rows];
-      setRows(prev => prev.map(r => r.id === id ? { ...r, status: newStatus } : r));
+    const oldRows = [...rows];
+    setRows(prev => prev.map(r => r.id === id ? { ...r, status: newStatus } : r));
 
-      try {
-          await updateDepositStatus(id, newStatus, employeeId);
-          toast.success(`Deposit marked as ${newStatus}`);
-      } catch {
-          setRows(oldRows);
-          toast.error("Failed to update status");
-      }
+    try {
+      await updateDepositStatus(id, newStatus, employeeId);
+      toast.success(`Deposit marked as ${newStatus}`);
+    } catch {
+      setRows(oldRows);
+      toast.error("Failed to update status");
+    }
   };
 
   // PDF Export function - FIXED
@@ -431,18 +432,18 @@ export default function DepositPage() {
       import('html2canvas')
     ]).then(([jsPDF, html2canvas]) => {
       const doc = new jsPDF.default();
-      
+
       // Set font
       doc.setFont('helvetica');
-      
+
       // Add custom header
       let yPosition = 20;
-      
+
       // Logo placeholder (you can replace with actual logo image)
       doc.setFontSize(24);
       doc.setFont('helvetica', 'bold');
       doc.text('Staycation Haven', 105, yPosition, { align: 'center' });
-      
+
       // Address and contact info
       doc.setFontSize(10);
       doc.setFont('helvetica', 'normal');
@@ -450,18 +451,18 @@ export default function DepositPage() {
       doc.text('M Place South Triangle Tower D, Panay Ave, Diliman, Quezon City, 1103 Metro Manila', 105, yPosition, { align: 'center' });
       yPosition += 6;
       doc.text('0961 571 8391', 105, yPosition, { align: 'center' });
-      
+
       // Add bottom border after header
       yPosition += 10;
       doc.setLineWidth(0.5);
       doc.line(20, yPosition, 190, yPosition);
-      
+
       // Add title
       yPosition += 15;
       doc.setFontSize(16);
       doc.setFont('helvetica', 'bold');
       doc.text('Deposit Records Report', 105, yPosition, { align: 'center' });
-      
+
       // Add date generated
       yPosition += 10;
       doc.setFontSize(10);
@@ -474,7 +475,7 @@ export default function DepositPage() {
         minute: '2-digit'
       });
       doc.text(`Generated on: ${currentDate}`, 105, yPosition, { align: 'center' });
-      
+
       // Add filters info if applied
       yPosition += 8;
       let filterText = '';
@@ -485,7 +486,7 @@ export default function DepositPage() {
         doc.text(`Filters: ${filterText}`, 105, yPosition, { align: 'center' });
         yPosition += 8;
       }
-      
+
       // Add summary before table
       yPosition += 10;
       doc.setFontSize(10);
@@ -496,12 +497,12 @@ export default function DepositPage() {
       doc.text(`Total Records: ${sortedRows.length}`, 20, yPosition);
       yPosition += 6;
       doc.text(`Total Amount: ${sortedRows.reduce((sum, row) => sum + row.deposit_amount, 0).toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}`, 20, yPosition);
-      
+
       // Create a clean table without Select and Actions columns
       const createCleanTable = () => {
         const originalTable = document.querySelector('table');
         if (!originalTable) return null;
-        
+
         // Create a temporary div for the clean table
         const tempDiv = document.createElement('div');
         tempDiv.style.position = 'absolute';
@@ -510,18 +511,18 @@ export default function DepositPage() {
         tempDiv.style.background = 'white';
         tempDiv.style.padding = '20px';
         tempDiv.style.width = originalTable.offsetWidth + 'px';
-        
+
         // Create clean table
         const cleanTable = document.createElement('table');
         cleanTable.style.width = '100%';
         cleanTable.style.borderCollapse = 'collapse';
         cleanTable.style.fontSize = '12px';
-        
+
         // Create header row (exclude Select and Actions columns)
         const headerRow = document.createElement('tr');
         headerRow.style.background = '#f3f4f6';
         headerRow.style.fontWeight = 'bold';
-        
+
         const headers = ['Deposit ID', 'Haven & Booking', 'Guest', 'Amount', 'Refunded', 'Forfeited', 'Status', 'Check-in / Check-out Dates'];
         headers.forEach(headerText => {
           const th = document.createElement('th');
@@ -532,14 +533,14 @@ export default function DepositPage() {
           th.textContent = headerText;
           headerRow.appendChild(th);
         });
-        
+
         cleanTable.appendChild(headerRow);
-        
+
         // Create data rows
         sortedRows.forEach((row, index) => {
           const dataRow = document.createElement('tr');
           dataRow.style.background = index % 2 === 0 ? 'white' : '#f9fafb';
-          
+
           // Deposit ID
           const depositIdCell = document.createElement('td');
           depositIdCell.style.padding = '8px';
@@ -550,7 +551,7 @@ export default function DepositPage() {
             ${row.payment_method ? `<div style="font-size: 9px; color: #6b7280; margin-top: 2px;">${row.payment_method}</div>` : ''}
           `;
           dataRow.appendChild(depositIdCell);
-          
+
           // Haven & Booking
           const havenCell = document.createElement('td');
           havenCell.style.padding = '8px';
@@ -562,7 +563,7 @@ export default function DepositPage() {
             <div style="font-size: 9px; color: #6b7280;">Booking ID: ${row.booking_id}</div>
           `;
           dataRow.appendChild(havenCell);
-          
+
           // Guest
           const guestCell = document.createElement('td');
           guestCell.style.padding = '8px';
@@ -574,7 +575,7 @@ export default function DepositPage() {
             ${row.guest_phone ? `<div style="font-size: 9px; color: #059669; margin-top: 2px;">${row.guest_phone}</div>` : ''}
           `;
           dataRow.appendChild(guestCell);
-          
+
           // Amount
           const amountCell = document.createElement('td');
           amountCell.style.padding = '8px';
@@ -585,7 +586,7 @@ export default function DepositPage() {
           amountCell.style.color = '#1f2937';
           amountCell.textContent = row.formatted_amount;
           dataRow.appendChild(amountCell);
-          
+
           // Refunded Amount
           const refundedCell = document.createElement('td');
           refundedCell.style.padding = '8px';
@@ -594,15 +595,15 @@ export default function DepositPage() {
           refundedCell.style.fontWeight = 'bold';
           refundedCell.style.textAlign = 'right';
           refundedCell.style.color = row.refunded_amount > 0 ? '#059669' : '#6b7280';
-          refundedCell.textContent = row.refunded_amount > 0 
+          refundedCell.textContent = row.refunded_amount > 0
             ? new Intl.NumberFormat('en-PH', {
-                style: 'currency',
-                currency: 'PHP',
-                minimumFractionDigits: 0
-              }).format(row.refunded_amount)
+              style: 'currency',
+              currency: 'PHP',
+              minimumFractionDigits: 0
+            }).format(row.refunded_amount)
             : '₱0';
           dataRow.appendChild(refundedCell);
-          
+
           // Forfeited Amount
           const forfeitedCell = document.createElement('td');
           forfeitedCell.style.padding = '8px';
@@ -611,33 +612,33 @@ export default function DepositPage() {
           forfeitedCell.style.fontWeight = 'bold';
           forfeitedCell.style.textAlign = 'right';
           forfeitedCell.style.color = row.forfeited_amount > 0 ? '#dc2626' : '#6b7280';
-          forfeitedCell.textContent = row.forfeited_amount > 0 
+          forfeitedCell.textContent = row.forfeited_amount > 0
             ? new Intl.NumberFormat('en-PH', {
-                style: 'currency',
-                currency: 'PHP',
-                minimumFractionDigits: 0
-              }).format(row.forfeited_amount)
+              style: 'currency',
+              currency: 'PHP',
+              minimumFractionDigits: 0
+            }).format(row.forfeited_amount)
             : '₱0';
           dataRow.appendChild(forfeitedCell);
-          
+
           // Status
           const statusCell = document.createElement('td');
           statusCell.style.padding = '8px';
           statusCell.style.border = '1px solid #d1d5db';
           statusCell.style.fontSize = '10px';
           statusCell.style.textAlign = 'center';
-          
+
           let statusColor = '#6b7280';
           let bgColor = '#f3f4f6';
           if (row.status === 'Pending') { statusColor = '#d97706'; bgColor = '#fef3c7'; }
-          else if (row.status === 'Held') { statusColor = '#4f46e5'; bgColor = '#e0e7ff'; }
+          else if (row.status === 'Paid') { statusColor = '#4f46e5'; bgColor = '#e0e7ff'; }
           else if (row.status === 'Returned') { statusColor = '#059669'; bgColor = '#d1fae5'; }
           else if (row.status === 'Partial') { statusColor = '#ea580c'; bgColor = '#fed7aa'; }
           else if (row.status === 'Forfeited') { statusColor = '#dc2626'; bgColor = '#fee2e2'; }
-          
+
           statusCell.innerHTML = `<span style="background: ${bgColor}; color: ${statusColor}; padding: 4px 8px; border-radius: 12px; font-size: 9px; font-weight: 600;">${row.status}</span>`;
           dataRow.appendChild(statusCell);
-          
+
           // Check-in / Check-out Dates
           const datesCell = document.createElement('td');
           datesCell.style.padding = '8px';
@@ -654,26 +655,26 @@ export default function DepositPage() {
             </div>
           `;
           dataRow.appendChild(datesCell);
-          
+
           cleanTable.appendChild(dataRow);
         });
-        
+
         tempDiv.appendChild(cleanTable);
         document.body.appendChild(tempDiv);
-        
+
         return tempDiv;
       };
-      
+
       // Show loading toast
       const loadingToast = toast.loading('Generating PDF...');
-      
+
       // Create and capture clean table
       const cleanTableContainer = createCleanTable();
       if (!cleanTableContainer) {
         toast.error('Failed to create table. Please try again.', { id: loadingToast });
         return;
       }
-      
+
       // Use html2canvas to capture the clean table
       (html2canvas as any)(cleanTableContainer.querySelector('table'), {
         scale: 2,
@@ -729,11 +730,19 @@ export default function DepositPage() {
     });
   };
 
-  // Calculate summary counts
+  // Calculate summary counts & amounts
   const totalCount = rows.length;
-  const pendingCount = rows.filter(row => row.status === "Pending").length;
-  const heldCount = rows.filter(row => row.status === "Held").length;
-  const returnedCount = rows.filter(row => row.status === "Returned").length;
+  const pendingRows = rows.filter(row => row.status === "Pending");
+  const paidRows = rows.filter(row => row.status === "Paid" || row.status === "Held");
+  const returnedRows = rows.filter(row => row.status === "Returned");
+
+  const pendingCount = pendingRows.length;
+  const paidCount = paidRows.length;
+  const returnedCount = returnedRows.length;
+
+  // Calculate total sum of PAID deposits for internal clarity, or if the user wants it.
+  const totalPaidSum = paidRows.reduce((sum, r) => sum + (r.deposit_amount || 0), 0);
+  const formattedPaidSum = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP', minimumFractionDigits: 0 }).format(totalPaidSum);
 
   // Modal functions
   const openReturnModal = (deposit: DepositRecord) => {
@@ -774,7 +783,7 @@ export default function DepositPage() {
 
   const handleFullRefund = async (depositId: string) => {
     if (!selectedDeposit) return;
-    
+
     setIsModalLoading(true);
     try {
       // Use the full deposit amount for refund
@@ -791,14 +800,14 @@ export default function DepositPage() {
 
   const handlePartialRefund = async (depositId: string, refundAmount: number, deductionReason: string) => {
     if (!selectedDeposit) return;
-    
+
     console.log('Client-side handlePartialRefund called with:', {
       depositId,
       refundAmount,
       deductionReason,
       employeeId
     });
-    
+
     setIsModalLoading(true);
     try {
       console.log('Calling processPartialRefund...');
@@ -817,7 +826,7 @@ export default function DepositPage() {
 
   const handleForfeiture = async (depositId: string, forfeitureReason: string) => {
     if (!selectedDeposit) return;
-    
+
     setIsModalLoading(true);
     try {
       await processForfeiture(selectedDeposit.id, forfeitureReason, employeeId);
@@ -833,7 +842,7 @@ export default function DepositPage() {
 
   // Bulk selection functions
   const handleSelectDeposit = (id: string, checked: boolean) => {
-    setSelectedDeposits(prev => 
+    setSelectedDeposits(prev =>
       checked ? [...prev, id] : prev.filter(depositId => depositId !== id)
     );
   };
@@ -848,7 +857,7 @@ export default function DepositPage() {
 
   const handleBulkAction = (action: string) => {
     setBulkAction(action);
-    if (action === "Held") {
+    if (action === "Paid") {
       setIsBulkProcessingModalOpen(true);
     } else if (action === "Returned") {
       setIsBulkReturnedModalOpen(true);
@@ -861,14 +870,14 @@ export default function DepositPage() {
 
   const processBulkAction = async (reason?: string) => {
     if (selectedDeposits.length === 0) return;
-    
+
     setBulkActionLoading(true);
     try {
       // Process based on bulk action
-      if (bulkAction === "Held") {
-        // Update all selected deposits to Held
-        await Promise.all(selectedDeposits.map(id => updateDepositStatus(id, "Held", employeeId)));
-        toast.success(`${selectedDeposits.length} deposit(s) marked as Held`);
+      if (bulkAction === "Paid") {
+        // Update all selected deposits to Paid
+        await Promise.all(selectedDeposits.map(id => updateDepositStatus(id, "Paid", employeeId)));
+        toast.success(`${selectedDeposits.length} deposit(s) marked as Paid`);
       } else if (bulkAction === "Returned") {
         // Process full refund for all selected
         await Promise.all(selectedDeposits.map(id => processFullRefund(id, 0, employeeId)));
@@ -878,7 +887,7 @@ export default function DepositPage() {
         await Promise.all(selectedDeposits.map(id => processForfeiture(id, reason, employeeId)));
         toast.success(`${selectedDeposits.length} deposit(s) marked as Forfeited`);
       }
-      
+
       // Refresh data
       fetchData();
       // Clear selection
@@ -917,11 +926,10 @@ export default function DepositPage() {
               <button
                 key={lang}
                 onClick={() => setGuideLanguage(lang)}
-                className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                  guideLanguage === lang
-                    ? 'bg-brand-primary text-white'
-                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-                }`}
+                className={`px-3 py-1 rounded text-xs font-medium transition-colors ${guideLanguage === lang
+                  ? 'bg-brand-primary text-white'
+                  : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                  }`}
               >
                 {lang === 'en' ? 'EN' : 'FIL'}
               </button>
@@ -934,7 +942,7 @@ export default function DepositPage() {
             {guideTranslations[guideLanguage].statusGuide.statuses.map((status, idx) => {
               const statusColors: Record<string, { dot: string; icon?: string }> = {
                 Pending: { dot: 'bg-yellow-500' },
-                Held: { dot: 'bg-indigo-500' },
+                Paid: { dot: 'bg-indigo-500' },
                 Returned: { dot: 'bg-green-500' },
                 Partial: { dot: 'bg-orange-500' },
                 Forfeited: { dot: 'bg-red-500' }
@@ -970,11 +978,10 @@ export default function DepositPage() {
               <button
                 key={lang}
                 onClick={() => setGuideLanguage(lang)}
-                className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                  guideLanguage === lang
-                    ? 'bg-brand-primary text-white'
-                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-                }`}
+                className={`px-3 py-1 rounded text-xs font-medium transition-colors ${guideLanguage === lang
+                  ? 'bg-brand-primary text-white'
+                  : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                  }`}
               >
                 {lang === 'en' ? 'EN' : 'FIL'}
               </button>
@@ -1039,11 +1046,10 @@ export default function DepositPage() {
               <button
                 key={lang}
                 onClick={() => setGuideLanguage(lang)}
-                className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                  guideLanguage === lang
-                    ? 'bg-brand-primary text-white'
-                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-                }`}
+                className={`px-3 py-1 rounded text-xs font-medium transition-colors ${guideLanguage === lang
+                  ? 'bg-brand-primary text-white'
+                  : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                  }`}
               >
                 {lang === 'en' ? 'EN' : 'FIL'}
               </button>
@@ -1071,7 +1077,7 @@ export default function DepositPage() {
                 {guideTranslations[guideLanguage].bulkGuide.useCases.map((useCase, idx) => {
                   const getUseCaseIcon = (title: string) => {
                     const iconMap: Record<string, typeof Play> = {
-                      'Mark as Held': Play,
+                      'Mark as Paid': Play,
                       'Mark as Returned': CheckCircle,
                       'Mark as Partial': RotateCcw,
                       'Mark as Forfeited': XCircle
@@ -1081,7 +1087,7 @@ export default function DepositPage() {
 
                   const getUseCaseColor = (title: string) => {
                     const colorMap: Record<string, string> = {
-                      'Mark as Held': 'text-indigo-600 dark:text-indigo-400',
+                      'Mark as Paid': 'text-indigo-600 dark:text-indigo-400',
                       'Mark as Returned': 'text-green-600 dark:text-green-400',
                       'Mark as Partial': 'text-orange-600 dark:text-orange-400',
                       'Mark as Forfeited': 'text-red-600 dark:text-red-400'
@@ -1108,10 +1114,10 @@ export default function DepositPage() {
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 flex-shrink-0">
         {[
-          { label: "Total Deposits", value: String(totalCount), color: "bg-indigo-500", icon: Wallet },
-          { label: "Pending", value: String(pendingCount), color: "bg-yellow-500", icon: Clock },
-          { label: "Held", value: String(heldCount), color: "bg-indigo-500", icon: Loader2 },
-          { label: "Returned", value: String(returnedCount), color: "bg-green-500", icon: CheckCircle },
+          { label: "Total Bookings", value: String(totalCount), color: "bg-gray-500", icon: Wallet },
+          { label: "Pending Deposits", value: String(pendingCount), color: "bg-yellow-500", icon: Clock },
+          { label: "Paid (Holding)", value: String(paidCount), color: "bg-indigo-500", icon: Shield },
+          { label: "Total Held Amount", value: formattedPaidSum, color: "bg-emerald-500", icon: Banknote },
         ].map((stat, i) => {
           const IconComponent = stat.icon;
           return (
@@ -1149,14 +1155,14 @@ export default function DepositPage() {
             </div>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => handleBulkAction("Held")}
+                onClick={() => handleBulkAction("Paid")}
                 disabled={bulkActionLoading}
                 className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm flex items-center gap-2"
               >
                 {bulkActionLoading ? (
                   <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</>
                 ) : (
-                  <><Play className="w-4 h-4" /> Mark as Held</>
+                  <><Play className="w-4 h-4" /> Mark as Paid</>
                 )}
               </button>
               <button
@@ -1251,7 +1257,7 @@ export default function DepositPage() {
             >
               <option value="all">All Status</option>
               <option value="Pending">Pending</option>
-              <option value="Held">Held</option>
+              <option value="Paid">Paid</option>
               <option value="Returned">Returned</option>
               <option value="Partial">Partial</option>
               <option value="Forfeited">Forfeited</option>
@@ -1367,19 +1373,18 @@ export default function DepositPage() {
                         {highlightText(row.deposit_id, searchTerm)}
                       </div>
                       <span
-                        className={`inline-block px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${
-                          row.status === "Pending"
-                            ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300"
-                            : row.status === "Held"
+                        className={`inline-block px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${row.status === "Pending"
+                          ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300"
+                          : row.status === "Paid"
                             ? "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300"
                             : row.status === "Returned"
-                            ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
-                            : row.status === "Partial"
-                            ? "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300"
-                            : row.status === "Forfeited"
-                            ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
-                            : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
-                        }`}
+                              ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+                              : row.status === "Partial"
+                                ? "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300"
+                                : row.status === "Forfeited"
+                                  ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
+                                  : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                          }`}
                       >
                         {highlightText(row.status, searchTerm)}
                       </span>
@@ -1451,21 +1456,21 @@ export default function DepositPage() {
                   {row.status === "Pending" ? (
                     <button
                       className="p-2 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors"
-                      title="Mark as Held"
+                      title="Mark as Paid"
                       type="button"
-                      onClick={() => handleStatusUpdate(row.id, "Held")}
+                      onClick={() => handleStatusUpdate(row.id, "Paid")}
                     >
                       <Loader2 className="w-4 h-4" />
                     </button>
                   ) : row.status === "Returned" || row.status === "Partial" || row.status === "Forfeited" ? (
                     <span className="text-xs font-medium text-green-600 dark:text-green-400">Completed</span>
-                  ) : row.status === "Held" ? (
+                  ) : row.status === "Paid" ? (
                     <>
                       <button
                         className="p-2 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors"
-                        title="Mark as Held"
+                        title="Mark as Paid"
                         type="button"
-                        onClick={() => handleStatusUpdate(row.id, "Held")}
+                        onClick={() => handleStatusUpdate(row.id, "Paid")}
                       >
                         <Loader2 className="w-4 h-4" />
                       </button>
@@ -1577,71 +1582,71 @@ export default function DepositPage() {
             </thead>
             <tbody>
               {isLoading ? (
-                  // Skeleton loading rows
-                  Array.from({ length: entriesPerPage }).map((_, idx) => (
-                    <tr
-                      key={`skeleton-${idx}`}
-                      className="border border-gray-200 dark:border-gray-700 animate-pulse"
-                    >
-                      {/* Select Checkbox */}
-                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
-                        <div className="h-4 w-4 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                      </td>
-                      {/* Deposit ID */}
-                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
-                        <div className="space-y-2">
-                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
-                          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
-                        </div>
-                      </td>
-                      {/* Haven & Booking */}
-                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
-                        <div className="space-y-2">
-                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-36"></div>
-                          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-28"></div>
-                          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
-                        </div>
-                      </td>
-                      {/* Guest */}
-                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
-                        <div className="space-y-2">
-                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
-                          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-40"></div>
-                          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-28"></div>
-                        </div>
-                      </td>
-                      {/* Amount */}
-                      <td className="py-4 px-4 text-right border border-gray-200 dark:border-gray-700">
-                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20 ml-auto"></div>
-                      </td>
-                      {/* Status */}
-                      <td className="py-4 px-4 text-center border border-gray-200 dark:border-gray-700">
-                        <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded-full w-20 mx-auto"></div>
-                      </td>
-                      {/* Check-in / Check-out */}
-                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
-                        <div className="space-y-1">
-                          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
-                          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
-                        </div>
-                      </td>
-                      {/* Actions */}
-                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
-                        <div className="flex items-center justify-center gap-1">
-                          <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
-                          <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
-                          <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-              ) : paginatedRows.length === 0 ? (
-                  <tr>
-                      <td colSpan={8} className="py-20 text-center border border-gray-200 dark:border-gray-700">
-                          <Wallet className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                          <p className="text-gray-500 dark:text-gray-400 font-medium">No deposits found</p>
-                      </td>
+                // Skeleton loading rows
+                Array.from({ length: entriesPerPage }).map((_, idx) => (
+                  <tr
+                    key={`skeleton-${idx}`}
+                    className="border border-gray-200 dark:border-gray-700 animate-pulse"
+                  >
+                    {/* Select Checkbox */}
+                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                      <div className="h-4 w-4 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                    </td>
+                    {/* Deposit ID */}
+                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                      <div className="space-y-2">
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
+                        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
+                      </div>
+                    </td>
+                    {/* Haven & Booking */}
+                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                      <div className="space-y-2">
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-36"></div>
+                        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-28"></div>
+                        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
+                      </div>
+                    </td>
+                    {/* Guest */}
+                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                      <div className="space-y-2">
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
+                        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-40"></div>
+                        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-28"></div>
+                      </div>
+                    </td>
+                    {/* Amount */}
+                    <td className="py-4 px-4 text-right border border-gray-200 dark:border-gray-700">
+                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20 ml-auto"></div>
+                    </td>
+                    {/* Status */}
+                    <td className="py-4 px-4 text-center border border-gray-200 dark:border-gray-700">
+                      <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded-full w-20 mx-auto"></div>
+                    </td>
+                    {/* Check-in / Check-out */}
+                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                      <div className="space-y-1">
+                        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
+                        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
+                      </div>
+                    </td>
+                    {/* Actions */}
+                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                      <div className="flex items-center justify-center gap-1">
+                        <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+                        <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+                        <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+                      </div>
+                    </td>
                   </tr>
+                ))
+              ) : paginatedRows.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="py-20 text-center border border-gray-200 dark:border-gray-700">
+                    <Wallet className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                    <p className="text-gray-500 dark:text-gray-400 font-medium">No deposits found</p>
+                  </td>
+                </tr>
               ) : (
                 paginatedRows.map((row, index) => (
                   <tr key={`${row.id}-${index}`} className="border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
@@ -1780,19 +1785,18 @@ export default function DepositPage() {
                     </td>
                     <td className="py-4 px-4 text-center border border-gray-200 dark:border-gray-700">
                       <span
-                        className={`inline-block px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${
-                          row.status === "Pending"
-                            ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300"
-                            : row.status === "Held"
+                        className={`inline-block px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${row.status === "Pending"
+                          ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300"
+                          : row.status === "Paid"
                             ? "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300"
                             : row.status === "Returned"
-                            ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
-                            : row.status === "Partial"
-                            ? "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300"
-                            : row.status === "Forfeited"
-                            ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
-                            : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
-                        }`}
+                              ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+                              : row.status === "Partial"
+                                ? "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300"
+                                : row.status === "Forfeited"
+                                  ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
+                                  : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                          }`}
                       >
                         {highlightText(row.status, searchTerm)}
                       </span>
@@ -1824,21 +1828,21 @@ export default function DepositPage() {
                         {row.status === "Pending" ? (
                           <button
                             className="p-2 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors"
-                            title="Mark as Held"
+                            title="Mark as Paid"
                             type="button"
-                            onClick={() => handleStatusUpdate(row.id, "Held")}
+                            onClick={() => handleStatusUpdate(row.id, "Paid")}
                           >
                             <Loader2 className="w-4 h-4" />
                           </button>
                         ) : row.status === "Returned" || row.status === "Partial" || row.status === "Forfeited" ? (
                           <span className="text-xs font-medium text-green-600 dark:text-green-400">Completed</span>
-                        ) : row.status === "Held" ? (
+                        ) : row.status === "Paid" ? (
                           <>
                             <button
                               className="p-2 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors"
-                              title="Mark as Held"
+                              title="Mark as Paid"
                               type="button"
-                              onClick={() => handleStatusUpdate(row.id, "Held")}
+                              onClick={() => handleStatusUpdate(row.id, "Paid")}
                             >
                               <Loader2 className="w-4 h-4" />
                             </button>
@@ -1924,11 +1928,10 @@ export default function DepositPage() {
                   <button
                     key={pageNum}
                     onClick={() => setCurrentPage(pageNum)}
-                    className={`px-4 py-2 rounded-lg transition-colors text-sm font-medium border ${
-                      currentPage === pageNum
-                        ? "bg-gradient-to-r from-brand-primary to-brand-primaryDark text-white shadow-md border-brand-primary"
-                        : "border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-600"
-                    }`}
+                    className={`px-4 py-2 rounded-lg transition-colors text-sm font-medium border ${currentPage === pageNum
+                      ? "bg-gradient-to-r from-brand-primary to-brand-primaryDark text-white shadow-md border-brand-primary"
+                      : "border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-600"
+                      }`}
                     disabled={totalPages === 0}
                     type="button"
                   >
@@ -1987,7 +1990,7 @@ export default function DepositPage() {
           const processBulkPartial = async () => {
             setBulkActionLoading(true);
             try {
-              await Promise.all(refundData.map(data => 
+              await Promise.all(refundData.map(data =>
                 processPartialRefund(data.depositId, data.refundAmount, data.deductionReason, employeeId)
               ));
               toast.success(`${refundData.length} deposit(s) processed as partial refund`);
@@ -2024,7 +2027,7 @@ export default function DepositPage() {
         deposit={selectedDeposit}
         isLoading={isModalLoading}
       />
-      
+
       <MarkPartialModal
         isOpen={isPartialModalOpen}
         onClose={closeAllModals}
@@ -2032,7 +2035,7 @@ export default function DepositPage() {
         deposit={selectedDeposit}
         isLoading={isModalLoading}
       />
-      
+
       <MarkForfeitedModal
         isOpen={isForfeitedModalOpen}
         onClose={closeAllModals}
