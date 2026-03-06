@@ -442,22 +442,24 @@ export default function BookingsPage() {
   const handleConfirmApprove = async (bookingId: string) => {
     setIsApproving(true);
     try {
-      const response = await fetch('/api/admin/bookings/approve', {
-        method: 'POST',
+      const response = await fetch('/api/bookings', {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ bookingId }),
+        body: JSON.stringify({ id: bookingId, status: 'approved' }),
       });
 
-      if (response.ok) {
-        toast.success("Booking approved successfully");
-        logEmployeeActivity('APPROVE_BOOKING', `Approved booking ${selectedBooking?.booking_id}`, bookingId);
-        setIsApproveModalOpen(false);
-        setSelectedBooking(null);
-      } else {
-        toast.error("Failed to approve booking");
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        toast.error(data?.error || "Failed to approve booking");
+        return;
       }
+
+      toast.success("Booking approved successfully");
+      logEmployeeActivity('APPROVE_BOOKING', `Approved booking ${selectedBooking?.booking_id}`, bookingId);
+      setIsApproveModalOpen(false);
+      setSelectedBooking(null);
     } catch (error) {
       toast.error("Failed to approve booking");
       console.error(error);
@@ -469,26 +471,31 @@ export default function BookingsPage() {
   const handleBulkConfirmApprove = async (bookingIds: string[]) => {
     setIsApproving(true);
     try {
-      const response = await fetch('/api/admin/bookings/bulk-approve', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ bookingIds }),
-      });
+      await Promise.all(
+        bookingIds.map(async (id) => {
+          const res = await fetch('/api/bookings', {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ id, status: 'approved' }),
+          });
 
-      if (response.ok) {
-        toast.success(`${bookingIds.length} booking(s) approved successfully`);
-        logEmployeeActivity('BULK_APPROVE_BOOKINGS', `Bulk approved ${bookingIds.length} bookings`);
-        setIsApproveModalOpen(false);
-        setSelectedBookingsForModal([]);
-        setSelectedBookings([]);
-        setIsBulkMode(false);
-      } else {
-        toast.error("Failed to approve bookings");
-      }
+          if (!res.ok) {
+            const data = await res.json().catch(() => null);
+            throw new Error(data?.error || `Failed to approve booking ${id}`);
+          }
+        })
+      );
+
+      toast.success(`${bookingIds.length} booking(s) approved successfully`);
+      logEmployeeActivity('BULK_APPROVE_BOOKINGS', `Bulk approved ${bookingIds.length} bookings`);
+      setIsApproveModalOpen(false);
+      setSelectedBookingsForModal([]);
+      setSelectedBookings([]);
+      setIsBulkMode(false);
     } catch (error) {
-      toast.error("Failed to approve bookings");
+      toast.error(error instanceof Error ? error.message : "Failed to approve bookings");
       console.error(error);
     } finally {
       setIsApproving(false);
@@ -498,22 +505,24 @@ export default function BookingsPage() {
   const handleConfirmReject = async (bookingId: string, reason: string) => {
     setIsRejecting(true);
     try {
-      const response = await fetch('/api/admin/bookings/reject', {
-        method: 'POST',
+      const response = await fetch('/api/bookings', {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ bookingId, reason }),
+        body: JSON.stringify({ id: bookingId, status: 'rejected', rejection_reason: reason }),
       });
 
-      if (response.ok) {
-        toast.success("Booking rejected successfully");
-        logEmployeeActivity('REJECT_BOOKING', `Rejected booking ${selectedBooking?.booking_id} with reason: ${reason}`, bookingId);
-        setIsRejectModalOpen(false);
-        setSelectedBooking(null);
-      } else {
-        toast.error("Failed to reject booking");
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        toast.error(data?.error || "Failed to reject booking");
+        return;
       }
+
+      toast.success("Booking rejected successfully");
+      logEmployeeActivity('REJECT_BOOKING', `Rejected booking ${selectedBooking?.booking_id} with reason: ${reason}`, bookingId);
+      setIsRejectModalOpen(false);
+      setSelectedBooking(null);
     } catch (error) {
       toast.error("Failed to reject booking");
       console.error(error);
@@ -525,51 +534,34 @@ export default function BookingsPage() {
   const handleBulkConfirmReject = async (bookingIds: string[], reason: string) => {
     setIsRejecting(true);
     try {
-      const response = await fetch('/api/admin/bookings/bulk-reject', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ bookingIds, reason }),
-      });
+      await Promise.all(
+        bookingIds.map(async (id) => {
+          const res = await fetch('/api/bookings', {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ id, status: 'rejected', rejection_reason: reason }),
+          });
 
-      if (response.ok) {
-        toast.success(`${bookingIds.length} booking(s) rejected successfully`);
-        logEmployeeActivity('BULK_REJECT_BOOKINGS', `Bulk rejected ${bookingIds.length} bookings with reason: ${reason}`);
-        setIsRejectModalOpen(false);
-        setSelectedBookingsForModal([]);
-        setSelectedBookings([]);
-        setIsBulkMode(false);
-      } else {
-        toast.error("Failed to reject bookings");
-      }
+          if (!res.ok) {
+            const data = await res.json().catch(() => null);
+            throw new Error(data?.error || `Failed to reject booking ${id}`);
+          }
+        })
+      );
+
+      toast.success(`${bookingIds.length} booking(s) rejected successfully`);
+      logEmployeeActivity('BULK_REJECT_BOOKINGS', `Bulk rejected ${bookingIds.length} bookings with reason: ${reason}`);
+      setIsRejectModalOpen(false);
+      setSelectedBookingsForModal([]);
+      setSelectedBookings([]);
+      setIsBulkMode(false);
     } catch (error) {
-      toast.error("Failed to reject bookings");
+      toast.error(error instanceof Error ? error.message : "Failed to reject bookings");
       console.error(error);
     } finally {
       setIsRejecting(false);
-    }
-  };
-
-  const handleCheckInBooking = async (booking: BookingData) => {
-    try {
-      const response = await fetch('/api/admin/bookings/checkin', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ bookingId: booking.id }),
-      });
-
-      if (response.ok) {
-        toast.success("Booking checked in successfully");
-        logEmployeeActivity('CHECKIN_BOOKING', `Checked in booking ${booking.booking_id}`, booking.id);
-      } else {
-        toast.error("Failed to check in booking");
-      }
-    } catch (error) {
-      toast.error("Failed to check in booking");
-      console.error(error);
     }
   };
 
@@ -580,7 +572,6 @@ export default function BookingsPage() {
       return;
     }
 
-    // Get the selected booking objects
     const selectedBookingObjects = bookings.filter(b => selectedBookings.includes(b.id));
 
     if (selectedBookingObjects.length === 0) {
@@ -588,7 +579,6 @@ export default function BookingsPage() {
       return;
     }
 
-    // Open bulk approve modal
     setSelectedBookingsForModal(selectedBookingObjects);
     setIsApproveModalOpen(true);
     setIsBulkMode(true);
@@ -1534,12 +1524,14 @@ export default function BookingsPage() {
                     {(() => {
                       const depositStatus = booking.deposit_status ?? "pending";
                       const isDepositPaid = depositStatus.toLowerCase() === 'paid' || depositStatus.toLowerCase() === 'held';
-                      const displayTotal = isDepositPaid
-                        ? booking.total_amount
-                        : booking.total_amount + 1000;
-                      const balance = isDepositPaid
-                        ? (booking.total_amount - booking.down_payment)
-                        : (booking.total_amount + 1000 - booking.down_payment);
+                      const FIXED_DEPOSIT = 1000;
+                      const FIXED_DOWN_PAYMENT = 500;
+                      const safeNumber = (value: unknown) => {
+                        const n = Number(value);
+                        return Number.isFinite(n) ? n : 0;
+                      };
+                      const displayTotal = safeNumber(booking.room_rate) + safeNumber(booking.add_ons_total) + FIXED_DEPOSIT;
+                      const balance = displayTotal - FIXED_DOWN_PAYMENT - (isDepositPaid ? FIXED_DEPOSIT : 0);
                       return (
                         <>
                           <p className="font-bold text-gray-800 dark:text-gray-100 text-lg">{formatCurrency(displayTotal)}</p>
@@ -1760,7 +1752,7 @@ export default function BookingsPage() {
       {/* Approve Booking Modal */}
       {isApproveModalOpen && (isBulkMode ? selectedBookingsForModal.length > 0 : selectedBooking) && (
         <ApproveBookingModal
-          booking={!isBulkMode ? selectedBooking : undefined}
+          booking={!isBulkMode ? (selectedBooking ?? undefined) : undefined}
           bookings={isBulkMode ? selectedBookingsForModal : undefined}
           onClose={() => {
             setIsApproveModalOpen(false);
@@ -1778,7 +1770,7 @@ export default function BookingsPage() {
       {/* Reject Booking Modal */}
       {isRejectModalOpen && (isBulkMode ? selectedBookingsForModal.length > 0 : selectedBooking) && (
         <RejectBookingModal
-          booking={!isBulkMode ? selectedBooking : undefined}
+          booking={!isBulkMode ? (selectedBooking ?? undefined) : undefined}
           bookings={isBulkMode ? selectedBookingsForModal : undefined}
           onClose={() => {
             setIsRejectModalOpen(false);
