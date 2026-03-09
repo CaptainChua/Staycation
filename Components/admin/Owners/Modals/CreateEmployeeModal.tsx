@@ -369,7 +369,8 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
             </div>
             <button
               onClick={onClose}
-              className="p-2 hover:bg-white/50 dark:hover:bg-slate-800/50 rounded-full transition-colors"
+              disabled={isLoading}
+              className="p-2 hover:bg-white/50 dark:hover:bg-slate-800/50 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <X className="w-6 h-6 text-slate-600 dark:text-slate-400" />
             </button>
@@ -410,9 +411,10 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                         id="profile-picture-upload"
                         accept="image/*"
                         onChange={handleProfilePictureUpload}
+                        disabled={isLoading}
                         className="hidden"
                       />
-                      <span className="inline-flex items-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-medium cursor-pointer transition-colors text-sm">
+                      <span className={`inline-flex items-center gap-2 px-4 py-2 ${isLoading ? 'bg-gray-400 cursor-not-allowed' : 'bg-orange-600 hover:bg-orange-700 cursor-pointer'} text-white rounded-lg font-medium transition-colors text-sm`}>
                         <Upload className="w-4 h-4" />
                         {profilePreview ? "Change Photo" : "Upload Photo"}
                       </span>
@@ -422,7 +424,8 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       <button
                         type="button"
                         onClick={handleRemoveProfilePicture}
-                        className="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-lg font-medium transition-colors text-sm"
+                        disabled={isLoading}
+                        className={`px-4 py-2 ${isLoading ? 'bg-gray-400 cursor-not-allowed' : 'bg-rose-500 hover:bg-rose-600'} text-white rounded-lg font-medium transition-colors text-sm`}
                       >
                         Remove
                       </button>
@@ -454,6 +457,7 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       isInvalid={touchedFields.firstName && !!errors.firstName}
                       errorMessage={touchedFields.firstName && errors.firstName}
                       isRequired
+                      isDisabled={isLoading}
                       classNames={{
                         base: "w-full",
                         label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
@@ -481,6 +485,7 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       isInvalid={touchedFields.lastName && !!errors.lastName}
                       errorMessage={touchedFields.lastName && errors.lastName}
                       isRequired
+                      isDisabled={isLoading}
                       classNames={{
                         base: "w-full",
                         label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
@@ -511,6 +516,7 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       isInvalid={touchedFields.email && !!errors.email}
                       errorMessage={touchedFields.email && errors.email}
                       isRequired
+                      isDisabled={isLoading}
                       classNames={{
                         base: "w-full",
                         label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
@@ -538,6 +544,7 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       isInvalid={touchedFields.phone && !!errors.phone}
                       errorMessage={touchedFields.phone && errors.phone}
                       isRequired
+                      isDisabled={isLoading}
                       classNames={{
                         base: "w-full",
                         label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
@@ -652,6 +659,7 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                         }
                       }}
                       isRequired
+                      isDisabled={isLoading}
                       classNames={{
                         base: "w-full",
                         label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
@@ -674,6 +682,7 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                         handleRoleChange(selectedValue);
                       }}
                       isRequired
+                      isDisabled={isLoading}
                       classNames={{
                         base: "w-full",
                         label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
@@ -701,6 +710,7 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                         setFormData({ ...formData, department: selectedValue });
                       }}
                       isRequired
+                      isDisabled={isLoading}
                       classNames={{
                         base: "w-full",
                         label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
@@ -729,6 +739,7 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                         setFormData({ ...formData, salary: e.target.value })
                       }
                       isRequired
+                      isDisabled={isLoading}
                       classNames={{
                         base: "w-full",
                         label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
@@ -774,6 +785,7 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                         setFormData({ ...formData, city: e.target.value })
                       }
                       isRequired
+                      isDisabled={isLoading}
                       classNames={{
                         base: "w-full",
                         label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
@@ -792,6 +804,7 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                         setFormData({ ...formData, zipCode: e.target.value })
                       }
                       isRequired
+                      isDisabled={isLoading}
                       classNames={{
                         base: "w-full",
                         label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
@@ -822,6 +835,7 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                         })
                       }
                       isRequired
+                      isDisabled={isLoading}
                       classNames={{
                         base: "w-full",
                         label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
@@ -843,6 +857,7 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                         })
                       }
                       isRequired
+                      isDisabled={isLoading}
                       classNames={{
                         base: "w-full",
                         label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
@@ -866,6 +881,7 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                         })
                       }
                       isRequired
+                      isDisabled={isLoading}
                       classNames={{
                         base: "w-full",
                         label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
@@ -883,7 +899,8 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-6 py-3 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl hover:bg-white dark:hover:bg-slate-800 font-bold transition-all text-sm"
+              disabled={isLoading}
+              className="flex-1 px-6 py-3 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl hover:bg-white dark:hover:bg-slate-800 font-bold transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Cancel
             </button>
