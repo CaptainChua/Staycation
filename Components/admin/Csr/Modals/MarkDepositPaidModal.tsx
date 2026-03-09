@@ -42,13 +42,31 @@ export default function MarkDepositPaidModal({
     const modalRef = useRef<HTMLDivElement>(null);
     const [isMounted, setIsMounted] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [successMessage, setSuccessMessage] = useState<string | null>(null);
+    const isLoadingRef = useRef(false);
+    const successMessageRef = useRef<string | null>(null);
 
     useEffect(() => {
         setIsMounted(true);
         return () => setIsMounted(false);
     }, []);
 
+    useEffect(() => {
+        if (isOpen) {
+            setSuccessMessage(null);
+        }
+    }, [isOpen, booking?.id]);
+
+    useEffect(() => {
+        isLoadingRef.current = isLoading;
+    }, [isLoading]);
+
+    useEffect(() => {
+        successMessageRef.current = successMessage;
+    }, [successMessage]);
+
     const handleClickOutside = (event: MouseEvent) => {
+        if (isLoadingRef.current || successMessageRef.current) return;
         const target = event.target as Node;
         if (modalRef.current && !modalRef.current.contains(target)) {
             onClose();
@@ -71,7 +89,7 @@ export default function MarkDepositPaidModal({
             await updateDepositStatusByBookingId(booking.id, 'Paid', employeeId);
             toast.success("Security deposit marked as Paid");
             onConfirm();
-            onClose();
+            setSuccessMessage("Security deposit marked as paid successfully.");
         } catch (error) {
             console.error(error);
             toast.error("Failed to update deposit status");
@@ -146,11 +164,17 @@ export default function MarkDepositPaidModal({
                                 <div>
                                     <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Current Status</p>
                                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
-                                        {booking.deposit_status || 'Pending'}
+                                        {successMessage ? 'Paid' : (booking.deposit_status || 'Pending')}
                                     </span>
                                 </div>
                             </div>
                         </div>
+
+                        {successMessage && (
+                            <div className="bg-green-50 dark:bg-green-900/10 rounded-xl p-4 border border-green-200 dark:border-green-900/30">
+                                <p className="text-sm font-bold text-green-700 dark:text-green-400">{successMessage}</p>
+                            </div>
+                        )}
 
                         {/* Payment Proof Section */}
                         <div className="bg-indigo-50 dark:bg-indigo-900/10 rounded-xl p-4 border border-indigo-100 dark:border-indigo-900/30">
@@ -198,7 +222,7 @@ export default function MarkDepositPaidModal({
                     </button>
                     <button
                         onClick={handleApprove}
-                        disabled={isLoading}
+                        disabled={isLoading || !!successMessage}
                         className="flex-[2] px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-lg shadow-indigo-200 dark:shadow-none transition-all font-bold text-sm disabled:opacity-50 flex items-center justify-center gap-2 group"
                     >
                         {isLoading ? (
@@ -209,7 +233,7 @@ export default function MarkDepositPaidModal({
                         ) : (
                             <>
                                 <CheckCircle className="w-4 h-4 transition-transform group-hover:scale-110" />
-                                <span>Mark as Paid & Approve</span>
+                                <span>{successMessage ? 'Marked as Paid' : 'Mark as Paid & Approve'}</span>
                             </>
                         )}
                     </button>

@@ -92,14 +92,20 @@ export default function PaymentCollectionModal({
   // Calculate true balance including unpaid deposit
   const isDepositPaid = booking.deposit_status?.toLowerCase() === 'paid' || booking.deposit_status?.toLowerCase() === 'held';
   const displaySecurityDeposit = 1000;
+  const FIXED_DOWN_PAYMENT = 500;
+
+  const safeNumber = (value: unknown) => {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : 0;
+  };
 
   // Total cost = Room + Add-ons + Deposit
-  const baseTotalCost = (booking.total_amount || 0) + displaySecurityDeposit;
+  const baseTotalCost = safeNumber(booking.room_rate) + safeNumber(booking.add_ons_total) + displaySecurityDeposit;
 
   // Amount already paid (the down payment recorded in DB)
   // We assume here that for "Payment Collection" (at check-in), the down payment is already "approved" in reality 
   // or we just subtract what's in booking.down_payment.
-  const downPaymentPaid = booking.down_payment || 0;
+  const downPaymentPaid = FIXED_DOWN_PAYMENT;
   const depositAlreadyPaid = isDepositPaid ? displaySecurityDeposit : 0;
 
   const trueRemainingBalance = baseTotalCost - downPaymentPaid - depositAlreadyPaid;

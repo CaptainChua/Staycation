@@ -39,13 +39,18 @@ export default function TotalBreakdown({
   const FIXED_DEPOSIT = 1000;
   const FIXED_DOWN_PAYMENT = 500;
 
+  const safeNumber = (value: unknown) => {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : 0;
+  };
+
   // Check if security deposit is paid (explicitly 'paid' or 'held')
   const isDepositPaid = depositStatus?.toLowerCase() === 'paid' || depositStatus?.toLowerCase() === 'held';
 
   // Calculate display total at the top
   // "display all total including room, deposit, add ons, and down payment"
   // We assume totalAmount (from DB) is Room + Addons. We add Deposit to get the base total.
-  const displayTotal = totalAmount + FIXED_DEPOSIT;
+  const displayTotal = safeNumber(roomRate) + safeNumber(addOnsTotal) + FIXED_DEPOSIT;
 
   // Calculate actual balance
   // "balance should be auto calculate if deposit is paid and down payment is always calculate minus -500"
