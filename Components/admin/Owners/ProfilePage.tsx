@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { Loader2, User, Mail, Phone, Calendar, MapPin, Briefcase, DollarSign, Edit2, Save, X, Camera, Shield, Check, Key, Eye, EyeOff, Activity, Headphones, FileText, Bell, Settings, AlertCircle } from "lucide-react";
 import Image from "next/image";
-import { Camera, Mail, Phone, MapPin, Calendar, Edit2, Save, X, Briefcase, DollarSign, Users, AlertCircle, Loader2 } from "lucide-react";
+import { useSession, signOut } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { useUpdateEmployeeMutation } from "@/redux/api/employeeApi";
 
@@ -35,32 +35,54 @@ interface UserSession {
   role?: string;
 }
 
+const formatDate = (value?: string) => {
+  if (!value) return "Not specified";
+  try {
+    return new Date(value).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  } catch {
+    return value;
+  }
+};
+
+const formatCurrency = (value?: number | string | null) => {
+  if (value === null || value === undefined || value === "") return "Not specified";
+  const numericValue = typeof value === "string" ? Number(value) : value;
+  if (Number.isNaN(numericValue)) return "Not specified";
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "PHP",
+    maximumFractionDigits: 2,
+  }).format(numericValue);
+};
+
 const ProfilePage = () => {
-  const { data: session, update } = useSession();
+  const { data: session, update: updateSession } = useSession();
   const router = useRouter();
   const [updateEmployee, { isLoading: isUpdating }] = useUpdateEmployeeMutation();
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [employee, setEmployee] = useState<EmployeeProfile | null>(null);
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [originalProfileImage, setOriginalProfileImage] = useState<string | null>(null);
-  const [formData, setFormData] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    phone: "",
-    employeeId: "",
-    role: "",
-    department: "",
-    hireDate: "",
-    salary: "",
-    address: "",
-    city: "",
-    zipCode: "",
-    emergencyContactName: "",
-    emergencyContactPhone: "",
-    emergencyContactRelation: "",
+  const [editForm, setEditForm] = useState<Partial<EmployeeProfile>>({});
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
+  const [activeTab, setActiveTab] = useState<'personal' | 'professional' | 'contact' | 'security' | 'emergency'>('personal');
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
   });
+  const [showPasswords, setShowPasswords] = useState({
+    current: false,
+    new: false,
+    confirm: false
+  });
+  const [passwordSaveStatus, setPasswordSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
 
   // Fetch employee data from API
   useEffect(() => {
@@ -86,25 +108,6 @@ const ProfilePage = () => {
         const data = payload?.data;
         if (data) {
           setEmployee(data);
-
-          // Update form with fresh data
-          setFormData({
-            firstName: data.first_name || "",
-            lastName: data.last_name || "",
-            email: data.email || "",
-            phone: data.phone || "",
-            employeeId: data.employment_id || "",
-            role: data.role || "",
-            department: data.department || "",
-            hireDate: data.hire_date || "",
-            salary: data.monthly_salary ? String(data.monthly_salary) : "",
-            address: data.street_address || "",
-            city: data.city || "",
-            zipCode: data.zip_code || "",
-            emergencyContactName: data.emergency_contact_name || "",
-            emergencyContactPhone: data.emergency_contact_phone || "",
-            emergencyContactRelation: data.emergency_contact_relation || "",
-          });
 
           const image = data.profile_image_url || null;
           setProfileImage(image);
@@ -134,147 +137,297 @@ const ProfilePage = () => {
     }
   };
 
+  const displayName = useMemo(() => {
+    if (employee) {
+      return `${employee.first_name} ${employee.last_name}`.trim();
+    }
+    return session?.user?.name ?? "Not specified";
+  }, [employee, session?.user?.name]);
+
+  const profileImageUrl = employee?.profile_image_url || session?.user?.image || "";
+  const contactEmail = employee?.email || session?.user?.email || "Not specified";
+  const employmentId = employee?.employment_id || "Not assigned";
+  const roleLabel = employee?.role || (session?.user as UserSession)?.role || "Owner";
+  const department = employee?.department || "Not specified";
+  const phone = employee?.phone || "Not specified";
+  const hireDate = formatDate(employee?.hire_date);
+  const salary = formatCurrency(employee?.monthly_salary);
+  const address = `${employee?.street_address || ''} ${employee?.city || ''} ${employee?.zip_code || ''}`.trim() || "Not specified";
+  const emergencyContactName = employee?.emergency_contact_name || "Not specified";
+  const emergencyContactPhone = employee?.emergency_contact_phone || "Not specified";
+  const emergencyContactRelation = employee?.emergency_contact_relation || "Not specified";
+
+  const handleEdit = () => {
+    setIsEditing(true);
+    setEditForm({
+      first_name: employee?.first_name,
+      last_name: employee?.last_name,
+      email: employee?.email,
+      phone: employee?.phone || '',
+      street_address: employee?.street_address || '',
+      city: employee?.city || '',
+      zip_code: employee?.zip_code || '',
+      emergency_contact_name: employee?.emergency_contact_name || '',
+      emergency_contact_phone: employee?.emergency_contact_phone || '',
+      emergency_contact_relation: employee?.emergency_contact_relation || '',
+    });
+  };
+
   const handleSave = async () => {
-    try {
-      const userId = (session?.user as UserSession)?.id;
-      if (!userId) {
-        toast.error("User ID not found");
+    if (!employee?.id) return;
+
+    // Email validation (only if email is provided)
+    if (editForm.email) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(editForm.email)) {
+        toast.error('Please enter a valid email address');
+        setSaveStatus('error');
+        setTimeout(() => setSaveStatus('idle'), 3000);
         return;
       }
+    }
 
-      // Prepare update data
-      const updateData: Record<string, string | number | null> = {
-        id: userId,
-        first_name: formData.firstName,
-        last_name: formData.lastName,
-        email: formData.email,
-        phone: formData.phone,
-        department: formData.department,
-        monthly_salary: formData.salary ? parseFloat(formData.salary) : null,
-        street_address: formData.address,
-        city: formData.city,
-        zip_code: formData.zipCode,
-        emergency_contact_name: formData.emergencyContactName,
-        emergency_contact_phone: formData.emergencyContactPhone,
-        emergency_contact_relation: formData.emergencyContactRelation,
-      };
-
-      // Only include profile_image_url if it changed
-      if (profileImage && profileImage !== originalProfileImage) {
-        updateData.profile_image_url = profileImage;
+    // Phone validation (if provided)
+    if (editForm.phone && editForm.phone.trim() !== '') {
+      const phoneRegex = /^[+]?[\d\s\-\(\)]+$/;
+      if (!phoneRegex.test(editForm.phone)) {
+        toast.error('Please enter a valid phone number');
+        setSaveStatus('error');
+        setTimeout(() => setSaveStatus('idle'), 3000);
+        return;
       }
+    }
 
-      // Call update mutation
-      const result = await updateEmployee(updateData).unwrap();
+    try {
+      setSaveStatus('saving');
+      setError(null);
 
-      // Update session with the data returned from the backend
-      const fullName = `${result.data.first_name} ${result.data.last_name}`.trim();
+      // Prepare update data with only changed fields
+      const updateData: Partial<EmployeeProfile> = {};
 
-      // Add cache-busting timestamp to image URL
-      const imageUrl = result.data.profile_image_url
-        ? `${result.data.profile_image_url}?t=${Date.now()}`
-        : result.data.profile_image_url;
+      Object.keys(editForm).forEach(key => {
+        const field = key as keyof EmployeeProfile;
+        const currentValue = employee[field];
+        const newValue = editForm[field];
 
-      await update({
-        ...session,
-        user: {
-          ...session?.user,
-          id: result.data.id,
-          name: fullName,
-          email: result.data.email,
-          phone: result.data.phone,
-          employment_id: result.data.employment_id,
-          hire_date: result.data.hire_date,
-          role: result.data.role,
-          department: result.data.department,
-          monthly_salary: result.data.monthly_salary,
-          street_address: result.data.street_address,
-          city: result.data.city,
-          zip_code: result.data.zip_code,
-          emergency_contact_name: result.data.emergency_contact_name,
-          emergency_contact_phone: result.data.emergency_contact_phone,
-          emergency_contact_relation: result.data.emergency_contact_relation,
-          image: imageUrl,
-          profile_image_url: imageUrl,
+        // Compare values (handle string vs number conversions)
+        if (currentValue !== newValue) {
+          if (field === 'monthly_salary' && newValue) {
+            updateData[field] = parseFloat(newValue as string);
+          } else {
+            (updateData as any)[field] = newValue;
+          }
         }
       });
 
-      toast.success("Profile updated successfully!");
+      // If no changes were made, show message and exit
+      if (Object.keys(updateData).length === 0) {
+        toast.error('No changes were made');
+        setSaveStatus('error');
+        setTimeout(() => setSaveStatus('idle'), 3000);
+        return;
+      }
 
-      // Force a page reload to update all instances of the profile image
-      window.location.reload();
+      console.log('Sending update data:', updateData);
 
-      // Refetch employee data to get fresh data from database
-      const response = await fetch(`/api/admin/employees/${userId}`, {
-        method: "GET",
-        cache: "no-store",
+      const response = await fetch(`/api/admin/employees/${employee.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updateData),
       });
 
-      const payload = await response.json();
-      if (response.ok && payload?.data) {
-        const data = payload.data;
-        setEmployee(data);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('API Error Response:', errorData);
+        throw new Error(errorData.error || errorData.message || 'Failed to update profile');
+      }
 
-        // Update form with fresh data
-        setFormData({
-          firstName: data.first_name || "",
-          lastName: data.last_name || "",
-          email: data.email || "",
-          phone: data.phone || "",
-          employeeId: data.employment_id || "",
-          role: data.role || "",
-          department: data.department || "",
-          hireDate: data.hire_date || "",
-          salary: data.monthly_salary ? String(data.monthly_salary) : "",
-          address: data.street_address || "",
-          city: data.city || "",
-          zipCode: data.zip_code || "",
-          emergencyContactName: data.emergency_contact_name || "",
-          emergencyContactPhone: data.emergency_contact_phone || "",
-          emergencyContactRelation: data.emergency_contact_relation || "",
+      const updatedData = await response.json();
+
+      // Update local state with new data
+      setEmployee(updatedData.data);
+
+      // Show success toast
+      toast.success('Profile updated successfully');
+
+      // Log activity
+      try {
+        // Get client IP and user agent
+        const clientInfo = await fetch('/api/admin/client-info').then(res => res.json()).catch(() => ({}));
+
+        await fetch('/api/admin/activity-logs', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            employment_id: employee.id,
+            action_type: 'update',
+            action: `Updated profile information: ${Object.keys(updateData).join(', ')}`,
+            details: {
+              entity_type: 'employee',
+              entity_id: employee.id,
+              ip_address: clientInfo.ipAddress,
+              user_agent: clientInfo.userAgent,
+            },
+          }),
         });
+      } catch (logError) {
+        console.warn('Failed to log activity:', logError);
+        // Continue even if logging fails
+      }
 
-        const image = data.profile_image_url || null;
-        setProfileImage(image);
-        setOriginalProfileImage(image);
+      // Update the user session if name or email changed
+      if (updatedData.data.first_name || updatedData.data.last_name || updatedData.data.email) {
+        try {
+          // Update session with new user information
+          await updateSession({
+            ...session,
+            user: {
+              ...session?.user,
+              name: `${updatedData.data.first_name} ${updatedData.data.last_name}`.trim(),
+              email: updatedData.data.email,
+            }
+          });
+        } catch (sessionError) {
+          console.warn('Failed to update session:', sessionError);
+          // Continue even if session update fails
+        }
       }
 
       setIsEditing(false);
-      router.refresh();
-    } catch (error: unknown) {
-      console.error("Failed to update profile:", error);
-      const errorMessage = error && typeof error === 'object' && 'data' in error &&
-        error.data && typeof error.data === 'object' && 'error' in error.data &&
-        typeof error.data.error === 'string'
-        ? error.data.error
-        : "Failed to update profile";
+      setEditForm({});
+      setSaveStatus('success');
+
+      setTimeout(() => setSaveStatus('idle'), 3000);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update profile';
       toast.error(errorMessage);
+      setSaveStatus('error');
+      setTimeout(() => setSaveStatus('idle'), 3000);
     }
   };
 
   const handleCancel = () => {
-    if (employee) {
-      setFormData({
-        firstName: employee.first_name || "",
-        lastName: employee.last_name || "",
-        email: employee.email || "",
-        phone: employee.phone || "",
-        employeeId: employee.employment_id || "",
-        role: employee.role || "",
-        department: employee.department || "",
-        hireDate: employee.hire_date || "",
-        salary: employee.monthly_salary ? String(employee.monthly_salary) : "",
-        address: employee.street_address || "",
-        city: employee.city || "",
-        zipCode: employee.zip_code || "",
-        emergencyContactName: employee.emergency_contact_name || "",
-        emergencyContactPhone: employee.emergency_contact_phone || "",
-        emergencyContactRelation: employee.emergency_contact_relation || "",
-      });
-    }
-    setProfileImage(originalProfileImage);
     setIsEditing(false);
+    setEditForm({});
   };
+
+  const handleInputChange = (field: string, value: string) => {
+    setEditForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handlePasswordInputChange = (field: string, value: string) => {
+    setPasswordForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  const togglePasswordVisibility = (field: 'current' | 'new' | 'confirm') => {
+    setShowPasswords(prev => ({ ...prev, [field]: !prev[field] }));
+  };
+
+  const handlePasswordChange = async () => {
+    if (!session?.user?.email) return;
+
+    // Validation
+    if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+      toast.error('All password fields are required');
+      return;
+    }
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      toast.error('New passwords do not match');
+      return;
+    }
+
+    try {
+      setPasswordSaveStatus('saving');
+
+      const response = await fetch('/api/admin/change-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: session.user.email,
+          currentPassword: passwordForm.currentPassword,
+          newPassword: passwordForm.newPassword,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to change password');
+      }
+
+      setPasswordSaveStatus('success');
+      setPasswordForm({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      });
+
+      toast.success('Password changed successfully');
+
+      // Log activity
+      try {
+        // Get client IP and user agent
+        const clientInfo = await fetch('/api/admin/client-info').then(res => res.json()).catch(() => ({}));
+
+        console.log('🔍 Password change logging data:', {
+          employment_id: (session?.user as UserSession)?.id,
+          action_type: 'update',
+          action: 'Changed account password',
+          details: {
+            entity_type: 'employee',
+            entity_id: (session?.user as UserSession)?.id,
+            ip_address: clientInfo.ipAddress,
+            user_agent: clientInfo.userAgent,
+          },
+        });
+
+        const logResponse = await fetch('/api/admin/activity-logs', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            employment_id: (session?.user as UserSession)?.id,
+            action_type: 'update',
+            action: 'Changed account password',
+            details: {
+              entity_type: 'employee',
+              entity_id: (session?.user as UserSession)?.id,
+              ip_address: clientInfo.ipAddress,
+              user_agent: clientInfo.userAgent,
+            },
+          }),
+        });
+
+        const logResult = await logResponse.json();
+        console.log('🔍 Activity log response:', logResult);
+      } catch (logError) {
+        console.warn('❌ Failed to log activity:', logError);
+        // Continue even if logging fails
+      }
+
+      setTimeout(() => setPasswordSaveStatus('idle'), 3000);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to change password');
+      setPasswordSaveStatus('error');
+      setTimeout(() => setPasswordSaveStatus('idle'), 3000);
+    }
+  };
+
+  const tabs = [
+    { id: 'personal', label: 'Personal Info', icon: User },
+    { id: 'professional', label: 'Professional', icon: Briefcase },
+    { id: 'contact', label: 'Contact', icon: Mail },
+    { id: 'emergency', label: 'Emergency', icon: AlertCircle },
+    { id: 'security', label: 'Security', icon: Key },
+  ];
 
   if (isLoading) {
     return (
@@ -289,34 +442,95 @@ const ProfilePage = () => {
   }
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-700">
-      {/* Profile Header Card */}
-      <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-200">
-        <div className="flex flex-col md:flex-row gap-8">
-          {/* Profile Picture Section */}
-          <div className="flex flex-col items-center gap-4">
-            <div className="relative group">
-              {profileImage ? (
-                <Image
-                  src={profileImage}
-                  alt="Profile"
-                  width={160}
-                  height={160}
-                  className="rounded-full object-cover border-4 border-orange-500 shadow-xl"
-                />
-              ) : (
-                <div className="w-40 h-40 bg-gradient-to-br from-orange-500 to-yellow-500 rounded-full flex items-center justify-center text-white font-bold text-6xl border-4 border-orange-500 shadow-xl">
-                  {formData.firstName?.charAt(0) || session?.user?.name?.charAt(0) || "O"}
-                </div>
-              )}
+    <div className="space-y-6 animate-in fade-in duration-700 overflow-hidden h-full flex flex-col">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 sm:gap-4 flex-shrink-0 border border-gray-200 dark:border-gray-700 rounded-lg p-3 sm:p-6 bg-white dark:bg-gray-800 shadow dark:shadow-gray-900">
+        <div>
+          <h1 className="text-lg sm:text-2xl font-bold text-gray-800 dark:text-gray-100">My Profile</h1>
+          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">Manage your personal and professional information</p>
+        </div>
+        <div className="flex items-center gap-2 sm:gap-3">
+          {saveStatus === 'success' && (
+            <div className="flex items-center gap-2 text-green-600 bg-green-50 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg">
+              <Check className="w-3 h-3 sm:w-4 sm:h-4" />
+              <span className="text-xs sm:text-sm font-medium">Profile updated successfully</span>
+            </div>
+          )}
+          {saveStatus === 'error' && (
+            <div className="flex items-center gap-2 text-red-600 bg-red-50 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg">
+              <X className="w-3 h-3 sm:w-4 sm:h-4" />
+              <span className="text-xs sm:text-sm font-medium">Failed to update profile</span>
+            </div>
+          )}
+          {!isEditing ? (
+            <button
+              onClick={handleEdit}
+              className="flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-brand-primary hover:bg-brand-primaryDark text-white rounded-lg font-medium transition-colors text-xs sm:text-sm"
+            >
+              <Edit2 className="w-3 h-3 sm:w-4 sm:h-4" />
+              Edit Profile
+            </button>
+          ) : (
+            <div className="flex items-center gap-1 sm:gap-2">
+              <button
+                onClick={handleCancel}
+                className="flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium transition-colors text-xs sm:text-sm"
+              >
+                <X className="w-3 h-3 sm:w-4 sm:h-4" />
+                Cancel
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saveStatus === 'saving'}
+                className="flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-brand-primary hover:bg-brand-primaryDark text-white rounded-lg font-medium transition-colors disabled:opacity-50 text-xs sm:text-sm"
+              >
+                {saveStatus === 'saving' ? (
+                  <>
+                    <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-3 h-3 sm:w-4 sm:h-4" />
+                    Save Changes
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
 
-              {/* Camera Icon Overlay */}
-              {isEditing && (
-                <label
-                  htmlFor="profile-image"
-                  className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                >
-                  <Camera className="w-8 h-8 text-white" />
+      {error && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg">
+          {error}
+        </div>
+      )}
+
+      {/* Profile Content */}
+      <div className="flex-1 overflow-y-auto">
+        {/* Profile Card */}
+        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg overflow-hidden mb-6 border border-gray-200 dark:border-gray-700">
+          <div className="bg-gradient-to-r from-brand-primary to-brand-primaryDark h-32 relative">
+            <div className="absolute -bottom-16 left-8">
+              <div className="relative group">
+                <div className="w-32 h-32 bg-white dark:bg-gray-800 rounded-full p-1">
+                  {profileImageUrl ? (
+                    <Image
+                      src={profileImageUrl}
+                      alt={displayName}
+                      width={120}
+                      height={120}
+                      className="w-full h-full rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full rounded-full bg-gradient-to-br from-brand-primary to-brand-primaryDark flex items-center justify-center">
+                      <User className="w-16 h-16 text-white" />
+                    </div>
+                  )}
+                </div>
+                <label className="absolute bottom-2 right-2 w-8 h-8 bg-brand-primary text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                  <Camera className="w-4 h-4" />
                   <input
                     id="profile-image"
                     type="file"
@@ -325,437 +539,480 @@ const ProfilePage = () => {
                     className="hidden"
                   />
                 </label>
-              )}
+              </div>
             </div>
-
-            {isEditing && (
-              <p className="text-xs text-gray-500 text-center">
-                Click image to change
-              </p>
-            )}
           </div>
 
-          {/* Profile Info Section */}
-          <div className="flex-1">
-            <div className="flex items-start justify-between mb-6">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-800 mb-1">
-                  {session?.user?.name || "User"}
-                </h1>
-                <p className="text-gray-500 flex items-center gap-2">
-                  <span className="px-3 py-1 bg-orange-100 text-orange-600 rounded-full text-sm font-semibold">
-                    {(session?.user as UserSession)?.role || "Owner"}
+          <div className="pt-20 px-4 sm:px-8 pb-8">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <div className="flex-1 min-w-0">
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white truncate">{displayName}</h2>
+                <p className="text-gray-600 dark:text-gray-400 text-sm sm:text-base">{roleLabel}</p>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+                  <span className="flex items-center gap-1">
+                    <Briefcase className="w-3 h-3 sm:w-4 sm:h-4" />
+                    <span className="truncate">{department}</span>
                   </span>
-                </p>
+                  <span className="flex items-center gap-1">
+                    <Shield className="w-3 h-3 sm:w-4 sm:h-4" />
+                    <span className="truncate">{employmentId}</span>
+                  </span>
+                </div>
               </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="px-2 sm:px-3 py-1 bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-full text-xs sm:text-sm font-medium">
+                  Active
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
 
-              {!isEditing ? (
-                <button
-                  onClick={() => setIsEditing(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
-                >
-                  <Edit2 className="w-4 h-4" />
-                  Edit Profile
-                </button>
-              ) : (
-                <div className="flex gap-2">
+        {/* Tabs */}
+        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+          <div className="border-b border-gray-200 dark:border-gray-700">
+            <nav className="flex overflow-x-auto scrollbar-hide px-4 sm:px-8">
+              {tabs.map((tab) => {
+                const Icon = tab.icon;
+                return (
                   <button
-                    onClick={handleSave}
-                    disabled={isUpdating}
-                    className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id as any)}
+                    className={`flex items-center gap-1 sm:gap-2 py-4 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm transition-colors whitespace-nowrap flex-shrink-0 ${activeTab === tab.id
+                        ? 'border-brand-primary text-brand-primary'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                      }`}
                   >
-                    {isUpdating && (
-                      <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
+                    <Icon className="w-4 h-4" />
+                    <span className="hidden sm:inline">{tab.label}</span>
+                    <span className="sm:hidden">{tab.label.split(' ')[0]}</span>
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
+
+          <div className="p-8">
+            {isLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-brand-primary" />
+              </div>
+            ) : (
+              <>
+                {/* Personal Information Tab */}
+                {activeTab === 'personal' && (
+                  <div className="space-y-6">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Personal Information</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">First Name</label>
+                        {isEditing ? (
+                          <input
+                            type="text"
+                            value={editForm.first_name || ''}
+                            onChange={(e) => handleInputChange('first_name', e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent dark:bg-gray-800 dark:text-white"
+                          />
+                        ) : (
+                          <p className="text-gray-900 dark:text-white">{employee?.first_name || 'Not specified'}</p>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Last Name</label>
+                        {isEditing ? (
+                          <input
+                            type="text"
+                            value={editForm.last_name || ''}
+                            onChange={(e) => handleInputChange('last_name', e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent dark:bg-gray-800 dark:text-white"
+                          />
+                        ) : (
+                          <p className="text-gray-900 dark:text-white">{employee?.last_name || 'Not specified'}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Professional Information Tab */}
+                {activeTab === 'professional' && (
+                  <div className="space-y-6">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Professional Information</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                        <div className="flex items-center gap-3 mb-2">
+                          <Briefcase className="w-5 h-5 text-brand-primary" />
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Role</span>
+                        </div>
+                        <p className="text-lg font-semibold text-gray-900 dark:text-white">{roleLabel}</p>
+                      </div>
+                      <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                        <div className="flex items-center gap-3 mb-2">
+                          <Calendar className="w-5 h-5 text-brand-primary" />
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Hire Date</span>
+                        </div>
+                        <p className="text-lg font-semibold text-gray-900 dark:text-white">{hireDate}</p>
+                      </div>
+                      <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                        <div className="flex items-center gap-3 mb-2">
+                          <DollarSign className="w-5 h-5 text-brand-primary" />
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Monthly Salary</span>
+                        </div>
+                        <p className="text-lg font-semibold text-gray-900 dark:text-white">{salary}</p>
+                      </div>
+                      <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                        <div className="flex items-center gap-3 mb-2">
+                          <Shield className="w-5 h-5 text-brand-primary" />
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Employment ID</span>
+                        </div>
+                        <p className="text-lg font-semibold text-gray-900 dark:text-white">{employmentId}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Contact Information Tab */}
+                {activeTab === 'contact' && (
+                  <div className="space-y-6">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Contact Information</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email Address</label>
+                        {isEditing ? (
+                          <input
+                            type="email"
+                            value={editForm.email || ''}
+                            onChange={(e) => handleInputChange('email', e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent dark:bg-gray-800 dark:text-white"
+                          />
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <Mail className="w-4 h-4 text-gray-400" />
+                            <span className="text-gray-900 dark:text-white">{contactEmail}</span>
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Phone Number</label>
+                        {isEditing ? (
+                          <input
+                            type="tel"
+                            value={editForm.phone || ''}
+                            onChange={(e) => handleInputChange('phone', e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent dark:bg-gray-800 dark:text-white"
+                          />
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <Phone className="w-4 h-4 text-gray-400" />
+                            <span className="text-gray-900 dark:text-white">{phone}</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Street Address</label>
+                        {isEditing ? (
+                          <input
+                            type="text"
+                            value={editForm.street_address || ''}
+                            onChange={(e) => handleInputChange('street_address', e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent dark:bg-gray-800 dark:text-white"
+                          />
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <MapPin className="w-4 h-4 text-gray-400" />
+                            <span className="text-gray-900 dark:text-white">{employee?.street_address || 'Not specified'}</span>
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">City</label>
+                        {isEditing ? (
+                          <input
+                            type="text"
+                            value={editForm.city || ''}
+                            onChange={(e) => handleInputChange('city', e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent dark:bg-gray-800 dark:text-white"
+                          />
+                        ) : (
+                          <p className="text-gray-900 dark:text-white">{employee?.city || 'Not specified'}</p>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">ZIP Code</label>
+                        {isEditing ? (
+                          <input
+                            type="text"
+                            value={editForm.zip_code || ''}
+                            onChange={(e) => handleInputChange('zip_code', e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent dark:bg-gray-800 dark:text-white"
+                          />
+                        ) : (
+                          <p className="text-gray-900 dark:text-white">{employee?.zip_code || 'Not specified'}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Emergency Contact Tab */}
+                {activeTab === 'emergency' && (
+                  <div className="space-y-6">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Emergency Contact</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Contact Name</label>
+                        {isEditing ? (
+                          <input
+                            type="text"
+                            value={editForm.emergency_contact_name || ''}
+                            onChange={(e) => handleInputChange('emergency_contact_name', e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent dark:bg-gray-800 dark:text-white"
+                          />
+                        ) : (
+                          <p className="text-gray-900 dark:text-white">{emergencyContactName}</p>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Contact Phone</label>
+                        {isEditing ? (
+                          <input
+                            type="tel"
+                            value={editForm.emergency_contact_phone || ''}
+                            onChange={(e) => handleInputChange('emergency_contact_phone', e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent dark:bg-gray-800 dark:text-white"
+                          />
+                        ) : (
+                          <p className="text-gray-900 dark:text-white">{emergencyContactPhone}</p>
+                        )}
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Relationship</label>
+                        {isEditing ? (
+                          <input
+                            type="text"
+                            value={editForm.emergency_contact_relation || ''}
+                            onChange={(e) => handleInputChange('emergency_contact_relation', e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent dark:bg-gray-800 dark:text-white"
+                          />
+                        ) : (
+                          <p className="text-gray-900 dark:text-white">{emergencyContactRelation}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Security Tab */}
+                {activeTab === 'security' && (
+                  <div className="space-y-6">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Security Settings</h3>
+
+                    {passwordSaveStatus === 'success' && (
+                      <div className="flex items-center gap-2 text-green-600 bg-green-50 px-4 py-2 rounded-lg">
+                        <Check className="w-4 h-4" />
+                        <span className="text-sm font-medium">Password changed successfully</span>
+                      </div>
                     )}
-                    {!isUpdating && <Save className="w-4 h-4" />}
-                    {isUpdating ? "Saving..." : "Save"}
-                  </button>
-                  <button
-                    onClick={handleCancel}
-                    disabled={isUpdating}
-                    className="flex items-center gap-2 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <X className="w-4 h-4" />
-                    Cancel
-                  </button>
-                </div>
-              )}
-            </div>
 
-            {/* Personal Information */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* First Name */}
-              <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
-                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <Users className="w-5 h-5 text-blue-600" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-xs text-gray-500 mb-1">First Name</p>
-                  {isEditing ? (
-                    <input
-                      type="text"
-                      value={formData.firstName}
-                      onChange={(e) =>
-                        setFormData({ ...formData, firstName: e.target.value })
-                      }
-                      className="text-sm font-medium text-gray-800 bg-white border border-gray-300 rounded px-2 py-1 w-full"
-                      placeholder="Enter first name"
-                    />
-                  ) : (
-                    <p className="text-sm font-medium text-gray-800">
-                      {formData.firstName || "Not provided"}
-                    </p>
-                  )}
-                </div>
-              </div>
+                    {passwordSaveStatus === 'error' && (
+                      <div className="flex items-center gap-2 text-red-600 bg-red-50 px-4 py-2 rounded-lg">
+                        <X className="w-4 h-4" />
+                        <span className="text-sm font-medium">Failed to change password</span>
+                      </div>
+                    )}
 
-              {/* Last Name */}
-              <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
-                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <Users className="w-5 h-5 text-blue-600" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-xs text-gray-500 mb-1">Last Name</p>
-                  {isEditing ? (
-                    <input
-                      type="text"
-                      value={formData.lastName}
-                      onChange={(e) =>
-                        setFormData({ ...formData, lastName: e.target.value })
-                      }
-                      className="text-sm font-medium text-gray-800 bg-white border border-gray-300 rounded px-2 py-1 w-full"
-                      placeholder="Enter last name"
-                    />
-                  ) : (
-                    <p className="text-sm font-medium text-gray-800">
-                      {formData.lastName || "Not provided"}
-                    </p>
-                  )}
-                </div>
-              </div>
+                    {/* Password Change Section */}
+                    <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
+                      <div className="flex items-center gap-3 mb-4">
+                        <Key className="w-5 h-5 text-brand-primary" />
+                        <h4 className="text-base font-semibold text-gray-900 dark:text-white">Change Password</h4>
+                      </div>
 
-              {/* Email */}
-              <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
-                <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                  <Mail className="w-5 h-5 text-green-600" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-xs text-gray-500 mb-1">Email</p>
-                  {isEditing ? (
-                    <input
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) =>
-                        setFormData({ ...formData, email: e.target.value })
-                      }
-                      className="text-sm font-medium text-gray-800 bg-white border border-gray-300 rounded px-2 py-1 w-full"
-                    />
-                  ) : (
-                    <p className="text-sm font-medium text-gray-800">
-                      {formData.email || "Not provided"}
-                    </p>
-                  )}
-                </div>
-              </div>
+                      <div className="max-w-md space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Current Password</label>
+                          <div className="relative">
+                            <input
+                              type={showPasswords.current ? 'text' : 'password'}
+                              value={passwordForm.currentPassword}
+                              onChange={(e) => handlePasswordInputChange('currentPassword', e.target.value)}
+                              className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                              placeholder="Enter current password"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => togglePasswordVisibility('current')}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                            >
+                              {showPasswords.current ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                          </div>
+                        </div>
 
-              {/* Phone */}
-              <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
-                <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                  <Phone className="w-5 h-5 text-purple-600" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-xs text-gray-500 mb-1">Phone</p>
-                  {isEditing ? (
-                    <input
-                      type="tel"
-                      value={formData.phone}
-                      onChange={(e) =>
-                        setFormData({ ...formData, phone: e.target.value })
-                      }
-                      className="text-sm font-medium text-gray-800 bg-white border border-gray-300 rounded px-2 py-1 w-full"
-                      placeholder="Enter phone number"
-                    />
-                  ) : (
-                    <p className="text-sm font-medium text-gray-800">
-                      {formData.phone || "Not provided"}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">New Password</label>
+                          <div className="relative">
+                            <input
+                              type={showPasswords.new ? 'text' : 'password'}
+                              value={passwordForm.newPassword}
+                              onChange={(e) => handlePasswordInputChange('newPassword', e.target.value)}
+                              className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                              placeholder="Enter new password"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => togglePasswordVisibility('new')}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                            >
+                              {showPasswords.new ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                          </div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Must be at least 8 characters long</p>
+                        </div>
 
-      {/* Employment Information Card */}
-      <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-200">
-        <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-          <Briefcase className="w-6 h-6 text-orange-500" />
-          Employment Information
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Employee ID (Read-only) */}
-          <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
-            <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
-              <Briefcase className="w-5 h-5 text-indigo-600" />
-            </div>
-            <div className="flex-1">
-              <p className="text-xs text-gray-500 mb-1">Employee ID</p>
-              <p className="text-sm font-medium text-gray-800">
-                {formData.employeeId || "Not provided"}
-              </p>
-            </div>
-          </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Confirm New Password</label>
+                          <div className="relative">
+                            <input
+                              type={showPasswords.confirm ? 'text' : 'password'}
+                              value={passwordForm.confirmPassword}
+                              onChange={(e) => handlePasswordInputChange('confirmPassword', e.target.value)}
+                              className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                              placeholder="Confirm new password"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => togglePasswordVisibility('confirm')}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                            >
+                              {showPasswords.confirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                          </div>
+                        </div>
 
-          {/* Role (Read-only) */}
-          <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
-            <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-              <Users className="w-5 h-5 text-purple-600" />
-            </div>
-            <div className="flex-1">
-              <p className="text-xs text-gray-500 mb-1">Role</p>
-              <p className="text-sm font-medium text-gray-800">
-                {formData.role || "Not provided"}
-              </p>
-            </div>
-          </div>
+                        <div className="pt-4">
+                          <button
+                            onClick={handlePasswordChange}
+                            disabled={passwordSaveStatus === 'saving'}
+                            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-brand-primary hover:bg-brand-primaryDark text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+                          >
+                            {passwordSaveStatus === 'saving' ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                Changing Password...
+                              </>
+                            ) : (
+                              <>
+                                <Key className="w-4 h-4" />
+                                Change Password
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
 
-          {/* Department */}
-          <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
-            <div className="w-10 h-10 bg-cyan-100 rounded-lg flex items-center justify-center">
-              <Briefcase className="w-5 h-5 text-cyan-600" />
-            </div>
-            <div className="flex-1">
-              <p className="text-xs text-gray-500 mb-1">Department</p>
-              {isEditing ? (
-                <input
-                  type="text"
-                  value={formData.department}
-                  onChange={(e) =>
-                    setFormData({ ...formData, department: e.target.value })
-                  }
-                  className="text-sm font-medium text-gray-800 bg-white border border-gray-300 rounded px-2 py-1 w-full"
-                  placeholder="Enter department"
-                />
-              ) : (
-                <p className="text-sm font-medium text-gray-800">
-                  {formData.department || "Not provided"}
-                </p>
-              )}
-            </div>
-          </div>
+                    {/* Security Overview */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="w-10 h-10 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center">
+                            <Shield className="w-5 h-5 text-green-600 dark:text-green-400" />
+                          </div>
+                          <div>
+                            <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Account Security</h4>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Good</p>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 text-xs">
+                            <Check className="w-3 h-3 text-green-500" />
+                            <span className="text-gray-700 dark:text-gray-300">Password updated recently</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs">
+                            <Check className="w-3 h-3 text-green-500" />
+                            <span className="text-gray-700 dark:text-gray-300">Two-factor authentication available</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs">
+                            <Check className="w-3 h-3 text-green-500" />
+                            <span className="text-gray-700 dark:text-gray-300">Secure login method</span>
+                          </div>
+                        </div>
+                      </div>
 
-          {/* Hire Date */}
-          <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
-            <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
-              <Calendar className="w-5 h-5 text-orange-600" />
-            </div>
-            <div className="flex-1">
-              <p className="text-xs text-gray-500 mb-1">Hire Date</p>
-              <p className="text-sm font-medium text-gray-800">
-                {formData.hireDate ? new Date(formData.hireDate).toLocaleDateString("en-US", {
-                  month: "long",
-                  day: "numeric",
-                  year: "numeric",
-                }) : "Not provided"}
-              </p>
-            </div>
-          </div>
+                      <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/20 rounded-full flex items-center justify-center">
+                            <Activity className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                          </div>
+                          <div>
+                            <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Recent Activity</h4>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Last 7 days</p>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 text-xs">
+                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                            <span className="text-gray-700 dark:text-gray-300">5 successful logins</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs">
+                            <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                            <span className="text-gray-700 dark:text-gray-300">2 failed attempts</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs">
+                            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                            <span className="text-gray-700 dark:text-gray-300">1 password change</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
 
-          {/* Monthly Salary */}
-          <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg md:col-span-2">
-            <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-              <DollarSign className="w-5 h-5 text-green-600" />
-            </div>
-            <div className="flex-1">
-              <p className="text-xs text-gray-500 mb-1">Monthly Salary</p>
-              {isEditing ? (
-                <input
-                  type="number"
-                  value={formData.salary}
-                  onChange={(e) =>
-                    setFormData({ ...formData, salary: e.target.value })
-                  }
-                  className="text-sm font-medium text-gray-800 bg-white border border-gray-300 rounded px-2 py-1 w-full"
-                  placeholder="Enter monthly salary"
-                />
-              ) : (
-                <p className="text-sm font-medium text-gray-800">
-                  {formData.salary ? `₱${parseFloat(formData.salary).toLocaleString()}` : "Not provided"}
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
+                    {/* Security Tips */}
+                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                      <div className="flex items-start gap-3">
+                        <Shield className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5" />
+                        <div>
+                          <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2">Security Best Practices</h4>
+                          <ul className="text-xs text-blue-800 dark:text-blue-200 space-y-1">
+                            <li>• Use a strong password with at least 8 characters</li>
+                            <li>• Include a mix of letters, numbers, and symbols</li>
+                            <li>• Don't reuse passwords from other accounts</li>
+                            <li>• Change your password regularly</li>
+                            <li>• Enable two-factor authentication when available</li>
+                            <li>• Never share your login credentials</li>
+                            <li>• Log out from shared devices</li>
+                            <li>• Keep your software and browser updated</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
 
-      {/* Address Information Card */}
-      <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-200">
-        <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-          <MapPin className="w-6 h-6 text-orange-500" />
-          Address Information
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Street Address */}
-          <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg md:col-span-2">
-            <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
-              <MapPin className="w-5 h-5 text-red-600" />
-            </div>
-            <div className="flex-1">
-              <p className="text-xs text-gray-500 mb-1">Street Address</p>
-              {isEditing ? (
-                <input
-                  type="text"
-                  value={formData.address}
-                  onChange={(e) =>
-                    setFormData({ ...formData, address: e.target.value })
-                  }
-                  className="text-sm font-medium text-gray-800 bg-white border border-gray-300 rounded px-2 py-1 w-full"
-                  placeholder="Enter street address"
-                />
-              ) : (
-                <p className="text-sm font-medium text-gray-800">
-                  {formData.address || "Not provided"}
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* City */}
-          <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
-            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-              <MapPin className="w-5 h-5 text-blue-600" />
-            </div>
-            <div className="flex-1">
-              <p className="text-xs text-gray-500 mb-1">City</p>
-              {isEditing ? (
-                <input
-                  type="text"
-                  value={formData.city}
-                  onChange={(e) =>
-                    setFormData({ ...formData, city: e.target.value })
-                  }
-                  className="text-sm font-medium text-gray-800 bg-white border border-gray-300 rounded px-2 py-1 w-full"
-                  placeholder="Enter city"
-                />
-              ) : (
-                <p className="text-sm font-medium text-gray-800">
-                  {formData.city || "Not provided"}
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Zip Code */}
-          <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
-            <div className="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
-              <MapPin className="w-5 h-5 text-yellow-600" />
-            </div>
-            <div className="flex-1">
-              <p className="text-xs text-gray-500 mb-1">Zip Code</p>
-              {isEditing ? (
-                <input
-                  type="text"
-                  value={formData.zipCode}
-                  onChange={(e) =>
-                    setFormData({ ...formData, zipCode: e.target.value })
-                  }
-                  className="text-sm font-medium text-gray-800 bg-white border border-gray-300 rounded px-2 py-1 w-full"
-                  placeholder="Enter zip code"
-                />
-              ) : (
-                <p className="text-sm font-medium text-gray-800">
-                  {formData.zipCode || "Not provided"}
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Emergency Contact Card */}
-      <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-200">
-        <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-          <AlertCircle className="w-6 h-6 text-orange-500" />
-          Emergency Contact
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Emergency Contact Name */}
-          <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
-            <div className="w-10 h-10 bg-rose-100 rounded-lg flex items-center justify-center">
-              <Users className="w-5 h-5 text-rose-600" />
-            </div>
-            <div className="flex-1">
-              <p className="text-xs text-gray-500 mb-1">Contact Name</p>
-              {isEditing ? (
-                <input
-                  type="text"
-                  value={formData.emergencyContactName}
-                  onChange={(e) =>
-                    setFormData({ ...formData, emergencyContactName: e.target.value })
-                  }
-                  className="text-sm font-medium text-gray-800 bg-white border border-gray-300 rounded px-2 py-1 w-full"
-                  placeholder="Enter contact name"
-                />
-              ) : (
-                <p className="text-sm font-medium text-gray-800">
-                  {formData.emergencyContactName || "Not provided"}
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Emergency Contact Phone */}
-          <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
-            <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
-              <Phone className="w-5 h-5 text-amber-600" />
-            </div>
-            <div className="flex-1">
-              <p className="text-xs text-gray-500 mb-1">Contact Phone</p>
-              {isEditing ? (
-                <input
-                  type="tel"
-                  value={formData.emergencyContactPhone}
-                  onChange={(e) =>
-                    setFormData({ ...formData, emergencyContactPhone: e.target.value })
-                  }
-                  className="text-sm font-medium text-gray-800 bg-white border border-gray-300 rounded px-2 py-1 w-full"
-                  placeholder="Enter contact phone"
-                />
-              ) : (
-                <p className="text-sm font-medium text-gray-800">
-                  {formData.emergencyContactPhone || "Not provided"}
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Emergency Contact Relation */}
-          <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg md:col-span-2">
-            <div className="w-10 h-10 bg-teal-100 rounded-lg flex items-center justify-center">
-              <Users className="w-5 h-5 text-teal-600" />
-            </div>
-            <div className="flex-1">
-              <p className="text-xs text-gray-500 mb-1">Relationship</p>
-              {isEditing ? (
-                <input
-                  type="text"
-                  value={formData.emergencyContactRelation}
-                  onChange={(e) =>
-                    setFormData({ ...formData, emergencyContactRelation: e.target.value })
-                  }
-                  className="text-sm font-medium text-gray-800 bg-white border border-gray-300 rounded px-2 py-1 w-full"
-                  placeholder="e.g., Spouse, Parent, Sibling"
-                />
-              ) : (
-                <p className="text-sm font-medium text-gray-800">
-                  {formData.emergencyContactRelation || "Not provided"}
-                </p>
-              )}
-            </div>
+                    {/* Quick Actions */}
+                    <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                      <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Quick Actions</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <button className="flex items-center gap-2 px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors text-sm">
+                          <Headphones className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+                          <span className="text-gray-700 dark:text-gray-300">Contact Support</span>
+                        </button>
+                        <button className="flex items-center gap-2 px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors text-sm">
+                          <FileText className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+                          <span className="text-gray-700 dark:text-gray-300">View Logs</span>
+                        </button>
+                        <button className="flex items-center gap-2 px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors text-sm">
+                          <Bell className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+                          <span className="text-gray-700 dark:text-gray-300">Alert Settings</span>
+                        </button>
+                        <button className="flex items-center gap-2 px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors text-sm">
+                          <Settings className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+                          <span className="text-gray-700 dark:text-gray-300">Privacy Settings</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </div>
       </div>
