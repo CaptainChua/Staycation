@@ -226,6 +226,11 @@ const AdminLogin = () => {
           error: result.error || "Invalid email or password",
         }));
         toast.error(result.error || "Invalid email or password");
+        
+        // Reload page after showing error
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
         return;
       }
 
@@ -295,6 +300,13 @@ const AdminLogin = () => {
         error: errorMessage,
       }));
       toast.error(errorMessage);
+      
+      // Reload page after showing error for wrong credentials
+      if (errorMessage.includes("Invalid email or password") || errorMessage.includes("Invalid credentials")) {
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
+      }
     }
   }
 
