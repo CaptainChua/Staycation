@@ -23,6 +23,7 @@ import {
 import TotalBreakdown from "../TotalBreakdown";
 import PaymentCollectionModal from "./PaymentCollectionModal";
 import MarkDepositPaidModal from "./MarkDepositPaidModal";
+import { toast } from "react-hot-toast";
 
 interface Booking {
   id: string;
@@ -78,6 +79,8 @@ export default function ApproveBookingModal({ booking, bookings, onClose, onAppr
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [isMarkingPaid, setIsMarkingPaid] = useState(false);
+  const [depositSuccessMessage, setDepositSuccessMessage] = useState<string | null>(null);
+  const showDepositModalRef = useRef(false);
 
   useEffect(() => {
     const rafId = requestAnimationFrame(() => {
@@ -89,7 +92,12 @@ export default function ApproveBookingModal({ booking, bookings, onClose, onAppr
     };
   }, []);
 
+  useEffect(() => {
+    showDepositModalRef.current = showDepositModal;
+  }, [showDepositModal]);
+
   const handleClickOutside = (event: MouseEvent) => {
+    if (showDepositModalRef.current) return;
     const target = event.target as Node;
     if (modalRef.current && !modalRef.current.contains(target)) {
       onClose();
@@ -106,10 +114,14 @@ export default function ApproveBookingModal({ booking, bookings, onClose, onAppr
   }, [isMounted, onClose]);
 
   if (!isMounted) return null;
+  if (!isBulk && !booking) return null;
+
+  const singleBooking = booking as Booking;
 
   const selectedBookings = bookings || (booking ? [booking] : []);
-  const guestName = isBulk ? "Multiple Bookings" : (booking ? `${booking.guest_first_name || ''} ${booking.guest_last_name || ''}`.trim() || 'N/A' : 'N/A');
-  const totalGuests = booking ? booking.adults + booking.children + booking.infants : 0;
+  const guestName = isBulk ? "Multiple Bookings" : `${singleBooking.guest_first_name || ''} ${singleBooking.guest_last_name || ''}`.trim() || 'N/A';
+  const totalGuests = booking ? singleBooking.adults + singleBooking.children + singleBooking.infants : 0;
+  const isDepositPaidOverride = !!depositSuccessMessage;
 
   const formatDate = (dateString: string) => {
     if (!dateString) return 'N/A';
@@ -221,6 +233,11 @@ export default function ApproveBookingModal({ booking, bookings, onClose, onAppr
             </div>
 
             <div className="p-6 space-y-6 max-h-[calc(90vh-200px)] overflow-y-auto">
+              {depositSuccessMessage && (
+                <div className="bg-green-50 dark:bg-green-900/10 rounded-lg p-4 border border-green-200 dark:border-green-900/30">
+                  <p className="text-sm font-bold text-green-700 dark:text-green-400">{depositSuccessMessage}</p>
+                </div>
+              )}
               {isBulk ? (
                 <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-3">
                   <div className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
@@ -251,21 +268,21 @@ export default function ApproveBookingModal({ booking, bookings, onClose, onAppr
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Booking ID:</span>
-                        <span className="text-sm text-gray-900 dark:text-gray-100 font-mono">{booking.booking_id}</span>
+                        <span className="text-sm text-gray-900 dark:text-gray-100 font-mono">{singleBooking.booking_id}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Status:</span>
-                        <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium capitalize ${getStatusColor(booking.status)}`}>
-                          {booking.status}
+                        <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium capitalize ${getStatusColor(singleBooking.status)}`}>
+                          {singleBooking.status}
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Check-in:</span>
-                        <span className="text-sm text-gray-900 dark:text-gray-100">{formatDate(booking.check_in_date)} {formatTime(booking.check_in_time)}</span>
+                        <span className="text-sm text-gray-900 dark:text-gray-100">{formatDate(singleBooking.check_in_date)} {formatTime(singleBooking.check_in_time)}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Check-out:</span>
-                        <span className="text-sm text-gray-900 dark:text-gray-100">{formatDate(booking.check_out_date)} {formatTime(booking.check_out_time)}</span>
+                        <span className="text-sm text-gray-900 dark:text-gray-100">{formatDate(singleBooking.check_out_date)} {formatTime(singleBooking.check_out_time)}</span>
                       </div>
                     </div>
                   </div>
@@ -279,12 +296,12 @@ export default function ApproveBookingModal({ booking, bookings, onClose, onAppr
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">
                         <MapPin className="w-4 h-4 text-gray-400" />
-                        <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{booking.room_name}</span>
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{singleBooking.room_name}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <UsersIcon className="w-4 h-4 text-gray-400" />
                         <span className="text-sm text-gray-600 dark:text-gray-300">
-                          {booking.adults} Adults, {booking.children} Children, {booking.infants} Infants
+                          {singleBooking.adults} Adults, {singleBooking.children} Children, {singleBooking.infants} Infants
                         </span>
                       </div>
                     </div>
@@ -300,26 +317,26 @@ export default function ApproveBookingModal({ booking, bookings, onClose, onAppr
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{guestName}</span>
                       </div>
-                      {booking.guest_email && (
+                      {singleBooking.guest_email && (
                         <div className="flex items-center gap-2">
                           <Mail className="w-4 h-4 text-gray-400" />
-                          <a href={`mailto:${booking.guest_email}`} className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
-                            {booking.guest_email}
+                          <a href={`mailto:${singleBooking.guest_email}`} className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+                            {singleBooking.guest_email}
                           </a>
                         </div>
                       )}
-                      {booking.guest_phone && (
+                      {singleBooking.guest_phone && (
                         <div className="flex items-center gap-2">
                           <Phone className="w-4 h-4 text-gray-400" />
-                          <a href={`tel:${booking.guest_phone}`} className="text-sm text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300">
-                            {booking.guest_phone}
+                          <a href={`tel:${singleBooking.guest_phone}`} className="text-sm text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300">
+                            {singleBooking.guest_phone}
                           </a>
                         </div>
                       )}
-                      {booking.facebook_link && (
+                      {singleBooking.facebook_link && (
                         <div className="flex items-center gap-2">
                           <a
-                            href={booking.facebook_link}
+                            href={singleBooking.facebook_link}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
@@ -329,10 +346,10 @@ export default function ApproveBookingModal({ booking, bookings, onClose, onAppr
                           </a>
                         </div>
                       )}
-                      {booking.valid_id_url && (
+                      {singleBooking.valid_id_url && (
                         <div className="flex items-center gap-2">
                           <a
-                            href={booking.valid_id_url}
+                            href={singleBooking.valid_id_url}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-1 text-sm text-purple-600 hover:text-purple-800 dark:text-purple-400 dark:hover:text-purple-300"
@@ -352,18 +369,18 @@ export default function ApproveBookingModal({ booking, bookings, onClose, onAppr
                       Down Payment Information
                     </div>
                     <div className="space-y-3">
-                      {booking.payment_method && (
+                      {singleBooking.payment_method && (
                         <div className="flex items-center gap-2">
-                          {booking.payment_method.toLowerCase() === 'cash' && <Banknote className="w-4 h-4 text-green-600" />}
-                          {booking.payment_method.toLowerCase() === 'gcash' && <CreditCard className="w-4 h-4 text-blue-600" />}
-                          {booking.payment_method.toLowerCase() === 'bank transfer' && <CreditCard className="w-4 h-4 text-purple-600" />}
-                          <span className="text-sm text-gray-700 dark:text-gray-300 capitalize">{booking.payment_method}</span>
+                          {singleBooking.payment_method.toLowerCase() === 'cash' && <Banknote className="w-4 h-4 text-green-600" />}
+                          {singleBooking.payment_method.toLowerCase() === 'gcash' && <CreditCard className="w-4 h-4 text-blue-600" />}
+                          {singleBooking.payment_method.toLowerCase() === 'bank transfer' && <CreditCard className="w-4 h-4 text-purple-600" />}
+                          <span className="text-sm text-gray-700 dark:text-gray-300 capitalize">{singleBooking.payment_method}</span>
                         </div>
                       )}
-                      {booking.payment_proof_url && (
+                      {singleBooking.payment_proof_url && (
                         <div className="flex items-center gap-2">
                           <a
-                            href={booking.payment_proof_url}
+                            href={singleBooking.payment_proof_url}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
@@ -375,14 +392,14 @@ export default function ApproveBookingModal({ booking, bookings, onClose, onAppr
                       )}
                       <div className="bg-white dark:bg-gray-700 rounded-lg p-3">
                         <TotalBreakdown
-                          roomRate={booking.room_rate}
-                          securityDeposit={booking.security_deposit}
-                          depositStatus={booking.deposit_status}
-                          addOnsTotal={booking.add_ons_total}
-                          totalAmount={booking.total_amount}
-                          downPayment={booking.down_payment}
-                          remainingBalance={booking.remaining_balance}
-                          paymentStatus={booking.payment_status}
+                          roomRate={singleBooking.room_rate}
+                          securityDeposit={singleBooking.security_deposit}
+                          depositStatus={isDepositPaidOverride ? 'held' : singleBooking.deposit_status}
+                          addOnsTotal={singleBooking.add_ons_total}
+                          totalAmount={singleBooking.total_amount}
+                          downPayment={singleBooking.down_payment}
+                          remainingBalance={singleBooking.remaining_balance}
+                          paymentStatus={singleBooking.payment_status}
                           isCompact={false}
                         />
                       </div>
@@ -399,11 +416,11 @@ export default function ApproveBookingModal({ booking, bookings, onClose, onAppr
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Status:</span>
-                          <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap ${booking.deposit_status?.toLowerCase() === 'pending'
+                          <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap ${(isDepositPaidOverride ? 'held' : singleBooking.deposit_status)?.toLowerCase() === 'pending'
                             ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300"
                             : "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300"
                             }`}>
-                            {booking.deposit_status || 'Pending'}
+                            {isDepositPaidOverride ? 'Paid' : (singleBooking.deposit_status || 'Pending')}
                           </span>
                         </div>
                         <span className="text-sm font-bold text-gray-800 dark:text-gray-200">
@@ -411,19 +428,19 @@ export default function ApproveBookingModal({ booking, bookings, onClose, onAppr
                         </span>
                       </div>
 
-                      {booking.security_deposit_payment_method && (
+                      {singleBooking.security_deposit_payment_method && (
                         <div className="flex items-center gap-2">
                           <CreditCard className="w-4 h-4 text-gray-400" />
                           <span className="text-sm text-gray-700 dark:text-gray-300 capitalize">
-                            {booking.security_deposit_payment_method}
+                            {singleBooking.security_deposit_payment_method}
                           </span>
                         </div>
                       )}
 
-                      {booking.security_deposit_payment_proof_url && (
+                      {singleBooking.security_deposit_payment_proof_url && (
                         <div className="flex items-center gap-2">
                           <a
-                            href={booking.security_deposit_payment_proof_url}
+                            href={singleBooking.security_deposit_payment_proof_url}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
@@ -449,7 +466,7 @@ export default function ApproveBookingModal({ booking, bookings, onClose, onAppr
                 Cancel
               </button>
               {(() => {
-                const isDepositPaid = booking?.deposit_status?.toLowerCase() === 'paid' || booking?.deposit_status?.toLowerCase() === 'held';
+                const isDepositPaid = isDepositPaidOverride || singleBooking?.deposit_status?.toLowerCase() === 'paid' || singleBooking?.deposit_status?.toLowerCase() === 'held';
 
                 if (!isDepositPaid && !isBulk) {
                   return (
@@ -500,7 +517,7 @@ export default function ApproveBookingModal({ booking, bookings, onClose, onAppr
 
       {booking && (
         <PaymentCollectionModal
-          booking={booking}
+          booking={singleBooking as Booking}
           isOpen={showPaymentModal}
           onClose={() => setShowPaymentModal(false)}
           onConfirm={handlePaymentConfirm}
@@ -511,10 +528,10 @@ export default function ApproveBookingModal({ booking, bookings, onClose, onAppr
         <MarkDepositPaidModal
           isOpen={showDepositModal}
           onClose={() => setShowDepositModal(false)}
-          booking={booking}
+          booking={singleBooking as Booking}
           onConfirm={() => {
-            // Success handled by RTK polling
-            toast.success("Deposit updated");
+            setShowDepositModal(false);
+            setDepositSuccessMessage("Deposit marked as paid successfully.");
           }}
           employeeId={undefined} // handled by session in BookingPage but session might not be here.
         // Actually, ApproveBookingProps doesn't have employeeId.
