@@ -947,6 +947,10 @@ export default function CsrDashboard() {
             setNotificationOpen(false);
             setPage("notifications");
           }}
+          onNavigate={(page) => {
+            setNotificationOpen(false);
+            setPage(page);
+          }}
         />
       )}
 

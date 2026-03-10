@@ -613,6 +613,10 @@ export default function OwnerHeader({
             setNotificationOpen(false);
             // Navigate to notifications page if needed in the future
           }}
+          onNavigate={(page) => {
+            setNotificationOpen(false);
+            setPage(page);
+          }}
           anchorRef={notificationButtonRef}
           userId={userId || undefined}
         />
