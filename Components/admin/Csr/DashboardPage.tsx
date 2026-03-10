@@ -532,6 +532,7 @@ export default function DashboardPage() {
           >
             View All Activity
           </Link>
+          
         </div>
       </div>
 
