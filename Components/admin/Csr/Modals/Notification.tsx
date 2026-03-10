@@ -19,6 +19,7 @@ interface NotificationModalProps {
     type: 'info' | 'success' | 'warning';
     read?: boolean;
   }>;
+  onNavigate?: (page: string) => void;
 }
 
 const iconMap: Record<string, ReactNode> = {
@@ -42,7 +43,7 @@ const typeStyles: Record<NonNullable<Notification["type"]>, { wrapper: string; i
   },
 };
 
-export default function NotificationModal({ onClose, onViewAll, anchorRef, userId, notifications: propNotifications }: NotificationModalProps) {
+export default function NotificationModal({ onClose, onViewAll, anchorRef, userId, notifications: propNotifications, onNavigate }: NotificationModalProps) {
   const [isMounted, setIsMounted] = useState(false);
   const [position, setPosition] = useState({ top: 96, right: 16 });
   const [filter, setFilter] = useState<"all" | "unread">("all");
@@ -196,7 +197,7 @@ export default function NotificationModal({ onClose, onViewAll, anchorRef, userI
                 type="button"
                 onClick={async () => {
                   try {
-                    await markAllAsRead().unwrap();
+                    await markAllAsRead(notifications).unwrap();
                     toast.success('All notifications marked as read');
                     refetch();
                   } catch (error) {
@@ -243,6 +244,17 @@ export default function NotificationModal({ onClose, onViewAll, anchorRef, userI
                       key={notification.id}
                       type="button"
                       onClick={async () => {
+                        // Handle navigation based on notification type
+                        if (notification.title.includes('Deposit') || notification.title.includes('Security Deposit')) {
+                          onNavigate?.('deposits');
+                          onClose();
+                        } else if (notification.title.includes('Issue Report') || notification.title.includes('Report')) {
+                          // For now, navigate to dashboard - could be enhanced to go to a reports page later
+                          onNavigate?.('dashboard');
+                          onClose();
+                        }
+
+                        // Mark as read if not already read
                         if (!notification.read) {
                           try {
                             await updateNotifications({
