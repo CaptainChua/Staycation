@@ -25,6 +25,8 @@ interface DateRangePickerProps {
   onCheckOutChange: (date: string) => void;
   havenId?: string; // Optional: if provided, will fetch and block booked dates
   expanded?: boolean; // Optional: if true, always show calendar inline
+  onDone?: () => void; // Optional: callback when Done button is clicked in expanded mode
+  onReset?: () => void; // Optional: callback when Reset button is clicked
 }
 
 const DateRangePicker = ({
@@ -33,7 +35,9 @@ const DateRangePicker = ({
   onCheckInChange,
   onCheckOutChange,
   havenId,
-  expanded = false
+  expanded = false,
+  onDone,
+  onReset,
 }: DateRangePickerProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectingCheckOut, setSelectingCheckOut] = useState(false);
@@ -426,6 +430,7 @@ const DateRangePicker = ({
             setSelectingCheckOut(false);
             setHoveredDate(null);
             setCurrentMonthOffset(1); // Reset to February
+            onReset?.(); // Call the optional callback
           }}
           className="flex-1 py-1.5 sm:py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white rounded-lg font-medium hover:border-[#8B4513] transition-all duration-200 text-xs sm:text-sm"
         >
@@ -438,6 +443,8 @@ const DateRangePicker = ({
           onClick={() => {
             if (!expanded) {
               setIsOpen(false);
+            } else {
+              onDone?.(); // Call the optional callback in expanded mode
             }
             setSelectingCheckOut(false);
             setHoveredDate(null);
