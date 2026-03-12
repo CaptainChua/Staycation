@@ -2,6 +2,7 @@
 
 import { Calendar, DollarSign, Users, Package, CreditCard, Sparkles, XCircle, TrendingUp, TrendingDown, Home, Clock, AlertTriangle, CheckCircle, RefreshCw } from "lucide-react";
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useGetAnalyticsSummaryQuery } from "@/redux/api/analyticsApi";
 import { useGetBookingsQuery } from "@/redux/api/bookingsApi";
@@ -525,12 +526,13 @@ export default function DashboardPage() {
           <p className="text-sm text-gray-600 dark:text-gray-300">
             Showing {activityItems.length} of {activityData?.data?.length || 0} activities
           </p>
-          <button 
-            onClick={() => window.location.href = '/admin/csr/activity-logs'}
+          <Link
+            href="/admin/csr/activity-logs"
             className="text-sm font-semibold bg-gradient-to-r from-brand-primary to-brand-primaryDark bg-clip-text text-transparent hover:opacity-80 transition-opacity"
           >
             View All Activity
-          </button>
+          </Link>
+          
         </div>
       </div>
 
