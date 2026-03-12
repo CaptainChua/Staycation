@@ -44,6 +44,11 @@ const ReservationsPage = () => {
   const [updateBookingStatus] = useUpdateBookingStatusMutation();
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [isNewReservationModalOpen, setIsNewReservationModalOpen] = useState(false);
+  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
+  const [rejectingBookingId, setRejectingBookingId] = useState<string | null>(null);
+  const [rejectionReasonDraft, setRejectionReasonDraft] = useState("");
+  const [isRejecting, setIsRejecting] = useState(false);
+  const [isRejectConfirmStep, setIsRejectConfirmStep] = useState(false);
 
   const reservations: Booking[] = data ?? [];
 
@@ -80,23 +85,47 @@ const ReservationsPage = () => {
     }
   };
 
-  const handleReject = async (bookingId: string) => {
-    const reason = prompt("Please enter rejection reason:");
-    if (!reason) return;
+  const openRejectModal = (bookingId: string) => {
+    setRejectingBookingId(bookingId);
+    setRejectionReasonDraft("");
+    setIsRejectConfirmStep(false);
+    setIsRejectModalOpen(true);
+  };
+
+  const closeRejectModal = () => {
+    if (isRejecting) return;
+    setIsRejectModalOpen(false);
+    setRejectingBookingId(null);
+    setRejectionReasonDraft("");
+    setIsRejectConfirmStep(false);
+  };
+
+  const confirmReject = async () => {
+    if (!rejectingBookingId) return;
+    const reason = rejectionReasonDraft.trim();
+    if (!reason) {
+      toast.error("Rejection reason is required");
+      return;
+    }
+
+    setIsRejecting(true);
     try {
-      console.log('🔄 Rejecting booking:', bookingId, 'Reason:', reason);
-      
-      const result = await updateBookingStatus({
-        id: bookingId,
+      console.log('🔄 Rejecting booking:', rejectingBookingId, 'Reason:', reason);
+
+      await updateBookingStatus({
+        id: rejectingBookingId,
         status: "rejected",
         rejection_reason: reason,
       }).unwrap();
 
-      alert("Booking rejected. Guest will be notified.");
+      toast.success("Booking rejected. Guest will be notified.");
+      closeRejectModal();
       refetch();
     } catch (error) {
       console.error("Error rejecting booking:", error);
-      alert("Failed to reject booking. Please try again.");
+      toast.error("Failed to reject booking. Please try again.");
+    } finally {
+      setIsRejecting(false);
     }
   };
 
@@ -108,7 +137,9 @@ const ReservationsPage = () => {
         return;
       }
 
-      const mainGuest = booking.main_guest || booking.guests?.[0];
+      const guestFirstName = booking.guest_first_name || "Guest";
+      const guestLastName = booking.guest_last_name || "";
+      const guestEmail = booking.guest_email || "";
 
       // Update booking status
       const updateResult = await updateBookingStatus({
@@ -121,9 +152,9 @@ const ReservationsPage = () => {
       // Send check-in email
       try {
         const emailData = {
-          firstName: mainGuest?.first_name || 'Guest',
-          lastName: mainGuest?.last_name || '',
-          email: mainGuest?.email || '',
+          firstName: guestFirstName,
+          lastName: guestLastName,
+          email: guestEmail,
           bookingId: booking.booking_id,
           roomName: booking.room_name,
           checkInDate: formatDateSafe(booking.check_in_date),
@@ -162,8 +193,9 @@ const ReservationsPage = () => {
         return;
       }
 
-      const mainGuest = booking.main_guest || booking.guests?.[0];
-      const payment = booking.payment;
+      const guestFirstName = booking.guest_first_name || "Guest";
+      const guestLastName = booking.guest_last_name || "";
+      const guestEmail = booking.guest_email || "";
 
       // Update booking status
       const updateResult = await updateBookingStatus({
@@ -176,9 +208,9 @@ const ReservationsPage = () => {
       // Send check-out email
       try {
         const emailData = {
-          firstName: mainGuest?.first_name || 'Guest',
-          lastName: mainGuest?.last_name || '',
-          email: mainGuest?.email || '',
+          firstName: guestFirstName,
+          lastName: guestLastName,
+          email: guestEmail,
           bookingId: booking.booking_id,
           roomName: booking.room_name,
           checkInDate: formatDateSafe(booking.check_in_date),
@@ -513,7 +545,7 @@ const ReservationsPage = () => {
                     </button>
                     <button
                       onClick={() => {
-                        handleReject(selectedBooking.id);
+                        openRejectModal(selectedBooking.id);
                         closeModal();
                       }}
                       className="px-6 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2"
@@ -845,7 +877,7 @@ const ReservationsPage = () => {
                                 <Check className="w-4 h-4" />
                               </button>
                               <button
-                                onClick={() => handleReject(reservation.id)}
+                                onClick={() => openRejectModal(reservation.id)}
                                 className="p-1.5 bg-red-500 text-white rounded hover:bg-red-600"
                                 title="Reject"
                               >
@@ -960,6 +992,99 @@ const ReservationsPage = () => {
       </div>
 
       {/* New Reservation Modal */}
+      {isRejectModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={closeRejectModal}
+          />
+          <div className="relative w-[92%] max-w-lg rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 shadow-xl p-6">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                  Rejection Reason
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                  This will be sent to the guest.
+                </p>
+              </div>
+              <button
+                onClick={closeRejectModal}
+                disabled={isRejecting}
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-700 dark:text-gray-300 disabled:opacity-50"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="mt-4">
+              <textarea
+                value={rejectionReasonDraft}
+                onChange={(e) => setRejectionReasonDraft(e.target.value)}
+                rows={5}
+                className="w-full rounded-lg border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-gray-900 dark:text-white p-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                placeholder="Enter reason..."
+              />
+            </div>
+
+            {isRejectConfirmStep && (
+              <div className="mt-4 rounded-lg border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-900/10 p-3">
+                <p className="text-sm text-red-700 dark:text-red-300 font-medium">
+                  Confirm rejection
+                </p>
+                <p className="text-xs text-red-700/90 dark:text-red-300/90 mt-1">
+                  This will mark the booking as rejected and send the reason to the guest.
+                </p>
+              </div>
+            )}
+
+            <div className="mt-5 flex items-center justify-end gap-3">
+              <button
+                onClick={closeRejectModal}
+                disabled={isRejecting}
+                className="px-4 py-2 rounded-lg border border-gray-300 dark:border-slate-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-800 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+
+              {isRejectConfirmStep && (
+                <button
+                  onClick={() => setIsRejectConfirmStep(false)}
+                  disabled={isRejecting}
+                  className="px-4 py-2 rounded-lg border border-gray-300 dark:border-slate-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-800 disabled:opacity-50"
+                >
+                  Back
+                </button>
+              )}
+
+              <button
+                onClick={() => {
+                  if (!isRejectConfirmStep) {
+                    const reason = rejectionReasonDraft.trim();
+                    if (!reason) {
+                      toast.error("Rejection reason is required");
+                      return;
+                    }
+                    setIsRejectConfirmStep(true);
+                    return;
+                  }
+                  confirmReject();
+                }}
+                disabled={isRejecting}
+                className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {isRejecting
+                  ? "Rejecting..."
+                  : isRejectConfirmStep
+                    ? "Yes, Reject"
+                    : "Reject Booking"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <NewReservationModal
         isOpen={isNewReservationModalOpen}
         onClose={() => setIsNewReservationModalOpen(false)}

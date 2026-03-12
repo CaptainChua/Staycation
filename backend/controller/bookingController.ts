@@ -1138,6 +1138,47 @@ export const updateBookingStatus = async (
       }
     }
 
+    // Send rejection email when booking is rejected
+    if (status === "rejected" && bookingDetailsResult.rows.length > 0) {
+      try {
+        const booking = bookingDetailsResult.rows[0];
+
+        const emailData = {
+          firstName: booking.first_name,
+          lastName: booking.last_name,
+          email: booking.email,
+          bookingId: booking.booking_id,
+          roomName: booking.room_name,
+          checkInDate: booking.check_in_date
+            ? new Date(booking.check_in_date).toLocaleDateString()
+            : "",
+          checkInTime: booking.check_in_time,
+          checkOutDate: booking.check_out_date
+            ? new Date(booking.check_out_date).toLocaleDateString()
+            : "",
+          checkOutTime: booking.check_out_time,
+          rejectionReason: rejection_reason ?? booking.rejection_reason ?? "",
+        };
+
+        const emailResponse = await fetch(
+          `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/api/send-rejection-email`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(emailData),
+          },
+        );
+
+        if (!emailResponse.ok) {
+          console.error("❌ Failed to send rejection email");
+        } else {
+          console.log("✅ Rejection email sent to:", booking.email);
+        }
+      } catch (emailError) {
+        console.error("❌ Email sending error:", emailError);
+      }
+    }
+
     return NextResponse.json({
       success: true,
       data: result.rows[0],
