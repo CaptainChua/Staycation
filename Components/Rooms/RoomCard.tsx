@@ -369,7 +369,7 @@ const RoomCard = ({
         !discountsData?.data ||
         (discountsData.data.length === 0 && !bestDiscount) ||
         isLoadingDiscounts) && (
-        <div className="flex items-center justify-center gap-3 px-4 py-2 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm rounded-lg shadow-md border border-gray-200 dark:border-gray-700 -mt-5 mx-3 relative z-10 mb-3 overflow-hidden">
+        <div className="flex items-center justify-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm rounded-lg shadow-md border border-gray-200 dark:border-gray-700 -mt-5 mx-2 sm:mx-3 relative z-10 mb-3 overflow-hidden">
           {isLoadingDiscounts ? (
             <>
               {/* Skeleton for discount badge */}
@@ -386,7 +386,7 @@ const RoomCard = ({
             </>
           ) : bestDiscount ? (
             <>
-              <div className="bg-brand-primary dark:bg-brand-primary text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-md whitespace-nowrap">
+              <div className="bg-brand-primary dark:bg-brand-primary text-white text-xs sm:text-xs font-bold px-2 py-1 sm:px-2.5 py-1 rounded-full shadow-md whitespace-nowrap">
                 {bestDiscount.discount_type === "percentage"
                   ? `-${bestDiscount.discount_value}% OFF`
                   : `-₱${bestDiscount.discount_value.toLocaleString("en-PH")} OFF`}
@@ -426,10 +426,10 @@ const RoomCard = ({
         onClick={handleImageClick}
       >
         {/* Price Section - Current price with original price next to it */}
-        <div className="flex items-center justify-between gap-2 -mt-3">
-          <div className="flex flex-col">
+        <div className="flex items-start justify-between gap-2 -mt-3">
+          <div className="flex flex-col min-w-0 flex-1">
             {/* Current Price with Original Price */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <div className="text-lg sm:text-xl font-bold text-brand-primary">
                 {displayCurrentPrice}
               </div>
@@ -449,7 +449,7 @@ const RoomCard = ({
 
           {/* Savings Amount */}
           {(bestDiscount || isLoadingDiscounts) && (
-            <div className="text-right flex flex-col items-end justify-center bg-green-50 dark:bg-green-900/20 px-2 sm:px-2.5 py-1.5 sm:py-2 rounded-lg">
+            <div className="text-right flex flex-col items-end justify-center bg-green-50 dark:bg-green-900/20 px-2 sm:px-2.5 py-1.5 sm:py-2 rounded-lg min-w-0 flex-shrink-0">
               {isLoadingDiscounts ? (
                 <>
                   {/* Skeleton for "Save" label */}

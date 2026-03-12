@@ -316,13 +316,12 @@ export default function ViewPaymentDetailsModal({
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600 dark:text-gray-400">Deposit Status:</span>
-                  <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold ${
-                    record.security_deposit_status === 'Returned' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' :
-                    record.security_deposit_status === 'Processing' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' :
-                    record.security_deposit_status === 'Partial' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' :
-                    record.security_deposit_status === 'Forfeited' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' :
-                    'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
-                  }`}>
+                  <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold ${record.security_deposit_status === 'Returned' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' :
+                      record.security_deposit_status === 'Paid' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' :
+                        record.security_deposit_status === 'Partial' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' :
+                          record.security_deposit_status === 'Forfeited' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' :
+                            'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                    }`}>
                     {record.security_deposit_status || 'Unknown'}
                   </span>
                 </div>
@@ -334,9 +333,9 @@ export default function ViewPaymentDetailsModal({
                       <span className="font-medium">Returned:</span> Full security deposit has been refunded to the guest.
                     </div>
                   )}
-                  {record.security_deposit_status === 'Processing' && (
+                  {record.security_deposit_status === 'Paid' && (
                     <div>
-                      <span className="font-medium">Processing:</span> Security deposit is currently being held and processed.
+                      <span className="font-medium">Paid:</span> Security deposit is currently being marked as paid and will be processed after checkout.
                     </div>
                   )}
                   {record.security_deposit_status === 'Partial' && (
@@ -366,13 +365,13 @@ export default function ViewPaymentDetailsModal({
                           {record.security_deposit_status === 'Forfeited' ? 'Security Deposit Forfeited' : 'Partial Security Deposit Refund'}
                         </p>
                         <p className={`text-xs ${record.security_deposit_status === 'Forfeited' ? 'text-red-700 dark:text-red-300' : 'text-amber-700 dark:text-amber-300'} mt-1`}>
-                          {record.security_deposit_status === 'Forfeited' 
+                          {record.security_deposit_status === 'Forfeited'
                             ? `The full security deposit of ${record.formatted_security_deposit_amount} has been forfeited. Check the notes section for details.`
                             : `Only ${new Intl.NumberFormat('en-PH', {
-                                style: 'currency',
-                                currency: 'PHP',
-                                minimumFractionDigits: 0
-                              }).format(record.security_deposit_refunded_amount)} has been refunded out of ${record.formatted_security_deposit_amount}.`
+                              style: 'currency',
+                              currency: 'PHP',
+                              minimumFractionDigits: 0
+                            }).format(record.security_deposit_refunded_amount)} has been refunded out of ${record.formatted_security_deposit_amount}.`
                           }
                         </p>
                       </div>

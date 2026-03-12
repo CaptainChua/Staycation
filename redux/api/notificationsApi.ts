@@ -52,13 +52,10 @@ export const notificationsApi = createApi({
     }),
 
     // Mark all notifications as read
-    markAllAsRead: builder.mutation<{ success: boolean; message: string }, void>({
-      queryFn: async (_, { dispatch, getState }) => {
+    markAllAsRead: builder.mutation<{ success: boolean; message: string }, Notification[]>({
+      queryFn: async (notifications) => {
         try {
-          // Get current notifications from state
-          const state = getState() as any;
-          const notifications = state.notificationsApi?.queries?.getNotifications?.data || [];
-          
+          // Extract unread notification IDs from the passed notifications array
           const unreadIds = notifications
             .filter((n: Notification) => !n.read)
             .map((n: Notification) => n.id);

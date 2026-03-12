@@ -35,17 +35,27 @@ export default function TotalBreakdown({
     }).format(amount);
   };
 
-  // Always use default security deposit amount (₱1,000)
-  const displaySecurityDeposit = DEFAULT_SECURITY_DEPOSIT;
+  // Always use fixed rates as per user rule
+  const FIXED_DEPOSIT = 1000;
+  const FIXED_DOWN_PAYMENT = 500;
 
-  // Check if security deposit is paid (only when explicitly 'paid')
-  const isDepositPaid = depositStatus?.toLowerCase() === 'paid';
+  const safeNumber = (value: unknown) => {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : 0;
+  };
 
-  // Calculate display total
-  // Only include deposit in total if it hasn't been paid yet
-  const displayTotal = isDepositPaid
-    ? totalAmount  // Deposit paid: don't include it in the total display
-    : totalAmount + displaySecurityDeposit; // Deposit not paid: include it
+  // Check if security deposit is paid (explicitly 'paid' or 'held')
+  const isDepositPaid = depositStatus?.toLowerCase() === 'paid' || depositStatus?.toLowerCase() === 'held';
+
+  // Calculate display total at the top
+  // "display all total including room, deposit, add ons, and down payment"
+  // We assume totalAmount (from DB) is Room + Addons. We add Deposit to get the base total.
+  const displayTotal = safeNumber(roomRate) + safeNumber(addOnsTotal) + FIXED_DEPOSIT;
+
+  // Calculate actual balance
+  // "balance should be auto calculate if deposit is paid and down payment is always calculate minus -500"
+  // Balance = (Room + Addons + Deposit) - DownPayment(500) - (Deposit if paid)
+  const actualRemainingBalance = displayTotal - FIXED_DOWN_PAYMENT - (isDepositPaid ? FIXED_DEPOSIT : 0);
 
   const breakdownItems = [
     {
@@ -57,7 +67,7 @@ export default function TotalBreakdown({
     {
       icon: Shield,
       label: "Deposit",
-      amount: displaySecurityDeposit,
+      amount: FIXED_DEPOSIT,
       color: "text-green-600"
     },
     {
@@ -67,33 +77,6 @@ export default function TotalBreakdown({
       color: "text-purple-600"
     }
   ];
-
-  const hasValidDownPayment = downPayment > 0;
-
-  // Check if down payment is pending (not approved yet)
-  const isDownPaymentPending = paymentStatus?.toLowerCase().includes('pending');
-
-  // Check if down payment is approved
-  const isDownPaymentApproved = paymentStatus?.toLowerCase().includes('approved');
-
-  // Calculate actual remaining balance
-  // Base calculation: total amount that needs to be paid
-  let baseAmount = isDepositPaid
-    ? totalAmount  // Deposit already paid, don't include it
-    : displayTotal; // Deposit not paid, include it in the balance
-
-  // Start with base amount minus down payment
-  let actualRemainingBalance = baseAmount - downPayment;
-
-  // If down payment is pending, add it back to the balance (it hasn't been paid yet)
-  if (isDownPaymentPending && hasValidDownPayment) {
-    actualRemainingBalance += downPayment;
-  }
-
-  // Ensure we don't return NaN
-  if (isNaN(actualRemainingBalance)) {
-    actualRemainingBalance = remainingBalance || 0;
-  }
 
   const hasRemainingBalance = actualRemainingBalance > 0;
 
@@ -129,7 +112,7 @@ export default function TotalBreakdown({
         {/* Breakdown items */}
         <div className="space-y-1">
           {breakdownItems.map((item, index) => {
-            const isDepositPaid = item.label === "Deposit" && depositStatus?.toLowerCase() === 'paid';
+            const isDepositPaid = item.label === "Deposit" && (depositStatus?.toLowerCase() === 'paid' || depositStatus?.toLowerCase() === 'held');
 
             return (
               <div key={index} className="border-b border-gray-200 dark:border-gray-600 pb-1">
@@ -151,22 +134,20 @@ export default function TotalBreakdown({
           })}
         </div>
 
-        {/* Payment status */}
-        {hasValidDownPayment && (
-          <div className="border-b border-gray-200 dark:border-gray-600 pb-1">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-blue-600 font-semibold">Down Payment</span>
-              <span className="text-blue-600 font-medium">{formatCurrency(downPayment)}</span>
-            </div>
-            {paymentStatus && (
-              <div className="flex items-center justify-end mt-0.5 text-xs">
-                <span className={`font-semibold ${getStatusColor()}`}>
-                  ({getStatusDisplay()})
-                </span>
-              </div>
-            )}
+        {/* Down Payment (Always 500) */}
+        <div className="border-b border-gray-200 dark:border-gray-600 pb-1">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-blue-600 font-semibold">Down Payment</span>
+            <span className="text-blue-600 font-medium">{formatCurrency(FIXED_DOWN_PAYMENT)}</span>
           </div>
-        )}
+          {paymentStatus && (
+            <div className="flex items-center justify-end mt-0.5 text-xs">
+              <span className={`font-semibold ${getStatusColor()}`}>
+                ({getStatusDisplay()})
+              </span>
+            </div>
+          )}
+        </div>
 
         {/* Balance row */}
         <div className="bg-orange-50 dark:bg-orange-900/20 rounded px-2 py-1 border border-orange-200 dark:border-orange-700">
@@ -197,7 +178,7 @@ export default function TotalBreakdown({
       {/* Breakdown items */}
       <div className="divide-y divide-gray-200 dark:divide-gray-600">
         {breakdownItems.map((item, index) => {
-          const isDepositPaid = item.label === "Deposit" && depositStatus?.toLowerCase() === 'paid';
+          const isDepositPaid = item.label === "Deposit" && (depositStatus?.toLowerCase() === 'paid' || depositStatus?.toLowerCase() === 'held');
 
           return (
             <div key={index} className="px-4 py-3">
@@ -211,9 +192,8 @@ export default function TotalBreakdown({
                     {formatCurrency(item.amount)}
                   </span>
                   {item.label === "Deposit" && (
-                    <span className={`text-xs font-bold text-right w-24 ${
-                      isDepositPaid ? 'text-green-600' : 'text-red-600'
-                    }`}>
+                    <span className={`text-xs font-bold text-right w-24 ${isDepositPaid ? 'text-green-600' : 'text-red-600'
+                      }`}>
                       {isDepositPaid ? 'Paid' : 'Not Paid'}
                     </span>
                   )}
@@ -239,22 +219,20 @@ export default function TotalBreakdown({
           </div>
         </div>
 
-        {/* Down Payment */}
-        {hasValidDownPayment && (
-          <div className="px-4 py-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-blue-700 dark:text-blue-400">Down Payment</span>
-              <div className="flex items-center gap-8">
-                <span className="text-sm font-semibold text-blue-600 dark:text-blue-400 text-right w-32">
-                  {formatCurrency(downPayment)}
-                </span>
-                <span className={`text-xs font-bold text-right w-24 ${getStatusColor()}`}>
-                  {getStatusDisplay()}
-                </span>
-              </div>
+        {/* Down Payment (Always 500) */}
+        <div className="px-4 py-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-blue-700 dark:text-blue-400">Down Payment</span>
+            <div className="flex items-center gap-8">
+              <span className="text-sm font-semibold text-blue-600 dark:text-blue-400 text-right w-32">
+                {formatCurrency(FIXED_DOWN_PAYMENT)}
+              </span>
+              <span className={`text-xs font-bold text-right w-24 ${getStatusColor()}`}>
+                {getStatusDisplay() || 'Locked'}
+              </span>
             </div>
           </div>
-        )}
+        </div>
 
         {/* Remaining Balance */}
         <div className="px-4 py-3 bg-orange-50 dark:bg-orange-900/20">

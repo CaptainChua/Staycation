@@ -1,6 +1,6 @@
 "use client";
 
-import { Calendar, Search, Filter, Plus, XCircle, CheckSquare, Eye, Edit, Trash2, MapPin, User, Phone, Mail, CheckCircle, Clock, LogIn, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUpDown, Download, FileSpreadsheet, RefreshCw, Check, X, ExternalLink, CreditCard, Banknote } from "lucide-react";
+import { Calendar, Search, Filter, Plus, XCircle, CheckSquare, Eye, Edit, Trash2, MapPin, User, Phone, Mail, CheckCircle, Clock, LogIn, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUpDown, Download, FileSpreadsheet, RefreshCw, Check, X, ExternalLink, CreditCard, Banknote, Shield } from "lucide-react";
 import { useEffect, useMemo, useState, useRef } from "react";
 import { useSession } from "next-auth/react";
 import ViewBookings from "./Modals/ViewBookings";
@@ -14,6 +14,7 @@ import DeleteConfirmation from "./Modals/DeleteConfirmation";
 import ExportBookingsModal from "./Modals/ExportBookingsModal";
 import TotalBreakdown from "./TotalBreakdown";
 import { DateRangeWithDays } from "./Column";
+import MarkDepositPaidModal from "./Modals/MarkDepositPaidModal";
 
 interface BookingData {
   id: string;
@@ -84,6 +85,8 @@ export default function BookingsPage() {
   const [isRejecting, setIsRejecting] = useState(false);
   const [selectedBookingsForModal, setSelectedBookingsForModal] = useState<BookingData[]>([]);
   const [isBulkMode, setIsBulkMode] = useState(false);
+  const [isMarkDepositPaidModalOpen, setIsMarkDepositPaidModalOpen] = useState(false);
+  const [bookingForDepositUpdate, setBookingForDepositUpdate] = useState<BookingData | null>(null);
 
   const logEmployeeActivity = async (action: string, details: string, bookingId?: string) => {
     if (!employeeId) return;
@@ -203,7 +206,7 @@ export default function BookingsPage() {
   const getDateRange = (filterType: "all" | "weekly" | "monthly" | "yearly") => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    
+
     switch (filterType) {
       case "weekly": {
         const weekStart = new Date(today);
@@ -235,7 +238,7 @@ export default function BookingsPage() {
   // Generate year options (current year and 5 years back)
   const currentYear = new Date().getFullYear();
   const yearOptions = Array.from({ length: 6 }, (_, i) => currentYear - i);
-  
+
   // Month names
   const monthNames = [
     "January", "February", "March", "April", "May", "June",
@@ -315,12 +318,12 @@ export default function BookingsPage() {
       // Date filter: check if booking's created_at or check_in_date falls within the range
       let matchesDate = true;
       if (dateRange && dateFilter !== "all") {
-        const bookingDate = booking.created_at 
+        const bookingDate = booking.created_at
           ? new Date(booking.created_at)
-          : booking.check_in_date 
-          ? new Date(booking.check_in_date)
-          : null;
-        
+          : booking.check_in_date
+            ? new Date(booking.check_in_date)
+            : null;
+
         if (bookingDate) {
           bookingDate.setHours(0, 0, 0, 0);
           matchesDate = bookingDate >= dateRange.start && bookingDate <= dateRange.end;
@@ -439,22 +442,24 @@ export default function BookingsPage() {
   const handleConfirmApprove = async (bookingId: string) => {
     setIsApproving(true);
     try {
-      const response = await fetch('/api/admin/bookings/approve', {
-        method: 'POST',
+      const response = await fetch('/api/bookings', {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ bookingId }),
+        body: JSON.stringify({ id: bookingId, status: 'approved' }),
       });
-      
-      if (response.ok) {
-        toast.success("Booking approved successfully");
-        logEmployeeActivity('APPROVE_BOOKING', `Approved booking ${selectedBooking?.booking_id}`, bookingId);
-        setIsApproveModalOpen(false);
-        setSelectedBooking(null);
-      } else {
-        toast.error("Failed to approve booking");
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        toast.error(data?.error || "Failed to approve booking");
+        return;
       }
+
+      toast.success("Booking approved successfully");
+      logEmployeeActivity('APPROVE_BOOKING', `Approved booking ${selectedBooking?.booking_id}`, bookingId);
+      setIsApproveModalOpen(false);
+      setSelectedBooking(null);
     } catch (error) {
       toast.error("Failed to approve booking");
       console.error(error);
@@ -466,26 +471,31 @@ export default function BookingsPage() {
   const handleBulkConfirmApprove = async (bookingIds: string[]) => {
     setIsApproving(true);
     try {
-      const response = await fetch('/api/admin/bookings/bulk-approve', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ bookingIds }),
-      });
-      
-      if (response.ok) {
-        toast.success(`${bookingIds.length} booking(s) approved successfully`);
-        logEmployeeActivity('BULK_APPROVE_BOOKINGS', `Bulk approved ${bookingIds.length} bookings`);
-        setIsApproveModalOpen(false);
-        setSelectedBookingsForModal([]);
-        setSelectedBookings([]);
-        setIsBulkMode(false);
-      } else {
-        toast.error("Failed to approve bookings");
-      }
+      await Promise.all(
+        bookingIds.map(async (id) => {
+          const res = await fetch('/api/bookings', {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ id, status: 'approved' }),
+          });
+
+          if (!res.ok) {
+            const data = await res.json().catch(() => null);
+            throw new Error(data?.error || `Failed to approve booking ${id}`);
+          }
+        })
+      );
+
+      toast.success(`${bookingIds.length} booking(s) approved successfully`);
+      logEmployeeActivity('BULK_APPROVE_BOOKINGS', `Bulk approved ${bookingIds.length} bookings`);
+      setIsApproveModalOpen(false);
+      setSelectedBookingsForModal([]);
+      setSelectedBookings([]);
+      setIsBulkMode(false);
     } catch (error) {
-      toast.error("Failed to approve bookings");
+      toast.error(error instanceof Error ? error.message : "Failed to approve bookings");
       console.error(error);
     } finally {
       setIsApproving(false);
@@ -495,22 +505,24 @@ export default function BookingsPage() {
   const handleConfirmReject = async (bookingId: string, reason: string) => {
     setIsRejecting(true);
     try {
-      const response = await fetch('/api/admin/bookings/reject', {
-        method: 'POST',
+      const response = await fetch('/api/bookings', {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ bookingId, reason }),
+        body: JSON.stringify({ id: bookingId, status: 'rejected', rejection_reason: reason }),
       });
-      
-      if (response.ok) {
-        toast.success("Booking rejected successfully");
-        logEmployeeActivity('REJECT_BOOKING', `Rejected booking ${selectedBooking?.booking_id} with reason: ${reason}`, bookingId);
-        setIsRejectModalOpen(false);
-        setSelectedBooking(null);
-      } else {
-        toast.error("Failed to reject booking");
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        toast.error(data?.error || "Failed to reject booking");
+        return;
       }
+
+      toast.success("Booking rejected successfully");
+      logEmployeeActivity('REJECT_BOOKING', `Rejected booking ${selectedBooking?.booking_id} with reason: ${reason}`, bookingId);
+      setIsRejectModalOpen(false);
+      setSelectedBooking(null);
     } catch (error) {
       toast.error("Failed to reject booking");
       console.error(error);
@@ -522,51 +534,34 @@ export default function BookingsPage() {
   const handleBulkConfirmReject = async (bookingIds: string[], reason: string) => {
     setIsRejecting(true);
     try {
-      const response = await fetch('/api/admin/bookings/bulk-reject', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ bookingIds, reason }),
-      });
-      
-      if (response.ok) {
-        toast.success(`${bookingIds.length} booking(s) rejected successfully`);
-        logEmployeeActivity('BULK_REJECT_BOOKINGS', `Bulk rejected ${bookingIds.length} bookings with reason: ${reason}`);
-        setIsRejectModalOpen(false);
-        setSelectedBookingsForModal([]);
-        setSelectedBookings([]);
-        setIsBulkMode(false);
-      } else {
-        toast.error("Failed to reject bookings");
-      }
+      await Promise.all(
+        bookingIds.map(async (id) => {
+          const res = await fetch('/api/bookings', {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ id, status: 'rejected', rejection_reason: reason }),
+          });
+
+          if (!res.ok) {
+            const data = await res.json().catch(() => null);
+            throw new Error(data?.error || `Failed to reject booking ${id}`);
+          }
+        })
+      );
+
+      toast.success(`${bookingIds.length} booking(s) rejected successfully`);
+      logEmployeeActivity('BULK_REJECT_BOOKINGS', `Bulk rejected ${bookingIds.length} bookings with reason: ${reason}`);
+      setIsRejectModalOpen(false);
+      setSelectedBookingsForModal([]);
+      setSelectedBookings([]);
+      setIsBulkMode(false);
     } catch (error) {
-      toast.error("Failed to reject bookings");
+      toast.error(error instanceof Error ? error.message : "Failed to reject bookings");
       console.error(error);
     } finally {
       setIsRejecting(false);
-    }
-  };
-
-  const handleCheckInBooking = async (booking: BookingData) => {
-    try {
-      const response = await fetch('/api/admin/bookings/checkin', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ bookingId: booking.id }),
-      });
-      
-      if (response.ok) {
-        toast.success("Booking checked in successfully");
-        logEmployeeActivity('CHECKIN_BOOKING', `Checked in booking ${booking.booking_id}`, booking.id);
-      } else {
-        toast.error("Failed to check in booking");
-      }
-    } catch (error) {
-      toast.error("Failed to check in booking");
-      console.error(error);
     }
   };
 
@@ -577,15 +572,13 @@ export default function BookingsPage() {
       return;
     }
 
-    // Get the selected booking objects
     const selectedBookingObjects = bookings.filter(b => selectedBookings.includes(b.id));
-    
+
     if (selectedBookingObjects.length === 0) {
       toast.error("No valid bookings found");
       return;
     }
 
-    // Open bulk approve modal
     setSelectedBookingsForModal(selectedBookingObjects);
     setIsApproveModalOpen(true);
     setIsBulkMode(true);
@@ -599,7 +592,7 @@ export default function BookingsPage() {
 
     // Get the selected booking objects
     const selectedBookingObjects = bookings.filter(b => selectedBookings.includes(b.id));
-    
+
     if (selectedBookingObjects.length === 0) {
       toast.error("No valid bookings found");
       return;
@@ -629,7 +622,7 @@ export default function BookingsPage() {
         },
         body: JSON.stringify({ bookingIds: selectedBookings }),
       });
-      
+
       if (response.ok) {
         toast.success(`${selectedBookings.length} booking(s) deleted successfully`);
         logEmployeeActivity('BULK_DELETE_BOOKINGS', `Bulk deleted ${selectedBookings.length} bookings`);
@@ -657,7 +650,7 @@ export default function BookingsPage() {
         },
         body: JSON.stringify({ bookingIds: selectedBookings }),
       });
-      
+
       if (response.ok) {
         toast.success(`${selectedBookings.length} booking(s) checked in successfully`);
         logEmployeeActivity('BULK_CHECKIN_BOOKINGS', `Bulk checked in ${selectedBookings.length} bookings`);
@@ -777,16 +770,16 @@ export default function BookingsPage() {
       </div>
 
       <div className="flex justify-start flex-shrink-0">
-          <button
-            onClick={() => {
-              setIsNewBookingModalOpen(true);
-              logEmployeeActivity('OPEN_NEW_BOOKING', 'Opened create booking modal');
-            }}
-            className="flex items-center gap-2 px-4 py-2 bg-brand-primary hover:bg-brand-primaryDark text-white rounded-lg transition-colors font-semibold"
-          >
-            <Plus className="w-5 h-5" />
-            New Booking
-          </button>
+        <button
+          onClick={() => {
+            setIsNewBookingModalOpen(true);
+            logEmployeeActivity('OPEN_NEW_BOOKING', 'Opened create booking modal');
+          }}
+          className="flex items-center gap-2 px-4 py-2 bg-brand-primary hover:bg-brand-primaryDark text-white rounded-lg transition-colors font-semibold"
+        >
+          <Plus className="w-5 h-5" />
+          New Booking
+        </button>
       </div>
 
       {/* Bulk Actions Bar */}
@@ -898,7 +891,7 @@ export default function BookingsPage() {
               <option value="monthly">Monthly</option>
               <option value="yearly">Yearly</option>
             </select>
-            
+
             {/* Month selector - shown when monthly filter is selected */}
             {dateFilter === "monthly" && (
               <>
@@ -996,12 +989,12 @@ export default function BookingsPage() {
               Export
             </button>
             <button
-            onClick={() => window.location.reload()}
-            className="p-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
-            title="Refresh Data"
-          >
-            <RefreshCw className="w-4 h-4 text-gray-600 dark:text-gray-300" />
-          </button>
+              onClick={() => window.location.reload()}
+              className="p-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+              title="Refresh Data"
+            >
+              <RefreshCw className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+            </button>
           </div>
         </div>
       </div>
@@ -1297,6 +1290,24 @@ export default function BookingsPage() {
                         <div className="flex items-center justify-center gap-1">
                           {booking.status?.toLowerCase() === 'pending' && (
                             <>
+                              {(() => {
+                                const isDepositPaid = booking.deposit_status?.toLowerCase() === 'paid' || booking.deposit_status?.toLowerCase() === 'held';
+                                if (!isDepositPaid) {
+                                  return (
+                                    <button
+                                      onClick={() => {
+                                        setBookingForDepositUpdate(booking);
+                                        setIsMarkDepositPaidModalOpen(true);
+                                      }}
+                                      className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                                      title="Mark Deposit as Paid"
+                                    >
+                                      <Shield className="w-4 h-4" />
+                                    </button>
+                                  );
+                                }
+                                return null;
+                              })()}
                               <button
                                 onClick={() => handleApproveBooking(booking)}
                                 className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
@@ -1512,13 +1523,15 @@ export default function BookingsPage() {
                     <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Total Amount</p>
                     {(() => {
                       const depositStatus = booking.deposit_status ?? "pending";
-                      const isDepositPaid = depositStatus.toLowerCase() === 'paid';
-                      const displayTotal = isDepositPaid
-                        ? booking.total_amount
-                        : booking.total_amount + 1000;
-                      const balance = isDepositPaid
-                        ? (booking.total_amount - booking.down_payment)
-                        : (booking.total_amount + 1000 - booking.down_payment);
+                      const isDepositPaid = depositStatus.toLowerCase() === 'paid' || depositStatus.toLowerCase() === 'held';
+                      const FIXED_DEPOSIT = 1000;
+                      const FIXED_DOWN_PAYMENT = 500;
+                      const safeNumber = (value: unknown) => {
+                        const n = Number(value);
+                        return Number.isFinite(n) ? n : 0;
+                      };
+                      const displayTotal = safeNumber(booking.room_rate) + safeNumber(booking.add_ons_total) + FIXED_DEPOSIT;
+                      const balance = displayTotal - FIXED_DOWN_PAYMENT - (isDepositPaid ? FIXED_DEPOSIT : 0);
                       return (
                         <>
                           <p className="font-bold text-gray-800 dark:text-gray-100 text-lg">{formatCurrency(displayTotal)}</p>
@@ -1545,6 +1558,24 @@ export default function BookingsPage() {
                   <div className="flex items-center gap-2">
                     {booking.status?.toLowerCase() === 'pending' && (
                       <>
+                        {(() => {
+                          const isDepositPaid = booking.deposit_status?.toLowerCase() === 'paid' || booking.deposit_status?.toLowerCase() === 'held';
+                          if (!isDepositPaid) {
+                            return (
+                              <button
+                                onClick={() => {
+                                  setBookingForDepositUpdate(booking);
+                                  setIsMarkDepositPaidModalOpen(true);
+                                }}
+                                className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                                title="Mark Deposit as Paid"
+                              >
+                                <Shield className="w-5 h-5" />
+                              </button>
+                            );
+                          }
+                          return null;
+                        })()}
                         <button
                           onClick={() => handleApproveBooking(booking)}
                           className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
@@ -1645,11 +1676,10 @@ export default function BookingsPage() {
                   <button
                     key={pageNum}
                     onClick={() => setCurrentPage(pageNum)}
-                    className={`px-4 py-2 rounded-lg transition-colors text-sm font-medium ${
-                      currentPage === pageNum
-                        ? "bg-brand-primary text-white"
-                        : "border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-600"
-                    }`}
+                    className={`px-4 py-2 rounded-lg transition-colors text-sm font-medium ${currentPage === pageNum
+                      ? "bg-brand-primary text-white"
+                      : "border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-600"
+                      }`}
                   >
                     {pageNum}
                   </button>
@@ -1722,7 +1752,7 @@ export default function BookingsPage() {
       {/* Approve Booking Modal */}
       {isApproveModalOpen && (isBulkMode ? selectedBookingsForModal.length > 0 : selectedBooking) && (
         <ApproveBookingModal
-          booking={!isBulkMode ? selectedBooking : undefined}
+          booking={!isBulkMode ? (selectedBooking ?? undefined) : undefined}
           bookings={isBulkMode ? selectedBookingsForModal : undefined}
           onClose={() => {
             setIsApproveModalOpen(false);
@@ -1740,7 +1770,7 @@ export default function BookingsPage() {
       {/* Reject Booking Modal */}
       {isRejectModalOpen && (isBulkMode ? selectedBookingsForModal.length > 0 : selectedBooking) && (
         <RejectBookingModal
-          booking={!isBulkMode ? selectedBooking : undefined}
+          booking={!isBulkMode ? (selectedBooking ?? undefined) : undefined}
           bookings={isBulkMode ? selectedBookingsForModal : undefined}
           onClose={() => {
             setIsRejectModalOpen(false);
@@ -1755,6 +1785,19 @@ export default function BookingsPage() {
         />
       )}
 
+      {/* Mark Deposit Paid Modal */}
+      {bookingForDepositUpdate && (
+        <MarkDepositPaidModal
+          isOpen={isMarkDepositPaidModalOpen}
+          onClose={() => setIsMarkDepositPaidModalOpen(false)}
+          booking={bookingForDepositUpdate}
+          onConfirm={() => {
+            // Handled by polling or manual refetch if needed
+            toast.success("Deposit status updated");
+          }}
+          employeeId={employeeId!}
+        />
+      )}
     </div>
   );
 }

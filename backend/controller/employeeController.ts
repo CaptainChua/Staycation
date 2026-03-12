@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import pool from '../config/db';
 import bcrypt from 'bcryptjs';
 import { upload_file } from '../utils/cloudinary';
+import { sendEmployeeWelcomeEmail } from '../utils/mailer';
 
 export type EmployeeRole = 'Owner' | 'Csr' | 'Cleaner' | 'Partner';
 
@@ -96,10 +97,25 @@ export const createEmployee = async (req: NextRequest): Promise<NextResponse> =>
     const result = await pool.query(query, values);
     console.log('✅ Employee Created:', result.rows[0]);
 
+    // Send welcome email to employee
+    const fullName = `${first_name} ${last_name}`;
+    const emailSent = await sendEmployeeWelcomeEmail(
+      email,
+      fullName,
+      password,
+      role,
+      `${process.env.NEXT_PUBLIC_BASE_URL || 'https://staycationhavenph.com'}/admin/login`
+    );
+
+    if (!emailSent) {
+      console.warn(`⚠️ Warning: Welcome email could not be sent to ${email}`);
+    }
+
     return NextResponse.json({
       success: true,
       data: result.rows[0],
       message: 'Employee created successfully',
+      emailSent: emailSent,
     }, { status: 201 });
 
   } catch (error: any) {

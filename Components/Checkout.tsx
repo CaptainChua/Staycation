@@ -629,16 +629,15 @@ const Checkout = () => {
         [name]: value
       }));
     } else if (name === "phone") {
-      // Allow international formats: +, spaces, dashes, digits, length 7-20
-      const phoneRegex = /^\+?[0-9\s-]{7,20}$/;
-      if (value && !phoneRegex.test(value)) {
-        setErrors(prev => ({...prev, phone: 'Please enter a valid phone number'}));
+      const digitsOnly = value.replace(/\D/g, "").slice(0, 10);
+      if (digitsOnly && digitsOnly.length !== 10) {
+        setErrors(prev => ({...prev, phone: 'Please enter a valid 10-digit phone number'}));
       } else {
         setErrors(prev => ({...prev, phone: ''}));
       }
       setFormData((prev) => ({
         ...prev,
-        [name]: value
+        [name]: digitsOnly
       }));
     } else if (name === "infants") {
       if (value === "") {
@@ -837,8 +836,8 @@ const Checkout = () => {
     }
     if (!formData.phone) {
       newErrors.phone = "Phone number is required";
-    } else if (!/^\+?[0-9\s-]{7,20}$/.test(formData.phone)) {
-      newErrors.phone = "Please enter a valid phone number";
+    } else if (!/^\d{10}$/.test(formData.phone)) {
+      newErrors.phone = "Please enter a valid 10-digit phone number";
     }
 
     // Validate ID for main guest if 10+ years old
@@ -1503,17 +1502,24 @@ const Checkout = () => {
                           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Phone Number *
                           </label>
-                          <input
-                            type="tel"
-                            name="phone"
-                            value={formData.phone}
-                            onChange={(e) => handleInputChange(e)}
-                            required
-                            className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary transition-colors bg-white dark:bg-gray-700 placeholder-gray-400 dark:placeholder-gray-500 ${
-                              errors.phone ? 'border-red-500 focus:ring-red-500 text-red-600 dark:text-red-500' : 'border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white'
-                            }`}
-                            placeholder="e.g., +63 912 345 6789 or 09123456789"
-                          />
+                          <div className="relative">
+                            <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
+                              <span className="text-gray-600 dark:text-gray-300 text-sm">+63</span>
+                            </div>
+                            <input
+                              type="tel"
+                              inputMode="numeric"
+                              name="phone"
+                              value={formData.phone}
+                              onChange={(e) => handleInputChange(e)}
+                              maxLength={10}
+                              required
+                              className={`w-full pl-14 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary transition-colors bg-white dark:bg-gray-700 placeholder-gray-400 dark:placeholder-gray-500 ${
+                                errors.phone ? 'border-red-500 focus:ring-red-500 text-red-600 dark:text-red-500' : 'border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white'
+                              }`}
+                              placeholder="9123456789"
+                            />
+                          </div>
                           {errors.phone && (
                             <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
                               <AlertCircle className="w-4 h-4" />
