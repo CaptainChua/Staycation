@@ -444,6 +444,17 @@ const RoomsDetailsPage = ({
     }
   };
 
+  const handleDatePickerDone = () => {
+    toast.success("Dates selected!");
+  };
+
+  const handleDatePickerReset = () => {
+    // Clear Redux state as well to prevent re-syncing
+    dispatch(setReduxCheckInDate(""));
+    dispatch(setReduxCheckOutDate(""));
+    toast.success("Dates reset to default");
+  };
+
   // Swipe handlers for mobile carousel
   const minSwipeDistance = 50;
 
@@ -979,6 +990,8 @@ const RoomsDetailsPage = ({
                         onCheckOutChange={setLocalCheckOutDate}
                         havenId={room.id}
                         expanded={true}
+                        onDone={handleDatePickerDone}
+                        onReset={handleDatePickerReset}
                       />
                     </div>
 
