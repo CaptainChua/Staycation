@@ -151,6 +151,8 @@ function mapNotificationType(dbType: string): 'info' | 'success' | 'warning' {
   switch (dbType) {
     case 'ReportIssue':
       return 'warning';
+    case 'DepositStatus':
+      return 'success';
     case 'StatusUpdate':
       return 'info';
     case 'System':

@@ -27,17 +27,17 @@ export default function BulkPartialModal({
   const [errors, setErrors] = useState<Record<string, { amount?: string; reason?: string }>>({});
   const modalRef = useRef<HTMLDivElement>(null);
 
-  // Filter deposits to only include Held status
-  const heldDeposits = selectedDeposits
+  // Filter deposits to only include Paid status
+  const paidDeposits = selectedDeposits
     .map(id => deposits.find(d => d.id === id))
-    .filter(deposit => deposit && deposit.status === "Held") as DepositRecord[];
+    .filter(deposit => deposit && deposit.status === "Paid") as DepositRecord[];
 
   const handleAmountChange = (depositId: string, amount: string) => {
     setRefundAmounts(prev => ({
       ...prev,
       [depositId]: amount
     }));
-    
+
     // Clear error for this deposit if amount is valid
     if (errors[depositId]?.amount) {
       setErrors(prev => ({
@@ -52,7 +52,7 @@ export default function BulkPartialModal({
       ...prev,
       [depositId]: reason
     }));
-    
+
     // Clear error for this deposit if reason is valid
     if (errors[depositId]?.reason) {
       setErrors(prev => ({
@@ -66,9 +66,9 @@ export default function BulkPartialModal({
     const newErrors: Record<string, { amount?: string; reason?: string }> = {};
     let isValid = true;
 
-    heldDeposits.forEach(deposit => {
+    paidDeposits.forEach(deposit => {
       const depositErrors: { amount?: string; reason?: string } = {};
-      
+
       const amount = parseFloat(refundAmounts[deposit.id] || "0");
       if (!refundAmounts[deposit.id] || amount <= 0) {
         depositErrors.amount = "Refund amount must be greater than 0";
@@ -95,7 +95,7 @@ export default function BulkPartialModal({
   const handleConfirm = () => {
     if (!validateForm()) return;
 
-    const refundData = heldDeposits.map(deposit => ({
+    const refundData = paidDeposits.map(deposit => ({
       depositId: deposit.id,
       refundAmount: parseFloat(refundAmounts[deposit.id] || "0"),
       deductionReason: deductionReasons[deposit.id]?.trim() || ""
@@ -121,7 +121,7 @@ export default function BulkPartialModal({
   }, [isOpen, onClose]);
 
   // Calculate total refund amount
-  const totalRefundAmount = heldDeposits.reduce((total, deposit) => {
+  const totalRefundAmount = paidDeposits.reduce((total, deposit) => {
     const amount = parseFloat(refundAmounts[deposit.id] || "0");
     return total + amount;
   }, 0);
@@ -151,7 +151,7 @@ export default function BulkPartialModal({
                 Bulk Partial Refund
               </h2>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Process partial refunds for {heldDeposits.length} held deposit{heldDeposits.length !== 1 ? 's' : ''}
+                Process partial refunds for {paidDeposits.length} paid deposit{paidDeposits.length !== 1 ? 's' : ''}
               </p>
             </div>
           </div>
@@ -172,9 +172,9 @@ export default function BulkPartialModal({
             </div>
             <div className="space-y-2">
               <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600 dark:text-gray-400">Number of Held Deposits:</span>
+                <span className="text-sm text-gray-600 dark:text-gray-400">Number of Paid Deposits:</span>
                 <span className="text-sm font-bold text-gray-900 dark:text-gray-100">
-                  {heldDeposits.length}
+                  {paidDeposits.length}
                 </span>
               </div>
               <div className="flex justify-between items-center">
@@ -192,7 +192,7 @@ export default function BulkPartialModal({
               <AlertCircle className="w-4 h-4 text-yellow-600 dark:text-yellow-400 mt-0.5" />
               <div>
                 <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                  <strong>Important:</strong> This action will process partial refunds for {heldDeposits.length} held deposit{heldDeposits.length !== 1 ? 's' : ''}. 
+                  <strong>Important:</strong> This action will process partial refunds for {paidDeposits.length} paid deposit{paidDeposits.length !== 1 ? 's' : ''}.
                   The remaining amount will be automatically forfeited. This action cannot be undone once confirmed.
                 </p>
               </div>
@@ -203,10 +203,10 @@ export default function BulkPartialModal({
           <div className="space-y-4">
             <div className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
               <User className="w-4 h-4" />
-              Held Deposits ({heldDeposits.length})
+              Paid Deposits ({paidDeposits.length})
             </div>
             <div className="space-y-3">
-              {heldDeposits.map((deposit, index) => (
+              {paidDeposits.map((deposit, index) => (
                 <div key={deposit.id} className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
                   <div className="flex items-start justify-between gap-3 mb-3">
                     <div className="flex-1">
@@ -250,11 +250,10 @@ export default function BulkPartialModal({
                           step="0.01"
                           min="0"
                           max={deposit.deposit_amount}
-                          className={`w-full pl-8 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 dark:bg-gray-700 dark:text-gray-100 text-sm ${
-                            errors[deposit.id]?.amount
+                          className={`w-full pl-8 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 dark:bg-gray-700 dark:text-gray-100 text-sm ${errors[deposit.id]?.amount
                               ? 'border-red-500 dark:border-red-500'
                               : 'border-gray-300 dark:border-gray-600'
-                          }`}
+                            }`}
                           disabled={isLoading}
                         />
                       </div>
@@ -272,11 +271,10 @@ export default function BulkPartialModal({
                         value={deductionReasons[deposit.id] || ""}
                         onChange={(e) => handleReasonChange(deposit.id, e.target.value)}
                         placeholder="Reason for deduction"
-                        className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 dark:bg-gray-700 dark:text-gray-100 text-sm ${
-                          errors[deposit.id]?.reason
+                        className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 dark:bg-gray-700 dark:text-gray-100 text-sm ${errors[deposit.id]?.reason
                             ? 'border-red-500 dark:border-red-500'
                             : 'border-gray-300 dark:border-gray-600'
-                        }`}
+                          }`}
                         disabled={isLoading}
                       />
                       {errors[deposit.id]?.reason && (
@@ -301,7 +299,7 @@ export default function BulkPartialModal({
           </button>
           <button
             onClick={handleConfirm}
-            disabled={isLoading || heldDeposits.length === 0}
+            disabled={isLoading || paidDeposits.length === 0}
             className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             {isLoading ? (

@@ -176,19 +176,22 @@ const Footer = () => {
                     ),
                     label: 'TikTok'
                   },
-                  { href: 'https://www.google.com/maps/', icon: <MapPin className="w-5 h-5" />, label: 'Location' }
-                ].map((social) => (
-                  <Link
-                    key={social.label}
-                    href={social.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-10 h-10 bg-brand-primary hover:bg-brand-primaryDark border border-brand-primary rounded-full flex items-center justify-center text-white transition-all duration-300 transform hover:scale-110 hover:shadow-lg"
-                    aria-label={social.label}
-                  >
-                    {social.icon}
-                  </Link>
-                ))}
+                  { href: '/location', icon: <MapPin className="w-5 h-5" />, label: 'Location' }
+                ].map((social) => {
+                  const isExternal = social.href.startsWith('http');
+                  return (
+                    <Link
+                      key={social.label}
+                      href={social.href}
+                      target={isExternal ? "_blank" : undefined}
+                      rel={isExternal ? "noopener noreferrer" : undefined}
+                      className="w-10 h-10 bg-brand-primary hover:bg-brand-primaryDark border border-brand-primary rounded-full flex items-center justify-center text-white transition-all duration-300 transform hover:scale-110 hover:shadow-lg"
+                      aria-label={social.label}
+                    >
+                      {social.icon}
+                    </Link>
+                  );
+                })}
               </div>
             </div>
           </div>
