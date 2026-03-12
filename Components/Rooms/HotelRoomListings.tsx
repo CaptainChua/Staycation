@@ -647,7 +647,7 @@ const HotelRoomListings = ({ initialHavens }: HotelRoomListingsProps) => {
                         <div className="overflow-x-auto pb-2 -mx-4 px-4">
                           <div className="flex gap-3" style={{ width: 'max-content' }}>
                             {rowRooms.map((room) => (
-                              <div key={room.id} className="flex-shrink-0 w-40">
+                              <div key={room.id} className="flex-shrink-0 w-52 sm:w-56">
                                 <RoomCard room={room} mode="browse" compact={false} />
                               </div>
                             ))}

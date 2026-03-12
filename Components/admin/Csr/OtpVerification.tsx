@@ -102,8 +102,37 @@ export default function OtpVerification({ email, onBack, onSuccess }: OtpVerific
 
       if (signInResult?.ok) {
       toast.success('Account unlocked & logged in successfully!');
-      // Redirect to dashboard
-      window.location.href = '/dashboard'; // replace with your protected route
+      
+      // Get session to determine user role and redirect appropriately
+      try {
+        const response = await fetch('/api/auth/session');
+        const session = await response.json();
+        
+        if (session?.user?.role) {
+          const role = session.user.role.toLowerCase();
+          switch (role) {
+            case 'csr':
+              window.location.href = '/admin/csr';
+              break;
+            case 'owner':
+              window.location.href = '/admin/owners';
+              break;
+            case 'partner':
+              window.location.href = '/admin/partners';
+              break;
+            case 'cleaner':
+              window.location.href = '/admin/cleaners';
+              break;
+            default:
+              window.location.href = '/admin/owners';
+          }
+        } else {
+          window.location.href = '/admin/owners';
+        }
+      } catch (sessionError) {
+        console.error('Error getting session:', sessionError);
+        window.location.href = '/admin/owners'; // fallback
+      }
     } else {
       throw new Error(signInResult?.error || 'Failed to log in');
     }
@@ -161,21 +190,21 @@ export default function OtpVerification({ email, onBack, onSuccess }: OtpVerific
   }, [timeLeft, canResend]);
 
   return (
-    <div className="min-h-screen bg-[#1F2937] flex items-center rounded-2xl justify-center p-4">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center rounded-2xl justify-center p-4">
       <div className="w-full max-w-md">
         {/* Back Button */}
         <button
           onClick={onBack}
-          className="mb-6 flex items-center gap-2 text-white hover:text-gray-200 transition-colors"
+          className="mb-6 flex items-center gap-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
           <span className="text-sm">Back to login</span>
         </button>
 
         {/* Main Card */}
-        <div className="bg-white dark:bg-gray-900 rounded-2xl overflow-hidden">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden border border-gray-200 dark:border-gray-700">
           {/* Header */}
-          <div className="bg-[#1F2937] p-8 text-center">
+          <div className="bg-brand-primary p-8 text-center">
             <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
               <Mail className="w-8 h-8 text-white" />
             </div>
@@ -187,7 +216,7 @@ export default function OtpVerification({ email, onBack, onSuccess }: OtpVerific
           </div>
 
           {/* Form */}
-          <div className="p-8 bg-[#1F2937]">
+          <div className="p-8 bg-white dark:bg-gray-800">
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* OTP Input */}
               <div>
@@ -253,7 +282,7 @@ export default function OtpVerification({ email, onBack, onSuccess }: OtpVerific
             </form>
 
             {/* Help Text */}
-            <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+            <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
               <div className="flex items-start gap-2">
                 <Mail className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5" />
                 <div className="text-xs text-blue-700 dark:text-blue-300">

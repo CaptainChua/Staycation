@@ -91,7 +91,7 @@ export async function getDeposits(): Promise<DepositRecord[]> {
         month: 'short',
         day: 'numeric'
       }) + (row.check_in_time ? ` ${row.check_in_time}` : '');
-      
+
       const checkoutDate = row.check_out_date ? new Date(row.check_out_date) : new Date();
       const formattedCheckoutDate = checkoutDate.toLocaleDateString('en-US', {
         year: 'numeric',
@@ -114,7 +114,7 @@ export async function getDeposits(): Promise<DepositRecord[]> {
       // Map deposit_status to UI display status
       const statusMap: Record<string, string> = {
         'pending': 'Pending',
-        'held': 'Held',
+        'held': 'Paid',
         'returned': 'Returned',
         'partial': 'Partial',
         'forfeited': 'Forfeited'
@@ -180,7 +180,7 @@ export async function updateDepositStatus(
     // Map UI status to database deposit_status values
     const statusMap: Record<string, string> = {
       'Pending': 'pending',
-      'Held': 'held',
+      'Paid': 'held',
       'Returned': 'returned',
       'Partial': 'partial',
       'Forfeited': 'forfeited'
@@ -252,10 +252,10 @@ export async function updateDepositStatus(
         LEFT JOIN booking_guests bg ON b.id = bg.booking_id
         WHERE sd.id = $1
       `;
-      
+
       const depositResult = await client.query(depositQuery, [depositId]);
       const deposit = depositResult.rows[0];
-      
+
       if (deposit) {
         const guestName = `${deposit.first_name || ''} ${deposit.last_name || ''}`.trim() || 'Unknown Guest';
         const amount = parseFloat(deposit.amount) || 0;
@@ -264,15 +264,15 @@ export async function updateDepositStatus(
           currency: 'PHP',
           minimumFractionDigits: 0
         }).format(amount);
-        
+
         // Create notification message based on status
         let notificationTitle = '';
         let notificationMessage = '';
-        
+
         switch (newStatus) {
-          case 'Held':
-            notificationTitle = 'Security Deposit Held';
-            notificationMessage = `Security deposit of ${formattedAmount} for ${guestName} (Booking: ${deposit.booking_id}) has been held.`;
+          case 'Paid':
+            notificationTitle = 'Security Deposit Paid';
+            notificationMessage = `Security deposit of ${formattedAmount} for ${guestName} (Booking: ${deposit.booking_id}) has been marked as paid.`;
             break;
           case 'Returned':
             notificationTitle = 'Security Deposit Returned';
@@ -290,14 +290,14 @@ export async function updateDepositStatus(
             notificationTitle = 'Security Deposit Status Updated';
             notificationMessage = `Security deposit status for ${guestName} (Booking: ${deposit.booking_id}) updated to ${newStatus}.`;
         }
-        
+
         // Create notifications for Owner and CSR roles
         await createNotificationsForRoles(['Owner', 'CSR'], {
           title: notificationTitle,
           message: notificationMessage,
           notificationType: 'DepositStatus'
         });
-        
+
         console.log(`✅ Notifications created for deposit status update: ${newStatus}`);
       }
     } catch (notificationError) {
@@ -306,6 +306,77 @@ export async function updateDepositStatus(
     }
   } catch (error) {
     console.error("Error updating deposit status:", error);
+    throw new Error("Failed to update deposit status");
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Update security deposit status by booking UUID
+ * Used from the booking page when marking a deposit as paid
+ */
+export async function updateDepositStatusByBookingId(
+  bookingId: string,
+  newStatus: string,
+  employeeId?: string,
+  notes?: string
+): Promise<void> {
+  const client = await pool.connect();
+  try {
+    const statusMap: Record<string, string> = {
+      'Pending': 'pending',
+      'Paid': 'held',
+      'Returned': 'returned',
+      'Partial': 'partial',
+      'Forfeited': 'forfeited'
+    };
+
+    const dbStatus = statusMap[newStatus] || newStatus.toLowerCase();
+    const now = new Date();
+
+    if (dbStatus === 'held') {
+      await client.query(
+        `UPDATE booking_security_deposits 
+         SET deposit_status = $2, held_at = $3, processed_by = $4, notes = COALESCE($5, notes), amount = COALESCE(amount, $6)
+         WHERE booking_id = $1`,
+        [bookingId, dbStatus, now, employeeId, notes, DEFAULT_SECURITY_DEPOSIT_AMOUNT]
+      );
+    } else {
+      await client.query(
+        `UPDATE booking_security_deposits 
+         SET deposit_status = $2, processed_by = $3, notes = COALESCE($4, notes)
+         WHERE booking_id = $1`,
+        [bookingId, dbStatus, employeeId, notes]
+      );
+    }
+
+    // Log the activity
+    try {
+      const requestHeaders = await headers();
+      const ipAddress = requestHeaders.get('x-forwarded-for') || requestHeaders.get('x-real-ip') || 'unknown';
+      const userAgent = requestHeaders.get('user-agent') || 'unknown';
+
+      if (employeeId) {
+        await client.query(
+          `SELECT log_employee_activity($1, $2, $3, $4, $5, $6, $7)`,
+          [
+            employeeId,
+            'MARK_DEPOSIT_PAID',
+            `Marked deposit as paid for booking ${bookingId}`,
+            'deposit',
+            bookingId,
+            ipAddress,
+            userAgent
+          ]
+        );
+      }
+    } catch (logError) {
+      console.error('Failed to log deposit status update:', logError);
+    }
+
+  } catch (error) {
+    console.error("Error updating deposit status by booking ID:", error);
     throw new Error("Failed to update deposit status");
   } finally {
     client.release();
@@ -348,7 +419,7 @@ export async function processPartialRefund(
     const requestHeaders = await headers();
     const ipAddress = requestHeaders.get('x-forwarded-for') || requestHeaders.get('x-real-ip') || 'unknown';
     const userAgent = requestHeaders.get('user-agent') || 'unknown';
-    
+
     const now = new Date();
 
     // Get the current deposit amount
@@ -428,10 +499,10 @@ export async function processPartialRefund(
         LEFT JOIN booking_guests bg ON b.id = bg.booking_id
         WHERE sd.id = $1
       `;
-      
+
       const depositResult = await client.query(depositQuery, [depositId]);
       const deposit = depositResult.rows[0];
-      
+
       if (deposit) {
         const guestName = `${deposit.first_name || ''} ${deposit.last_name || ''}`.trim() || 'Unknown Guest';
         const totalAmount = parseFloat(deposit.amount) || 0;
@@ -440,14 +511,14 @@ export async function processPartialRefund(
           currency: 'PHP',
           minimumFractionDigits: 0
         }).format(refundAmount);
-        
+
         // Create notifications for Owner and CSR roles
         await createNotificationsForRoles(['Owner', 'CSR'], {
           title: 'Security Deposit Partially Refunded',
           message: `Partial refund of ${formattedRefundAmount} processed for ${guestName} (Booking: ${deposit.booking_id}). Reason: ${deductionReason}`,
           notificationType: 'DepositStatus'
         });
-        
+
         console.log(`✅ Notifications created for partial refund`);
       }
     } catch (notificationError) {
@@ -481,7 +552,7 @@ export async function processForfeiture(
     const requestHeaders = await headers();
     const ipAddress = requestHeaders.get('x-forwarded-for') || requestHeaders.get('x-real-ip') || 'unknown';
     const userAgent = requestHeaders.get('user-agent') || 'unknown';
-    
+
     // Get the current deposit amount
     const result = await client.query(
       `SELECT amount FROM booking_security_deposits WHERE id = $1`,
@@ -536,10 +607,10 @@ export async function processForfeiture(
         LEFT JOIN booking_guests bg ON b.id = bg.booking_id
         WHERE sd.id = $1
       `;
-      
+
       const depositResult = await client.query(depositQuery, [depositId]);
       const deposit = depositResult.rows[0];
-      
+
       if (deposit) {
         const guestName = `${deposit.first_name || ''} ${deposit.last_name || ''}`.trim() || 'Unknown Guest';
         const formattedAmount = new Intl.NumberFormat('en-PH', {
@@ -547,14 +618,14 @@ export async function processForfeiture(
           currency: 'PHP',
           minimumFractionDigits: 0
         }).format(totalAmount);
-        
+
         // Create notifications for Owner and CSR roles
         await createNotificationsForRoles(['Owner', 'CSR'], {
           title: 'Security Deposit Forfeited',
           message: `Security deposit of ${formattedAmount} for ${guestName} (Booking: ${deposit.booking_id}) has been forfeited. Reason: ${forfeitureReason}`,
           notificationType: 'DepositStatus'
         });
-        
+
         console.log(`✅ Notifications created for forfeiture`);
       }
     } catch (notificationError) {
@@ -581,7 +652,7 @@ export async function processFullRefund(
     const requestHeaders = await headers();
     const ipAddress = requestHeaders.get('x-forwarded-for') || requestHeaders.get('x-real-ip') || 'unknown';
     const userAgent = requestHeaders.get('user-agent') || 'unknown';
-    
+
     const now = new Date();
 
     // Get the current deposit amount
@@ -638,10 +709,10 @@ export async function processFullRefund(
         LEFT JOIN booking_guests bg ON b.id = bg.booking_id
         WHERE sd.id = $1
       `;
-      
+
       const depositResult = await client.query(depositQuery, [depositId]);
       const deposit = depositResult.rows[0];
-      
+
       if (deposit) {
         const guestName = `${deposit.first_name || ''} ${deposit.last_name || ''}`.trim() || 'Unknown Guest';
         const formattedAmount = new Intl.NumberFormat('en-PH', {
@@ -649,14 +720,14 @@ export async function processFullRefund(
           currency: 'PHP',
           minimumFractionDigits: 0
         }).format(totalAmount);
-        
+
         // Create notifications for Owner and CSR roles
         await createNotificationsForRoles(['Owner', 'CSR'], {
           title: 'Security Deposit Fully Refunded',
           message: `Security deposit of ${formattedAmount} for ${guestName} (Booking: ${deposit.booking_id}) has been fully refunded.`,
           notificationType: 'DepositStatus'
         });
-        
+
         console.log(`✅ Notifications created for full refund`);
       }
     } catch (notificationError) {
@@ -873,10 +944,10 @@ export async function getDeliverables(): Promise<DeliverableRecord[]> {
     `;
 
     let result = await client.query(query);
-    
+
     // Debug: Check if we got any results
     console.log('Query returned rows:', result.rows.length);
-    
+
     // If no results, try without havens join
     if (result.rows.length === 0) {
       console.log('No results with havens join, trying fallback...');
@@ -929,7 +1000,7 @@ export async function getDeliverables(): Promise<DeliverableRecord[]> {
       result = await client.query(query);
       console.log('Fallback query returned rows:', result.rows.length);
     }
-    
+
     // Debug: Show sample data
     if (result.rows.length > 0) {
       console.log('Sample row data:', JSON.stringify(result.rows[0], null, 2));
@@ -962,7 +1033,7 @@ export async function getDeliverables(): Promise<DeliverableRecord[]> {
       }
       groupedByBooking.get(bookingUuid)!.items.push(row);
     }
-    
+
     console.log('Grouped into', groupedByBooking.size, 'bookings');
 
     // Convert grouped data to DeliverableRecord array
@@ -970,7 +1041,7 @@ export async function getDeliverables(): Promise<DeliverableRecord[]> {
 
     for (const [bookingUuid, data] of groupedByBooking) {
       const { bookingInfo, items } = data;
-      
+
       // Handle case where bookingInfo might be null/undefined
       if (!bookingInfo) {
         console.warn('Missing booking info for UUID:', bookingUuid);
@@ -1010,7 +1081,7 @@ export async function getDeliverables(): Promise<DeliverableRecord[]> {
           console.warn('Null item found for booking:', bookingUuid);
           return null;
         }
-        
+
         const price = parseFloat(item.price) || 0;
         const quantity = parseInt(item.quantity) || 1;
         const totalPrice = price * quantity;
@@ -1050,7 +1121,7 @@ export async function getDeliverables(): Promise<DeliverableRecord[]> {
       // Determine overall status (priority: Pending > Preparing > Delivered > Cancelled > Refunded)
       const statuses = deliverableItems.map((item: any) => item.status);
       let overallStatus = 'Delivered';
-      
+
       if (statuses.length === 0) {
         overallStatus = 'Pending';
       } else if (statuses.includes('Pending')) {
@@ -1102,7 +1173,7 @@ export async function getDeliverables(): Promise<DeliverableRecord[]> {
       // Map security deposit status
       const securityDepositStatusMap: Record<string, string> = {
         'pending': 'Pending',
-        'held': 'Held',
+        'held': 'Paid',
         'returned': 'Returned',
         'partial': 'Partial',
         'forfeited': 'Forfeited'
@@ -1150,7 +1221,7 @@ export async function getDeliverables(): Promise<DeliverableRecord[]> {
         security_deposit_returned_at: bookingInfo.security_deposit_returned_at || null,
         security_deposit_notes: bookingInfo.security_deposit_notes || null
       });
-      
+
       console.log('Created record for booking', bookingUuid, 'with', deliverableItems.length, 'items');
     }
 
@@ -1645,7 +1716,7 @@ export async function updateDiscount(
     `;
 
     const result = await client.query(updatedDiscountQuery, [id]);
-    
+
     if (result.rows.length === 0) {
       throw new Error("Discount not found after update");
     }
@@ -1681,7 +1752,7 @@ export async function getDiscountProperties(discountId: string): Promise<string[
       FROM discount_havens
       WHERE discount_id = $1
     `;
-    
+
     const result = await client.query(query, [discountId]);
     return result.rows.map(row => row.haven_id);
   } catch (error) {

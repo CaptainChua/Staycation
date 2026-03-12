@@ -45,7 +45,6 @@ export const updateBookingDetails = async (
       add_ons_total,
       total_amount,
       down_payment,
-      remaining_balance,
       add_ons,
     } = body;
 
@@ -183,12 +182,9 @@ export const updateBookingDetails = async (
       paymentProofUrl = uploadResult.url;
     }
 
-    // Ensure amount_paid remains consistent with the provided remaining_balance.
-    // If remaining_balance was provided, compute amount_paid = total_amount - remaining_balance.
-    const paymentAmountPaid =
-      typeof remaining_balance !== "undefined" && remaining_balance !== null
-        ? Number(total_amount) - Number(remaining_balance)
-        : Number(down_payment ?? 0);
+    // Keep amount_paid consistent with the initial down payment.
+    // remaining_balance is computed/managed by the DB schema in this project.
+    const paymentAmountPaid = Number(down_payment ?? 0);
 
     const paymentUpdateRes = await client.query(
       `
@@ -199,9 +195,8 @@ export const updateBookingDetails = async (
             add_ons_total = $4,
             total_amount = $5,
             down_payment = $6,
-            amount_paid = $7,
-            remaining_balance = $8
-        WHERE booking_id = $9
+            amount_paid = $7
+        WHERE booking_id = $8
         RETURNING id
       `,
       [
@@ -212,7 +207,6 @@ export const updateBookingDetails = async (
         total_amount,
         down_payment,
         paymentAmountPaid,
-        remaining_balance,
         id,
       ],
     );
@@ -222,9 +216,9 @@ export const updateBookingDetails = async (
         `
           INSERT INTO booking_payments (
             booking_id, payment_method, payment_proof_url, room_rate,
-            add_ons_total, total_amount, down_payment, amount_paid, remaining_balance
+            add_ons_total, total_amount, down_payment, amount_paid
           )
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         `,
         [
           id,
@@ -235,7 +229,6 @@ export const updateBookingDetails = async (
           total_amount,
           down_payment,
           paymentAmountPaid,
-          remaining_balance,
         ],
       );
     }
@@ -273,7 +266,7 @@ export const updateBookingDetails = async (
           bg.valid_id_url,
           bp.total_amount,
           bp.down_payment,
-          bp.remaining_balance,
+          bp.amount_paid,
           bp.payment_method,
           bp.payment_proof_url,
           bp.room_rate,
@@ -339,13 +332,13 @@ export interface Booking {
   children: number;
   infants: number;
   status:
-    | "pending"
-    | "approved"
-    | "rejected"
-    | "confirmed"
-    | "checked-in"
-    | "completed"
-    | "cancelled";
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "confirmed"
+  | "checked-in"
+  | "completed"
+  | "cancelled";
   add_ons?: AddOnItem[];
   created_at?: string;
   updated_at?: string;
@@ -392,7 +385,6 @@ export const createBooking = async (
       add_ons_total,
       total_amount,
       down_payment,
-      remaining_balance,
       // Add-ons
       addOns = {},
     } = body;
@@ -563,14 +555,13 @@ export const createBooking = async (
     // Calculate payment amounts (security deposit is handled separately during checkout)
     const paymentTotalAmount = total_amount; // Full amount during booking (security deposit handled at checkout)
     const paymentAmountPaid = Number(down_payment ?? 0); // initial collected amount
-    const paymentRemainingBalance = paymentTotalAmount - paymentAmountPaid;
 
     const paymentQuery = `
       INSERT INTO booking_payments (
         booking_id, payment_method, payment_proof_url, room_rate,
-        add_ons_total, total_amount, down_payment, amount_paid, remaining_balance
+        add_ons_total, total_amount, down_payment, amount_paid
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
     `;
 
     const paymentValues = [
@@ -582,7 +573,6 @@ export const createBooking = async (
       paymentTotalAmount,
       down_payment,
       paymentAmountPaid,
-      paymentRemainingBalance,
     ];
 
     await client.query(paymentQuery, paymentValues);
@@ -749,7 +739,48 @@ export const getAllBookings = async (
   try {
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status");
+    const raw = searchParams.get("raw");
 
+    // If raw=true, return only the booking table columns (no joins)
+    if (raw === "true") {
+      let rawQuery = `
+        SELECT
+          id,
+          booking_id,
+          user_id,
+          room_name,
+          check_in_date,
+          check_out_date,
+          check_in_time,
+          check_out_time,
+          adults,
+          children,
+          infants,
+          status,
+          rejection_reason,
+          has_security_deposit,
+          created_at,
+          updated_at
+        FROM booking
+      `;
+
+      const values: any[] = [];
+      if (status) {
+        rawQuery += " WHERE status = $1";
+        values.push(status);
+      }
+
+      rawQuery += " ORDER BY created_at DESC";
+
+      const result = await pool.query(rawQuery, values);
+      return NextResponse.json({
+        success: true,
+        data: result.rows,
+        count: result.rows.length,
+      });
+    }
+
+    // Default behavior: enriched booking data with joins
     let query = `
       SELECT
         b.*,
@@ -1016,6 +1047,19 @@ export const updateBookingStatus = async (
 
     const values = [status, rejection_reason ?? null, id];
     const result = await pool.query(query, values);
+
+    // If booking approved, also approve the down payment
+    if (status === "approved" && result.rows.length > 0) {
+      const bookingUuid = result.rows[0].id;
+      await pool.query(
+        `
+        UPDATE booking_payments
+        SET payment_status = 'approved_down_payment', reviewed_at = NOW()
+        WHERE booking_id = $1 AND payment_status = 'pending_down_payment'
+        `,
+        [bookingUuid],
+      );
+    }
 
     if (result.rows.length === 0) {
       return NextResponse.json(

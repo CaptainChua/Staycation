@@ -13,6 +13,23 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
+    // Get user info for email template
+    let userName = null;
+    if (type === 'ACCOUNT_LOCK') {
+      try {
+        const userResult = await pool.query(
+          "SELECT first_name, last_name FROM employees WHERE email = $1",
+          [email]
+        );
+        if (userResult.rows.length > 0) {
+          userName = `${userResult.rows[0].first_name} ${userResult.rows[0].last_name}`;
+        }
+      } catch (error) {
+        console.error("Error fetching user name:", error);
+        // Continue without user name
+      }
+    }
+
     // Generate new OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiry
@@ -31,7 +48,7 @@ export async function POST(request: NextRequest) {
       [email, otp, type, expiresAt]
     );
 
-    // TODO: Send email with OTP
+    // Send email with OTP
     await fetch(
       `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/api/admin/send-email`,
       {
@@ -41,6 +58,7 @@ export async function POST(request: NextRequest) {
           email,
           otp,
           type,
+          userName,
         }),
       }
     );

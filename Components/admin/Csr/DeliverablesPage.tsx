@@ -25,7 +25,8 @@ import {
   ExternalLink,
   BadgeCheck,
   CircleDollarSign,
-  ChevronDown
+  ChevronDown,
+  UserPlus
 } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
@@ -35,6 +36,7 @@ import DeliverableActionModal from "./Modals/DeliverableActionModal";
 import BulkDeliverableActionModal from "./Modals/BulkDeliverableActionModal";
 import BulkSelectionActionModal from "./Modals/BulkSelectionActionModal";
 import ViewPaymentDetailsModal from "./Modals/ViewPaymentDetailsModal";
+import AssignCleanerModal from "./Modals/AssignCleanerModal";
 
 // Highlight text function
 const highlightText = (text: string, searchTerm: string) => {
@@ -287,12 +289,25 @@ export default function DeliverablesPage() {
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [isActionLoading, setIsActionLoading] = useState(false);
 
+  const [isAssignCleanerModalOpen, setIsAssignCleanerModalOpen] = useState(false);
+  const [assignCleanerBookingId, setAssignCleanerBookingId] = useState<string | null>(null);
+
   // Toggle expanded items
   const toggleExpanded = (bookingId: string) => {
     setExpandedItems(prev => ({
       ...prev,
       [bookingId]: !prev[bookingId]
     }));
+  };
+
+  const handleAssignCleaner = (bookingId: string) => {
+    setAssignCleanerBookingId(bookingId);
+    setIsAssignCleanerModalOpen(true);
+  };
+
+  const handleCloseAssignCleanerModal = () => {
+    setIsAssignCleanerModalOpen(false);
+    setAssignCleanerBookingId(null);
   };
 
   // Log employee activity
@@ -1403,6 +1418,14 @@ const handleMarkAllDelivered = async (bookingId: string) => {
 
                 <div className="mt-3 flex items-center justify-end gap-1">
                   <button
+                    className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                    title="Assign Cleaner"
+                    type="button"
+                    onClick={() => handleAssignCleaner(row.booking_id)}
+                  >
+                    <UserPlus className="w-4 h-4" />
+                  </button>
+                  <button
                     className="p-2 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors"
                     title="Mark All Preparing"
                     type="button"
@@ -1816,6 +1839,14 @@ const handleMarkAllDelivered = async (bookingId: string) => {
                     <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
                       <div className="flex items-center justify-center gap-1">
                         <button
+                          className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                          title="Assign Cleaner"
+                          type="button"
+                          onClick={() => handleAssignCleaner(row.booking_id)}
+                        >
+                          <UserPlus className="w-4 h-4" />
+                        </button>
+                        <button
                           className="p-2 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors"
                           title="Mark All Preparing"
                           type="button"
@@ -2037,6 +2068,14 @@ const handleMarkAllDelivered = async (bookingId: string) => {
           }))
         }))}
         isLoading={bulkActionLoading}
+      />
+
+      <AssignCleanerModal
+        isOpen={isAssignCleanerModalOpen}
+        onClose={handleCloseAssignCleanerModal}
+        bookingId={assignCleanerBookingId || ""}
+        onSuccess={fetchData}
+        currentUserId={employeeId}
       />
     </div>
   );
