@@ -4,6 +4,7 @@ import { ClipboardList, MapPin, Clock, AlertCircle, CheckCircle2, Flag } from "l
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { useGetTodaysAssignmentsQuery } from "@/redux/api/cleanersApi";
 
 interface AssignmentStats {
   total: number;
@@ -12,40 +13,63 @@ interface AssignmentStats {
   pending: number;
 }
 
+function getStatusBadge(cleaningStatus: string): { label: string; bgColor: string; textColor: string } {
+  switch (cleaningStatus) {
+    case "in-progress":
+      return { label: "In Progress", bgColor: "bg-yellow-100 dark:bg-yellow-900/30", textColor: "text-yellow-700 dark:text-yellow-300" };
+    case "cleaned":
+      return { label: "Completed", bgColor: "bg-green-100 dark:bg-green-900/30", textColor: "text-green-700 dark:text-green-300" };
+    case "inspected":
+      return { label: "Inspected", bgColor: "bg-blue-100 dark:bg-blue-900/30", textColor: "text-blue-700 dark:text-blue-300" };
+    case "assigned":
+      return { label: "Assigned", bgColor: "bg-purple-100 dark:bg-purple-900/30", textColor: "text-purple-700 dark:text-purple-300" };
+    case "pending":
+    default:
+      return { label: "Pending", bgColor: "bg-gray-100 dark:bg-gray-700/30", textColor: "text-gray-700 dark:text-gray-300" };
+  }
+}
+
+function formatDate(dateString: string): string {
+  try {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  } catch {
+    return dateString;
+  }
+}
+
+function formatTime(timeString: string | null): string {
+  if (!timeString) return "—";
+  return timeString.substring(0, 5);
+}
+
 export default function MyAssignmentPage() {
   const { data: session } = useSession();
-  const [stats, setStats] = useState<AssignmentStats>({
-    total: 0,
-    completed: 0,
-    inProgress: 0,
-    pending: 0,
-  });
-  const [isLoading, setIsLoading] = useState(true);
+  const userId = (session?.user as any)?.id;
 
-  useEffect(() => {
-    const fetchStats = async () => {
-      if (!session?.user?.id) {
-        setIsLoading(false);
-        return;
-      }
+  // Pagination and Filter States
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [entriesPerPage, setEntriesPerPage] = useState(10);
+  const [currentPage, setCurrentPage] = useState(1);
 
-      try {
-        setIsLoading(true);
-        const response = await fetch(`/api/admin/cleaners/${session.user.id}/assignment-stats`, {
-          method: "GET",
-          cache: "no-store",
-        });
+  const { data: assignments = [], isLoading: isLoadingAssignments } = useGetTodaysAssignmentsQuery(
+    userId || "",
+    { skip: !userId }
+  );
 
-        const payload = await response.json();
-        if (payload.success && payload.data) {
-          setStats(payload.data);
-        }
-      } catch (error) {
-        console.error("Error fetching assignment stats:", error);
-      } finally {
-        setIsLoading(false);
-      }
+  const stats = useMemo<AssignmentStats>(() => {
+    if (!assignments.length) {
+      return { total: 0, completed: 0, inProgress: 0, pending: 0 };
+    }
+
+    return {
+      total: assignments.length,
+      completed: assignments.filter((a) => a.cleaning_status === "cleaned" || a.cleaning_status === "inspected").length,
+      inProgress: assignments.filter((a) => a.cleaning_status === "in-progress").length,
+      pending: assignments.filter((a) => a.cleaning_status === "pending" || a.cleaning_status === "assigned").length,
     };
+  }, [assignments]);
 
     fetchStats();
   }, [session?.user?.id]);
@@ -131,25 +155,25 @@ export default function MyAssignmentPage() {
   const statsArray = [
     {
       label: "Total Assignments",
-      value: isLoading ? "..." : stats.total.toString(),
+      value: isLoadingAssignments ? "..." : stats.total.toString(),
       color: "bg-brand-primary",
       icon: ClipboardList,
     },
     {
       label: "Completed",
-      value: isLoading ? "..." : stats.completed.toString(),
+      value: isLoadingAssignments ? "..." : stats.completed.toString(),
       color: "bg-green-500",
       icon: CheckCircle2,
     },
     {
       label: "In Progress",
-      value: isLoading ? "..." : stats.inProgress.toString(),
+      value: isLoadingAssignments ? "..." : stats.inProgress.toString(),
       color: "bg-yellow-500",
       icon: Clock,
     },
     {
       label: "Pending",
-      value: isLoading ? "..." : stats.pending.toString(),
+      value: isLoadingAssignments ? "..." : stats.pending.toString(),
       color: "bg-orange-500",
       icon: AlertCircle,
     },
@@ -160,7 +184,7 @@ export default function MyAssignmentPage() {
       <div>
         <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">My Assignments</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          View and manage your assigned cleaning tasks
+          View and manage all your assigned cleaning tasks
         </p>
       </div>
 
@@ -196,34 +220,92 @@ export default function MyAssignmentPage() {
               key={assignment.id}
               className={`${assignment.bgColor} rounded-lg p-5 border border-gray-200 dark:border-gray-700 hover:shadow-md transition-all pointer-events-auto`}
             >
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-3 h-3 rounded-full bg-brand-primary"></div>
-                  <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">
-                    {assignment.haven}
-                  </h3>
-                </div>
-                <span className={`text-sm font-bold ${assignment.statusColor} px-3 py-1 rounded-full bg-white dark:bg-gray-800`}>
-                  {assignment.status}
-                </span>
-              </div>
+              <option value="all">All Status</option>
+              <option value="pending">Pending</option>
+              <option value="assigned">Assigned</option>
+              <option value="in-progress">In Progress</option>
+              <option value="cleaned">Completed</option>
+              <option value="inspected">Inspected</option>
+            </select>
+          </div>
+        </div>
+      </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
-                <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-                  <MapPin className="w-4 h-4" />
-                  <span className="text-sm">{assignment.location}</span>
-                </div>
-                <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-                  <Clock className="w-4 h-4" />
-                  <span className="text-sm">{assignment.deadline}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Flag className="w-4 h-4" />
-                  <span className={`text-sm font-semibold ${assignment.priorityColor}`}>
-                    {assignment.priority} Priority
-                  </span>
-                </div>
-              </div>
+      {/* Assignments Table */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden">
+        <div className="hidden lg:block overflow-x-auto overflow-y-auto flex-1 max-h-[600px]">
+          <table className="w-full min-w-[1400px]">
+            <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 border-b-2 border-gray-200 dark:border-gray-600 sticky top-0 z-10">
+              <tr>
+                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap border border-gray-200 dark:border-gray-700">Haven</th>
+                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap border border-gray-200 dark:border-gray-700">Location</th>
+                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap border border-gray-200 dark:border-gray-700">Checkout Date</th>
+                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap border border-gray-200 dark:border-gray-700">Checkout Time</th>
+                <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap border border-gray-200 dark:border-gray-700">Status</th>
+                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap border border-gray-200 dark:border-gray-700">Time In</th>
+                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap border border-gray-200 dark:border-gray-700">Time Out</th>
+                <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap border border-gray-200 dark:border-gray-700">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {isLoadingAssignments ? (
+                Array.from({ length: 5 }).map((_, idx) => (
+                  <tr key={`skeleton-${idx}`} className="border border-gray-200 dark:border-gray-700 animate-pulse">
+                    {[...Array(8)].map((_, i) => (
+                      <td key={i} className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              ) : filteredAssignments.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="py-20 text-center border border-gray-200 dark:border-gray-700">
+                    <p className="text-gray-500 dark:text-gray-400 font-medium">
+                      {assignments.length === 0 ? "No assignments assigned to you yet" : "No assignments match your search"}
+                    </p>
+                  </td>
+                </tr>
+              ) : (
+                paginatedAssignments.map((assignment) => {
+                  const statusBadge = getStatusBadge(assignment.cleaning_status);
+                  return (
+                    <tr key={assignment.cleaning_id} className="border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700 font-semibold text-gray-800 dark:text-gray-100 text-sm">
+                        {assignment.haven}
+                      </td>
+                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 text-sm">
+                        {assignment.location || "Location TBD"}
+                      </td>
+                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 text-sm">
+                        {formatDate(assignment.check_out_date)}
+                      </td>
+                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 text-sm font-medium">
+                        {formatTime(assignment.check_out_time)}
+                      </td>
+                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700 text-center">
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusBadge.bgColor} ${statusBadge.textColor} inline-block`}>
+                          {statusBadge.label}
+                        </span>
+                      </td>
+                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 text-sm">
+                        {formatTime(assignment.cleaning_time_in)}
+                      </td>
+                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 text-sm">
+                        {formatTime(assignment.cleaning_time_out)}
+                      </td>
+                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700 text-center">
+                        <button className="inline-flex items-center px-3 py-1 text-xs font-semibold text-brand-primary hover:text-brand-primaryDark dark:text-brand-primary dark:hover:text-brand-primaryDark transition-colors rounded hover:bg-gray-100 dark:hover:bg-gray-700">
+                          View
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
 
               <div className="mt-4 flex gap-2">
                 {assignment.status !== "Completed" && (
@@ -251,9 +333,26 @@ export default function MyAssignmentPage() {
                   </button>
                 )}
               </div>
+
+              <button
+                onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded transition-colors"
+                title="Next page"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => setCurrentPage(totalPages)}
+                disabled={currentPage === totalPages}
+                className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded transition-colors"
+                title="Last page"
+              >
+                <ChevronsRight className="w-5 h-5" />
+              </button>
             </div>
-          ))}
-        </div>
+          </div>
+        )}
       </div>
         {isModalOpen && selectedAssignment && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">

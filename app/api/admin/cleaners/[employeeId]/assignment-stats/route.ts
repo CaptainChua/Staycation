@@ -26,68 +26,49 @@ export async function GET(
       today.setHours(0, 0, 0, 0);
       const tomorrow = new Date(today);
       tomorrow.setDate(tomorrow.getDate() + 1);
+      const todayDate = today.toISOString().split('T')[0];
 
-      // Total Assignments (all reports for today)
+      // Total Assignments (all cleaning tasks assigned to this cleaner)
       const totalQuery = `
         SELECT COUNT(*) as count
-        FROM report_issue
-        WHERE user_id = $1 
-        AND created_at >= $2 
-        AND created_at < $3
+        FROM booking_cleaning bc
+        INNER JOIN booking b ON bc.booking_id = b.id
+        WHERE bc.assigned_to::text = $1
       `;
-      const totalResult = await client.query(totalQuery, [
-        employeeId,
-        today.toISOString(),
-        tomorrow.toISOString(),
-      ]);
+      const totalResult = await client.query(totalQuery, [employeeId]);
       const total = parseInt(totalResult.rows[0]?.count || '0');
 
-      // Completed (status = 'Resolved' or 'Closed')
+      // Completed (status = 'cleaned' or 'inspected')
       const completedQuery = `
         SELECT COUNT(*) as count
-        FROM report_issue
-        WHERE user_id = $1 
-        AND status IN ('Resolved', 'Closed')
-        AND created_at >= $2 
-        AND created_at < $3
+        FROM booking_cleaning bc
+        INNER JOIN booking b ON bc.booking_id = b.id
+        WHERE bc.assigned_to::text = $1
+        AND bc.cleaning_status IN ('cleaned', 'inspected')
       `;
-      const completedResult = await client.query(completedQuery, [
-        employeeId,
-        today.toISOString(),
-        tomorrow.toISOString(),
-      ]);
+      const completedResult = await client.query(completedQuery, [employeeId]);
       const completed = parseInt(completedResult.rows[0]?.count || '0');
 
-      // In Progress (status = 'In Progress')
+      // In Progress (status = 'in-progress')
       const inProgressQuery = `
         SELECT COUNT(*) as count
-        FROM report_issue
-        WHERE user_id = $1 
-        AND status = 'In Progress'
-        AND created_at >= $2 
-        AND created_at < $3
+        FROM booking_cleaning bc
+        INNER JOIN booking b ON bc.booking_id = b.id
+        WHERE bc.assigned_to::text = $1
+        AND bc.cleaning_status = 'in-progress'
       `;
-      const inProgressResult = await client.query(inProgressQuery, [
-        employeeId,
-        today.toISOString(),
-        tomorrow.toISOString(),
-      ]);
+      const inProgressResult = await client.query(inProgressQuery, [employeeId]);
       const inProgress = parseInt(inProgressResult.rows[0]?.count || '0');
 
-      // Pending (status = 'Pending' or 'Open')
+      // Pending (status = 'pending' or 'assigned')
       const pendingQuery = `
         SELECT COUNT(*) as count
-        FROM report_issue
-        WHERE user_id = $1 
-        AND status IN ('Pending', 'Open')
-        AND created_at >= $2 
-        AND created_at < $3
+        FROM booking_cleaning bc
+        INNER JOIN booking b ON bc.booking_id = b.id
+        WHERE bc.assigned_to::text = $1
+        AND bc.cleaning_status IN ('pending', 'assigned')
       `;
-      const pendingResult = await client.query(pendingQuery, [
-        employeeId,
-        today.toISOString(),
-        tomorrow.toISOString(),
-      ]);
+      const pendingResult = await client.query(pendingQuery, [employeeId]);
       const pending = parseInt(pendingResult.rows[0]?.count || '0');
 
       return NextResponse.json({
