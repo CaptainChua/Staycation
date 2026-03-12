@@ -136,7 +136,7 @@ const AboutPage = () => {
             <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-6">
               Our Story
             </h2>
-            <div className="space-y-4 text-gray-600 leading-relaxed">
+            <div className="space-y-4 text-white-600 leading-relaxed">
               <p>
                 Founded in 2020, Staycation Haven was born from a simple idea:
                 not everyone needs a full 24-hour hotel stay. Whether you&apos;re
@@ -173,7 +173,7 @@ const AboutPage = () => {
           <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
             Our Values
           </h2>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+          <p className="text-lg text-white-600 max-w-2xl mx-auto">
             The principles that guide us in delivering exceptional staycation
             experiences
           </p>
@@ -187,7 +187,7 @@ const AboutPage = () => {
                 <h3 className="text-xl font-bold text-gray-900 mb-3">
                   {value.title}
                 </h3>
-                <p className="text-gray-600 leading-relaxed">
+                <p className="text-white-600 leading-relaxed">
                   {value.description}
                 </p>
               </div>
@@ -200,7 +200,7 @@ const AboutPage = () => {
           <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
             Meet Our Team
           </h2>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+          <p className="text-lg text-white-600 max-w-2xl mx-auto">
             Dedicated professionals committed to making your stay exceptional
           </p>
           <div className="grid md:grid-cols-3 gap-8 mt-8">
