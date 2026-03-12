@@ -150,7 +150,7 @@ export default function ProfilePage({ user, onClose }: ProfilePageProps) {
 
   const handleSave = async () => {
     if (!employee?.id) return;
-    
+
     // Email validation (only if email is provided)
     if (editForm.email) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -161,7 +161,7 @@ export default function ProfilePage({ user, onClose }: ProfilePageProps) {
         return;
       }
     }
-    
+
     // Phone validation (if provided)
     if (editForm.phone && editForm.phone.trim() !== '') {
       const phoneRegex = /^[+]?[\d\s\-\(\)]+$/;
@@ -172,19 +172,19 @@ export default function ProfilePage({ user, onClose }: ProfilePageProps) {
         return;
       }
     }
-    
+
     try {
       setSaveStatus('saving');
       setError(null);
-      
+
       // Prepare update data with only changed fields
       const updateData: Partial<EmployeeProfile> = {};
-      
+
       Object.keys(editForm).forEach(key => {
         const field = key as keyof EmployeeProfile;
         const currentValue = employee[field];
         const newValue = editForm[field];
-        
+
         // Compare values (handle string vs number conversions)
         if (currentValue !== newValue) {
           if (field === 'monthly_salary' && newValue) {
@@ -194,7 +194,7 @@ export default function ProfilePage({ user, onClose }: ProfilePageProps) {
           }
         }
       });
-      
+
       // If no changes were made, show message and exit
       if (Object.keys(updateData).length === 0) {
         toast.error('No changes were made');
@@ -202,9 +202,9 @@ export default function ProfilePage({ user, onClose }: ProfilePageProps) {
         setTimeout(() => setSaveStatus('idle'), 3000);
         return;
       }
-      
+
       console.log('Sending update data:', updateData);
-      
+
       const response = await fetch(`/api/admin/employees/${employee.id}`, {
         method: 'PUT',
         headers: {
@@ -220,18 +220,18 @@ export default function ProfilePage({ user, onClose }: ProfilePageProps) {
       }
 
       const updatedData = await response.json();
-      
+
       // Update local state with new data
       setEmployee(updatedData.data);
-      
+
       // Show success toast
       toast.success('Profile updated successfully');
-      
+
       // Log activity
       try {
         // Get client IP and user agent
         const clientInfo = await fetch('/api/admin/client-info').then(res => res.json()).catch(() => ({}));
-        
+
         await fetch('/api/admin/activity-logs', {
           method: 'POST',
           headers: {
@@ -253,7 +253,7 @@ export default function ProfilePage({ user, onClose }: ProfilePageProps) {
         console.warn('Failed to log activity:', logError);
         // Continue even if logging fails
       }
-      
+
       // Update the user session if name or email changed
       if (updatedData.data.first_name || updatedData.data.last_name || updatedData.data.email) {
         try {
@@ -268,11 +268,11 @@ export default function ProfilePage({ user, onClose }: ProfilePageProps) {
           // Continue even if session update fails
         }
       }
-      
+
       setIsEditing(false);
       setEditForm({});
       setSaveStatus('success');
-      
+
       setTimeout(() => setSaveStatus('idle'), 3000);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to update profile';
@@ -340,14 +340,14 @@ export default function ProfilePage({ user, onClose }: ProfilePageProps) {
         newPassword: '',
         confirmPassword: ''
       });
-      
+
       toast.success('Password changed successfully');
-      
+
       // Log activity
       try {
         // Get client IP and user agent
         const clientInfo = await fetch('/api/admin/client-info').then(res => res.json()).catch(() => ({}));
-        
+
         console.log('🔍 Password change logging data:', {
           employment_id: user?.id,
           action_type: 'update',
@@ -359,7 +359,7 @@ export default function ProfilePage({ user, onClose }: ProfilePageProps) {
             user_agent: clientInfo.userAgent,
           },
         });
-        
+
         const logResponse = await fetch('/api/admin/activity-logs', {
           method: 'POST',
           headers: {
@@ -377,14 +377,14 @@ export default function ProfilePage({ user, onClose }: ProfilePageProps) {
             },
           }),
         });
-        
+
         const logResult = await logResponse.json();
         console.log('🔍 Activity log response:', logResult);
       } catch (logError) {
         console.warn('❌ Failed to log activity:', logError);
         // Continue even if logging fails
       }
-      
+
       setTimeout(() => setPasswordSaveStatus('idle'), 3000);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to change password');
@@ -494,7 +494,7 @@ export default function ProfilePage({ user, onClose }: ProfilePageProps) {
               </div>
             </div>
           </div>
-          
+
           <div className="pt-20 px-4 sm:px-8 pb-8">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div className="flex-1 min-w-0">
@@ -530,11 +530,10 @@ export default function ProfilePage({ user, onClose }: ProfilePageProps) {
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id as any)}
-                    className={`flex items-center gap-1 sm:gap-2 py-4 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm transition-colors whitespace-nowrap flex-shrink-0 ${
-                      activeTab === tab.id
+                    className={`flex items-center gap-1 sm:gap-2 py-4 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm transition-colors whitespace-nowrap flex-shrink-0 ${activeTab === tab.id
                         ? 'border-brand-primary text-brand-primary'
                         : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
-                    }`}
+                      }`}
                   >
                     <Icon className="w-4 h-4" />
                     <span className="hidden sm:inline">{tab.label}</span>
@@ -711,14 +710,14 @@ export default function ProfilePage({ user, onClose }: ProfilePageProps) {
                 {activeTab === 'security' && (
                   <div className="space-y-6">
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Security Settings</h3>
-                    
+
                     {passwordSaveStatus === 'success' && (
                       <div className="flex items-center gap-2 text-green-600 bg-green-50 px-4 py-2 rounded-lg">
                         <Check className="w-4 h-4" />
                         <span className="text-sm font-medium">Password changed successfully</span>
                       </div>
                     )}
-                    
+
                     {passwordSaveStatus === 'error' && (
                       <div className="flex items-center gap-2 text-red-600 bg-red-50 px-4 py-2 rounded-lg">
                         <X className="w-4 h-4" />
@@ -732,7 +731,7 @@ export default function ProfilePage({ user, onClose }: ProfilePageProps) {
                         <Key className="w-5 h-5 text-brand-primary" />
                         <h4 className="text-base font-semibold text-gray-900 dark:text-white">Change Password</h4>
                       </div>
-                      
+
                       <div className="max-w-md space-y-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Current Password</label>

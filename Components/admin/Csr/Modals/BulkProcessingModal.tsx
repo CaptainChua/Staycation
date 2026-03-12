@@ -34,7 +34,7 @@ export default function BulkProcessingModal({
 
   const handleConfirm = () => {
     // Store notes in sessionStorage for retrieval during processing
-    sessionStorage.setItem('bulkHeldNotes', JSON.stringify(notes));
+    sessionStorage.setItem('bulkPaidNotes', JSON.stringify(notes));
     onConfirm();
   };
 
@@ -76,10 +76,10 @@ export default function BulkProcessingModal({
             </div>
             <div>
               <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                Mark Deposits as Held
+                Mark Deposits as Paid
               </h2>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Mark {selectedDeposits.length} deposit{selectedDeposits.length !== 1 ? 's' : ''} as Held
+                Mark {selectedDeposits.length} deposit{selectedDeposits.length !== 1 ? 's' : ''} as Paid
               </p>
             </div>
           </div>
@@ -99,8 +99,8 @@ export default function BulkProcessingModal({
               Hold Status Summary
             </div>
             <p className="text-sm text-indigo-800 dark:text-indigo-200">
-              You are about to mark <strong>{selectedDeposits.length}</strong> deposit{selectedDeposits.length !== 1 ? 's' : ''} as "Held". 
-              This will update their status to indicate they are currently being held and will be processed after checkout.
+              You are about to mark <strong>{selectedDeposits.length}</strong> deposit{selectedDeposits.length !== 1 ? 's' : ''} as "Paid".
+              This will update their status to indicate they are currently being marked as paid and will be processed after checkout.
             </p>
           </div>
 
@@ -169,7 +169,7 @@ export default function BulkProcessingModal({
             {isLoading ? (
               <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</>
             ) : (
-              <>Mark {selectedDeposits.length} Deposit{selectedDeposits.length !== 1 ? 's' : ''} as Held</>
+              <>Mark {selectedDeposits.length} Deposit{selectedDeposits.length !== 1 ? 's' : ''} as Paid</>
             )}
           </button>
         </div>
