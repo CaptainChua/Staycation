@@ -2,6 +2,7 @@
 
 import { ClipboardList, MapPin, Clock, AlertCircle, CheckCircle2, Flag } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 
 interface AssignmentStats {
@@ -48,7 +49,9 @@ export default function MyAssignmentPage() {
 
     fetchStats();
   }, [session?.user?.id]);
-  const assignments = [
+  const router = useRouter();
+
+  const [assignments, setAssignments] = useState([
     {
       id: 1,
       haven: "Haven 3",
@@ -93,7 +96,37 @@ export default function MyAssignmentPage() {
       priorityColor: "text-red-600",
       bgColor: "bg-green-50 dark:bg-green-900/20",
     },
-  ];
+  ]);
+
+  const handleStartTask = async (id: number) => {
+    setAssignments((prev) =>
+      prev.map((a) =>
+        a.id === id
+          ? { ...a, status: "In Progress", statusColor: "text-yellow-600", bgColor: "bg-yellow-50 dark:bg-yellow-900/20" }
+          : a
+      )
+    );
+    try {
+      console.log(`Starting task ${id}`);
+      // TODO: call backend API to start task
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const [selectedAssignment, setSelectedAssignment] = useState<any | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const handleViewDetails = (id: number) => {
+    const found = assignments.find((a) => a.id === id) || null;
+    setSelectedAssignment(found);
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setSelectedAssignment(null);
+  };
 
   const statsArray = [
     {
@@ -161,7 +194,7 @@ export default function MyAssignmentPage() {
           {assignments.map((assignment) => (
             <div
               key={assignment.id}
-              className={`${assignment.bgColor} rounded-lg p-5 border border-gray-200 dark:border-gray-700 hover:shadow-md transition-all`}
+              className={`${assignment.bgColor} rounded-lg p-5 border border-gray-200 dark:border-gray-700 hover:shadow-md transition-all pointer-events-auto`}
             >
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-3">
@@ -195,16 +228,25 @@ export default function MyAssignmentPage() {
               <div className="mt-4 flex gap-2">
                 {assignment.status !== "Completed" && (
                   <>
-                    <button className="bg-brand-primary hover:bg-brand-primaryDark text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
+                    <button
+                      onClick={() => handleStartTask(assignment.id)}
+                      className="relative z-10 pointer-events-auto bg-brand-primary hover:bg-brand-primaryDark text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+                    >
                       Start Task
                     </button>
-                    <button className="bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-100 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
+                    <button
+                      onClick={() => handleViewDetails(assignment.id)}
+                      className="relative z-10 pointer-events-auto bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-100 px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+                    >
                       View Details
                     </button>
                   </>
                 )}
                 {assignment.status === "Completed" && (
-                  <button className="bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-100 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
+                  <button
+                    onClick={() => handleViewDetails(assignment.id)}
+                    className="relative z-10 pointer-events-auto bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-100 px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+                  >
                     View Report
                   </button>
                 )}
@@ -213,6 +255,49 @@ export default function MyAssignmentPage() {
           ))}
         </div>
       </div>
+        {isModalOpen && selectedAssignment && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/50" onClick={closeModal}></div>
+            <div className="relative z-10 w-full max-w-lg bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 pointer-events-auto">
+              <div className="flex items-start justify-between">
+                <div>
+                  <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">{selectedAssignment.haven}</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">{selectedAssignment.location}</p>
+                </div>
+                <button onClick={closeModal} className="text-gray-500 hover:text-gray-700">Close</button>
+              </div>
+
+              <div className="mt-4 space-y-3 text-sm text-gray-700 dark:text-gray-200">
+                <div>
+                  <strong>Status:</strong> <span className={`${selectedAssignment.statusColor}`}>{selectedAssignment.status}</span>
+                </div>
+                <div>
+                  <strong>Deadline:</strong> {selectedAssignment.deadline}
+                </div>
+                <div>
+                  <strong>Priority:</strong> <span className={`${selectedAssignment.priorityColor}`}>{selectedAssignment.priority}</span>
+                </div>
+              </div>
+
+              <div className="mt-6 flex justify-end gap-2">
+                {selectedAssignment.status !== "Completed" && (
+                  <button
+                    onClick={() => {
+                      handleStartTask(selectedAssignment.id);
+                      closeModal();
+                    }}
+                    className="bg-brand-primary hover:bg-brand-primaryDark text-white px-4 py-2 rounded-lg text-sm font-semibold"
+                  >
+                    Start Task
+                  </button>
+                )}
+                <button onClick={closeModal} className="px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-sm">
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
     </div>
   );
 }
