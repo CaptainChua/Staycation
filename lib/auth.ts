@@ -89,15 +89,14 @@ export const authOptions: NextAuthOptions = {
 
             // For employees, require turnstile token verification
             // 🔐 Require Turnstile ONLY if this is NOT an OTP-based auto login
-          if (!credentials?.turnstileToken && !credentials?.isOtpLogin) {
-            console.log("❌ Missing turnstile token for employee");
-            throw new Error("Email, password, and security verification are required");
-          }
-
+            if (!credentials?.turnstileToken && !credentials?.isOtpLogin) {
+              console.log("❌ Missing turnstile token for employee");
+              throw new Error("Email, password, and security verification are required");
+            }
 
             // Verify Turnstile token for employees
             if (!credentials?.isOtpLogin) {
-              const isValidTurnstile = await verifyTurnstileToken(credentials.turnstileToken);
+              const isValidTurnstile = await verifyTurnstileToken(credentials.turnstileToken || "");
               if (!isValidTurnstile) {
                 console.log("❌ Invalid Turnstile token");
                 throw new Error("Security verification failed. Please try again.");
