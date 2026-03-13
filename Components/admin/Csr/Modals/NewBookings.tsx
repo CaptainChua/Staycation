@@ -308,8 +308,8 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
       const checkDate = new Date(date);
       checkDate.setHours(0, 0, 0, 0);
       return roomBookingsData.data.some((booking: Booking) => {
-        const approvedStatuses = ['approved', 'confirmed', 'check_in', 'checked-in'];
-        if (!approvedStatuses.includes(booking.status)) return false;
+        const blockingStatuses = ['pending', 'approved', 'confirmed', 'check_in', 'checked-in'];
+        if (!blockingStatuses.includes(booking.status)) return false;
         const bookingCheckIn = new Date(booking.check_in_date);
         bookingCheckIn.setHours(0, 0, 0, 0);
         const bookingCheckOut = new Date(booking.check_out_date);
