@@ -536,8 +536,8 @@ const Checkout = () => {
   // Helper function to check overlap with existing bookings
   const checkOverlap = useCallback((userStart: Date, userEnd: Date) => {
     return roomBookingsData?.data?.some((booking: Booking) => {
-      const approvedStatuses = ['approved', 'confirmed', 'check_in', 'checked-in'];
-      if (!approvedStatuses.includes(booking.status)) return false;
+      const blockingStatuses = ['pending', 'approved', 'confirmed', 'check_in', 'checked-in'];
+      if (!blockingStatuses.includes(booking.status)) return false;
 
       const bStart = new Date(booking.check_in_date);
       if (booking.check_in_time) {
@@ -597,15 +597,15 @@ const Checkout = () => {
 
       updateAdditionalGuests(Number(currentAdults), Number(currentChildren));
     } else if (name === "age") {
-      if (value === "") {
+      const digitsOnly = value.replace(/\D/g, "").slice(0, 3);
+      if (digitsOnly === "") {
         setErrors(prev => ({...prev, age: ''}));
         setFormData((prev) => ({
           ...prev,
           [name]: ""
         }));
       } else {
-        const ageValue = parseInt(value);
-        
+        const ageValue = parseInt(digitsOnly);
         if (!isNaN(ageValue) && ageValue < 18) {
           setErrors(prev => ({...prev, age: 'Main guest must be at least 18 years old to book'}));
         } else {
@@ -614,7 +614,7 @@ const Checkout = () => {
 
         setFormData((prev) => ({
           ...prev,
-          [name]: isNaN(ageValue) ? "" : String(ageValue)
+          [name]: digitsOnly
         }));
       }
     } else if (name === "email") {
@@ -1426,10 +1426,12 @@ const Checkout = () => {
                             Age *
                           </label>
                           <input
-                            type="number"
+                            type="text"
+                            inputMode="numeric"
                             name="age"
                             value={formData.age}
                             onChange={(e) => handleInputChange(e)}
+                            maxLength={3}
                             required
                             min="1"
                             max="120"
@@ -1733,16 +1735,19 @@ const Checkout = () => {
                                 Age *
                               </label>
                               <input
-                                type="number"
+                                type="text"
+                                inputMode="numeric"
                                 value={guest.age}
                                 onChange={(e) => {
-                                  handleAdditionalGuestChange(index, 'age', e.target.value);
+                                  const digitsOnly = e.target.value.replace(/\D/g, "").slice(0, 3);
+                                  handleAdditionalGuestChange(index, 'age', digitsOnly);
                                   setErrors(prev => ({...prev, [`guest${index}Age`]: ''}));
                                 }}
+                                maxLength={3}
                                 required
                                 min="1"
                                 max="120"
-                                className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
+                                className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 ${
                                   errors[`guest${index}Age`] ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-gray-600'
                                 }`}
                                 placeholder="Enter age"
