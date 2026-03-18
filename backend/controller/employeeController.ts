@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 import { upload_file } from '../utils/cloudinary';
 import { sendEmployeeWelcomeEmail } from '../utils/mailer';
 
-export type EmployeeRole = 'Owner' | 'Csr' | 'Cleaner' | 'Partner';
+export type EmployeeRole = 'Owner' | 'CSR' | 'Cleaner' | 'Partner';
 
 export interface Employee {
   id?: number;
