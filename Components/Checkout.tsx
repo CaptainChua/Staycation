@@ -2764,6 +2764,41 @@ const Checkout = () => {
                       </>
                     )}
                   </button>
+                  
+                  {/* DEBUG BUTTON */}
+                  {process.env.NODE_ENV !== "production" && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        toast.loading("Testing Google Calendar connection...");
+                        try {
+                          const res = await fetch("/api/test-calendar", { method: "POST" });
+                          const data = await res.json();
+                          toast.dismiss();
+                          console.group("📅 Google Calendar Debug Report");
+                          console.log("Full response:", data);
+                          console.log("Diagnostics:", data.diagnostics);
+                          if (!data.success) {
+                            console.error("❌ Error:", data.error);
+                            console.error("❌ Google API Error Data:", data.diagnostics?.googleErrorData);
+                          }
+                          console.groupEnd();
+                          if (data.success) {
+                            toast.success(`✅ Calendar works! Event ID: ${data.eventId}`);
+                          } else {
+                            toast.error(`❌ ${data.error} — check browser console (F12)`);
+                          }
+                        } catch (err) {
+                          toast.dismiss();
+                          toast.error("Network request failed — check browser console (F12)");
+                          console.error("❌ Network error:", err);
+                        }
+                      }}
+                      className="w-full mt-2 bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2 px-3 rounded-lg shadow-md transition-all duration-300 text-sm"
+                    >
+                      [DEBUG] Test Calendar Sync
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -2999,6 +3034,6 @@ const Checkout = () => {
       </SidebarLayout>
     </>
   );
-};
+}
 
 export default Checkout;
