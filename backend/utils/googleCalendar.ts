@@ -68,6 +68,13 @@ export interface CalendarEventData {
   booking_id: string;
   status: string;
   stay_type?: string;
+  payment_method?: string;
+  payment_proof_url?: string;
+  total_amount?: number;
+  down_payment?: number;
+  adults?: number;
+  children?: number;
+  infants?: number;
 }
 
 export const createCalendarEvent = async (bookingData: CalendarEventData): Promise<string | null> => {
@@ -100,6 +107,13 @@ export const createCalendarEvent = async (bookingData: CalendarEventData): Promi
       booking_id,
       status,
       stay_type,
+      payment_method,
+      payment_proof_url,
+      total_amount,
+      down_payment,
+      adults,
+      children,
+      infants,
     } = bookingData;
 
     // Default times if not provided
@@ -113,15 +127,32 @@ export const createCalendarEvent = async (bookingData: CalendarEventData): Promi
     const startDateTimeStr = `${inDateOnly}T${inTime}:00+08:00`;
     const endDateTimeStr = `${outDateOnly}T${outTime}:00+08:00`;
 
-    const description = `
-Booking ID: ${booking_id}
-Guest: ${guest_first_name} ${guest_last_name}
-Email: ${guest_email}
-Phone: ${guest_phone}
-Status: ${status}
-Room: ${room_name}
-${stay_type ? `Stay Type: ${stay_type}` : ""}
-    `.trim();
+    // Build detailed description with all booking information
+    const descriptionLines = [
+      "===== BOOKING INFORMATION =====",
+      `Booking ID: ${booking_id}`,
+      `Status: ${status.toUpperCase()}`,
+      "",
+      "===== GUEST DETAILS =====",
+      `Guest: ${guest_first_name} ${guest_last_name}`,
+      `Email: ${guest_email}`,
+      `Phone: ${guest_phone}`,
+      `Guests: ${adults || 0} Adult(s), ${children || 0} Child(ren), ${infants || 0} Infant(s)`,
+      "",
+      "===== ACCOMMODATION =====",
+      `Room: ${room_name}`,
+      stay_type ? `Stay Type: ${stay_type}` : "",
+      `Check-in: ${inDateOnly} at ${inTime}`,
+      `Check-out: ${outDateOnly} at ${outTime}`,
+      "",
+      "===== PAYMENT INFORMATION =====",
+      `Total Amount: ₱${total_amount ? total_amount.toFixed(2) : "N/A"}`,
+      `Down Payment: ₱${down_payment ? down_payment.toFixed(2) : "N/A"}`,
+      `Payment Method: ${payment_method || "Not specified"}`,
+      payment_proof_url ? `Payment Proof: ${payment_proof_url}` : "Payment Proof: Pending",
+    ];
+
+    const description = descriptionLines.filter(line => line !== "").join("\n");
 
     console.log(`📅 Preparing to create Google Calendar event for booking ${booking_id}`);
     console.log(`📅 Event details: Starts ${startDateTimeStr}, Ends ${endDateTimeStr}`);
