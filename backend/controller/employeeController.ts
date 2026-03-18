@@ -412,7 +412,7 @@ export const loginEmployee = async (req: NextRequest): Promise<NextResponse> => 
       );
     }
 
-    const adminRoles = ['Owner', 'Csr', 'Cleaner', 'Partner'];
+    const adminRoles = ['Owner', 'CSR', 'Cleaner', 'Partner'];
 
     if (!adminRoles.includes(employee.role)) {
       return NextResponse.json({
