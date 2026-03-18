@@ -66,7 +66,8 @@ const DateRangePicker = ({
     const bookings = roomBookingsData.data as BookedDateRange[];
 
     bookings.forEach((booking) => {
-      // Only block dates for approved, confirmed, or checked-in bookings
+      const blockingStatuses = ["pending", "approved", "confirmed", "checked-in", "check_in", "checked-in"];
+      if (!blockingStatuses.includes(booking.status)) return;
       const checkIn = new Date(booking.check_in_date);
       const checkOut = new Date(booking.check_out_date);
 

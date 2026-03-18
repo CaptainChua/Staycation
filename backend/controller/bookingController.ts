@@ -439,7 +439,7 @@ export const createBooking = async (
         check_in_time, check_out_time, adults, children, infants, status,
         has_security_deposit, created_at, updated_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'pending', $11, NOW(), NOW())
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
       RETURNING id
     `;
 
@@ -869,7 +869,6 @@ export const getBookingById = async (
         bp.down_payment,
         bp.remaining_balance,
         bp.payment_method,
-        bp.payment_proof_url,
         bp.room_rate,
         bp.add_ons_total,
         COALESCE(bd.amount, 0) as security_deposit,
@@ -921,7 +920,7 @@ export const getBookingById = async (
       LEFT JOIN booking_guests bg ON b.id = bg.booking_id
       LEFT JOIN booking_security_deposits bd ON b.id = bd.booking_id
       WHERE b.id = $1
-      GROUP BY b.id, h.tower, h.uuid_id, bp.total_amount, bp.down_payment, bp.remaining_balance, bp.payment_method, bp.payment_proof_url, bp.room_rate, bp.add_ons_total, bg.first_name, bg.last_name, bg.email, bg.phone, bg.valid_id_url, bd.amount
+      GROUP BY b.id, h.tower, h.uuid_id, bp.total_amount, bp.down_payment, bp.remaining_balance, bp.payment_method, bp.room_rate, bp.add_ons_total, bg.first_name, bg.last_name, bg.email, bg.phone, bg.valid_id_url, bd.amount
       LIMIT 1
     `;
     const bookingResult = await pool.query(query, [id]);
@@ -1343,7 +1342,6 @@ export const updateCleaningStatus = async (
   try {
     const url = new URL(req.url);
     const segments = url.pathname.split("/");
-    // URL format: /api/bookings/[id]/cleaning
     const cleaningIndex = segments.indexOf("cleaning");
     const id = cleaningIndex > 0 ? segments[cleaningIndex - 1] : null;
 
@@ -1469,8 +1467,8 @@ export const getRoomBookings = async (
 
     // Get all active bookings for this room from the new booking table
     // Use TRIM to handle any whitespace issues in room_name
-    // Only block dates for bookings with status: approved, confirmed, checked-in
-    // Don't block dates for pending, rejected, cancelled, completed bookings
+    // Only block dates for bookings with status: pending, approved, confirmed, checked-in
+    // Don't block dates for rejected, cancelled, completed bookings
     const query = `
       SELECT
         id,
@@ -1481,7 +1479,7 @@ export const getRoomBookings = async (
         room_name
       FROM booking
       WHERE TRIM(room_name) = $1
-        AND status IN ('approved', 'confirmed', 'checked-in')
+        AND status IN ('pending', 'approved', 'confirmed', 'checked-in')
       ORDER BY check_in_date ASC
     `;
 

@@ -1,10 +1,9 @@
 "use client";
 
-import { ClipboardList, MapPin, Clock, AlertCircle, CheckCircle2, Flag } from "lucide-react";
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { ClipboardList, Clock, AlertCircle, CheckCircle2 } from "lucide-react";
+import { useMemo } from "react";
 import { useSession } from "next-auth/react";
-import { useGetTodaysAssignmentsQuery } from "@/redux/api/cleanersApi";
+import { useGetCleaningTasksQuery } from "@/redux/api/cleanersApi";
 
 interface AssignmentStats {
   total: number;
@@ -47,110 +46,28 @@ export default function MyAssignmentPage() {
   const { data: session } = useSession();
   const userId = (session?.user as any)?.id;
 
-  // Pagination and Filter States
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterStatus, setFilterStatus] = useState("all");
-  const [entriesPerPage, setEntriesPerPage] = useState(10);
-  const [currentPage, setCurrentPage] = useState(1);
+  const { data: allTasks = [], isLoading: isLoadingAssignments } = useGetCleaningTasksQuery(undefined);
 
-  const { data: assignments = [], isLoading: isLoadingAssignments } = useGetTodaysAssignmentsQuery(
-    userId || "",
-    { skip: !userId }
-  );
+  const assignments = useMemo(() => {
+    if (!userId) return [];
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    return allTasks.filter((t: any) => {
+      const assigned = String(t.assigned_cleaner_id ?? "") === String(userId);
+      const isToday = String(t.check_out_date ?? "").slice(0, 10) === todayStr;
+      return assigned && isToday;
+    });
+  }, [allTasks, userId]);
 
   const stats = useMemo<AssignmentStats>(() => {
-    if (!assignments.length) {
-      return { total: 0, completed: 0, inProgress: 0, pending: 0 };
-    }
-
+    if (!assignments.length) return { total: 0, completed: 0, inProgress: 0, pending: 0 };
     return {
       total: assignments.length,
-      completed: assignments.filter((a) => a.cleaning_status === "cleaned" || a.cleaning_status === "inspected").length,
-      inProgress: assignments.filter((a) => a.cleaning_status === "in-progress").length,
-      pending: assignments.filter((a) => a.cleaning_status === "pending" || a.cleaning_status === "assigned").length,
+      completed: assignments.filter((a: any) => a.cleaning_status === "cleaned" || a.cleaning_status === "inspected").length,
+      inProgress: assignments.filter((a: any) => a.cleaning_status === "in-progress").length,
+      pending: assignments.filter((a: any) => a.cleaning_status === "pending" || a.cleaning_status === "assigned").length,
     };
   }, [assignments]);
-
-    fetchStats();
-  }, [session?.user?.id]);
-  const router = useRouter();
-
-  const [assignments, setAssignments] = useState([
-    {
-      id: 1,
-      haven: "Haven 3",
-      location: "Building A, Floor 2",
-      status: "In Progress",
-      deadline: "Today, 2:00 PM",
-      priority: "High",
-      statusColor: "text-yellow-600",
-      priorityColor: "text-red-600",
-      bgColor: "bg-yellow-50 dark:bg-yellow-900/20",
-    },
-    {
-      id: 2,
-      haven: "Haven 7",
-      location: "Building B, Floor 1",
-      status: "Pending",
-      deadline: "Today, 4:00 PM",
-      priority: "Medium",
-      statusColor: "text-orange-600",
-      priorityColor: "text-yellow-600",
-      bgColor: "bg-orange-50 dark:bg-orange-900/20",
-    },
-    {
-      id: 3,
-      haven: "Haven 12",
-      location: "Building A, Floor 3",
-      status: "Not Started",
-      deadline: "Today, 5:30 PM",
-      priority: "Low",
-      statusColor: "text-gray-600",
-      priorityColor: "text-blue-600",
-      bgColor: "bg-gray-50 dark:bg-gray-700",
-    },
-    {
-      id: 4,
-      haven: "Haven 15",
-      location: "Building C, Floor 2",
-      status: "Completed",
-      deadline: "Today, 12:00 PM",
-      priority: "High",
-      statusColor: "text-green-600",
-      priorityColor: "text-red-600",
-      bgColor: "bg-green-50 dark:bg-green-900/20",
-    },
-  ]);
-
-  const handleStartTask = async (id: number) => {
-    setAssignments((prev) =>
-      prev.map((a) =>
-        a.id === id
-          ? { ...a, status: "In Progress", statusColor: "text-yellow-600", bgColor: "bg-yellow-50 dark:bg-yellow-900/20" }
-          : a
-      )
-    );
-    try {
-      console.log(`Starting task ${id}`);
-      // TODO: call backend API to start task
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const [selectedAssignment, setSelectedAssignment] = useState<any | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-
-  const handleViewDetails = (id: number) => {
-    const found = assignments.find((a) => a.id === id) || null;
-    setSelectedAssignment(found);
-    setIsModalOpen(true);
-  };
-
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setSelectedAssignment(null);
-  };
 
   const statsArray = [
     {
@@ -209,33 +126,10 @@ export default function MyAssignmentPage() {
         })}
       </div>
 
-      {/* Assignments List */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-6">
-        <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4">
-          Today&apos;s Assignments
-        </h2>
-        <div className="space-y-4">
-          {assignments.map((assignment) => (
-            <div
-              key={assignment.id}
-              className={`${assignment.bgColor} rounded-lg p-5 border border-gray-200 dark:border-gray-700 hover:shadow-md transition-all pointer-events-auto`}
-            >
-              <option value="all">All Status</option>
-              <option value="pending">Pending</option>
-              <option value="assigned">Assigned</option>
-              <option value="in-progress">In Progress</option>
-              <option value="cleaned">Completed</option>
-              <option value="inspected">Inspected</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* Assignments Table */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden">
-        <div className="hidden lg:block overflow-x-auto overflow-y-auto flex-1 max-h-[600px]">
-          <table className="w-full min-w-[1400px]">
-            <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 border-b-2 border-gray-200 dark:border-gray-600 sticky top-0 z-10">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[900px]">
+            <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 border-b-2 border-gray-200 dark:border-gray-600">
               <tr>
                 <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap border border-gray-200 dark:border-gray-700">Haven</th>
                 <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap border border-gray-200 dark:border-gray-700">Location</th>
@@ -244,35 +138,32 @@ export default function MyAssignmentPage() {
                 <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap border border-gray-200 dark:border-gray-700">Status</th>
                 <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap border border-gray-200 dark:border-gray-700">Time In</th>
                 <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap border border-gray-200 dark:border-gray-700">Time Out</th>
-                <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap border border-gray-200 dark:border-gray-700">Actions</th>
               </tr>
             </thead>
             <tbody>
               {isLoadingAssignments ? (
                 Array.from({ length: 5 }).map((_, idx) => (
                   <tr key={`skeleton-${idx}`} className="border border-gray-200 dark:border-gray-700 animate-pulse">
-                    {[...Array(8)].map((_, i) => (
+                    {[...Array(7)].map((__, i) => (
                       <td key={i} className="py-4 px-4 border border-gray-200 dark:border-gray-700">
                         <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
                       </td>
                     ))}
                   </tr>
                 ))
-              ) : filteredAssignments.length === 0 ? (
+              ) : assignments.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-20 text-center border border-gray-200 dark:border-gray-700">
-                    <p className="text-gray-500 dark:text-gray-400 font-medium">
-                      {assignments.length === 0 ? "No assignments assigned to you yet" : "No assignments match your search"}
-                    </p>
+                  <td colSpan={7} className="py-20 text-center border border-gray-200 dark:border-gray-700">
+                    <p className="text-gray-500 dark:text-gray-400 font-medium">No assignments assigned to you yet</p>
                   </td>
                 </tr>
               ) : (
-                paginatedAssignments.map((assignment) => {
+                assignments.map((assignment: any) => {
                   const statusBadge = getStatusBadge(assignment.cleaning_status);
                   return (
-                    <tr key={assignment.cleaning_id} className="border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                    <tr key={assignment.cleaning_id ?? assignment.id} className="border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                       <td className="py-4 px-4 border border-gray-200 dark:border-gray-700 font-semibold text-gray-800 dark:text-gray-100 text-sm">
-                        {assignment.haven}
+                        {assignment.haven ?? assignment.room_name ?? "—"}
                       </td>
                       <td className="py-4 px-4 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 text-sm">
                         {assignment.location || "Location TBD"}
@@ -294,11 +185,6 @@ export default function MyAssignmentPage() {
                       <td className="py-4 px-4 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 text-sm">
                         {formatTime(assignment.cleaning_time_out)}
                       </td>
-                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700 text-center">
-                        <button className="inline-flex items-center px-3 py-1 text-xs font-semibold text-brand-primary hover:text-brand-primaryDark dark:text-brand-primary dark:hover:text-brand-primaryDark transition-colors rounded hover:bg-gray-100 dark:hover:bg-gray-700">
-                          View
-                        </button>
-                      </td>
                     </tr>
                   );
                 })
@@ -306,97 +192,7 @@ export default function MyAssignmentPage() {
             </tbody>
           </table>
         </div>
-
-              <div className="mt-4 flex gap-2">
-                {assignment.status !== "Completed" && (
-                  <>
-                    <button
-                      onClick={() => handleStartTask(assignment.id)}
-                      className="relative z-10 pointer-events-auto bg-brand-primary hover:bg-brand-primaryDark text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
-                    >
-                      Start Task
-                    </button>
-                    <button
-                      onClick={() => handleViewDetails(assignment.id)}
-                      className="relative z-10 pointer-events-auto bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-100 px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
-                    >
-                      View Details
-                    </button>
-                  </>
-                )}
-                {assignment.status === "Completed" && (
-                  <button
-                    onClick={() => handleViewDetails(assignment.id)}
-                    className="relative z-10 pointer-events-auto bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-100 px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
-                  >
-                    View Report
-                  </button>
-                )}
-              </div>
-
-              <button
-                onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                disabled={currentPage === totalPages}
-                className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded transition-colors"
-                title="Next page"
-              >
-                <ChevronRight className="w-5 h-5" />
-              </button>
-              <button
-                onClick={() => setCurrentPage(totalPages)}
-                disabled={currentPage === totalPages}
-                className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded transition-colors"
-                title="Last page"
-              >
-                <ChevronsRight className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-        )}
       </div>
-        {isModalOpen && selectedAssignment && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/50" onClick={closeModal}></div>
-            <div className="relative z-10 w-full max-w-lg bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 pointer-events-auto">
-              <div className="flex items-start justify-between">
-                <div>
-                  <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">{selectedAssignment.haven}</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-300">{selectedAssignment.location}</p>
-                </div>
-                <button onClick={closeModal} className="text-gray-500 hover:text-gray-700">Close</button>
-              </div>
-
-              <div className="mt-4 space-y-3 text-sm text-gray-700 dark:text-gray-200">
-                <div>
-                  <strong>Status:</strong> <span className={`${selectedAssignment.statusColor}`}>{selectedAssignment.status}</span>
-                </div>
-                <div>
-                  <strong>Deadline:</strong> {selectedAssignment.deadline}
-                </div>
-                <div>
-                  <strong>Priority:</strong> <span className={`${selectedAssignment.priorityColor}`}>{selectedAssignment.priority}</span>
-                </div>
-              </div>
-
-              <div className="mt-6 flex justify-end gap-2">
-                {selectedAssignment.status !== "Completed" && (
-                  <button
-                    onClick={() => {
-                      handleStartTask(selectedAssignment.id);
-                      closeModal();
-                    }}
-                    className="bg-brand-primary hover:bg-brand-primaryDark text-white px-4 py-2 rounded-lg text-sm font-semibold"
-                  >
-                    Start Task
-                  </button>
-                )}
-                <button onClick={closeModal} className="px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-sm">
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
     </div>
   );
 }
