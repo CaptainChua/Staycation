@@ -50,6 +50,8 @@ const formatDate = (value?: string) => {
   }
 };
 
+
+//sample
 const formatCurrency = (value?: number | string | null) => {
   if (value === null || value === undefined || value === "") return "Not specified";
   const numericValue = typeof value === "string" ? Number(value) : value;
@@ -531,8 +533,8 @@ export default function ProfilePage({ user, onClose }: ProfilePageProps) {
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id as any)}
                     className={`flex items-center gap-1 sm:gap-2 py-4 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm transition-colors whitespace-nowrap flex-shrink-0 ${activeTab === tab.id
-                        ? 'border-brand-primary text-brand-primary'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                      ? 'border-brand-primary text-brand-primary'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
                       }`}
                   >
                     <Icon className="w-4 h-4" />
