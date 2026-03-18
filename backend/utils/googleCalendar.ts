@@ -37,7 +37,7 @@ export const parsePrivateKey = (raw: string): string => {
 };
 
 export const getGoogleCalendarAuth = () => {
-  const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
+  const clientEmail = process.env.GOOGLE_CLIENT_EMAIL_CALENDAR;
   const privateKeyRaw = process.env.GOOGLE_PRIVATE_KEY_CALENDAR;
 
   if (!clientEmail || !privateKeyRaw) {
