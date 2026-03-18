@@ -217,6 +217,70 @@ export default function WebsiteNavigationContent() {
         })}
       </div>
 
+      {/* Test Accounts */}
+      <h2 className="text-2xl font-semibold text-gray-800 dark:text-gray-100 mt-8 mb-4">Test Accounts</h2>
+      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 mb-8">
+        <div className="mb-6 border-b border-gray-200 dark:border-gray-700 pb-4">
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Admin Login URL</h3>
+          <a href="https://www.staycationhavenph.com/admin/login" target="_blank" rel="noopener noreferrer" className="text-brand-primary hover:underline font-mono text-sm break-all">
+            https://www.staycationhavenph.com/admin/login
+          </a>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+            <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-3 flex items-center gap-2">
+              <User className="w-4 h-4 text-brand-primary" />
+              Owner Account
+            </h4>
+            <div className="space-y-2">
+              <div>
+                <span className="text-xs text-gray-500 block mb-1">Email:</span>
+                <code className="text-sm bg-white dark:bg-gray-800 px-2 py-1 rounded border border-gray-200 dark:border-gray-700 block w-full overflow-x-auto">pia@staycationhavenph.com</code>
+              </div>
+              <div>
+                <span className="text-xs text-gray-500 block mb-1">Password:</span>
+                <code className="text-sm bg-white dark:bg-gray-800 px-2 py-1 rounded border border-gray-200 dark:border-gray-700 block w-full overflow-x-auto">admin123</code>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+            <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-3 flex items-center gap-2">
+              <User className="w-4 h-4 text-brand-primary" />
+              Cleaner Account
+            </h4>
+            <div className="space-y-2">
+              <div>
+                <span className="text-xs text-gray-500 block mb-1">Email:</span>
+                <code className="text-sm bg-white dark:bg-gray-800 px-2 py-1 rounded border border-gray-200 dark:border-gray-700 block w-full overflow-x-auto">cleaner@staycationhavenph.com</code>
+              </div>
+              <div>
+                <span className="text-xs text-gray-500 block mb-1">Password:</span>
+                <code className="text-sm bg-white dark:bg-gray-800 px-2 py-1 rounded border border-gray-200 dark:border-gray-700 block w-full overflow-x-auto">admin123</code>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+            <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-3 flex items-center gap-2">
+              <User className="w-4 h-4 text-brand-primary" />
+              CSR Account
+            </h4>
+            <div className="space-y-2">
+              <div>
+                <span className="text-xs text-gray-500 block mb-1">Email:</span>
+                <code className="text-sm bg-white dark:bg-gray-800 px-2 py-1 rounded border border-gray-200 dark:border-gray-700 block w-full overflow-x-auto">csr@staycationhavenph.com</code>
+              </div>
+              <div>
+                <span className="text-xs text-gray-500 block mb-1">Password:</span>
+                <code className="text-sm bg-white dark:bg-gray-800 px-2 py-1 rounded border border-gray-200 dark:border-gray-700 block w-full overflow-x-auto">admin123</code>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="mt-12 p-6 bg-gradient-to-r from-brand-primaryLighter to-brand-primarySoft dark:from-gray-800 dark:to-gray-700 rounded-lg border border-brand-primaryLight dark:border-gray-600">
         <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-3">Navigation Tips</h3>
         <ul className="space-y-2 text-gray-700 dark:text-gray-300">
