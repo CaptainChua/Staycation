@@ -104,30 +104,6 @@ const Checkout = () => {
     { skip: !bookingData.selectedRoom?.id }
   );
 
-  // Debug: Log the selected room and bookings data
-  useEffect(() => {
-    console.log('[Checkout] Selected Room:', bookingData.selectedRoom);
-    console.log('[Checkout] Room Bookings Data:', roomBookingsData);
-    if (roomBookingsData?.data) {
-      console.log('[Checkout] Number of bookings found:', roomBookingsData.data.length);
-      console.log('[Checkout] Booking details:', roomBookingsData.data);
-    }
-  }, [bookingData.selectedRoom, roomBookingsData]);
-
-  // Debug: Log booking data from Redux
-  useEffect(() => {
-    console.log('[Checkout] Booking Data from Redux:', bookingData);
-    console.log('[Checkout] isFromSearch:', bookingData.isFromSearch);
-    console.log('[Checkout] Check-in Date:', bookingData.checkInDate);
-    console.log('[Checkout] Check-out Date:', bookingData.checkOutDate);
-    console.log('[Checkout] Guests from Redux:', bookingData.guests);
-  }, [bookingData]);
-
-  // Debug: Log when dates change
-  useEffect(() => {
-    console.log('[Checkout] Check-in date changed:', bookingData.checkInDate);
-    console.log('[Checkout] Check-out date changed:', bookingData.checkOutDate);
-  }, [bookingData.checkInDate, bookingData.checkOutDate]);
 
   // Track if initial sync from Redux is done
   const initialSyncDone = useRef(false);
@@ -517,7 +493,6 @@ const Checkout = () => {
   // Auto-populate guest counts from Redux when component mounts or when booking data changes
   useEffect(() => {
     if (bookingData.isFromSearch && bookingData.guests) {
-      console.log('[Checkout] Auto-populating guest counts from Redux:', bookingData.guests);
       setFormData(prev => ({
         ...prev,
         adults: bookingData.guests.adults || 1,
@@ -1100,26 +1075,56 @@ const Checkout = () => {
         const result = await createBooking(bookingRequestData).unwrap();
 
         if (result.success) {
-          toast.success(`Booking Submitted Successfully!\n\nYour booking ID is: ${bookingId}\n\nStatus: Pending Admin Approval\n\nYou will receive a confirmation email once the admin approves your booking.`);
+          toast.success(
+            `✅ Booking Submitted Successfully!\n\n` +
+            `Your booking ID is: ${bookingId}\n` +
+            `Status: Pending Admin Approval\n\n` +
+            `You will receive a confirmation email once the admin approves your booking.`,
+            { duration: 4000 }
+          );
 
-          // Clear form and redirect based on user role
-          const userRole = sessionUser?.role;
-          if (userRole === 'Owner') {
-            router.push('/admin/owners');
-          } else {
-            router.push('/');
-          }
+          // Wait a bit before redirecting to let user see the message
+          setTimeout(() => {
+            // Clear form and redirect based on user role
+            const userRole = sessionUser?.role;
+            if (userRole === 'Owner') {
+              router.push('/admin/owners');
+            } else {
+              router.push('/');
+            }
+          }, 2000);
         } else {
           setIsLoading(false);
-          toast.error('Failed to create booking. Please try again or contact support.');
+          const errorMsg = result.error || 'Unknown error occurred';
+          toast.error(
+            `Failed to create booking.\n\n` +
+            `Error: ${errorMsg}\n\n` +
+            `Please try again or contact support.`,
+            { duration: 5000 }
+          );
         }
       } catch (mutationError: unknown) {
         setIsLoading(false);
-        console.error('RTK Query mutation error:', mutationError);
-        const errorMessage = mutationError && typeof mutationError === 'object' && 'data' in mutationError
-          ? (mutationError.data as { error?: string })?.error
-          : undefined;
-        toast.error(errorMessage || 'An error occurred. Please try again or contact support.');
+
+        let errorMessage = 'Unknown error occurred';
+
+        if (mutationError && typeof mutationError === 'object') {
+          if ('data' in mutationError) {
+            const errorData = mutationError.data as any;
+            errorMessage = errorData?.error || errorData?.message || errorMessage;
+          }
+          if ('status' in mutationError) {
+            const status = mutationError.status;
+            errorMessage = `Error ${status}: ${errorMessage}`;
+          }
+        }
+
+        toast.error(
+          `Failed to create booking.\n\n` +
+          `${errorMessage}\n\n` +
+          `Please try again or contact support.`,
+          { duration: 5000 }
+        );
       }
     } catch (error) {
       setIsLoading(false);
@@ -2764,41 +2769,6 @@ const Checkout = () => {
                       </>
                     )}
                   </button>
-                  
-                  {/* DEBUG BUTTON */}
-                  {process.env.NODE_ENV !== "production" && (
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        toast.loading("Testing Google Calendar connection...");
-                        try {
-                          const res = await fetch("/api/test-calendar", { method: "POST" });
-                          const data = await res.json();
-                          toast.dismiss();
-                          console.group("📅 Google Calendar Debug Report");
-                          console.log("Full response:", data);
-                          console.log("Diagnostics:", data.diagnostics);
-                          if (!data.success) {
-                            console.error("❌ Error:", data.error);
-                            console.error("❌ Google API Error Data:", data.diagnostics?.googleErrorData);
-                          }
-                          console.groupEnd();
-                          if (data.success) {
-                            toast.success(`✅ Calendar works! Event ID: ${data.eventId}`);
-                          } else {
-                            toast.error(`❌ ${data.error} — check browser console (F12)`);
-                          }
-                        } catch (err) {
-                          toast.dismiss();
-                          toast.error("Network request failed — check browser console (F12)");
-                          console.error("❌ Network error:", err);
-                        }
-                      }}
-                      className="w-full mt-2 bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2 px-3 rounded-lg shadow-md transition-all duration-300 text-sm"
-                    >
-                      [DEBUG] Test Calendar Sync
-                    </button>
-                  )}
                 </div>
               </div>
             </div>

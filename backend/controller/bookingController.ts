@@ -354,7 +354,12 @@ export const createBooking = async (
     await client.query("BEGIN");
 
     const body = await req.json();
-    console.log("📥 createBooking body received");
+    console.log("📥 [BOOKING] createBooking body received");
+    console.log("📋 [BOOKING] Booking ID:", body.booking_id);
+    console.log("📋 [BOOKING] Guest:", `${body.guest_first_name} ${body.guest_last_name}`);
+    console.log("📋 [BOOKING] Dates:", `${body.check_in_date} to ${body.check_out_date}`);
+    console.log("📋 [BOOKING] Room:", body.room_name);
+    console.log("📋 [BOOKING] Amount:", body.total_amount);
 
     const {
       booking_id,
@@ -448,7 +453,13 @@ export const createBooking = async (
       status: "pending", // Default status for new bookings
       stay_type: body.stay_type,
     };
+    console.log(`📅 [BOOKING] Creating calendar event for booking: ${booking_id}`);
     const googleEventId = await createCalendarEvent(calendarEventData);
+    if (googleEventId) {
+      console.log(`✅ [BOOKING] Calendar event created successfully. Event ID: ${googleEventId}`);
+    } else {
+      console.warn(`⚠️ [BOOKING] Calendar event creation returned null. Booking will proceed without calendar sync.`);
+    }
 
     // Step 1: Create main booking record
     const bookingQuery = `
@@ -477,8 +488,10 @@ export const createBooking = async (
       googleEventId, // Added column for google calendar sync
     ];
 
+    console.log("📝 [BOOKING] Inserting booking record...");
     const bookingResult = await client.query(bookingQuery, bookingValues);
     const bookingId = bookingResult.rows[0].id;
+    console.log("✅ [BOOKING] Booking record created with ID:", bookingId);
 
     // Step 2: Create main guest record
     let validIdUrl = null;
@@ -527,7 +540,9 @@ export const createBooking = async (
       validIdUrl,
     ];
 
+    console.log("📝 [BOOKING] Inserting main guest record...");
     await client.query(mainGuestQuery, mainGuestValues);
+    console.log("✅ [BOOKING] Main guest record created");
 
     // Step 3: Create additional guests records
     if (additional_guests && additional_guests.length > 0) {
@@ -595,7 +610,9 @@ export const createBooking = async (
       paymentAmountPaid,
     ];
 
+    console.log("📝 [BOOKING] Inserting payment record...");
     await client.query(paymentQuery, paymentValues);
+    console.log("✅ [BOOKING] Payment record created");
 
     // Step 4.5: Create security deposit record (always create with 0 amount during booking)
     const depositQuery = `
@@ -635,9 +652,13 @@ export const createBooking = async (
       VALUES ($1, 'pending')
     `;
 
+    console.log("📝 [BOOKING] Inserting cleaning record...");
     await client.query(cleaningQuery, [bookingId]);
+    console.log("✅ [BOOKING] Cleaning record created");
 
+    console.log("💾 [BOOKING] Committing database transaction...");
     await client.query("COMMIT");
+    console.log("✅ [BOOKING] Database transaction committed successfully");
 
     // Get the complete booking data for response (include the booking payment object)
     const completeBookingQuery = `
@@ -674,10 +695,18 @@ export const createBooking = async (
     const completeResult = await client.query(completeBookingQuery, [
       bookingId,
     ]);
-    console.log(
-      "✅ Booking Created with separated tables:",
-      completeResult.rows[0],
-    );
+
+    if (completeResult.rows.length === 0) {
+      console.error("❌ [BOOKING] CRITICAL: Booking was created but cannot be retrieved!");
+      console.error("❌ [BOOKING] Booking ID:", bookingId);
+      throw new Error(`Booking created but retrieval query returned no results`);
+    }
+
+    const createdBooking = completeResult.rows[0];
+    console.log("✅ [BOOKING] Booking created and retrieved successfully");
+    console.log("📋 [BOOKING] Booking ID in DB:", createdBooking.id);
+    console.log("📋 [BOOKING] Google Event ID:", createdBooking.google_event_id);
+    console.log("📋 [BOOKING] Status:", createdBooking.status);
 
     // Send pending approval email to guest
     try {
@@ -720,6 +749,14 @@ export const createBooking = async (
 
     await client.query("COMMIT");
 
+    console.log("🎉 [BOOKING] Booking creation complete - returning success response");
+    console.log("📊 [BOOKING] Response includes:", {
+      booking_id: completeResult.rows[0].booking_id,
+      db_id: completeResult.rows[0].id,
+      status: completeResult.rows[0].status,
+      google_event_id: completeResult.rows[0].google_event_id,
+    });
+
     return NextResponse.json(
       {
         success: true,
@@ -729,8 +766,14 @@ export const createBooking = async (
       { status: 201 },
     );
   } catch (error) {
-    await client.query("ROLLBACK");
-    console.log("❌ Error creating booking:", error);
+    try {
+      await client.query("ROLLBACK");
+    } catch (rollbackError) {
+      console.error("❌ [BOOKING] Error during rollback:", rollbackError);
+    }
+
+    console.error("❌ [BOOKING] Error creating booking:", error);
+
     const e = error as {
       message?: string;
       code?: string;
@@ -739,11 +782,41 @@ export const createBooking = async (
       table?: string;
       column?: string;
     };
+
+    // Provide detailed error information
+    let errorMessage = "Failed to create booking";
+    let errorDetails = "";
+
+    if (error instanceof Error) {
+      errorMessage = error.message;
+      console.error("❌ [BOOKING] Error message:", error.message);
+      console.error("❌ [BOOKING] Error stack:", error.stack);
+    } else if (typeof error === "object" && error !== null) {
+      if ("code" in error && error.code === "23505") {
+        // Unique constraint violation
+        errorMessage = `Booking already exists for this date/guest combination`;
+        errorDetails = `Constraint: ${e.constraint || "unknown"}`;
+      } else if ("code" in error && error.code === "23503") {
+        // Foreign key constraint violation
+        errorMessage = `Invalid reference in booking data`;
+        errorDetails = `Table: ${e.table || "unknown"}, Column: ${e.column || "unknown"}`;
+      } else if ("detail" in error) {
+        errorMessage = e.detail || "Database error";
+        errorDetails = JSON.stringify(error);
+      } else {
+        errorMessage = JSON.stringify(error);
+      }
+    }
+
+    if (errorDetails) {
+      console.error("📋 [BOOKING] Error details:", errorDetails);
+    }
+
     return NextResponse.json(
       {
         success: false,
-        error:
-          error instanceof Error ? error.message : "Failed to create booking",
+        error: errorMessage,
+        details: process.env.NODE_ENV === "development" ? errorDetails : undefined,
       },
       { status: 500 },
     );
