@@ -438,7 +438,17 @@ export const createBooking = async (
     }
     // --- END CHECK ---
 
-    // Create Google Calendar event first (or after we generate bookingId)
+    // Upload payment proof first to get the URL for calendar event
+    let paymentProofUrl = null;
+    if (payment_proof) {
+      const uploadResult = await upload_file(
+        payment_proof,
+        "staycation-haven/payment-proofs",
+      );
+      paymentProofUrl = uploadResult.url;
+    }
+
+    // Create Google Calendar event with payment proof URL
     const calendarEventData: CalendarEventData = {
       room_name,
       check_in_date,
@@ -453,6 +463,7 @@ export const createBooking = async (
       status: "pending", // Default status for new bookings
       stay_type: body.stay_type,
       payment_method,
+      payment_proof_url: paymentProofUrl,
       total_amount,
       down_payment,
       adults,
@@ -584,14 +595,7 @@ export const createBooking = async (
     }
 
     // Step 4: Create payment record (without security deposit)
-    let paymentProofUrl = null;
-    if (payment_proof) {
-      const uploadResult = await upload_file(
-        payment_proof,
-        "staycation-haven/payment-proofs",
-      );
-      paymentProofUrl = uploadResult.url;
-    }
+    // Note: paymentProofUrl was already uploaded earlier for calendar event
 
     // Calculate payment amounts (security deposit is handled separately during checkout)
     const paymentTotalAmount = total_amount; // Full amount during booking (security deposit handled at checkout)
