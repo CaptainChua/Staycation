@@ -72,13 +72,20 @@ export interface CalendarEventData {
 
 export const createCalendarEvent = async (bookingData: CalendarEventData): Promise<string | null> => {
   try {
+    console.log(`📅 [CALENDAR] Starting calendar event creation for booking: ${bookingData.booking_id}`);
+
     const auth = getGoogleCalendarAuth();
     const calendar = google.calendar({ version: "v3", auth });
     const calendarId = process.env.GOOGLE_CALENDAR_ID;
 
     if (!calendarId) {
-      throw new Error("Missing GOOGLE_CALENDAR_ID in environment variables.");
+      const err = "Missing GOOGLE_CALENDAR_ID in environment variables.";
+      console.error(`❌ [CALENDAR] ${err}`);
+      throw new Error(err);
     }
+
+    console.log(`📅 [CALENDAR] Calendar ID validated: ${calendarId}`);
+    console.log(`📅 [CALENDAR] Auth configured successfully`);
 
     const {
       room_name,
@@ -141,15 +148,27 @@ ${stay_type ? `Stay Type: ${stay_type}` : ""}
       requestBody: event,
     });
 
-    console.log(`✅ Google Calendar event created successfully. Event ID: ${response.data.id}`);
+    console.log(`✅ [CALENDAR] Google Calendar event created successfully. Event ID: ${response.data.id}`);
     return response.data.id || null;
   } catch (error: any) {
-    console.error("❌ Error creating Google Calendar event:");
-    if (error.response?.data) {
-      console.error("Google API Error Data:", JSON.stringify(error.response.data, null, 2));
+    console.error("❌ [CALENDAR] Error creating Google Calendar event for booking:", bookingData.booking_id);
+
+    if (error.code === "ENOTFOUND" || error.code === "ECONNREFUSED") {
+      console.error(`❌ [CALENDAR] Network error - Cannot reach Google APIs. Check your internet connection.`);
+      console.error(`   Error: ${error.message}`);
+    } else if (error.response?.status === 401 || error.response?.status === 403) {
+      console.error(`❌ [CALENDAR] Authentication failed (${error.response.status})`);
+      console.error(`   This usually means your Google credentials are invalid or expired.`);
+      console.error(`   Verify: GOOGLE_CLIENT_EMAIL, GOOGLE_PRIVATE_KEY_CALENDAR, and GOOGLE_CALENDAR_ID`);
+    } else if (error.response?.status === 404) {
+      console.error(`❌ [CALENDAR] Calendar not found (404)`);
+      console.error(`   Check that GOOGLE_CALENDAR_ID is correct: ${process.env.GOOGLE_CALENDAR_ID}`);
+    } else if (error.response?.data) {
+      console.error(`❌ [CALENDAR] Google API Error (${error.response.status}):`, JSON.stringify(error.response.data, null, 2));
     } else {
-      console.error(error.message || error);
+      console.error(`❌ [CALENDAR] ${error.message || String(error)}`);
     }
+
     return null; // Return null so booking flow isn't entirely blocked if calendar fails
   }
 };
