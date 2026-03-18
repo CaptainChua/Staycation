@@ -452,6 +452,12 @@ export const createBooking = async (
       booking_id,
       status: "pending", // Default status for new bookings
       stay_type: body.stay_type,
+      payment_method,
+      total_amount,
+      down_payment,
+      adults,
+      children,
+      infants,
     };
     console.log(`📅 [BOOKING] Creating calendar event for booking: ${booking_id}`);
     const googleEventId = await createCalendarEvent(calendarEventData);
