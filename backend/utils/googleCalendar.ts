@@ -13,7 +13,7 @@ export const parsePrivateKey = (raw: string): string => {
   if (key.startsWith('"') && key.endsWith('"')) {
     try {
       key = JSON.parse(key);
-    } catch {}
+    } catch { }
   }
 
   // Replace literal \n text sequences with actual newlines
@@ -38,7 +38,7 @@ export const parsePrivateKey = (raw: string): string => {
 
 export const getGoogleCalendarAuth = () => {
   const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
-  const privateKeyRaw = process.env.GOOGLE_PRIVATE_KEY;
+  const privateKeyRaw = process.env.GOOGLE_PRIVATE_KEY_CALENDAR;
 
   if (!clientEmail || !privateKeyRaw) {
     throw new Error("Missing Google Calendar credentials in environment variables.");
