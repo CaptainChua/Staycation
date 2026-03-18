@@ -1,6 +1,6 @@
 "use client";
 
-import { Menu, X, Home, Calendar, CalendarDays, DollarSign, FileText, Users, Wallet, Package, Settings, Bell, ChevronDown, User, MessageSquare, BarChart3, Headphones, Moon, Sun, Monitor, Cloud, CloudRain, CloudSnow, Activity, Tag } from "lucide-react";
+import { Menu, X, Home, Calendar, CalendarDays, DollarSign, FileText, Users, Wallet, Package, Settings, Bell, ChevronDown, User, MessageSquare, BarChart3, Headphones, Moon, Sun, Monitor, Cloud, CloudRain, CloudSnow, Activity, Tag, Globe } from "lucide-react";
 import Image from "next/image";
 import { useMemo, useState, useEffect, useRef } from "react";
 import { useSession, signOut } from "next-auth/react";
@@ -18,6 +18,7 @@ import ActivityLogsPage from "./ActivityLogsPage";
 import NotificationPage from "./NotificationPage";
 import InventoryPage from "./InventoryPage";
 import CalendarPage from "./CalendarPage";
+import GoogleCalendarPage from "./GoogleCalendarPage";
 import ProfilePage from "./ProfilePage";
 import AdminFooter from "../AdminFooter";
 import NotificationModal from "./Modals/Notification";
@@ -402,6 +403,12 @@ export default function CsrDashboard() {
           icon: CalendarDays,
           label: "Booking Calendar",
           color: "text-cyan-500",
+        },
+        {
+          id: "google-calendar",
+          icon: Globe,
+          label: "Google Calendar",
+          color: "text-red-500",
         },
       ],
     },
@@ -912,6 +919,7 @@ export default function CsrDashboard() {
             {page === "dashboard" && <DashboardPage />}
             {page === "bookings" && <BookingsPage />}
             {page === "calendar" && <CalendarPage />}
+            {page === "google-calendar" && <GoogleCalendarPage />}
             {page === "payments" && <PaymentsPage />}
             {page === "deliverables" && <DeliverablesPage />}
             {page === "cleaners" && <CleanersPage />}
