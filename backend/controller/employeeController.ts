@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 import { upload_file } from '../utils/cloudinary';
 import { sendEmployeeWelcomeEmail } from '../utils/mailer';
 
-export type EmployeeRole = 'Owner' | 'Csr' | 'Cleaner' | 'Partner';
+export type EmployeeRole = 'Owner' | 'CSR' | 'Cleaner' | 'Partner';
 
 export interface Employee {
   id?: number;
@@ -331,7 +331,7 @@ export const loginEmployee = async (req: NextRequest): Promise<NextResponse> => 
 
     if (!email || !password) {
       return NextResponse.json(
-        { success: false, error: "Email and password are required"},
+        { success: false, error: "Email and password are required" },
         { status: 400 }
       );
     }
@@ -342,8 +342,8 @@ export const loginEmployee = async (req: NextRequest): Promise<NextResponse> => 
 
     if (userResult.rows.length === 0) {
       return NextResponse.json(
-        { success: false, error: "Invalid email or password"},
-        { status: 401}
+        { success: false, error: "Invalid email or password" },
+        { status: 401 }
       );
     }
 
@@ -352,7 +352,7 @@ export const loginEmployee = async (req: NextRequest): Promise<NextResponse> => 
     const isMatch = await bcrypt.compare(password, employee.password);
     if (!isMatch) {
       console.log(`❌ Invalid password for email: ${email}, current attempts: ${employee.login_attempts || 0}`);
-      
+
       // Increment login attempts
       try {
         const updateResult = await pool.query(
@@ -360,36 +360,36 @@ export const loginEmployee = async (req: NextRequest): Promise<NextResponse> => 
           [email]
         );
         console.log(`✅ Login attempts updated for email: ${email}, rows affected: ${updateResult.rowCount}`);
-        
+
         // Check if login attempts exceeded 3
         const updatedEmployee = await pool.query(
           `SELECT login_attempts FROM employees WHERE email = $1`,
           [email]
         );
-        
+
         const attempts = updatedEmployee.rows[0]?.login_attempts || 0;
         console.log(`📊 New login attempts count for ${email}: ${attempts}`);
-        
+
         if (attempts >= 3) {
           // Generate OTP and send email
           const otp = Math.floor(100000 + Math.random() * 900000).toString();
           const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiry
-          
+
           // Remove existing OTP for this email and insert new one
           await pool.query(
             `DELETE FROM otp_verification WHERE email = $1 AND otp_type = 'ACCOUNT_LOCK'`,
             [email]
           );
-          
+
           // Insert new OTP into otp_verification table
           await pool.query(
             `INSERT INTO otp_verification (email, otp_code, otp_type, expires_at, created_at)
              VALUES ($1, $2, $3, $4, NOW())`,
             [email, otp, 'ACCOUNT_LOCK', expiresAt]
           );
-          
+
           console.log(`🔒 Account locked for ${email}. OTP: ${otp}`);
-          
+
           return NextResponse.json({
             success: false,
             error: "Account locked due to multiple failed attempts. Please check your email for OTP verification.",
@@ -397,7 +397,7 @@ export const loginEmployee = async (req: NextRequest): Promise<NextResponse> => 
             email: email
           }, { status: 423 });
         }
-        
+
       } catch (updateError: any) {
         console.error('❌ Failed to update login attempts:', updateError.message);
         console.error('Error details:', {
@@ -405,20 +405,20 @@ export const loginEmployee = async (req: NextRequest): Promise<NextResponse> => 
           error: updateError
         });
       }
-      
+
       return NextResponse.json(
         { success: false, error: "Invalid email or password" },
-        { status: 401}
+        { status: 401 }
       );
     }
 
     const adminRoles = ['Owner', 'Csr', 'Cleaner', 'Partner'];
-    
+
     if (!adminRoles.includes(employee.role)) {
       return NextResponse.json({
         success: false, error: "You do not have admin access"
       },
-      { status: 403 }
+        { status: 403 }
       );
     }
 
@@ -485,7 +485,7 @@ export const loginEmployee = async (req: NextRequest): Promise<NextResponse> => 
       },
       { status: 200 }
     );
-  } catch(error) {
+  } catch (error) {
     console.log("Login failed");
     return NextResponse.json({
       success: false, error: "Login Failed"
