@@ -29,6 +29,8 @@ CREATE TABLE booking (
 
   has_security_deposit BOOLEAN DEFAULT false,
 
+  google_event_id VARCHAR(255) DEFAULT NULL,
+
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );

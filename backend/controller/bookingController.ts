@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "../config/db";
 import { upload_file } from "../utils/cloudinary";
+import { createCalendarEvent, CalendarEventData } from "../utils/googleCalendar";
 
 // Add-on prices
 const ADD_ON_PRICES = {
@@ -432,14 +433,31 @@ export const createBooking = async (
     }
     // --- END CHECK ---
 
+    // Create Google Calendar event first (or after we generate bookingId)
+    const calendarEventData: CalendarEventData = {
+      room_name,
+      check_in_date,
+      check_out_date,
+      check_in_time,
+      check_out_time,
+      guest_first_name,
+      guest_last_name,
+      guest_email,
+      guest_phone,
+      booking_id,
+      status: "pending", // Default status for new bookings
+      stay_type: body.stay_type,
+    };
+    const googleEventId = await createCalendarEvent(calendarEventData);
+
     // Step 1: Create main booking record
     const bookingQuery = `
       INSERT INTO booking (
         booking_id, user_id, room_name, check_in_date, check_out_date,
         check_in_time, check_out_time, adults, children, infants, status,
-        has_security_deposit, created_at, updated_at
+        has_security_deposit, google_event_id, created_at, updated_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())
       RETURNING id
     `;
 
@@ -454,7 +472,9 @@ export const createBooking = async (
       adults,
       children,
       infants,
+      "pending", // Ensure status matches "pending" default
       security_deposit > 0, // has_security_deposit flag
+      googleEventId, // Added column for google calendar sync
     ];
 
     const bookingResult = await client.query(bookingQuery, bookingValues);
