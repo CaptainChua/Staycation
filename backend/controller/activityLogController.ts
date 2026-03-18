@@ -8,13 +8,13 @@ export interface ActivityLog {
   employee_id?: string;
   // Allow the common set of action types but also accept arbitrary strings.
   action_type:
-    | "login"
-    | "logout"
-    | "task_complete"
-    | "task_pending"
-    | "update"
-    | "other"
-    | string;
+  | "login"
+  | "logout"
+  | "task_complete"
+  | "task_pending"
+  | "update"
+  | "other"
+  | string;
   action: string;
   details?: string;
   // Optional entity info (used when logging employee_activity_logs)
@@ -261,7 +261,7 @@ export const getAllActivityLogs = async (
       FROM employee_activity_logs al
       LEFT JOIN employees e ON al.employee_id = e.id
     `;
-    
+
     const countValues: any[] = [];
     let countParamCount = 1;
     const countWhereConditions: string[] = [];
