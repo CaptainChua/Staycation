@@ -18,7 +18,9 @@ import {
   GitMerge,
   Compass,
   Lock,
-  Server
+  Server,
+  Calendar,
+  Share2
 } from 'lucide-react';
 
 interface SidebarSection {
@@ -67,16 +69,21 @@ export default function GitWorkflowSidebar() {
   const isGitPage = gitSections.some(section => pathname === section.path);
   const isApiPage = apiSections.some(section => pathname === section.path);
   const isWebsiteNavPage = pathname === '/documentation/website-navigation';
+  const isGoogleCalendarPage =
+    pathname === '/documentation/google-calendar' ||
+    pathname === '/documentation/google-calendar-integrate';
 
   // Dropdowns open when their section contains the active page, can be toggled manually
   const [isGitOpen, setIsGitOpen] = useState(true);
   const [isApiOpen, setIsApiOpen] = useState(false);
   const [isWebsiteNavOpen, setIsWebsiteNavOpen] = useState(false);
+  const [isGoogleCalendarOpen, setIsGoogleCalendarOpen] = useState(false);
 
   // Keep dropdowns open if they contain the active page
   const gitShouldBeOpen = isGitOpen || isGitPage;
   const apiShouldBeOpen = isApiOpen || isApiPage;
   const websiteNavShouldBeOpen = isWebsiteNavOpen || isWebsiteNavPage;
+  const googleCalendarShouldBeOpen = isGoogleCalendarOpen || isGoogleCalendarPage;
 
   return (
     <aside className="w-72 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 min-h-screen p-6 sticky top-0 h-screen overflow-y-auto scrollbar-thin">
@@ -118,6 +125,55 @@ export default function GitWorkflowSidebar() {
               >
                 <Compass className={`w-4 h-4 ${pathname === '/documentation/website-navigation' ? 'text-brand-primary' : 'text-gray-500 dark:text-gray-400 group-hover:text-brand-primary'}`} />
                 <span className="text-sm">All Pages</span>
+              </Link>
+            </div>
+          )}
+        </div>
+
+        {/* Google Calendar Dropdown */}
+        <div>
+          <button
+            onClick={() => setIsGoogleCalendarOpen(!isGoogleCalendarOpen)}
+            className="w-full flex items-center justify-between px-4 py-3 rounded-lg transition-all duration-200 text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 font-semibold"
+          >
+            <div className="flex items-center gap-3">
+              <Calendar className="w-5 h-5 text-brand-primary" />
+              <span className="text-sm">Google Calendar</span>
+            </div>
+            {googleCalendarShouldBeOpen ? (
+              <ChevronDown className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+            ) : (
+              <ChevronRight className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+            )}
+          </button>
+
+          {googleCalendarShouldBeOpen && (
+            <div className="mt-1 ml-4 space-y-1">
+              <Link
+                href="/documentation/google-calendar"
+                className={`
+                  flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all duration-200 group
+                  ${pathname === '/documentation/google-calendar'
+                    ? 'bg-brand-primaryLight/20 text-brand-primaryDark dark:text-brand-primaryLight font-semibold border-l-4 border-brand-primary'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-brand-primary dark:hover:text-brand-primaryLight'
+                  }
+                `}
+              >
+                <Calendar className={`w-4 h-4 ${pathname === '/documentation/google-calendar' ? 'text-brand-primary' : 'text-gray-500 dark:text-gray-400 group-hover:text-brand-primary'}`} />
+                <span className="text-sm">Current Setup (staycationhaven9)</span>
+              </Link>
+              <Link
+                href="/documentation/google-calendar-integrate"
+                className={`
+                  flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all duration-200 group
+                  ${pathname === '/documentation/google-calendar-integrate'
+                    ? 'bg-brand-primaryLight/20 text-brand-primaryDark dark:text-brand-primaryLight font-semibold border-l-4 border-brand-primary'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-brand-primary dark:hover:text-brand-primaryLight'
+                  }
+                `}
+              >
+                <Share2 className={`w-4 h-4 ${pathname === '/documentation/google-calendar-integrate' ? 'text-brand-primary' : 'text-gray-500 dark:text-gray-400 group-hover:text-brand-primary'}`} />
+                <span className="text-sm">Integrate Other Calendar</span>
               </Link>
             </div>
           )}
