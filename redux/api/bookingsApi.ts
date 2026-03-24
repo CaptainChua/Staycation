@@ -97,6 +97,20 @@ export const bookingsApi = createApi({
       },
       invalidatesTags: ["Booking"],
     }),
+
+    // Sync bookings without google_event_id to Google Calendar
+    syncCalendarBookings: builder.mutation<
+      { success: boolean; message: string; synced: number; failed: number; total: number; error?: string; errors?: string[] },
+      void
+    >({
+      query() {
+        return {
+          url: "/bookings/sync-calendar",
+          method: "POST",
+        };
+      },
+      invalidatesTags: ["Booking"],
+    }),
   }),
 });
 
@@ -109,4 +123,5 @@ export const {
   useGetUserBookingsQuery,
   useGetRoomBookingsQuery,
   useUpdateCleaningStatusMutation,
+  useSyncCalendarBookingsMutation,
 } = bookingsApi;

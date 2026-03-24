@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "../config/db";
 import { upload_file } from "../utils/cloudinary";
-import { createCalendarEvent, CalendarEventData } from "../utils/googleCalendar";
+import { createCalendarEvent, createCalendarEventWithResult, CalendarEventData } from "../utils/googleCalendar";
 
 // Add-on prices
 const ADD_ON_PRICES = {
@@ -1538,6 +1538,169 @@ export const updateCleaningStatus = async (
           error instanceof Error
             ? error.message
             : "Failed to update cleaning status",
+      },
+      { status: 500 },
+    );
+  }
+};
+
+// SYNC Bookings to Google Calendar (for bookings without google_event_id)
+export const syncCalendarBookings = async (
+  _req: NextRequest,
+): Promise<NextResponse> => {
+  try {
+    // Find all bookings that have no google_event_id, joined with guest + payment data
+    const unsyncedQuery = `
+      SELECT
+        b.id,
+        b.booking_id,
+        b.room_name,
+        b.check_in_date,
+        b.check_out_date,
+        b.check_in_time,
+        b.check_out_time,
+        b.adults,
+        b.children,
+        b.infants,
+        b.status,
+        bg.first_name as guest_first_name,
+        bg.last_name as guest_last_name,
+        bg.email as guest_email,
+        bg.phone as guest_phone,
+        bp.payment_method,
+        bp.payment_proof_url,
+        bp.total_amount,
+        bp.down_payment
+      FROM booking b
+      LEFT JOIN booking_guests bg ON b.id = bg.booking_id
+        AND bg.id = (SELECT id FROM booking_guests WHERE booking_id = b.id ORDER BY id LIMIT 1)
+      LEFT JOIN booking_payments bp ON b.id = bp.booking_id
+      WHERE b.google_event_id IS NULL
+      ORDER BY b.created_at ASC
+    `;
+
+    const unsyncedResult = await pool.query(unsyncedQuery);
+    const bookings = unsyncedResult.rows;
+
+    console.log(`📅 [SYNC] Found ${bookings.length} booking(s) without google_event_id`);
+
+    if (bookings.length === 0) {
+      return NextResponse.json({
+        success: true,
+        message: "All bookings are already synced to Google Calendar.",
+        synced: 0,
+        failed: 0,
+        total: 0,
+      });
+    }
+
+    // Check credentials early so we can fail fast with a clear message
+    const missingEnvVars: string[] = [];
+    if (!process.env.GOOGLE_CLIENT_EMAIL_CALENDAR) missingEnvVars.push("GOOGLE_CLIENT_EMAIL_CALENDAR");
+    if (!process.env.GOOGLE_PRIVATE_KEY_CALENDAR) missingEnvVars.push("GOOGLE_PRIVATE_KEY_CALENDAR");
+    if (!process.env.GOOGLE_CALENDAR_ID) missingEnvVars.push("GOOGLE_CALENDAR_ID");
+
+    if (missingEnvVars.length > 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Missing environment variables: ${missingEnvVars.join(", ")}. Google Calendar sync cannot run without them.`,
+          synced: 0,
+          failed: bookings.length,
+          total: bookings.length,
+        },
+        { status: 500 },
+      );
+    }
+
+    let synced = 0;
+    let failed = 0;
+    const results: {
+      booking_id: string;
+      status: "synced" | "failed";
+      google_event_id?: string;
+      error?: string;
+    }[] = [];
+
+    // Process one at a time to avoid Google API rate limits
+    for (const booking of bookings) {
+      const calendarEventData: CalendarEventData = {
+        room_name: booking.room_name,
+        check_in_date: booking.check_in_date,
+        check_out_date: booking.check_out_date,
+        check_in_time: booking.check_in_time,
+        check_out_time: booking.check_out_time,
+        guest_first_name: booking.guest_first_name || "Unknown",
+        guest_last_name: booking.guest_last_name || "Guest",
+        guest_email: booking.guest_email || "",
+        guest_phone: booking.guest_phone || "",
+        booking_id: booking.booking_id,
+        status: booking.status,
+        payment_method: booking.payment_method,
+        payment_proof_url: booking.payment_proof_url,
+        total_amount: booking.total_amount,
+        down_payment: booking.down_payment,
+        adults: booking.adults,
+        children: booking.children,
+        infants: booking.infants,
+      };
+
+      const { id: googleEventId, htmlLink, calendarId: usedCalendarId, error: calendarError } = await createCalendarEventWithResult(calendarEventData);
+
+      if (googleEventId) {
+        await pool.query(
+          `UPDATE booking SET google_event_id = $1, updated_at = NOW() WHERE id = $2`,
+          [googleEventId, booking.id],
+        );
+        synced++;
+        results.push({ booking_id: booking.booking_id, status: "synced", google_event_id: googleEventId, html_link: htmlLink ?? undefined, calendar_id: usedCalendarId ?? undefined });
+        console.log(`✅ [SYNC] Synced booking ${booking.booking_id} → Calendar: ${usedCalendarId}, Event: ${htmlLink}`);
+      } else {
+        failed++;
+        results.push({ booking_id: booking.booking_id, status: "failed", error: calendarError ?? "Unknown error" });
+        console.warn(`⚠️ [SYNC] Failed booking ${booking.booking_id}: ${calendarError}`);
+
+        // If the very first booking fails with an auth/network error, stop early — all will fail for the same reason
+        if (failed === 1 && calendarError && (
+          calendarError.includes("Auth failed") ||
+          calendarError.includes("Network error") ||
+          calendarError.includes("Calendar not found") ||
+          calendarError.includes("Missing GOOGLE_CALENDAR_ID")
+        )) {
+          console.error(`❌ [SYNC] Stopping early — persistent error detected: ${calendarError}`);
+          return NextResponse.json({
+            success: false,
+            message: `Sync stopped after first failure. Reason: ${calendarError}`,
+            synced,
+            failed: bookings.length,
+            total: bookings.length,
+            error: calendarError,
+            results,
+          });
+        }
+      }
+    }
+
+    console.log(`📅 [SYNC] Done. Synced: ${synced}, Failed: ${failed}, Total: ${bookings.length}`);
+
+    // Collect unique error messages from failures for the summary
+    const uniqueErrors = [...new Set(results.filter((r) => r.error).map((r) => r.error))];
+
+    return NextResponse.json({
+      success: synced > 0,
+      message: `Synced ${synced} of ${bookings.length} booking(s) to Google Calendar.`,
+      synced,
+      failed,
+      total: bookings.length,
+      ...(uniqueErrors.length > 0 && { errors: uniqueErrors }),
+      results,
+    });
+  } catch (error) {
+    console.error("❌ [SYNC] Error syncing bookings to calendar:", error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to sync bookings to Google Calendar",
       },
       { status: 500 },
     );
