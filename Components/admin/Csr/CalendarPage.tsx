@@ -305,23 +305,31 @@ export default function CalendarPage() {
       );
     }
 
+    // Strip time component so FullCalendar treats every event as an all-day block (not a timed dot)
+    const toDateOnly = (d: any): string => {
+      if (!d) return "";
+      const s = String(d);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;       // already "YYYY-MM-DD"
+      if (s.includes("T")) return s.split("T")[0];          // ISO string
+      const dt = new Date(d);
+      if (isNaN(dt.getTime())) return s;
+      const yyyy = dt.getUTCFullYear();
+      const mm = String(dt.getUTCMonth() + 1).padStart(2, "0");
+      const dd = String(dt.getUTCDate()).padStart(2, "0");
+      return `${yyyy}-${mm}-${dd}`;
+    };
+
     return filteredBookings.map((booking) => {
       const colors = getEventColor(booking.status || "");
-      const checkInDate = booking.check_in_date as string;
-      const checkOutDate = booking.check_out_date as string;
+      const checkInDate = toDateOnly(booking.check_in_date);
+      const checkOutDate = toDateOnly(booking.check_out_date);
       const duration = calculateDuration(checkInDate, checkOutDate);
-
-      // Use the actual check-out date as the end date
-      // FullCalendar will handle the display correctly
-      // If check-in is Feb 5 and check-out is Feb 7, it should display Feb 7 as the end date
-      const endDate = new Date(checkOutDate);
-      // Don't add or subtract days - use the actual date
 
       return {
         id: booking.id,
         title: `${booking.guest_first_name} ${booking.guest_last_name} - ${booking.room_name || "Unknown Room"}`,
         start: checkInDate,
-        end: checkOutDate, // Use the actual check-out date
+        end: checkOutDate,
         backgroundColor: colors.bg,
         borderColor: colors.border,
         textColor: colors.text,
