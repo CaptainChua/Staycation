@@ -108,6 +108,11 @@ const Checkout = () => {
   // Track if initial sync from Redux is done
   const initialSyncDone = useRef(false);
 
+  // Track file input refs for resetting (fixes issue where removing file prevents re-upload)
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({
+    mainValidId: null,
+  });
+
   // Handle clicks outside dropdowns
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -656,6 +661,13 @@ const Checkout = () => {
         updatedGuests[guestIndex].validIdPreview = URL.createObjectURL(file);
         setAdditionalGuests(updatedGuests);
       }
+    }
+  };
+
+  // Helper function to reset file input element
+  const resetFileInput = (key: string) => {
+    if (fileInputRefs.current[key]) {
+      fileInputRefs.current[key]!.value = '';
     }
   };
 
@@ -1570,6 +1582,7 @@ const Checkout = () => {
 
                         <div className="text-center">
                           <input
+                            ref={(el) => { fileInputRefs.current['mainValidId'] = el; }}
                             type="file"
                             accept="image/png,image/jpeg,image/jpg"
                             onChange={(e) => handleFileChange(e, 'id')}
@@ -1647,7 +1660,10 @@ const Checkout = () => {
                                       </button>
                                       <button
                                         type="button"
-                                        onClick={() => setFormData(prev => ({ ...prev, validId: null, validIdPreview: '' }))}
+                                        onClick={() => {
+                                          resetFileInput('mainValidId');
+                                          setFormData(prev => ({ ...prev, validId: null, validIdPreview: '' }));
+                                        }}
                                         className="px-3 py-1 bg-red-100 text-red-700 rounded-md text-sm hover:bg-red-200 transition-colors"
                                       >
                                         Remove
@@ -1807,6 +1823,7 @@ const Checkout = () => {
 
                             <div className="text-center">
                               <input
+                                ref={(el) => { fileInputRefs.current[`additionalValidId-${index}`] = el; }}
                                 type="file"
                                 accept="image/png,image/jpeg,image/jpg"
                                 onChange={(e) => handleFileChange(e, 'id', index)}
@@ -1882,6 +1899,7 @@ const Checkout = () => {
                                           <button
                                             type="button"
                                             onClick={() => {
+                                                resetFileInput(`additionalValidId-${index}`);
                                                 const updated = [...additionalGuests];
                                                 updated[index].validId = null;
                                                 updated[index].validIdPreview = '';
