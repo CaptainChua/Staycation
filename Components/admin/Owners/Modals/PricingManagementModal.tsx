@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Input } from "@nextui-org/input";
+import { Select, SelectItem } from "@nextui-org/select";
 import { Button } from "@nextui-org/button";
 import { z } from "zod";
 import { Loader2 } from "lucide-react";
@@ -37,6 +38,7 @@ interface PricingManagementModalProps {
   onSave: (data: PricingData) => void;
   initialData?: PricingData;
   haven?: Haven | null;
+  havens?: Haven[];
   isAddMode?: boolean;
 }
 
@@ -44,6 +46,7 @@ const PricingManagementModal = ({
   onSave, 
   initialData,
   haven,
+  havens = [],
   isAddMode = false,
 }: PricingManagementModalProps) => {
   const [formData, setFormData] = useState<Record<string, string>>({
@@ -53,18 +56,32 @@ const PricingManagementModal = ({
     weekend_rate: "",
   });
 
+  const [selectedHaven, setSelectedHaven] = useState<string>("");
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Ensure havens are simple objects without proxies
+  const cleanHavens = Array.isArray(havens) ? havens.map(h => ({
+    id: String(h?.id || h?.uuid_id || ""),
+    name: String(h?.name || h?.haven_name || "Unknown")
+  })) : [];
 
   useEffect(() => {
     if (haven && !isAddMode) {
-      setFormData({
-        six_hour_rate: (haven.six_hour_price || haven.six_hour_rate || "").toString(),
-        ten_hour_rate: (haven.ten_hour_price || haven.ten_hour_rate || "").toString(),
-        weekday_rate: (haven.weekday_price || haven.weekday_rate || "").toString(),
-        weekend_rate: (haven.weekend_price || haven.weekend_rate || "").toString(),
-      });
+      try {
+        const havenId = haven.id || haven.uuid_id;
+        setSelectedHaven(havenId);
+        setFormData({
+          six_hour_rate: (haven.six_hour_price || haven.six_hour_rate || "").toString(),
+          ten_hour_rate: (haven.ten_hour_price || haven.ten_hour_rate || "").toString(),
+          weekday_rate: (haven.weekday_price || haven.weekday_rate || "").toString(),
+          weekend_rate: (haven.weekend_price || haven.weekend_rate || "").toString(),
+        });
+      } catch (err) {
+        console.error("[PricingManagementModal] Error loading haven data:", err);
+        setError("Failed to load pricing data");
+      }
     } else if (initialData) {
       setFormData({
         six_hour_rate: initialData.six_hour_rate?.toString() || "",
@@ -93,6 +110,12 @@ const PricingManagementModal = ({
       weekend_rate: true,
     });
 
+    // In Add mode, validate haven is selected
+    if (isAddMode && !selectedHaven) {
+      setError("Please select a property first");
+      return;
+    }
+
     if (!validation.success) {
       setError("Please fix all errors before saving");
       return;
@@ -102,38 +125,35 @@ const PricingManagementModal = ({
       setIsSaving(true);
       setError(null);
 
-      if (!isAddMode && haven) {
-        // Edit mode - update the haven rates
-        const response = await fetch(`/api/rooms/${haven.id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            six_hour_price: parseFloat(formData.six_hour_rate),
-            ten_hour_price: parseFloat(formData.ten_hour_rate),
-            weekday_price: parseFloat(formData.weekday_rate),
-            weekend_price: parseFloat(formData.weekend_rate),
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error("Failed to update pricing");
-        }
-
-        onSave({
-          six_hour_rate: formData.six_hour_rate,
-          ten_hour_rate: formData.ten_hour_rate,
-          weekday_rate: formData.weekday_rate,
-          weekend_rate: formData.weekend_rate,
-        });
-      } else {
-        // Add mode - just pass the data back
-        onSave({
-          six_hour_rate: formData.six_hour_rate,
-          ten_hour_rate: formData.ten_hour_rate,
-          weekday_rate: formData.weekday_rate,
-          weekend_rate: formData.weekend_rate,
-        });
+      const havenId = isAddMode ? selectedHaven : haven?.id;
+      
+      if (!havenId) {
+        throw new Error("No haven selected");
       }
+
+      // Make API call to update haven pricing
+      const response = await fetch(`/api/haven/${havenId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          six_hour_price: parseFloat(formData.six_hour_rate),
+          ten_hour_price: parseFloat(formData.ten_hour_rate),
+          weekday_price: parseFloat(formData.weekday_rate),
+          weekend_price: parseFloat(formData.weekend_rate),
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || "Failed to update pricing");
+      }
+
+      onSave({
+        six_hour_rate: formData.six_hour_rate,
+        ten_hour_rate: formData.ten_hour_rate,
+        weekday_rate: formData.weekday_rate,
+        weekend_rate: formData.weekend_rate,
+      });
     } catch (error) {
       setError(error instanceof Error ? error.message : "An error occurred while saving");
       console.error("[PricingManagementModal] Error saving pricing:", error);
@@ -179,6 +199,51 @@ const PricingManagementModal = ({
         {error && (
           <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl">
             <p className="text-sm font-semibold text-red-700 dark:text-red-400">{error}</p>
+          </div>
+        )}
+
+        {/* Property Selection - Only in Add Mode */}
+        {isAddMode && (
+          <div>
+            <Select
+              label="Select Property"
+              placeholder="Choose a property"
+              value={selectedHaven}
+              onChange={(e) => {
+                setSelectedHaven(e.target.value);
+                setError(null);
+              }}
+              isRequired
+              classNames={{
+                label: "text-sm font-bold text-gray-700 dark:text-gray-300 mb-2 ml-1 uppercase tracking-wider",
+                trigger: [
+                  "bg-white dark:bg-gray-700",
+                  "border-2 border-gray-200 dark:border-gray-700",
+                  "hover:border-brand-primary/40",
+                  "focus:!border-brand-primary",
+                  "focus:ring-4",
+                  "focus:ring-brand-primary/10",
+                  "shadow-sm",
+                  "transition-all",
+                  "duration-300",
+                  "rounded-2xl",
+                  "h-14",
+                  "px-4"
+                ].join(" "),
+              }}
+            >
+              {cleanHavens && cleanHavens.length > 0 ? (
+                cleanHavens.map((h) => (
+                  <SelectItem key={h.id} value={h.id}>
+                    {h.name}
+                  </SelectItem>
+                ))
+              ) : (
+                <SelectItem key="empty" value="">
+                  No properties available
+                </SelectItem>
+              )}
+            </Select>
           </div>
         )}
 
