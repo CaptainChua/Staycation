@@ -21,7 +21,7 @@ const RevenueManagementPage = () => {
   const [selectedPricingRule, setSelectedPricingRule] = useState<any>(null);
 
   // Get havens/rooms for pricing display
-  const { data: havensData } = useGetAllAdminRoomsQuery({});
+  const { data: havensData, refetch: refetchHavens } = useGetAllAdminRoomsQuery({});
   const havens = havensData || [];
 
   // Load discounts from database
@@ -44,6 +44,7 @@ const RevenueManagementPage = () => {
 
   // Transform haven data into pricing rules for display
   const pricingRules = havens.map((haven: any) => ({
+    ...haven,
     id: haven.uuid_id,
     name: haven.haven_name,
     haven: haven.tower ? `Tower ${haven.tower}` : "All Havens",
@@ -401,7 +402,12 @@ const RevenueManagementPage = () => {
                 <PricingManagementModal
                   onSave={() => {
                     setIsPricingModalOpen(false);
+                    refetchHavens();
                   }}
+                  havens={havens.map((h: any) => ({
+                    id: h.uuid_id,
+                    name: h.haven_name
+                  }))}
                   isAddMode={true}
                 />
               </div>
@@ -457,6 +463,7 @@ const RevenueManagementPage = () => {
                   onSave={() => {
                     setIsEditPricingModalOpen(false);
                     setSelectedPricingRule(null);
+                    refetchHavens();
                   }}
                   isAddMode={false}
                 />
