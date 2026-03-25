@@ -1,0 +1,8 @@
+﻿node_modules/
+.next/
+.git/
+dist/
+.env
+.env.local
+.DS_Store
+StaycationWEB/
