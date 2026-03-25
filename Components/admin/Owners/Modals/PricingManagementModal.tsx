@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { Input } from "@nextui-org/input";
+import { Button } from "@nextui-org/button";
 import { z } from "zod";
+import { Loader2 } from "lucide-react";
 
 const pricingSchema = z.object({
   six_hour_rate: z.string().refine(val => !isNaN(parseFloat(val)) && parseFloat(val) > 0, "6-hour rate must be a positive number"),
@@ -18,15 +20,30 @@ interface PricingData {
   weekend_rate?: number | string;
 }
 
+interface Haven {
+  id: string;
+  name: string;
+  six_hour_price?: number;
+  ten_hour_price?: number;
+  weekday_price?: number;
+  weekend_price?: number;
+  six_hour_rate?: number;
+  ten_hour_rate?: number;
+  weekday_rate?: number;
+  weekend_rate?: number;
+}
+
 interface PricingManagementModalProps {
   onSave: (data: PricingData) => void;
   initialData?: PricingData;
+  haven?: Haven | null;
   isAddMode?: boolean;
 }
 
 const PricingManagementModal = ({ 
   onSave, 
-  initialData, 
+  initialData,
+  haven,
   isAddMode = false,
 }: PricingManagementModalProps) => {
   const [formData, setFormData] = useState<Record<string, string>>({
@@ -37,9 +54,18 @@ const PricingManagementModal = ({
   });
 
   const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (initialData) {
+    if (haven && !isAddMode) {
+      setFormData({
+        six_hour_rate: (haven.six_hour_price || haven.six_hour_rate || "").toString(),
+        ten_hour_rate: (haven.ten_hour_price || haven.ten_hour_rate || "").toString(),
+        weekday_rate: (haven.weekday_price || haven.weekday_rate || "").toString(),
+        weekend_rate: (haven.weekend_price || haven.weekend_rate || "").toString(),
+      });
+    } else if (initialData) {
       setFormData({
         six_hour_rate: initialData.six_hour_rate?.toString() || "",
         ten_hour_rate: initialData.ten_hour_rate?.toString() || "",
@@ -47,7 +73,7 @@ const PricingManagementModal = ({
         weekend_rate: initialData.weekend_rate?.toString() || "",
       });
     }
-  }, [initialData]);
+  }, [initialData, haven, isAddMode]);
 
   const validation = pricingSchema.safeParse(formData);
   const errors = !validation.success ? validation.error.format() : null;
@@ -56,14 +82,64 @@ const PricingManagementModal = ({
     const newData = { ...formData, [field]: value };
     setFormData(newData);
     setTouched(prev => ({ ...prev, [field]: true }));
-    
-    // Pass back to parent for its validation
-    onSave({
-      six_hour_rate: newData.six_hour_rate,
-      ten_hour_rate: newData.ten_hour_rate,
-      weekday_rate: newData.weekday_rate,
-      weekend_rate: newData.weekend_rate,
+    setError(null);
+  };
+
+  const handleSave = async () => {
+    setTouched({
+      six_hour_rate: true,
+      ten_hour_rate: true,
+      weekday_rate: true,
+      weekend_rate: true,
     });
+
+    if (!validation.success) {
+      setError("Please fix all errors before saving");
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      setError(null);
+
+      if (!isAddMode && haven) {
+        // Edit mode - update the haven rates
+        const response = await fetch(`/api/rooms/${haven.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            six_hour_price: parseFloat(formData.six_hour_rate),
+            ten_hour_price: parseFloat(formData.ten_hour_rate),
+            weekday_price: parseFloat(formData.weekday_rate),
+            weekend_price: parseFloat(formData.weekend_rate),
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to update pricing");
+        }
+
+        onSave({
+          six_hour_rate: formData.six_hour_rate,
+          ten_hour_rate: formData.ten_hour_rate,
+          weekday_rate: formData.weekday_rate,
+          weekend_rate: formData.weekend_rate,
+        });
+      } else {
+        // Add mode - just pass the data back
+        onSave({
+          six_hour_rate: formData.six_hour_rate,
+          ten_hour_rate: formData.ten_hour_rate,
+          weekday_rate: formData.weekday_rate,
+          weekend_rate: formData.weekend_rate,
+        });
+      }
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "An error occurred while saving");
+      console.error("[PricingManagementModal] Error saving pricing:", error);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const getInputClasses = (field: string) => {
@@ -99,7 +175,14 @@ const PricingManagementModal = ({
   return (
     <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-3xl p-8 shadow-sm transition-all duration-[250ms] [transition-timing-function:cubic-bezier(0.4,0,0.2,1)] hover:scale-[1.01] hover:shadow-md will-change-transform">
       <div className="space-y-8">
-        {/* Weekday Rates */}
+        {/* Error Message */}
+        {error && (
+          <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl">
+            <p className="text-sm font-semibold text-red-700 dark:text-red-400">{error}</p>
+          </div>
+        )}
+
+        {/* Rates Configuration */}
         <div>
           <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2 mb-4">
             Rates Configuration
@@ -158,6 +241,24 @@ const PricingManagementModal = ({
               isRequired
             />
           </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+          <Button
+            onClick={handleSave}
+            disabled={isSaving}
+            className="flex-1 bg-brand-primary hover:bg-brand-primaryDarker text-white font-bold rounded-xl h-12 transition-colors"
+          >
+            {isSaving ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                Saving...
+              </>
+            ) : (
+              'Save Changes'
+            )}
+          </Button>
         </div>
       </div>
     </div>
