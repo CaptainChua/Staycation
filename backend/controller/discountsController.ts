@@ -30,10 +30,10 @@ export async function getAllDiscounts(req: NextRequest): Promise<NextResponse> {
     const active = searchParams.get("active");
 
     let query = `
-      SELECT
+      SELECT DISTINCT
         d.id,
         d.code as discount_code,
-        d.haven_id,
+        dh.haven_id,
         h.haven_name,
         h.tower,
         d.name,
@@ -48,7 +48,8 @@ export async function getAllDiscounts(req: NextRequest): Promise<NextResponse> {
         d.active,
         d.created_at
       FROM discounts d
-      LEFT JOIN havens h ON d.haven_id = h.uuid_id
+      LEFT JOIN discount_havens dh ON dh.discount_id = d.id
+      LEFT JOIN havens h ON dh.haven_id = h.uuid_id
     `;
 
     const conditions: string[] = [];
@@ -56,7 +57,7 @@ export async function getAllDiscounts(req: NextRequest): Promise<NextResponse> {
     let paramCount = 1;
 
     if (haven_id && haven_id !== 'null') {
-      conditions.push(`d.haven_id = $${paramCount}`);
+      conditions.push(`dh.haven_id = $${paramCount}`);
       values.push(haven_id);
       paramCount++;
     }
@@ -117,12 +118,14 @@ export async function getDiscountById(
     }
 
     const query = `
-      SELECT
+      SELECT DISTINCT
         d.*,
+        dh.haven_id,
         h.haven_name,
         h.tower
       FROM discounts d
-      LEFT JOIN havens h ON d.haven_id = h.uuid_id
+      LEFT JOIN discount_havens dh ON dh.discount_id = d.id
+      LEFT JOIN havens h ON dh.haven_id = h.uuid_id
       WHERE d.id = $1
     `;
 
