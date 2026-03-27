@@ -126,8 +126,10 @@ const HelpSidebar = ({ isOpen, onClose }: HelpSidebarProps) => {
                 </li>
                 <li>
                   <a
-                    href="mailto:support@staycationhaven.ph"
-                    className="text-sm hover:text-brand-primary transition-colors flex items-center gap-2 group text-gray-700 dark:text-gray-300 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 dark:hover:bg-gray-700"
+                    href="https://mail.google.com/mail/?view=cm&fs=1&to=support@staycationhaven.ph&su=Staycation Support Request&body=Hello,%0A%0AI need help with..."
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full text-left text-sm hover:text-brand-primary transition-colors flex items-center gap-2 group p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 cursor-pointer"
                   >
                     <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                     Customer Support
