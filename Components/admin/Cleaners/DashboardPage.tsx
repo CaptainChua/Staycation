@@ -83,12 +83,15 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-700">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Dashboard</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Overview of your daily cleaning tasks and performance
-        </p>
+    <div className="space-y-6 animate-in fade-in duration-700 overflow-hidden h-full flex flex-col">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 flex-shrink-0 border border-gray-200 dark:border-gray-700 rounded-lg p-6 bg-white dark:bg-gray-800 shadow dark:shadow-gray-900">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Dashboard</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            Overview of your daily cleaning tasks and performance
+          </p>
+        </div>
       </div>
 
       {/* Stats Cards */}
