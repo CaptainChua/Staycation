@@ -87,6 +87,8 @@ const Checkout = () => {
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const errorRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const paymentProofInputRef = useRef<HTMLInputElement>(null);
+  const validIdInputRef = useRef<HTMLInputElement>(null);
   const [bookingIdState] = useState(() => `BK${Date.now()}`);
   const [isMobileLoading, setIsMobileLoading] = useState(false);
   // Local state for date and guest selection (synced with Redux)
@@ -1570,6 +1572,7 @@ const Checkout = () => {
 
                         <div className="text-center">
                           <input
+                            ref={validIdInputRef}
                             type="file"
                             accept="image/png,image/jpeg,image/jpg"
                             onChange={(e) => handleFileChange(e, 'id')}
@@ -1647,7 +1650,12 @@ const Checkout = () => {
                                       </button>
                                       <button
                                         type="button"
-                                        onClick={() => setFormData(prev => ({ ...prev, validId: null, validIdPreview: '' }))}
+                                        onClick={() => {
+                                          setFormData(prev => ({ ...prev, validId: null, validIdPreview: '' }));
+                                          if (validIdInputRef.current) {
+                                            validIdInputRef.current.value = '';
+                                          }
+                                        }}
                                         className="px-3 py-1 bg-red-100 text-red-700 rounded-md text-sm hover:bg-red-200 transition-colors"
                                       >
                                         Remove
@@ -1886,6 +1894,11 @@ const Checkout = () => {
                                                 updated[index].validId = null;
                                                 updated[index].validIdPreview = '';
                                                 setAdditionalGuests(updated);
+                                                // Clear the file input as well
+                                                const input = document.getElementById(`valid-id-${index}`) as HTMLInputElement;
+                                                if (input) {
+                                                  input.value = '';
+                                                }
                                             }}
                                             className="px-3 py-1 bg-red-100 text-red-700 rounded-md text-sm hover:bg-red-200 transition-colors"
                                           >
@@ -2486,6 +2499,7 @@ const Checkout = () => {
                           errors.paymentProof ? 'border-red-500 bg-red-50 dark:bg-red-900/20 hover:border-red-600' : 'border-gray-300 dark:border-gray-600 hover:border-brand-primary dark:hover:border-brand-primary'
                         }`}>
                           <input
+                            ref={paymentProofInputRef}
                             type="file"
                             accept="image/png,image/jpeg,image/jpg"
                             onChange={(e) => {
@@ -2530,7 +2544,12 @@ const Checkout = () => {
                                       </label>
                                       <button
                                         type="button"
-                                        onClick={() => setFormData(prev => ({ ...prev, paymentProof: null, paymentProofPreview: '' }))}
+                                        onClick={() => {
+                                          setFormData(prev => ({ ...prev, paymentProof: null, paymentProofPreview: '' }));
+                                          if (paymentProofInputRef.current) {
+                                            paymentProofInputRef.current.value = '';
+                                          }
+                                        }}
                                         className="px-3 py-1 bg-red-100 text-red-700 rounded-md text-sm hover:bg-red-200 transition-colors"
                                       >
                                         Remove
