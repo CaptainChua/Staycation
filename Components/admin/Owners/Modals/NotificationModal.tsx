@@ -85,9 +85,15 @@ export default function NotificationModal({ onClose, onViewAll, anchorRef, userI
       }
 
       const rect = anchorRef.current.getBoundingClientRect();
+      const modalWidth = window.innerWidth < 768 ? window.innerWidth - 32 : 384; // sm: 384px (max-w-sm)
+      const maxRight = window.innerWidth - rect.right - 16;
+      
+      // Ensure modal doesn't overflow right edge
+      const right = Math.max(Math.min(maxRight, window.innerWidth - modalWidth - 16), 16);
+      
       setPosition({
         top: rect.bottom + 12,
-        right: Math.max(window.innerWidth - rect.right - 16, 16),
+        right: right,
       });
     }
 
@@ -135,7 +141,7 @@ export default function NotificationModal({ onClose, onViewAll, anchorRef, userI
   return createPortal(
     <div
       ref={containerRef}
-      className="fixed z-[9991] w-full max-w-md md:max-w-sm"
+      className="fixed z-[9991] w-[calc(100vw-32px)] max-w-sm sm:w-auto"
       style={{
         top: position.top,
         right: position.right,
