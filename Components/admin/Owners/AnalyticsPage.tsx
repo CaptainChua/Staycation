@@ -1,12 +1,17 @@
 'use client';
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import AnalyticsClient from "./AnalyticsClient";
 import StatusChart from "./StatusChart";
 import { useGetBookingsQuery } from "@/redux/api/bookingsApi";
 import type { AnalyticsSummary, RevenueByRoom, MonthlyRevenue } from "@/backend/controller/analyticsController";
-import { ADMIN_API_ENDPOINTS } from "@/lib/apiEndpoints";
+
+const ANALYTICS_ENDPOINTS = {
+  summary: "/api/admin/analytics/summary?period=30",
+  revenueByRoom: "/api/admin/analytics/revenue-by-room?period=30",
+  monthlyRevenue: "/api/admin/analytics/monthly-revenue?months=6",
+};
 
 const AnalyticsPage = () => {
   const { data: session, status } = useSession();
@@ -19,15 +24,7 @@ const AnalyticsPage = () => {
 
   const { data: bookings = [] } = useGetBookingsQuery({});
 
-  // Helper function to build API endpoint
-  const getApiUrl = (endpoint: string) => {
-    if (endpoint.startsWith('http')) return endpoint;
-    const baseUrl = typeof window !== "undefined" ? window.location.origin : '';
-    return `${baseUrl}${endpoint}`;
-  };
-
-  // Helper function to fetch all analytics data
-  const fetchAnalyticsData = async () => {
+  const fetchAnalyticsData = useCallback(async () => {
     if (status !== 'authenticated' || !session) {
       setError("Please log in to access analytics");
       setLoading(false);
@@ -38,13 +35,13 @@ const AnalyticsPage = () => {
       setError(null);
       
       const [summaryRes, revenueRes, monthlyRes] = await Promise.all([
-        fetch(getApiUrl(`${ADMIN_API_ENDPOINTS.ANALYTICS_SUMMARY}?period=30`), {
+        fetch(ANALYTICS_ENDPOINTS.summary, {
           credentials: 'include', // Include cookies automatically
         }),
-        fetch(getApiUrl(`${ADMIN_API_ENDPOINTS.ANALYTICS_REVENUE_BY_ROOM}?period=30`), {
+        fetch(ANALYTICS_ENDPOINTS.revenueByRoom, {
           credentials: 'include',
         }),
-        fetch(getApiUrl(`${ADMIN_API_ENDPOINTS.ANALYTICS_MONTHLY_REVENUE}?months=6`), {
+        fetch(ANALYTICS_ENDPOINTS.monthlyRevenue, {
           credentials: 'include',
         }),
       ]);
@@ -84,7 +81,7 @@ const AnalyticsPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [session, status]);
 
   useEffect(() => {
     if (status === 'loading') {
@@ -92,8 +89,8 @@ const AnalyticsPage = () => {
       return;
     }
     
-    fetchAnalyticsData();
-  }, [status, session]);
+    void fetchAnalyticsData();
+  }, [fetchAnalyticsData, status]);
 
   const handleRefresh = async () => {
     setRefreshing(true);

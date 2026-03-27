@@ -30,8 +30,102 @@ export interface MonthlyRevenue {
   revenue: number;
 }
 
+function parseWindow(value: string, fallback: number, max: number): number {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return Math.min(parsed, max);
+}
+
+async function tableExists(tableName: string): Promise<boolean> {
+  const result = await pool.query(
+    `
+      SELECT EXISTS (
+        SELECT 1
+        FROM information_schema.tables
+        WHERE table_name = $1
+          AND table_schema NOT IN ('pg_catalog', 'information_schema')
+      ) AS exists
+    `,
+    [tableName]
+  );
+
+  return Boolean(result.rows[0]?.exists);
+}
+
+async function columnExists(tableName: string, columnName: string): Promise<boolean> {
+  const result = await pool.query(
+    `
+      SELECT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_name = $1
+          AND column_name = $2
+          AND table_schema NOT IN ('pg_catalog', 'information_schema')
+      ) AS exists
+    `,
+    [tableName, columnName]
+  );
+
+  return Boolean(result.rows[0]?.exists);
+}
+
+async function fetchGuestCount(periodDays: number, offsetDays = 0): Promise<number> {
+  const hasUserId = await columnExists(BOOKING_TABLE, 'user_id');
+
+  if (hasUserId) {
+    const result = await pool.query(
+      `
+        SELECT COUNT(DISTINCT b.user_id) AS new_guests
+        FROM ${BOOKING_TABLE} b
+        WHERE b.created_at >= NOW() - ($1 || ' days')::interval
+          AND b.created_at < NOW() - ($2 || ' days')::interval
+          AND b.status IN ('approved', 'confirmed', 'checked-in', 'completed')
+          AND b.user_id IS NOT NULL
+      `,
+      [periodDays + offsetDays, offsetDays]
+    );
+
+    return Number.parseInt(result.rows[0]?.new_guests ?? '0', 10) || 0;
+  }
+
+  const hasBookingGuests = await tableExists('booking_guests');
+
+  if (hasBookingGuests) {
+    const result = await pool.query(
+      `
+        SELECT COUNT(DISTINCT bg.email) AS new_guests
+        FROM ${BOOKING_TABLE} b
+        INNER JOIN booking_guests bg ON bg.booking_id = b.id
+        WHERE b.created_at >= NOW() - ($1 || ' days')::interval
+          AND b.created_at < NOW() - ($2 || ' days')::interval
+          AND b.status IN ('approved', 'confirmed', 'checked-in', 'completed')
+          AND bg.email IS NOT NULL
+          AND bg.email <> ''
+      `,
+      [periodDays + offsetDays, offsetDays]
+    );
+
+    return Number.parseInt(result.rows[0]?.new_guests ?? '0', 10) || 0;
+  }
+
+  const result = await pool.query(
+    `
+      SELECT COUNT(DISTINCT b.id) AS new_guests
+      FROM ${BOOKING_TABLE} b
+      WHERE b.created_at >= NOW() - ($1 || ' days')::interval
+        AND b.created_at < NOW() - ($2 || ' days')::interval
+        AND b.status IN ('approved', 'confirmed', 'checked-in', 'completed')
+    `,
+    [periodDays + offsetDays, offsetDays]
+  );
+
+  return Number.parseInt(result.rows[0]?.new_guests ?? '0', 10) || 0;
+}
+
 // Helper function for direct data fetching (non-API)
 export async function fetchAnalyticsSummary(period: string = '30'): Promise<AnalyticsSummary> {
+  const safePeriod = parseWindow(period, 30, 365);
+
   const currentStatsQuery = `
     SELECT
       COALESCE(SUM(CASE
@@ -40,11 +134,10 @@ export async function fetchAnalyticsSummary(period: string = '30'): Promise<Anal
         WHEN bp.payment_status IS NULL THEN bp.down_payment
         ELSE 0
       END), 0) as total_revenue,
-      COUNT(DISTINCT b.id) as total_bookings,
-      COUNT(DISTINCT b.user_id) as new_guests
+      COUNT(DISTINCT b.id) as total_bookings
     FROM ${BOOKING_TABLE} b
     LEFT JOIN booking_payments bp ON b.id = bp.booking_id
-    WHERE b.created_at >= NOW() - INTERVAL '${period} days'
+    WHERE b.created_at >= NOW() - ($1 || ' days')::interval
       AND b.status IN ('approved', 'confirmed', 'checked-in', 'completed')
   `;
 
@@ -56,12 +149,11 @@ export async function fetchAnalyticsSummary(period: string = '30'): Promise<Anal
         WHEN bp.payment_status IS NULL THEN bp.down_payment
         ELSE 0
       END), 0) as total_revenue,
-      COUNT(DISTINCT b.id) as total_bookings,
-      COUNT(DISTINCT b.user_id) as new_guests
+      COUNT(DISTINCT b.id) as total_bookings
     FROM ${BOOKING_TABLE} b
     LEFT JOIN booking_payments bp ON b.id = bp.booking_id
-    WHERE b.created_at >= NOW() - INTERVAL '${parseInt(period) * 2} days'
-      AND b.created_at < NOW() - INTERVAL '${period} days'
+    WHERE b.created_at >= NOW() - ($1 || ' days')::interval
+      AND b.created_at < NOW() - ($2 || ' days')::interval
       AND b.status IN ('approved', 'confirmed', 'checked-in', 'completed')
   `;
 
@@ -72,7 +164,7 @@ export async function fetchAnalyticsSummary(period: string = '30'): Promise<Anal
         check_out_date::date - check_in_date::date
       ) as booked_days
     FROM ${BOOKING_TABLE}
-    WHERE created_at >= NOW() - INTERVAL '${period} days'
+    WHERE created_at >= NOW() - ($1 || ' days')::interval
       AND status IN ('approved', 'confirmed', 'checked-in', 'completed')
   `;
 
@@ -82,16 +174,18 @@ export async function fetchAnalyticsSummary(period: string = '30'): Promise<Anal
         check_out_date::date - check_in_date::date
       ) as booked_days
     FROM ${BOOKING_TABLE}
-    WHERE created_at >= NOW() - INTERVAL '${parseInt(period) * 2} days'
-      AND created_at < NOW() - INTERVAL '${period} days'
+    WHERE created_at >= NOW() - ($1 || ' days')::interval
+      AND created_at < NOW() - ($2 || ' days')::interval
       AND status IN ('approved', 'confirmed', 'checked-in', 'completed')
   `;
 
-  const [currentStats, previousStats, occupancyStats, previousOccupancy] = await Promise.all([
-    pool.query(currentStatsQuery),
-    pool.query(previousStatsQuery),
-    pool.query(occupancyQuery),
-    pool.query(previousOccupancyQuery)
+  const [currentStats, previousStats, occupancyStats, previousOccupancy, currentGuests, previousGuests] = await Promise.all([
+    pool.query(currentStatsQuery, [safePeriod]),
+    pool.query(previousStatsQuery, [safePeriod * 2, safePeriod]),
+    pool.query(occupancyQuery, [safePeriod]),
+    pool.query(previousOccupancyQuery, [safePeriod * 2, safePeriod]),
+    fetchGuestCount(safePeriod),
+    fetchGuestCount(safePeriod, safePeriod)
   ]);
 
   const current = currentStats.rows[0];
@@ -106,12 +200,12 @@ export async function fetchAnalyticsSummary(period: string = '30'): Promise<Anal
     ? ((current.total_bookings - previous.total_bookings) / previous.total_bookings) * 100
     : 0;
 
-  const guests_change = previous.new_guests > 0
-    ? ((current.new_guests - previous.new_guests) / previous.new_guests) * 100
+  const guests_change = previousGuests > 0
+    ? ((currentGuests - previousGuests) / previousGuests) * 100
     : 0;
 
   const total_rooms = parseInt(occupancy.total_rooms) || 4;
-  const total_available_days = total_rooms * parseInt(period);
+  const total_available_days = total_rooms * safePeriod;
   const booked_days = parseInt(occupancy.booked_days) || 0;
   const occupancy_rate = total_available_days > 0
     ? (booked_days / total_available_days) * 100
@@ -130,7 +224,7 @@ export async function fetchAnalyticsSummary(period: string = '30'): Promise<Anal
     total_revenue: parseFloat(current.total_revenue),
     total_bookings: parseInt(current.total_bookings),
     occupancy_rate: parseFloat(occupancy_rate.toFixed(1)),
-    new_guests: parseInt(current.new_guests),
+    new_guests: currentGuests,
     revenue_change: parseFloat(revenue_change.toFixed(1)),
     bookings_change: parseFloat(bookings_change.toFixed(1)),
     occupancy_change: parseFloat(occupancy_change.toFixed(1)),
@@ -197,115 +291,7 @@ export const getAnalyticsSummary = async (req: NextRequest): Promise<NextRespons
   try {
     const { searchParams } = new URL(req.url);
     const period = searchParams.get('period') || '30'; // days
-
-    // Get current period stats
-    const currentStatsQuery = `
-      SELECT
-        COALESCE(SUM(CASE
-          WHEN bp.payment_status = 'approved_down_payment' THEN bp.down_payment
-          WHEN bp.payment_status = 'approved_full_payment' THEN bp.total_amount
-          ELSE 0
-        END), 0) as total_revenue,
-        COUNT(DISTINCT b.id) as total_bookings,
-        COUNT(DISTINCT b.user_id) as new_guests
-      FROM ${BOOKING_TABLE} b
-      LEFT JOIN booking_payments bp ON b.id = bp.booking_id
-      WHERE b.created_at >= NOW() - INTERVAL '${period} days'
-        AND b.status IN ('approved', 'confirmed', 'checked-in', 'completed')
-    `;
-
-    // Get previous period stats for comparison
-    const previousStatsQuery = `
-      SELECT
-        COALESCE(SUM(CASE
-          WHEN bp.payment_status = 'approved_down_payment' THEN bp.down_payment
-          WHEN bp.payment_status = 'approved_full_payment' THEN bp.total_amount
-          ELSE 0
-        END), 0) as total_revenue,
-        COUNT(DISTINCT b.id) as total_bookings,
-        COUNT(DISTINCT b.user_id) as new_guests
-      FROM ${BOOKING_TABLE} b
-      LEFT JOIN booking_payments bp ON b.id = bp.booking_id
-      WHERE b.created_at >= NOW() - INTERVAL '${parseInt(period) * 2} days'
-        AND b.created_at < NOW() - INTERVAL '${period} days'
-        AND b.status IN ('approved', 'confirmed', 'checked-in', 'completed')
-    `;
-
-    // Get occupancy rate - calculate based on booked days vs total available days
-    const occupancyQuery = `
-      SELECT
-        COUNT(DISTINCT room_name) as total_rooms,
-        COUNT(*) as total_bookings,
-        SUM(check_out_date::date - check_in_date::date) as booked_days
-      FROM ${BOOKING_TABLE}
-      WHERE created_at >= NOW() - INTERVAL '${period} days'
-        AND status IN ('approved', 'confirmed', 'checked-in', 'completed')
-    `;
-
-    const [currentStats, previousStats, occupancyStats] = await Promise.all([
-      pool.query(currentStatsQuery),
-      pool.query(previousStatsQuery),
-      pool.query(occupancyQuery)
-    ]);
-
-    const current = currentStats.rows[0];
-    const previous = previousStats.rows[0];
-    const occupancy = occupancyStats.rows[0];
-
-    // Calculate percentage changes
-    const revenue_change = previous.total_revenue > 0
-      ? ((current.total_revenue - previous.total_revenue) / previous.total_revenue) * 100
-      : 0;
-
-    const bookings_change = previous.total_bookings > 0
-      ? ((current.total_bookings - previous.total_bookings) / previous.total_bookings) * 100
-      : 0;
-
-    const guests_change = previous.new_guests > 0
-      ? ((current.new_guests - previous.new_guests) / previous.new_guests) * 100
-      : 0;
-
-    // Calculate occupancy rate
-    // Total available room-days = total_rooms * period days
-    const total_rooms = parseInt(occupancy.total_rooms) || 4; // Default to 4 rooms if no data
-    const total_available_days = total_rooms * parseInt(period);
-    const booked_days = parseInt(occupancy.booked_days) || 0;
-    const occupancy_rate = total_available_days > 0
-      ? (booked_days / total_available_days) * 100
-      : 0;
-
-    // For occupancy change, compare with previous period
-    const previousOccupancyQuery = `
-      SELECT
-        SUM(
-          check_out_date::date - check_in_date::date
-        ) as booked_days
-      FROM ${BOOKING_TABLE}
-      WHERE created_at >= NOW() - INTERVAL '${parseInt(period) * 2} days'
-        AND created_at < NOW() - INTERVAL '${period} days'
-        AND status IN ('approved', 'confirmed', 'checked-in', 'completed')
-    `;
-
-    const previousOccupancy = await pool.query(previousOccupancyQuery);
-    const prev_booked_days = parseInt(previousOccupancy.rows[0].booked_days) || 0;
-    const prev_occupancy_rate = total_available_days > 0
-      ? (prev_booked_days / total_available_days) * 100
-      : 0;
-
-    const occupancy_change = prev_occupancy_rate > 0
-      ? ((occupancy_rate - prev_occupancy_rate) / prev_occupancy_rate) * 100
-      : 0;
-
-    const summary: AnalyticsSummary = {
-      total_revenue: parseFloat(current.total_revenue),
-      total_bookings: parseInt(current.total_bookings),
-      occupancy_rate: parseFloat(occupancy_rate.toFixed(1)),
-      new_guests: parseInt(current.new_guests),
-      revenue_change: parseFloat(revenue_change.toFixed(1)),
-      bookings_change: parseFloat(bookings_change.toFixed(1)),
-      occupancy_change: parseFloat(occupancy_change.toFixed(1)),
-      guests_change: parseFloat(guests_change.toFixed(1)),
-    };
+    const summary = await fetchAnalyticsSummary(period);
 
     console.log('✅ Analytics Summary:', summary);
 
