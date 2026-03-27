@@ -6,6 +6,8 @@ export const ADMIN_API_ENDPOINTS = {
   EMPLOYEES: "https://staycationhavenph.com/api/admin/employees",
   ACTIVITY_LOGS: "https://staycationhavenph.com/api/admin/activity-logs",
   ANALYTICS_SUMMARY: "https://staycationhavenph.com/api/admin/analytics/summary",
+  ANALYTICS_REVENUE_BY_ROOM: "https://staycationhavenph.com/api/admin/analytics/revenue-by-room",
+  ANALYTICS_MONTHLY_REVENUE: "https://staycationhavenph.com/api/admin/analytics/monthly-revenue",
   CLEANERS_TASKS: "https://staycationhavenph.com/api/admin/cleaners/tasks",
   CLEANERS_TASK_ASSIGN: "https://staycationhavenph.com/api/admin/cleaners/tasks/[id]/assign",
   BLOCKED_DATES: "https://staycationhavenph.com/api/admin/blocked-dates",

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import AnalyticsClient from "./AnalyticsClient";
 import StatusChart from "./StatusChart";
 import { useGetBookingsQuery } from "@/redux/api/bookingsApi";
@@ -8,6 +9,7 @@ import type { AnalyticsSummary, RevenueByRoom, MonthlyRevenue } from "@/backend/
 import { ADMIN_API_ENDPOINTS } from "@/lib/apiEndpoints";
 
 const AnalyticsPage = () => {
+  const { data: session, status } = useSession();
   const [summary, setSummary] = useState<AnalyticsSummary | null>(null);
   const [revenueByHaven, setRevenueByHaven] = useState<RevenueByRoom[]>([]);
   const [monthlyRevenue, setMonthlyRevenue] = useState<MonthlyRevenue[]>([]);
@@ -17,102 +19,108 @@ const AnalyticsPage = () => {
 
   const { data: bookings = [] } = useGetBookingsQuery({});
 
-  // get your token here
-  const token = typeof window !== "undefined"
-    ? localStorage.getItem("token")
-    : null;
+  // Helper function to build API endpoint
+  const getApiUrl = (endpoint: string) => {
+    if (endpoint.startsWith('http')) return endpoint;
+    const baseUrl = typeof window !== "undefined" ? window.location.origin : '';
+    return `${baseUrl}${endpoint}`;
+  };
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [summaryRes, revenueRes, monthlyRes] = await Promise.all([
-          fetch(`${ADMIN_API_ENDPOINTS.ANALYTICS_SUMMARY}?period=30`, {
-            headers: {
-              Authorization: `Bearer ${token}`
-            }
-          }),
-          fetch("https://staycationhavenph.com/api/admin/analytics/revenue-by-room?period=30", {
-            headers: {
-              Authorization: `Bearer ${token}`
-            }
-          }),
-          fetch("https://staycationhavenph.com/api/admin/analytics/monthly-revenue?months=6", {
-            headers: {
-              Authorization: `Bearer ${token}`
-            }
-          }),
-        ]);
+  // Helper function to fetch all analytics data
+  const fetchAnalyticsData = async () => {
+    if (status !== 'authenticated' || !session) {
+      setError("Please log in to access analytics");
+      setLoading(false);
+      return;
+    }
 
-        const summaryData = await summaryRes.json();
-        const revenueData = await revenueRes.json();
-        const monthlyData = await monthlyRes.json();
-
-        if (summaryData.success) {
-          setSummary(summaryData.data);
-        } else {
-          setError(summaryData.error || "Unable to load summary");
-        }
-
-        if (revenueData.success) {
-          setRevenueByHaven(revenueData.data);
-        }
-
-        if (monthlyData.success) {
-          setMonthlyRevenue(monthlyData.data);
-        }
-
-      } catch (error) {
-        console.error("Error fetching analytics:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (token) fetchData();
-  }, [bookings, token]);
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
     try {
+      setError(null);
+      
       const [summaryRes, revenueRes, monthlyRes] = await Promise.all([
-        fetch(`${ADMIN_API_ENDPOINTS.ANALYTICS_SUMMARY}?period=30`, {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
+        fetch(getApiUrl(`${ADMIN_API_ENDPOINTS.ANALYTICS_SUMMARY}?period=30`), {
+          credentials: 'include', // Include cookies automatically
         }),
-        fetch("https://staycationhavenph.com/api/admin/analytics/revenue-by-room?period=30", {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
+        fetch(getApiUrl(`${ADMIN_API_ENDPOINTS.ANALYTICS_REVENUE_BY_ROOM}?period=30`), {
+          credentials: 'include',
         }),
-        fetch("https://staycationhavenph.com/api/admin/analytics/monthly-revenue?months=6", {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
+        fetch(getApiUrl(`${ADMIN_API_ENDPOINTS.ANALYTICS_MONTHLY_REVENUE}?months=6`), {
+          credentials: 'include',
         }),
       ]);
+
+      // Check response status
+      if (!summaryRes.ok) {
+        throw new Error(`Summary API error: ${summaryRes.status} ${summaryRes.statusText}`);
+      }
+      if (!revenueRes.ok) {
+        throw new Error(`Revenue API error: ${revenueRes.status} ${revenueRes.statusText}`);
+      }
+      if (!monthlyRes.ok) {
+        throw new Error(`Monthly API error: ${monthlyRes.status} ${monthlyRes.statusText}`);
+      }
 
       const summaryData = await summaryRes.json();
       const revenueData = await revenueRes.json();
       const monthlyData = await monthlyRes.json();
 
-      if (summaryData.success) setSummary(summaryData.data);
-      if (revenueData.success) setRevenueByHaven(revenueData.data);
-      if (monthlyData.success) setMonthlyRevenue(monthlyData.data);
+      if (summaryData.success && summaryData.data) {
+        setSummary(summaryData.data);
+      } else {
+        setError(summaryData.error || "Unable to load summary data");
+      }
+
+      if (revenueData.success && revenueData.data) {
+        setRevenueByHaven(revenueData.data);
+      }
+
+      if (monthlyData.success && monthlyData.data) {
+        setMonthlyRevenue(monthlyData.data);
+      }
 
     } catch (error) {
-      console.error("Error refreshing analytics:", error);
+      console.error("Error fetching analytics:", error);
+      setError(error instanceof Error ? error.message : "Failed to load analytics data");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (status === 'loading') {
+      // Wait for session to be loaded
+      return;
+    }
+    
+    fetchAnalyticsData();
+  }, [status, session]);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await fetchAnalyticsData();
     } finally {
       setRefreshing(false);
     }
   };
 
-  if (loading) {
+  if (status === 'loading' || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-primary mx-auto mb-4"></div>
           <p className="text-gray-600">Loading analytics...</p>
+          {error && <p className="text-red-600 text-sm mt-2">{error}</p>}
+        </div>
+      </div>
+    );
+  }
+
+  if (status === 'unauthenticated') {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-600 font-semibold">You must be logged in to access analytics</p>
         </div>
       </div>
     );
@@ -120,6 +128,19 @@ const AnalyticsPage = () => {
 
   return (
     <div className="space-y-12">
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg">
+          <p className="font-semibold">Error loading analytics</p>
+          <p className="text-sm">{error}</p>
+          <button 
+            onClick={() => fetchAnalyticsData()}
+            className="mt-2 text-red-600 hover:text-red-800 underline text-sm"
+          >
+            Try again
+          </button>
+        </div>
+      )}
+
       <div className="flex justify-end">
         <button
           onClick={handleRefresh}
@@ -145,12 +166,6 @@ const AnalyticsPage = () => {
           statusFilter={["pending", "approved"]}
         />
       </div>
-
-      {error && (
-        <div className="bg-red-100 text-red-800 p-4 rounded">
-          Error loading summary: {error}
-        </div>
-      )}
 
       <AnalyticsClient
         summary={
