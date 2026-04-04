@@ -30,8 +30,8 @@ const HelpCenter = () => {
             <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mb-4">
               <Phone className="w-6 h-6 text-brand-primary" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Call Us</h3>
-            <p className="text-gray-600 dark:text-gray-300 text-sm mb-3">Talk to our support team</p>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-black mb-2">Call Us</h3>
+            <p className="text-gray-600 dark:text-black-300 text-sm mb-3">Talk to our support team</p>
             <a href="tel:+639123456789" className="text-brand-primary hover:text-brand-primaryDark font-medium">
               +63 912 345 6789
             </a>
@@ -41,8 +41,8 @@ const HelpCenter = () => {
             <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mb-4">
               <Mail className="w-6 h-6 text-brand-primary" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Email Us</h3>
-            <p className="text-gray-600 dark:text-gray-300 text-sm mb-3">Get a response within 24 hours</p>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-black mb-2">Email Us</h3>
+            <p className="text-gray-600 dark:text-black-300 text-sm mb-3">Get a response within 24 hours</p>
             <a href="mailto:support@staycationhaven.ph" className="text-brand-primary hover:text-brand-primaryDark font-medium break-all">
               support@staycationhaven.ph
             </a>
@@ -52,8 +52,8 @@ const HelpCenter = () => {
             <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mb-4">
               <MessageCircle className="w-6 h-6 text-brand-primary" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Live Chat</h3>
-            <p className="text-gray-600 dark:text-gray-300 text-sm mb-3">Chat with our team now</p>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-black mb-2">Live Chat</h3>
+            <p className="text-gray-600 dark:text-black-300 text-sm mb-3">Chat with our team now</p>
             <button className="text-brand-primary hover:text-brand-primaryDark font-medium">
               Start Chat
             </button>
@@ -63,9 +63,9 @@ const HelpCenter = () => {
             <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mb-4">
               <Clock className="w-6 h-6 text-brand-primary" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Support Hours</h3>
-            <p className="text-gray-600 dark:text-gray-300 text-sm mb-3">We&apos;re available 24/7</p>
-            <p className="text-gray-900 dark:text-white font-medium">Always Open</p>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-black mb-2">Support Hours</h3>
+            <p className="text-gray-600 dark:text-black-300 text-sm mb-3">We&apos;re available 24/7</p>
+            <p className="text-gray-900 dark:text-black font-medium">Always Open</p>
           </div>
         </div>
 
