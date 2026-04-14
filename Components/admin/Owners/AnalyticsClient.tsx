@@ -4,6 +4,7 @@ import { TrendingUp, TrendingDown, DollarSign, Users, Home, Calendar } from "luc
 import type { AnalyticsSummary, RevenueByRoom, MonthlyRevenue } from "@/backend/controller/analyticsController";
 import { Line } from 'react-chartjs-2';
 import { Chart, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend } from 'chart.js';
+import type { ScriptableContext } from 'chart.js';
 Chart.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend);
 
 interface AnalyticsClientProps {
@@ -51,7 +52,7 @@ export default function AnalyticsClient({ summary, revenueByHaven, monthlyRevenu
 
   const xLabels = monthlyRevenue.map((item) => item.month);
   const revenueData = monthlyRevenue.map((item) => (item.revenue > 0 ? item.revenue : null));
-  const highestRevenue = revenueData.reduce((max, value) => {
+  const highestRevenue: number = revenueData.reduce((max: number, value) => {
     if (typeof value !== "number") return max;
     return value > max ? value : max;
   }, 0);
@@ -67,8 +68,8 @@ export default function AnalyticsClient({ summary, revenueByHaven, monthlyRevenu
         backgroundColor: 'rgba(29, 158, 117, 0.15)',
         fill: true,
         tension: 0.4,
-        pointRadius: (context: { raw: number | null }) => (typeof context.raw === "number" ? 4 : 0),
-        pointHoverRadius: (context: { raw: number | null }) => (typeof context.raw === "number" ? 6 : 0),
+        pointRadius: (context: ScriptableContext<"line">) => (typeof context.raw === "number" ? 4 : 0),
+        pointHoverRadius: (context: ScriptableContext<"line">) => (typeof context.raw === "number" ? 6 : 0),
         pointHitRadius: 8,
         pointBackgroundColor: '#22c55e',
         pointBorderColor: '#22c55e',
@@ -252,7 +253,7 @@ export default function AnalyticsClient({ summary, revenueByHaven, monthlyRevenu
                 No analytics data available.
               </div>
             ) : (
-              <Line data={lineData} options={lineOptions} type="monotone" />
+              <Line data={lineData} options={lineOptions} />
             )}
           </div>
         </div>
