@@ -36,10 +36,6 @@ const nextConfig: NextConfig = {
     removeConsole: true,
   },
 
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-
   typescript: {
     ignoreBuildErrors: true,
   },

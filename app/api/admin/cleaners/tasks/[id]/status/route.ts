@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { updateCleaningTask } from "@/backend/controller/cleanersController";
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const body = await req.json();
     const { cleaning_status } = body;
 
@@ -26,7 +27,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     }
 
     // Mock the URL structure for the controller
-    const url = new URL(`/api/admin/cleaners/tasks/${params.id}`, req.url);
+    const url = new URL(`/api/admin/cleaners/tasks/${id}`, req.url);
     const mockReq = new Request(url, {
       method: req.method,
       headers: req.headers,

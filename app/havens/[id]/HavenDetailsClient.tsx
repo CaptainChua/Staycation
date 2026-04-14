@@ -48,8 +48,14 @@ interface Haven {
   location?: string;
   tower?: string;
   floor?: string;
-  photo_tours?: Array<{ category: string; url: string }>;
+  photo_tours?: Array<{ category: string; url?: string; image_url?: string }>;
   youtube_url?: string;
+  six_hour_check_in?: string;
+  six_hour_check_out?: string;
+  ten_hour_check_in?: string;
+  ten_hour_check_out?: string;
+  twenty_one_hour_check_in?: string;
+  twenty_one_hour_check_out?: string;
 }
 
 interface HavenDetailsClientProps {
@@ -88,8 +94,8 @@ const HavenDetailsClient = ({ havenId, havens }: HavenDetailsClientProps) => {
     twentyOneHourCheckOut: haven.twenty_one_hour_check_out,
     photoTour: haven.photo_tours
       ? haven.photo_tours.reduce((acc: Record<string, string[]>, item) => {
-          acc[item.category] = acc[item.category] || [];
-          acc[item.category].push(item.image_url);
+          const url = item.image_url ?? item.url;
+          if (url) { acc[item.category] = acc[item.category] || []; acc[item.category].push(url); }
           return acc;
         }, {} as Record<string, string[]>)
       : {},

@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { CreditCard, X, Smartphone, Wallet, Building, Upload, Image as ImageIcon, Trash2 } from "lucide-react";
 
 export interface PaymentMethodData {
+  id?: string;
   payment_name: string;
   payment_method: "credit_card" | "mobile_wallet" | "bank_transfer" | "cash" | "other";
   provider: string;
