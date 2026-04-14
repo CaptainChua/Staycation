@@ -1,5 +1,6 @@
 'use client';
 
+import OwnerPageHeader from "./OwnerPageHeader";
 import { Star, ThumbsUp, MessageSquare, TrendingUp, TrendingDown } from "lucide-react";
 
 const ReviewsPage = () => {
@@ -56,13 +57,10 @@ const ReviewsPage = () => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-700">
-      {/* Header - Matching Analytics page style */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Reviews & Feedback</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Monitor and respond to guest reviews</p>
-        </div>
-      </div>
+      <OwnerPageHeader
+        title="Reviews & Feedback"
+        description="Monitor and respond to guest reviews"
+      />
 
       {/* Stats Cards - Matching Analytics page style */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

@@ -1,5 +1,6 @@
 "use client";
 
+import OwnerPageHeader from "./OwnerPageHeader";
 import { useMemo, useState, useRef, useEffect } from "react";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
@@ -506,29 +507,28 @@ const CalendarPage = ({ havens }: CalendarPageProps) => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-700 overflow-hidden h-full flex flex-col">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 flex-shrink-0 border border-gray-200 dark:border-gray-700 rounded-lg p-6 bg-white dark:bg-gray-800 shadow dark:shadow-gray-900">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Booking Calendar</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">View and manage your property bookings in calendar view</p>
-        </div>
-        <div className="flex items-center gap-4">
-          <select
-            value={selectedHaven?.uuid_id || ""}
-            onChange={(e) => {
-              const haven = havens.find((h) => h.uuid_id === e.target.value);
-              setSelectedHaven(haven || null);
-            }}
-            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
-          >
-            {havens.map((haven) => (
-              <option key={haven.uuid_id} value={haven.uuid_id}>
-                {haven.haven_name} - {haven.tower} - Floor {haven.floor}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
+      <OwnerPageHeader
+        title="Booking Calendar"
+        description="View and manage your property bookings in calendar view"
+        actions={
+          <div className="flex items-center gap-4">
+            <select
+              value={selectedHaven?.uuid_id || ""}
+              onChange={(e) => {
+                const haven = havens.find((h) => h.uuid_id === e.target.value);
+                setSelectedHaven(haven || null);
+              }}
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+            >
+              {havens.map((haven) => (
+                <option key={haven.uuid_id} value={haven.uuid_id}>
+                  {haven.haven_name} - {haven.tower} - Floor {haven.floor}
+                </option>
+              ))}
+            </select>
+          </div>
+        }
+      />
 
       {/* Controls */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-4 flex-shrink-0 border border-gray-200 dark:border-gray-700">
