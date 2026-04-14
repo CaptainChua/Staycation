@@ -12,6 +12,7 @@ import {
   FileText,
 } from "lucide-react";
 import { useState } from "react";
+import Link from "next/link";
 
 export default function UserGuidePage() {
   const [expandedSection, setExpandedSection] = useState<string | null>("getting-started");
@@ -230,11 +231,13 @@ export default function UserGuidePage() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-700">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">User Guide</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Everything you need to know about using the Cleaners Portal
-        </p>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 flex-shrink-0 border border-gray-200 dark:border-gray-700 rounded-lg p-6 bg-white dark:bg-gray-800 shadow dark:shadow-gray-900">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">User Guide</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            Everything you need to know about using the Cleaners Portal
+          </p>
+        </div>
       </div>
 
       {/* Quick Tips Card */}
@@ -332,12 +335,20 @@ export default function UserGuidePage() {
           If you can't find the answer you're looking for, contact your supervisor or IT support.
         </p>
         <div className="flex flex-col sm:flex-row gap-3">
-          <button className="px-6 py-3 bg-gradient-to-r from-brand-primary to-brand-primaryDark text-white rounded-lg hover:shadow-lg transition-all font-semibold">
+          <Link
+            href="/contacts"
+            onClick={(e) => e.stopPropagation()}
+            className="px-6 py-3 bg-gradient-to-r from-brand-primary to-brand-primaryDark text-white rounded-lg hover:shadow-lg transition-all font-semibold text-center"
+          >
             Contact Supervisor
-          </button>
-          <button className="px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-semibold">
+          </Link>
+          <Link
+            href="/help-center"
+            onClick={(e) => e.stopPropagation()}
+            className="px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-semibold text-center"
+          >
             IT Support
-          </button>
+          </Link>
         </div>
       </div>
     </div>
