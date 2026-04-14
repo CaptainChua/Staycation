@@ -1,5 +1,6 @@
 "use client";
 
+import OwnerPageHeader from "./OwnerPageHeader";
 import {
   Calendar,
   User,
@@ -593,22 +594,19 @@ const ReservationsPage = () => {
       )}
 
       <div className="space-y-6 animate-in fade-in duration-700">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-2">
-              Reservations
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400">
-              Manage all your bookings and reservations
-            </p>
-          </div>
-          <button 
-            onClick={() => setIsNewReservationModalOpen(true)}
-            className="px-6 py-3 bg-yellow-600 text-white rounded-lg font-semibold hover:bg-yellow-700 transition-colors"
-          >
-            + New Reservation
-          </button>
-        </div>
+        <OwnerPageHeader
+          title="Reservations"
+          description="Manage all your bookings and reservations"
+          actions={
+            <button
+              onClick={() => setIsNewReservationModalOpen(true)}
+              className="px-6 py-3 bg-yellow-600 text-white rounded-lg font-semibold hover:bg-yellow-700 transition-colors"
+              type="button"
+            >
+              + New Reservation
+            </button>
+          }
+        />
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-4">
           {[

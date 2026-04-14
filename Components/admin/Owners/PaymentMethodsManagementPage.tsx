@@ -1,5 +1,6 @@
 "use client";
 
+import OwnerPageHeader from "./OwnerPageHeader";
 import { useState, useEffect } from "react";
 import { Plus, Edit2, Trash2, Eye, EyeOff, CreditCard, Smartphone, Wallet, Building, Search, Filter, ArrowUpDown, RefreshCw, Download, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight } from "lucide-react";
 import toast from "react-hot-toast";
@@ -226,13 +227,10 @@ const PaymentMethodsManagementPage = () => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-700 overflow-hidden h-full flex flex-col">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 flex-shrink-0 border border-gray-200 dark:border-gray-700 rounded-lg p-6 bg-white dark:bg-gray-800 shadow dark:shadow-gray-900">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Payment Methods Management</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage payment methods and processing options</p>
-        </div>
-      </div>
+      <OwnerPageHeader
+        title="Payment Methods Management"
+        description="Manage payment methods and processing options"
+      />
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-shrink-0">

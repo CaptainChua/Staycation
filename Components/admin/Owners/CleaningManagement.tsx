@@ -1,5 +1,6 @@
 "use client";
 
+import OwnerPageHeader from "./OwnerPageHeader";
 import {
   Sparkles,
   Search,
@@ -596,17 +597,10 @@ export default function CleaningManagement() {
   return (
     <>
       <div className="space-y-6 animate-in fade-in duration-700 overflow-hidden h-full flex flex-col">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 flex-shrink-0 border border-gray-200 dark:border-gray-700 rounded-lg p-6 bg-white dark:bg-gray-800 shadow dark:shadow-gray-900">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
-              Cleaning Management
-            </h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              Assign and track post check-out cleaning tasks
-            </p>
-          </div>
-        </div>
+        <OwnerPageHeader
+          title="Cleaning Management"
+          description="Assign and track post check-out cleaning tasks"
+        />
 
         {/* Status Guide */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-6 flex-shrink-0 border border-gray-200 dark:border-gray-700">
