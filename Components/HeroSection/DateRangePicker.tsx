@@ -58,6 +58,24 @@ const DateRangePicker = ({
   );
 
   // Calculate blocked dates from booked ranges
+  const parseIsoDate = (dateString: string) => {
+    if (!dateString) return new Date(0);
+
+    const normalized = dateString.toString().slice(0, 10);
+    const [year, month, day] = normalized.split("-").map(Number);
+
+    if ([year, month, day].some((value) => Number.isNaN(value))) {
+      const parsed = new Date(dateString);
+      return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+    }
+
+    return new Date(year, month - 1, day);
+  };
+
+  const formatDateKey = (date: Date) => {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  };
+
   const blockedDates = useMemo(() => {
     const blocked = new Set<string>();
 
@@ -66,21 +84,20 @@ const DateRangePicker = ({
     const bookings = roomBookingsData.data as BookedDateRange[];
 
     bookings.forEach((booking) => {
-      const blockingStatuses = ["pending", "approved", "confirmed", "checked-in", "check_in", "checked-in"];
+      const blockingStatuses = ["pending", "approved", "confirmed", "checked-in", "check_in", "checked_in"];
       if (!blockingStatuses.includes(booking.status)) return;
-      const checkIn = new Date(booking.check_in_date);
-      const checkOut = new Date(booking.check_out_date);
 
-      // Add all dates in the range (including check-in, excluding check-out for turnover)
+      const checkIn = parseIsoDate(booking.check_in_date);
+      const checkOut = parseIsoDate(booking.check_out_date);
+
+      // Add all nights in the reserved range and the final check-out date as blocked for visibility.
       const currentDate = new Date(checkIn);
-      while (currentDate < checkOut) {
-        const dateString = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
-        blocked.add(dateString);
+      while (currentDate <= checkOut) {
+        blocked.add(formatDateKey(currentDate));
         currentDate.setDate(currentDate.getDate() + 1);
       }
     });
 
-    console.log("🗓️ [DateRangePicker] blockedDates:", Array.from(blocked));
     return blocked;
   }, [roomBookingsData]);
 
@@ -93,19 +110,17 @@ const DateRangePicker = ({
     const blockedRanges = blockedDatesData.data as BlockedDateRange[];
 
     blockedRanges.forEach((range) => {
-      const fromDate = new Date(range.from_date);
-      const toDate = new Date(range.to_date);
+      const fromDate = parseIsoDate(range.from_date);
+      const toDate = parseIsoDate(range.to_date);
 
-      // Add all dates in the range (including from_date, including to_date)
+      // Add all dates in the range (including from_date and to_date)
       const currentDate = new Date(fromDate);
       while (currentDate <= toDate) {
-        const dateString = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
-        maintenance.add(dateString);
+        maintenance.add(formatDateKey(currentDate));
         currentDate.setDate(currentDate.getDate() + 1);
       }
     });
 
-    console.log("🔧 [DateRangePicker] maintenanceDates:", Array.from(maintenance));
     return maintenance;
   }, [blockedDatesData]);
 
@@ -197,7 +212,7 @@ const DateRangePicker = ({
 
   const generateCalendarForMonth = (monthOffset: number) => {
     const today = new Date();
-    const year = 2026;
+    const year = today.getFullYear();
     const month = monthOffset;
 
     const firstDay = new Date(year, month, 1);
@@ -254,7 +269,7 @@ const DateRangePicker = ({
   };
 
   const getMonthName = (monthOffset: number) => {
-    const date = new Date(2026, monthOffset, 1);
+    const date = new Date(new Date().getFullYear(), monthOffset, 1);
     return date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
   };
 
