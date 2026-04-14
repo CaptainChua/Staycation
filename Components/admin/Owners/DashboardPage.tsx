@@ -43,23 +43,16 @@ export type Haven = {
 interface Booking {
   id: string;
   booking_id: string;
-  user_id?: string;
-  room_name: string;
-  check_in_date: string;
-  check_out_date: string;
-  check_in_time: string;
-  check_out_time: string;
-  adults: number;
-  children: number;
-  infants: number;
-  status:
-    | "pending"
-    | "approved"
-    | "rejected"
-    | "confirmed"
-    | "checked-in"
-    | "completed"
-    | "cancelled";
+  user_id?: string | null;
+  room_name?: string | null;
+  check_in_date?: string | null;
+  check_out_date?: string | null;
+  check_in_time?: string | null;
+  check_out_time?: string | null;
+  adults?: number | null;
+  children?: number | null;
+  infants?: number | null;
+  status?: string | null;
   rejection_reason?: string;
   created_at: string;
   updated_at: string;
@@ -180,7 +173,7 @@ const DashboardPage = ({
   };
 
   // Calculate owner-specific metrics
-  const bookings: Booking[] = bookingsData || [];
+  const bookings: Booking[] = (bookingsData || []) as unknown as Booking[];
   const reviews: Review[] = reviewsData?.data || [];
 
   // Get real revenue from analytics
@@ -194,18 +187,18 @@ const DashboardPage = ({
   // Calculate today's tasks
   const today = new Date().toDateString();
   const todayTasks = {
-    checkins: bookings.filter((booking) => 
-      new Date(booking.check_in_date).toDateString() === today
+    checkins: bookings.filter((booking) =>
+      booking.check_in_date ? new Date(booking.check_in_date).toDateString() === today : false
     ).length,
-    checkouts: bookings.filter((booking) => 
-      new Date(booking.check_out_date).toDateString() === today
+    checkouts: bookings.filter((booking) =>
+      booking.check_out_date ? new Date(booking.check_out_date).toDateString() === today : false
     ).length,
     pending: bookings.filter((booking) => booking.status === 'pending').length
   };
 
   // Calculate occupancy rate
   const activeBookings = bookings.filter((booking) =>
-    ['approved', 'confirmed', 'checked-in'].includes(booking.status)
+    ['approved', 'confirmed', 'checked-in'].includes(booking.status ?? "")
   ).length;
   const occupancyRate = havens.length > 0 ? Math.round((activeBookings / (havens.length * 30)) * 100) : 0;
 
@@ -254,8 +247,8 @@ const DashboardPage = ({
       }),
       action: 'New Booking',
       customer: guestName,
-      details: `${booking.room_name} - ${booking.adults + booking.children} guests`,
-      status: booking.status,
+      details: `${booking.room_name} - ${(booking.adults ?? 0) + (booking.children ?? 0)} guests`,
+      status: booking.status || "",
       statusColor: booking.status === 'confirmed' ? 'bg-green-100 text-green-700' : 
                     booking.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 
                     'bg-gray-100 text-gray-700',
