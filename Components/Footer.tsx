@@ -255,7 +255,7 @@ const Footer = () => {
             {/* Right: Links */}
             <div className="flex flex-wrap justify-center lg:justify-end items-center gap-y-2 text-xs sm:text-sm order-3">
               {[
-                { href: '/sitemap', label: 'Sitemap' },
+                { href: '/site-map', label: 'Sitemap' },
                 { href: '/accessibility', label: 'Accessibility' },
                 { href: '/terms-of-service', label: 'Terms' },
                 { href: '/privacy-policy', label: 'Privacy' }
