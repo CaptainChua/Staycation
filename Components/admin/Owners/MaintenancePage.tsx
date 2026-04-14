@@ -1,5 +1,6 @@
 'use client';
 
+import OwnerPageHeader from "./OwnerPageHeader";
 import { AlertCircle, CheckCircle, Clock, TrendingUp, TrendingDown, ListTodo, Search, Filter, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Eye, Trash2, UserPlus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useGetReportsQuery, useUpdateReportAssignmentMutation } from "@/redux/api/reportApi";
@@ -311,12 +312,10 @@ const MaintenancePage = () => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-700">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Maintenance Management</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Track and manage maintenance requests across all properties
-        </p>
-      </div>
+      <OwnerPageHeader
+        title="Maintenance Management"
+        description="Track and manage maintenance requests across all properties"
+      />
 
       {/* Skeleton Loading State */}
       {isLoading && (

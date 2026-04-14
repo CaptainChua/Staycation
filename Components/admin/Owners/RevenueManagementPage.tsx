@@ -1,124 +1,211 @@
 'use client';
 
-import { TrendingUp, Calendar, Edit2, Tag, DollarSign, Plus, X } from "lucide-react";
+import OwnerPageHeader from "./OwnerPageHeader";
+import { TrendingUp, Calendar, Edit2, Tag, DollarSign, Plus, TrendingDown, ArrowUpRight, ArrowDownRight, AlertCircle } from "lucide-react";
 import { useState, useEffect } from "react";
-import { createPortal } from "react-dom";
-import CreateDiscountModal from "../Csr/Modals/CreateDiscountModal";
-import EditDiscountModal from "../Csr/Modals/EditDiscountModal";
-import PricingManagementModal from "./Modals/PricingManagementModal";
-import { getDiscounts, DiscountRecord } from "@/app/admin/csr/actions";
-import { useGetAllAdminRoomsQuery } from "@/redux/api/roomApi";
+import type { AnalyticsSummary, RevenueByRoom, MonthlyRevenue } from "@/backend/controller/analyticsController";
 
 const RevenueManagementPage = () => {
-  const [activeTab, setActiveTab] = useState("pricing");
-  const [isDiscountModalOpen, setIsDiscountModalOpen] = useState(false);
-  const [isEditDiscountModalOpen, setIsEditDiscountModalOpen] = useState(false);
-  const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
-  const [isEditPricingModalOpen, setIsEditPricingModalOpen] = useState(false);
-  const [discounts, setDiscounts] = useState<DiscountRecord[]>([]);
-  const [loadingDiscounts, setLoadingDiscounts] = useState(true);
-  const [selectedDiscount, setSelectedDiscount] = useState<DiscountRecord | null>(null);
-  const [selectedPricingRule, setSelectedPricingRule] = useState<any>(null);
-
-  // Get havens/rooms for pricing display
-  const { data: havensData, refetch: refetchHavens } = useGetAllAdminRoomsQuery({});
-  const havens = havensData || [];
-
-  // Load discounts from database
-  const loadDiscounts = async () => {
-    try {
-      setLoadingDiscounts(true);
-      const discountsData = await getDiscounts();
-      setDiscounts(discountsData);
-    } catch (error) {
-      console.error("Failed to load discounts:", error);
-      setDiscounts([]);
-    } finally {
-      setLoadingDiscounts(false);
-    }
-  };
+  const [activeTab, setActiveTab] = useState("analytics");
+  const [summary, setSummary] = useState<AnalyticsSummary | null>(null);
+  const [revenueByHaven, setRevenueByHaven] = useState<RevenueByRoom[]>([]);
+  const [monthlyRevenue, setMonthlyRevenue] = useState<MonthlyRevenue[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    loadDiscounts();
+    const fetchRevenueData = async () => {
+      try {
+        setError(null);
+        const [summaryRes, revenueRes, monthlyRes] = await Promise.all([
+          fetch('/api/admin/analytics/summary?period=30'),
+          fetch('/api/admin/analytics/revenue-by-room?period=30'),
+          fetch('/api/admin/analytics/monthly-revenue?months=6'),
+        ]);
+
+        const summaryData = await summaryRes.json();
+        const revenueData = await revenueRes.json();
+        const monthlyData = await monthlyRes.json();
+
+        if (summaryData.success && summaryData.data) {
+          setSummary(summaryData.data);
+        }
+        if (revenueData.success && revenueData.data) {
+          setRevenueByHaven(revenueData.data);
+        }
+        if (monthlyData.success && monthlyData.data) {
+          setMonthlyRevenue(monthlyData.data);
+        }
+      } catch (err) {
+        console.error('Error fetching revenue data:', err);
+        setError('Failed to load revenue data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchRevenueData();
+    const interval = setInterval(fetchRevenueData, 30000);
+    return () => clearInterval(interval);
   }, []);
 
-  // Transform haven data into pricing rules for display
-  const pricingRules = havens.map((haven: any) => ({
-    ...haven,
-    id: haven.uuid_id,
-    name: haven.haven_name,
-    haven: haven.tower ? `Tower ${haven.tower}` : "All Havens",
-    six_hour_price: haven.six_hour_rate,
-    ten_hour_price: haven.ten_hour_rate,
-    weekday_price: haven.weekday_rate,
-    weekend_price: haven.weekend_rate,
-    checkInTime: haven.twenty_one_hour_check_in || "14:00",
-    active: true
-  }));
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat("en-PH", {
+      style: "currency",
+      currency: "PHP",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount || 0);
+  };
 
-  // Revenue stats matching Bookings page card colors
+  const pricingRules = [
+    { id: 1, name: "6-Hour Rate", haven: "All Havens", price: 3000, checkInTime: "09:00", active: true },
+    { id: 2, name: "10-Hour Rate", haven: "All Havens", price: 5000, checkInTime: "09:00", active: true },
+    { id: 3, name: "Weekday Rate (21 hours)", haven: "All Havens", price: 7000, checkInTime: "14:00", active: true },
+    { id: 4, name: "Weekend Rate (21 hours)", haven: "All Havens", price: 9000, checkInTime: "14:00", active: true },
+  ];
+
+  const discounts = [
+    { id: 1, code: "WELCOME10", description: "10% off for new guests", discount: "10%", validUntil: "2024-12-31", used: 45, active: true },
+    { id: 2, code: "SUMMER2024", description: "Summer special discount", discount: "15%", validUntil: "2024-06-30", used: 89, active: false },
+    { id: 3, code: "LONGSTAY", description: "Discount for 5+ nights", discount: "20%", validUntil: "2024-12-31", used: 23, active: true },
+  ];
+
+  const maxRevenue = Math.max(...monthlyRevenue.map(m => m.revenue), 1);
+  
   const revenueStats = [
-    { label: "This Month", value: "₱145,000", change: "+12.5%", color: "bg-blue-500", icon: DollarSign },
-    { label: "Last Month", value: "₱128,000", change: "+8.3%", color: "bg-green-500", icon: Calendar },
-    { label: "Average Daily", value: "₱4,833", change: "+5.2%", color: "bg-yellow-500", icon: TrendingUp },
-    { label: "Projected (End of Month)", value: "₱185,000", change: "+15.7%", color: "bg-indigo-500", icon: DollarSign },
+    {
+      label: "Total Revenue (30 days)",
+      value: formatCurrency(summary?.total_revenue || 0),
+      change: `${summary?.revenue_change?.toFixed(1) || 0}%`,
+      color: "bg-blue-500",
+      icon: DollarSign,
+      positive: (summary?.revenue_change || 0) >= 0
+    },
+    {
+      label: "Total Bookings (30 days)",
+      value: summary?.total_bookings || 0,
+      change: `${summary?.bookings_change?.toFixed(1) || 0}%`,
+      color: "bg-green-500",
+      icon: Calendar,
+      positive: (summary?.bookings_change || 0) >= 0
+    },
+    {
+      label: "Occupancy Rate",
+      value: `${(summary?.occupancy_rate || 0).toFixed(1)}%`,
+      change: `${summary?.occupancy_change?.toFixed(1) || 0}%`,
+      color: "bg-yellow-500",
+      icon: TrendingUp,
+      positive: (summary?.occupancy_change || 0) >= 0
+    },
+    {
+      label: "New Guests (30 days)",
+      value: summary?.new_guests || 0,
+      change: `${summary?.guests_change?.toFixed(1) || 0}%`,
+      color: "bg-purple-500",
+      icon: Tag,
+      positive: (summary?.guests_change || 0) >= 0
+    },
   ];
 
   return (
     <div className="space-y-6 animate-in fade-in duration-700">
-      {/* Header - Matching Bookings page style */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Revenue Management</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage pricing, discounts, and revenue optimization</p>
-        </div>
-      </div>
+      <OwnerPageHeader
+        title="Revenue Management"
+        description="Real-time revenue data, pricing rules, and optimization"
+      />
 
-      {/* Revenue Stats Cards - Matching Bookings page style */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {revenueStats.map((stat, index) => {
-          const IconComponent = stat.icon;
-          return (
-            <div
-              key={index}
-              className={`${stat.color} text-white rounded-lg p-6 shadow hover:shadow-lg transition-all`}
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm opacity-90">{stat.label}</p>
-                  <p className="text-3xl font-bold mt-2">{stat.value}</p>
-                  <div className="flex items-center gap-1 text-xs font-semibold mt-2 text-green-100">
-                    <TrendingUp className="w-3 h-3" />
-                    {stat.change}
+      {error && (
+        <div className="bg-red-100 text-red-800 p-4 rounded-lg flex items-center gap-2">
+          <AlertCircle className="w-5 h-5" />
+          {error}
+        </div>
+      )}
+
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="bg-gray-200 dark:bg-gray-700 rounded-lg h-40 animate-pulse" />
+          ))}
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {revenueStats.map((stat, index) => {
+              const IconComponent = stat.icon;
+              const ChangeIcon = stat.positive ? ArrowUpRight : ArrowDownRight;
+              return (
+                <div
+                  key={index}
+                  className={`${stat.color} text-white rounded-lg p-6 shadow hover:shadow-lg transition-all`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm opacity-90">{stat.label}</p>
+                      <p className="text-3xl font-bold mt-2">{stat.value}</p>
+                      <div className={`flex items-center gap-1 text-xs font-semibold mt-2 ${stat.positive ? 'text-green-100' : 'text-red-100'}`}>
+                        <ChangeIcon className="w-3 h-3" />
+                        {stat.change}
+                      </div>
+                    </div>
+                    <IconComponent className="w-12 h-12 opacity-50" />
                   </div>
                 </div>
-                <IconComponent className="w-12 h-12 opacity-50" />
+              );
+            })}
+          </div>
+
+          {revenueByHaven.length > 0 && (
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden p-6">
+              <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">Revenue by Haven</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {revenueByHaven.map((haven, index) => (
+                  <div key={index} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">{haven.room_name}</p>
+                    <p className="text-2xl font-bold text-gray-800 dark:text-gray-100 mt-2">{formatCurrency(haven.revenue)}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">{haven.bookings} bookings</p>
+                  </div>
+                ))}
               </div>
             </div>
-          );
-        })}
-      </div>
+          )}
 
-      {/* Tabs - Matching Bookings page card style */}
+          {monthlyRevenue.length > 0 && (
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden p-6">
+              <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">Monthly Revenue Trend</h2>
+              <div className="space-y-3">
+                {monthlyRevenue.map((month, index) => {
+                  const widthPercent = (month.revenue / maxRevenue) * 100;
+                  return (
+                    <div key={index} className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600 dark:text-gray-400 w-20">{month.month}</span>
+                      <div className="flex-1 mx-4 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                        <div
+                          className="bg-gradient-to-r from-brand-primary to-brand-primaryDark h-2 rounded-full transition-all"
+                          style={{ width: `${widthPercent}%` }}
+                        />
+                      </div>
+                      <span className="text-sm font-bold text-gray-800 dark:text-gray-100 ml-2 w-24 text-right">{formatCurrency(month.revenue)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden">
         <div className="flex border-b-2 border-gray-200 dark:border-gray-600">
           <button
             onClick={() => setActiveTab("pricing")}
-            className={`flex-1 px-6 py-4 font-semibold transition-all ${
-              activeTab === "pricing"
-                ? "bg-gradient-to-r from-brand-primary to-brand-primaryDark text-white"
-                : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-            }`}
+            className={activeTab === "pricing" ? "flex-1 px-6 py-4 font-semibold bg-gradient-to-r from-brand-primary to-brand-primaryDark text-white transition-all" : "flex-1 px-6 py-4 font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"}
           >
             Pricing Rules
           </button>
           <button
             onClick={() => setActiveTab("discounts")}
-            className={`flex-1 px-6 py-4 font-semibold transition-all ${
-              activeTab === "discounts"
-                ? "bg-gradient-to-r from-brand-primary to-brand-primaryDark text-white"
-                : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-            }`}
+            className={activeTab === "discounts" ? "flex-1 px-6 py-4 font-semibold bg-gradient-to-r from-brand-primary to-brand-primaryDark text-white transition-all" : "flex-1 px-6 py-4 font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"}
           >
             Discounts & Promos
           </button>
@@ -129,91 +216,36 @@ const RevenueManagementPage = () => {
             <div className="space-y-4">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">Pricing Rules</h2>
-                <button onClick={() => setIsPricingModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-brand-primary to-brand-primaryDark text-white rounded-lg hover:shadow-lg hover:scale-[1.02] transition-all font-semibold shadow-[rgba(186,144,60,0.35)]">
+                <button className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-brand-primary to-brand-primaryDark text-white rounded-lg hover:shadow-lg hover:scale-105 transition-all font-semibold">
                   <Plus className="w-5 h-5" />
                   Add Pricing Rule
                 </button>
               </div>
 
-              {/* Pricing Rules Table - Matching Bookings page table style */}
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 border-b-2 border-gray-200 dark:border-gray-600">
                       <tr>
-                        <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                          Haven Name
-                        </th>
-                        <th className="text-right py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                          6-Hour Rate
-                        </th>
-                        <th className="text-right py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                          10-Hour Rate
-                        </th>
-                        <th className="text-right py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                          Weekday (21h)
-                        </th>
-                        <th className="text-right py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                          Weekend (21h)
-                        </th>
-                        <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                          Actions
-                        </th>
+                        <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200">Rule Name</th>
+                        <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200">Haven</th>
+                        <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200">Check-In Time</th>
+                        <th className="text-right py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200">Price</th>
+                        <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200">Status</th>
+                        <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {pricingRules.length > 0 ? (
-                        pricingRules.map((rule) => (
-                          <tr
-                            key={rule.id}
-                            className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                          >
-                            <td className="py-4 px-4">
-                              <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{rule.name}</span>
-                            </td>
-                            <td className="py-4 px-4 text-right">
-                              <span className="text-sm font-bold text-gray-800 dark:text-gray-100 whitespace-nowrap">
-                                ₱{rule.six_hour_price?.toLocaleString() || '0'}
-                              </span>
-                            </td>
-                            <td className="py-4 px-4 text-right">
-                              <span className="text-sm font-bold text-gray-800 dark:text-gray-100 whitespace-nowrap">
-                                ₱{rule.ten_hour_price?.toLocaleString() || '0'}
-                              </span>
-                            </td>
-                            <td className="py-4 px-4 text-right">
-                              <span className="text-sm font-bold text-gray-800 dark:text-gray-100 whitespace-nowrap">
-                                ₱{rule.weekday_price?.toLocaleString() || '0'}
-                              </span>
-                            </td>
-                            <td className="py-4 px-4 text-right">
-                              <span className="text-sm font-bold text-gray-800 dark:text-gray-100 whitespace-nowrap">
-                                ₱{rule.weekend_price?.toLocaleString() || '0'}
-                              </span>
-                            </td>
-                            <td className="py-4 px-4">
-                              <div className="flex items-center justify-center gap-1">
-                                <button 
-                                  onClick={() => {
-                                    setSelectedPricingRule(rule);
-                                    setIsEditPricingModalOpen(true);
-                                  }}
-                                  className="p-2 text-brand-primary hover:bg-brand-primaryLighter rounded-lg transition-colors" 
-                                  title="Edit"
-                                >
-                                  <Edit2 className="w-4 h-4" />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))
-                      ) : (
-                        <tr>
-                          <td colSpan={6} className="py-8 px-4 text-center text-gray-500 dark:text-gray-400">
-                            No pricing rules available. Create your first haven to add pricing.
-                          </td>
+                      {pricingRules.map((rule) => (
+                        <tr key={rule.id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                          <td className="py-4 px-4"><span className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{rule.name}</span></td>
+                          <td className="py-4 px-4"><span className="text-sm text-gray-700 dark:text-gray-200">{rule.haven}</span></td>
+                          <td className="py-4 px-4"><span className="text-sm text-gray-700 dark:text-gray-200">{rule.checkInTime}</span></td>
+                          <td className="py-4 px-4 text-right"><span className="text-sm font-bold text-gray-800 dark:text-gray-100">₱{rule.price.toLocaleString()}</span></td>
+                          <td className="py-4 px-4 text-center"><span className={rule.active ? "inline-block px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200" : "inline-block px-3 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300"}>{rule.active ? "Active" : "Inactive"}</span></td>
+                          <td className="py-4 px-4"><div className="flex items-center justify-center gap-1"><button className="p-2 text-brand-primary hover:bg-brand-primaryLighter rounded-lg transition-colors"><Edit2 className="w-4 h-4" /></button></div></td>
                         </tr>
-                      )}
+                      ))}
                     </tbody>
                   </table>
                 </div>
@@ -225,109 +257,38 @@ const RevenueManagementPage = () => {
             <div className="space-y-4">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">Discounts & Promotions</h2>
-                <button onClick={() => setIsDiscountModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-brand-primary to-brand-primaryDark text-white rounded-lg hover:shadow-lg hover:scale-[1.02] transition-all font-semibold shadow-[rgba(186,144,60,0.35)]">
+                <button className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-brand-primary to-brand-primaryDark text-white rounded-lg hover:shadow-lg hover:scale-105 transition-all font-semibold">
                   <Plus className="w-5 h-5" />
                   Add Discount Code
                 </button>
               </div>
 
-              {/* Discounts Table - Matching Bookings page table style */}
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 border-b-2 border-gray-200 dark:border-gray-600">
                       <tr>
-                        <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                          Code
-                        </th>
-                        <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                          Description
-                        </th>
-                        <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                          Valid Until
-                        </th>
-                        <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                          Used
-                        </th>
-                        <th className="text-right py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                          Discount
-                        </th>
-                        <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                          Status
-                        </th>
-                        <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                          Actions
-                        </th>
+                        <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200">Code</th>
+                        <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200">Description</th>
+                        <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200">Valid Until</th>
+                        <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200">Used</th>
+                        <th className="text-right py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200">Discount</th>
+                        <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200">Status</th>
+                        <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {loadingDiscounts ? (
-                        <tr>
-                          <td colSpan={7} className="py-8 px-4 text-center text-gray-500 dark:text-gray-400">
-                            Loading discounts...
-                          </td>
+                      {discounts.map((discount) => (
+                        <tr key={discount.id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                          <td className="py-4 px-4"><div className="flex items-center gap-2"><Tag className="w-4 h-4 text-brand-primary" /><span className="font-bold text-gray-800 dark:text-gray-100 text-sm">{discount.code}</span></div></td>
+                          <td className="py-4 px-4"><span className="text-sm text-gray-700 dark:text-gray-200">{discount.description}</span></td>
+                          <td className="py-4 px-4"><div className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-300"><Calendar className="w-3 h-3" /><span>{new Date(discount.validUntil).toLocaleDateString()}</span></div></td>
+                          <td className="py-4 px-4 text-center"><span className="text-sm font-semibold text-gray-700 dark:text-gray-200">{discount.used} times</span></td>
+                          <td className="py-4 px-4 text-right"><span className="text-sm font-bold text-gray-800 dark:text-gray-100">{discount.discount}</span></td>
+                          <td className="py-4 px-4 text-center"><span className={discount.active ? "inline-block px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200" : "inline-block px-3 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300"}>{discount.active ? "Active" : "Inactive"}</span></td>
+                          <td className="py-4 px-4"><div className="flex items-center justify-center gap-1"><button className="p-2 text-brand-primary hover:bg-brand-primaryLighter rounded-lg transition-colors"><Edit2 className="w-4 h-4" /></button></div></td>
                         </tr>
-                      ) : discounts.length > 0 ? (
-                        discounts.map((discount) => (
-                          <tr
-                            key={discount.id}
-                            className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                          >
-                            <td className="py-4 px-4">
-                              <div className="flex items-center gap-2">
-                                <Tag className="w-4 h-4 text-brand-primary flex-shrink-0" />
-                                <span className="font-bold text-gray-800 dark:text-gray-100 text-sm">{discount.discount_code}</span>
-                              </div>
-                            </td>
-                            <td className="py-4 px-4">
-                              <span className="text-sm text-gray-700 dark:text-gray-200">{discount.description || 'N/A'}</span>
-                            </td>
-                            <td className="py-4 px-4">
-                              <div className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-300">
-                                <Calendar className="w-3 h-3 flex-shrink-0" />
-                                <span>{new Date(discount.end_date).toLocaleDateString()}</span>
-                              </div>
-                            </td>
-                            <td className="py-4 px-4 text-center">
-                              <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
-                                {discount.used_count || 0} times
-                              </span>
-                            </td>
-                            <td className="py-4 px-4 text-right">
-                              <span className="text-sm font-bold text-gray-800 dark:text-gray-100 whitespace-nowrap">
-                                {discount.formatted_value}
-                              </span>
-                            </td>
-                            <td className="py-4 px-4 text-center">
-                              <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${
-                                discount.active ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200' : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
-                              }`}>
-                                {discount.active ? "Active" : "Inactive"}
-                              </span>
-                            </td>
-                            <td className="py-4 px-4">
-                              <div className="flex items-center justify-center gap-1">
-                                <button 
-                                  onClick={() => {
-                                    setSelectedDiscount(discount);
-                                    setIsEditDiscountModalOpen(true);
-                                  }}
-                                  className="p-2 text-brand-primary hover:bg-brand-primaryLighter rounded-lg transition-colors" 
-                                  title="Edit"
-                                >
-                                  <Edit2 className="w-4 h-4" />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))
-                      ) : (
-                        <tr>
-                          <td colSpan={7} className="py-8 px-4 text-center text-gray-500 dark:text-gray-400">
-                            No discounts available. Create your first discount to get started.
-                          </td>
-                        </tr>
-                      )}
+                      ))}
                     </tbody>
                   </table>
                 </div>
@@ -336,143 +297,6 @@ const RevenueManagementPage = () => {
           )}
         </div>
       </div>
-
-      {/* Modals */}
-      <CreateDiscountModal
-        isOpen={isDiscountModalOpen}
-        onClose={() => setIsDiscountModalOpen(false)}
-        onSuccess={() => {
-          setIsDiscountModalOpen(false);
-          loadDiscounts();
-        }}
-      />
-
-      <EditDiscountModal
-        isOpen={isEditDiscountModalOpen}
-        onClose={() => {
-          setIsEditDiscountModalOpen(false);
-          setSelectedDiscount(null);
-        }}
-        discount={selectedDiscount}
-        onSuccess={() => {
-          setIsEditDiscountModalOpen(false);
-          setSelectedDiscount(null);
-          loadDiscounts();
-        }}
-      />
-
-      {/* Pricing Rule Modal - Add Mode */}
-      {isPricingModalOpen && typeof document !== 'undefined' && createPortal(
-        <>
-          <div
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9998]"
-            onClick={() => setIsPricingModalOpen(false)}
-            role="button"
-            tabIndex={-1}
-            aria-label="Close modal"
-          />
-          <div className="fixed inset-0 flex items-center justify-center px-4 py-8 z-[9999] pointer-events-none">
-            <div
-              className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl dark:shadow-gray-900/50 w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden pointer-events-auto"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-brand-primary rounded-lg">
-                    <DollarSign className="w-5 h-5 text-white" />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                      Add Pricing Rule
-                    </h2>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      Configure rates for a new property
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setIsPricingModalOpen(false)}
-                  className="p-2 rounded-full hover:bg-white/70 dark:hover:bg-gray-700 transition-colors"
-                >
-                  <X className="w-6 h-6 text-gray-600 dark:text-gray-300" />
-                </button>
-              </div>
-
-              <div className="flex-1 overflow-y-auto px-8 py-6">
-                <PricingManagementModal
-                  onSave={() => {
-                    setIsPricingModalOpen(false);
-                    refetchHavens();
-                  }}
-                  havens={havens.map((h: any) => ({
-                    id: h.uuid_id,
-                    name: h.haven_name
-                  }))}
-                  isAddMode={true}
-                />
-              </div>
-            </div>
-          </div>
-        </>,
-        document.body
-      )}
-
-      {/* Pricing Rule Modal - Edit Mode */}
-      {isEditPricingModalOpen && selectedPricingRule && typeof document !== 'undefined' && createPortal(
-        <>
-          <div
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9998]"
-            onClick={() => setIsEditPricingModalOpen(false)}
-            role="button"
-            tabIndex={-1}
-            aria-label="Close modal"
-          />
-          <div className="fixed inset-0 flex items-center justify-center px-4 py-8 z-[9999] pointer-events-none">
-            <div
-              className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl dark:shadow-gray-900/50 w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden pointer-events-auto"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-brand-primary rounded-lg">
-                    <DollarSign className="w-5 h-5 text-white" />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                      Edit Pricing Rule
-                    </h2>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      Update rates for {selectedPricingRule.name}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => {
-                    setIsEditPricingModalOpen(false);
-                    setSelectedPricingRule(null);
-                  }}
-                  className="p-2 rounded-full hover:bg-white/70 dark:hover:bg-gray-700 transition-colors"
-                >
-                  <X className="w-6 h-6 text-gray-600 dark:text-gray-300" />
-                </button>
-              </div>
-
-              <div className="flex-1 overflow-y-auto px-8 py-6">
-                <PricingManagementModal
-                  haven={selectedPricingRule}
-                  onSave={() => {
-                    setIsEditPricingModalOpen(false);
-                    setSelectedPricingRule(null);
-                    refetchHavens();
-                  }}
-                  isAddMode={false}
-                />
-              </div>
-            </div>
-          </div>
-        </>,
-        document.body
-      )}
     </div>
   );
 };

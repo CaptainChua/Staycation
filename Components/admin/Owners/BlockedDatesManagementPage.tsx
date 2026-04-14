@@ -1,5 +1,6 @@
 "use client";
 
+import OwnerPageHeader from "./OwnerPageHeader";
 import {
   Plus,
   Trash2,
@@ -216,13 +217,10 @@ const BlockedDatesManagementPage = () => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-700 overflow-hidden h-full flex flex-col">
-      {/* Header - matching CSR design exactly */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 flex-shrink-0 border border-gray-200 dark:border-gray-700 rounded-lg p-6 bg-white dark:bg-gray-800 shadow dark:shadow-gray-900">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Blocked Dates Management</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage blocked dates for your havens to prevent bookings on specific dates</p>
-        </div>
-      </div>
+      <OwnerPageHeader
+        title="Blocked Dates Management"
+        description="Manage blocked dates for your havens to prevent bookings on specific dates"
+      />
 
       {/* Error State */}
       {blockedDatesError && (
