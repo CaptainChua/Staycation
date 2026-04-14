@@ -13,6 +13,19 @@ export interface BlockedDate {
   floor?: string;
 }
 
+async function hasBlockedDateStatusColumn(): Promise<boolean> {
+  const columnCheckQuery = `
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_name = 'blocked_dates'
+      AND column_name = 'status'
+    LIMIT 1
+  `;
+
+  const columnCheckResult = await pool.query(columnCheckQuery);
+  return columnCheckResult.rows.length > 0;
+}
+
 // Get all blocked dates with optional filtering
 export async function getAllBlockedDates(req: NextRequest): Promise<NextResponse> {
   try {
@@ -35,10 +48,13 @@ export async function getAllBlockedDates(req: NextRequest): Promise<NextResponse
       paramCount++;
     }
 
-    // Only return active blocked dates
-    conditions.push(`bd.status = $${paramCount}`);
-    values.push("active");
-    paramCount++;
+    // Only filter by status if the column exists in this database schema
+    const statusColumnExists = await hasBlockedDateStatusColumn();
+    if (statusColumnExists) {
+      conditions.push(`bd.status = $${paramCount}`);
+      values.push("active");
+      paramCount++;
+    }
 
     if (conditions.length > 0) {
       query += " WHERE " + conditions.join(" AND ");
@@ -129,19 +145,25 @@ export async function createBlockedDate(req: NextRequest): Promise<NextResponse>
     const actualFromDate = fromDateObj <= toDateObj ? from_date : to_date;
     const actualToDate = fromDateObj <= toDateObj ? to_date : from_date;
 
-    const query = `
-      INSERT INTO blocked_dates (haven_id, from_date, to_date, reason, status, created_at)
-      VALUES ($1, $2, $3, $4, $5, NOW())
-      RETURNING *
-    `;
+    const statusColumnExists = await hasBlockedDateStatusColumn();
 
-    const result = await pool.query(query, [
-      haven_id,
-      actualFromDate,
-      actualToDate,
-      reason || null,
-      status || "active",
-    ]);
+    const query = statusColumnExists
+      ? `
+        INSERT INTO blocked_dates (haven_id, from_date, to_date, reason, status, created_at)
+        VALUES ($1, $2, $3, $4, $5, NOW())
+        RETURNING *
+      `
+      : `
+        INSERT INTO blocked_dates (haven_id, from_date, to_date, reason, created_at)
+        VALUES ($1, $2, $3, $4, NOW())
+        RETURNING *
+      `;
+
+    const values = statusColumnExists
+      ? [haven_id, actualFromDate, actualToDate, reason || null, status || "active"]
+      : [haven_id, actualFromDate, actualToDate, reason || null];
+
+    const result = await pool.query(query, values);
 
     console.log("Blocked date created:", result.rows[0]);
 
@@ -180,25 +202,34 @@ export async function updateBlockedDate(req: NextRequest): Promise<NextResponse>
     const actualFromDate = fromDateObj <= toDateObj ? from_date : to_date;
     const actualToDate = fromDateObj <= toDateObj ? to_date : from_date;
 
-    const query = `
-      UPDATE blocked_dates
-      SET haven_id = COALESCE($2, haven_id),
-          from_date = COALESCE($3, from_date),
-          to_date = COALESCE($4, to_date),
-          reason = $5,
-          status = COALESCE($6, status)
-      WHERE id = $1
-      RETURNING *
-    `;
+    const statusColumnExists = await hasBlockedDateStatusColumn();
 
-    const result = await pool.query(query, [
-      id,
-      haven_id,
-      actualFromDate,
-      actualToDate,
-      reason || null,
-      status || null,
-    ]);
+    const query = statusColumnExists
+      ? `
+        UPDATE blocked_dates
+        SET haven_id = COALESCE($2, haven_id),
+            from_date = COALESCE($3, from_date),
+            to_date = COALESCE($4, to_date),
+            reason = $5,
+            status = COALESCE($6, status)
+        WHERE id = $1
+        RETURNING *
+      `
+      : `
+        UPDATE blocked_dates
+        SET haven_id = COALESCE($2, haven_id),
+            from_date = COALESCE($3, from_date),
+            to_date = COALESCE($4, to_date),
+            reason = $5
+        WHERE id = $1
+        RETURNING *
+      `;
+
+    const values = statusColumnExists
+      ? [id, haven_id, actualFromDate, actualToDate, reason || null, status || null]
+      : [id, haven_id, actualFromDate, actualToDate, reason || null];
+
+    const result = await pool.query(query, values);
 
     if (result.rows.length === 0) {
       return NextResponse.json(

@@ -25,6 +25,8 @@ export interface BlockedDateResponse {
   message?: string;
 }
 
+const BLOCKED_DATES_ENDPOINT = "/admin/blocked-dates";
+
 export const blockedDatesApi = createApi({
   reducerPath: "blockedDatesApi",
   baseQuery: fetchBaseQuery({ baseUrl: "/api" }),
@@ -33,16 +35,23 @@ export const blockedDatesApi = createApi({
     // Get all blocked dates
     getBlockedDates: builder.query<BlockedDatesResponse, { haven_id?: string }>({
       query: (params) => ({
-        url: "/admin/blocked-dates",
+        url: BLOCKED_DATES_ENDPOINT,
         params,
       }),
+      transformResponse: (response: BlockedDatesResponse) => {
+        return {
+          success: response?.success ?? true,
+          data: Array.isArray(response?.data) ? response.data : [],
+          count: typeof response?.count === "number" ? response.count : 0,
+        };
+      },
       providesTags: ['BlockedDate'],
     }),
 
     // Get blocked date by ID
     getBlockedDateById: builder.query<BlockedDateResponse, string>({
       query: (id) => ({
-        url: `/admin/blocked-dates/${id}`,
+        url: `${BLOCKED_DATES_ENDPOINT}/${id}`,
       }),
       providesTags: ['BlockedDate'],
     }),
@@ -50,7 +59,7 @@ export const blockedDatesApi = createApi({
     // Create blocked date
     createBlockedDate: builder.mutation<BlockedDateResponse, Partial<BlockedDate>>({
       query: (body) => ({
-        url: "/admin/blocked-dates",
+        url: BLOCKED_DATES_ENDPOINT,
         method: "POST",
         body,
       }),
@@ -60,7 +69,7 @@ export const blockedDatesApi = createApi({
     // Update blocked date
     updateBlockedDate: builder.mutation<BlockedDateResponse, Partial<BlockedDate>>({
       query: (body) => ({
-        url: "/admin/blocked-dates",
+        url: BLOCKED_DATES_ENDPOINT,
         method: "PUT",
         body,
       }),
@@ -70,7 +79,7 @@ export const blockedDatesApi = createApi({
     // Delete blocked date
     deleteBlockedDate: builder.mutation<BlockedDateResponse, string>({
       query: (id) => ({
-        url: "/admin/blocked-dates",
+        url: BLOCKED_DATES_ENDPOINT,
         method: "DELETE",
         params: { id },
       }),

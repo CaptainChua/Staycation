@@ -1,5 +1,6 @@
 "use client";
 
+import OwnerPageHeader from "./OwnerPageHeader";
 import {
   Trash2,
   Search,
@@ -304,14 +305,10 @@ const UserManagementPage = () => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-700">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
-          User Management
-        </h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Manage all registered users and their roles
-        </p>
-      </div>
+      <OwnerPageHeader
+        title="User Management"
+        description="Manage all registered users and their roles"
+      />
 
       {/* Loading State */}
       {isLoadingUsers && (

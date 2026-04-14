@@ -1,5 +1,6 @@
 "use client";
 
+import OwnerPageHeader from "./OwnerPageHeader";
 import React, { useState, useMemo } from "react";
 import {
   useGetPartnersQuery,
@@ -272,13 +273,10 @@ const PartnerManagementPage = () => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-700 overflow-hidden h-full flex flex-col">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 flex-shrink-0 border border-gray-200 dark:border-gray-700 rounded-lg p-6 bg-white dark:bg-gray-800 shadow dark:shadow-gray-900">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Partner Management</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage partners and their services</p>
-        </div>
-      </div>
+      <OwnerPageHeader
+        title="Partner Management"
+        description="Manage partners and their services"
+      />
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 flex-shrink-0">

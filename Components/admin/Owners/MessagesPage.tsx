@@ -1,5 +1,6 @@
 "use client";
 
+import OwnerPageHeader from "./OwnerPageHeader";
 import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import {
@@ -346,14 +347,11 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
 
   if (showSkeletonConversations) {
     return (
-      <div className="space-y-6 animate-in fade-in duration-700">
-        <div className="flex items-center justify-between mb-4">
-          <div className="space-y-2">
-            <Skeleton className="h-7 w-48 rounded" />
-            <Skeleton className="h-4 w-64 rounded" />
-          </div>
-          <Skeleton className="h-10 w-10 rounded-full" />
-        </div>
+      <div className="space-y-4 animate-in fade-in duration-700">
+        <OwnerPageHeader
+          title="Messages"
+          description="Review and respond to guest and internal chat updates."
+        />
 
         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
           <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr]">
@@ -412,13 +410,11 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
   }
 
   return (
-      <div className="animate-in fade-in duration-700">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Messages</h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400">Review and respond to guest and internal chat updates.</p>
-          </div>
-        </div>
+      <div className="animate-in fade-in duration-700 space-y-4">
+        <OwnerPageHeader
+          title="Messages"
+          description="Review and respond to guest and internal chat updates."
+        />
         <div className="bg-white dark:bg-gray-900 rounded-xl sm:rounded-2xl shadow-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
           <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr]">
             <div className={`border-b lg:border-b-0 lg:border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex flex-col h-[calc(100vh-180px)] sm:h-[65vh] lg:h-[72vh] ${showMobileChat ? "hidden lg:flex" : "flex"}`}>

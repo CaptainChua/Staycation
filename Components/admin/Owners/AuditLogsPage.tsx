@@ -1,5 +1,6 @@
 'use client';
 
+import OwnerPageHeader from "./OwnerPageHeader";
 import { Shield, User, Calendar, Activity, Filter, TrendingUp, TrendingDown, Lock, Plus, Pencil, Trash2, FileText } from "lucide-react";
 import { useState } from "react";
 
@@ -157,13 +158,10 @@ const AuditLogsPage = () => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-700">
-      {/* Header - Matching AnalyticsClient style */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Audit Logs</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Monitor all system activities and security events</p>
-        </div>
-      </div>
+      <OwnerPageHeader
+        title="Audit Logs"
+        description="Monitor all system activities and security events"
+      />
 
       {/* Stats Cards - Matching AnalyticsClient style */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

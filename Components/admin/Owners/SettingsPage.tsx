@@ -1,5 +1,6 @@
 'use client';
 
+import OwnerPageHeader from "./OwnerPageHeader";
 import {
   AlertTriangle,
   Bell,
@@ -106,19 +107,10 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 shadow-sm flex flex-col gap-2">
-        <p className="text-xs font-semibold uppercase tracking-[0.3em] text-gray-400">
-          Workspace
-        </p>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-          Settings
-          
-        </h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 max-w-2xl">
-          Configure notification preferences, security controls, and workspace
-          defaults for the Owner dashboard experience.
-        </p>
-      </div>
+      <OwnerPageHeader
+        title="Settings"
+        description="Configure notification preferences, security controls, and workspace defaults for the Owner dashboard experience."
+      />
 
       {/* Overview cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

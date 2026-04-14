@@ -3,9 +3,9 @@
 import { Calendar, DollarSign, Users, Package, CreditCard, Sparkles, XCircle, TrendingUp, TrendingDown, Home, Clock, AlertTriangle, CheckCircle, RefreshCw, Building2, Star, BarChart3, Target, UserCheck } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { useGetRoomBookingsQuery } from "@/redux/api/bookingsApi";
+import OwnerPageHeader from "./OwnerPageHeader";
+import { useGetBookingsQuery } from "@/redux/api/bookingsApi";
 import { useGetHavensQuery } from "@/redux/api/roomApi";
-import { useGetBookingPaymentsQuery } from "@/redux/api/bookingPaymentsApi";
 import { useGetReviewsQuery } from "@/redux/api/reviewsApi";
 
 // Export Haven type for use in other components
@@ -134,20 +134,45 @@ const DashboardPage = ({
   const { data: session } = useSession();
   const userId = (session?.user as any)?.id;
   const [refreshing, setRefreshing] = useState(false);
+  const [analyticsData, setAnalyticsData] = useState<any>(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
   
-  // Fetch real data from APIs
-  const havenIdFromProps = havens && havens.length > 0 ? havens[0].uuid_id : undefined;
-  const { data: bookingsData, isLoading: bookingsLoading, refetch: refetchBookings } = useGetRoomBookingsQuery(havenIdFromProps, { skip: !havenIdFromProps });
-  const { data: paymentsData, isLoading: paymentsLoading, refetch: refetchPayments } = useGetBookingPaymentsQuery();
+  // Fetch ALL bookings across all havens
+  const { data: bookingsData = [], isLoading: bookingsLoading, refetch: refetchBookings } = useGetBookingsQuery({}, {
+    pollingInterval: 5000,
+    skipPollingIfUnfocused: true,
+    refetchOnFocus: true,
+    refetchOnReconnect: true,
+  });
   const { data: reviewsData, isLoading: reviewsLoading, refetch: refetchReviews } = useGetReviewsQuery();
+
+  // Fetch analytics data for real revenue
+  const fetchAnalyticsData = async () => {
+    try {
+      setAnalyticsLoading(true);
+      const res = await fetch('/api/admin/analytics/summary?period=30');
+      const data = await res.json();
+      if (data.success) {
+        setAnalyticsData(data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching analytics:', error);
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAnalyticsData();
+  }, []);
 
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
       await Promise.all([
         refetchBookings(),
-        refetchPayments(),
-        refetchReviews()
+        refetchReviews(),
+        fetchAnalyticsData()
       ]);
     } finally {
       setRefreshing(false);
@@ -155,14 +180,11 @@ const DashboardPage = ({
   };
 
   // Calculate owner-specific metrics
-  const bookings: Booking[] = bookingsData?.data || [];
-  const payments = paymentsData || [];
+  const bookings: Booking[] = bookingsData || [];
   const reviews: Review[] = reviewsData?.data || [];
 
-  // Calculate revenue from approved payments
-  const totalRevenue = payments
-    .filter((payment: any) => payment.payment_status === 'approved')
-    .reduce((sum: number, payment: any) => sum + (Number(payment.total_amount) || 0), 0);
+  // Get real revenue from analytics
+  const totalRevenue = Number(analyticsData?.total_revenue || 0);
 
   // Calculate average rating
   const averageRating = reviews.length > 0 
@@ -191,10 +213,10 @@ const DashboardPage = ({
   const kpiData: KPICard[] = [
     {
       title: "Total Revenue",
-      value: `₱${totalRevenue.toLocaleString()}`,
+      value: `₱${Number(totalRevenue).toLocaleString('en-US', { maximumFractionDigits: 0 })}`,
       Icon: DollarSign,
       color: "bg-green-500",
-      loading: paymentsLoading
+      loading: analyticsLoading
     },
     {
       title: "Active Bookings",
@@ -244,21 +266,21 @@ const DashboardPage = ({
 
   return (
     <div className="space-y-6 animate-in fade-in duration-700 overflow-hidden h-full flex flex-col">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 flex-shrink-0 border border-gray-200 dark:border-gray-700 rounded-lg p-6 bg-white dark:bg-gray-800 shadow dark:shadow-gray-900">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Owner Dashboard</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Monitor your property performance and guest satisfaction</p>
-        </div>
-        <button
-          onClick={handleRefresh}
-          disabled={refreshing}
-          className="p-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          title="Refresh Data"
-        >
-          <RefreshCw className={`w-4 h-4 text-gray-600 dark:text-gray-300 ${refreshing ? 'animate-spin' : ''}`} />
-        </button>
-      </div>
+      <OwnerPageHeader
+        title="Owner Dashboard"
+        description="Monitor your property performance and guest satisfaction"
+        actions={
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="p-2 bg-brand-primary hover:bg-brand-primaryDark text-white rounded-lg shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Refresh Data"
+            type="button"
+          >
+            <RefreshCw className={`w-4 h-4 text-white ${refreshing ? "animate-spin" : ""}`} />
+          </button>
+        }
+      />
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 flex-shrink-0">

@@ -1,5 +1,6 @@
 "use client";
 
+import OwnerPageHeader from "./OwnerPageHeader";
 import { useState, useMemo } from "react";
 import { 
   Edit, 
@@ -184,19 +185,20 @@ const ViewAllUnits = ({ onAddUnitClick, hideHeader = false }: ViewAllUnitsProps)
     <div className="space-y-6 animate-in fade-in duration-700 overflow-hidden h-full flex flex-col">
       {/* Header */}
       {!hideHeader && (
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 flex-shrink-0 border border-gray-200 dark:border-gray-700 rounded-lg p-6 bg-white dark:bg-gray-800 shadow dark:shadow-gray-900">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">All Haven Units</h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage your property units, rates, and availability</p>
-          </div>
-          <button
-            onClick={onAddUnitClick}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-brand-primary to-brand-primaryDark text-white rounded-lg hover:shadow-lg hover:scale-[1.02] transition-all font-semibold shadow-[rgba(186,144,60,0.35)]"
-          >
-            <Plus className="w-5 h-5" />
-            Add Haven
-          </button>
-        </div>
+        <OwnerPageHeader
+          title="All Haven Units"
+          description="Manage your property units, rates, and availability"
+          actions={
+            <button
+              onClick={onAddUnitClick}
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-brand-primary to-brand-primaryDark text-white rounded-lg hover:shadow-lg hover:scale-[1.02] transition-all font-semibold shadow-[rgba(186,144,60,0.35)]"
+              type="button"
+            >
+              <Plus className="w-5 h-5" />
+              Add Haven
+            </button>
+          }
+        />
       )}
 
       {/* Controls: Search, Filter, Show Entries */}

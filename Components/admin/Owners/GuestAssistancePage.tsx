@@ -1,6 +1,7 @@
 
 "use client";
 
+import OwnerPageHeader from "./OwnerPageHeader";
 import { useState, useMemo, useEffect} from "react";
 import {
   Calendar,
@@ -340,18 +341,10 @@ const stats = useMemo(() => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-700">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
-            Guest Assistance & Booking Approvals
-          </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Manage booking requests, approve reservations, and assist guests
-          </p>
-        </div>
-        {/* No "New Booking" button — keep as-is */}
-      </div>
+      <OwnerPageHeader
+        title="Guest Assistance & Booking Approvals"
+        description="Manage booking requests, approve reservations, and assist guests"
+      />
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
