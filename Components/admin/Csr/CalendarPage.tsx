@@ -128,7 +128,7 @@ function EventDetailsModal({ isOpen, onClose, booking, duration }: EventModalPro
           {/* Status Badge */}
           <div className="flex justify-between items-center">
             <span className="text-sm text-gray-500 dark:text-gray-400">Status</span>
-            <span className={`px-3 py-1 rounded-full text-xs font-bold capitalize ${getStatusColor(booking.status)}`}>
+            <span className={`px-3 py-1 rounded-full text-xs font-bold capitalize ${getStatusColor(booking.status || "")}`}>
               {booking.status}
             </span>
           </div>
@@ -413,7 +413,7 @@ export default function CalendarPage() {
   // Get unique statuses for filter
   const statusOptions = useMemo(() => {
     const statuses = new Set(bookings.map((b) => b.status?.toLowerCase()));
-    return Array.from(statuses).filter(Boolean);
+    return Array.from(statuses).filter((s): s is string => !!s);
   }, [bookings]);
 
   // Initialize month/year display when component mounts

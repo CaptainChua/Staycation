@@ -180,8 +180,8 @@ const AmenitiesModal = ({
       maxWidth="max-w-4xl"
       mode={mode}
       onBack={onBack}
-      saveLabel={mode === 'step' ? (isLastStep ? "Finish & Save" : "Next") : "Save Changes"}
-      backLabel={mode === 'step' ? "Back" : "Cancel"}
+      saveLabel="Save Changes"
+      backLabel="Cancel"
     >
       {gridContent}
     </SubModalWrapper>

@@ -59,6 +59,7 @@
     "resend": "^6.6.0"
   },
   "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20.19.31",
     "@types/pg": "^8.15.6",

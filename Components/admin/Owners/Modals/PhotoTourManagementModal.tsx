@@ -281,8 +281,8 @@ const PhotoTourManagementModal = ({
       maxWidth="max-w-6xl"
       mode={mode}
       onBack={onBack}
-      saveLabel={mode === 'step' ? (isLastStep ? "Finish & Save" : "Next") : "Save Changes"}
-      backLabel={mode === 'step' ? "Back" : "Cancel"}
+      saveLabel="Save Changes"
+      backLabel="Cancel"
     >
       {content}
     </SubModalWrapper>

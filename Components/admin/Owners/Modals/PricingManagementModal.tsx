@@ -23,7 +23,9 @@ interface PricingData {
 
 interface Haven {
   id: string;
+  uuid_id?: string;
   name: string;
+  haven_name?: string;
   six_hour_price?: number;
   ten_hour_price?: number;
   weekday_price?: number;
@@ -70,7 +72,7 @@ const PricingManagementModal = ({
   useEffect(() => {
     if (haven && !isAddMode) {
       try {
-        const havenId = haven.id || haven.uuid_id;
+        const havenId = haven.id || haven.uuid_id || "";
         setSelectedHaven(havenId);
         setFormData({
           six_hour_rate: (haven.six_hour_price || haven.six_hour_rate || "").toString(),

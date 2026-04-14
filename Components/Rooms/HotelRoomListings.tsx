@@ -74,6 +74,12 @@ interface Haven {
   floor?: string;
   photo_tours?: Array<{ category: string; image_url?: string; url?: string }>;
   youtube_url?: string;
+  six_hour_check_in?: string;
+  six_hour_check_out?: string;
+  ten_hour_check_in?: string;
+  ten_hour_check_out?: string;
+  twenty_one_hour_check_in?: string;
+  twenty_one_hour_check_out?: string;
 }
 
 interface HotelRoomListingsProps {
