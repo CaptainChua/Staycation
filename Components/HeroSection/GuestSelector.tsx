@@ -12,6 +12,7 @@ interface Guests {
 interface GuestSelectorProps {
   guests: Guests;
   onGuestChange: (type: keyof Guests, value: number) => void;
+  compact?: boolean;
 }
 
 const GuestSelector = ({ guests, onGuestChange }: GuestSelectorProps) => {

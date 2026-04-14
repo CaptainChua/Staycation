@@ -29,7 +29,7 @@ interface BookingRow {
   check_out_date?: string;
   check_out_time?: string;
   status?: "pending" | "approved" | "rejected" | "confirmed" | "checked-in" | "completed" | "cancelled";
-  cleaning_status?: "pending" | "in-progress" | "cleaned" | "inspected";
+  cleaning_status?: "pending" | "in-progress" | "cleaned" | "inspected" | "assigned";
   assigned_cleaner_id?: string | null;
   cleaning_time_in?: string | null;
   cleaning_time_out?: string | null;

@@ -43,21 +43,21 @@ export type Haven = {
 interface Booking {
   id: string;
   booking_id: string;
-  check_in_date: string;
-  check_out_date: string;
-  check_in_time: string;
-  check_out_time: string;
-  status: string;
-  room_name: string;
-  guest_first_name: string;
-  guest_last_name: string;
-  guest_email: string;
-  guest_phone: string;
-  adults: number;
-  children: number;
-  infants: number;
-  total_amount: number;
-  down_payment: number;
+  check_in_date?: string | null;
+  check_out_date?: string | null;
+  check_in_time?: string | null;
+  check_out_time?: string | null;
+  status?: string | null;
+  room_name?: string | null;
+  guest_first_name?: string | null;
+  guest_last_name?: string | null;
+  guest_email?: string | null;
+  guest_phone?: string | null;
+  adults?: number | null;
+  children?: number | null;
+  infants?: number | null;
+  total_amount?: number | null;
+  down_payment?: number | null;
 }
 
 interface CalendarEvent {
@@ -181,7 +181,7 @@ function EventDetailsModal({ isOpen, onClose, booking, duration }: EventModalPro
           {/* Status Badge */}
           <div className="flex justify-between items-center">
             <span className="text-sm text-gray-500 dark:text-gray-400">Status</span>
-            <span className={`px-3 py-1 rounded-full text-xs font-bold capitalize ${getStatusColor(booking.status)}`}>
+            <span className={`px-3 py-1 rounded-full text-xs font-bold capitalize ${getStatusColor(booking.status || "")}`}>
               {booking.status}
             </span>
           </div>
@@ -372,16 +372,16 @@ const CalendarPage = ({ havens }: CalendarPageProps) => {
 
     // Filter out bookings without valid dates
     bookingsToUse = bookingsToUse.filter(
-      (booking: Booking) => booking.check_in_date && booking.check_out_date
+      (booking) => booking.check_in_date && booking.check_out_date
     );
 
     if (filterStatus !== "all") {
       bookingsToUse = bookingsToUse.filter(
-        (booking: Booking) => booking.status?.toLowerCase() === filterStatus.toLowerCase()
+        (booking) => booking.status?.toLowerCase() === filterStatus.toLowerCase()
       );
     }
 
-    return bookingsToUse.map((booking: Booking) => {
+    return bookingsToUse.map((booking) => {
       const colors = getEventColor(booking.status || "");
       const checkInDate = booking.check_in_date as string;
       const checkOutDate = booking.check_out_date as string;
@@ -474,8 +474,8 @@ const CalendarPage = ({ havens }: CalendarPageProps) => {
 
   // Get unique statuses for filter
   const statusOptions = useMemo(() => {
-    const statuses = new Set(filteredBookings.map((b: Booking) => b.status?.toLowerCase()));
-    return Array.from(statuses).filter(Boolean);
+    const statuses = new Set(filteredBookings.map((b) => b.status?.toLowerCase()));
+    return Array.from(statuses).filter((s): s is string => !!s);
   }, [filteredBookings]);
 
   // Initialize month/year display when component mounts

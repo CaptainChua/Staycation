@@ -103,6 +103,7 @@ export default function RejectBookingModal({ booking, bookings, onClose, onRejec
   }, [isMounted, onClose]);
 
   if (!isMounted) return null;
+  if (!isBulk && !booking) return null;
 
   const selectedBookings = bookings || (booking ? [booking] : []);
   const guestName = isBulk ? "Multiple Bookings" : (booking ? `${booking.guest_first_name || ''} ${booking.guest_last_name || ''}`.trim() || 'N/A' : 'N/A');
@@ -231,7 +232,7 @@ export default function RejectBookingModal({ booking, bookings, onClose, onRejec
                 </div>
               </div>
             </div>
-          ) : (
+          ) : !booking ? null : (
             <>
               {/* Booking Information */}
               <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-3">

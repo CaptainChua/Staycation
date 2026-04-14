@@ -463,7 +463,7 @@ export const createBooking = async (
       status: "pending", // Default status for new bookings
       stay_type: body.stay_type,
       payment_method,
-      payment_proof_url: paymentProofUrl,
+      payment_proof_url: paymentProofUrl ?? undefined,
       total_amount,
       down_payment,
       adults,
@@ -1620,6 +1620,8 @@ export const syncCalendarBookings = async (
       status: "synced" | "failed";
       google_event_id?: string;
       error?: string;
+      html_link?: string;
+      calendar_id?: string;
     }[] = [];
 
     // Process one at a time to avoid Google API rate limits
