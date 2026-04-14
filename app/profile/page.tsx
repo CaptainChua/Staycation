@@ -179,7 +179,7 @@ const ProfilePage = () => {
               View your past and upcoming reservations
             </p>
             <Link
-              href="/bookings"
+              href="/my-bookings"
               className="inline-block px-6 py-2 bg-brand-primary/10 hover:bg-brand-primary/20 text-brand-primary font-medium rounded-lg transition-colors"
             >
               View Bookings
