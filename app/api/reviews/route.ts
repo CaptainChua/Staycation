@@ -8,10 +8,28 @@ const pool = new Pool({
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    
+
     // Debug: Log the received data
     console.log('Received review data:', body);
-    
+
+    type ReviewRequest = {
+      booking_id: string;
+      haven_id: string;
+      user_id?: string | null;
+      guest_first_name?: string | null;
+      guest_last_name?: string | null;
+      guest_email?: string | null;
+      comment?: string | null;
+      cleanliness_rating?: number | null;
+      communication_rating?: number | null;
+      checkin_rating?: number | null;
+      accuracy_rating?: number | null;
+      location_rating?: number | null;
+      value_rating?: number | null;
+      is_public?: boolean;
+      is_verified?: boolean;
+    };
+
     const {
       booking_id,
       haven_id,
@@ -28,9 +46,8 @@ export async function POST(request: NextRequest) {
       value_rating,
       is_public,
       is_verified
-    } = body;
+    } = body as ReviewRequest;
 
-    // Validate required fields
     if (!booking_id || !haven_id) {
       return NextResponse.json(
         { success: false, error: 'Missing required fields: booking_id and haven_id' },
@@ -38,33 +55,58 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Fetch guest information from booking_guests table
+    // Fetch guest information from booking table using booking_id and ensure booking completed
     let guestInfo;
     try {
-      console.log('Fetching guest info for booking_id:', booking_id);
+      console.log('Fetching booking info for booking_id:', booking_id);
       const guestQuery = `
-        SELECT first_name, last_name, email, phone
-        FROM booking_guests
-        WHERE booking_id = $1
-        LIMIT 1
+      SELECT
+        b.id AS booking_db_id,
+        b.status,
+        bg.first_name AS first_name,
+        bg.last_name AS last_name,
+        bg.email AS email
+      FROM booking b
+      LEFT JOIN booking_guests bg ON bg.booking_id = b.id
+      WHERE b.booking_id = $1 OR b.id::text = $1
+      LIMIT 1
       `;
       const guestResult = await pool.query(guestQuery, [booking_id]);
-      
-      console.log('Guest query result:', guestResult.rows);
-      
+
+      console.log('Booking query result:', guestResult.rows);
+
       if (guestResult.rows.length === 0) {
         return NextResponse.json(
-          { success: false, error: 'Guest information not found for this booking' },
+          { success: false, error: 'Booking not found for this booking_id' },
           { status: 400 }
         );
       }
-      
+
       guestInfo = guestResult.rows[0];
+
+      // If the booking row exposes a haven_id column, verify it matches the request
+      if (Object.prototype.hasOwnProperty.call(guestInfo, 'haven_id')) {
+        const bookingHaven = (guestInfo as any).haven_id;
+        if (bookingHaven && haven_id && bookingHaven !== haven_id) {
+          return NextResponse.json(
+            { success: false, error: 'Booking does not belong to this haven' },
+            { status: 403 }
+          );
+        }
+      }
+
+      // Reject if booking status is not completed
+      if (guestInfo.status !== 'completed') {
+        return NextResponse.json(
+          { success: false, error: 'Cannot submit review unless booking status is completed' },
+          { status: 400 }
+        );
+      }
     } catch (error) {
-      console.error('Error fetching guest info:', error);
+      console.error('Error fetching booking info:', error);
       console.error('Error details:', error instanceof Error ? error.message : 'Unknown error');
       return NextResponse.json(
-        { success: false, error: `Failed to fetch guest information: ${error instanceof Error ? error.message : 'Unknown error'}` },
+        { success: false, error: `Failed to fetch booking information: ${error instanceof Error ? error.message : 'Unknown error'}` },
         { status: 500 }
       );
     }
@@ -97,6 +139,23 @@ export async function POST(request: NextRequest) {
     }
 
     // Direct SQL insertion instead of using function
+    // Check for duplicate review for this booking
+    try {
+      const dupQuery = `SELECT id FROM reviews WHERE booking_id = $1 LIMIT 1`;
+      const dupResult = await pool.query(dupQuery, [booking_id]);
+      if (dupResult.rows.length > 0) {
+        return NextResponse.json(
+          { success: false, error: 'A review for this booking already exists' },
+          { status: 400 }
+        );
+      }
+    } catch (error) {
+      console.error('Error checking duplicate review:', error);
+      return NextResponse.json(
+        { success: false, error: 'Failed to validate existing reviews' },
+        { status: 500 }
+      );
+    }
     const values = [
       booking_id,
       haven_id,
