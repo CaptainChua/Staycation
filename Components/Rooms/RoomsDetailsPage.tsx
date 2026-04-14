@@ -44,6 +44,7 @@ import {
 } from "@/lib/guest";
 import AmenityBadge from "./AmenityBadge";
 import RoomCard from "./RoomCard";
+import ReviewForm from "./ReviewForm";
 import dynamic from "next/dynamic";
 import Footer from "../Footer";
 import DateRangePicker from "../HeroSection/DateRangePicker";
@@ -1218,6 +1219,10 @@ const RoomsDetailsPage = ({
                           : `Show all ${reviewsData?.total || room.reviews} reviews`}
                       </button>
                     )}
+                    {/* Review submission form */}
+                    <div className="mt-4">
+                      <ReviewForm havenId={room.id} />
+                    </div>
                   </div>
                 )}
               </div>
