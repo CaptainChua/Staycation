@@ -229,8 +229,8 @@ const HavenImagesModal = ({
       maxWidth="max-w-5xl"
       mode={mode}
       onBack={onBack}
-      saveLabel={mode === 'step' ? (isLastStep ? "Finish & Save" : "Next") : "Save Changes"}
-      backLabel={mode === 'step' ? "Back" : "Cancel"}
+      saveLabel="Save Changes"
+      backLabel="Cancel"
     >
       {galleryContent}
     </SubModalWrapper>

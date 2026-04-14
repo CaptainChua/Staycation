@@ -161,7 +161,7 @@ export default function ViewDiscountModal({ isOpen, onClose, discount }: ViewDis
                     Min. Booking Amount
                   </p>
                   <p className="text-gray-900 dark:text-gray-100 font-medium">
-                    {discount.formatted_min || "None"}
+                    {discount.formatted_minimum_amount || "None"}
                   </p>
                 </div>
 

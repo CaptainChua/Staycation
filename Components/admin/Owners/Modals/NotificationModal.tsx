@@ -203,7 +203,7 @@ export default function NotificationModal({ onClose, onViewAll, anchorRef, userI
                 type="button"
                 onClick={async () => {
                   try {
-                    await markAllAsRead(notifications).unwrap();
+                    await markAllAsRead(notifications as Notification[]).unwrap();
                     toast.success('All notifications marked as read');
                     refetch();
                   } catch (error) {

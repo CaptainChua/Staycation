@@ -49,7 +49,7 @@ const TableSkeleton = () => (
 interface PaymentMethod {
   id: string;
   payment_name: string;
-  payment_method: string;
+  payment_method: "credit_card" | "mobile_wallet" | "bank_transfer" | "cash" | "other";
   provider: string;
   account_details: string;
   payment_qr_link?: string;
