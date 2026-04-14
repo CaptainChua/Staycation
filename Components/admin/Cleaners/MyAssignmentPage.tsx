@@ -47,6 +47,8 @@ export default function MyAssignmentPage() {
   const userId = (session?.user as any)?.id;
 
   const { data: allTasks = [], isLoading: isLoadingAssignments } = useGetCleaningTasksQuery(undefined);
+  console.log("User ID:", userId);
+  console.log("Tasks:", allTasks);
 
   const assignments = useMemo(() => {
     if (!userId) return [];
@@ -55,7 +57,7 @@ export default function MyAssignmentPage() {
     return allTasks.filter((t: any) => {
       const assigned = String(t.assigned_cleaner_id ?? "") === String(userId);
       const isToday = String(t.check_out_date ?? "").slice(0, 10) === todayStr;
-      return assigned && isToday;
+      return assigned;
     });
   }, [allTasks, userId]);
 
