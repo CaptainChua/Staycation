@@ -179,9 +179,13 @@ const DashboardPage = ({
   // Get real revenue from analytics
   const totalRevenue = Number(analyticsData?.total_revenue || 0);
 
-  // Calculate average rating
-  const averageRating = reviews.length > 0 
-    ? (reviews.reduce((sum: number, review: any) => sum + (review.overall_rating || 0), 0) / reviews.length).toFixed(1)
+  // Calculate average rating - handle NaN and null values properly
+  const validRatings = reviews
+    .map((review: any) => review.overall_rating)
+    .filter((rating: any) => typeof rating === 'number' && !isNaN(rating));
+  
+  const averageRating = validRatings.length > 0
+    ? (validRatings.reduce((sum: number, rating: number) => sum + rating, 0) / validRatings.length).toFixed(1)
     : '0.0';
 
   // Calculate today's tasks
