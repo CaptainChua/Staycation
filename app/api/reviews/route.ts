@@ -8,8 +8,6 @@ const pool = new Pool({
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-
-    // Debug: Log the received data
     console.log('Received review data:', body);
 
     type ReviewRequest = {
@@ -34,9 +32,6 @@ export async function POST(request: NextRequest) {
       booking_id,
       haven_id,
       user_id,
-      guest_first_name,
-      guest_last_name,
-      guest_email,
       comment,
       cleanliness_rating,
       communication_rating,
@@ -55,24 +50,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Fetch guest information from booking table using booking_id and ensure booking completed
     let guestInfo;
     try {
       console.log('Fetching booking info for booking_id:', booking_id);
       const guestQuery = `
-      SELECT
-        b.id AS booking_db_id,
-        b.status,
-        bg.first_name AS first_name,
-        bg.last_name AS last_name,
-        bg.email AS email
-      FROM booking b
-      LEFT JOIN booking_guests bg ON bg.booking_id = b.id
-      WHERE b.booking_id = $1 OR b.id::text = $1
-      LIMIT 1
+        SELECT
+          b.id AS booking_db_id,
+          b.status,
+          bg.first_name AS first_name,
+          bg.last_name AS last_name,
+          bg.email AS email
+        FROM booking b
+        LEFT JOIN booking_guests bg ON bg.booking_id = b.id
+        WHERE b.booking_id = $1 OR b.id::text = $1
+        LIMIT 1
       `;
       const guestResult = await pool.query(guestQuery, [booking_id]);
-
       console.log('Booking query result:', guestResult.rows);
 
       if (guestResult.rows.length === 0) {
@@ -84,7 +77,6 @@ export async function POST(request: NextRequest) {
 
       guestInfo = guestResult.rows[0];
 
-      // If the booking row exposes a haven_id column, verify it matches the request
       if (Object.prototype.hasOwnProperty.call(guestInfo, 'haven_id')) {
         const bookingHaven = (guestInfo as any).haven_id;
         if (bookingHaven && haven_id && bookingHaven !== haven_id) {
@@ -95,7 +87,6 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Reject if booking status is not completed
       if (guestInfo.status !== 'completed') {
         return NextResponse.json(
           { success: false, error: 'Cannot submit review unless booking status is completed' },
@@ -104,14 +95,12 @@ export async function POST(request: NextRequest) {
       }
     } catch (error) {
       console.error('Error fetching booking info:', error);
-      console.error('Error details:', error instanceof Error ? error.message : 'Unknown error');
       return NextResponse.json(
         { success: false, error: `Failed to fetch booking information: ${error instanceof Error ? error.message : 'Unknown error'}` },
         { status: 500 }
       );
     }
 
-    // Check if at least one rating is provided
     const ratings = [
       cleanliness_rating,
       communication_rating,
@@ -128,7 +117,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate rating values
     for (const rating of ratings) {
       if (rating < 1 || rating > 5) {
         return NextResponse.json(
@@ -138,8 +126,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Direct SQL insertion instead of using function
-    // Check for duplicate review for this booking
     try {
       const dupQuery = `SELECT id FROM reviews WHERE booking_id = $1 LIMIT 1`;
       const dupResult = await pool.query(dupQuery, [booking_id]);
@@ -156,6 +142,7 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
+
     const values = [
       booking_id,
       haven_id,
@@ -174,26 +161,13 @@ export async function POST(request: NextRequest) {
       is_verified !== undefined ? is_verified : false
     ];
 
-    console.log('Inserting review with values:', values);
-
     const insertQuery = `
       INSERT INTO reviews (
-        booking_id,
-        haven_id,
-        user_id,
-        guest_first_name,
-        guest_last_name,
-        guest_email,
-        comment,
-        cleanliness_rating,
-        communication_rating,
-        checkin_rating,
-        accuracy_rating,
-        location_rating,
-        value_rating,
-        is_public,
-        is_verified,
-        status
+        booking_id, haven_id, user_id,
+        guest_first_name, guest_last_name, guest_email,
+        comment, cleanliness_rating, communication_rating,
+        checkin_rating, accuracy_rating, location_rating,
+        value_rating, is_public, is_verified, status
       ) VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 'published'
       )
@@ -202,7 +176,6 @@ export async function POST(request: NextRequest) {
 
     const result = await pool.query(insertQuery, values);
     const insertedReview = result.rows[0];
-    
     console.log('Review inserted successfully:', insertedReview);
 
     return NextResponse.json({
@@ -214,8 +187,6 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Error submitting review:', error);
-    console.error('Error details:', error instanceof Error ? error.message : 'Unknown error');
-    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack available');
     return NextResponse.json(
       { success: false, error: `Internal server error: ${error instanceof Error ? error.message : 'Unknown error'}` },
       { status: 500 }
@@ -230,7 +201,6 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '10');
     const offset = parseInt(searchParams.get('offset') || '0');
 
-    // If no haven_id, get all reviews for the owner
     if (!haven_id) {
       const query = `
         SELECT 
@@ -249,6 +219,8 @@ export async function GET(request: NextRequest) {
           r.overall_rating,
           r.is_verified,
           r.is_featured,
+          r.owner_response,
+          r.owner_response_at,
           r.created_at,
           b.check_in_date,
           b.check_out_date,
@@ -259,16 +231,10 @@ export async function GET(request: NextRequest) {
           AND r.status = 'published'
         ORDER BY r.created_at DESC
       `;
-
       const result = await pool.query(query);
-
-      return NextResponse.json({
-        success: true,
-        data: result.rows
-      });
+      return NextResponse.json({ success: true, data: result.rows });
     }
 
-    // Get reviews for a specific haven
     const query = `
       SELECT 
         r.id,
@@ -286,6 +252,8 @@ export async function GET(request: NextRequest) {
         r.overall_rating,
         r.is_verified,
         r.is_featured,
+        r.owner_response,
+        r.owner_response_at,
         r.created_at,
         b.check_in_date,
         b.check_out_date
@@ -294,23 +262,15 @@ export async function GET(request: NextRequest) {
       WHERE r.haven_id = $1::uuid
         AND r.is_public = true
         AND r.status = 'published'
-      ORDER BY 
-        r.is_featured DESC,
-        r.created_at DESC
+      ORDER BY r.is_featured DESC, r.created_at DESC
       LIMIT $2 OFFSET $3
     `;
-
     const result = await pool.query(query, [haven_id, limit, offset]);
 
-    // Get total count
     const countQuery = `
-      SELECT COUNT(*) as total
-      FROM reviews r
-      WHERE r.haven_id = $1::uuid
-        AND r.is_public = true
-        AND r.status = 'published'
+      SELECT COUNT(*) as total FROM reviews r
+      WHERE r.haven_id = $1::uuid AND r.is_public = true AND r.status = 'published'
     `;
-
     const countResult = await pool.query(countQuery, [haven_id]);
     const totalReviews = parseInt(countResult.rows[0].total);
 
@@ -323,6 +283,48 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('Error fetching reviews:', error);
+    return NextResponse.json(
+      { success: false, error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { review_id, owner_response } = body;
+
+    if (!review_id || !owner_response?.trim()) {
+      return NextResponse.json(
+        { success: false, error: 'Missing review_id or owner_response' },
+        { status: 400 }
+      );
+    }
+
+    const result = await pool.query(
+      `UPDATE reviews 
+       SET owner_response = $1, owner_response_at = NOW()
+       WHERE id = $2
+       RETURNING id, owner_response, owner_response_at`,
+      [owner_response.trim(), review_id]
+    );
+
+    if (result.rows.length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'Review not found' },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: result.rows[0],
+      message: 'Response saved successfully'
+    });
+
+  } catch (error) {
+    console.error('Error saving owner response:', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }
