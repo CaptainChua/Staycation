@@ -42,10 +42,11 @@ export async function fetchAnalyticsSummary(period: string = '30'): Promise<Anal
       COUNT(DISTINCT b.id) as total_bookings,
       COUNT(DISTINCT CASE
         WHEN b.user_id IS NOT NULL THEN b.user_id::text
-        ELSE b.guest_email
+        ELSE bg.email
       END) as new_guests
     FROM ${BOOKING_TABLE} b
     LEFT JOIN booking_payments bp ON b.id = bp.booking_id
+    LEFT JOIN booking_guests bg ON b.id = bg.booking_id
     WHERE b.created_at >= NOW() - INTERVAL '${period} days'
       AND b.status IN ('approved', 'confirmed', 'checked-in', 'completed')
   `;
@@ -60,10 +61,11 @@ export async function fetchAnalyticsSummary(period: string = '30'): Promise<Anal
       COUNT(DISTINCT b.id) as total_bookings,
       COUNT(DISTINCT CASE
         WHEN b.user_id IS NOT NULL THEN b.user_id::text
-        ELSE b.guest_email
+        ELSE bg.email
       END) as new_guests
     FROM ${BOOKING_TABLE} b
     LEFT JOIN booking_payments bp ON b.id = bp.booking_id
+    LEFT JOIN booking_guests bg ON b.id = bg.booking_id
     WHERE b.created_at >= NOW() - INTERVAL '${parseInt(period) * 2} days'
       AND b.created_at < NOW() - INTERVAL '${period} days'
       AND b.status IN ('approved', 'confirmed', 'checked-in', 'completed')
@@ -72,9 +74,11 @@ export async function fetchAnalyticsSummary(period: string = '30'): Promise<Anal
   const occupancyQuery = `
     SELECT
       COUNT(DISTINCT room_name) as total_rooms,
-      SUM(
-        check_out_date::date - check_in_date::date
-      ) as booked_days
+      COALESCE(SUM(CASE
+        WHEN check_out_date IS NOT NULL AND check_in_date IS NOT NULL
+        THEN check_out_date::date - check_in_date::date
+        ELSE 0
+      END), 0) as booked_days
     FROM ${BOOKING_TABLE}
     WHERE created_at >= NOW() - INTERVAL '${period} days'
       AND status IN ('approved', 'confirmed', 'checked-in', 'completed')
@@ -82,9 +86,11 @@ export async function fetchAnalyticsSummary(period: string = '30'): Promise<Anal
 
   const previousOccupancyQuery = `
     SELECT
-      SUM(
-        check_out_date::date - check_in_date::date
-      ) as booked_days
+      COALESCE(SUM(CASE
+        WHEN check_out_date IS NOT NULL AND check_in_date IS NOT NULL
+        THEN check_out_date::date - check_in_date::date
+        ELSE 0
+      END), 0) as booked_days
     FROM ${BOOKING_TABLE}
     WHERE created_at >= NOW() - INTERVAL '${parseInt(period) * 2} days'
       AND created_at < NOW() - INTERVAL '${period} days'
@@ -213,10 +219,11 @@ export const getAnalyticsSummary = async (req: NextRequest): Promise<NextRespons
         COUNT(DISTINCT b.id) as total_bookings,
         COUNT(DISTINCT CASE
           WHEN b.user_id IS NOT NULL THEN b.user_id::text
-          ELSE b.guest_email
+          ELSE bg.email
         END) as new_guests
       FROM ${BOOKING_TABLE} b
       LEFT JOIN booking_payments bp ON b.id = bp.booking_id
+      LEFT JOIN booking_guests bg ON b.id = bg.booking_id
       WHERE b.created_at >= NOW() - INTERVAL '${period} days'
         AND b.status IN ('approved', 'confirmed', 'checked-in', 'completed')
     `;
@@ -232,10 +239,11 @@ export const getAnalyticsSummary = async (req: NextRequest): Promise<NextRespons
         COUNT(DISTINCT b.id) as total_bookings,
         COUNT(DISTINCT CASE
           WHEN b.user_id IS NOT NULL THEN b.user_id::text
-          ELSE b.guest_email
+          ELSE bg.email
         END) as new_guests
       FROM ${BOOKING_TABLE} b
       LEFT JOIN booking_payments bp ON b.id = bp.booking_id
+      LEFT JOIN booking_guests bg ON b.id = bg.booking_id
       WHERE b.created_at >= NOW() - INTERVAL '${parseInt(period) * 2} days'
         AND b.created_at < NOW() - INTERVAL '${period} days'
         AND b.status IN ('approved', 'confirmed', 'checked-in', 'completed')
@@ -246,7 +254,11 @@ export const getAnalyticsSummary = async (req: NextRequest): Promise<NextRespons
       SELECT
         COUNT(DISTINCT room_name) as total_rooms,
         COUNT(*) as total_bookings,
-        SUM(check_out_date::date - check_in_date::date) as booked_days
+        COALESCE(SUM(CASE
+          WHEN check_out_date IS NOT NULL AND check_in_date IS NOT NULL
+          THEN check_out_date::date - check_in_date::date
+          ELSE 0
+        END), 0) as booked_days
       FROM ${BOOKING_TABLE}
       WHERE created_at >= NOW() - INTERVAL '${period} days'
         AND status IN ('approved', 'confirmed', 'checked-in', 'completed')
@@ -287,9 +299,11 @@ export const getAnalyticsSummary = async (req: NextRequest): Promise<NextRespons
     // For occupancy change, compare with previous period
     const previousOccupancyQuery = `
       SELECT
-        SUM(
-          check_out_date::date - check_in_date::date
-        ) as booked_days
+        COALESCE(SUM(CASE
+          WHEN check_out_date IS NOT NULL AND check_in_date IS NOT NULL
+          THEN check_out_date::date - check_in_date::date
+          ELSE 0
+        END), 0) as booked_days
       FROM ${BOOKING_TABLE}
       WHERE created_at >= NOW() - INTERVAL '${parseInt(period) * 2} days'
         AND created_at < NOW() - INTERVAL '${period} days'

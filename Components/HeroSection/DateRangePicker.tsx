@@ -39,9 +39,10 @@ const DateRangePicker = ({
   onDone,
   onReset,
 }: DateRangePickerProps) => {
+  const todayMonthOffset = new Date().getFullYear() * 12 + new Date().getMonth();
   const [isOpen, setIsOpen] = useState(false);
   const [selectingCheckOut, setSelectingCheckOut] = useState(false);
-  const [currentMonthOffset, setCurrentMonthOffset] = useState(1); // Start from February (month 1)
+  const [currentMonthOffset, setCurrentMonthOffset] = useState(todayMonthOffset);
   const [hoveredDate, setHoveredDate] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -140,6 +141,13 @@ const DateRangePicker = ({
     }
   }, [blockedDates, maintenanceDates, havenId]);
 
+  // Reset to current month whenever calendar opens
+  useEffect(() => {
+    if (isOpen) {
+      setCurrentMonthOffset(new Date().getFullYear() * 12 + new Date().getMonth());
+    }
+  }, [isOpen]);
+
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -150,7 +158,6 @@ const DateRangePicker = ({
       }
     };
 
-    // Only add listener when dropdown is open
     if (isOpen) {
       document.addEventListener("mousedown", handleClickOutside);
     }
@@ -211,15 +218,15 @@ const DateRangePicker = ({
   };
 
   const generateCalendarForMonth = (monthOffset: number) => {
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = monthOffset;
+    const year = Math.floor(monthOffset / 12);
+    const month = monthOffset % 12;
 
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
     const daysInMonth = lastDay.getDate();
     const startingDayOfWeek = firstDay.getDay();
 
+    const today = new Date();
     const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     const days = [];
 
@@ -269,12 +276,13 @@ const DateRangePicker = ({
   };
 
   const getMonthName = (monthOffset: number) => {
-    const date = new Date(new Date().getFullYear(), monthOffset, 1);
-    return date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    const year = Math.floor(monthOffset / 12);
+    const month = monthOffset % 12;
+    return new Date(year, month, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
   };
 
-  const canGoBack = currentMonthOffset > 1; // Prevent going back before February
-  const canGoForward = currentMonthOffset < 11;
+  const canGoBack = currentMonthOffset > todayMonthOffset;
+  const canGoForward = currentMonthOffset < todayMonthOffset + 12;
 
   const renderMonth = (monthOffset: number) => {
     const calendarDays = generateCalendarForMonth(monthOffset);
@@ -407,7 +415,7 @@ const DateRangePicker = ({
           <div className="flex-1 min-w-0">
             {renderMonth(currentMonthOffset)}
           </div>
-          {currentMonthOffset < 11 && (
+          {currentMonthOffset < todayMonthOffset + 12 && (
             <div className="flex-1 min-w-0">
               {renderMonth(currentMonthOffset + 1)}
             </div>
@@ -445,7 +453,7 @@ const DateRangePicker = ({
             onCheckOutChange("");
             setSelectingCheckOut(false);
             setHoveredDate(null);
-            setCurrentMonthOffset(1); // Reset to February
+            setCurrentMonthOffset(todayMonthOffset);
             onReset?.(); // Call the optional callback
           }}
           className="flex-1 py-1.5 sm:py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white rounded-lg font-medium hover:border-[#8B4513] transition-all duration-200 text-xs sm:text-sm"
