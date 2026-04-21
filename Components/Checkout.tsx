@@ -785,12 +785,16 @@ const Checkout = () => {
   };
 
   const scrollToError = (fieldName: string) => {
+    // Scroll to top of form so the error banner is visible
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    // Also shake the specific field
     const element = errorRefs.current[fieldName];
     if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      // Add shake animation
-      element.classList.add('animate-shake');
-      setTimeout(() => element.classList.remove('animate-shake'), 500);
+      setTimeout(() => {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        element.classList.add('animate-shake');
+        setTimeout(() => element.classList.remove('animate-shake'), 500);
+      }, 400);
     }
   };
 
@@ -936,6 +940,7 @@ const Checkout = () => {
     // Your existing validation logic...
     if (currentStep === 1) {
       if (validateStep1()) {
+        setErrors({});
         setCompletedSteps(prev => [...prev, 1]);
         setCurrentStep(2);
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -945,6 +950,7 @@ const Checkout = () => {
       }
     } else if (currentStep === 2) {
       if (validateStep2()) {
+        setErrors({});
         setCompletedSteps(prev => [...prev, 2]);
         setCurrentStep(3);
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -953,7 +959,7 @@ const Checkout = () => {
         setIsMobileLoading(false);
       }
     } else if (currentStep === 3) {
-      // No validation needed for add-ons step
+      setErrors({});
       setCompletedSteps(prev => [...prev, 3]);
       setCurrentStep(4);
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1360,6 +1366,20 @@ const Checkout = () => {
             {/* Left Column - Form */}
             <div className="lg:col-span-2">
               <form onSubmit={handleSubmit} className="relative overflow-hidden">
+                {/* Error Summary Banner */}
+                {Object.keys(errors).filter(k => errors[k]).length > 0 && (
+                  <div className="mb-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-xl p-4 flex items-start gap-3">
+                    <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-semibold text-red-800 dark:text-red-300 text-sm">Please fix the following before continuing:</p>
+                      <ul className="mt-1 text-sm text-red-700 dark:text-red-400 list-disc list-inside space-y-0.5">
+                        {Object.values(errors).filter(Boolean).map((err, i) => (
+                          <li key={i}>{err}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                )}
                 {/* STEP 1: Guest Information */}
                 {currentStep === 1 && (
                   <div className="space-y-4 sm:space-y-6 slide-in-from-right">

@@ -121,12 +121,10 @@ export default function CleanersDashboard() {
   const handleLogout = async () => {
     try {
       await signOut({ redirect: false });
-      // Clear any stored data
       if (typeof window !== "undefined") {
         window.localStorage.removeItem(ACTIVE_PAGE_STORAGE_KEY);
       }
-      // Redirect to login or home page
-      router.push("/");
+      router.push("/admin/login");
     } catch (error) {
       console.error("Logout error:", error);
     }
