@@ -462,7 +462,9 @@ export default function ProfilePage({ cleanerData }: ProfilePageProps) {
     },
     {
         label: "Average Rating",
-        value: performanceStats.averageRating?.toFixed(1) || "0.0",
+        value: (typeof performanceStats.averageRating === 'number' && !isNaN(performanceStats.averageRating)) 
+          ? performanceStats.averageRating.toFixed(1) 
+          : "0.0",
         change: performanceStats.ratingChange || "0",
         color: "bg-yellow-500",
         icon: Star,
