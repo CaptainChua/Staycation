@@ -53,7 +53,11 @@ interface ActivityLog {
   profile_image_url?: string;
 }
 
-export default function ActivityLogsPage() {
+interface ActivityLogsPageProps {
+  onBack?: () => void;
+}
+
+export default function ActivityLogsPage({ onBack }: ActivityLogsPageProps) {
   const { data: session } = useSession();
   const userId = (session?.user as any)?.id;
   
@@ -253,9 +257,20 @@ export default function ActivityLogsPage() {
     <div className="space-y-6 animate-in fade-in duration-700 overflow-hidden h-full flex flex-col">
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 flex-shrink-0 border border-gray-200 dark:border-gray-700 rounded-lg p-6 bg-white dark:bg-gray-800 shadow dark:shadow-gray-900">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Activity Logs</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">View your activity history and system actions</p>
+        <div className="flex items-center gap-3">
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="p-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+              title="Go Back"
+            >
+              <ChevronLeft className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+            </button>
+          )}
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Activity Logs</h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">View your activity history and system actions</p>
+          </div>
         </div>
         <button
           onClick={fetchActivityLogs}
