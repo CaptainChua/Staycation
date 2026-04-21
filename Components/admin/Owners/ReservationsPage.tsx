@@ -21,6 +21,7 @@ import Image from "next/image"; // added (used in modal)
 import { useState } from "react";
 import {
   useGetBookingsQuery,
+  useCreateBookingMutation,
   useUpdateBookingStatusMutation,
 } from "@/redux/api/bookingsApi";
 import { Booking, AdditionalGuest } from "@/types/booking";
@@ -42,6 +43,7 @@ const ReservationsPage = () => {
       refetchOnReconnect: true,
     }
   );
+  const [createBooking] = useCreateBookingMutation();
   const [updateBookingStatus] = useUpdateBookingStatusMutation();
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [isNewReservationModalOpen, setIsNewReservationModalOpen] = useState(false);
@@ -312,12 +314,13 @@ const ReservationsPage = () => {
 
   const handleNewReservation = async (formData: any) => {
     try {
-      // Refresh the bookings list after a new reservation is created
-      refetch();
+      await createBooking(formData).unwrap();
+      await refetch();
       toast.success("New reservation created successfully!");
     } catch (error) {
       console.error("Error creating reservation:", error);
       toast.error("Failed to create reservation");
+      throw error;
     }
   };
 
