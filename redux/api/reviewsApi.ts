@@ -37,6 +37,8 @@ export interface Review {
   created_at: string;
   check_in_date?: string;
   check_out_date?: string;
+  owner_response?: string;
+  owner_response_at?: string;
 }
 
 export interface ReviewsResponse {
