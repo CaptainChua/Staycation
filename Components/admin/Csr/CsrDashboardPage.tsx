@@ -927,7 +927,7 @@ export default function CsrDashboard() {
             {page === "discounts" && <DiscountPage />}
             {page === "inventory" && <InventoryPage />}
             {page === "profile" && <ProfilePage user={session?.user as AdminUser} onClose={() => {}} />}
-            {page === "activity-logs" && <ActivityLogsPage />}
+            {page === "activity-logs" && <ActivityLogsPage onBack={() => setPage("dashboard")} />}
             {page === "notifications" && <NotificationPage />}
             {page === "messages" && (
               <MessagePage

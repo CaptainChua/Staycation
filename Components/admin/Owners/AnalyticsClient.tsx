@@ -3,9 +3,9 @@
 import { TrendingUp, TrendingDown, DollarSign, Users, Home, Calendar } from "lucide-react";
 import type { AnalyticsSummary, RevenueByRoom, MonthlyRevenue } from "@/backend/controller/analyticsController";
 import { Line } from 'react-chartjs-2';
-import { Chart, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend } from 'chart.js';
+import { Chart, CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip, Legend } from 'chart.js';
 import type { ScriptableContext } from 'chart.js';
-Chart.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend);
+Chart.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip, Legend);
 
 interface AnalyticsClientProps {
   summary: AnalyticsSummary;

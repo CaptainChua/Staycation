@@ -103,6 +103,7 @@ interface KPICard {
   Icon: any;
   color: string;
   loading?: boolean;
+  subtitle?: string;
 }
 
 interface ActivityItem {
@@ -213,7 +214,8 @@ const DashboardPage = ({
       value: `₱${Number(totalRevenue).toLocaleString('en-US', { maximumFractionDigits: 0 })}`,
       Icon: DollarSign,
       color: "bg-green-500",
-      loading: analyticsLoading
+      loading: analyticsLoading,
+      subtitle: "Last 30 days"
     },
     {
       title: "Active Bookings",
@@ -234,7 +236,8 @@ const DashboardPage = ({
       value: `${occupancyRate}%`,
       Icon: Building2,
       color: "bg-purple-500",
-      loading: bookingsLoading
+      loading: bookingsLoading,
+      subtitle: "Last 30 days"
     }
   ];
 
@@ -298,6 +301,9 @@ const DashboardPage = ({
                       kpi.value
                     )}
                   </div>
+                  {kpi.subtitle && (
+                    <p className="text-xs opacity-70 mt-1">{kpi.subtitle}</p>
+                  )}
                 </div>
                 <IconComponent className="w-12 h-12 opacity-50 flex-shrink-0" />
               </div>
