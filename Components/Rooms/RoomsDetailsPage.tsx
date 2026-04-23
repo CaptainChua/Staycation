@@ -1190,6 +1190,21 @@ const RoomsDetailsPage = ({
                                       </span>
                                     </div>
                                   )}
+                                  {review.owner_response && (
+                                    <div className="mt-3 bg-gray-50 dark:bg-gray-700/50 border-l-4 border-brand-primary rounded-r-lg p-3">
+                                      <p className="text-xs font-semibold text-gray-700 dark:text-gray-200 mb-1">
+                                        Response from Staycation Haven
+                                        {review.owner_response_at && (
+                                          <span className="ml-2 font-normal text-gray-400 dark:text-gray-500">
+                                            · {new Date(review.owner_response_at).toLocaleDateString("en-US", { year: "numeric", month: "long" })}
+                                          </span>
+                                        )}
+                                      </p>
+                                      <p className="text-sm text-gray-600 dark:text-gray-300">
+                                        {review.owner_response}
+                                      </p>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </div>
