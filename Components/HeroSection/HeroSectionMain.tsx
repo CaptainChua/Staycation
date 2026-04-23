@@ -140,6 +140,7 @@ const HeroSectionMain = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [lastScrollY]);
   const handleGuestChange = (type: keyof Guests, value: number) => {
+    if (type === 'infants' && value > 4) return;
     setGuests((prev) => ({
       ...prev,
       [type]: value,
@@ -345,6 +346,7 @@ const HeroSectionMain = () => {
         onClose={() => setIsGuestModalOpen(false)}
         guests={guests}
         onGuestChange={handleGuestChange}
+        maxCapacity={4}
       />
 
       <StayTypeSelectorModal

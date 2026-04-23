@@ -9,9 +9,10 @@ interface GuestCounterProps {
     onIncrement: () => void;
     onDecrement: () => void;
     minValue?: number;
+    isAtMax?: boolean;
 }
 
-const GuestCounter = ({label, description, count, onIncrement, onDecrement, minValue = 0}: GuestCounterProps) => {
+const GuestCounter = ({label, description, count, onIncrement, onDecrement, minValue = 0, isAtMax = false}: GuestCounterProps) => {
   const isMinimum = count <= minValue;
 
   return (
@@ -39,9 +40,12 @@ const GuestCounter = ({label, description, count, onIncrement, onDecrement, minV
             </span>
             <button
                 onClick={onIncrement}
-                className="w-8 h-8 rounded-full border-2 border-orange-400 text-orange-500
-                    hover:bg-gradient-to-r hover:from-yellow-500 hover:to-orange-500 hover:text-white hover:border-transparent
-                    flex items-center justify-center transition-all duration-300 active:scale-95 hover:shadow-md"
+                disabled={isAtMax}
+                className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all duration-300
+                    ${isAtMax
+                        ? 'border-gray-200 dark:border-gray-600 text-gray-300 dark:text-gray-500 cursor-not-allowed'
+                        : 'border-orange-400 text-orange-500 hover:bg-gradient-to-r hover:from-yellow-500 hover:to-orange-500 hover:text-white hover:border-transparent active:scale-95 hover:shadow-md'
+                    }`}
             >
                 <Plus className="w-4 h-4" strokeWidth={2.5}/>
             </button>

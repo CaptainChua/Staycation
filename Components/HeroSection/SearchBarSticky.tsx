@@ -42,6 +42,7 @@ const SearchBarSticky = () => {
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
   const [locationOpen, setLocationOpen] = useState<boolean>(false);
   const [locations, setLocations] = useState<Location[]>([]);
+  const [maxCapacity, setMaxCapacity] = useState<number>(20);
   const [checkInDate, setCheckInDate] = useState<string>("");
   const [checkOutDate, setCheckOutDate] = useState<string>("");
   const [isStayTypeModalOpen, setIsStayTypeModalOpen] = useState<boolean>(false);
@@ -63,6 +64,12 @@ const SearchBarSticky = () => {
         if (res.ok) {
           const response = await res.json();
           const havens = response?.data || [];
+
+          // Compute max capacity across all rooms
+          const capacities = havens.map((h: { capacity?: number }) => h.capacity || 0);
+          if (capacities.length > 0) {
+            setMaxCapacity(Math.max(...capacities));
+          }
 
           // Extract unique haven numbers (e.g., "Haven 1", "Haven 2")
           const havenMap = new Map<string, Location>();
@@ -123,6 +130,7 @@ const SearchBarSticky = () => {
   }, []);
 
   const handleGuestChange = (type: keyof Guests, value: number) => {
+    if (type === 'infants' && value > 4) return;
     setGuests((prev) => ({
       ...prev,
       [type]: value,
@@ -243,6 +251,7 @@ const SearchBarSticky = () => {
                 <GuestSelector
                   guests={guests}
                   onGuestChange={handleGuestChange}
+                  maxCapacity={maxCapacity}
                 />
               </div>
 
@@ -306,6 +315,7 @@ const SearchBarSticky = () => {
                 <GuestSelector
                   guests={guests}
                   onGuestChange={handleGuestChange}
+                  maxCapacity={maxCapacity}
                   compact={true}
                 />
               </div>
@@ -364,6 +374,7 @@ const SearchBarSticky = () => {
                 <GuestSelector
                   guests={guests}
                   onGuestChange={handleGuestChange}
+                  maxCapacity={maxCapacity}
                 />
               </div>
 

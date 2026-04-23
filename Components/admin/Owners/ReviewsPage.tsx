@@ -1,10 +1,11 @@
 'use client';
 
+import { useState } from "react";
 import OwnerPageHeader from "./OwnerPageHeader";
 import { Star, ThumbsUp, MessageSquare, TrendingUp, TrendingDown } from "lucide-react";
 
 const ReviewsPage = () => {
-  const reviews = [
+  const [reviews, setReviews] = useState([
     {
       id: 1,
       guestName: "Juan Dela Cruz",
@@ -45,7 +46,18 @@ const ReviewsPage = () => {
       helpful: 5,
       response: null
     },
-  ];
+  ]);
+  const [respondingTo, setRespondingTo] = useState<number | null>(null);
+  const [responseText, setResponseText] = useState("");
+
+  const handleSubmitResponse = (reviewId: number) => {
+    if (!responseText.trim()) return;
+    setReviews((prev) =>
+      prev.map((r) => r.id === reviewId ? { ...r, response: responseText.trim() } : r)
+    );
+    setRespondingTo(null);
+    setResponseText("");
+  };
 
   // Stats cards matching Analytics page style with colored backgrounds
   const stats = [
@@ -126,8 +138,36 @@ const ReviewsPage = () => {
                     <p className="text-sm font-semibold text-blue-900 dark:text-blue-200 mb-1">Your Response:</p>
                     <p className="text-sm text-blue-800 dark:text-blue-300">{review.response}</p>
                   </div>
+                ) : respondingTo === review.id ? (
+                  <div className="mb-3 space-y-2">
+                    <textarea
+                      value={responseText}
+                      onChange={(e) => setResponseText(e.target.value)}
+                      placeholder="Write your response..."
+                      rows={3}
+                      className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-primary resize-none"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleSubmitResponse(review.id)}
+                        disabled={!responseText.trim()}
+                        className="px-4 py-2 bg-brand-primary text-white rounded-lg hover:bg-brand-primaryDark transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Submit
+                      </button>
+                      <button
+                        onClick={() => { setRespondingTo(null); setResponseText(""); }}
+                        className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
                 ) : (
-                  <button className="px-4 py-2 bg-brand-primary text-white rounded-lg hover:bg-brand-primaryDark transition-colors text-sm mb-3">
+                  <button
+                    onClick={() => { setRespondingTo(review.id); setResponseText(""); }}
+                    className="px-4 py-2 bg-brand-primary text-white rounded-lg hover:bg-brand-primaryDark transition-colors text-sm mb-3"
+                  >
                     Respond to Review
                   </button>
                 )}

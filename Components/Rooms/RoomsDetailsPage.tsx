@@ -416,12 +416,14 @@ const RoomsDetailsPage = ({
         pricePerNight: room.pricePerNight,
         location: room.location,
         tower: room.tower,
+        capacity: room.capacity,
       }),
     );
     router.push("/checkout");
   };
 
   const handleGuestChange = (type: keyof typeof localGuests, value: number) => {
+    if (type === 'infants' && value > 4) return;
     setLocalGuests((prev) => ({
       ...prev,
       [type]: value,
@@ -1307,6 +1309,7 @@ const RoomsDetailsPage = ({
                       <GuestSelector
                         guests={localGuests}
                         onGuestChange={handleGuestChange}
+                        maxCapacity={room.capacity}
                       />
                     </div>
                   </div>
@@ -1506,6 +1509,7 @@ const RoomsDetailsPage = ({
           <GuestSelector
             guests={localGuests}
             onGuestChange={handleGuestChange}
+            maxCapacity={room.capacity}
           />
         </div>
       </div>
