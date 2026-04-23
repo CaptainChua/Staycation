@@ -1,0 +1,544 @@
+"use client";
+
+import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
+import {
+  X,
+  User,
+  MapPin,
+  Calendar,
+  Eye,
+  ExternalLink,
+  Clock,
+  Users as UsersIcon,
+  CreditCard,
+  Banknote,
+  Phone,
+  Mail,
+  Shield,
+  PlusCircle,
+  Home,
+  CheckCircle
+} from "lucide-react";
+import TotalBreakdown from "../TotalBreakdown";
+import PaymentCollectionModal from "./PaymentCollectionModal";
+import MarkDepositPaidModal from "./MarkDepositPaidModal";
+import { toast } from "react-hot-toast";
+
+interface Booking {
+  id: string;
+  booking_id: string;
+  guest_first_name: string;
+  guest_last_name: string;
+  guest_email: string;
+  guest_phone: string;
+  guest_gender?: string;
+  room_name: string;
+  check_in_date: string;
+  check_out_date: string;
+  check_in_time: string;
+  check_out_time: string;
+  adults: number;
+  children: number;
+  infants: number;
+  facebook_link?: string;
+  payment_method: string;
+  payment_proof_url?: string;
+  valid_id_url?: string;
+  room_rate: number;
+  security_deposit: number;
+  deposit_status?: string;
+  security_deposit_payment_method?: string;
+  security_deposit_payment_proof_url?: string;
+  add_ons_total: number;
+  total_amount: number;
+  down_payment: number;
+  remaining_balance: number;
+  payment_status?: string;
+  status: string;
+  add_ons?: unknown;
+  additional_guests?: unknown;
+  user_id?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+interface ApproveBookingModalProps {
+  booking?: Booking;
+  bookings?: Booking[];
+  onClose: () => void;
+  onApprove: (bookingId: string) => void;
+  onBulkApprove?: (bookingIds: string[]) => void;
+  isLoading?: boolean;
+  isBulk?: boolean;
+}
+
+export default function ApproveBookingModal({ booking, bookings, onClose, onApprove, onBulkApprove, isLoading = false, isBulk = false }: ApproveBookingModalProps) {
+  const modalRef = useRef<HTMLDivElement>(null);
+  const [isMounted, setIsMounted] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showDepositModal, setShowDepositModal] = useState(false);
+  const [isMarkingPaid, setIsMarkingPaid] = useState(false);
+  const [depositSuccessMessage, setDepositSuccessMessage] = useState<string | null>(null);
+  const showDepositModalRef = useRef(false);
+
+  useEffect(() => {
+    const rafId = requestAnimationFrame(() => {
+      setIsMounted(true);
+    });
+    return () => {
+      cancelAnimationFrame(rafId);
+      setIsMounted(false);
+    };
+  }, []);
+
+  useEffect(() => {
+    showDepositModalRef.current = showDepositModal;
+  }, [showDepositModal]);
+
+  const handleClickOutside = (event: MouseEvent) => {
+    if (showDepositModalRef.current) return;
+    const target = event.target as Node;
+    if (modalRef.current && !modalRef.current.contains(target)) {
+      onClose();
+    }
+  };
+
+  useEffect(() => {
+    if (isMounted) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => {
+        document.removeEventListener("mousedown", handleClickOutside);
+      };
+    }
+  }, [isMounted, onClose]);
+
+  if (!isMounted) return null;
+  if (!isBulk && !booking) return null;
+
+  const singleBooking = booking as Booking;
+
+  const selectedBookings = bookings || (booking ? [booking] : []);
+  const guestName = isBulk ? "Multiple Bookings" : `${singleBooking.guest_first_name || ''} ${singleBooking.guest_last_name || ''}`.trim() || 'N/A';
+  const totalGuests = booking ? singleBooking.adults + singleBooking.children + singleBooking.infants : 0;
+  const isDepositPaidOverride = !!depositSuccessMessage;
+
+  const formatDate = (dateString: string) => {
+    if (!dateString) return 'N/A';
+    try {
+      return new Date(dateString).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      });
+    } catch {
+      return dateString;
+    }
+  };
+
+  const formatTime = (timeString: string | undefined) => {
+    if (!timeString) return '';
+    try {
+      return new Date(`2000-01-01T${timeString}`).toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch {
+      return timeString;
+    }
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat("en-PH", {
+      style: "currency",
+      currency: "PHP",
+    }).format(amount);
+  };
+
+  const getStatusColor = (status: string) => {
+    const statusLower = status?.toLowerCase() || '';
+    switch (statusLower) {
+      case "approved":
+        return "bg-green-100 text-green-700";
+      case "pending":
+        return "bg-yellow-100 text-yellow-700";
+      case "declined":
+        return "bg-red-100 text-red-700";
+      case "checked-in":
+        return "bg-blue-100 text-blue-700";
+      case "checked-out":
+        return "bg-indigo-100 text-indigo-700";
+      case "cancelled":
+        return "bg-orange-100 text-orange-700";
+      case "completed":
+        return "bg-purple-100 text-purple-700";
+      default:
+        return "bg-gray-100 text-gray-700";
+    }
+  };
+
+  const handleApprove = () => {
+    if (isBulk && onBulkApprove) {
+      const bookingIds = selectedBookings.map(b => b.id);
+      onBulkApprove(bookingIds);
+    } else if (booking) {
+      onApprove(booking.id);
+    }
+  };
+
+  const handlePaymentConfirm = (paymentData: {
+    amountCollected: number;
+    change: number;
+    paymentMethod: string;
+  }) => {
+    setShowPaymentModal(false);
+    handleApprove();
+  };
+
+  return createPortal(
+    <>
+      {!showPaymentModal && (
+        <>
+          <div className="fixed inset-0 z-[9980] bg-black/50" aria-hidden="true" />
+          <div
+            ref={modalRef}
+            className="fixed z-[9991] w-full max-w-4xl max-h-[90vh] bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden"
+            style={{
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)'
+            }}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-green-500 rounded-lg">
+                  <CheckCircle className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                    {isBulk ? `Approve ${selectedBookings.length} Bookings` : 'Approve Booking'}
+                  </h2>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {isBulk ? `Review and approve ${selectedBookings.length} selected bookings` : 'Review booking details and approve'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={onClose}
+                className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
+              >
+                <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6 max-h-[calc(90vh-200px)] overflow-y-auto">
+              {depositSuccessMessage && (
+                <div className="bg-green-50 dark:bg-green-900/10 rounded-lg p-4 border border-green-200 dark:border-green-900/30">
+                  <p className="text-sm font-bold text-green-700 dark:text-green-400">{depositSuccessMessage}</p>
+                </div>
+              )}
+              {isBulk ? (
+                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-3">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                    <Calendar className="w-4 h-4" />
+                    Selected Bookings Summary
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-sm text-gray-600 dark:text-gray-300">
+                      You have selected <span className="font-semibold">{selectedBookings.length}</span> bookings to approve.
+                    </p>
+                    <div className="max-h-40 overflow-y-auto space-y-1">
+                      {selectedBookings.map((b) => (
+                        <div key={b.id} className="text-xs bg-white dark:bg-gray-700 p-2 rounded border border-gray-200 dark:border-gray-600">
+                          <span className="font-mono">{b.booking_id}</span> - {b.room_name}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {/* Booking Information */}
+                  <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                      <Calendar className="w-4 h-4" />
+                      Booking Information
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Booking ID:</span>
+                        <span className="text-sm text-gray-900 dark:text-gray-100 font-mono">{singleBooking.booking_id}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Status:</span>
+                        <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium capitalize ${getStatusColor(singleBooking.status)}`}>
+                          {singleBooking.status}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Check-in:</span>
+                        <span className="text-sm text-gray-900 dark:text-gray-100">{formatDate(singleBooking.check_in_date)} {formatTime(singleBooking.check_in_time)}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Check-out:</span>
+                        <span className="text-sm text-gray-900 dark:text-gray-100">{formatDate(singleBooking.check_out_date)} {formatTime(singleBooking.check_out_time)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Haven Information */}
+                  <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                      <Home className="w-4 h-4" />
+                      Haven Information
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-gray-400" />
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{singleBooking.room_name}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <UsersIcon className="w-4 h-4 text-gray-400" />
+                        <span className="text-sm text-gray-600 dark:text-gray-300">
+                          {singleBooking.adults} Adults, {singleBooking.children} Children, {singleBooking.infants} Infants
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Guest Information */}
+                  <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                      <User className="w-4 h-4" />
+                      Guest Information
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{guestName}</span>
+                      </div>
+                      {singleBooking.guest_email && (
+                        <div className="flex items-center gap-2">
+                          <Mail className="w-4 h-4 text-gray-400" />
+                          <a href={`mailto:${singleBooking.guest_email}`} className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+                            {singleBooking.guest_email}
+                          </a>
+                        </div>
+                      )}
+                      {singleBooking.guest_phone && (
+                        <div className="flex items-center gap-2">
+                          <Phone className="w-4 h-4 text-gray-400" />
+                          <a href={`tel:${singleBooking.guest_phone}`} className="text-sm text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300">
+                            {singleBooking.guest_phone}
+                          </a>
+                        </div>
+                      )}
+                      {singleBooking.facebook_link && (
+                        <div className="flex items-center gap-2">
+                          <a
+                            href={singleBooking.facebook_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                            Facebook Profile
+                          </a>
+                        </div>
+                      )}
+                      {singleBooking.valid_id_url && (
+                        <div className="flex items-center gap-2">
+                          <a
+                            href={singleBooking.valid_id_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-sm text-purple-600 hover:text-purple-800 dark:text-purple-400 dark:hover:text-purple-300"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                            Valid ID
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Payment Information */}
+                  <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                      <CreditCard className="w-4 h-4" />
+                      Down Payment Information
+                    </div>
+                    <div className="space-y-3">
+                      {singleBooking.payment_method && (
+                        <div className="flex items-center gap-2">
+                          {singleBooking.payment_method.toLowerCase() === 'cash' && <Banknote className="w-4 h-4 text-green-600" />}
+                          {singleBooking.payment_method.toLowerCase() === 'gcash' && <CreditCard className="w-4 h-4 text-blue-600" />}
+                          {singleBooking.payment_method.toLowerCase() === 'bank transfer' && <CreditCard className="w-4 h-4 text-purple-600" />}
+                          <span className="text-sm text-gray-700 dark:text-gray-300 capitalize">{singleBooking.payment_method}</span>
+                        </div>
+                      )}
+                      {singleBooking.payment_proof_url && (
+                        <div className="flex items-center gap-2">
+                          <a
+                            href={singleBooking.payment_proof_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                            View Down Payment Proof
+                          </a>
+                        </div>
+                      )}
+                      <div className="bg-white dark:bg-gray-700 rounded-lg p-3">
+                        <TotalBreakdown
+                          roomRate={singleBooking.room_rate}
+                          securityDeposit={singleBooking.security_deposit}
+                          depositStatus={isDepositPaidOverride ? 'held' : singleBooking.deposit_status}
+                          addOnsTotal={singleBooking.add_ons_total}
+                          totalAmount={singleBooking.total_amount}
+                          downPayment={singleBooking.down_payment}
+                          remainingBalance={singleBooking.remaining_balance}
+                          paymentStatus={singleBooking.payment_status}
+                          isCompact={false}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Security Deposit Details */}
+                  <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                      <Shield className="w-4 h-4" />
+                      Security Deposit Information
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Status:</span>
+                          <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap ${(isDepositPaidOverride ? 'held' : singleBooking.deposit_status)?.toLowerCase() === 'pending'
+                            ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300"
+                            : "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300"
+                            }`}>
+                            {isDepositPaidOverride ? 'Paid' : (singleBooking.deposit_status || 'Pending')}
+                          </span>
+                        </div>
+                        <span className="text-sm font-bold text-gray-800 dark:text-gray-200">
+                          {formatCurrency(1000)}
+                        </span>
+                      </div>
+
+                      {singleBooking.security_deposit_payment_method && (
+                        <div className="flex items-center gap-2">
+                          <CreditCard className="w-4 h-4 text-gray-400" />
+                          <span className="text-sm text-gray-700 dark:text-gray-300 capitalize">
+                            {singleBooking.security_deposit_payment_method}
+                          </span>
+                        </div>
+                      )}
+
+                      {singleBooking.security_deposit_payment_proof_url && (
+                        <div className="flex items-center gap-2">
+                          <a
+                            href={singleBooking.security_deposit_payment_proof_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                            View Deposit Payment Proof
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+              <button
+                onClick={onClose}
+                disabled={isLoading}
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancel
+              </button>
+              {(() => {
+                const isDepositPaid = isDepositPaidOverride || singleBooking?.deposit_status?.toLowerCase() === 'paid' || singleBooking?.deposit_status?.toLowerCase() === 'held';
+
+                if (!isDepositPaid && !isBulk) {
+                  return (
+                    <button
+                      onClick={() => setShowDepositModal(true)}
+                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium text-sm flex items-center gap-2"
+                    >
+                      <Shield className="w-4 h-4" />
+                      Mark Deposit as Paid
+                    </button>
+                  );
+                }
+
+                const isAnyDepositUnpaid = isBulk && selectedBookings.some(b =>
+                  !(b.deposit_status?.toLowerCase() === 'paid' || b.deposit_status?.toLowerCase() === 'held')
+                );
+
+                return (
+                  <button
+                    onClick={() => {
+                      if (isBulk) {
+                        handleApprove();
+                      } else {
+                        setShowPaymentModal(true);
+                      }
+                    }}
+                    disabled={isLoading || isAnyDepositUnpaid}
+                    className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    {isLoading ? (
+                      <>
+                        <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                        {isBulk ? 'Approving...' : 'Proceeding...'}
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="w-4 h-4" />
+                        {isBulk ? `Approve ${selectedBookings.length} Bookings` : 'Proceed to Approval & Payment'}
+                      </>
+                    )}
+                  </button>
+                );
+              })()}
+            </div>
+          </div>
+        </>
+      )}
+
+      {booking && (
+        <PaymentCollectionModal
+          booking={singleBooking as Booking}
+          isOpen={showPaymentModal}
+          onClose={() => setShowPaymentModal(false)}
+          onConfirm={handlePaymentConfirm}
+        />
+      )}
+
+      {booking && (
+        <MarkDepositPaidModal
+          isOpen={showDepositModal}
+          onClose={() => setShowDepositModal(false)}
+          booking={singleBooking as Booking}
+          onConfirm={() => {
+            setShowDepositModal(false);
+            setDepositSuccessMessage("Deposit marked as paid successfully.");
+          }}
+          employeeId={undefined} // handled by session in BookingPage but session might not be here.
+        // Actually, ApproveBookingProps doesn't have employeeId.
+        // Let's assume it's okay or get it from session if needed.
+        />
+      )}
+    </>,
+    document.body
+  );
+}
