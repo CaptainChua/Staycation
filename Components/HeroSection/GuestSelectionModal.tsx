@@ -13,9 +13,28 @@ interface GuestSelectorModalProps {
   onClose: () => void;
   guests: Guests;
   onGuestChange: (type: keyof Guests, value: number) => void;
+  maxCapacity?: number;
 }
 
-const GuestSelectorModal = ({ isOpen, onClose, guests, onGuestChange }: GuestSelectorModalProps) => {
+const GuestSelectorModal = ({ isOpen, onClose, guests, onGuestChange, maxCapacity }: GuestSelectorModalProps) => {
+  const totalGuests = guests.adults + guests.children + guests.infants;
+
+  // Weight formula only applies to adults + children (infants are not counted)
+  const weightLimit = maxCapacity ?? 4;
+  const currentWeight = guests.adults + Math.floor(guests.children / 2);
+
+  const canAddAdult =
+    guests.adults < 4 &&
+    currentWeight + 1 <= weightLimit;
+
+  const canAddChild =
+    guests.children < 4 &&
+    guests.adults + Math.floor((guests.children + 1) / 2) <= weightLimit;
+
+  // Infants are independent — max 4, not counted toward capacity weight
+  const canAddInfant = guests.infants < 4;
+
+  const isAtMax = !canAddAdult && !canAddChild && !canAddInfant;
   const [isAnimating, setIsAnimating] = useState(false);
   const [shouldRender, setShouldRender] = useState(false);
 
@@ -84,6 +103,12 @@ const GuestSelectorModal = ({ isOpen, onClose, guests, onGuestChange }: GuestSel
 
           {/* Guest Counters with staggered animation */}
           <div className="px-6 py-2">
+            {maxCapacity !== undefined && (
+              <p className="text-xs text-gray-500 mb-2 pt-2">
+                Adults + Children: <span className="font-semibold text-orange-600">{guests.adults + guests.children} / {weightLimit * 2}</span> · Infants: <span className="font-semibold text-orange-600">{guests.infants} / 4</span>
+                {isAtMax && <span className="ml-1 text-red-500"> · limit reached</span>}
+              </p>
+            )}
             <div
               className={`transform transition-all duration-500 delay-100 ${
                 isAnimating ? 'translate-x-0 opacity-100' : 'translate-x-4 opacity-0'
@@ -94,7 +119,8 @@ const GuestSelectorModal = ({ isOpen, onClose, guests, onGuestChange }: GuestSel
                 description="Ages 18 or above"
                 count={guests.adults}
                 minValue={1}
-                onIncrement={() => onGuestChange('adults', guests.adults + 1)}
+                isAtMax={!canAddAdult}
+                onIncrement={() => canAddAdult && onGuestChange('adults', guests.adults + 1)}
                 onDecrement={() => guests.adults > 1 && onGuestChange('adults', guests.adults - 1)}
               />
             </div>
@@ -108,7 +134,8 @@ const GuestSelectorModal = ({ isOpen, onClose, guests, onGuestChange }: GuestSel
                 description="Ages 4 – 17"
                 count={guests.children}
                 minValue={0}
-                onIncrement={() => onGuestChange('children', guests.children + 1)}
+                isAtMax={!canAddChild}
+                onIncrement={() => canAddChild && onGuestChange('children', guests.children + 1)}
                 onDecrement={() => guests.children > 0 && onGuestChange('children', guests.children - 1)}
               />
             </div>
@@ -122,7 +149,8 @@ const GuestSelectorModal = ({ isOpen, onClose, guests, onGuestChange }: GuestSel
                 description="Ages 0 – 3"
                 count={guests.infants}
                 minValue={0}
-                onIncrement={() => onGuestChange('infants', guests.infants + 1)}
+                isAtMax={!canAddInfant}
+                onIncrement={() => canAddInfant && onGuestChange('infants', guests.infants + 1)}
                 onDecrement={() => guests.infants > 0 && onGuestChange('infants', guests.infants - 1)}
               />
             </div>
