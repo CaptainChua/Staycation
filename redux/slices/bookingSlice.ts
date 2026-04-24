@@ -32,6 +32,7 @@ interface SelectedRoom {
     pricePerNight: string;
     location?: string;
     tower?: string;
+    capacity?: number;
     blocked_dates?: Array<{
         from_date: string;
         to_date: string;

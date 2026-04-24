@@ -12,10 +12,11 @@ interface Guests {
 interface GuestSelectorProps {
   guests: Guests;
   onGuestChange: (type: keyof Guests, value: number) => void;
+  maxCapacity?: number;
   compact?: boolean;
 }
 
-const GuestSelector = ({ guests, onGuestChange }: GuestSelectorProps) => {
+const GuestSelector = ({ guests, onGuestChange, maxCapacity }: GuestSelectorProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -38,6 +39,30 @@ const GuestSelector = ({ guests, onGuestChange }: GuestSelectorProps) => {
 
   const totalGuests = guests.adults + guests.children + guests.infants;
 
+  // maxCapacity is the weight limit: adults + floor((children+infants) / 2) <= maxCapacity
+  // Weight formula only applies to adults + children (infants are not counted)
+  const weightLimit = maxCapacity ?? 4;
+  const currentWeight = guests.adults + Math.floor(guests.children / 2);
+
+  const canAddAdult =
+    guests.adults < 4 &&
+    currentWeight + 1 <= weightLimit;
+
+  const canAddChild =
+    guests.children < 4 &&
+    guests.adults + Math.floor((guests.children + 1) / 2) <= weightLimit;
+
+  // Infants are independent — max 4, not counted toward capacity weight
+  const canAddInfant = guests.infants < 4;
+
+  const canAddMap: Record<keyof Guests, boolean> = {
+    adults: canAddAdult,
+    children: canAddChild,
+    infants: canAddInfant,
+  };
+
+  const isAtMax = !canAddAdult && !canAddChild && !canAddInfant;
+
   const renderGuestCounter = (
     label: string,
     description: string,
@@ -46,6 +71,7 @@ const GuestSelector = ({ guests, onGuestChange }: GuestSelectorProps) => {
   ) => {
     const count = guests[type];
     const isMinimum = count <= minValue;
+    const canAdd = canAddMap[type];
 
     return (
       <div className="flex items-center justify-between py-3 border-b border-gray-100 dark:border-gray-700 last:border-b-0">
@@ -69,8 +95,13 @@ const GuestSelector = ({ guests, onGuestChange }: GuestSelectorProps) => {
             {count}
           </span>
           <button
-            onClick={() => onGuestChange(type, count + 1)}
-            className="w-8 h-8 rounded-full border-2 border-brand-primary text-brand-primary hover:bg-brand-primary hover:text-white flex items-center justify-center transition-all duration-300 active:scale-95"
+            onClick={() => canAdd && onGuestChange(type, count + 1)}
+            disabled={!canAdd}
+            className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all duration-300 active:scale-95 ${
+              !canAdd
+                ? "border-gray-200 dark:border-gray-700 text-gray-300 dark:text-gray-600 cursor-not-allowed"
+                : "border-brand-primary text-brand-primary hover:bg-brand-primary hover:text-white"
+            }`}
           >
             <Plus className="w-4 h-4" strokeWidth={2.5} />
           </button>
@@ -114,6 +145,12 @@ const GuestSelector = ({ guests, onGuestChange }: GuestSelectorProps) => {
 
       {isOpen && (
         <div className="absolute top-full left-0 right-0 sm:left-auto sm:right-0 mt-2 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600 shadow-lg z-50 p-3 sm:p-4 w-full sm:w-80">
+          {maxCapacity !== undefined && (
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+              Adults + Children: <span className="font-semibold text-brand-primary">{guests.adults + guests.children} / {weightLimit * 2}</span> · Infants: <span className="font-semibold text-brand-primary">{guests.infants} / 4</span>
+              {isAtMax && <span className="ml-1 text-red-500"> · limit reached</span>}
+            </p>
+          )}
           {renderGuestCounter("Adults", "Ages 18 or above", "adults", 1)}
           {renderGuestCounter("Children", "Ages 4 – 17", "children", 0)}
           {renderGuestCounter("Infants", "Ages 0 – 3", "infants", 0)}

@@ -174,18 +174,14 @@ const Checkout = () => {
   }, [localGuests]);
 
   // Handler for GuestSelector component
+  const roomCapacity = bookingData.selectedRoom?.capacity ?? 4;
   const handleGuestChange = (type: keyof typeof localGuests, value: number) => {
-    // Check if the new total exceeds maximum (4 for adults + children)
-    if (type === 'adults' || type === 'children') {
-      const newAdults = type === 'adults' ? value : localGuests.adults;
-      const newChildren = type === 'children' ? value : localGuests.children;
-      const newTotal = newAdults + newChildren;
-
-      if (newTotal > 4) {
-        toast.error("Maximum 4 guests allowed (adults + children). Infants are not counted.");
-        return;
-      }
-    }
+    if (type === 'infants' && value > 4) return;
+    const newAdults = type === 'adults' ? value : localGuests.adults;
+    const newChildren = type === 'children' ? value : localGuests.children;
+    // Infants are not counted toward capacity weight
+    const newWeight = newAdults + Math.floor(newChildren / 2);
+    if (newWeight > roomCapacity) return;
 
     setLocalGuests(prev => ({
       ...prev,
@@ -370,10 +366,21 @@ const Checkout = () => {
           setAddOns(parsed.addOns);
         }
         
-        // Restore Step
-        if (parsed.currentStep && typeof parsed.currentStep === 'number' && parsed.currentStep <= 4) {
-           setCurrentStep(parsed.currentStep);
-           setCompletedSteps(Array.from({length: parsed.currentStep - 1}, (_, i) => i + 1));
+        // Only restore step and form data if it's the same room being booked
+        const savedRoomId = parsed.bookingData?.selectedRoom?.id;
+        const currentRoomId = bookingData.selectedRoom?.id;
+        const isSameRoom = savedRoomId && currentRoomId && savedRoomId === currentRoomId;
+
+        if (isSameRoom) {
+          // Restore Step only for the same room
+          if (parsed.currentStep && typeof parsed.currentStep === 'number' && parsed.currentStep <= 4) {
+            setCurrentStep(parsed.currentStep);
+            setCompletedSteps(Array.from({length: parsed.currentStep - 1}, (_, i) => i + 1));
+          }
+        } else {
+          // Different room or new booking — always start from step 1
+          localStorage.removeItem(STORAGE_KEY);
+          return;
         }
 
         // Restore Booking Data (Redux)
@@ -762,18 +769,17 @@ const Checkout = () => {
       const checkOutDate = new Date(checkInDate);
 
       if (selectedStayType === "10 Hours - ₱1,599") {
-        // 10 hours: check-in 2:00 PM, check-out 12:00 AM next day
+        // 10 hours: check-out is same day (next midnight)
         checkOutDate.setDate(checkOutDate.getDate() + 1);
+        const checkOutStr = `${checkOutDate.getFullYear()}-${String(checkOutDate.getMonth() + 1).padStart(2, '0')}-${String(checkOutDate.getDate()).padStart(2, '0')}`;
+        dispatch(setCheckOutDate(checkOutStr));
       } else if (selectedStayType.includes("21 Hours")) {
-        // 21 hours: check-in 2:00 PM, check-out 11:00 AM next day
+        // 21 hours: check-out is always the next day
         checkOutDate.setDate(checkOutDate.getDate() + 1);
-      } else if (selectedStayType === "Multi-Day Stay") {
-        // Multi-day: add 1 day by default
-        checkOutDate.setDate(checkOutDate.getDate() + 1);
+        const checkOutStr = `${checkOutDate.getFullYear()}-${String(checkOutDate.getMonth() + 1).padStart(2, '0')}-${String(checkOutDate.getDate()).padStart(2, '0')}`;
+        dispatch(setCheckOutDate(checkOutStr));
       }
-
-      const checkOutStr = `${checkOutDate.getFullYear()}-${String(checkOutDate.getMonth() + 1).padStart(2, '0')}-${String(checkOutDate.getDate()).padStart(2, '0')}`;
-      dispatch(setCheckOutDate(checkOutStr));
+      // Multi-Day Stay uses custom dates picked by the user — never auto-override
     }
   };
 
@@ -1090,6 +1096,9 @@ const Checkout = () => {
             `You will receive a confirmation email once the admin approves your booking.`,
             { duration: 4000 }
           );
+
+          // Clear saved checkout progress so next booking starts fresh
+          localStorage.removeItem(STORAGE_KEY);
 
           // Wait a bit before redirecting to let user see the message
           setTimeout(() => {
@@ -2030,6 +2039,7 @@ const Checkout = () => {
                         <GuestSelector
                           guests={localGuests}
                           onGuestChange={handleGuestChange}
+                          maxCapacity={roomCapacity}
                         />
                       </div>
 
@@ -2083,7 +2093,7 @@ const Checkout = () => {
                         <div ref={(el) => { errorRefs.current.checkInTime = el; }}>
                           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Check-in Time *
-                            {bookingData.checkInDate && <span className="text-xs text-gray-500 dark:text-gray-400 font-normal ml-2">({bookingData.checkInDate})</span>}
+                            {bookingData.checkInDate && <span className="text-xs text-gray-500 dark:text-gray-400 font-normal ml-2">({new Date(bookingData.checkInDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })})</span>}
                           </label>
                           <input
                             type="time"
@@ -2109,7 +2119,7 @@ const Checkout = () => {
                         <div ref={(el) => { errorRefs.current.checkOutTime = el; }}>
                           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Check-out Time *
-                            {bookingData.checkOutDate && <span className="text-xs text-gray-500 dark:text-gray-400 font-normal ml-2">({bookingData.checkOutDate})</span>}
+                            {bookingData.checkOutDate && <span className="text-xs text-gray-500 dark:text-gray-400 font-normal ml-2">({new Date(bookingData.checkOutDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })})</span>}
                           </label>
                           <input
                             type="time"
