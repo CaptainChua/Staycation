@@ -411,7 +411,7 @@ const RoomsDetailsPage = ({
     dispatch(
       setSelectedRoom({
         id: room.id,
-        name: room.name,
+        name: room.name || "Unnamed Haven",
         price: room.price,
         pricePerNight: room.pricePerNight,
         location: room.location,

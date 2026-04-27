@@ -379,10 +379,11 @@ const Checkout = () => {
           setAddOns(parsed.addOns);
         }
         
-        // Only restore step and form data if it's the same room being booked
+        // Only restore if it's the same room, or if Redux was reset (page refresh)
         const savedRoomId = parsed.bookingData?.selectedRoom?.id;
         const currentRoomId = bookingData.selectedRoom?.id;
-        const isSameRoom = savedRoomId && currentRoomId && savedRoomId === currentRoomId;
+        // Allow restore when: same room, OR currentRoom not yet set (page refresh)
+        const isSameRoom = savedRoomId && (!currentRoomId || savedRoomId === currentRoomId);
 
         if (isSameRoom) {
           // Restore Step only for the same room
@@ -391,7 +392,7 @@ const Checkout = () => {
             setCompletedSteps(Array.from({length: parsed.currentStep - 1}, (_, i) => i + 1));
           }
         } else {
-          // Different room or new booking — always start from step 1
+          // Explicitly booking a different room — clear saved session and start fresh
           localStorage.removeItem(STORAGE_KEY);
           return;
         }

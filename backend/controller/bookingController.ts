@@ -395,6 +395,49 @@ export const createBooking = async (
       addOns = {},
     } = body;
 
+    // --- GENERAL ROOM AVAILABILITY CHECK (time-aware) ---
+    // '00:00' checkout means end-of-day midnight, so treat it as the start of the next day.
+    const availabilityCheckQuery = `
+      SELECT b.id, b.booking_id
+      FROM booking b
+      WHERE b.room_name = $1
+        AND b.status NOT IN ('rejected', 'cancelled')
+        AND (b.check_in_date::DATE + b.check_in_time::TIME) <
+            CASE WHEN $5 = '00:00'
+                 THEN ($4::DATE + INTERVAL '1 day')::TIMESTAMP
+                 ELSE ($4::DATE + $5::TIME)::TIMESTAMP
+            END
+        AND (
+            CASE WHEN b.check_out_time = '00:00'
+                 THEN (b.check_out_date::DATE + INTERVAL '1 day')::TIMESTAMP
+                 ELSE (b.check_out_date::DATE + b.check_out_time::TIME)::TIMESTAMP
+            END
+        ) > ($2::DATE + $3::TIME)::TIMESTAMP
+      LIMIT 1
+    `;
+
+    const availabilityCheckValues = [
+      room_name,
+      check_in_date,
+      check_in_time,
+      check_out_date,
+      check_out_time,
+    ];
+
+    const availabilityResult = await client.query(availabilityCheckQuery, availabilityCheckValues);
+
+    if (availabilityResult.rows.length > 0) {
+      await client.query("ROLLBACK");
+      return NextResponse.json(
+        {
+          success: false,
+          error: "This room is already booked during the selected time slot. Please choose a different date or time.",
+        },
+        { status: 400 }
+      );
+    }
+    // --- END AVAILABILITY CHECK ---
+
     // --- IDENTITY-BASED OVERLAP CHECK ---
     const overlapCheckQuery = `
       SELECT b.id, b.booking_id, b.status, b.check_in_date, b.check_out_date
