@@ -22,6 +22,8 @@ const GuestSelectorModal = ({ isOpen, onClose, guests, onGuestChange, maxCapacit
   // Weight formula only applies to adults + children (infants are not counted)
   const weightLimit = maxCapacity ?? 4;
   const currentWeight = guests.adults + Math.floor(guests.children / 2);
+  // Max adults+children: with children=4 (weight 2), remaining weight goes to adults; cap at 8 (4+4)
+  const maxAdultsChildren = Math.min(8, weightLimit + 2);
 
   const canAddAdult =
     guests.adults < 4 &&
@@ -105,7 +107,7 @@ const GuestSelectorModal = ({ isOpen, onClose, guests, onGuestChange, maxCapacit
           <div className="px-6 py-2">
             {maxCapacity !== undefined && (
               <p className="text-xs text-gray-500 mb-2 pt-2">
-                Adults + Children: <span className="font-semibold text-orange-600">{guests.adults + guests.children} / {weightLimit * 2}</span> · Infants: <span className="font-semibold text-orange-600">{guests.infants} / 4</span>
+                Adults + Children: <span className="font-semibold text-orange-600">{guests.adults + guests.children} / {maxAdultsChildren}</span> · Infants: <span className="font-semibold text-orange-600">{guests.infants} / 4</span>
                 {isAtMax && <span className="ml-1 text-red-500"> · limit reached</span>}
               </p>
             )}

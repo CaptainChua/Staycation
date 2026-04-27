@@ -277,6 +277,19 @@ const Checkout = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.stayType, localCheckInDate]);
 
+  // Reset 21-hour stayType if the check-in date changes to an incompatible day
+  useEffect(() => {
+    if (!localCheckInDate) return;
+    const day = new Date(localCheckInDate + 'T12:00:00').getDay();
+    const isFriSat = day === 5 || day === 6;
+    const selectedIsWeekday = formData.stayType.includes('Sun-Thu');
+    const selectedIsFriSat = formData.stayType.includes('Fri-Sat');
+    if ((selectedIsWeekday && isFriSat) || (selectedIsFriSat && !isFriSat)) {
+      setFormData(prev => ({ ...prev, stayType: '', checkInTime: '', checkOutTime: '' }));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [localCheckInDate]);
+
   // Fetch payment methods from API
   const fetchPaymentMethods = async () => {
     setIsLoadingPaymentMethods(true);
@@ -461,6 +474,11 @@ const Checkout = () => {
   const numberOfDays = calculateNumberOfDays();
   const securityDeposit = formData.stayType ? 1000 : 0; // Only show if stay type selected
   const downPayment = 500;
+
+  // Day-of-week filter for 21-hour options (use noon to avoid UTC offset issues)
+  const checkInDay = localCheckInDate ? new Date(localCheckInDate + 'T12:00:00').getDay() : null;
+  const checkInIsFriSat = checkInDay === 5 || checkInDay === 6;
+  const checkInIsSunThu = checkInDay !== null && !checkInIsFriSat;
 
   // Calculate add-ons total
   const addOnsTotal = Object.entries(addOns).reduce((total, [key, quantity]) => {
@@ -1984,12 +2002,16 @@ const Checkout = () => {
                         >
                           <option value="">Select Stay Type</option>
                           <option value="10 Hours - ₱1,599">10 Hours - ₱1,599 (2:00 PM - 12:00 AM)</option>
-                          <option value="21 Hours (Sun-Thu weekday) - ₱1,799">
-                            21 Hours (Sun-Thu weekday) - ₱1,799 (2:00 PM - 11:00 AM)
-                          </option>
-                          <option value="21 Hours (Fri-Sat) - ₱1,999">
-                            21 Hours (Fri-Sat) - ₱1,999 (2:00 PM - 11:00 AM)
-                          </option>
+                          {(checkInIsSunThu || checkInDay === null) && (
+                            <option value="21 Hours (Sun-Thu weekday) - ₱1,799">
+                              21 Hours (Sun-Thu weekday) - ₱1,799 (2:00 PM - 11:00 AM)
+                            </option>
+                          )}
+                          {(checkInIsFriSat || checkInDay === null) && (
+                            <option value="21 Hours (Fri-Sat) - ₱1,999">
+                              21 Hours (Fri-Sat) - ₱1,999 (2:00 PM - 11:00 AM)
+                            </option>
+                          )}
                           <option value="Multi-Day Stay">Multi-Day Stay (Custom dates)</option>
                         </select>
                         {errors.stayType && (
