@@ -185,7 +185,7 @@ const HotelRoomListings = ({ initialHavens }: HotelRoomListingsProps) => {
     let filtered = filteredHavens.map((haven: Haven) => ({
       id: haven.uuid_id ?? haven.id ?? '',
       uuid_id: haven.uuid_id,
-      name: haven.haven_name ?? haven.name ?? "Unnamed Haven",
+      name: haven.haven_name || haven.name || "Unnamed Haven",
       price: `₱${haven.six_hour_rate ?? haven.weekday_rate ?? haven.weekend_rate ?? "N/A"}`,
       pricePerNight: "per night",
       images: haven.images?.map((img: any) => img.image_url || img.url).filter(Boolean) ?? [],
