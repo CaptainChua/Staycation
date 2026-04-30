@@ -113,10 +113,12 @@ export default function PropertyLocationPage() {
   };
 
   const handleGetDirections = () => {
-    if (selectedBuilding) {
-      const url = `https://www.google.com/maps/dir/?api=1&destination=${selectedBuilding.latitude},${selectedBuilding.longitude}`;
-      window.open(url, '_blank');
+    if (!selectedBuilding) {
+      toast.error("Please select a building first");
+      return;
     }
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${selectedBuilding.latitude},${selectedBuilding.longitude}`;
+    window.open(url, '_blank');
   };
 
   const getStatusIcon = (status: string) => {

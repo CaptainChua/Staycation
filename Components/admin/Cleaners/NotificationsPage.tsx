@@ -1,134 +1,94 @@
 "use client";
 
 import { Bell, CheckCircle, AlertTriangle, Info, Clock, Filter, Check } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface Notification {
-  id: number;
+  id: string;
   title: string;
   message: string;
-  type: "success" | "warning" | "info" | "urgent";
+  type: "success" | "warning" | "info";
   time: string;
   read: boolean;
 }
 
-interface NotificationsPageProps {
-  notifications?: Notification[];
-}
-
-export default function NotificationsPage({ notifications: propNotifications }: NotificationsPageProps) {
+export default function NotificationsPage() {
   const [filter, setFilter] = useState<string>("all");
-  const [notificationsList, setNotificationsList] = useState<Notification[]>(
-    propNotifications || [
-      {
-        id: 1,
-        title: "New Assignment",
-        message: "You have been assigned to clean Haven 15 today at 4:00 PM",
-        type: "info",
-        time: "5 minutes ago",
-        read: false,
-      },
-      {
-        id: 2,
-        title: "Task Completed",
-        message: "Haven 3 cleaning has been marked as completed",
-        type: "success",
-        time: "1 hour ago",
-        read: false,
-      },
-      {
-        id: 3,
-        title: "Urgent: Priority Change",
-        message: "Haven 7 has been upgraded to high priority. Please complete by 2:00 PM",
-        type: "urgent",
-        time: "2 hours ago",
-        read: true,
-      },
-      {
-        id: 4,
-        title: "Maintenance Alert",
-        message: "Your report for Haven 12 plumbing issue is under review",
-        type: "warning",
-        time: "3 hours ago",
-        read: true,
-      },
-      {
-        id: 5,
-        title: "Schedule Update",
-        message: "Your schedule for tomorrow has been updated with 4 new assignments",
-        type: "info",
-        time: "5 hours ago",
-        read: true,
-      },
-      {
-        id: 6,
-        title: "Checklist Reminder",
-        message: "Don't forget to complete the cleaning checklist for Haven 8",
-        type: "warning",
-        time: "Yesterday",
-        read: true,
-      },
-      {
-        id: 7,
-        title: "Feedback Received",
-        message: "Great job on Haven 5! The guest left a 5-star cleanliness rating",
-        type: "success",
-        time: "Yesterday",
-        read: true,
-      },
-      {
-        id: 8,
-        title: "Training Session",
-        message: "New cleaning protocols training scheduled for next Monday at 9:00 AM",
-        type: "info",
-        time: "2 days ago",
-        read: true,
-      },
-    ]
-  );
+  const [notificationsList, setNotificationsList] = useState<Notification[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchAll = async () => {
+      try {
+        const res = await fetch('/api/notifications?limit=50', { cache: 'no-store' });
+        const data = await res.json();
+        if (data.success && Array.isArray(data.data)) {
+          setNotificationsList(
+            data.data.map((n: any) => ({
+              id: String(n.id),
+              title: n.title,
+              message: n.description,
+              type: n.type as "success" | "warning" | "info",
+              time: n.timestamp,
+              read: n.read,
+            }))
+          );
+        }
+      } catch {
+        // silently fail — empty list shown
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchAll();
+  }, []);
+
+  const markAsRead = async (id: string) => {
+    setNotificationsList(prev =>
+      prev.map(n => n.id === id ? { ...n, read: true } : n)
+    );
+    try {
+      await fetch('/api/notifications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notificationIds: [id], markAs: 'read' }),
+      });
+    } catch {}
+  };
+
+  const markAllAsRead = async () => {
+    const unreadIds = notificationsList.filter(n => !n.read).map(n => n.id);
+    setNotificationsList(prev => prev.map(n => ({ ...n, read: true })));
+    if (unreadIds.length === 0) return;
+    try {
+      await fetch('/api/notifications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notificationIds: unreadIds, markAs: 'read' }),
+      });
+    } catch {}
+  };
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
-      case "success":
-        return CheckCircle;
-      case "warning":
-        return AlertTriangle;
-      case "urgent":
-        return Bell;
-      default:
-        return Info;
+      case "success": return CheckCircle;
+      case "warning": return AlertTriangle;
+      default: return Info;
     }
   };
 
   const getNotificationColor = (type: string) => {
     switch (type) {
-      case "success":
-        return "bg-green-500";
-      case "warning":
-        return "bg-yellow-500";
-      case "urgent":
-        return "bg-red-500";
-      default:
-        return "bg-brand-primary";
+      case "success": return "bg-green-500";
+      case "warning": return "bg-yellow-500";
+      default: return "bg-brand-primary";
     }
   };
 
-  const markAsRead = (id: number) => {
-    setNotificationsList(
-      notificationsList.map((notif) =>
-        notif.id === id ? { ...notif, read: true } : notif
-      )
-    );
-  };
-
-  const markAllAsRead = () => {
-    setNotificationsList(notificationsList.map((notif) => ({ ...notif, read: true })));
-  };
-
-  const filteredNotifications = notificationsList.filter((notif) => {
+  const filteredNotifications = notificationsList.filter((n) => {
     if (filter === "all") return true;
-    if (filter === "unread") return !notif.read;
-    return notif.type === filter;
+    if (filter === "unread") return !n.read;
+    return n.type === filter;
   });
 
   const unreadCount = notificationsList.filter((n) => !n.read).length;
@@ -158,7 +118,7 @@ export default function NotificationsPage({ notifications: propNotifications }: 
           <span className="text-sm font-semibold text-gray-600 dark:text-gray-400">Filter by:</span>
         </div>
         <div className="flex flex-wrap gap-2">
-          {["all", "unread", "urgent", "warning", "success", "info"].map((filterType) => (
+          {["all", "unread", "warning", "success", "info"].map((filterType) => (
             <button
               key={filterType}
               onClick={() => setFilter(filterType)}
@@ -176,7 +136,20 @@ export default function NotificationsPage({ notifications: propNotifications }: 
 
       {/* Notifications List */}
       <div className="space-y-3">
-        {filteredNotifications.length === 0 ? (
+        {isLoading ? (
+          Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="bg-white dark:bg-gray-800 rounded-lg shadow p-5 animate-pulse">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-lg bg-gray-200 dark:bg-gray-700 flex-shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 w-32 bg-gray-200 dark:bg-gray-700 rounded" />
+                  <div className="h-3 w-full bg-gray-200 dark:bg-gray-700 rounded" />
+                  <div className="h-3 w-20 bg-gray-200 dark:bg-gray-700 rounded" />
+                </div>
+              </div>
+            </div>
+          ))
+        ) : filteredNotifications.length === 0 ? (
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-12 text-center">
             <Bell className="w-16 h-16 text-gray-400 dark:text-gray-500 mx-auto mb-3" />
             <p className="text-gray-600 dark:text-gray-400">No notifications found</p>
@@ -189,9 +162,9 @@ export default function NotificationsPage({ notifications: propNotifications }: 
             return (
               <div
                 key={notification.id}
-                onClick={() => markAsRead(notification.id)}
-                className={`bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-5 cursor-pointer transition-all hover:shadow-xl ${
-                  !notification.read ? "border-l-4 border-brand-primary" : ""
+                onClick={() => !notification.read && markAsRead(notification.id)}
+                className={`bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-5 transition-all hover:shadow-xl ${
+                  !notification.read ? "border-l-4 border-brand-primary cursor-pointer" : ""
                 }`}
               >
                 <div className="flex items-start gap-4">
@@ -204,7 +177,7 @@ export default function NotificationsPage({ notifications: propNotifications }: 
                         {notification.title}
                       </h3>
                       {!notification.read && (
-                        <span className="flex-shrink-0 w-2 h-2 bg-brand-primary rounded-full mt-2"></span>
+                        <span className="flex-shrink-0 w-2 h-2 bg-brand-primary rounded-full mt-2" />
                       )}
                     </div>
                     <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">

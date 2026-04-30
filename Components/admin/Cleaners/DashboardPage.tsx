@@ -11,6 +11,44 @@ interface DashboardStats {
   pending: number;
 }
 
+interface TodayAssignment {
+  cleaning_id: string;
+  haven: string;
+  cleaning_status: string;
+  check_out_time: string | null;
+}
+
+function getStatusLabel(status: string): string {
+  switch (status) {
+    case "cleaned":
+    case "inspected":
+      return "Completed";
+    case "in-progress":
+      return "In Progress";
+    case "assigned":
+    case "pending":
+    default:
+      return "Pending";
+  }
+}
+
+function getStatusColor(status: string): string {
+  switch (status) {
+    case "cleaned":
+    case "inspected":
+      return "text-green-600";
+    case "in-progress":
+      return "text-yellow-600";
+    default:
+      return "text-orange-600";
+  }
+}
+
+function formatCheckoutTime(time: string | null): string {
+  if (!time) return "—";
+  return time.substring(0, 5);
+}
+
 export default function DashboardPage() {
   const { data: session } = useSession();
   const [stats, setStats] = useState<DashboardStats>({
@@ -20,6 +58,8 @@ export default function DashboardPage() {
     pending: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [todayAssignments, setTodayAssignments] = useState<TodayAssignment[]>([]);
+  const [isLoadingAssignments, setIsLoadingAssignments] = useState(true);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -46,7 +86,37 @@ export default function DashboardPage() {
       }
     };
 
+    const fetchTodayAssignments = async () => {
+      if (!session?.user?.id) {
+        setIsLoadingAssignments(false);
+        return;
+      }
+
+      try {
+        setIsLoadingAssignments(true);
+        const response = await fetch(`/api/admin/cleaners/${session.user.id}/assignments-today`, {
+          method: "GET",
+          cache: "no-store",
+        });
+
+        const payload = await response.json();
+        if (payload.success && Array.isArray(payload.data)) {
+          const now = new Date();
+          const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+          const todayOnly = payload.data.filter(
+            (t: any) => String(t.check_out_date ?? "").slice(0, 10) === todayStr
+          );
+          setTodayAssignments(todayOnly);
+        }
+      } catch (error) {
+        console.error("Error fetching today assignments:", error);
+      } finally {
+        setIsLoadingAssignments(false);
+      }
+    };
+
     fetchStats();
+    fetchTodayAssignments();
   }, [session?.user?.id]);
 
   const statsArray = [
@@ -74,12 +144,6 @@ export default function DashboardPage() {
       color: "bg-orange-500",
       icon: AlertTriangle,
     },
-  ];
-
-  const recentTasks = [
-    { haven: "Haven 3", status: "Completed", time: "10:30 AM", statusColor: "text-green-600" },
-    { haven: "Haven 7", status: "In Progress", time: "1:00 PM", statusColor: "text-yellow-600" },
-    { haven: "Haven 12", status: "Pending", time: "3:00 PM", statusColor: "text-orange-600" },
   ];
 
   return (
@@ -115,27 +179,45 @@ export default function DashboardPage() {
         })}
       </div>
 
-      {/* Recent Tasks */}
+      {/* Today's Schedule */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-6">
         <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4">
           Today&apos;s Schedule
         </h2>
         <div className="space-y-3">
-          {recentTasks.map((task, index) => (
-            <div
-              key={index}
-              className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-2 h-2 rounded-full bg-brand-primary"></div>
-                <span className="font-semibold text-gray-800 dark:text-gray-100">{task.haven}</span>
+          {isLoadingAssignments ? (
+            Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg animate-pulse">
+                <div className="h-4 w-32 bg-gray-200 dark:bg-gray-600 rounded"></div>
+                <div className="flex gap-4">
+                  <div className="h-4 w-16 bg-gray-200 dark:bg-gray-600 rounded"></div>
+                  <div className="h-4 w-20 bg-gray-200 dark:bg-gray-600 rounded"></div>
+                </div>
               </div>
-              <div className="flex items-center gap-4">
-                <span className="text-sm text-gray-600 dark:text-gray-400">{task.time}</span>
-                <span className={`text-sm font-bold ${task.statusColor}`}>{task.status}</span>
-              </div>
+            ))
+          ) : todayAssignments.length === 0 ? (
+            <div className="text-center py-8 text-gray-500 dark:text-gray-400 text-sm">
+              No assignments scheduled for today
             </div>
-          ))}
+          ) : (
+            todayAssignments.map((task) => (
+              <div
+                key={task.cleaning_id}
+                className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-2 h-2 rounded-full bg-brand-primary"></div>
+                  <span className="font-semibold text-gray-800 dark:text-gray-100">{task.haven}</span>
+                </div>
+                <div className="flex items-center gap-4">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">{formatCheckoutTime(task.check_out_time)}</span>
+                  <span className={`text-sm font-bold ${getStatusColor(task.cleaning_status)}`}>
+                    {getStatusLabel(task.cleaning_status)}
+                  </span>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>

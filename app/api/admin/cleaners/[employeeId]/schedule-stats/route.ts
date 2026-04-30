@@ -23,77 +23,66 @@ export async function GET(
 
     try {
       const now = new Date();
-      const today = new Date(now);
-      today.setHours(0, 0, 0, 0);
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
 
-      // This Week: Start of week (Sunday)
-      const startOfWeek = new Date(today);
-      const dayOfWeek = startOfWeek.getDay();
-      startOfWeek.setDate(startOfWeek.getDate() - dayOfWeek);
-      startOfWeek.setHours(0, 0, 0, 0);
+      const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+      // Start of week (Sunday)
+      const startOfWeek = new Date(now);
+      startOfWeek.setDate(now.getDate() - now.getDay());
+      const startOfWeekStr = `${startOfWeek.getFullYear()}-${String(startOfWeek.getMonth() + 1).padStart(2, '0')}-${String(startOfWeek.getDate()).padStart(2, '0')}`;
+
       const endOfWeek = new Date(startOfWeek);
-      endOfWeek.setDate(endOfWeek.getDate() + 7);
+      endOfWeek.setDate(startOfWeek.getDate() + 7);
+      const endOfWeekStr = `${endOfWeek.getFullYear()}-${String(endOfWeek.getMonth() + 1).padStart(2, '0')}-${String(endOfWeek.getDate()).padStart(2, '0')}`;
 
-      // This Month: Start of month
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      startOfMonth.setHours(0, 0, 0, 0);
-      const startOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+      // Start/end of month
+      const startOfMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+      const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+      const startOfNextMonthStr = `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, '0')}-01`;
 
       // Today's Tasks
-      const todaysTasksQuery = `
-        SELECT COUNT(*) as count
-        FROM report_issue
-        WHERE user_id = $1 
-        AND created_at >= $2 
-        AND created_at < $3
-      `;
-      const todaysTasksResult = await client.query(todaysTasksQuery, [
-        employeeId,
-        today.toISOString(),
-        tomorrow.toISOString(),
-      ]);
+      const todaysTasksResult = await client.query(
+        `SELECT COUNT(*) as count
+         FROM booking_cleaning bc
+         INNER JOIN booking b ON bc.booking_id = b.id
+         WHERE bc.assigned_to::text = $1
+           AND DATE(b.check_out_date) = $2`,
+        [employeeId, todayStr]
+      );
       const todaysTasks = parseInt(todaysTasksResult.rows[0]?.count || '0');
 
       // This Week
-      const thisWeekQuery = `
-        SELECT COUNT(*) as count
-        FROM report_issue
-        WHERE user_id = $1 
-        AND created_at >= $2 
-        AND created_at < $3
-      `;
-      const thisWeekResult = await client.query(thisWeekQuery, [
-        employeeId,
-        startOfWeek.toISOString(),
-        endOfWeek.toISOString(),
-      ]);
+      const thisWeekResult = await client.query(
+        `SELECT COUNT(*) as count
+         FROM booking_cleaning bc
+         INNER JOIN booking b ON bc.booking_id = b.id
+         WHERE bc.assigned_to::text = $1
+           AND DATE(b.check_out_date) >= $2
+           AND DATE(b.check_out_date) < $3`,
+        [employeeId, startOfWeekStr, endOfWeekStr]
+      );
       const thisWeek = parseInt(thisWeekResult.rows[0]?.count || '0');
 
       // This Month
-      const thisMonthQuery = `
-        SELECT COUNT(*) as count
-        FROM report_issue
-        WHERE user_id = $1 
-        AND created_at >= $2 
-        AND created_at < $3
-      `;
-      const thisMonthResult = await client.query(thisMonthQuery, [
-        employeeId,
-        startOfMonth.toISOString(),
-        startOfNextMonth.toISOString(),
-      ]);
+      const thisMonthResult = await client.query(
+        `SELECT COUNT(*) as count
+         FROM booking_cleaning bc
+         INNER JOIN booking b ON bc.booking_id = b.id
+         WHERE bc.assigned_to::text = $1
+           AND DATE(b.check_out_date) >= $2
+           AND DATE(b.check_out_date) < $3`,
+        [employeeId, startOfMonthStr, startOfNextMonthStr]
+      );
       const thisMonth = parseInt(thisMonthResult.rows[0]?.count || '0');
 
       // Completed (all time)
-      const completedQuery = `
-        SELECT COUNT(*) as count
-        FROM report_issue
-        WHERE user_id = $1 
-        AND status IN ('Resolved', 'Closed')
-      `;
-      const completedResult = await client.query(completedQuery, [employeeId]);
+      const completedResult = await client.query(
+        `SELECT COUNT(*) as count
+         FROM booking_cleaning bc
+         WHERE bc.assigned_to::text = $1
+           AND bc.cleaning_status IN ('cleaned', 'inspected')`,
+        [employeeId]
+      );
       const completed = parseInt(completedResult.rows[0]?.count || '0');
 
       return NextResponse.json({

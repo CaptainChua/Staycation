@@ -39,6 +39,15 @@ import AdminFooter from "../AdminFooter";
 import NotificationModal from "./Modals/NotificationModal";
 import MessageModal from "./Modals/MessageModal";
 
+interface ApiNotification {
+  id: string;
+  title: string;
+  description: string;
+  timestamp: string;
+  type: 'info' | 'success' | 'warning';
+  read: boolean;
+}
+
 interface EmployeeProfile {
   id: string;
   first_name: string;
@@ -81,6 +90,7 @@ export default function CleanersDashboard() {
   const [now, setNow] = useState<Date | null>(null);
   const [employee, setEmployee] = useState<EmployeeProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [apiNotifications, setApiNotifications] = useState<ApiNotification[]>([]);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const notificationButtonRef = useRef<HTMLButtonElement | null>(null);
   const messageButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -128,6 +138,35 @@ export default function CleanersDashboard() {
     } catch (error) {
       console.error("Logout error:", error);
     }
+  };
+
+  // Fetch notifications from API
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        const res = await fetch('/api/notifications?limit=10', { cache: 'no-store' });
+        const data = await res.json();
+        if (data.success && Array.isArray(data.data)) {
+          setApiNotifications(data.data);
+        }
+      } catch {}
+    };
+    fetchNotifications();
+    const id = setInterval(fetchNotifications, 30000);
+    return () => clearInterval(id);
+  }, []);
+
+  const markNotificationsRead = async (ids: string[]) => {
+    try {
+      await fetch('/api/notifications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notificationIds: ids, markAs: 'read' }),
+      });
+      setApiNotifications(prev =>
+        prev.map(n => ids.includes(String(n.id)) ? { ...n, read: true } : n)
+      );
+    } catch {}
   };
 
   // Fetch employee data
@@ -186,32 +225,7 @@ export default function CleanersDashboard() {
     profile_image_url: employee?.profile_image_url || "", // No image - will show initials instead
   };
 
-  const notifications = [
-    {
-      id: 1,
-      title: "New Assignment",
-      message: "Haven 3 needs cleaning after checkout at 11:00 AM",
-      time: "5 mins ago",
-      type: "info" as const,
-      read: false,
-    },
-    {
-      id: 2,
-      title: "Reminder",
-      message: "Haven 7 cleaning scheduled for 2:00 PM today",
-      time: "1 hr ago",
-      type: "warning" as const,
-      read: false,
-    },
-    {
-      id: 3,
-      title: "Task Completed",
-      message: "Your cleaning report for Haven 2 was approved",
-      time: "2 hrs ago",
-      type: "success" as const,
-      read: true,
-    },
-  ];
+  const unreadNotifCount = apiNotifications.filter(n => !n.read).length;
 
   // Restore persisted page on mount
   useEffect(() => {
@@ -285,7 +299,7 @@ export default function CleanersDashboard() {
       case "report-issue":
         return <ReportIssuePage />;
       case "notifications":
-        return <NotificationsPage notifications={notifications} />;
+        return <NotificationsPage />;
       case "my-schedule":
         return <MySchedulePage />;
       case "user-guide":
@@ -531,7 +545,9 @@ export default function CleanersDashboard() {
               onClick={() => setNotificationOpen((prev) => !prev)}
             >
               <Bell className="w-6 h-6 text-gray-600 dark:text-gray-300" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+              {unreadNotifCount > 0 && (
+                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+              )}
             </button>
 
             {/* User Avatar with Profile Dropdown */}
@@ -653,18 +669,19 @@ export default function CleanersDashboard() {
       {/* Notification Modal */}
       {notificationOpen && (
         <NotificationModal
-          notifications={notifications.map(n => ({
-            id: n.id.toString(),
+          notifications={apiNotifications.map(n => ({
+            id: String(n.id),
             title: n.title,
-            description: n.message,
-            timestamp: n.time,
-            type: n.type
+            description: n.description,
+            timestamp: n.timestamp,
+            type: n.type,
           }))}
           onClose={() => setNotificationOpen(false)}
           onViewAll={() => {
             setNotificationOpen(false);
             setPage("notifications");
           }}
+          onMarkRead={(ids) => markNotificationsRead(ids)}
           anchorRef={notificationButtonRef}
         />
       )}

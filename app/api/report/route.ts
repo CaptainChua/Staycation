@@ -15,36 +15,39 @@ export async function GET(request: NextRequest) {
     
     try {
       let query = `
-        SELECT 
+        SELECT
           ri.report_id,
           ri.haven_id,
           ri.issue_type,
           ri.priority_level,
           ri.specific_location,
           ri.issue_description,
+          ri.status,
           ri.created_at,
           ri.user_id,
-          ri.assigned_to,
           h.haven_name,
-          ARRAY_AGG(
-            JSON_BUILD_OBJECT(
-              'image_url', rii.image_url,
-              'cloudinary_public_id', rii.cloudinary_public_id
-            )
+          COALESCE(
+            ARRAY_AGG(
+              JSON_BUILD_OBJECT(
+                'image_url', rii.image_url,
+                'cloudinary_public_id', rii.cloudinary_public_id
+              )
+            ) FILTER (WHERE rii.image_url IS NOT NULL),
+            ARRAY[]::json[]
           ) as images
         FROM report_issue ri
         LEFT JOIN havens h ON ri.haven_id = h.uuid_id
         LEFT JOIN report_issue_image rii ON ri.report_id = rii.report_id
       `;
-      
+
       const params: (string | number)[] = [];
-      
+
       if (haven_id) {
         query += ' WHERE ri.haven_id = $1';
         params.push(haven_id);
       }
-      
-      query += ' GROUP BY ri.report_id, ri.haven_id, ri.issue_type, ri.priority_level, ri.specific_location, ri.issue_description, ri.created_at, ri.user_id, ri.assigned_to, h.haven_name';
+
+      query += ' GROUP BY ri.report_id, ri.haven_id, ri.issue_type, ri.priority_level, ri.specific_location, ri.issue_description, ri.status, ri.created_at, ri.user_id, h.haven_name';
       query += ' ORDER BY ri.created_at DESC';
       
       const result = await client.query(query, params);
@@ -61,7 +64,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Error fetching reports:', error);
     return NextResponse.json(
-      { success: false, message: 'Internal server error' },
+      { success: false, message: error instanceof Error ? error.message : 'Internal server error' },
       { status: 500 }
     );
   }
