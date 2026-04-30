@@ -47,18 +47,10 @@ export default function MyAssignmentPage() {
   const userId = (session?.user as any)?.id;
 
   const { data: allTasks = [], isLoading: isLoadingAssignments } = useGetCleaningTasksQuery(undefined);
-  console.log("User ID:", userId);
-  console.log("Tasks:", allTasks);
 
   const assignments = useMemo(() => {
     if (!userId) return [];
-    const now = new Date();
-    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-    return allTasks.filter((t: any) => {
-      const assigned = String(t.assigned_cleaner_id ?? "") === String(userId);
-      const isToday = String(t.check_out_date ?? "").slice(0, 10) === todayStr;
-      return assigned;
-    });
+    return allTasks.filter((t: any) => String(t.assigned_cleaner_id ?? "") === String(userId));
   }, [allTasks, userId]);
 
   const stats = useMemo<AssignmentStats>(() => {

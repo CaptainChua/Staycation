@@ -18,6 +18,7 @@ interface NotificationModalProps {
   notifications: Notification[];
   onClose: () => void;
   onViewAll?: () => void;
+  onMarkRead?: (ids: string[]) => void;
   anchorRef?: RefObject<HTMLElement | null>;
 }
 
@@ -42,7 +43,7 @@ const typeStyles: Record<NonNullable<Notification["type"]>, { wrapper: string; i
   },
 };
 
-export default function NotificationModal({ notifications, onClose, onViewAll, anchorRef }: NotificationModalProps) {
+export default function NotificationModal({ notifications, onClose, onViewAll, onMarkRead, anchorRef }: NotificationModalProps) {
   const [isMounted, setIsMounted] = useState(false);
   const [position, setPosition] = useState({ top: 96, right: 16 });
   const [filter, setFilter] = useState<"all" | "unread">("all");
@@ -196,10 +197,11 @@ export default function NotificationModal({ notifications, onClose, onViewAll, a
               <button
                 type="button"
                 onClick={() => {
-                  // Use setTimeout to batch the state update
+                  const unreadIds = items.filter(n => !n.read).map(n => n.id);
                   setTimeout(() => {
                     setItems((prev) => prev.map((n) => ({ ...n, read: true })));
                   }, 0);
+                  if (unreadIds.length > 0) onMarkRead?.(unreadIds);
                 }}
                 className="text-sm font-semibold text-brand-primary hover:text-brand-primaryDark transition-colors"
               >
@@ -221,12 +223,12 @@ export default function NotificationModal({ notifications, onClose, onViewAll, a
                       key={notification.id}
                       type="button"
                       onClick={() => {
-                        // Use setTimeout to batch the state update
                         setTimeout(() => {
                           setItems((prev) =>
                             prev.map((n) => (n.id === notification.id ? { ...n, read: true } : n))
                           );
                         }, 0);
+                        if (!notification.read) onMarkRead?.([notification.id]);
                       }}
                       className={`w-full text-left px-6 py-4 flex items-start gap-3 transition-colors ${
                         notification.read

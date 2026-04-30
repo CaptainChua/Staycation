@@ -1,7 +1,7 @@
 "use client";
 
 import { Calendar, Clock, ChevronLeft, ChevronRight, MapPin, CheckCircle2 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useSession } from "next-auth/react";
 
 interface ScheduleStats {
@@ -9,6 +9,51 @@ interface ScheduleStats {
   thisWeek: number;
   thisMonth: number;
   completed: number;
+}
+
+interface RawAssignment {
+  cleaning_id: string;
+  haven: string;
+  location: string;
+  cleaning_status: string;
+  check_out_date: string;
+  check_out_time: string | null;
+}
+
+interface ScheduleAssignment {
+  haven: string;
+  time: string;
+  location: string;
+  status: string;
+  statusColor: string;
+}
+
+function getStatusLabel(status: string): string {
+  switch (status) {
+    case "cleaned":
+    case "inspected":
+      return "Completed";
+    case "in-progress":
+      return "In Progress";
+    case "assigned":
+      return "Assigned";
+    default:
+      return "Pending";
+  }
+}
+
+function getStatusColor(status: string): string {
+  switch (status) {
+    case "cleaned":
+    case "inspected":
+      return "text-green-600";
+    case "in-progress":
+      return "text-yellow-600";
+    case "assigned":
+      return "text-blue-600";
+    default:
+      return "text-orange-600";
+  }
 }
 
 export default function MySchedulePage() {
@@ -20,6 +65,8 @@ export default function MySchedulePage() {
     completed: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [allAssignments, setAllAssignments] = useState<RawAssignment[]>([]);
+  const [isLoadingAssignments, setIsLoadingAssignments] = useState(true);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -46,8 +93,34 @@ export default function MySchedulePage() {
       }
     };
 
+    const fetchAssignments = async () => {
+      if (!session?.user?.id) {
+        setIsLoadingAssignments(false);
+        return;
+      }
+
+      try {
+        setIsLoadingAssignments(true);
+        const response = await fetch(`/api/admin/cleaners/${session.user.id}/assignments-today`, {
+          method: "GET",
+          cache: "no-store",
+        });
+
+        const payload = await response.json();
+        if (payload.success && Array.isArray(payload.data)) {
+          setAllAssignments(payload.data);
+        }
+      } catch (error) {
+        console.error("Error fetching assignments:", error);
+      } finally {
+        setIsLoadingAssignments(false);
+      }
+    };
+
     fetchStats();
+    fetchAssignments();
   }, [session?.user?.id]);
+
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
 
@@ -58,23 +131,24 @@ export default function MySchedulePage() {
 
   const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-  const scheduleData = [
-    {
-      date: new Date().toDateString(),
-      assignments: [
-        { haven: "Haven 3", time: "9:00 AM - 11:00 AM", location: "Building A, Floor 2", status: "Completed", statusColor: "text-green-600" },
-        { haven: "Haven 7", time: "1:00 PM - 3:00 PM", location: "Building B, Floor 1", status: "In Progress", statusColor: "text-yellow-600" },
-        { haven: "Haven 12", time: "4:00 PM - 6:00 PM", location: "Building A, Floor 3", status: "Pending", statusColor: "text-orange-600" },
-      ],
-    },
-    {
-      date: new Date(new Date().setDate(new Date().getDate() + 1)).toDateString(),
-      assignments: [
-        { haven: "Haven 5", time: "10:00 AM - 12:00 PM", location: "Building C, Floor 1", status: "Scheduled", statusColor: "text-blue-600" },
-        { haven: "Haven 9", time: "2:00 PM - 4:00 PM", location: "Building B, Floor 2", status: "Scheduled", statusColor: "text-blue-600" },
-      ],
-    },
-  ];
+  // Build schedule map from real API data keyed by date string
+  const scheduleMap = useMemo(() => {
+    const map: Record<string, ScheduleAssignment[]> = {};
+    allAssignments.forEach((t) => {
+      const dateKey = t.check_out_date ? new Date(t.check_out_date).toDateString() : null;
+      if (!dateKey) return;
+      if (!map[dateKey]) map[dateKey] = [];
+      const timeStr = t.check_out_time ? t.check_out_time.substring(0, 5) : "—";
+      map[dateKey].push({
+        haven: t.haven || "—",
+        time: timeStr,
+        location: t.location || "Location TBD",
+        status: getStatusLabel(t.cleaning_status),
+        statusColor: getStatusColor(t.cleaning_status),
+      });
+    });
+    return map;
+  }, [allAssignments]);
 
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
@@ -99,12 +173,11 @@ export default function MySchedulePage() {
 
   const hasAssignments = (day: number) => {
     const checkDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
-    return scheduleData.some((item) => item.date === checkDate.toDateString());
+    return !!scheduleMap[checkDate.toDateString()];
   };
 
-  const getSelectedDateAssignments = () => {
-    const selectedDateStr = selectedDate.toDateString();
-    return scheduleData.find((item) => item.date === selectedDateStr)?.assignments || [];
+  const getSelectedDateAssignments = (): ScheduleAssignment[] => {
+    return scheduleMap[selectedDate.toDateString()] || [];
   };
 
   const statsArray = [
@@ -214,7 +287,16 @@ export default function MySchedulePage() {
             </h2>
           </div>
 
-          {getSelectedDateAssignments().length === 0 ? (
+          {isLoadingAssignments ? (
+            <div className="space-y-3">
+              {Array.from({ length: 2 }).map((_, i) => (
+                <div key={i} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 animate-pulse">
+                  <div className="h-4 w-24 bg-gray-200 dark:bg-gray-600 rounded mb-2"></div>
+                  <div className="h-3 w-32 bg-gray-200 dark:bg-gray-600 rounded"></div>
+                </div>
+              ))}
+            </div>
+          ) : getSelectedDateAssignments().length === 0 ? (
             <div className="text-center py-8">
               <CheckCircle2 className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-2" />
               <p className="text-gray-600 dark:text-gray-400 text-sm">No assignments scheduled</p>
