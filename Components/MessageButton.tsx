@@ -438,7 +438,7 @@ const MessageButton = () => {
     <HydrationSafeWrapper>
       {/* Facebook Messenger Button */}
       <a
-        href="https://www.facebook.com/staycationhavenph/"
+        href="https://www.facebook.com/messages/t/209951102209946"
         target="_blank"
         rel="noopener noreferrer"
         className="fixed bottom-20 right-4 sm:bottom-24 sm:right-6 z-50 w-12 h-12 sm:w-14 sm:h-14 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-110 flex items-center justify-center"
