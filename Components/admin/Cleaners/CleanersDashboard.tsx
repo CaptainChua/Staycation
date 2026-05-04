@@ -3,18 +3,17 @@
 import {
   Menu,
   X,
-  Home,
   ClipboardList,
   MapPin,
   CheckSquare,
   AlertCircle,
   Bell,
   Calendar,
-  BookOpen,
   LogOut,
   MessageSquare,
   ChevronDown,
   User,
+  HelpCircle,
 } from "lucide-react";
 import Image from "next/image";
 import { useState, useEffect, useRef, useMemo } from "react";
@@ -22,22 +21,18 @@ import { signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useGetConversationsQuery } from "@/redux/api/messagesApi";
-import { useGetEmployeesQuery } from "@/redux/api/employeeApi";
 
 // Page Components
-import DashboardPage from "./DashboardPage";
 import MyAssignmentPage from "./MyAssignmentPage";
 import PropertyLocationPage from "./PropertyLocationPage";
 import CleaningChecklistPage from "./CleaningChecklistPage";
 import ReportIssuePage from "./ReportIssuePage";
-import NotificationsPage from "./NotificationsPage";
 import MySchedulePage from "./MySchedulePage";
 import UserGuidePage from "./UserGuidePage";
 import ProfilePage from "./ProfilePage";
 import MessagesPage from "./MessagesPage";
 import AdminFooter from "../AdminFooter";
 import NotificationModal from "./Modals/NotificationModal";
-import MessageModal from "./Modals/MessageModal";
 
 interface ApiNotification {
   id: string;
@@ -76,56 +71,74 @@ interface AdminUser {
 }
 
 const ACTIVE_PAGE_STORAGE_KEY = "cleaners-dashboard-active-page";
+const GUIDE_SEEN_KEY = (userId: string) => `cleaners-guide-seen-${userId}`;
 
 export default function CleanersDashboard() {
   const router = useRouter();
   const [sidebar, setSidebar] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [page, setPage] = useState("dashboard");
+  const [page, setPage] = useState("my-assignment");
   const [notificationOpen, setNotificationOpen] = useState(false);
-  const [messageModalOpen, setMessageModalOpen] = useState(false);
-  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
-  const [messageBadge, setMessageBadge] = useState(true);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [now, setNow] = useState<Date | null>(null);
   const [employee, setEmployee] = useState<EmployeeProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [apiNotifications, setApiNotifications] = useState<ApiNotification[]>([]);
+  const [showGuideModal, setShowGuideModal] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const notificationButtonRef = useRef<HTMLButtonElement | null>(null);
-  const messageButtonRef = useRef<HTMLButtonElement | null>(null);
   const { data: session } = useSession();
 
   const userId = (session?.user as AdminUser)?.id;
-  const {
-    data: headerConversationsData,
-    isLoading: isLoadingHeaderConversations,
-  } = useGetConversationsQuery(
-    { userId: userId || "" },
-    { skip: !userId, pollingInterval: 5000 }
-  );
 
-  const { data: employeesData } = useGetEmployeesQuery({});
-  const employees = useMemo(() => {
-    return employeesData?.data || [];
-  }, [employeesData?.data]);
-  const employeeNameById = useMemo(() => {
-    const map: Record<string, string> = {};
-    employees.forEach((emp: EmployeeProfile) => {
-      const name = `${emp.first_name ?? ""} ${emp.last_name ?? ""}`.trim();
-      map[emp.id] = name || emp.email || emp.employment_id || "Employee";
-    });
-    return map;
-  }, [employees]);
-  const employeeProfileImageById = useMemo(() => {
-    const map: Record<string, string> = {};
-    employees.forEach((emp: EmployeeProfile) => {
-      if (emp?.id && emp?.profile_image_url) {
-        map[emp.id] = emp.profile_image_url;
-      }
-    });
-    return map;
-  }, [employees]);
+  const { data: conversationsData, isError, error } = useGetConversationsQuery(
+  { userId: userId || "" },
+  { skip: !userId, pollingInterval: 5000 }
+);
+
+useEffect(() => {
+  if (!isLoading && conversationsData) {
+    console.log("conversations data:", JSON.stringify(conversationsData));
+  }
+}, [isLoading, conversationsData]);
+
+  const unreadMessageCount = useMemo(() => {
+  const conversations = conversationsData?.data || [];
+  return conversations.reduce((sum: number, c: any) => 
+    sum + (c.unread_count || 0), 0
+  );
+}, [conversationsData]);
+
+  // Synthesize message notifications from unread conversations
+  const [messageNotifications, setMessageNotifications] = useState<ApiNotification[]>([]);
+  const prevConversationIdsRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    const conversations = conversationsData?.data || [];
+    const unread = conversations.filter(
+      (c: { id: string; last_message_read?: boolean; last_sender_id?: string; name?: string; last_message?: string; last_message_time?: string }) =>
+        c.last_message_read === false && c.last_sender_id !== userId
+    );
+
+    const newNotifs: ApiNotification[] = unread.map((c: {
+      id: string;
+      name?: string;
+      last_message?: string;
+      last_message_time?: string;
+    }) => ({
+      id: `msg-${c.id}`,
+      title: c.name || "New Message",
+      description: c.last_message ? c.last_message.slice(0, 80) : "You have a new message",
+      timestamp: c.last_message_time
+        ? new Date(c.last_message_time).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })
+        : "Just now",
+      type: "info" as const,
+      read: false,
+      conversationId: c.id,
+    } as ApiNotification & { conversationId: string }));
+
+    setMessageNotifications(newNotifs);
+  }, [conversationsData, userId]);
 
   // Logout handler
   const handleLogout = async () => {
@@ -222,10 +235,15 @@ export default function CleanersDashboard() {
     email: employee?.email || "maria.santos@staycation.com",
     employeeId: employee?.employment_id || "EMP-001",
     role: employee?.role || "Senior Cleaner",
-    profile_image_url: employee?.profile_image_url || "", // No image - will show initials instead
+    profile_image_url: employee?.profile_image_url || "",
   };
 
   const unreadNotifCount = apiNotifications.filter(n => !n.read).length;
+  const allNotifications = useMemo(() => [
+    ...messageNotifications,
+    ...apiNotifications,
+  ], [messageNotifications, apiNotifications]);
+  const totalUnreadCount = unreadNotifCount + unreadMessageCount;
 
   // Restore persisted page on mount
   useEffect(() => {
@@ -235,6 +253,15 @@ export default function CleanersDashboard() {
       setPage(savedPage);
     }
   }, []);
+
+  // First-time user guide detection
+  useEffect(() => {
+    if (!userId || typeof window === "undefined") return;
+    const seen = window.localStorage.getItem(GUIDE_SEEN_KEY(userId));
+    if (!seen) {
+      setShowGuideModal(true);
+    }
+  }, [userId]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -276,20 +303,16 @@ export default function CleanersDashboard() {
 
 
   const navItems = [
-    { id: "dashboard", icon: Home, label: "Dashboard", color: "text-blue-500" },
-    { id: "my-assignment", icon: ClipboardList, label: "My Assignment", color: "text-green-500" },
-    { id: "property-location", icon: MapPin, label: "Property Location", color: "text-purple-500" },
-    { id: "cleaning-checklist", icon: CheckSquare, label: "Cleaning Checklist", color: "text-pink-500" },
-    { id: "report-issue", icon: AlertCircle, label: "Report an Issue", color: "text-red-500" },
-    { id: "notifications", icon: Bell, label: "Notifications", color: "text-yellow-500" },
+    { id: "my-assignment", icon: ClipboardList, label: "My Assignments", color: "text-green-500" },
     { id: "my-schedule", icon: Calendar, label: "My Schedule", color: "text-indigo-500" },
-    { id: "user-guide", icon: BookOpen, label: "User Guide", color: "text-teal-500" },
+    { id: "cleaning-checklist", icon: CheckSquare, label: "Cleaning Checklist", color: "text-pink-500" },
+    { id: "property-location", icon: MapPin, label: "Property Locations", color: "text-purple-500" },
+    { id: "report-issue", icon: AlertCircle, label: "Report Issue", color: "text-red-500" },
+    { id: "messages", icon: MessageSquare, label: "Messages", color: "text-blue-500", badge: unreadMessageCount },
   ];
 
   const renderPage = () => {
     switch (page) {
-      case "dashboard":
-        return <DashboardPage />;
       case "my-assignment":
         return <MyAssignmentPage />;
       case "property-location":
@@ -298,8 +321,6 @@ export default function CleanersDashboard() {
         return <CleaningChecklistPage />;
       case "report-issue":
         return <ReportIssuePage />;
-      case "notifications":
-        return <NotificationsPage />;
       case "my-schedule":
         return <MySchedulePage />;
       case "user-guide":
@@ -309,7 +330,7 @@ export default function CleanersDashboard() {
       case "profile":
         return <ProfilePage cleanerData={cleanerData} />;
       default:
-        return <DashboardPage />;
+        return <MyAssignmentPage />;
     }
   };
 
@@ -390,18 +411,28 @@ export default function CleanersDashboard() {
                     : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
                 }`}
               >
-                <Icon
-                  className={`w-5 h-5 ${
-                    isActive
-                      ? "text-white"
-                      : `${item.color}`
-                  }`}
-                />
+                <div className="relative flex-shrink-0">
+                  <Icon
+                    className={`w-5 h-5 ${
+                      isActive ? "text-white" : item.color
+                    }`}
+                  />
+                  {!sidebar && (item as { badge?: number }).badge ? (
+                    <span className="absolute -top-1 -right-1 min-w-[16px] h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5">
+                      {(item as { badge?: number }).badge}
+                    </span>
+                  ) : null}
+                </div>
                 {sidebar && (
-                  <span className="text-sm font-semibold truncate">
+                  <span className="flex-1 text-sm font-semibold truncate text-left">
                     {item.label}
                   </span>
                 )}
+                {sidebar && (item as { badge?: number }).badge ? (
+                  <span className="ml-auto min-w-[20px] h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center px-1">
+                    {(item as { badge?: number }).badge}
+                  </span>
+                ) : null}
               </button>
             );
           })}
@@ -523,19 +554,14 @@ export default function CleanersDashboard() {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Messages */}
+            {/* User Guide */}
             <button
-              ref={messageButtonRef}
-              className="relative p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-              onClick={() => {
-                setMessageBadge(false);
-                setMessageModalOpen((prev) => !prev);
-              }}
+              className="flex items-center gap-1.5 px-2 py-1.5 sm:px-3 sm:py-2 bg-brand-primary/10 hover:bg-brand-primary/20 dark:bg-brand-primary/20 dark:hover:bg-brand-primary/30 text-brand-primary rounded-lg transition-colors"
+              onClick={() => setPage("user-guide")}
+              title="User Guide"
             >
-              <MessageSquare className="w-6 h-6 text-gray-600 dark:text-gray-300" />
-              {messageBadge && (
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-              )}
+              <HelpCircle className="w-4 h-4 flex-shrink-0" />
+              <span className="hidden md:inline text-sm font-medium">User Guide</span>
             </button>
 
             {/* Notifications */}
@@ -545,8 +571,10 @@ export default function CleanersDashboard() {
               onClick={() => setNotificationOpen((prev) => !prev)}
             >
               <Bell className="w-6 h-6 text-gray-600 dark:text-gray-300" />
-              {unreadNotifCount > 0 && (
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+              {totalUnreadCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
+                  {totalUnreadCount > 99 ? "99+" : totalUnreadCount}
+                </span>
               )}
             </button>
 
@@ -657,6 +685,73 @@ export default function CleanersDashboard() {
           </div>
         </div>
 
+      {/* First-Time User Guide Modal */}
+      {showGuideModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md border border-gray-200 dark:border-gray-700 overflow-hidden">
+            {/* Header */}
+            <div className="bg-brand-primary px-6 py-5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0">
+                  <HelpCircle className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-white">Welcome to Cleaners Portal!</h2>
+                  <p className="text-white/80 text-sm">Let&apos;s get you started</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="px-6 py-5 space-y-4">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Here&apos;s a quick overview of what you can do in this portal:
+              </p>
+              <ul className="space-y-3">
+                {[
+                  { icon: ClipboardList, color: "text-green-500", label: "My Assignments", desc: "View and manage your cleaning tasks" },
+                  { icon: Calendar, color: "text-indigo-500", label: "My Schedule", desc: "Check your daily and upcoming schedule" },
+                  { icon: CheckSquare, color: "text-pink-500", label: "Cleaning Checklist", desc: "Follow step-by-step cleaning procedures" },
+                  { icon: MapPin, color: "text-purple-500", label: "Property Locations", desc: "Find assigned property details" },
+                  { icon: AlertCircle, color: "text-red-500", label: "Report Issue", desc: "Report problems or damages instantly" },
+                ].map(({ icon: Icon, color, label, desc }) => (
+                  <li key={label} className="flex items-start gap-3">
+                    <Icon className={`w-4 h-4 mt-0.5 flex-shrink-0 ${color}`} />
+                    <div>
+                      <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">{label}</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400 block">{desc}</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row gap-2">
+              <button
+                onClick={() => {
+                  if (userId) window.localStorage.setItem(GUIDE_SEEN_KEY(userId), "1");
+                  setShowGuideModal(false);
+                  setPage("user-guide");
+                }}
+                className="flex-1 px-4 py-2.5 bg-brand-primary hover:bg-brand-primaryDark text-white text-sm font-semibold rounded-lg transition-colors"
+              >
+                Open Full Guide
+              </button>
+              <button
+                onClick={() => {
+                  if (userId) window.localStorage.setItem(GUIDE_SEEN_KEY(userId), "1");
+                  setShowGuideModal(false);
+                }}
+                className="flex-1 px-4 py-2.5 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-semibold rounded-lg transition-colors"
+              >
+                Got it, Skip
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
         {/* PAGE CONTENT */}
         <div className="flex-1 p-6 pt-24">
           <div className="max-w-[1600px] mx-auto w-full">{renderPage()}</div>
@@ -686,27 +781,7 @@ export default function CleanersDashboard() {
         />
       )}
       
-      {/* Message Modal */}
-      {messageModalOpen && (
-        <MessageModal
-          conversations={headerConversationsData?.data || []}
-          currentUserId={userId || ""}
-          employeeNameById={employeeNameById}
-          employeeProfileImageById={employeeProfileImageById}
-          isLoading={isLoadingHeaderConversations}
-          onSelectConversation={(conversationId) => {
-            setSelectedConversationId(conversationId);
-            setMessageModalOpen(false);
-            setPage("messages");
-          }}
-          onClose={() => setMessageModalOpen(false)}
-          onViewAll={() => {
-            setMessageModalOpen(false);
-            setPage("messages");
-          }}
-          anchorRef={messageButtonRef}
-        />
-      )}
+
     </div>
   );
 }
