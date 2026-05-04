@@ -100,29 +100,66 @@ export default function MyAssignmentPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {statsArray.map((stat, i) => {
           const IconComponent = stat.icon;
           return (
             <div
               key={i}
-              className={`${stat.color} text-white rounded-lg p-6 shadow dark:shadow-gray-900 hover:shadow-lg transition-all`}
+              className={`${stat.color} text-white rounded-lg p-4 sm:p-6 shadow dark:shadow-gray-900 hover:shadow-lg transition-all`}
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm opacity-90">{stat.label}</p>
-                  <p className="text-3xl font-bold mt-2">{stat.value}</p>
+                  <p className="text-xs sm:text-sm opacity-90">{stat.label}</p>
+                  <p className="text-2xl sm:text-3xl font-bold mt-1 sm:mt-2">{stat.value}</p>
                 </div>
-                <IconComponent className="w-12 h-12 opacity-50" />
+                <IconComponent className="w-8 h-8 sm:w-12 sm:h-12 opacity-50" />
               </div>
             </div>
           );
         })}
       </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden">
+      {/* Mobile card list */}
+      <div className="block sm:hidden space-y-3">
+        {isLoadingAssignments ? (
+          Array.from({ length: 3 }).map((_, idx) => (
+            <div key={idx} className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow animate-pulse space-y-2">
+              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+              <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+            </div>
+          ))
+        ) : assignments.length === 0 ? (
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-8 text-center shadow">
+            <p className="text-gray-500 dark:text-gray-400 font-medium">No assignments assigned to you yet</p>
+          </div>
+        ) : (
+          assignments.map((assignment: any) => {
+            const statusBadge = getStatusBadge(assignment.cleaning_status);
+            return (
+              <div key={assignment.cleaning_id ?? assignment.id} className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{assignment.haven ?? assignment.room_name ?? "—"}</p>
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold flex-shrink-0 ${statusBadge.bgColor} ${statusBadge.textColor}`}>{statusBadge.label}</span>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{assignment.location || "Location TBD"}</p>
+                <div className="flex gap-4 text-xs text-gray-500 dark:text-gray-400">
+                  <span>Checkout: {formatDate(assignment.check_out_date)} {formatTime(assignment.check_out_time)}</span>
+                </div>
+                <div className="flex gap-4 text-xs text-gray-500 dark:text-gray-400">
+                  <span>In: {formatTime(assignment.cleaning_time_in)}</span>
+                  <span>Out: {formatTime(assignment.cleaning_time_out)}</span>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden sm:block bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[900px]">
+          <table className="w-full min-w-[700px]">
             <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 border-b-2 border-gray-200 dark:border-gray-600">
               <tr>
                 <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap border border-gray-200 dark:border-gray-700">Haven</th>
