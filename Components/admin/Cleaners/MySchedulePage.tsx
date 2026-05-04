@@ -197,23 +197,23 @@ export default function MySchedulePage() {
       </div>
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {statsArray.map((stat, i) => (
           <div
             key={i}
-            className={`${stat.color} text-white rounded-lg p-4 shadow dark:shadow-gray-900`}
+            className={`${stat.color} text-white rounded-lg p-3 sm:p-4 shadow dark:shadow-gray-900`}
           >
-            <p className="text-sm opacity-90">{stat.label}</p>
-            <p className="text-3xl font-bold mt-2">{stat.value}</p>
+            <p className="text-xs sm:text-sm opacity-90">{stat.label}</p>
+            <p className="text-2xl sm:text-3xl font-bold mt-1 sm:mt-2">{stat.value}</p>
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Calendar */}
-        <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">
+        <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-4 sm:p-6">
+          <div className="flex items-center justify-between mb-4 sm:mb-6">
+            <h2 className="text-base sm:text-lg font-bold text-gray-800 dark:text-gray-100">
               {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
             </h2>
             <div className="flex gap-2">
@@ -233,13 +233,13 @@ export default function MySchedulePage() {
           </div>
 
           {/* Calendar Grid */}
-          <div className="grid grid-cols-7 gap-2">
+          <div className="grid grid-cols-7 gap-1 sm:gap-2">
             {weekDays.map((day) => (
               <div
                 key={day}
-                className="text-center text-sm font-bold text-gray-600 dark:text-gray-400 py-2"
+                className="text-center text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400 py-1 sm:py-2"
               >
-                {day}
+                {day.charAt(0)}<span className="hidden sm:inline">{day.slice(1)}</span>
               </div>
             ))}
 
