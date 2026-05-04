@@ -2,16 +2,13 @@
 
 import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { createPortal } from "react-dom";
 import { useSession } from "next-auth/react";
 import {
   Search,
-  Phone,
-  Video,
-  Info,
   Send,
   Plus,
   Image as ImageIcon,
-  Smile,
   X,
   Loader2,
 } from "lucide-react";
@@ -34,6 +31,7 @@ interface Message {
   sender_name?: string;
   message_text: string;
   created_at: string;
+  is_image?: boolean;
 }
 
 interface Conversation {
@@ -65,11 +63,14 @@ const formatTime = (timestamp: string) => {
   if (diffMins < 1) return "Just now";
   if (diffMins < 60) return `${diffMins}m`;
   if (diffMins < 1440) return `${Math.floor(diffMins / 60)}h`;
-  return date.toLocaleDateString();
+  return date.toLocaleDateString("en-PH", {
+    timeZone: "Asia/Manila",
+    month: "short",
+    day: "numeric",
+  });
 };
 
 const formatMessageTime = (timestamp: string) => {
-  // Convert UTC timestamp to Philippine time (UTC+8)
   const date = new Date(timestamp);
   return date.toLocaleTimeString("en-PH", {
     hour: "numeric",
@@ -157,6 +158,12 @@ export default function MessagesPage() {
   const [draft, setDraft] = useState("");
   const [isNewMessageModalOpen, setIsNewMessageModalOpen] = useState(false);
   const [showEmployeeSelection, setShowEmployeeSelection] = useState(false);
+  const [zoomedImage, setZoomedImage] = useState<string | null>(null);
+
+useEffect(() => {
+  document.body.style.overflow = zoomedImage ? "hidden" : "";
+  return () => { document.body.style.overflow = ""; };
+}, [zoomedImage]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const hasInitializedActiveId = useRef(false);
@@ -699,29 +706,21 @@ export default function MessagesPage() {
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        className="p-2 rounded-full hover:bg-brand-primaryLighter transition-colors"
-                        title="Call"
+                    <a
+                      href="https://www.facebook.com/staycationhavenph"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 p-2 rounded-full hover:bg-brand-primaryLighter transition-colors"
+                      title="Message us on Facebook Messenger">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        className="w-5 h-5"
+                        fill="#0084FF"
                       >
-                        <Phone className="w-5 h-5 text-brand-primary" />
-                      </button>
-                      <button
-                        type="button"
-                        className="p-2 rounded-full hover:bg-brand-primaryLighter transition-colors"
-                        title="Video"
-                      >
-                        <Video className="w-5 h-5 text-brand-primary" />
-                      </button>
-                      <button
-                        type="button"
-                        className="p-2 rounded-full hover:bg-brand-primaryLighter transition-colors"
-                        title="Info"
-                      >
-                        <Info className="w-5 h-5 text-brand-primary" />
-                      </button>
-                    </div>
+                        <path d="M12 2C6.477 2 2 6.145 2 11.243c0 2.908 1.438 5.504 3.686 7.205V22l3.372-1.851A10.6 10.6 0 0 0 12 20.485c5.523 0 10-4.144 10-9.242S17.523 2 12 2zm1.05 12.443-2.55-2.72-4.976 2.72 5.474-5.81 2.612 2.72 4.914-2.72-5.474 5.81z" />
+                      </svg>
+                    </a>
                   </div>
 
                   {/* Messages Area */}
@@ -760,14 +759,25 @@ export default function MessagesPage() {
                                   </span>
                                 )}
                                 <div
-                                  className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl text-xs sm:text-sm leading-relaxed shadow-sm ${
-                                    isMe
-                                      ? "bg-brand-primary text-white rounded-br-md"
-                                      : "bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-800 rounded-bl-md"
-                                  }`}
-                                >
-                                  {m.message_text}
-                                </div>
+                               className={`rounded-2xl text-xs sm:text-sm leading-relaxed shadow-sm overflow-hidden ${
+                               m.message_text.startsWith("data:image")
+                               ? "p-0": `px-3 sm:px-4 py-2 sm:py-2.5 ${isMe ? "bg-brand-primary text-white rounded-br-md" : "bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-800 rounded-bl-md"}`
+                           }`}
+                         >
+                              {m.message_text.startsWith("data:image") ? (
+<img
+  src={m.message_text}
+  alt="sent image"
+  className="max-w-[220px] rounded-2xl object-cover cursor-pointer hover:opacity-90 transition-opacity"
+  onClick={(e) => {
+    e.stopPropagation();
+    setZoomedImage(m.message_text);
+  }}
+/>
+) : (
+  m.message_text
+)}
+                     </div>
                                 <span className="text-[10px] sm:text-[11px] text-gray-400">
                                   {formatMessageTime(m.created_at)}
                                 </span>
@@ -783,13 +793,44 @@ export default function MessagesPage() {
                   {/* Message Input */}
                   <div className="border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-2 sm:px-4 py-2 sm:py-3">
                     <div className="flex items-center gap-1 sm:gap-2">
-                      <button
-                        type="button"
-                        className="p-2 rounded-full hover:bg-brand-primaryLighter transition-colors"
-                        title="Attach"
-                      >
-                        <ImageIcon className="w-5 h-5 text-brand-primary" />
-                      </button>
+                      <input
+  type="file"
+  id="file-attach"
+  className="hidden"
+  accept="image/*"
+onChange={async (e) => {
+  const file = e.target.files?.[0];
+  if (!file || !activeId || !currentUserId) return;
+
+  const reader = new FileReader();
+  reader.onload = async () => {
+    const base64 = reader.result as string;
+    console.log("base64 preview:", base64.substring(0, 50));
+    try {
+      await sendMessage({
+        conversation_id: activeId,
+        sender_id: currentUserId,
+        sender_name: session?.user?.name || guestName || "Guest",
+        message_text: base64,
+      }).unwrap();
+      refetchMessages();
+      refetchConversations();
+    } catch {
+      toast.error("Failed to send image");
+    }
+  };
+  reader.readAsDataURL(file);
+  e.target.value = "";
+}}
+/>
+<button
+  type="button"
+  className="p-2 rounded-full hover:bg-brand-primaryLighter transition-colors"
+  title="Attach"
+  onClick={() => document.getElementById("file-attach")?.click()}
+>
+  <ImageIcon className="w-5 h-5 text-brand-primary" />
+</button>
                       <div className="flex-1 bg-gray-100 dark:bg-gray-800 rounded-full px-2 sm:px-3 py-1.5 sm:py-2 flex items-center gap-1 sm:gap-2 border border-gray-200 dark:border-gray-700 focus-within:bg-brand-primaryLighter dark:focus-within:bg-gray-800 focus-within:border-brand-primary dark:focus-within:border-brand-primary focus-within:ring-2 focus-within:ring-brand-primary/20">
                         <input
                           value={draft}
@@ -804,13 +845,6 @@ export default function MessagesPage() {
                           disabled={isSending}
                           className="flex-1 bg-transparent outline-none text-xs sm:text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400"
                         />
-                        <button
-                          type="button"
-                          className="p-2 rounded-full hover:bg-brand-primaryLighter transition-colors"
-                          title="Emoji"
-                        >
-                          <Smile className="w-5 h-5 text-brand-primary" />
-                        </button>
                       </div>
                       <button
                         type="button"
@@ -839,7 +873,31 @@ export default function MessagesPage() {
           </div>
         </div>
 
+        {/* Image Zoom Modal */}
+        {/* Image Zoom Modal */}
+{zoomedImage && typeof document !== "undefined" && createPortal(
+  <div
+    className="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center p-4"
+    onClick={() => setZoomedImage(null)}
+  >
+    <button
+      className="absolute top-4 right-4 text-white bg-black/50 rounded-full p-2 hover:bg-black/80 transition-colors"
+      onClick={(e) => { e.stopPropagation(); setZoomedImage(null); }}
+    >
+      <X className="w-6 h-6" />
+    </button>
+    <img
+      src={zoomedImage}
+      alt="zoomed"
+      className="max-w-full max-h-[90vh] rounded-xl object-contain shadow-2xl"
+      onClick={(e) => e.stopPropagation()}
+    />
+  </div>,
+  document.body
+)}
+
         {/* New Message Modal */}
+
         <NewMessageModal
           isOpen={isNewMessageModalOpen}
           onClose={() => setIsNewMessageModalOpen(false)}
