@@ -1015,6 +1015,7 @@ export const getBookingById = async (
         bp.down_payment,
         bp.remaining_balance,
         bp.payment_method,
+        bp.payment_proof_url,
         bp.room_rate,
         bp.add_ons_total,
         COALESCE(bd.amount, 0) as security_deposit,
@@ -1066,7 +1067,7 @@ export const getBookingById = async (
       LEFT JOIN booking_guests bg ON b.id = bg.booking_id
       LEFT JOIN booking_security_deposits bd ON b.id = bd.booking_id
       WHERE b.id = $1
-      GROUP BY b.id, h.tower, h.uuid_id, bp.total_amount, bp.down_payment, bp.remaining_balance, bp.payment_method, bp.room_rate, bp.add_ons_total, bg.first_name, bg.last_name, bg.email, bg.phone, bg.valid_id_url, bd.amount
+      GROUP BY b.id, h.tower, h.uuid_id, bp.total_amount, bp.down_payment, bp.remaining_balance, bp.payment_method, bp.payment_proof_url, bp.room_rate, bp.add_ons_total, bg.first_name, bg.last_name, bg.email, bg.phone, bg.valid_id_url, bd.amount
       LIMIT 1
     `;
     const bookingResult = await pool.query(query, [id]);

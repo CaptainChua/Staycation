@@ -1,4 +1,4 @@
-"use client";
+  "use client";
 
 import { useState, useEffect } from "react";
 import { LogOut, Menu, X, Home, Users, MessageSquare, Settings, User, Bell, UserCircle, ChevronDown, BarChart3, Calendar, DollarSign, Wrench, Star, Shield, TrendingUp, TrendingDown, Building2, Sparkles, Headphones, CalendarOff, UsersRound, Moon, Sun, Monitor, CreditCard, Handshake } from "lucide-react";
@@ -6,6 +6,8 @@ import Image from "next/image";
 import { signOut, useSession } from "next-auth/react";
 import { useTheme } from "next-themes";
 import { useGetEmployeesQuery } from "@/redux/api/employeeApi";
+import { CalendarDate } from "@nextui-org/react";
+import CalendarPage from "./CalendarPage";
 
 interface OwnerSidebarProps {
   sidebar: boolean;
@@ -100,8 +102,10 @@ export default function OwnerSidebar({ sidebar, setSidebar, mobileMenuOpen, setM
       category: "Bookings",
       items: [
         { id: "calendar", icon: Calendar, label: "Booking Calendar", color: "text-indigo-500" },
-        { id: "reservations", icon: Calendar, label: "Reservations", color: "text-indigo-500" },
+        { id: "reservations", icon: Calendar, label: "Reservations", color: "text-yellow-500" },
         { id: "blockedDates", icon: CalendarOff, label: "Blocked Dates", color: "text-red-500" },
+    { id: "guestBookings", icon: Home, label: "Guest Bookings", subtitle: "Management",color: "text-green-500" },
+        { id: "googleCalendar", icon: Calendar, label: "Google Calendar", color: "text-orange-500" },
       ],
     },
     {
@@ -214,22 +218,14 @@ export default function OwnerSidebar({ sidebar, setSidebar, mobileMenuOpen, setM
         </div>
 
         {/* Navigation */}
-        <nav className={`flex-1 p-4 space-y-1 overflow-y-auto scrollbar-hide ${
-          !sidebar
-            ? "[&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
-            : ""
-        }`}>
-          {navCategories.map((category, categoryIndex) => (
-            <div key={category.category} className={categoryIndex > 0 ? "pt-2" : ""}>
-              {/* Category Header - only show when sidebar is expanded */}
+        <nav className="flex-1 p-4 space-y-6 overflow-y-auto scrollbar-hide">
+          {navCategories.map((category) => (
+            <div key={category.category}>
               {sidebar && (
-                <div className="px-3 py-2">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
-                    {category.category}
-                  </span>
-                </div>
+                <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2 px-4">
+                  {category.category}
+                </h3>
               )}
-              {/* Category Items */}
               <div className="space-y-1">
                 {category.items.map((item) => {
                   const Icon = item.icon;
@@ -240,24 +236,30 @@ export default function OwnerSidebar({ sidebar, setSidebar, mobileMenuOpen, setM
                         setPage(item.id);
                         setMobileMenuOpen(false);
                       }}
-                      className={`w-full flex items-center ${sidebar ? "gap-4 px-4" : "justify-center px-2"} py-3 rounded-lg transition-all duration-200 group ${
-                        page === item.id
-                          ? "bg-brand-primary text-white"
+                      className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-lg transition-all duration-200 group ${page === item.id
+                          ? "bg-brand-primary text-white shadow-md"
                           : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
-                      }`}
+                        }`}
                       title={!sidebar ? item.label : undefined}
                     >
                       <Icon
-                        className={`w-5 h-5 ${
-                          page === item.id
-                            ? "text-white"
-                            : `${item.color} group-hover:scale-110 transition-transform`
-                        }`}
+                        className={`w-5 h-5 flex-shrink-0 ${page === item.id ? "text-white" : `${item.color}`
+                          }`}
                       />
                       {sidebar && (
-                        <span className="text-sm font-semibold truncate">
-                          {item.label}
-                        </span>
+                        <div className="flex flex-col items-start min-w-0">
+                          <span className="text-sm font-semibold truncate">
+                            {item.label}
+                          </span>
+                          {item.subtitle && (
+                            <span className={`text-xs ${page === item.id
+                                ? "text-white/80"
+                                : "text-gray-500 dark:text-gray-400"
+                              }`}>
+                              {item.subtitle}
+                            </span>
+                          )}
+                        </div>
                       )}
                     </button>
                   );
