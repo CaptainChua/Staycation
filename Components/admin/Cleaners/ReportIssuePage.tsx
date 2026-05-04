@@ -203,25 +203,25 @@ export default function ReportIssuePage() {
           </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
         {stats.map((stat, index) => {
           const IconComponent = stat.icon;
-                return (
+          return (
             <div
               key={index}
-              className={`${stat.color} text-white rounded-lg p-6 shadow-lg dark:shadow-gray-900 hover:shadow-xl transition-all`}
+              className={`${stat.color} text-white rounded-lg p-4 sm:p-6 shadow-lg dark:shadow-gray-900 hover:shadow-xl transition-all`}
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm opacity-90">{stat.label}</p>
-                  <p className="text-3xl font-bold mt-2">{stat.value}</p>
+                  <p className="text-xs sm:text-sm opacity-90">{stat.label}</p>
+                  <p className="text-2xl sm:text-3xl font-bold mt-1 sm:mt-2">{stat.value}</p>
                 </div>
-                <IconComponent className="w-12 h-12 opacity-50" />
+                <IconComponent className="w-8 h-8 sm:w-12 sm:h-12 opacity-50" />
               </div>
             </div>
-                );
-              })}
-            </div>
+          );
+        })}
+      </div>
 
       {/* Reports Table */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden">
@@ -315,8 +315,38 @@ export default function ReportIssuePage() {
               </div>
           </div>
 
-        {/* Table */}
-        <div className="overflow-x-auto">
+        {/* Mobile card list */}
+          {!isLoadingReports && !reportsError && (
+            <div className="block sm:hidden divide-y divide-gray-100 dark:divide-gray-700">
+              {paginatedReports.length === 0 ? (
+                <p className="py-8 text-center text-gray-500 dark:text-gray-400">No reports found.</p>
+              ) : (
+                paginatedReports.map((report: any) => (
+                  <div key={report.id} className="p-4 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{report.haven}</span>
+                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold flex-shrink-0 ${getPriorityColor(report.priority)}`}>{report.priority}</span>
+                    </div>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2">{report.issue}</p>
+                    <div className="flex items-center justify-between">
+                      <span className={`text-xs font-semibold ${report.statusColor}`}>{report.status}</span>
+                      <span className="text-xs text-gray-400">{report.dateString}</span>
+                    </div>
+                    <div className="flex gap-2 pt-1">
+                      <button onClick={() => { setSelectedReportId(report.report_id); setViewModalOpen(true); }} className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"><Eye className="w-4 h-4" /></button>
+                      {(report.status === "Open" || report.status === "Pending") && (
+                        <button onClick={() => { const f = allReports.find((r: any) => r.report_id === report.report_id); if (f) { setEditReportId(f.report_id); setEditReportData({ haven: f.haven, issueType: f.type, priority: f.priority, description: f.issue, location: f.location, images: f.images || [] }); setReportModalOpen(true); } }} className="p-1.5 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"><Edit className="w-4 h-4" /></button>
+                      )}
+                      <button onClick={async () => { if (window.confirm("Delete this report?")) { try { await deleteReport(report.report_id).unwrap(); toast.success("Report deleted"); } catch { toast.error("Failed to delete"); } } }} className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+        {/* Desktop table */}
+        <div className="hidden sm:block overflow-x-auto">
           {isLoadingReports ? (
             <div className="p-8 text-center">
               <Loader2 className="w-8 h-8 animate-spin text-brand-primary mx-auto mb-2" />
