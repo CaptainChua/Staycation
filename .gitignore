@@ -9,7 +9,6 @@
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
-.env
 
 # testing
 /coverage
@@ -47,4 +46,4 @@ COMPLETION_SUMMARY.md
 FACEBOOK_LOGIN_CHECKLIST.md
 FACEBOOK_LOGIN_IMPLEMENTATION.md
 FACEBOOK_LOGIN_QUICK_REFERENCE.md
-.
+.env.local

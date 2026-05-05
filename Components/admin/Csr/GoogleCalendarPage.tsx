@@ -33,7 +33,6 @@ export default function GoogleCalendarPage() {
         calendarId: firstSynced?.calendar_id ?? undefined,
       });
     } catch (err: any) {
-      // The backend returns error details in err.data
       const detail = err?.data?.error || err?.data?.message || "Failed to sync bookings to Google Calendar.";
       setSyncError(detail);
     }
@@ -112,7 +111,6 @@ export default function GoogleCalendarPage() {
               <span className="text-gray-600 dark:text-gray-400">Total: {syncResult.total}</span>
             </div>
           )}
-          {/* Show which calendar was used — mismatch here explains why events don't appear */}
           {syncResult.calendarId && (
             <p className="mt-2 text-xs text-gray-600 dark:text-gray-400">
               Events created on calendar: <span className="font-mono font-semibold">{syncResult.calendarId}</span>
@@ -121,7 +119,6 @@ export default function GoogleCalendarPage() {
               )}
             </p>
           )}
-          {/* Show the actual error reason so you know what to fix */}
           {syncResult.errors && syncResult.errors.length > 0 && (
             <div className="mt-3 border-t border-red-200 dark:border-red-700 pt-3">
               <p className="text-xs font-semibold text-red-700 dark:text-red-300 mb-1">Error reason(s):</p>

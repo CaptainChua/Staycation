@@ -36,6 +36,22 @@ export const parsePrivateKey = (raw: string): string => {
   return key;
 };
 
+// Google Calendar colorId reference:
+// "1"=Lavender "2"=Sage(green) "5"=Banana(yellow) "6"=Tangerine(orange)
+// "7"=Peacock(teal-blue) "9"=Basil(dark green) "10"=Tomato(red) "11"=Graphite(gray)
+export const STATUS_COLOR_ID_MAP: Record<string, string> = {
+  pending:        "5",  // Banana     — yellow
+  "on-going":     "7",  // Peacock    — teal-blue
+  approved:       "2",  // Sage       — green
+  confirmed:      "2",  // Sage       — green
+  "checked-in":   "7",  // Peacock    — blue
+  "checked-out":  "1",  // Lavender   — indigo
+  completed:      "9",  // Basil      — dark green
+  rejected:       "10", // Tomato     — red
+  declined:       "10", // Tomato     — red
+  cancelled:      "6",  // Tangerine  — orange
+};
+
 export const getGoogleCalendarAuth = () => {
   const clientEmail = process.env.GOOGLE_CLIENT_EMAIL_CALENDAR;
   const privateKeyRaw = process.env.GOOGLE_PRIVATE_KEY_CALENDAR;
@@ -176,20 +192,7 @@ const buildAndInsertCalendarEvent = async (bookingData: CalendarEventData): Prom
 
   const description = descriptionLines.filter((line) => line !== "").join("\n");
 
-  // Google Calendar colorId reference:
-  // "2"=Sage(green) "5"=Banana(yellow) "6"=Tangerine(orange) "7"=Peacock(blue)
-  // "9"=Basil(dark green) "10"=Tomato(red) "11"=Graphite(gray)
-  const colorIdMap: Record<string, string> = {
-    pending:      "5",  // Banana   — yellow
-    approved:     "2",  // Sage     — green
-    confirmed:    "2",  // Sage     — green
-    "checked-in": "7",  // Peacock  — blue
-    "checked-out":"1",  // Lavender — indigo
-    completed:    "9",  // Basil    — dark green
-    rejected:     "10", // Tomato   — red
-    cancelled:    "6",  // Tangerine — orange
-  };
-  const colorId = colorIdMap[status?.toLowerCase()] ?? "11"; // Graphite fallback
+  const colorId = STATUS_COLOR_ID_MAP[status?.toLowerCase()] ?? "11"; // Graphite fallback
 
   const event = {
     summary: `Booking: ${room_name} - ${guest_first_name} ${guest_last_name}`,
@@ -239,6 +242,34 @@ export const createCalendarEvent = async (bookingData: CalendarEventData): Promi
     const msg = classifyCalendarError(error);
     console.error(`❌ [CALENDAR] Failed for booking ${bookingData.booking_id}: ${msg}`);
     return null;
+  }
+};
+
+/**
+ * Updates a Google Calendar event's colorId to match the new booking status.
+ * Returns null on success, or an error string on failure.
+ */
+export const updateCalendarEventColor = async (eventId: string, status: string): Promise<string | null> => {
+  try {
+    const calendarId = process.env.GOOGLE_CALENDAR_ID;
+    if (!calendarId || !eventId) return "Missing calendarId or eventId";
+
+    const colorId = STATUS_COLOR_ID_MAP[status?.toLowerCase()] ?? "11";
+    const auth = getGoogleCalendarAuth();
+    const calendar = google.calendar({ version: "v3", auth });
+
+    await calendar.events.patch({
+      calendarId,
+      eventId,
+      requestBody: { colorId },
+    });
+
+    console.log(`✅ [CALENDAR] Updated event ${eventId} color to colorId=${colorId} (status: ${status})`);
+    return null;
+  } catch (error: any) {
+    const msg = classifyCalendarError(error);
+    console.error(`⚠️ [CALENDAR] Failed to update event color for ${eventId}: ${msg}`);
+    return msg;
   }
 };
 
