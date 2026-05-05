@@ -162,6 +162,8 @@ export default function BookingsPage() {
     switch (statusLower) {
       case "approved":
         return "bg-green-100 text-green-700";
+      case "on-going":
+        return "bg-teal-500 text-white";
       case "pending":
         return "bg-yellow-100 text-yellow-700";
       case "declined":
@@ -426,6 +428,27 @@ export default function BookingsPage() {
     } catch (error) {
       toast.error("Failed to delete booking");
       console.error(error);
+    }
+  };
+
+  const handleCheckIn = async (booking: BookingData) => {
+    try {
+      const response = await fetch('/api/bookings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: booking.id, status: 'checked-in' }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        toast.error(data?.error || "Failed to check in booking");
+        return;
+      }
+
+      toast.success(`${booking.guest_first_name} ${booking.guest_last_name} checked in successfully`);
+      logEmployeeActivity('CHECKIN_BOOKING', `Checked in booking ${booking.booking_id}`, booking.id);
+    } catch {
+      toast.error("Failed to check in booking");
     }
   };
 
@@ -711,12 +734,19 @@ export default function BookingsPage() {
       {/* Booking Status Guide */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-6 flex-shrink-0 border border-gray-200 dark:border-gray-700">
         <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4">Booking Status Guide</h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <div className="flex items-start gap-3">
             <div className="w-3 h-3 bg-yellow-500 rounded-full mt-1 flex-shrink-0"></div>
             <div>
               <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">Pending</h5>
               <p className="text-xs text-gray-600 dark:text-gray-300">Booking awaiting approval or payment confirmation</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <div className="w-3 h-3 bg-teal-500 rounded-full mt-1 flex-shrink-0"></div>
+            <div>
+              <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">On-going</h5>
+              <p className="text-xs text-gray-600 dark:text-gray-300">Down payment accepted, booking is confirmed</p>
             </div>
           </div>
           <div className="flex items-start gap-3">
@@ -1326,8 +1356,9 @@ export default function BookingsPage() {
                           )}
                           {booking.status?.toLowerCase() === 'approved' && (
                             <button
+                              onClick={() => handleCheckIn(booking)}
                               className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
-                              title="Ready for Check-in"
+                              title="Check-in Guest"
                             >
                               <LogIn className="w-4 h-4" />
                             </button>

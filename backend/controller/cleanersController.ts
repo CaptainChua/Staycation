@@ -22,6 +22,8 @@ export interface CleaningTask {
   cleaning_time_out: string | null;
   cleaned_at: string | null;
   inspected_at: string | null;
+  checklist_completed: number;
+  checklist_total: number;
 }
 
 // GET All Cleaning Tasks
@@ -107,11 +109,23 @@ export const getAllCleaningTasks = async (
           bc.cleaning_time_in,
           bc.cleaning_time_out,
           bc.cleaned_at,
-          bc.inspected_at
+          bc.inspected_at,
+          COALESCE(cp.checklist_completed, 0)::int as checklist_completed,
+          COALESCE(cp.checklist_total, 0)::int as checklist_total
         FROM booking_cleaning bc
         INNER JOIN booking b ON bc.booking_id = b.id
         LEFT JOIN booking_guests bg ON bg.booking_id = b.id
         LEFT JOIN employees e ON bc.assigned_to::text = e.id::text
+        LEFT JOIN havens h ON h.haven_name = b.room_name
+        LEFT JOIN (
+          SELECT
+            cl.haven_id,
+            COUNT(ct.id)::int AS checklist_total,
+            COUNT(CASE WHEN ct.completed = true THEN 1 END)::int AS checklist_completed
+          FROM cleaning_checklists cl
+          LEFT JOIN cleaning_tasks ct ON ct.checklist_id = cl.id
+          GROUP BY cl.haven_id
+        ) cp ON cp.haven_id = h.uuid_id
     `;
     const values: string[] = [];
 

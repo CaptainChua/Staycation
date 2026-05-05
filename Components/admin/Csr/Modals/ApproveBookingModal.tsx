@@ -160,6 +160,8 @@ export default function ApproveBookingModal({ booking, bookings, onClose, onAppr
     switch (statusLower) {
       case "approved":
         return "bg-green-100 text-green-700";
+      case "on-going":
+        return "bg-teal-500 text-white";
       case "pending":
         return "bg-yellow-100 text-yellow-700";
       case "declined":

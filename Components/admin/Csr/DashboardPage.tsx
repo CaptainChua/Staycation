@@ -55,23 +55,27 @@ export default function DashboardPage() {
     }
   };
 
+  const isPending  = (s: string) => s === 'pending_down_payment' || s === 'pending_full_payment';
+  const isApproved = (s: string) => s === 'approved_down_payment' || s === 'approved_full_payment';
+  const isRejected = (s: string) => s === 'rejected' || s === 'rejected_down_payment';
+
   // Calculate payment totals (amounts) from all payments data
   const paymentTotals = {
-    pending: paymentsData?.filter((payment: any) => payment.payment_status === 'pending').reduce((sum: number, payment: any) => sum + (Number(payment.total_amount) || 0), 0) || 0,
-    approved: paymentsData?.filter((payment: any) => payment.payment_status === 'approved').reduce((sum: number, payment: any) => sum + (Number(payment.total_amount) || 0), 0) || 0,
-    rejected: paymentsData?.filter((payment: any) => payment.payment_status === 'rejected').reduce((sum: number, payment: any) => sum + (Number(payment.total_amount) || 0), 0) || 0,
-    refunded: paymentsData?.filter((payment: any) => payment.payment_status === 'refunded').reduce((sum: number, payment: any) => sum + (Number(payment.total_amount) || 0), 0) || 0,
+    pending:  paymentsData?.filter((p: any) => isPending(p.payment_status)).reduce((sum: number, p: any) => sum + (Number(p.total_amount) || 0), 0) || 0,
+    approved: paymentsData?.filter((p: any) => isApproved(p.payment_status)).reduce((sum: number, p: any) => sum + (Number(p.amount_paid) || Number(p.down_payment) || 0), 0) || 0,
+    rejected: paymentsData?.filter((p: any) => isRejected(p.payment_status)).reduce((sum: number, p: any) => sum + (Number(p.total_amount) || 0), 0) || 0,
+    refunded: paymentsData?.filter((p: any) => p.payment_status === 'refunded').reduce((sum: number, p: any) => sum + (Number(p.total_amount) || 0), 0) || 0,
   };
 
   // Calculate payment counts from all payments data
   const paymentCounts = {
-    pending: paymentsData?.filter((payment: any) => payment.payment_status === 'pending').length || 0,
-    approved: paymentsData?.filter((payment: any) => payment.payment_status === 'approved').length || 0,
-    rejected: paymentsData?.filter((payment: any) => payment.payment_status === 'rejected').length || 0,
-    refunded: paymentsData?.filter((payment: any) => payment.payment_status === 'refunded').length || 0,
+    pending:  paymentsData?.filter((p: any) => isPending(p.payment_status)).length || 0,
+    approved: paymentsData?.filter((p: any) => isApproved(p.payment_status)).length || 0,
+    rejected: paymentsData?.filter((p: any) => isRejected(p.payment_status)).length || 0,
+    refunded: paymentsData?.filter((p: any) => p.payment_status === 'refunded').length || 0,
   };
 
-  // Calculate total revenue from approved payments only (booking_payments where status = approved)
+  // Total revenue = sum of amount_paid for all approved payments
   const totalRevenue = paymentTotals.approved;
 
   // Calculate KPI data from real API responses
@@ -155,30 +159,29 @@ export default function DashboardPage() {
   }) || [];
 
   // Calculate today's tasks from bookings data
+  const today = new Date().toLocaleDateString('en-CA'); // "YYYY-MM-DD" in local timezone
+  const activeStatuses = ['approved', 'on-going', 'confirmed', 'checked-in'];
   const todayTasks = {
-    checkins: bookingsData?.filter((booking: any) => {
-      const today = new Date().toDateString();
-      const checkinDate = new Date(booking.check_in_date).toDateString();
-      return checkinDate === today;
-    }).length || 0,
-    checkouts: bookingsData?.filter((booking: any) => {
-      const today = new Date().toDateString();
-      const checkoutDate = new Date(booking.check_out_date).toDateString();
-      return checkoutDate === today;
-    }).length || 0,
-    cleanings: bookingsData?.filter((booking: any) => {
-      const today = new Date().toDateString();
-      const checkoutDate = new Date(booking.check_out_date).toDateString();
-      return checkoutDate === today; // Assuming cleaning needed after checkout
-    }).length || 0
+    checkins: bookingsData?.filter((booking: any) =>
+      String(booking.check_in_date).slice(0, 10) === today &&
+      activeStatuses.includes(booking.status)
+    ).length || 0,
+    checkouts: bookingsData?.filter((booking: any) =>
+      String(booking.check_out_date).slice(0, 10) === today &&
+      activeStatuses.includes(booking.status)
+    ).length || 0,
+    cleanings: bookingsData?.filter((booking: any) =>
+      String(booking.check_out_date).slice(0, 10) === today &&
+      activeStatuses.includes(booking.status)
+    ).length || 0,
   };
 
   // Calculate payment status from payments data
   const paymentStatus = {
-    paid: paymentsData?.filter((payment: any) => payment.payment_status === 'approved').length || 0,
-    pending: paymentsData?.filter((payment: any) => payment.payment_status === 'pending').length || 0,
-    approved: paymentsData?.filter((payment: any) => payment.payment_status === 'approved').length || 0,
-    rejected: paymentsData?.filter((payment: any) => payment.payment_status === 'rejected').length || 0
+    paid: paymentCounts.approved,
+    pending: paymentCounts.pending,
+    approved: paymentCounts.approved,
+    rejected: paymentCounts.rejected,
   };
 
   return (
@@ -386,7 +389,7 @@ export default function DashboardPage() {
                 {bookingsLoading ? (
                   <div className="w-8 h-6 bg-indigo-200 dark:bg-indigo-800 rounded animate-pulse" />
                 ) : (
-                  bookingsData?.filter((b: any) => b.status === 'confirmed').length || 0
+                  bookingsData?.filter((b: any) => ['approved', 'on-going', 'confirmed', 'checked-in'].includes(b.status)).length || 0
                 )}
               </span>
             </div>

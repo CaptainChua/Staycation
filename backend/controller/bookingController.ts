@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "../config/db";
 import { upload_file } from "../utils/cloudinary";
-import { createCalendarEvent, createCalendarEventWithResult, CalendarEventData } from "../utils/googleCalendar";
+import { createCalendarEvent, createCalendarEventWithResult, updateCalendarEventColor, CalendarEventData } from "../utils/googleCalendar";
 
 // Add-on prices
 const ADD_ON_PRICES = {
@@ -1171,7 +1171,7 @@ export const updateBookingStatus = async (
 
     // If status is provided, validate it
     const validStatuses = [
-      "pending", "approved", "rejected", "confirmed",
+      "pending", "on-going", "approved", "rejected", "confirmed",
       "checked-in", "completed", "cancelled",
     ];
     if (typeof status !== "undefined" && status !== null) {
@@ -1218,6 +1218,11 @@ export const updateBookingStatus = async (
     }
 
     console.log("✅ Booking status updated:", result.rows[0]);
+
+    // Update Google Calendar event color to reflect new status (non-blocking)
+    if (typeof status === "string" && result.rows[0]?.google_event_id) {
+      updateCalendarEventColor(result.rows[0].google_event_id, status);
+    }
 
     // Get booking details with guest info for email
     const bookingDetailsQuery = `
@@ -1748,6 +1753,76 @@ export const syncCalendarBookings = async (
         success: false,
         error: error instanceof Error ? error.message : "Failed to sync bookings to Google Calendar",
       },
+      { status: 500 },
+    );
+  }
+};
+
+// SYNC Colors of existing Google Calendar events to match current booking status
+export const syncCalendarColors = async (
+  _req: NextRequest,
+): Promise<NextResponse> => {
+  try {
+    const syncedQuery = `
+      SELECT id, booking_id, status, google_event_id
+      FROM booking
+      WHERE google_event_id IS NOT NULL
+      ORDER BY created_at ASC
+    `;
+    const { rows: bookings } = await pool.query(syncedQuery);
+
+    console.log(`🎨 [COLOR-SYNC] Found ${bookings.length} booking(s) with a google_event_id`);
+
+    if (bookings.length === 0) {
+      return NextResponse.json({
+        success: true,
+        message: "No bookings with a Google Event ID found.",
+        updated: 0,
+        failed: 0,
+        total: 0,
+      });
+    }
+
+    let updated = 0;
+    let failed = 0;
+    const errors: string[] = [];
+
+    for (const booking of bookings) {
+      const err = await updateCalendarEventColor(booking.google_event_id, booking.status);
+      if (err === null) {
+        updated++;
+        console.log(`✅ [COLOR-SYNC] ${booking.booking_id} (${booking.status}) → color updated`);
+      } else {
+        failed++;
+        errors.push(`${booking.booking_id}: ${err}`);
+        console.warn(`⚠️ [COLOR-SYNC] ${booking.booking_id} — ${err}`);
+        // Stop early only on auth or network failures (all events will fail for same reason)
+        if (
+          err.includes("Auth failed") ||
+          err.includes("Network error") ||
+          err.includes("Calendar not found") ||
+          err.includes("Missing")
+        ) {
+          console.error(`❌ [COLOR-SYNC] Stopping early — persistent error: ${err}`);
+          break;
+        }
+      }
+    }
+
+    const uniqueErrors = [...new Set(errors)];
+
+    return NextResponse.json({
+      success: updated > 0,
+      message: `Updated ${updated} of ${bookings.length} event color(s).`,
+      updated,
+      failed,
+      total: bookings.length,
+      ...(uniqueErrors.length > 0 && { errors: uniqueErrors }),
+    });
+  } catch (error) {
+    console.error("❌ [COLOR-SYNC] Error:", error);
+    return NextResponse.json(
+      { success: false, error: error instanceof Error ? error.message : "Failed to sync calendar colors" },
       { status: 500 },
     );
   }
