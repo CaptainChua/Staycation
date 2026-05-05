@@ -20,10 +20,11 @@ export function Providers ({ children }: {children:React.ReactNode}) {
             <Provider store={store}>
                 <PersistGate loading={null} persistor={persistor}>
                     <InactivityLogoutWrapper>
-                        <NextThemesProvider  attribute="class" 
-                        defaultTheme="system" 
-                        enableSystem
-                        scriptProps={{ "data-cfasync": "false" }}
+                        <NextThemesProvider 
+                            attribute="class"
+                            defaultTheme="system"
+                            enableSystem
+                            disableTransitionOnChange
                         >
                             <ConditionalLayout>
                                 {children}

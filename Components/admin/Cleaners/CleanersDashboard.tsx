@@ -301,36 +301,47 @@ useEffect(() => {
     };
   }, [profileDropdownOpen]);
 
+  const [checklistHavenId, setChecklistHavenId] = useState<string | null>(null);
 
   const navItems = [
-    { id: "my-assignment", icon: ClipboardList, label: "My Assignments", color: "text-green-500" },
     { id: "my-schedule", icon: Calendar, label: "My Schedule", color: "text-indigo-500" },
     { id: "cleaning-checklist", icon: CheckSquare, label: "Cleaning Checklist", color: "text-pink-500" },
-    { id: "property-location", icon: MapPin, label: "Property Locations", color: "text-purple-500" },
     { id: "report-issue", icon: AlertCircle, label: "Report Issue", color: "text-red-500" },
     { id: "messages", icon: MessageSquare, label: "Messages", color: "text-blue-500", badge: unreadMessageCount },
   ];
 
   const renderPage = () => {
     switch (page) {
-      case "my-assignment":
-        return <MyAssignmentPage />;
-      case "property-location":
-        return <PropertyLocationPage />;
-      case "cleaning-checklist":
-        return <CleaningChecklistPage />;
       case "report-issue":
         return <ReportIssuePage />;
-      case "my-schedule":
-        return <MySchedulePage />;
       case "user-guide":
         return <UserGuidePage />;
       case "messages":
         return <MessagesPage />;
       case "profile":
         return <ProfilePage cleanerData={cleanerData} />;
+      case "my-schedule":
+        return (
+          <MySchedulePage
+            onNavigate={setPage}
+            onStartCleaning={(havenId) => {
+              setChecklistHavenId(havenId);
+              setPage("cleaning-checklist");
+            }}
+          />
+        );
+      case "cleaning-checklist":
+        return <CleaningChecklistPage initialHavenId={checklistHavenId} />;
       default:
-        return <MyAssignmentPage />;
+        return (
+          <MySchedulePage
+            onNavigate={setPage}
+            onStartCleaning={(havenId) => {
+              setChecklistHavenId(havenId);
+              setPage("cleaning-checklist");
+            }}
+          />
+        );
     }
   };
 

@@ -43,7 +43,12 @@ type Haven = {
   cleaningStatus?: string;
 };
 
-export default function CleaningChecklistPage() {
+interface Props {
+  /** If provided (e.g. navigated from schedule page), pre-selects this haven */
+  initialHavenId?: string | null;
+}
+
+export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
   const [havens, setHavens] = useState<Haven[]>([]);
   const [selectedHavenId, setSelectedHavenId] = useState<string | null>(null);
   const [selectedHaven, setSelectedHaven] = useState<Haven | null>(null);
@@ -82,16 +87,19 @@ export default function CleaningChecklistPage() {
         if (Array.isArray(data)) {
           setHavens(data);
           if (data.length > 0) {
-            // If the currently selected haven is no longer in the list, reset
-            const stillExists = selectedHavenId
+            // Priority: initialHavenId prop → currently selected → first in list
+            const preferred =
+              initialHavenId
+                ? data.find((h: Haven) => String(h.id) === String(initialHavenId))
+                : null;
+
+            const stillExists = !preferred && selectedHavenId
               ? data.find((h: Haven) => h.id === selectedHavenId)
               : null;
-            if (!stillExists) {
-              setSelectedHavenId(data[0].id);
-              setSelectedHaven(data[0]);
-            } else {
-              setSelectedHaven(stillExists);
-            }
+
+            const target = preferred ?? stillExists ?? data[0];
+            setSelectedHavenId(target.id);
+            setSelectedHaven(target);
           } else {
             setSelectedHavenId(null);
             setSelectedHaven(null);
@@ -111,6 +119,7 @@ export default function CleaningChecklistPage() {
     return () => {
       mounted = false;
     };
+    // initialHavenId intentionally only used on mount — not a reactive dep
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -194,7 +203,6 @@ export default function CleaningChecklistPage() {
     if (!proofFile) return;
     setIsUploadingProof(true);
     try {
-      // Convert to base64 for upload
       const reader = new FileReader();
       await new Promise<void>((resolve, reject) => {
         reader.onloadend = () => resolve();
@@ -222,7 +230,6 @@ export default function CleaningChecklistPage() {
   const toggleTask = async (taskId: string) => {
     let newCompleted = false;
 
-    // Optimistically update UI
     setChecklist((prev) =>
       prev.map((category: Category) => ({
         ...category,
@@ -255,9 +262,7 @@ export default function CleaningChecklistPage() {
       ) {
         if (selectedHavenId) {
           await fetchChecklist(selectedHavenId);
-          toast.success(
-            "Task updated; checklist refreshed (task moved to latest)",
-          );
+          toast.success("Task updated; checklist refreshed (task moved to latest)");
         } else {
           toast.success("Task updated");
         }
@@ -269,21 +274,20 @@ export default function CleaningChecklistPage() {
       console.error("Failed to update task:", err);
       const message = err instanceof Error ? err.message : String(err);
       toast.error(message || "Failed to update task");
-      // Re-fetch checklist to sync state if update failed
       if (selectedHavenId) {
         fetchChecklist(selectedHavenId);
       }
     }
   };
 
-  const totalTasks = checklist.reduce((acc, cat) => acc + cat.tasks.length, 0) + 1; // +1 for proof item
+  const totalTasks = checklist.reduce((acc, cat) => acc + cat.tasks.length, 0) + 1;
   const completedTasks =
     checklist.reduce((acc, cat: Category) => acc + cat.tasks.filter((t: Task) => t.completed).length, 0) +
     (proofUploaded ? 1 : 0);
   const progress = totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
   const canComplete = proofUploaded;
 
-  // Empty state: no havens need cleaning
+  // Empty state
   if (!isHavensLoading && havens.length === 0) {
     return (
       <div className="space-y-6 animate-in fade-in duration-700">
@@ -309,9 +313,7 @@ export default function CleaningChecklistPage() {
           </p>
           <div className="mt-6 flex items-center gap-2 text-sm text-gray-400 dark:text-gray-500">
             <AlertCircle className="w-4 h-4" />
-            <span>
-              Cleaning tasks are created automatically after guest checkout
-            </span>
+            <span>Cleaning tasks are created automatically after guest checkout</span>
           </div>
         </div>
       </div>
@@ -331,14 +333,9 @@ export default function CleaningChecklistPage() {
         </div>
 
         <div className="w-full sm:min-w-[220px] sm:w-auto">
-          <label htmlFor="haven-select" className="sr-only">
-            Select haven
-          </label>
+          <label htmlFor="haven-select" className="sr-only">Select haven</label>
           {isHavensLoading ? (
-            <Skeleton
-              className="h-9 w-full rounded-lg"
-              label="Loading havens"
-            />
+            <Skeleton className="h-9 w-full rounded-lg" label="Loading havens" />
           ) : (
             <select
               id="haven-select"
@@ -365,9 +362,7 @@ export default function CleaningChecklistPage() {
               <Home className="w-4 h-4 text-brand-primary" />
               <span className="font-medium">{selectedHaven.name}</span>
               {selectedHaven.address && (
-                <span className="text-gray-400 dark:text-gray-500">
-                  ({selectedHaven.address})
-                </span>
+                <span className="text-gray-400 dark:text-gray-500">({selectedHaven.address})</span>
               )}
             </div>
             {selectedHaven.guestName && (
@@ -395,9 +390,7 @@ export default function CleaningChecklistPage() {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-4 sm:p-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">
-              Overall Progress
-            </h2>
+            <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">Overall Progress</h2>
             <p className="text-sm text-gray-500 dark:text-gray-400">
               <span className="font-semibold text-brand-primary text-base">{completedTasks}/{totalTasks}</span> tasks completed
             </p>
@@ -413,20 +406,18 @@ export default function CleaningChecklistPage() {
           <div
             className={`h-3 rounded-full transition-all duration-500 ${progress === 100 ? "bg-green-500" : "bg-brand-primary"}`}
             style={{ width: `${progress}%` }}
-          ></div>
+          />
         </div>
       </div>
 
-      {/* Proof of Payment — Required Item */}
+      {/* Proof of Payment */}
       {!isLoading && (
         <div className={`bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-4 sm:p-6 border-2 ${
           proofUploaded ? "border-green-400 dark:border-green-600" : "border-amber-400 dark:border-amber-600"
         }`}>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <div className={`p-3 rounded-lg ${
-                proofUploaded ? "bg-green-500" : "bg-amber-500"
-              } text-white`}>
+              <div className={`p-3 rounded-lg ${proofUploaded ? "bg-green-500" : "bg-amber-500"} text-white`}>
                 <ShieldCheck className="w-5 h-5 sm:w-6 sm:h-6" />
               </div>
               <div>
@@ -443,12 +434,9 @@ export default function CleaningChecklistPage() {
                 </p>
               </div>
             </div>
-            {proofUploaded && (
-              <CheckCircle2 className="w-6 h-6 text-green-500 flex-shrink-0" />
-            )}
+            {proofUploaded && <CheckCircle2 className="w-6 h-6 text-green-500 flex-shrink-0" />}
           </div>
 
-          {/* Upload area */}
           {!proofUploaded ? (
             <div className="space-y-3">
               {!proofFile ? (
@@ -475,7 +463,11 @@ export default function CleaningChecklistPage() {
                       <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">{proofFile.name}</p>
                       <p className="text-xs text-gray-400">{(proofFile.size / 1024).toFixed(1)} KB</p>
                     </div>
-                    <button type="button" onClick={handleRemoveProof} className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors flex-shrink-0">
+                    <button
+                      type="button"
+                      onClick={handleRemoveProof}
+                      className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors flex-shrink-0"
+                    >
                       <X className="w-4 h-4 text-gray-500" />
                     </button>
                   </div>
@@ -488,7 +480,7 @@ export default function CleaningChecklistPage() {
                     {isUploadingProof ? (
                       <><span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />Uploading...</>
                     ) : (
-                      <><Upload className="w-4 h-4" />Confirm Upload</>  
+                      <><Upload className="w-4 h-4" />Confirm Upload</>
                     )}
                   </button>
                 </div>
@@ -510,7 +502,11 @@ export default function CleaningChecklistPage() {
                 <p className="text-sm font-semibold text-green-700 dark:text-green-400">Proof uploaded successfully</p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{proofFile?.name}</p>
               </div>
-              <button type="button" onClick={handleRemoveProof} className="text-xs text-gray-400 hover:text-red-500 transition-colors flex-shrink-0">
+              <button
+                type="button"
+                onClick={handleRemoveProof}
+                className="text-xs text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
+              >
                 Remove
               </button>
             </div>
@@ -522,75 +518,34 @@ export default function CleaningChecklistPage() {
       <div className="space-y-4">
         {isLoading && (
           <div aria-busy="true" aria-live="polite" className="space-y-4">
-            {/* Progress skeleton */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <Skeleton
-                    className="h-5 w-40 rounded mb-2"
-                    label="Loading progress title"
-                  />
-                  <Skeleton
-                    className="h-3 w-28 rounded"
-                    label="Loading progress detail"
-                  />
+                  <Skeleton className="h-5 w-40 rounded mb-2" label="Loading progress title" />
+                  <Skeleton className="h-3 w-28 rounded" label="Loading progress detail" />
                 </div>
-                <Skeleton
-                  className="h-10 w-14 rounded"
-                  label="Loading progress number"
-                />
+                <Skeleton className="h-10 w-14 rounded" label="Loading progress number" />
               </div>
-              <div className="w-full">
-                <Skeleton
-                  className="h-3 w-3/5 rounded-full"
-                  label="Loading progress bar"
-                />
-              </div>
+              <Skeleton className="h-3 w-3/5 rounded-full" label="Loading progress bar" />
             </div>
 
-            {/* Category skeletons */}
             {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6"
-              >
+              <div key={i} className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
-                    <Skeleton
-                      className="w-10 h-10 rounded-lg"
-                      label="Loading category icon"
-                    />
+                    <Skeleton className="w-10 h-10 rounded-lg" label="Loading category icon" />
                     <div>
-                      <Skeleton
-                        className="h-4 w-32 rounded mb-1"
-                        label="Loading category name"
-                      />
-                      <Skeleton
-                        className="h-3 w-20 rounded"
-                        label="Loading category meta"
-                      />
+                      <Skeleton className="h-4 w-32 rounded mb-1" label="Loading category name" />
+                      <Skeleton className="h-3 w-20 rounded" label="Loading category meta" />
                     </div>
                   </div>
-                  <Skeleton
-                    className="h-6 w-12 rounded"
-                    label="Loading category stat"
-                  />
+                  <Skeleton className="h-6 w-12 rounded" label="Loading category stat" />
                 </div>
-
                 <div className="space-y-2">
                   {[1, 2, 3, 4].map((t) => (
-                    <div
-                      key={t}
-                      className="flex items-center gap-3 p-3 rounded-lg"
-                    >
-                      <Skeleton
-                        className="w-5 h-5 rounded-full"
-                        label="Loading task icon"
-                      />
-                      <Skeleton
-                        className="h-4 w-full rounded"
-                        label="Loading task"
-                      />
+                    <div key={t} className="flex items-center gap-3 p-3 rounded-lg">
+                      <Skeleton className="w-5 h-5 rounded-full" label="Loading task icon" />
+                      <Skeleton className="h-4 w-full rounded" label="Loading task" />
                     </div>
                   ))}
                 </div>
@@ -598,14 +553,12 @@ export default function CleaningChecklistPage() {
             ))}
           </div>
         )}
+
         {!isLoading &&
           checklist.map((category: Category) => {
             const CategoryIcon =
-              (iconMap as Record<string, typeof Sparkles>)[category.category] ??
-              Sparkles;
-            const categoryCompleted = category.tasks.filter(
-              (t) => t.completed,
-            ).length;
+              (iconMap as Record<string, typeof Sparkles>)[category.category] ?? Sparkles;
+            const categoryCompleted = category.tasks.filter((t) => t.completed).length;
             const categoryTotal = category.tasks.length;
             const categoryProgress = Math.round(
               (categoryCompleted / Math.max(1, categoryTotal)) * 100,
@@ -622,17 +575,13 @@ export default function CleaningChecklistPage() {
                       <CategoryIcon className="w-6 h-6" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-gray-800 dark:text-gray-100">
-                        {category.category}
-                      </h3>
+                      <h3 className="font-bold text-gray-800 dark:text-gray-100">{category.category}</h3>
                       <p className="text-xs text-gray-500 dark:text-gray-400">
                         {categoryCompleted} of {categoryTotal} completed
                       </p>
                     </div>
                   </div>
-                  <span className="text-sm font-bold text-brand-primary">
-                    {categoryProgress}%
-                  </span>
+                  <span className="text-sm font-bold text-brand-primary">{categoryProgress}%</span>
                 </div>
 
                 <div className="space-y-2">

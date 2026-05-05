@@ -1,337 +1,502 @@
 "use client";
 
-import { Calendar, Clock, ChevronLeft, ChevronRight, MapPin, CheckCircle2 } from "lucide-react";
-import { useState, useEffect, useMemo } from "react";
+import {
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  MapPin,
+  CheckCircle2,
+  ClipboardList,
+  AlertCircle,
+  Navigation,
+  CheckSquare,
+  Building2,
+} from "lucide-react";
+import { useState, useMemo } from "react";
 import { useSession } from "next-auth/react";
+import { useGetCleaningTasksQuery } from "@/redux/api/cleanersApi";
 
-interface ScheduleStats {
-  todaysTasks: number;
-  thisWeek: number;
-  thisMonth: number;
-  completed: number;
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface Props {
+  /** Called when the user taps "Go to Checklist" so the parent can switch pages */
+  onNavigate?: (page: string) => void;
+  /** Called with the haven ID so the checklist page can pre-select it */
+  onStartCleaning?: (havenId: string) => void;
 }
 
-interface RawAssignment {
-  cleaning_id: string;
-  haven: string;
-  location: string;
-  cleaning_status: string;
-  check_out_date: string;
-  check_out_time: string | null;
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+const WEEK_DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function isSameDay(a: Date, b: Date) {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
 }
 
-interface ScheduleAssignment {
-  haven: string;
-  time: string;
-  location: string;
-  status: string;
-  statusColor: string;
+function startOfWeek(d: Date) {
+  const copy = new Date(d);
+  copy.setDate(copy.getDate() - copy.getDay());
+  copy.setHours(0, 0, 0, 0);
+  return copy;
 }
 
-function getStatusLabel(status: string): string {
-  switch (status) {
-    case "cleaned":
-    case "inspected":
-      return "Completed";
-    case "in-progress":
-      return "In Progress";
-    case "assigned":
-      return "Assigned";
-    default:
-      return "Pending";
+function endOfWeek(d: Date) {
+  const copy = startOfWeek(d);
+  copy.setDate(copy.getDate() + 6);
+  copy.setHours(23, 59, 59, 999);
+  return copy;
+}
+
+function startOfMonth(d: Date) {
+  return new Date(d.getFullYear(), d.getMonth(), 1);
+}
+
+function endOfMonth(d: Date) {
+  return new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999);
+}
+
+function formatTime(t: string | null | undefined): string {
+  if (!t) return "—";
+  return t.substring(0, 5);
+}
+
+function formatDate(s: string): string {
+  try {
+    return new Date(s).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  } catch {
+    return s;
   }
 }
 
-function getStatusColor(status: string): string {
+function getStatusBadge(status: string) {
   switch (status) {
-    case "cleaned":
-    case "inspected":
-      return "text-green-600";
     case "in-progress":
-      return "text-yellow-600";
+      return {
+        label: "In Progress",
+        bg: "bg-yellow-100 dark:bg-yellow-900/30",
+        text: "text-yellow-700 dark:text-yellow-300",
+      };
+    case "cleaned":
+      return {
+        label: "Completed",
+        bg: "bg-green-100 dark:bg-green-900/30",
+        text: "text-green-700 dark:text-green-300",
+      };
+    case "inspected":
+      return {
+        label: "Inspected",
+        bg: "bg-blue-100 dark:bg-blue-900/30",
+        text: "text-blue-700 dark:text-blue-300",
+      };
     case "assigned":
-      return "text-blue-600";
+      return {
+        label: "Assigned",
+        bg: "bg-purple-100 dark:bg-purple-900/30",
+        text: "text-purple-700 dark:text-purple-300",
+      };
     default:
-      return "text-orange-600";
+      return {
+        label: "Pending",
+        bg: "bg-gray-100 dark:bg-gray-700/30",
+        text: "text-gray-700 dark:text-gray-300",
+      };
   }
 }
 
-export default function MySchedulePage() {
+function openInMaps(location: string | undefined) {
+  const query = location && location !== "Location TBD" ? location : "Quezon City, Philippines";
+  window.open(
+    `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`,
+    "_blank",
+  );
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
+export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning }: Props) {
   const { data: session } = useSession();
-  const [stats, setStats] = useState<ScheduleStats>({
-    todaysTasks: 0,
-    thisWeek: 0,
-    thisMonth: 0,
-    completed: 0,
-  });
-  const [isLoading, setIsLoading] = useState(true);
-  const [allAssignments, setAllAssignments] = useState<RawAssignment[]>([]);
-  const [isLoadingAssignments, setIsLoadingAssignments] = useState(true);
+  const userId = (session?.user as any)?.id;
 
-  useEffect(() => {
-    const fetchStats = async () => {
-      if (!session?.user?.id) {
-        setIsLoading(false);
-        return;
-      }
+  // ── Data ──────────────────────────────────────────────────────────────────
+  const { data: allTasks = [], isLoading } = useGetCleaningTasksQuery(undefined);
 
-      try {
-        setIsLoading(true);
-        const response = await fetch(`/api/admin/cleaners/${session.user.id}/schedule-stats`, {
-          method: "GET",
-          cache: "no-store",
-        });
+  /** Tasks that belong to the current cleaner */
+  const assignments = useMemo(() => {
+    if (!userId) return [];
+    return allTasks.filter(
+      (t: any) => String(t.assigned_cleaner_id ?? "") === String(userId),
+    );
+  }, [allTasks, userId]);
 
-        const payload = await response.json();
-        if (payload.success && payload.data) {
-          setStats(payload.data);
-        }
-      } catch (error) {
-        console.error("Error fetching schedule stats:", error);
-      } finally {
-        setIsLoading(false);
-      }
+  // ── Calendar state ────────────────────────────────────────────────────────
+  const today = useMemo(() => new Date(), []);
+  const [calMonth, setCalMonth] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
+  const [selectedDate, setSelectedDate] = useState<Date>(today);
+
+  // ── Stats ─────────────────────────────────────────────────────────────────
+  const stats = useMemo(() => {
+    const now = new Date();
+    const wStart = startOfWeek(now);
+    const wEnd   = endOfWeek(now);
+    const mStart = startOfMonth(now);
+    const mEnd   = endOfMonth(now);
+
+    return {
+      total:     assignments.length,
+      todayCount: assignments.filter((a: any) => {
+        if (!a.check_out_date) return false;
+        return isSameDay(new Date(a.check_out_date), now);
+      }).length,
+      thisWeek:  assignments.filter((a: any) => {
+        if (!a.check_out_date) return false;
+        const d = new Date(a.check_out_date);
+        return d >= wStart && d <= wEnd;
+      }).length,
+      thisMonth: assignments.filter((a: any) => {
+        if (!a.check_out_date) return false;
+        const d = new Date(a.check_out_date);
+        return d >= mStart && d <= mEnd;
+      }).length,
+      completed: assignments.filter(
+        (a: any) => a.cleaning_status === "cleaned" || a.cleaning_status === "inspected",
+      ).length,
     };
+  }, [assignments]);
 
-    const fetchAssignments = async () => {
-      if (!session?.user?.id) {
-        setIsLoadingAssignments(false);
-        return;
-      }
-
-      try {
-        setIsLoadingAssignments(true);
-        const response = await fetch(`/api/admin/cleaners/${session.user.id}/assignments-today`, {
-          method: "GET",
-          cache: "no-store",
-        });
-
-        const payload = await response.json();
-        if (payload.success && Array.isArray(payload.data)) {
-          setAllAssignments(payload.data);
-        }
-      } catch (error) {
-        console.error("Error fetching assignments:", error);
-      } finally {
-        setIsLoadingAssignments(false);
-      }
-    };
-
-    fetchStats();
-    fetchAssignments();
-  }, [session?.user?.id]);
-
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedDate, setSelectedDate] = useState(new Date());
-
-  const monthNames = [
-    "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December"
-  ];
-
-  const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-  // Build schedule map from real API data keyed by date string
+  // ── Schedule map: dateString → assignments ────────────────────────────────
   const scheduleMap = useMemo(() => {
-    const map: Record<string, ScheduleAssignment[]> = {};
-    allAssignments.forEach((t) => {
-      const dateKey = t.check_out_date ? new Date(t.check_out_date).toDateString() : null;
-      if (!dateKey) return;
-      if (!map[dateKey]) map[dateKey] = [];
-      const timeStr = t.check_out_time ? t.check_out_time.substring(0, 5) : "—";
-      map[dateKey].push({
-        haven: t.haven || "—",
-        time: timeStr,
-        location: t.location || "Location TBD",
-        status: getStatusLabel(t.cleaning_status),
-        statusColor: getStatusColor(t.cleaning_status),
-      });
+    const map: Record<string, any[]> = {};
+    assignments.forEach((a: any) => {
+      if (!a.check_out_date) return;
+      const key = new Date(a.check_out_date).toDateString();
+      if (!map[key]) map[key] = [];
+      map[key].push(a);
     });
     return map;
-  }, [allAssignments]);
+  }, [assignments]);
 
-  const getDaysInMonth = (date: Date) => {
-    const year = date.getFullYear();
-    const month = date.getMonth();
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const daysInMonth = lastDay.getDate();
-    const startingDayOfWeek = firstDay.getDay();
+  // ── Calendar helpers ──────────────────────────────────────────────────────
+  const { daysInMonth, startingDayOfWeek } = useMemo(() => {
+    const year  = calMonth.getFullYear();
+    const month = calMonth.getMonth();
+    return {
+      daysInMonth:       new Date(year, month + 1, 0).getDate(),
+      startingDayOfWeek: new Date(year, month, 1).getDay(),
+    };
+  }, [calMonth]);
 
-    return { daysInMonth, startingDayOfWeek };
-  };
+  const selectedAssignments: any[] = scheduleMap[selectedDate.toDateString()] ?? [];
 
-  const { daysInMonth, startingDayOfWeek } = getDaysInMonth(currentDate);
-
-  const previousMonth = () => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1));
-  };
-
-  const nextMonth = () => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1));
-  };
-
-  const hasAssignments = (day: number) => {
-    const checkDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
-    return !!scheduleMap[checkDate.toDateString()];
-  };
-
-  const getSelectedDateAssignments = (): ScheduleAssignment[] => {
-    return scheduleMap[selectedDate.toDateString()] || [];
-  };
-
-  const statsArray = [
-    { label: "Today's Tasks", value: isLoading ? "..." : stats.todaysTasks.toString(), color: "bg-brand-primary" },
-    { label: "This Week", value: isLoading ? "..." : stats.thisWeek.toString(), color: "bg-blue-500" },
-    { label: "This Month", value: isLoading ? "..." : stats.thisMonth.toString(), color: "bg-green-500" },
-    { label: "Completed", value: isLoading ? "..." : stats.completed.toString(), color: "bg-purple-500" },
+  const statsCards = [
+    { label: "Total", value: stats.total,     color: "bg-brand-primary",  icon: ClipboardList },
+    { label: "This Week",  value: stats.thisWeek,  color: "bg-blue-500",       icon: Calendar     },
+    { label: "This Month", value: stats.thisMonth, color: "bg-green-500",      icon: Building2    },
+    { label: "Completed",  value: stats.completed, color: "bg-purple-500",     icon: CheckCircle2 },
   ];
 
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-6 animate-in fade-in duration-700">
+    <div className="space-y-5 animate-in fade-in duration-700">
+      {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">My Schedule</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          View your cleaning assignments calendar
+          View your assignments and manage cleaning tasks
         </p>
       </div>
 
-      {/* Stats Overview */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        {statsArray.map((stat, i) => (
+      {/* Stats row */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {statsCards.map(({ label, value, color, icon: Icon }) => (
           <div
-            key={i}
-            className={`${stat.color} text-white rounded-lg p-3 sm:p-4 shadow dark:shadow-gray-900`}
+            key={label}
+            className={`${color} text-white rounded-lg p-4 shadow dark:shadow-gray-900 hover:shadow-lg transition-all`}
           >
-            <p className="text-xs sm:text-sm opacity-90">{stat.label}</p>
-            <p className="text-2xl sm:text-3xl font-bold mt-1 sm:mt-2">{stat.value}</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs opacity-90">{label}</p>
+                <p className="text-2xl font-bold mt-1">
+                  {isLoading ? "…" : value}
+                </p>
+              </div>
+              <Icon className="w-8 h-8 opacity-40" />
+            </div>
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-        {/* Calendar */}
-        <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-4 sm:p-6">
-          <div className="flex items-center justify-between mb-4 sm:mb-6">
+      {/* Main grid: Calendar + Detail panel */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+        {/* ── Calendar ── */}
+        <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-gray-900 p-4 sm:p-6">
+          {/* Month nav */}
+          <div className="flex items-center justify-between mb-5">
             <h2 className="text-base sm:text-lg font-bold text-gray-800 dark:text-gray-100">
-              {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
+              {MONTH_NAMES[calMonth.getMonth()]} {calMonth.getFullYear()}
             </h2>
             <div className="flex gap-2">
               <button
-                onClick={previousMonth}
+                onClick={() => setCalMonth(m => new Date(m.getFullYear(), m.getMonth() - 1, 1))}
                 className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
               >
-                <ChevronLeft className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+                <ChevronLeft className="w-4 h-4 text-gray-700 dark:text-gray-300" />
               </button>
               <button
-                onClick={nextMonth}
+                onClick={() => setCalMonth(m => new Date(m.getFullYear(), m.getMonth() + 1, 1))}
                 className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
               >
-                <ChevronRight className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+                <ChevronRight className="w-4 h-4 text-gray-700 dark:text-gray-300" />
               </button>
             </div>
           </div>
 
-          {/* Calendar Grid */}
-          <div className="grid grid-cols-7 gap-1 sm:gap-2">
-            {weekDays.map((day) => (
+          {/* Day-of-week headers */}
+          <div className="grid grid-cols-7 gap-1 sm:gap-2 mb-1">
+            {WEEK_DAYS.map(d => (
               <div
-                key={day}
-                className="text-center text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400 py-1 sm:py-2"
+                key={d}
+                className="text-center text-xs font-bold text-gray-500 dark:text-gray-400 py-1"
               >
-                {day.charAt(0)}<span className="hidden sm:inline">{day.slice(1)}</span>
+                <span className="hidden sm:inline">{d}</span>
+                <span className="sm:hidden">{d[0]}</span>
               </div>
             ))}
+          </div>
 
-            {[...Array(startingDayOfWeek)].map((_, i) => (
-              <div key={`empty-${i}`} className="aspect-square"></div>
+          {/* Day cells */}
+          <div className="grid grid-cols-7 gap-1 sm:gap-2">
+            {/* Leading empty cells */}
+            {Array.from({ length: startingDayOfWeek }).map((_, i) => (
+              <div key={`e-${i}`} />
             ))}
 
-            {[...Array(daysInMonth)].map((_, i) => {
-              const day = i + 1;
-              const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
-              const isToday = date.toDateString() === new Date().toDateString();
-              const isSelected = date.toDateString() === selectedDate.toDateString();
-              const hasTask = hasAssignments(day);
+            {Array.from({ length: daysInMonth }).map((_, i) => {
+              const day  = i + 1;
+              const date = new Date(calMonth.getFullYear(), calMonth.getMonth(), day);
+              const isToday    = isSameDay(date, today);
+              const isSelected = isSameDay(date, selectedDate);
+              const hasTask    = !!scheduleMap[date.toDateString()];
 
               return (
                 <button
                   key={day}
                   onClick={() => setSelectedDate(date)}
-                  className={`aspect-square p-2 rounded-lg text-sm font-semibold transition-all relative ${
-                    isSelected
-                      ? "bg-brand-primary text-white"
+                  className={`
+                    aspect-square flex flex-col items-center justify-center rounded-lg text-sm font-semibold
+                    transition-all relative select-none
+                    ${isSelected
+                      ? "bg-brand-primary text-white shadow-md"
                       : isToday
-                      ? "bg-brand-primary/20 text-brand-primaryDark dark:text-brand-primary"
+                      ? "bg-brand-primary/15 text-brand-primary dark:text-brand-primary ring-1 ring-brand-primary/40"
                       : "bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600"
-                  }`}
+                    }
+                  `}
                 >
                   {day}
                   {hasTask && (
-                    <div className={`absolute bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 rounded-full ${
-                      isSelected ? "bg-white" : "bg-brand-primary"
-                    }`}></div>
+                    <span
+                      className={`absolute bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full ${
+                        isSelected ? "bg-white" : "bg-brand-primary"
+                      }`}
+                    />
                   )}
                 </button>
               );
             })}
           </div>
+
+          {/* Legend */}
+          <div className="flex items-center gap-4 mt-4 pt-4 border-t border-gray-100 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-brand-primary inline-block" />
+              Has assignments
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded bg-brand-primary/15 ring-1 ring-brand-primary/40 inline-block" />
+              Today
+            </span>
+          </div>
         </div>
 
-        {/* Selected Date Details */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Calendar className="w-5 h-5 text-brand-primary" />
-            <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">
-              {selectedDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-            </h2>
+        {/* ── Detail panel ── */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-gray-900 p-5 flex flex-col gap-4">
+          {/* Selected date header */}
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-brand-primary flex-shrink-0" />
+            <div>
+              <p className="font-bold text-gray-800 dark:text-gray-100 text-sm">
+                {selectedDate.toLocaleDateString("en-US", {
+                  weekday: "long",
+                  month:   "long",
+                  day:     "numeric",
+                })}
+              </p>
+              {isSameDay(selectedDate, today) && (
+                <span className="text-xs font-semibold text-brand-primary">Today</span>
+              )}
+            </div>
           </div>
 
-          {isLoadingAssignments ? (
-            <div className="space-y-3">
-              {Array.from({ length: 2 }).map((_, i) => (
-                <div key={i} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 animate-pulse">
-                  <div className="h-4 w-24 bg-gray-200 dark:bg-gray-600 rounded mb-2"></div>
-                  <div className="h-3 w-32 bg-gray-200 dark:bg-gray-600 rounded"></div>
-                </div>
-              ))}
-            </div>
-          ) : getSelectedDateAssignments().length === 0 ? (
-            <div className="text-center py-8">
-              <CheckCircle2 className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-2" />
-              <p className="text-gray-600 dark:text-gray-400 text-sm">No assignments scheduled</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {getSelectedDateAssignments().map((assignment, index) => (
+          {/* Assignment list */}
+          <div className="flex-1 space-y-3 overflow-y-auto max-h-[520px] pr-0.5">
+            {isLoading ? (
+              Array.from({ length: 2 }).map((_, i) => (
                 <div
-                  key={index}
-                  className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 hover:shadow-md transition-all"
+                  key={i}
+                  className="rounded-lg bg-gray-100 dark:bg-gray-700 p-4 animate-pulse space-y-2"
                 >
-                  <div className="flex items-start justify-between mb-2">
-                    <h3 className="font-bold text-gray-800 dark:text-gray-100">
-                      {assignment.haven}
-                    </h3>
-                    <span className={`text-xs font-bold ${assignment.statusColor}`}>
-                      {assignment.status}
-                    </span>
-                  </div>
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
-                      <Clock className="w-3 h-3" />
-                      <span>{assignment.time}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
-                      <MapPin className="w-3 h-3" />
-                      <span>{assignment.location}</span>
-                    </div>
-                  </div>
+                  <div className="h-4 w-2/3 bg-gray-200 dark:bg-gray-600 rounded" />
+                  <div className="h-3 w-1/2 bg-gray-200 dark:bg-gray-600 rounded" />
                 </div>
-              ))}
+              ))
+            ) : selectedAssignments.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 text-center">
+                <CheckCircle2 className="w-10 h-10 text-gray-300 dark:text-gray-600 mb-2" />
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                  No assignments this day
+                </p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                  Select a date with a dot to see tasks
+                </p>
+              </div>
+            ) : (
+              selectedAssignments.map((a: any) => {
+                const badge = getStatusBadge(a.cleaning_status);
+                const isActionable =
+                  a.cleaning_status !== "cleaned" &&
+                  a.cleaning_status !== "inspected";
+
+                return (
+                  <div
+                    key={a.cleaning_id ?? a.id}
+                    className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/60 p-4 space-y-3 hover:shadow-md transition-all"
+                  >
+                    {/* Haven name + status */}
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="font-bold text-gray-800 dark:text-gray-100 text-sm leading-snug">
+                        {a.haven ?? a.room_name ?? "—"}
+                      </p>
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-xs font-semibold flex-shrink-0 ${badge.bg} ${badge.text}`}
+                      >
+                        {badge.label}
+                      </span>
+                    </div>
+
+                    {/* Meta info */}
+                    <div className="space-y-1.5 text-xs text-gray-500 dark:text-gray-400">
+                      {a.location && (
+                        <div className="flex items-center gap-1.5">
+                          <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
+                          <span className="truncate">{a.location}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-3">
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3.5 h-3.5" />
+                          Checkout: {formatDate(a.check_out_date)}
+                          {a.check_out_time ? ` · ${formatTime(a.check_out_time)}` : ""}
+                        </span>
+                      </div>
+                      {(a.cleaning_time_in || a.cleaning_time_out) && (
+                        <div className="flex items-center gap-3">
+                          <span>In: {formatTime(a.cleaning_time_in)}</span>
+                          <span>Out: {formatTime(a.cleaning_time_out)}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Action buttons */}
+                    <div className="flex gap-2 pt-1">
+                      {/* Open in Maps */}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); openInMaps(a.location); }}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 text-xs font-semibold hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+                      >
+                        <Navigation className="w-3.5 h-3.5" />
+                        Open in Maps
+                      </button>
+
+                      {/* Go to Checklist — only if not already completed */}
+                      {isActionable && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const havenId = a.haven_id ?? a.id;
+                            if (onStartCleaning && havenId) {
+                              onStartCleaning(String(havenId));
+                            } else {
+                              onNavigate("cleaning-checklist");
+                            }
+                          }}
+                          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-brand-primary/10 dark:bg-brand-primary/20 text-brand-primary text-xs font-semibold hover:bg-brand-primary/20 dark:hover:bg-brand-primary/30 transition-colors"
+                        >
+                          <CheckSquare className="w-3.5 h-3.5" />
+                          Start Cleaning
+                        </button>
+                      )}
+
+                      {/* If completed, show a done indicator instead */}
+                      {!isActionable && (
+                        <div className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 text-xs font-semibold">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          Done
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Summary footer */}
+          {!isLoading && selectedAssignments.length > 0 && (
+            <div className="pt-3 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+              <span>{selectedAssignments.length} assignment{selectedAssignments.length !== 1 ? "s" : ""}</span>
+              <span>
+                {selectedAssignments.filter(
+                  (a: any) => a.cleaning_status === "cleaned" || a.cleaning_status === "inspected",
+                ).length}{" "}
+                completed
+              </span>
             </div>
           )}
         </div>
       </div>
+
+      {/* ── Mobile: assignment cards for selected date (shown below calendar on small screens) ── */}
+      {/* Already handled in the panel above since it's a single column on mobile */}
+
+      {/* Today's quick-glance banner (only if today has tasks and selected date is NOT today) */}
+      {!isLoading &&
+        !isSameDay(selectedDate, today) &&
+        stats.todayCount > 0 && (
+          <button
+            onClick={() => setSelectedDate(today)}
+            className="w-full flex items-center justify-between gap-3 bg-brand-primary/10 dark:bg-brand-primary/20 border border-brand-primary/30 rounded-xl px-4 py-3 hover:bg-brand-primary/20 dark:hover:bg-brand-primary/30 transition-colors"
+          >
+            <div className="flex items-center gap-2 text-brand-primary text-sm font-semibold">
+              <AlertCircle className="w-4 h-4" />
+              You have {stats.todayCount} assignment{stats.todayCount !== 1 ? "s" : ""} today
+            </div>
+            <span className="text-xs text-brand-primary font-medium">View today →</span>
+          </button>
+        )}
     </div>
   );
 }
