@@ -118,6 +118,32 @@ interface ActivityItem {
   iconColor: string;
 }
 
+const getBookingStatusBadgeClasses = (status?: string | null) => {
+  switch ((status || "").toLowerCase()) {
+    case "approved":
+      return "bg-emerald-100 text-emerald-700";
+    case "confirmed":
+      return "bg-green-100 text-green-700";
+    case "checked-in":
+    case "checked_in":
+      return "bg-blue-100 text-blue-700";
+    case "checked-out":
+    case "checked_out":
+      return "bg-indigo-100 text-indigo-700";
+    case "completed":
+      return "bg-purple-100 text-purple-700";
+    case "pending":
+      return "bg-yellow-100 text-yellow-700";
+    case "cancelled":
+      return "bg-orange-100 text-orange-700";
+    case "rejected":
+    case "declined":
+      return "bg-red-100 text-red-700";
+    default:
+      return "bg-gray-100 text-gray-700";
+  }
+};
+
 const DashboardPage = ({
   onAddUnitClick,
   onPaymentClick,
@@ -256,9 +282,7 @@ const DashboardPage = ({
       customer: guestName,
       details: `${booking.room_name} - ${(booking.adults ?? 0) + (booking.children ?? 0)} guests`,
       status: booking.status || "",
-      statusColor: booking.status === 'confirmed' ? 'bg-green-100 text-green-700' : 
-                    booking.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 
-                    'bg-gray-100 text-gray-700',
+      statusColor: getBookingStatusBadgeClasses(booking.status),
       Icon: Calendar,
       iconColor: 'text-blue-600'
     };
@@ -511,7 +535,7 @@ const DashboardPage = ({
                       </td>
                       <td className="py-4 px-4 text-center">
                         <span
-                          className={`inline-block text-xs font-bold px-3 py-1.5 rounded-full ${item.statusColor}`}
+                          className={`inline-block text-xs font-bold px-3 py-1.5 rounded-full capitalize ${item.statusColor}`}
                         >
                           {item.status}
                         </span>
@@ -539,7 +563,7 @@ const DashboardPage = ({
             onClick={onBookingClick}
             className="text-sm font-semibold bg-gradient-to-r from-brand-primary to-brand-primaryDark bg-clip-text text-transparent hover:opacity-80 transition-opacity"
           >
-            View All Bookings
+            View Booking Settings
           </button>
         </div>
       </div>
