@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getToken } from "next-auth/jwt";
 import pool from '../config/db';
 
 const BOOKING_TABLE = (() => {
@@ -438,5 +439,69 @@ export const getMonthlyRevenue = async (req: NextRequest): Promise<NextResponse>
       success: false,
       error: error.message || 'Failed to get monthly revenue',
     }, { status: 500 });
+  }
+};
+
+export const getRoleAwareDashboard = async (req: NextRequest): Promise<NextResponse> => {
+  try {
+    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+    const role = (token?.role as string | undefined) ?? "";
+    const walkInOnly = role.toLowerCase() === "walkinstaff";
+
+    const scopeClause = walkInOnly ? "AND b.booking_type = 'walk_in'" : "";
+    const summaryQuery = `
+      SELECT
+        COUNT(DISTINCT b.id) AS total_bookings,
+        COALESCE(SUM(CASE
+          WHEN bp.payment_status = 'approved_down_payment' THEN bp.down_payment
+          WHEN bp.payment_status = 'approved_full_payment' THEN bp.total_amount
+          ELSE 0
+        END), 0) AS total_revenue,
+        COUNT(DISTINCT CASE WHEN b.status = 'pending' THEN b.id END) AS pending_bookings
+      FROM booking b
+      LEFT JOIN booking_payments bp ON b.id = bp.booking_id
+      WHERE 1=1 ${scopeClause}
+    `;
+
+    const recentQuery = `
+      SELECT
+        b.id,
+        b.booking_id,
+        b.room_name,
+        b.status,
+        b.booking_type,
+        b.created_at,
+        bg.first_name AS guest_first_name,
+        bg.last_name AS guest_last_name,
+        bp.total_amount
+      FROM booking b
+      LEFT JOIN booking_guests bg ON b.id = bg.booking_id
+      LEFT JOIN booking_payments bp ON b.id = bp.booking_id
+      WHERE bg.id = (
+        SELECT id FROM booking_guests WHERE booking_id = b.id ORDER BY id LIMIT 1
+      )
+      ${walkInOnly ? "AND b.booking_type = 'walk_in'" : ""}
+      ORDER BY b.created_at DESC
+      LIMIT 10
+    `;
+
+    const [summaryRes, recentRes] = await Promise.all([
+      pool.query(summaryQuery),
+      pool.query(recentQuery),
+    ]);
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        role_scope: walkInOnly ? "walk_in_only" : "all_bookings",
+        summary: summaryRes.rows[0],
+        recent_bookings: recentRes.rows,
+      },
+    });
+  } catch (error: any) {
+    return NextResponse.json(
+      { success: false, error: error?.message || "Failed to load dashboard metrics" },
+      { status: 500 },
+    );
   }
 };

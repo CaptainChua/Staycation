@@ -28,6 +28,8 @@ CREATE TABLE booking (
   rejection_reason TEXT,
 
   has_security_deposit BOOLEAN DEFAULT false,
+  booking_type VARCHAR(20) NOT NULL DEFAULT 'online'
+    CHECK (booking_type IN ('online', 'walk_in')),
 
   google_event_id VARCHAR(255) DEFAULT NULL,
 
@@ -82,6 +84,7 @@ CREATE TABLE booking_payments (
   rejection_reason TEXT,
 
   amount_paid DECIMAL(10,2) NOT NULL,
+  payment_reference VARCHAR(120),
 
   created_at TIMESTAMPTZ DEFAULT NOW(),
 

@@ -56,6 +56,7 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
     { value: "CSR", label: "Customer Service Representative" },
     { value: "Cleaner", label: "Cleaner" },
     { value: "Partner", label: "Partner" },
+    { value: "WalkInStaff", label: "Walk-in Staff" },
   ];
 
   const departmentByRole: Record<
@@ -74,6 +75,9 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
     Partner: [
       { value: "management", label: "Management" },
       { value: "customer-service", label: "Customer Service" },
+    ],
+    WalkInStaff: [
+      { value: "front-desk", label: "Front Desk" },
     ],
   };
 

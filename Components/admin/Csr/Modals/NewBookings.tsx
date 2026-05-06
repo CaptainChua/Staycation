@@ -8,6 +8,7 @@
 
 import { useEffect, useState, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
+import { useSession } from "next-auth/react";
 import {
   Calendar,
   Mail,
@@ -116,6 +117,18 @@ interface Booking {
   status: string;
   check_in_date: string;
   check_out_date: string;
+  check_in_time: string;
+  check_out_time: string;
+}
+
+interface AdminPaymentMethod {
+  id: string;
+  payment_name: string;
+  payment_method: string;
+  provider: string;
+  account_details: string;
+  payment_qr_link?: string | null;
+  is_active: boolean;
 }
 
 const ADD_ON_PRICES = {
@@ -128,14 +141,16 @@ const ADD_ON_PRICES = {
 };
 
 const statusOptions = ["pending", "approved", "declined", "checked-in", "checked-out", "cancelled", "completed"];
-const paymentMethods = ["cash", "gcash", "bank-transfer", "credit-card"];
 
 export default function NewBookingModal({ onClose, initialBooking, onSuccess }: NewBookingModalProps) {
+  const { data: session } = useSession();
   const [isMounted, setIsMounted] = useState(false);
   const [createBooking, { isLoading: isCreating }] = useCreateBookingMutation();
   const [updateBooking, { isLoading: isUpdating }] = useUpdateBookingStatusMutation();
   const { data: havensData, isLoading: isLoadingHavens } = useGetHavensQuery({}) as { data: Haven[]; isLoading: boolean };
   const isEditMode = Boolean(initialBooking?.id);
+  const isWalkInStaffUser =
+    (((session?.user as { role?: string } | undefined)?.role || "").toLowerCase() === "walkinstaff");
   const isLoading = isCreating || isUpdating;
 
   const [fullBooking, setFullBooking] = useState<AnyRecord | null>(null);
@@ -173,6 +188,12 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
     status: initialBooking?.status || "pending",
   });
 
+  useEffect(() => {
+    if (!isEditMode && isWalkInStaffUser) {
+      setFormData((prev) => ({ ...prev, status: "checked-in" }));
+    }
+  }, [isEditMode, isWalkInStaffUser]);
+
   const [additionalGuests, setAdditionalGuests] = useState<GuestInfo[]>([]);
   const [addOns, setAddOns] = useState<AddOns>({
     poolPass: 0,
@@ -182,6 +203,8 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
     guestKit: 0,
     extraSlippers: 0,
   });
+  const [adminPaymentMethods, setAdminPaymentMethods] = useState<AdminPaymentMethod[]>([]);
+  const [isLoadingPaymentMethods, setIsLoadingPaymentMethods] = useState(false);
 
   // If editing, fetch full booking details to ensure we can prefill everything
   useEffect(() => {
@@ -208,6 +231,38 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
       cancelled = true;
     };
   }, [initialBooking?.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadPaymentMethods = async () => {
+      try {
+        setIsLoadingPaymentMethods(true);
+        const res = await fetch("/api/payment-methods", { cache: "no-store" });
+        const json = await res.json().catch(() => ({} as any));
+        if (!res.ok || !json?.success) return;
+        const allMethods = Array.isArray(json.data) ? (json.data as AdminPaymentMethod[]) : [];
+        const activeMethods = allMethods.filter((m) => m.is_active);
+        if (cancelled) return;
+        setAdminPaymentMethods(activeMethods);
+      } catch {
+        // ignore; fallback handled below
+      } finally {
+        if (!cancelled) setIsLoadingPaymentMethods(false);
+      }
+    };
+    void loadPaymentMethods();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (adminPaymentMethods.length === 0) return;
+    const currentExists = adminPaymentMethods.some((m) => m.provider === formData.paymentMethod);
+    if (!currentExists) {
+      setFormData((prev) => ({ ...prev, paymentMethod: adminPaymentMethods[0].provider }));
+    }
+  }, [adminPaymentMethods]);
 
   // Apply full booking to form when loaded
   useEffect(() => {
@@ -286,6 +341,96 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
 
   const havens: Haven[] = Array.isArray(havensData) ? havensData : [];
 
+  // WalkInStaff strict availability: only allow room selection after date+time,
+  // and restrict dropdown to rooms returned by GET /api/rooms/available.
+  const availabilityEnabled = !isEditMode;
+  const [availableHavens, setAvailableHavens] = useState<Haven[]>([]);
+  const [isFetchingAvailability, setIsFetchingAvailability] = useState(false);
+  const [availabilityError, setAvailabilityError] = useState<string | null>(null);
+
+  const canFetchAvailability =
+    availabilityEnabled &&
+    !!checkInDate &&
+    !!checkOutDate &&
+    !!formData.checkInTime &&
+    !!formData.checkOutTime;
+
+  const availableHavenNameSet = useMemo(
+    () => new Set(availableHavens.map((h) => h.haven_name)),
+    [availableHavens],
+  );
+
+  useEffect(() => {
+    if (!availabilityEnabled) {
+      setAvailableHavens([]);
+      setAvailabilityError(null);
+      return;
+    }
+
+    if (!canFetchAvailability) {
+      setAvailableHavens([]);
+      setAvailabilityError(null);
+      return;
+    }
+
+    let cancelled = false;
+    const controller = new AbortController();
+
+    const run = async () => {
+      try {
+        setIsFetchingAvailability(true);
+        setAvailabilityError(null);
+
+        const checkInParam = `${checkInDate} ${formData.checkInTime}`;
+        const checkOutParam = `${checkOutDate} ${formData.checkOutTime}`;
+
+        const res = await fetch(
+          `/api/rooms/available?checkIn=${encodeURIComponent(checkInParam)}&checkOut=${encodeURIComponent(checkOutParam)}`,
+          { signal: controller.signal },
+        );
+        const json = await res.json().catch(() => ({} as any));
+        if (!res.ok || !json?.success) {
+          throw new Error(json?.error || "Failed to fetch available rooms");
+        }
+
+        const rooms = Array.isArray(json.data) ? (json.data as Haven[]) : [];
+        if (cancelled) return;
+        setAvailableHavens(rooms);
+        if (rooms.length === 0) {
+          setAvailabilityError("No rooms available for the selected time slot.");
+        }
+
+        // If the current selection is not available, clear it.
+        if (selectedHaven && !rooms.some((r) => r.haven_name === selectedHaven.haven_name)) {
+          setSelectedHaven(null);
+        }
+      } catch (err) {
+        if (cancelled) return;
+        const msg = err instanceof Error ? err.message : "Failed to load available rooms";
+        setAvailabilityError(msg);
+        setAvailableHavens([]);
+      } finally {
+        if (cancelled) return;
+        setIsFetchingAvailability(false);
+      }
+    };
+
+    void run();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [
+    availabilityEnabled,
+    canFetchAvailability,
+    checkInDate,
+    checkOutDate,
+    formData.checkInTime,
+    formData.checkOutTime,
+    selectedHaven,
+  ]);
+
   // Prefill selected haven in edit mode once havens load
   useEffect(() => {
     if (!initialBooking?.room_name) return;
@@ -349,12 +494,12 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
   const roomRate = getRoomRateFromStayType();
   const numberOfDays = calculateNumberOfDays();
   const securityDeposit = formData.stayType ? 1000 : 0;
-  const downPayment = 500;
   const addOnsTotal = Object.entries(addOns).reduce((total, [key, quantity]) => {
     return total + quantity * ADD_ON_PRICES[key as keyof AddOns];
   }, 0);
   const totalAmount = roomRate + securityDeposit + addOnsTotal;
-  const remainingBalance = totalAmount - downPayment;
+  const downPayment = isWalkInStaffUser ? totalAmount : 500;
+  const remainingBalance = Math.max(totalAmount - downPayment, 0);
 
   // Update additional guests
   function updateAdditionalGuests(adults: number, children: number) {
@@ -397,7 +542,8 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
       }));
       updateAdditionalGuests(currentAdults, currentChildren);
     } else if (name === "roomName") {
-      const haven = havens.find(h => h.haven_name === value);
+      const list = availabilityEnabled ? availableHavens : havens;
+      const haven = list.find((h) => h.haven_name === value);
       setSelectedHaven(haven || null);
       setFormData(prev => ({ ...prev, [name]: value }));
     } else {
@@ -482,28 +628,119 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
     return outTotal > inTotal;
   };
 
+  const slotConflictMessage =
+    "This room is already booked during the selected time slot. Please choose a different date or time.";
+
+  const toStartTs = (dateStr: string, timeStr: string) => {
+    const d = new Date(`${dateStr}T${timeStr}`);
+    const ts = d.getTime();
+    return Number.isFinite(ts) ? ts : null;
+  };
+
+  const toEndTs = (dateStr: string, timeStr: string, startDateStr: string) => {
+    const d = new Date(`${dateStr}T${timeStr}`);
+    if (!Number.isFinite(d.getTime())) return null;
+    // Backend: treat '00:00' checkout as end-of-day midnight => next-day 00:00.
+    // Only apply when checkout date equals checkin date (same-day midnight notation).
+    if (timeStr === "00:00" && startDateStr === dateStr) d.setDate(d.getDate() + 1);
+    return d.getTime();
+  };
+
+  const isSelectedSlotConflicting = (payload: {
+    checkInDate: string;
+    checkInTime: string;
+    checkOutDate: string;
+    checkOutTime: string;
+  }) => {
+    if (!selectedHaven || !roomBookingsData?.data) return false;
+    if (!payload.checkInDate || !payload.checkOutDate) return false;
+    if (!payload.checkInTime || !payload.checkOutTime) return false;
+
+    const requestedStart = toStartTs(payload.checkInDate, payload.checkInTime);
+    const requestedEnd = toEndTs(payload.checkOutDate, payload.checkOutTime, payload.checkInDate);
+    if (requestedStart == null || requestedEnd == null) return false;
+
+    return roomBookingsData.data.some((booking: Booking) => {
+      const existingStart = toStartTs(String(booking.check_in_date), String(booking.check_in_time));
+      const existingEnd = toEndTs(
+        String(booking.check_out_date),
+        String(booking.check_out_time),
+        String(booking.check_in_date),
+      );
+      // Fallback to date-only if times are unexpectedly missing.
+      if (existingStart == null || existingEnd == null) {
+        const checkIn = new Date(payload.checkInDate);
+        checkIn.setHours(0, 0, 0, 0);
+        const checkOut = new Date(payload.checkOutDate);
+        checkOut.setHours(0, 0, 0, 0);
+        const bIn = new Date(booking.check_in_date);
+        bIn.setHours(0, 0, 0, 0);
+        const bOut = new Date(booking.check_out_date);
+        bOut.setHours(0, 0, 0, 0);
+        return checkIn >= bIn && checkIn <= bOut;
+      }
+      return existingStart < requestedEnd && existingEnd > requestedStart;
+    });
+  };
+
   const handleTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     const isSameDay = checkInDate === checkOutDate;
 
     setFormData(prev => {
       const newFormData = { ...prev, [name]: value };
-      
-      // Auto-adjust if invalid
-      if (name === "checkInTime" && isSameDay) {
+      let candidateCheckOutDate = checkOutDate;
+
+      // Auto-adjust if invalid time ordering on the same day
+      if (isSameDay && name === "checkInTime") {
         if (!validateTimes(value, prev.checkOutTime, true)) {
-          // If check-in is moved after check-out, push check-out forward or to next day
-          const [h, m] = value.split(':').map(Number);
+          const [h, m] = value.split(":").map(Number);
           const newOutH = (h + 2) % 24;
-          newFormData.checkOutTime = `${String(newOutH).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-          
+          newFormData.checkOutTime = `${String(newOutH).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
           if (newOutH < h) {
-            // Moved to next day, update checkOutDate if possible
             const d = new Date(checkInDate);
             d.setDate(d.getDate() + 1);
-            setCheckOutDate(d.toISOString().split('T')[0]);
+            candidateCheckOutDate = d.toISOString().split("T")[0];
           }
         }
+      }
+
+      if (isSameDay && name === "checkOutTime") {
+        if (!validateTimes(prev.checkInTime, value, true)) {
+          const [h, m] = prev.checkInTime.split(":").map(Number);
+          const newOutH = (h + 2) % 24;
+          newFormData.checkOutTime = `${String(newOutH).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+          if (newOutH < h) {
+            const d = new Date(checkInDate);
+            d.setDate(d.getDate() + 1);
+            candidateCheckOutDate = d.toISOString().split("T")[0];
+          }
+        }
+      }
+
+      // Disable conflicting slots (server will also enforce)
+      if (
+        selectedHaven &&
+        checkInDate &&
+        candidateCheckOutDate &&
+        newFormData.checkInTime &&
+        newFormData.checkOutTime &&
+        roomBookingsData?.data
+      ) {
+        const conflict = isSelectedSlotConflicting({
+          checkInDate,
+          checkInTime: newFormData.checkInTime,
+          checkOutDate: candidateCheckOutDate,
+          checkOutTime: newFormData.checkOutTime,
+        });
+        if (conflict) {
+          toast.error(slotConflictMessage);
+          return prev; // revert time selection
+        }
+      }
+
+      if (candidateCheckOutDate !== checkOutDate) {
+        setCheckOutDate(candidateCheckOutDate);
       }
 
       return newFormData;
@@ -574,6 +811,27 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
     if (!formData.checkInTime) newErrors.checkInTime = "Check-in time is required";
     if (!formData.checkOutTime) newErrors.checkOutTime = "Check-out time is required";
     if (!selectedHaven) newErrors.roomName = "Please select a room/haven";
+
+    if (Object.keys(newErrors).length === 0) {
+      if (availabilityEnabled && canFetchAvailability) {
+        if (availableHavens.length === 0) {
+          newErrors.roomName = "No rooms available for the selected time slot.";
+        } else if (!availableHavens.some((r) => r.haven_name === selectedHaven?.haven_name)) {
+          newErrors.roomName = slotConflictMessage;
+        }
+      }
+
+      const conflict = isSelectedSlotConflicting({
+        checkInDate,
+        checkInTime: formData.checkInTime,
+        checkOutDate,
+        checkOutTime: formData.checkOutTime,
+      });
+      if (conflict) {
+        newErrors.checkInTime = slotConflictMessage;
+        newErrors.checkOutTime = slotConflictMessage;
+      }
+    }
     setErrors(newErrors);
     if (Object.keys(newErrors).length > 0) {
       const firstErrorKey = Object.keys(newErrors)[0];
@@ -1335,14 +1593,36 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                       name="roomName"
                       value={selectedHaven?.haven_name || ""}
                       onChange={handleInputChange}
-                      disabled={isLoadingHavens}
+                      disabled={
+                        isLoadingHavens ||
+                        (availabilityEnabled ? !canFetchAvailability || isFetchingAvailability : false)
+                      }
                       className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
                         errors.roomName ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                       }`}
                     >
-                      <option value="">{isLoadingHavens ? "Loading havens..." : "Select a haven/room"}</option>
+                      <option value="">
+                        {isLoadingHavens
+                          ? "Loading havens..."
+                          : availabilityEnabled
+                            ? canFetchAvailability
+                              ? isFetchingAvailability
+                                ? "Checking availability..."
+                                : "Select a haven/room"
+                              : "Select check-in/out date and time"
+                            : "Select a haven/room"}
+                      </option>
                       {havens.map((haven) => (
-                        <option key={haven.uuid_id} value={haven.haven_name}>
+                        <option
+                          key={haven.uuid_id}
+                          value={haven.haven_name}
+                          disabled={
+                            availabilityEnabled &&
+                            canFetchAvailability &&
+                            !isFetchingAvailability &&
+                            !availableHavenNameSet.has(haven.haven_name)
+                          }
+                        >
                           {haven.haven_name} - {haven.tower} (Weekday ₱{haven.weekday_rate.toLocaleString()} / Weekend ₱{haven.weekend_rate.toLocaleString()})
                         </option>
                       ))}
@@ -1353,6 +1633,24 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                         {errors.roomName}
                       </p>
                     )}
+
+                    {availabilityError && !errors.roomName && (
+                      <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                        <AlertCircle className="w-4 h-4" />
+                        {availabilityError}
+                      </p>
+                    )}
+
+                    {availabilityEnabled &&
+                      canFetchAvailability &&
+                      !isFetchingAvailability &&
+                      !errors.roomName &&
+                      availableHavens.length === 0 && (
+                        <p className="mt-1 text-sm text-orange-600 flex items-center gap-1">
+                          <AlertCircle className="w-4 h-4" />
+                          No rooms available for the selected time slot.
+                        </p>
+                      )}
                   </div>
 
                   <div ref={(el) => { errorRefs.current.stayType = el; }} className="mb-4">
@@ -1694,73 +1992,81 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                   </h2>
 
                   <div className="space-y-3 mb-6">
-                    <label className="flex items-center gap-3 p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:border-brand-primary transition-colors bg-white dark:bg-gray-700">
-                      <input
-                        type="radio"
-                        name="paymentMethod"
-                        value="gcash"
-                        checked={formData.paymentMethod === "gcash"}
-                        onChange={handleInputChange}
-                        className="w-4 h-4 text-brand-primary accent-brand-primary"
-                      />
-                      <span className="font-medium text-gray-900 dark:text-white">GCash</span>
-                    </label>
-
-                    <label className="flex items-center gap-3 p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:border-brand-primary transition-colors bg-white dark:bg-gray-700">
-                      <input
-                        type="radio"
-                        name="paymentMethod"
-                        value="bank-transfer"
-                        checked={formData.paymentMethod === "bank-transfer"}
-                        onChange={handleInputChange}
-                        className="w-4 h-4 text-brand-primary accent-brand-primary"
-                      />
-                      <span className="font-medium text-gray-900 dark:text-white">Bank Transfer</span>
-                    </label>
+                    {isLoadingPaymentMethods && (
+                      <div className="p-4 text-sm text-gray-500 dark:text-gray-400">
+                        Loading active payment methods...
+                      </div>
+                    )}
+                    {!isLoadingPaymentMethods && adminPaymentMethods.length === 0 && (
+                      <div className="p-4 rounded-lg border border-orange-300 dark:border-orange-700 bg-orange-50 dark:bg-orange-900/20 text-sm text-orange-700 dark:text-orange-300">
+                        No active payment methods configured in admin settings.
+                      </div>
+                    )}
+                    {adminPaymentMethods.map((method) => (
+                      <label
+                        key={method.id}
+                        className="flex items-center gap-3 p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:border-brand-primary transition-colors bg-white dark:bg-gray-700"
+                      >
+                        <input
+                          type="radio"
+                          name="paymentMethod"
+                          value={method.provider}
+                          checked={formData.paymentMethod === method.provider}
+                          onChange={handleInputChange}
+                          className="w-4 h-4 text-brand-primary accent-brand-primary"
+                        />
+                        <div className="flex flex-col">
+                          <span className="font-medium text-gray-900 dark:text-white">{method.payment_name}</span>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">{method.provider}</span>
+                        </div>
+                      </label>
+                    ))}
                   </div>
 
                   {/* Payment Instructions */}
-                  {formData.paymentMethod === "gcash" ? (
-                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-6">
-                      <h3 className="font-bold text-lg mb-4 text-gray-800 dark:text-white flex items-center gap-2">
-                        <Wallet className="w-5 h-5 text-brand-primary" />
-                        Pay via GCash
-                      </h3>
-                      <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">
-                        Scan the QR code below to pay your <strong>DOWNPAYMENT of ₱{downPayment}</strong>
-                      </p>
-                      <div className="bg-white dark:bg-gray-700 rounded-lg p-8 text-center mb-4">
-                        <div className="w-64 h-64 mx-auto bg-gray-200 dark:bg-gray-600 rounded-lg flex items-center justify-center">
-                          <p className="text-gray-500 dark:text-gray-400">GCash QR Code</p>
+                  {(() => {
+                    const selectedMethod = adminPaymentMethods.find(
+                      (m) => m.provider === formData.paymentMethod,
+                    );
+                    if (!selectedMethod) return null;
+                    return (
+                      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-6">
+                        <h3 className="font-bold text-lg mb-4 text-gray-800 dark:text-white flex items-center gap-2">
+                          <Wallet className="w-5 h-5 text-brand-primary" />
+                          Pay via {selectedMethod.payment_name}
+                        </h3>
+                        <div className="bg-white dark:bg-gray-700 rounded-lg p-6 mb-4 space-y-3">
+                          <div className="flex justify-between items-center border-b dark:border-gray-600 pb-2">
+                            <span className="text-gray-600 dark:text-gray-400 font-medium">Provider:</span>
+                            <span className="font-bold text-gray-800 dark:text-white">{selectedMethod.provider}</span>
+                          </div>
+                          <div className="flex justify-between items-center border-b dark:border-gray-600 pb-2">
+                            <span className="text-gray-600 dark:text-gray-400 font-medium">Details:</span>
+                            <span className="font-bold text-gray-800 dark:text-white">{selectedMethod.account_details}</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-gray-600 dark:text-gray-400 font-medium">
+                              {isWalkInStaffUser ? "Amount (Full Payment):" : "Amount:"}
+                            </span>
+                            <span className="font-bold text-green-600 dark:text-green-400 text-xl">
+                              ₱{(isWalkInStaffUser ? totalAmount : downPayment).toLocaleString()}
+                            </span>
+                          </div>
                         </div>
+                        {selectedMethod.payment_qr_link ? (
+                          <div className="bg-white dark:bg-gray-700 rounded-lg p-4 text-center">
+                            <Image
+                              src={selectedMethod.payment_qr_link}
+                              alt={`${selectedMethod.provider} QR`}
+                              width={240}
+                              height={240}
+                              className="mx-auto rounded-lg"
+                            />
+                          </div>
+                        ) : null}
                       </div>
-                    </div>
-                  ) : (
-                    <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg p-6">
-                      <h3 className="font-bold text-lg mb-4 text-gray-800 dark:text-white flex items-center gap-2">
-                        <Building2 className="w-5 h-5 text-brand-primary" />
-                        Pay via Bank Transfer
-                      </h3>
-                      <div className="bg-white dark:bg-gray-700 rounded-lg p-6 mb-4 space-y-3">
-                        <div className="flex justify-between items-center border-b dark:border-gray-600 pb-2">
-                          <span className="text-gray-600 dark:text-gray-400 font-medium">Bank Name:</span>
-                          <span className="font-bold text-gray-800 dark:text-white">BDO Unibank</span>
-                        </div>
-                        <div className="flex justify-between items-center border-b dark:border-gray-600 pb-2">
-                          <span className="text-gray-600 dark:text-gray-400 font-medium">Account Name:</span>
-                          <span className="font-bold text-gray-800 dark:text-white">Staycation Haven Inc.</span>
-                        </div>
-                        <div className="flex justify-between items-center border-b dark:border-gray-600 pb-2">
-                          <span className="text-gray-600 dark:text-gray-400 font-medium">Account Number:</span>
-                          <span className="font-bold text-gray-800 dark:text-white">0123-4567-8901</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-gray-600 dark:text-gray-400 font-medium">Amount:</span>
-                          <span className="font-bold text-green-600 dark:text-green-400 text-xl">₱{downPayment}</span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                    );
+                  })()}
 
                   {/* Upload Proof of Payment */}
                   <div className="mt-6" ref={(el) => { errorRefs.current.paymentProof = el; }}>
@@ -1843,6 +2149,7 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                     name="status"
                     value={formData.status}
                     onChange={handleInputChange}
+                    disabled={!isEditMode && isWalkInStaffUser}
                     className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   >
                     {statusOptions.map((option) => (
@@ -1851,6 +2158,11 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                       </option>
                     ))}
                   </select>
+                  {!isEditMode && isWalkInStaffUser && (
+                    <p className="mt-2 text-xs text-emerald-600 dark:text-emerald-400">
+                      Walk-in bookings are automatically saved as checked-in and fully paid.
+                    </p>
+                  )}
                 </div>
 
                 {/* Action Buttons */}

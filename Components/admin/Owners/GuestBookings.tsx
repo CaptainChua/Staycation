@@ -56,6 +56,8 @@ interface BookingData {
 export default function BookingsPage() {
   const { data: session } = useSession();
   const employeeId = session?.user?.id;
+  const isWalkInStaff =
+    ((((session?.user as { role?: string } | undefined)?.role) || "").toLowerCase() === "walkinstaff");
 
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -753,18 +755,20 @@ export default function BookingsPage() {
         })}
       </div>
 
-      <div className="flex justify-start flex-shrink-0">
-        <button
-          onClick={() => {
-            setIsNewBookingModalOpen(true);
-            logEmployeeActivity('OPEN_NEW_BOOKING', 'Opened create booking modal');
-          }}
-          className="flex items-center gap-2 px-4 py-2 bg-brand-primary hover:bg-brand-primaryDark text-white rounded-lg transition-colors font-semibold"
-        >
-          <Plus className="w-5 h-5" />
-          New Booking
-        </button>
-      </div>
+      {!isWalkInStaff && (
+        <div className="flex justify-start flex-shrink-0">
+          <button
+            onClick={() => {
+              setIsNewBookingModalOpen(true);
+              logEmployeeActivity('OPEN_NEW_BOOKING', 'Opened create booking modal');
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-brand-primary hover:bg-brand-primaryDark text-white rounded-lg transition-colors font-semibold"
+          >
+            <Plus className="w-5 h-5" />
+            New Booking
+          </button>
+        </div>
+      )}
 
       {/* Bulk Actions Bar */}
       {selectedBookings.length > 0 && (
@@ -1696,7 +1700,7 @@ export default function BookingsPage() {
         <ViewBookingDetails booking={selectedBooking} onClose={handleCloseModal} />
       )}
 
-      {isNewBookingModalOpen && (
+      {!isWalkInStaff && isNewBookingModalOpen && (
         <NewBookings
           onClose={() => setIsNewBookingModalOpen(false)}
           onSuccess={handleBookingSaved}

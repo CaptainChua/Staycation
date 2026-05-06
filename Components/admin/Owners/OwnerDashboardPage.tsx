@@ -71,6 +71,8 @@ interface UserSession {
 
 export default function OwnerDashboard() {
   const { data: session} = useSession();
+  const userRole = ((session?.user as { role?: string } | undefined)?.role || "").toLowerCase();
+  const isWalkInStaff = userRole === "walkinstaff";
   const [sidebar, setSidebar] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [page, setPage] = useState("dashboard");
@@ -94,6 +96,12 @@ export default function OwnerDashboard() {
     havenName: "",
   });
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isWalkInStaff && page === "dashboard") {
+      setPage("reservations");
+    }
+  }, [isWalkInStaff, page]);
 
   // Get user ID for messages
   const userId = (session?.user as { id?: string })?.id;
@@ -139,7 +147,19 @@ export default function OwnerDashboard() {
     setModals({ ...modals, [modal]: false });
 
   // Navigation items organized by category for better discoverability
-  const navCategories = [
+  const navCategories = isWalkInStaff ? [
+    {
+      category: "Bookings",
+      items: [
+        { id: "reservations", icon: Calendar, label: "Reservations", color: "text-indigo-500" },
+        { id: "guestBookings", icon: Home, label: "Guest Bookings", color: "text-green-500" },
+      ],
+    },
+    {
+      category: "Communication",
+      items: [{ id: "messages", icon: MessageSquare, label: "Messages", color: "text-green-500" }],
+    },
+  ] : [
     {
       category: "Overview",
       items: [

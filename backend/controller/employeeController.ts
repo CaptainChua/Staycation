@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 import { upload_file } from '../utils/cloudinary';
 import { sendEmployeeWelcomeEmail } from '../utils/mailer';
 
-export type EmployeeRole = 'Owner' | 'CSR' | 'Cleaner' | 'Partner';
+export type EmployeeRole = 'Owner' | 'CSR' | 'Cleaner' | 'Partner' | 'WalkInStaff';
 
 export interface Employee {
   id?: number;
@@ -29,6 +29,21 @@ export interface Employee {
   emergency_contact_relation?: string;
 }
 
+const ensureWalkInStaffEnumValue = async (): Promise<void> => {
+  await pool.query(`
+    DO $$
+    BEGIN
+      IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'employee_role') THEN
+        BEGIN
+          ALTER TYPE employee_role ADD VALUE IF NOT EXISTS 'WalkInStaff';
+        EXCEPTION
+          WHEN duplicate_object THEN NULL;
+        END;
+      END IF;
+    END $$;
+  `);
+};
+
 // CREATE Employee
 export const createEmployee = async (req: NextRequest): Promise<NextResponse> => {
   try {
@@ -52,6 +67,11 @@ export const createEmployee = async (req: NextRequest): Promise<NextResponse> =>
       emergency_contact_phone,
       emergency_contact_relation
     } = body;
+
+    if (role === "WalkInStaff") {
+      // Backward-compatible guard for environments where the enum migration was not run yet.
+      await ensureWalkInStaffEnumValue();
+    }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 

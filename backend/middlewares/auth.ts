@@ -6,7 +6,7 @@ export interface IUser {
   first_name: string;
   last_name: string;
   email: string;
-  role: "Owner" | "CSR" | "Cleaner" | "Partner";
+  role: "Owner" | "CSR" | "Cleaner" | "Partner" | "WalkInStaff";
 }
 
 export const isAuthenticatedUser = async (

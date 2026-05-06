@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getToken } from "next-auth/jwt";
 import pool from "../config/db";
 import { upload_file } from "../utils/cloudinary";
 import { createCalendarEvent, createCalendarEventWithResult, updateCalendarEventColor, CalendarEventData } from "../utils/googleCalendar";
@@ -11,6 +12,99 @@ const ADD_ON_PRICES = {
   extraComforter: 100,
   guestKit: 75,
   extraSlippers: 30,
+};
+
+type EmployeeLikeRole = "Owner" | "CSR" | "WalkInStaff" | "Cleaner" | "Partner";
+
+const extractRequestRole = async (req: NextRequest): Promise<string | null> => {
+  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+  return (token?.role as string | undefined) ?? null;
+};
+
+const isWalkInStaff = (role: string | null): boolean =>
+  (role || "").toLowerCase() === "walkinstaff";
+
+const isRoomSlotAvailable = async (
+  client: { query: (text: string, params?: any[]) => Promise<{ rows: any[] }> },
+  payload: {
+    roomName: string;
+    checkInDate: string;
+    checkInTime: string;
+    checkOutDate: string;
+    checkOutTime: string;
+    excludeBookingId?: string | null;
+  },
+): Promise<boolean> => {
+  const query = `
+    SELECT b.id
+    FROM booking b
+    WHERE LOWER(TRIM(b.room_name)) = LOWER(TRIM($1))
+      AND b.status NOT IN ('rejected', 'cancelled')
+      AND ($6::text IS NULL OR b.id::text <> $6::text)
+      AND (b.check_in_date::DATE + b.check_in_time::TIME) <
+          CASE WHEN $5 = '00:00' AND $4::DATE = $2::DATE
+               THEN ($4::DATE + INTERVAL '1 day')::TIMESTAMP
+               ELSE ($4::DATE + $5::TIME)::TIMESTAMP
+          END
+      AND (
+          CASE WHEN b.check_out_time = '00:00' AND b.check_out_date::DATE = b.check_in_date::DATE
+               THEN (b.check_out_date::DATE + INTERVAL '1 day')::TIMESTAMP
+               ELSE (b.check_out_date::DATE + b.check_out_time::TIME)::TIMESTAMP
+          END
+      ) > ($2::DATE + $3::TIME)::TIMESTAMP
+    LIMIT 1
+  `;
+
+  const result = await client.query(query, [
+    payload.roomName,
+    payload.checkInDate,
+    payload.checkInTime,
+    payload.checkOutDate,
+    payload.checkOutTime,
+    payload.excludeBookingId ?? null,
+  ]);
+
+  return result.rows.length === 0;
+};
+
+const hasColumn = async (
+  client: { query: (text: string, params?: any[]) => Promise<{ rows: any[] }> },
+  tableName: string,
+  columnName: string,
+): Promise<boolean> => {
+  const res = await client.query(
+    `
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_name = $1
+        AND column_name = $2
+      LIMIT 1
+    `,
+    [tableName, columnName],
+  );
+  return res.rows.length > 0;
+};
+
+const ensureWalkInBookingSchema = async (
+  client: { query: (text: string, params?: any[]) => Promise<{ rows: any[] }> },
+): Promise<void> => {
+  // Backward-compatible guard for environments where migrations were not run yet.
+  const bookingTypeExists = await hasColumn(client, "booking", "booking_type");
+  if (!bookingTypeExists) {
+    await client.query(`
+      ALTER TABLE booking
+        ADD COLUMN IF NOT EXISTS booking_type VARCHAR(20) NOT NULL DEFAULT 'online'
+        CHECK (booking_type IN ('online', 'walk_in'));
+    `);
+  }
+
+  const paymentReferenceExists = await hasColumn(client, "booking_payments", "payment_reference");
+  if (!paymentReferenceExists) {
+    await client.query(`
+      ALTER TABLE booking_payments
+        ADD COLUMN IF NOT EXISTS payment_reference VARCHAR(120);
+    `);
+  }
 };
 
 export const updateBookingDetails = async (
@@ -72,6 +166,38 @@ export const updateBookingDetails = async (
           { status: 400 },
         );
       }
+    }
+
+    // Lock the haven row to prevent concurrent double-booking for the same room.
+    await client.query(
+      `
+        SELECT haven_name
+        FROM havens
+        WHERE LOWER(TRIM(haven_name)) = LOWER(TRIM($1))
+        FOR UPDATE
+      `,
+      [String(room_name || "").trim()],
+    );
+
+    const roomIsAvailable = await isRoomSlotAvailable(client, {
+      roomName: String(room_name || ""),
+      checkInDate: String(check_in_date || ""),
+      checkInTime: String(check_in_time || "00:00"),
+      checkOutDate: String(check_out_date || ""),
+      checkOutTime: String(check_out_time || "00:00"),
+      excludeBookingId: String(id),
+    });
+
+    if (!roomIsAvailable) {
+      await client.query("ROLLBACK");
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "This room is already booked during the selected time slot. Please choose a different date or time.",
+        },
+        { status: 400 },
+      );
     }
 
     await client.query(
@@ -353,6 +479,8 @@ export const createBooking = async (
   try {
     await client.query("BEGIN");
 
+    await ensureWalkInBookingSchema(client);
+
     const body = await req.json();
     console.log("📥 [BOOKING] createBooking body received");
     console.log("📋 [BOOKING] Booking ID:", body.booking_id);
@@ -391,42 +519,45 @@ export const createBooking = async (
       add_ons_total,
       total_amount,
       down_payment,
+      payment_reference,
+      booking_type,
       // Add-ons
       addOns = {},
     } = body;
 
+    const normalizedRoomName = String(room_name || "").trim();
+
+    const actorRole = await extractRequestRole(req);
+    const walkInStaffBooking = isWalkInStaff(actorRole);
+    const normalizedBookingType = isWalkInStaff(actorRole)
+      ? "walk_in"
+      : booking_type === "walk_in"
+        ? "walk_in"
+        : "online";
+    const forcedBookingStatus = walkInStaffBooking ? "checked-in" : "pending";
+
+    // Lock the haven row to prevent concurrent double-booking for the same room.
+    await client.query(
+      `
+        SELECT haven_name
+        FROM havens
+        WHERE LOWER(TRIM(haven_name)) = LOWER(TRIM($1))
+        FOR UPDATE
+      `,
+      [normalizedRoomName],
+    );
+
     // --- GENERAL ROOM AVAILABILITY CHECK (time-aware) ---
     // '00:00' checkout means end-of-day midnight, so treat it as the start of the next day.
-    const availabilityCheckQuery = `
-      SELECT b.id, b.booking_id
-      FROM booking b
-      WHERE b.room_name = $1
-        AND b.status NOT IN ('rejected', 'cancelled')
-        AND (b.check_in_date::DATE + b.check_in_time::TIME) <
-            CASE WHEN $5 = '00:00'
-                 THEN ($4::DATE + INTERVAL '1 day')::TIMESTAMP
-                 ELSE ($4::DATE + $5::TIME)::TIMESTAMP
-            END
-        AND (
-            CASE WHEN b.check_out_time = '00:00'
-                 THEN (b.check_out_date::DATE + INTERVAL '1 day')::TIMESTAMP
-                 ELSE (b.check_out_date::DATE + b.check_out_time::TIME)::TIMESTAMP
-            END
-        ) > ($2::DATE + $3::TIME)::TIMESTAMP
-      LIMIT 1
-    `;
+    const roomIsAvailable = await isRoomSlotAvailable(client, {
+      roomName: normalizedRoomName,
+      checkInDate: String(check_in_date || ""),
+      checkInTime: String(check_in_time || "00:00"),
+      checkOutDate: String(check_out_date || ""),
+      checkOutTime: String(check_out_time || "00:00"),
+    });
 
-    const availabilityCheckValues = [
-      room_name,
-      check_in_date,
-      check_in_time,
-      check_out_date,
-      check_out_time,
-    ];
-
-    const availabilityResult = await client.query(availabilityCheckQuery, availabilityCheckValues);
-
-    if (availabilityResult.rows.length > 0) {
+    if (!roomIsAvailable) {
       await client.query("ROLLBACK");
       return NextResponse.json(
         {
@@ -458,7 +589,7 @@ export const createBooking = async (
     `;
 
     const overlapCheckValues = [
-      room_name,
+      normalizedRoomName,
       guest_first_name,
       guest_last_name,
       guest_email,
@@ -503,7 +634,7 @@ export const createBooking = async (
       guest_email,
       guest_phone,
       booking_id,
-      status: "pending", // Default status for new bookings
+      status: forcedBookingStatus,
       stay_type: body.stay_type,
       payment_method,
       payment_proof_url: paymentProofUrl ?? undefined,
@@ -526,9 +657,9 @@ export const createBooking = async (
       INSERT INTO booking (
         booking_id, user_id, room_name, check_in_date, check_out_date,
         check_in_time, check_out_time, adults, children, infants, status,
-        has_security_deposit, google_event_id, created_at, updated_at
+        has_security_deposit, google_event_id, booking_type, created_at, updated_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
       RETURNING id
     `;
 
@@ -543,9 +674,10 @@ export const createBooking = async (
       adults,
       children,
       infants,
-      "pending", // Ensure status matches "pending" default
+      forcedBookingStatus,
       security_deposit > 0, // has_security_deposit flag
       googleEventId, // Added column for google calendar sync
+      normalizedBookingType,
     ];
 
     console.log("📝 [BOOKING] Inserting booking record...");
@@ -642,14 +774,20 @@ export const createBooking = async (
 
     // Calculate payment amounts (security deposit is handled separately during checkout)
     const paymentTotalAmount = total_amount; // Full amount during booking (security deposit handled at checkout)
-    const paymentAmountPaid = Number(down_payment ?? 0); // initial collected amount
+    const initialDownPayment = Number(down_payment ?? 0);
+    const paymentDownPayment = walkInStaffBooking
+      ? Number(paymentTotalAmount ?? 0)
+      : initialDownPayment;
+    const paymentAmountPaid = walkInStaffBooking
+      ? Number(paymentTotalAmount ?? 0)
+      : initialDownPayment;
 
     const paymentQuery = `
       INSERT INTO booking_payments (
         booking_id, payment_method, payment_proof_url, room_rate,
-        add_ons_total, total_amount, down_payment, amount_paid
+        add_ons_total, total_amount, down_payment, amount_paid, payment_reference
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
     `;
 
     const paymentValues = [
@@ -659,23 +797,57 @@ export const createBooking = async (
       room_rate,
       add_ons_total,
       paymentTotalAmount,
-      down_payment,
+      paymentDownPayment,
       paymentAmountPaid,
+      typeof payment_reference === "string" ? payment_reference.trim() : null,
     ];
 
     console.log("📝 [BOOKING] Inserting payment record...");
     await client.query(paymentQuery, paymentValues);
     console.log("✅ [BOOKING] Payment record created");
 
-    // Step 4.5: Create security deposit record (always create with 0 amount during booking)
+    if (walkInStaffBooking) {
+      const hasPaymentStatus = await hasColumn(client, "booking_payments", "payment_status");
+      const hasReviewedAt = await hasColumn(client, "booking_payments", "reviewed_at");
+      if (hasPaymentStatus || hasReviewedAt) {
+        const setParts: string[] = [];
+        const values: any[] = [];
+        let i = 1;
+        if (hasPaymentStatus) {
+          setParts.push(`payment_status = $${i++}`);
+          values.push("approved_full_payment");
+        }
+        if (hasReviewedAt) {
+          setParts.push(`reviewed_at = NOW()`);
+        }
+        values.push(bookingId);
+        await client.query(
+          `
+            UPDATE booking_payments
+            SET ${setParts.join(", ")}
+            WHERE booking_id = $${i}
+          `,
+          values,
+        );
+      }
+    }
+
+    // Step 4.5: Create security deposit record.
+    // For walk-in staff, deposit is collected immediately and marked held.
     const depositQuery = `
       INSERT INTO booking_security_deposits (
-        booking_id, amount, deposit_status, held_at
+        booking_id, amount, deposit_status, payment_method, payment_proof_url, held_at
       )
-      VALUES ($1, 0, 'pending', NOW())
+      VALUES ($1, $2, $3, $4, $5, NOW())
     `;
 
-    const depositValues = [bookingId];
+    const depositValues = [
+      bookingId,
+      walkInStaffBooking ? Number(security_deposit ?? 0) : 0,
+      walkInStaffBooking ? "held" : "pending",
+      walkInStaffBooking ? payment_method : null,
+      walkInStaffBooking ? paymentProofUrl : null,
+    ];
 
     await client.query(depositQuery, depositValues);
 
@@ -883,6 +1055,8 @@ export const getAllBookings = async (
   req: NextRequest,
 ): Promise<NextResponse> => {
   try {
+    const actorRole = await extractRequestRole(req);
+    const walkInOnly = isWalkInStaff(actorRole);
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status");
     const raw = searchParams.get("raw");
@@ -905,6 +1079,7 @@ export const getAllBookings = async (
           status,
           rejection_reason,
           has_security_deposit,
+          booking_type,
           created_at,
           updated_at
         FROM booking
@@ -914,6 +1089,14 @@ export const getAllBookings = async (
       if (status) {
         rawQuery += " WHERE status = $1";
         values.push(status);
+      } else if (walkInOnly) {
+        rawQuery += " WHERE booking_type = $1";
+        values.push("walk_in");
+      }
+
+      if (status && walkInOnly) {
+        rawQuery += " AND booking_type = $2";
+        values.push("walk_in");
       }
 
       rawQuery += " ORDER BY created_at DESC";
@@ -939,6 +1122,7 @@ export const getAllBookings = async (
         bp.payment_method,
         bp.payment_proof_url,
         bp.payment_status,
+        bp.payment_reference,
         bp.room_rate,
         bp.add_ons_total,
         bp.total_amount,
@@ -965,6 +1149,12 @@ export const getAllBookings = async (
       values.push(status);
     }
 
+    if (walkInOnly) {
+      const placeholder = `$${values.length + 1}`;
+      query += ` AND b.booking_type = ${placeholder}`;
+      values.push("walk_in");
+    }
+
     query += " ORDER BY b.created_at DESC";
 
     const result = await pool.query(query, values);
@@ -984,6 +1174,81 @@ export const getAllBookings = async (
         success: false,
         error:
           error instanceof Error ? error.message : "Failed to get bookings",
+      },
+      { status: 500 },
+    );
+  }
+};
+
+export const processBookingPayment = async (
+  req: NextRequest,
+): Promise<NextResponse> => {
+  try {
+    const role = await extractRequestRole(req);
+    const allowed: EmployeeLikeRole[] = ["Owner", "CSR", "WalkInStaff"];
+    if (!role || !allowed.includes(role as EmployeeLikeRole)) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized for payment processing" },
+        { status: 403 },
+      );
+    }
+
+    const body = await req.json();
+    const { id, payment_method, payment_reference } = body;
+    const method = typeof payment_method === "string" ? payment_method.toLowerCase() : "";
+    const allowedMethods = ["gcash", "qrph", "cash"];
+
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: "Booking ID is required" },
+        { status: 400 },
+      );
+    }
+    if (!allowedMethods.includes(method)) {
+      return NextResponse.json(
+        { success: false, error: "Invalid payment method" },
+        { status: 400 },
+      );
+    }
+    if ((method === "gcash" || method === "qrph") && !String(payment_reference || "").trim()) {
+      return NextResponse.json(
+        { success: false, error: "Payment reference is required for e-wallet payments" },
+        { status: 400 },
+      );
+    }
+
+    const bookingScope =
+      isWalkInStaff(role)
+        ? " AND b.booking_type = 'walk_in'"
+        : "";
+
+    const result = await pool.query(
+      `
+        UPDATE booking_payments bp
+        SET payment_method = $1,
+            payment_reference = $2
+        FROM booking b
+        WHERE bp.booking_id = b.id
+          AND (b.id::text = $3 OR b.booking_id = $3)
+          ${bookingScope}
+        RETURNING bp.*
+      `,
+      [method, payment_reference?.trim() || null, id],
+    );
+
+    if (result.rows.length === 0) {
+      return NextResponse.json(
+        { success: false, error: "Booking not found or not accessible" },
+        { status: 404 },
+      );
+    }
+
+    return NextResponse.json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to process booking payment",
       },
       { status: 500 },
     );
@@ -1862,11 +2127,13 @@ export const getRoomBookings = async (
         booking_id,
         check_in_date,
         check_out_date,
+        check_in_time,
+        check_out_time,
         status,
         room_name
       FROM booking
       WHERE TRIM(room_name) = $1
-        AND status IN ('pending', 'approved', 'confirmed', 'checked-in')
+        AND status NOT IN ('rejected', 'cancelled')
       ORDER BY check_in_date ASC
     `;
 

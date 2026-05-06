@@ -313,15 +313,16 @@ const CalendarPage = ({ havens }: CalendarPageProps) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentMonthYear, setCurrentMonthYear] = useState<string>("");
 
-  // Set initial selected haven when havens data loads
-  useEffect(() => {
-    if (havens.length > 0 && !selectedHaven) {
-      setSelectedHaven(havens[0]);
-    }
-  }, [havens, selectedHaven]);
-
   // Fetch all bookings and filter for owner's havens
-  const { data: bookings = [], isLoading, error } = useGetBookingsQuery({});
+  const { data: bookings = [], isLoading, error } = useGetBookingsQuery(
+    {},
+    {
+      pollingInterval: 3000,
+      skipPollingIfUnfocused: true,
+      refetchOnFocus: true,
+      refetchOnReconnect: true,
+    }
+  );
 
   // Filter bookings to show only those for owner's havens
   const filteredBookings = useMemo(() => {
@@ -515,11 +516,16 @@ const CalendarPage = ({ havens }: CalendarPageProps) => {
             <select
               value={selectedHaven?.uuid_id || ""}
               onChange={(e) => {
+                if (!e.target.value) {
+                  setSelectedHaven(null);
+                  return;
+                }
                 const haven = havens.find((h) => h.uuid_id === e.target.value);
                 setSelectedHaven(haven || null);
               }}
               className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
             >
+              <option value="">All Havens</option>
               {havens.map((haven) => (
                 <option key={haven.uuid_id} value={haven.uuid_id}>
                   {haven.haven_name} - {haven.tower} - Floor {haven.floor}

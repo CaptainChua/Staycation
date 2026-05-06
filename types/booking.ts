@@ -44,6 +44,7 @@ export interface BookingListItem {
 
   // Payment summary (lists often show a summary)
   payment_method?: string | null;
+  payment_reference?: string | null;
   payment_proof_url?: string | null;
   payment_status?: string | null;
   down_payment?: number | null;
@@ -52,6 +53,7 @@ export interface BookingListItem {
 
   // Administrative
   status?: string | null;
+  booking_type?: "online" | "walk_in" | null;
   cleaning_status?: "pending" | "in-progress" | "cleaned" | "inspected" | null;
   rejection_reason?: string | null;
   created_at?: string | null;

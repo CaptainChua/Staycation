@@ -69,6 +69,7 @@ export default function OwnerSidebar({ sidebar, setSidebar, mobileMenuOpen, setM
   }
 
   const userSession = getUserSession();
+  const isWalkInStaff = (userSession?.role || "").toLowerCase() === "walkinstaff";
 
   // Get user ID for messages
   const userId = (session?.user as { id?: string })?.id;
@@ -90,7 +91,27 @@ export default function OwnerSidebar({ sidebar, setSidebar, mobileMenuOpen, setM
     "";
 
   // Navigation items organized by category for better discoverability
-  const navCategories = [
+  const navCategories = isWalkInStaff ? [
+    {
+      category: "Bookings",
+      items: [
+        { id: "reservations", icon: Calendar, label: "Reservations", color: "text-yellow-500" },
+        { id: "guestBookings", icon: Home, label: "Guest Bookings", subtitle: "Management", color: "text-green-500" },
+      ],
+    },
+    {
+      category: "Communication",
+      items: [
+        { id: "messages", icon: MessageSquare, label: "Messages", color: "text-green-500" },
+      ],
+    },
+    {
+      category: "System",
+      items: [
+        { id: "settings", icon: Settings, label: "Settings", color: "text-gray-500" },
+      ],
+    },
+  ] : [
     {
       category: "Overview",
       items: [

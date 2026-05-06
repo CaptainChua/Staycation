@@ -127,6 +127,8 @@ const DashboardPage = ({
 }: DashboardPageProps) => {
   const { data: session } = useSession();
   const userId = (session?.user as any)?.id;
+  const userRole = ((session?.user as { role?: string } | undefined)?.role || "").toLowerCase();
+  const isWalkInStaff = userRole === "walkinstaff";
   const [refreshing, setRefreshing] = useState(false);
   const [analyticsData, setAnalyticsData] = useState<any>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
@@ -144,10 +146,13 @@ const DashboardPage = ({
   const fetchAnalyticsData = async () => {
     try {
       setAnalyticsLoading(true);
-      const res = await fetch('/api/admin/analytics/summary?period=30');
+      const endpoint = isWalkInStaff
+        ? "/api/dashboard"
+        : "/api/admin/analytics/summary?period=30";
+      const res = await fetch(endpoint);
       const data = await res.json();
       if (data.success) {
-        setAnalyticsData(data.data);
+        setAnalyticsData(isWalkInStaff ? data.data?.summary : data.data);
       }
     } catch (error) {
       console.error('Error fetching analytics:', error);

@@ -1,4 +1,4 @@
-CREATE TYPE employee_role AS ENUM ('Owner','CSR','Cleaner','Partner');
+CREATE TYPE employee_role AS ENUM ('Owner','CSR','Cleaner','Partner','WalkInStaff');
 
 CREATE TABLE employees (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

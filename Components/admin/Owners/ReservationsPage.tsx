@@ -21,11 +21,10 @@ import Image from "next/image"; // added (used in modal)
 import { useState } from "react";
 import {
   useGetBookingsQuery,
-  useCreateBookingMutation,
   useUpdateBookingStatusMutation,
 } from "@/redux/api/bookingsApi";
 import { Booking, AdditionalGuest } from "@/types/booking";
-import NewReservationModal from "./NewReservationModal";
+import NewBookings from "../Csr/Modals/NewBookings";
 import toast from "react-hot-toast";
 
 const ReservationsPage = () => {
@@ -43,7 +42,6 @@ const ReservationsPage = () => {
       refetchOnReconnect: true,
     }
   );
-  const [createBooking] = useCreateBookingMutation();
   const [updateBookingStatus] = useUpdateBookingStatusMutation();
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [isNewReservationModalOpen, setIsNewReservationModalOpen] = useState(false);
@@ -324,16 +322,18 @@ const ReservationsPage = () => {
     setSelectedBooking(null);
   };
 
-  const handleNewReservation = async (formData: any) => {
-    try {
-      await createBooking(formData).unwrap();
-      await refetch();
+  const handleBookingSaved = async (result?: {
+    mode: "create" | "update";
+    id?: string;
+    booking_id: string;
+  }) => {
+    await refetch();
+    if (!result) return;
+    if (result.mode === "create") {
       toast.success("New reservation created successfully!");
-    } catch (error) {
-      console.error("Error creating reservation:", error);
-      toast.error("Failed to create reservation");
-      throw error;
+      return;
     }
+    toast.success("Reservation updated successfully!");
   };
 
   const goToFirstPage = () => setCurrentPage(1);
@@ -1129,11 +1129,12 @@ const ReservationsPage = () => {
         </div>
       )}
 
-      <NewReservationModal
-        isOpen={isNewReservationModalOpen}
-        onClose={() => setIsNewReservationModalOpen(false)}
-        onSubmit={handleNewReservation}
-      />
+      {isNewReservationModalOpen && (
+        <NewBookings
+          onClose={() => setIsNewReservationModalOpen(false)}
+          onSuccess={handleBookingSaved}
+        />
+      )}
     </>
   );
 };

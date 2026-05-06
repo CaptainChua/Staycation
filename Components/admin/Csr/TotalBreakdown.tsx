@@ -14,9 +14,6 @@ interface TotalBreakdownProps {
   isCompact?: boolean;
 }
 
-// Default security deposit amount
-const DEFAULT_SECURITY_DEPOSIT = 1000;
-
 export default function TotalBreakdown({
   roomRate,
   securityDeposit,
@@ -35,10 +32,6 @@ export default function TotalBreakdown({
     }).format(amount);
   };
 
-  // Always use fixed rates as per user rule
-  const FIXED_DEPOSIT = 1000;
-  const FIXED_DOWN_PAYMENT = 500;
-
   const safeNumber = (value: unknown) => {
     const n = Number(value);
     return Number.isFinite(n) ? n : 0;
@@ -47,15 +40,18 @@ export default function TotalBreakdown({
   // Check if security deposit is paid (explicitly 'paid' or 'held')
   const isDepositPaid = depositStatus?.toLowerCase() === 'paid' || depositStatus?.toLowerCase() === 'held';
 
-  // Calculate display total at the top
-  // "display all total including room, deposit, add ons, and down payment"
-  // We assume totalAmount (from DB) is Room + Addons. We add Deposit to get the base total.
-  const displayTotal = safeNumber(roomRate) + safeNumber(addOnsTotal) + FIXED_DEPOSIT;
+  const normalizedRoomRate = safeNumber(roomRate);
+  const normalizedAddOns = safeNumber(addOnsTotal);
+  const normalizedDeposit = safeNumber(securityDeposit);
+  const normalizedTotal = safeNumber(totalAmount);
+  const normalizedDownPayment = safeNumber(downPayment);
+  const normalizedBalance = safeNumber(remainingBalance);
 
-  // Calculate actual balance
-  // "balance should be auto calculate if deposit is paid and down payment is always calculate minus -500"
-  // Balance = (Room + Addons + Deposit) - DownPayment(500) - (Deposit if paid)
-  const actualRemainingBalance = displayTotal - FIXED_DOWN_PAYMENT - (isDepositPaid ? FIXED_DEPOSIT : 0);
+  // Prefer backend total/balance values; fallback to computed values for resilience.
+  const displayTotal =
+    normalizedTotal > 0 ? normalizedTotal : normalizedRoomRate + normalizedAddOns + normalizedDeposit;
+  const actualRemainingBalance =
+    normalizedBalance >= 0 ? normalizedBalance : Math.max(displayTotal - normalizedDownPayment, 0);
 
   const breakdownItems = [
     {
@@ -67,7 +63,7 @@ export default function TotalBreakdown({
     {
       icon: Shield,
       label: "Deposit",
-      amount: FIXED_DEPOSIT,
+      amount: normalizedDeposit,
       color: "text-green-600"
     },
     {
@@ -138,7 +134,7 @@ export default function TotalBreakdown({
         <div className="border-b border-gray-200 dark:border-gray-600 pb-1">
           <div className="flex items-center justify-between text-xs">
             <span className="text-blue-600 font-semibold">Down Payment</span>
-            <span className="text-blue-600 font-medium">{formatCurrency(FIXED_DOWN_PAYMENT)}</span>
+            <span className="text-blue-600 font-medium">{formatCurrency(normalizedDownPayment)}</span>
           </div>
           {paymentStatus && (
             <div className="flex items-center justify-end mt-0.5 text-xs">
@@ -219,13 +215,13 @@ export default function TotalBreakdown({
           </div>
         </div>
 
-        {/* Down Payment (Always 500) */}
+        {/* Down Payment */}
         <div className="px-4 py-3">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-blue-700 dark:text-blue-400">Down Payment</span>
             <div className="flex items-center gap-8">
               <span className="text-sm font-semibold text-blue-600 dark:text-blue-400 text-right w-32">
-                {formatCurrency(FIXED_DOWN_PAYMENT)}
+                {formatCurrency(normalizedDownPayment)}
               </span>
               <span className={`text-xs font-bold text-right w-24 ${getStatusColor()}`}>
                 {getStatusDisplay() || 'Locked'}
