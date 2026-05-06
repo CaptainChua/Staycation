@@ -56,6 +56,33 @@ export default function NotificationsPage() {
     } catch {}
   };
 
+  const handleNotificationClick = (notification: Notification) => {
+    markAsRead(notification.id);
+    
+    // Parse notification content for navigation
+    const lowerTitle = notification.title.toLowerCase();
+    const lowerMessage = notification.message.toLowerCase();
+    
+    if (lowerTitle.includes('assignment') || lowerTitle.includes('schedule')) {
+      router.push('/cleaners/my-schedule');
+    } else if (lowerTitle.includes('message') || lowerMessage.includes('message')) {
+      router.push('/cleaners/messages');
+    } else if (lowerTitle.includes('task') || lowerMessage.includes('task')) {
+      // Try to extract task ID (e.g., "Task #123")
+      const taskMatch = notification.title.match(/#(\d+)/) || notification.message.match(/#(\d+)/);
+      if (taskMatch) {
+        router.push(`/cleaners/my-assignment?task=${taskMatch[1]}`);
+      } else {
+        router.push('/cleaners/my-assignment');
+      }
+    } else if (lowerTitle.includes('issue') || lowerTitle.includes('report')) {
+      router.push('/cleaners/report-issue');
+    } else {
+      // Default to schedule
+      router.push('/cleaners/my-schedule');
+    }
+  };
+
   const markAllAsRead = async () => {
     const unreadIds = notificationsList.filter(n => !n.read).map(n => n.id);
     setNotificationsList(prev => prev.map(n => ({ ...n, read: true })));
@@ -162,9 +189,9 @@ export default function NotificationsPage() {
             return (
               <div
                 key={notification.id}
-                onClick={() => !notification.read && markAsRead(notification.id)}
-                className={`bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-5 transition-all hover:shadow-xl ${
-                  !notification.read ? "border-l-4 border-brand-primary cursor-pointer" : ""
+                onClick={() => handleNotificationClick(notification)}
+                className={`bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-5 transition-all hover:shadow-xl cursor-pointer group ${
+                  !notification.read ? "border-l-4 border-brand-primary ring-2 ring-brand-primary/20" : "hover:bg-gray-50 dark:hover:bg-gray-700"
                 }`}
               >
                 <div className="flex items-start gap-4">
@@ -173,11 +200,11 @@ export default function NotificationsPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2 mb-1">
-                      <h3 className="font-bold text-gray-800 dark:text-gray-100">
+                      <h3 className="font-bold text-gray-800 dark:text-gray-100 group-hover:text-brand-primary transition-colors">
                         {notification.title}
                       </h3>
                       {!notification.read && (
-                        <span className="flex-shrink-0 w-2 h-2 bg-brand-primary rounded-full mt-2" />
+                        <span className="flex-shrink-0 w-3 h-3 bg-brand-primary rounded-full mt-1.5 animate-pulse" />
                       )}
                     </div>
                     <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">

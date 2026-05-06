@@ -1,9 +1,12 @@
 "use client";
 
-import { ClipboardList, Clock, AlertCircle, CheckCircle2 } from "lucide-react";
+import { ClipboardList, Clock, AlertCircle, CheckCircle2, Calendar } from "lucide-react";
 import { useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { useGetCleaningTasksQuery } from "@/redux/api/cleanersApi";
+import FullCalendar from '@fullcalendar/react';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import interactionPlugin from '@fullcalendar/interaction';
 
 interface AssignmentStats {
   total: number;
@@ -28,6 +31,21 @@ function getStatusBadge(cleaningStatus: string): { label: string; bgColor: strin
   }
 }
 
+function getStatusColor(status: string): { bg: string; border: string; text: string } {
+  switch (status) {
+    case "cleaned":
+    case "inspected":
+      return { bg: "bg-green-500", border: "border-green-600", text: "text-white" };
+    case "in-progress":
+      return { bg: "bg-yellow-500", border: "border-yellow-600", text: "text-white" };
+    case "assigned":
+      return { bg: "bg-purple-500", border: "border-purple-600", text: "text-white" };
+    case "pending":
+    default:
+      return { bg: "bg-gray-500", border: "border-gray-600", text: "text-white" };
+  }
+}
+
 function formatDate(dateString: string): string {
   try {
     const date = new Date(dateString);
@@ -46,7 +64,7 @@ export default function MyAssignmentPage() {
   const { data: session } = useSession();
   const userId = (session?.user as any)?.id;
 
-  const { data: allTasks = [], isLoading: isLoadingAssignments } = useGetCleaningTasksQuery(undefined);
+  const { data: allTasks = [], isLoading: isLoadingAssignments } = useGetCleaningTasksQuery();
 
   const assignments = useMemo(() => {
     if (!userId) return [];
@@ -61,6 +79,19 @@ export default function MyAssignmentPage() {
       inProgress: assignments.filter((a: any) => a.cleaning_status === "in-progress").length,
       pending: assignments.filter((a: any) => a.cleaning_status === "pending" || a.cleaning_status === "assigned").length,
     };
+  }, [assignments]);
+
+  const dateAssignments = useMemo(() => {
+    const map: Record<string, {count: number, statuses: string[], primaryStatus: string}> = {};
+    assignments.forEach((a: any) => {
+      const dateStr = new Date(a.check_out_date).toISOString().split('T')[0];
+      if (!map[dateStr]) {
+        map[dateStr] = {count: 0, statuses: [], primaryStatus: a.cleaning_status};
+      }
+      map[dateStr].count++;
+      map[dateStr].statuses.push(a.cleaning_status);
+    });
+    return map;
   }, [assignments]);
 
   const statsArray = [
@@ -154,6 +185,63 @@ export default function MyAssignmentPage() {
             );
           })
         )}
+      </div>
+
+      {/* Calendar - Desktop */}
+      <div className="lg:block hidden mb-6">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 border border-gray-200 dark:border-gray-700">
+          <div className="flex items-center gap-3 mb-4">
+            <Calendar className="w-6 h-6 text-brand-primary" />
+            <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">Assignment Calendar</h3>
+          </div>
+          <FullCalendar
+            plugins={[ dayGridPlugin, interactionPlugin ]}
+            initialView="dayGridMonth"
+            height="auto"
+            dayCellContent={(info) => {
+              const dayAssignments = dateAssignments[info.dateStr];
+              if (!dayAssignments) return info.dayNumberText;
+              
+              const statusColor = getStatusColor(dayAssignments.primaryStatus);
+              
+              return (
+                <div className={`w-full h-full flex flex-col items-center justify-center p-1.5 rounded-lg ${statusColor.bg} ${statusColor.border} shadow-sm border-2 relative overflow-hidden group`}>
+                  {/* Assigned Label */}
+                  <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 bg-white dark:bg-gray-900 px-2 py-0.5 rounded-full text-xs font-bold text-gray-800 dark:text-gray-200 shadow-md z-10 border border-gray-200 dark:border-gray-700">
+                    Assigned
+                  </div>
+                  
+                  {/* Date Number */}
+                  <div className={`${statusColor.text} font-bold text-sm leading-tight mb-0.5 drop-shadow-sm`}>
+                    {info.dayNumberText}
+                  </div>
+                  
+                  {/* Assignment Count */}
+                  <div className={`${statusColor.text} text-xs font-semibold drop-shadow-sm bg-black/20 px-1.5 py-0.5 rounded-full`}>
+                    {dayAssignments.count}
+                  </div>
+                  
+                  {/* Hover tooltip with status */}
+                  <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-all duration-200 flex items-center justify-center">
+                    <span className={`${statusColor.text} text-xs font-medium px-2 py-1 bg-black/50 rounded backdrop-blur-sm`}>
+                      {getStatusBadge(dayAssignments.primaryStatus).label}
+                    </span>
+                  </div>
+                </div>
+              );
+            }}
+            dayHeaderFormat={{ weekday: 'short' }}
+            firstDay={1}
+            headerToolbar={false}
+            contentHeight="auto"
+            aspectRatio={1.8}
+            dayCellDidMount={(info) => {
+              // Add hover effect to day cells
+              const cellEl = info.el;
+              cellEl.classList.add('transition-all', 'duration-200', 'cursor-pointer', 'hover:scale-105', 'hover:shadow-lg');
+            }}
+          />
+        </div>
       </div>
 
       {/* Desktop table */}
