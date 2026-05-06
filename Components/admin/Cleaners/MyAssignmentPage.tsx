@@ -31,21 +31,6 @@ function getStatusBadge(cleaningStatus: string): { label: string; bgColor: strin
   }
 }
 
-function getStatusColor(status: string): { bg: string; border: string; text: string } {
-  switch (status) {
-    case "cleaned":
-    case "inspected":
-      return { bg: "bg-green-500", border: "border-green-600", text: "text-white" };
-    case "in-progress":
-      return { bg: "bg-yellow-500", border: "border-yellow-600", text: "text-white" };
-    case "assigned":
-      return { bg: "bg-purple-500", border: "border-purple-600", text: "text-white" };
-    case "pending":
-    default:
-      return { bg: "bg-gray-500", border: "border-gray-600", text: "text-white" };
-  }
-}
-
 function formatDate(dateString: string): string {
   try {
     const date = new Date(dateString);
@@ -64,7 +49,7 @@ export default function MyAssignmentPage() {
   const { data: session } = useSession();
   const userId = (session?.user as any)?.id;
 
-  const { data: allTasks = [], isLoading: isLoadingAssignments } = useGetCleaningTasksQuery();
+  const { data: allTasks = [], isLoading: isLoadingAssignments } = useGetCleaningTasksQuery(undefined);
 
   const assignments = useMemo(() => {
     if (!userId) return [];
@@ -82,17 +67,32 @@ export default function MyAssignmentPage() {
   }, [assignments]);
 
   const dateAssignments = useMemo(() => {
-    const map: Record<string, {count: number, statuses: string[], primaryStatus: string}> = {};
+    const map: Record<string, {count: number, statuses: string[]}> = {};
     assignments.forEach((a: any) => {
       const dateStr = new Date(a.check_out_date).toISOString().split('T')[0];
-      if (!map[dateStr]) {
-        map[dateStr] = {count: 0, statuses: [], primaryStatus: a.cleaning_status};
-      }
+      if (!map[dateStr]) map[dateStr] = {count: 0, statuses: []};
       map[dateStr].count++;
       map[dateStr].statuses.push(a.cleaning_status);
     });
     return map;
   }, [assignments]);
+
+  const calendarEvents = useMemo(() => {
+    return Object.entries(dateAssignments).map(([date, data]) => ({
+      id: date,
+      title: data.count.toString(),
+      date,
+      backgroundColor: data.statuses[0] === 'cleaned' ? '#10b981' :
+                      data.statuses[0] === 'in-progress' ? '#f59e0b' :
+                      data.statuses[0] === 'assigned' ? '#8b5cf6' :
+                      '#6b7280',
+      borderColor: data.statuses[0] === 'cleaned' ? '#059669' :
+                   data.statuses[0] === 'in-progress' ? '#d97706' :
+                   data.statuses[0] === 'assigned' ? '#7c3aed' :
+                   '#4b5563',
+      display: 'background' as const,
+    }));
+  }, [dateAssignments]);
 
   const statsArray = [
     {
@@ -187,7 +187,7 @@ export default function MyAssignmentPage() {
         )}
       </div>
 
-      {/* Calendar - Desktop */}
+      {/* Calendar - Desktop - Bigger assigned color + label */}
       <div className="lg:block hidden mb-6">
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-3 mb-4">
@@ -195,50 +195,53 @@ export default function MyAssignmentPage() {
             <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">Assignment Calendar</h3>
           </div>
           <FullCalendar
-            plugins={[ dayGridPlugin, interactionPlugin ]}
+            plugins={[ dayGridPlugin ]}
             initialView="dayGridMonth"
+            events={calendarEvents}
             height="auto"
+            dayCellClassNames={(info) => {
+              const dayAssignments = dateAssignments[info.dateStr];
+              if (!dayAssignments) return [];
+              const status = dayAssignments.statuses[0];
+              return status === 'cleaned' ? 'fc-day-assigned-green' :
+                     status === 'in-progress' ? 'fc-day-assigned-yellow' :
+                     status === 'assigned' ? 'fc-day-assigned-purple' :
+                     'fc-day-assigned-gray';
+            }}
             dayCellContent={(info) => {
               const dayAssignments = dateAssignments[info.dateStr];
-              if (!dayAssignments) return info.dayNumberText;
+              if (!dayAssignments) return { html: info.dayNumberText };
               
-              const statusColor = getStatusColor(dayAssignments.primaryStatus);
+              const status = dayAssignments.statuses[0];
+              const label = getStatusBadge(status).label.slice(0,3);
               
-              return (
-                <div className={`w-full h-full flex flex-col items-center justify-center p-1.5 rounded-lg ${statusColor.bg} ${statusColor.border} shadow-sm border-2 relative overflow-hidden group`}>
-                  {/* Assigned Label */}
-                  <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 bg-white dark:bg-gray-900 px-2 py-0.5 rounded-full text-xs font-bold text-gray-800 dark:text-gray-200 shadow-md z-10 border border-gray-200 dark:border-gray-700">
-                    Assigned
+              return { 
+                html: `
+                  <div class="w-full h-full flex flex-col items-center justify-center p-2 rounded-lg shadow-sm">
+                    <div class="text-white font-bold text-sm mb-1">${info.dayNumberText}</div>
+                    <div class="text-white text-xs bg-black/20 px-1.5 py-0.5 rounded-full">${dayAssignments.count} ${label}</div>
                   </div>
-                  
-                  {/* Date Number */}
-                  <div className={`${statusColor.text} font-bold text-sm leading-tight mb-0.5 drop-shadow-sm`}>
-                    {info.dayNumberText}
-                  </div>
-                  
-                  {/* Assignment Count */}
-                  <div className={`${statusColor.text} text-xs font-semibold drop-shadow-sm bg-black/20 px-1.5 py-0.5 rounded-full`}>
-                    {dayAssignments.count}
-                  </div>
-                  
-                  {/* Hover tooltip with status */}
-                  <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-all duration-200 flex items-center justify-center">
-                    <span className={`${statusColor.text} text-xs font-medium px-2 py-1 bg-black/50 rounded backdrop-blur-sm`}>
-                      {getStatusBadge(dayAssignments.primaryStatus).label}
-                    </span>
-                  </div>
-                </div>
-              );
+                ` 
+              };
             }}
+            eventDisplay="none"
             dayHeaderFormat={{ weekday: 'short' }}
             firstDay={1}
             headerToolbar={false}
             contentHeight="auto"
             aspectRatio={1.8}
             dayCellDidMount={(info) => {
-              // Add hover effect to day cells
-              const cellEl = info.el;
-              cellEl.classList.add('transition-all', 'duration-200', 'cursor-pointer', 'hover:scale-105', 'hover:shadow-lg');
+              const dayAssignments = dateAssignments[info.dateStr];
+              if (dayAssignments) {
+                const status = dayAssignments.statuses[0];
+                info.el.classList.add(
+                  status === 'cleaned' ? 'bg-green-400' :
+                  status === 'in-progress' ? 'bg-yellow-400' :
+                  status === 'assigned' ? 'bg-purple-400' :
+                  'bg-gray-400'
+                );
+                info.el.classList.add('!border-none', 'shadow-lg', 'hover:scale-105', 'transition-all');
+              }
             }}
           />
         </div>
