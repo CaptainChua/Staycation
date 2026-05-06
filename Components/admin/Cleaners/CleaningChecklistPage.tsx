@@ -44,15 +44,12 @@ type Haven = {
 };
 
 interface Props {
-  /** If provided (e.g. navigated from schedule page), pre-selects this haven */
+  /** Passed from MySchedulePage when "Start Cleaning" is clicked */
   initialHavenId?: string | null;
 }
 
 export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
-  const [havens, setHavens] = useState<Haven[]>([]);
-  const [selectedHavenId, setSelectedHavenId] = useState<string | null>(null);
   const [selectedHaven, setSelectedHaven] = useState<Haven | null>(null);
-  const [isHavensLoading, setIsHavensLoading] = useState<boolean>(true);
 
   const [checklist, setChecklist] = useState<Category[]>([]);
   const [checklistId, setChecklistId] = useState<string | null>(null);
@@ -72,115 +69,61 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
     General: Sparkles,
   };
 
-  // Fetch havens on mount (only checked-out ones that need cleaning)
-  useEffect(() => {
-    let mounted = true;
-
-    const fetchHavens = async () => {
-      setIsHavensLoading(true);
-      try {
-        const res = await fetch("/api/admin/cleaners/havens", {
-          cache: "no-store",
-        });
-        const data = await res.json();
-        if (!mounted) return;
-        if (Array.isArray(data)) {
-          setHavens(data);
-          if (data.length > 0) {
-            // Priority: initialHavenId prop → currently selected → first in list
-            const preferred =
-              initialHavenId
-                ? data.find((h: Haven) => String(h.id) === String(initialHavenId))
-                : null;
-
-            const stillExists = !preferred && selectedHavenId
-              ? data.find((h: Haven) => h.id === selectedHavenId)
-              : null;
-
-            const target = preferred ?? stillExists ?? data[0];
-            setSelectedHavenId(target.id);
-            setSelectedHaven(target);
-          } else {
-            setSelectedHavenId(null);
-            setSelectedHaven(null);
-          }
-        } else {
-          toast.error("Failed to load havens");
+  // Fetch checklist for the haven passed via prop (set by MySchedulePage → Start Cleaning)
+  const fetchChecklist = useCallback(async (havenId: string) => {
+    setIsLoading(true);
+    try {
+      const res = await fetch(
+        `/api/admin/cleaners?haven_id=${encodeURIComponent(havenId)}`,
+        { cache: "no-store" },
+      );
+      const payload = await res.json();
+      if (res.ok && payload.success && payload.data?.checklist) {
+        const { checklist } = payload.data;
+        setChecklistId(checklist.id);
+        setChecklist(checklist.categories || []);
+        // Use haven info if the API returns it alongside the checklist
+        if (payload.data.haven) {
+          setSelectedHaven(payload.data.haven);
         }
-      } catch (err) {
-        console.error("Error loading havens", err);
-        toast.error("Failed to load havens");
-      } finally {
-        if (mounted) setIsHavensLoading(false);
+      } else {
+        throw new Error(payload.error || "Failed to load checklist");
       }
-    };
-
-    fetchHavens();
-    return () => {
-      mounted = false;
-    };
-    // initialHavenId intentionally only used on mount — not a reactive dep
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    } catch (err) {
+      console.error("Failed to fetch checklist", err);
+      setChecklist([]);
+      setChecklistId(null);
+      const message = err instanceof Error ? err.message : String(err);
+      toast.error(message || "Failed to load checklist");
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
-  // Fetch checklist for a haven
-  const fetchChecklist = useCallback(
-    async (havenId: string) => {
-      setIsLoading(true);
-      try {
-        const res = await fetch(
-          `/api/admin/cleaners?haven_id=${encodeURIComponent(havenId)}`,
-          {
-            cache: "no-store",
-          },
-        );
-        const payload = await res.json();
-        if (res.ok && payload.success && payload.data?.checklist) {
-          const { checklist } = payload.data;
-          setChecklistId(checklist.id);
-          setChecklist(checklist.categories || []);
-          const found = havens.find((h) => h.id === checklist.haven_id);
-          if (found) setSelectedHaven(found);
-        } else {
-          throw new Error(payload.error || "Failed to load checklist");
-        }
-      } catch (err) {
-        console.error("Failed to fetch checklist", err);
-        setChecklist([]);
-        setChecklistId(null);
-        const message = err instanceof Error ? err.message : String(err);
-        toast.error(message || "Failed to load checklist");
-      } finally {
-        setIsLoading(false);
+  // Separately fetch haven info for the booking card (in case checklist endpoint doesn't return it)
+  const fetchHavenInfo = useCallback(async (havenId: string) => {
+    try {
+      const res = await fetch(`/api/admin/cleaners/havens`, { cache: "no-store" });
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        const found = data.find((h: Haven) => String(h.id) === String(havenId));
+        if (found) setSelectedHaven(found);
       }
-    },
-    [havens],
-  );
+    } catch {
+      // non-fatal — booking info card just won't show
+    }
+  }, []);
 
   useEffect(() => {
-    if (selectedHavenId) {
-      fetchChecklist(selectedHavenId);
+    if (initialHavenId) {
+      fetchChecklist(initialHavenId);
+      fetchHavenInfo(initialHavenId);
     } else {
       setChecklist([]);
       setChecklistId(null);
       setSelectedHaven(null);
     }
-  }, [selectedHavenId, fetchChecklist]);
-
-  // Update selectedHaven when haven selection changes
-  const handleHavenChange = (havenId: string | null) => {
-    setSelectedHavenId(havenId);
-    // Reset proof when switching havens
-    setProofFile(null);
-    setProofPreview(null);
-    setProofUploaded(false);
-    if (havenId) {
-      const found = havens.find((h) => h.id === havenId);
-      setSelectedHaven(found ?? null);
-    } else {
-      setSelectedHaven(null);
-    }
-  };
+  }, [initialHavenId, fetchChecklist, fetchHavenInfo]);
 
   const handleProofFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -209,7 +152,6 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
         reader.onerror = reject;
         reader.readAsDataURL(proofFile);
       });
-      // Simulate upload success (replace with real API call if needed)
       await new Promise((r) => setTimeout(r, 800));
       setProofUploaded(true);
       toast.success("Proof of payment uploaded successfully!");
@@ -260,8 +202,8 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
         returnedTask.checklist_id &&
         returnedTask.checklist_id !== checklistId
       ) {
-        if (selectedHavenId) {
-          await fetchChecklist(selectedHavenId);
+        if (initialHavenId) {
+          await fetchChecklist(initialHavenId);
           toast.success("Task updated; checklist refreshed (task moved to latest)");
         } else {
           toast.success("Task updated");
@@ -274,21 +216,21 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
       console.error("Failed to update task:", err);
       const message = err instanceof Error ? err.message : String(err);
       toast.error(message || "Failed to update task");
-      if (selectedHavenId) {
-        fetchChecklist(selectedHavenId);
-      }
+      if (initialHavenId) fetchChecklist(initialHavenId);
     }
   };
 
   const totalTasks = checklist.reduce((acc, cat) => acc + cat.tasks.length, 0) + 1;
   const completedTasks =
-    checklist.reduce((acc, cat: Category) => acc + cat.tasks.filter((t: Task) => t.completed).length, 0) +
-    (proofUploaded ? 1 : 0);
+    checklist.reduce(
+      (acc, cat: Category) => acc + cat.tasks.filter((t: Task) => t.completed).length,
+      0,
+    ) + (proofUploaded ? 1 : 0);
   const progress = totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
   const canComplete = proofUploaded;
 
-  // Empty state
-  if (!isHavensLoading && havens.length === 0) {
+  // Empty / no task selected — shown when navigating directly to the tab without clicking Start Cleaning
+  if (!initialHavenId && !isLoading) {
     return (
       <div className="space-y-6 animate-in fade-in duration-700">
         <div>
@@ -296,25 +238,24 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
             Cleaning Checklist
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Complete cleaning tasks for checked-out havens
+            Complete cleaning tasks for your assigned haven
           </p>
         </div>
 
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-12 flex flex-col items-center justify-center text-center">
-          <div className="bg-green-100 dark:bg-green-900/30 p-4 rounded-full mb-4">
-            <CheckCircle2 className="w-12 h-12 text-green-500 dark:text-green-400" />
+          <div className="bg-blue-100 dark:bg-blue-900/30 p-4 rounded-full mb-4">
+            <AlertCircle className="w-12 h-12 text-blue-500 dark:text-blue-400" />
           </div>
           <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">
-            All Clean!
+            No Task Selected
           </h2>
           <p className="text-gray-500 dark:text-gray-400 max-w-md">
-            There are no havens that need cleaning right now. Havens will appear
-            here once guests have checked out and cleaning is needed.
+            Go to{" "}
+            <span className="font-semibold text-gray-700 dark:text-gray-200">My Schedule</span> and
+            tap{" "}
+            <span className="font-semibold text-brand-primary">Start Cleaning</span> on your
+            assigned haven to begin the checklist.
           </p>
-          <div className="mt-6 flex items-center gap-2 text-sm text-gray-400 dark:text-gray-500">
-            <AlertCircle className="w-4 h-4" />
-            <span>Cleaning tasks are created automatically after guest checkout</span>
-          </div>
         </div>
       </div>
     );
@@ -322,36 +263,14 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-700">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-800 dark:text-gray-100">
-            Cleaning Checklist
-          </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Complete cleaning tasks for checked-out havens
-          </p>
-        </div>
-
-        <div className="w-full sm:min-w-[220px] sm:w-auto">
-          <label htmlFor="haven-select" className="sr-only">Select haven</label>
-          {isHavensLoading ? (
-            <Skeleton className="h-9 w-full rounded-lg" label="Loading havens" />
-          ) : (
-            <select
-              id="haven-select"
-              value={selectedHavenId ?? ""}
-              onChange={(e) => handleHavenChange(e.target.value || null)}
-              className="w-full rounded-lg border-gray-200 bg-white dark:bg-gray-800 text-sm py-2 px-3"
-            >
-              {havens.map((h) => (
-                <option key={h.id} value={h.id}>
-                  {h.name}
-                  {h.guestName ? ` — ${h.guestName}` : ""}
-                </option>
-              ))}
-            </select>
-          )}
-        </div>
+      {/* Header */}
+      <div>
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-800 dark:text-gray-100">
+          Cleaning Checklist
+        </h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          Complete cleaning tasks for your assigned haven
+        </p>
       </div>
 
       {/* Booking Info Card */}
@@ -362,7 +281,9 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
               <Home className="w-4 h-4 text-brand-primary" />
               <span className="font-medium">{selectedHaven.name}</span>
               {selectedHaven.address && (
-                <span className="text-gray-400 dark:text-gray-500">({selectedHaven.address})</span>
+                <span className="text-gray-400 dark:text-gray-500">
+                  ({selectedHaven.address})
+                </span>
               )}
             </div>
             {selectedHaven.guestName && (
@@ -390,9 +311,14 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-4 sm:p-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">Overall Progress</h2>
+            <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">
+              Overall Progress
+            </h2>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              <span className="font-semibold text-brand-primary text-base">{completedTasks}/{totalTasks}</span> tasks completed
+              <span className="font-semibold text-brand-primary text-base">
+                {completedTasks}/{totalTasks}
+              </span>{" "}
+              tasks completed
             </p>
           </div>
           <div className="text-right">
@@ -404,7 +330,9 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
         </div>
         <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
           <div
-            className={`h-3 rounded-full transition-all duration-500 ${progress === 100 ? "bg-green-500" : "bg-brand-primary"}`}
+            className={`h-3 rounded-full transition-all duration-500 ${
+              progress === 100 ? "bg-green-500" : "bg-brand-primary"
+            }`}
             style={{ width: `${progress}%` }}
           />
         </div>
@@ -412,12 +340,20 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
 
       {/* Proof of Payment */}
       {!isLoading && (
-        <div className={`bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-4 sm:p-6 border-2 ${
-          proofUploaded ? "border-green-400 dark:border-green-600" : "border-amber-400 dark:border-amber-600"
-        }`}>
+        <div
+          className={`bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-4 sm:p-6 border-2 ${
+            proofUploaded
+              ? "border-green-400 dark:border-green-600"
+              : "border-amber-400 dark:border-amber-600"
+          }`}
+        >
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <div className={`p-3 rounded-lg ${proofUploaded ? "bg-green-500" : "bg-amber-500"} text-white`}>
+              <div
+                className={`p-3 rounded-lg ${
+                  proofUploaded ? "bg-green-500" : "bg-amber-500"
+                } text-white`}
+              >
                 <ShieldCheck className="w-5 h-5 sm:w-6 sm:h-6" />
               </div>
               <div>
@@ -434,7 +370,9 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
                 </p>
               </div>
             </div>
-            {proofUploaded && <CheckCircle2 className="w-6 h-6 text-green-500 flex-shrink-0" />}
+            {proofUploaded && (
+              <CheckCircle2 className="w-6 h-6 text-green-500 flex-shrink-0" />
+            )}
           </div>
 
           {!proofUploaded ? (
@@ -446,22 +384,34 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
                   className="w-full border-2 border-dashed border-amber-300 dark:border-amber-700 rounded-lg p-6 flex flex-col items-center gap-2 hover:border-amber-400 dark:hover:border-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/10 transition-colors cursor-pointer"
                 >
                   <Upload className="w-8 h-8 text-amber-500" />
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Tap to upload receipt</span>
-                  <span className="text-xs text-gray-400">JPG, PNG, WEBP or PDF · Max 10MB</span>
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Tap to upload receipt
+                  </span>
+                  <span className="text-xs text-gray-400">
+                    JPG, PNG, WEBP or PDF · Max 10MB
+                  </span>
                 </button>
               ) : (
                 <div className="space-y-3">
                   <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                     {proofPreview ? (
-                      <img src={proofPreview} alt="Proof preview" className="w-14 h-14 object-cover rounded-lg flex-shrink-0" />
+                      <img
+                        src={proofPreview}
+                        alt="Proof preview"
+                        className="w-14 h-14 object-cover rounded-lg flex-shrink-0"
+                      />
                     ) : (
                       <div className="w-14 h-14 bg-gray-200 dark:bg-gray-600 rounded-lg flex items-center justify-center flex-shrink-0">
                         <ShieldCheck className="w-6 h-6 text-gray-400" />
                       </div>
                     )}
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">{proofFile.name}</p>
-                      <p className="text-xs text-gray-400">{(proofFile.size / 1024).toFixed(1)} KB</p>
+                      <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">
+                        {proofFile.name}
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        {(proofFile.size / 1024).toFixed(1)} KB
+                      </p>
                     </div>
                     <button
                       type="button"
@@ -478,9 +428,15 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
                     className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-60 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 text-sm"
                   >
                     {isUploadingProof ? (
-                      <><span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />Uploading...</>
+                      <>
+                        <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                        Uploading...
+                      </>
                     ) : (
-                      <><Upload className="w-4 h-4" />Confirm Upload</>
+                      <>
+                        <Upload className="w-4 h-4" />
+                        Confirm Upload
+                      </>
                     )}
                   </button>
                 </div>
@@ -496,11 +452,19 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
           ) : (
             <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
               {proofPreview && (
-                <img src={proofPreview} alt="Uploaded proof" className="w-12 h-12 object-cover rounded-lg flex-shrink-0" />
+                <img
+                  src={proofPreview}
+                  alt="Uploaded proof"
+                  className="w-12 h-12 object-cover rounded-lg flex-shrink-0"
+                />
               )}
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-green-700 dark:text-green-400">Proof uploaded successfully</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{proofFile?.name}</p>
+                <p className="text-sm font-semibold text-green-700 dark:text-green-400">
+                  Proof uploaded successfully
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                  {proofFile?.name}
+                </p>
               </div>
               <button
                 type="button"
@@ -575,13 +539,17 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
                       <CategoryIcon className="w-6 h-6" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-gray-800 dark:text-gray-100">{category.category}</h3>
+                      <h3 className="font-bold text-gray-800 dark:text-gray-100">
+                        {category.category}
+                      </h3>
                       <p className="text-xs text-gray-500 dark:text-gray-400">
                         {categoryCompleted} of {categoryTotal} completed
                       </p>
                     </div>
                   </div>
-                  <span className="text-sm font-bold text-brand-primary">{categoryProgress}%</span>
+                  <span className="text-sm font-bold text-brand-primary">
+                    {categoryProgress}%
+                  </span>
                 </div>
 
                 <div className="space-y-2">
@@ -619,7 +587,9 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
 
       {/* Action / Status */}
       <div className="flex flex-col sm:flex-row gap-3 items-center">
-        <p className="text-sm text-gray-500 flex-1 text-center sm:text-left">Changes are saved automatically</p>
+        <p className="text-sm text-gray-500 flex-1 text-center sm:text-left">
+          Changes are saved automatically
+        </p>
         {!canComplete && (
           <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">
             ⚠ Upload proof of payment to complete the checklist
@@ -630,6 +600,38 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
             <CheckCircle2 className="w-5 h-5" />
             All tasks complete!
           </div>
+        )}
+
+        {/* Finalize checklist: mark checklist as completed in backend */}
+        {canComplete && progress === 100 && checklistId && (
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                const res = await fetch("/api/admin/cleaners", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    action: "submit",
+                    checklist_id: checklistId,
+                  }),
+                });
+                const payload = await res.json();
+                if (!res.ok || !payload?.success) {
+                  throw new Error(payload?.error || "Failed to submit checklist");
+                }
+
+                toast.success("Checklist submitted successfully");
+              } catch (err) {
+                console.error("Submit checklist error:", err);
+                const message = err instanceof Error ? err.message : String(err);
+                toast.error(message || "Failed to submit checklist");
+              }
+            }}
+            className="flex-1 sm:flex-none w-full sm:w-auto bg-brand-primary text-white font-semibold rounded-lg px-4 py-2.5 hover:bg-brand-primary/90 transition-colors"
+          >
+            Confirm & Finish
+          </button>
         )}
       </div>
     </div>

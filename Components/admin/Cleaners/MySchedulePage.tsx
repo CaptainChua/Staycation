@@ -345,53 +345,57 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning 
               const hasTask         = !!dateSchedule;
               const effectiveStatus = dateSchedule?.effectiveStatus || "pending";
               const dayType         = dateSchedule?.dayType;
-              const labels          = dateSchedule?.labels || {};
               const badge           = getStatusBadge(effectiveStatus);
+              const taskCount       = dateSchedule?.assignments.length ?? 0;
 
               const isMiddleDay   = hasTask && dayType === "middle";
               const isCheckOutDay = hasTask && (dayType === "checkOut" || dayType === "both");
+
+              // ✅ FIX: showTaskBadges AND the count badge both suppress on middle days
+              const showTaskBadges = hasTask && !isMiddleDay;
 
               const cellClasses = [
                 "aspect-square flex flex-col items-center justify-center rounded-lg transition-all duration-200 hover:scale-[1.02] hover:shadow-lg relative group p-0.5",
                 isSelected
                   ? "bg-gradient-to-br from-brand-primary to-brand-primary/80 text-white shadow-xl ring-2 ring-white/50"
                   : isToday
-                  ? ""
+                  ? "shadow-md text-gray-800 dark:text-gray-100"
                   : hasTask
                   ? `bg-gradient-to-br ${badge.bg} ${badge.text} shadow-xl border-2 border-white/30 dark:border-gray-600/50`
                   : "bg-white/80 dark:bg-gray-800/60 backdrop-blur-sm shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100",
               ].filter(Boolean).join(" ");
 
-              // Legend-matched colors: Middle=Staying orange dashed ALWAYS, others=status, checkout=emerald
+              const isCompleted = effectiveStatus === "completed";
+
               const cellStyle: React.CSSProperties =
-                isSelected || isToday ? {} :
-                isMiddleDay ? (
-                  // Staying (middle) always orange dashed to match legend
-                  { 
-                    backgroundColor: "#ffedd5", 
-                    color: "#ea580c", 
-                    border: "1.5px dashed #fdba74" 
-                  }
-                ) :
+                isSelected ? {} :
+                isToday ? {
+                  backgroundColor: "rgba(131, 49, 2, 0.15)",
+                  border: "2px solid rgba(131, 49, 2, 0.5)",
+                  color: "#833102",
+                } :
+                isMiddleDay ? {
+                  backgroundColor: "rgba(255, 237, 213, 0.6)",
+                  color: "#ea580c",
+                  border: "1.5px dashed #fdba74"
+                } :
+                isCompleted ? {
+                  backgroundColor: "rgba(22, 163, 74, 0.25)",
+                  border: "2px solid rgba(74, 222, 128, 0.6)",
+                  color: "#15803d"
+                } :
                 isCheckOutDay ? {
-                  // Check out: emerald solid
-                   backgroundColor: "#4f46e5",
-                  border: "2px solid #86efac",
-                  color: "#ffffff"
+                  backgroundColor: "rgba(79, 70, 229, 0.25)",
+                  border: "2px solid rgba(134, 239, 172, 0.6)",
+                  color: "#4338ca"
                 } :
                 hasTask ? getStatusBadge(effectiveStatus).bg.includes("indigo") ? {
-                  // Assigned: indigo solid
-                  backgroundColor: "#4f46e5",
-                  border: "2px solid #86efac",
-                  color: "#ffffff"
+                  backgroundColor: "rgba(48, 40, 217, 0.25)",
+                  border: "2px solid rgba(134, 239, 172, 0.6)",
+                  color: "#4338ca"
                 } : getStatusBadge(effectiveStatus).bg.includes("orange") ? {
-                  // Progress: orange solid  
-                  backgroundColor: "#ffedd5",
+                  backgroundColor: "rgba(255, 237, 213, 0.6)",
                   color: "#ea580c"
-                } : getStatusBadge(effectiveStatus).bg.includes("emerald") ? {
-                  // Completed: emerald solid
-                  backgroundColor: "#0f6237", 
-                  color: "#ffffff"
                 } : {} : {};
 
               return (
@@ -400,30 +404,37 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning 
                   onClick={() => setSelectedDate(date)}
                   className={cellClasses}
                   style={cellStyle}
-                  title={hasTask ? `${dayType} (${badge.label})` : ""}
+                  title={hasTask ? `${taskCount} task${taskCount !== 1 ? "s" : ""} · ${badge.label}` : ""}
                 >
-                  {hasTask && !isSelected && !isToday && (
+                  {/* ✅ FIX: Task count badge — hidden on middle days */}
+                  {showTaskBadges && !isSelected && !isToday && taskCount > 0 && (
                     <>
-                      {labels.checkIn && (
-                        <div className="absolute -top-1 left-1/2 -translate-x-1/2 bg-emerald-500/90 text-white px-2 py-0.5 rounded-lg text-xs font-bold shadow-lg border border-emerald-300/50 z-30 whitespace-nowrap">
-                          Check In
-                        </div>
-                      )}
-                      {labels.checkOut && (
-                        <div className="absolute bottom-0.5 left-1/2 -translate-x-1/2 bg-amber-500/90 text-white px-2 py-0.5 rounded-lg text-xs font-bold shadow-lg border border-amber-300/50 z-30 whitespace-nowrap">
-                          Check Out ✅
-                        </div>
-                      )}
+                      <div className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 bg-white dark:bg-gray-800 border-2 border-current rounded-full text-[10px] font-black flex items-center justify-center z-30 shadow-sm leading-none">
+                        {taskCount}
+                      </div>
                       <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg backdrop-blur-sm" />
                     </>
                   )}
 
-                  <div className={`font-bold text-lg leading-tight ${isSelected || isToday ? "text-white" : ""}`}>
+                  <div className={`font-bold text-lg leading-none ${isSelected ? "text-white" : ""}`}>
                     {day}
                   </div>
-                  <div className={`text-sm font-semibold mt-1 leading-tight opacity-90 ${isSelected || isToday ? "text-white" : ""}`}>
+                  <div className={`text-[11px] font-semibold leading-none opacity-90 ${isSelected ? "text-white" : ""}`}>
                     {dayAbbr}
                   </div>
+
+                  {/* Task count + label — 1 line pill, hidden on middle days */}
+                  {showTaskBadges && !isSelected && !isToday && taskCount > 0 && (
+                    <div
+                      className="flex items-center gap-0.5 leading-none mt-1 px-1.5 py-0.5 rounded-md shadow-sm whitespace-nowrap"
+                      style={{ backgroundColor: "#fafafa", color: "#df1010" }}
+                    >
+                      <span className="text-sm font-black leading-none">{taskCount}</span>
+                      <span className="text-[11px] font-black leading-none">
+                        {taskCount === 1 ? "task" : "tasks"}
+                      </span>
+                    </div>
+                  )}
 
                   {hasTask && isSelected && (
                     <div className="absolute bottom-1 right-1 w-2 h-2 bg-white/80 rounded-full shadow-sm" />
@@ -433,26 +444,20 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning 
             })}
           </div>
 
-          {/* Legend - Updated with Guest Staying (Middle) */}
+          {/* Legend */}
           <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-3 mt-6 pt-4 border-t border-gray-100 dark:border-gray-700 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
-            {/* Assigned */}
             <span className="flex flex-col items-center gap-0.5 sm:gap-1 text-center min-w-[44px]">
               <span className="w-3.5 h-3.5 rounded-full shadow-sm mx-auto" style={{ backgroundColor: "#6366f1" }} />
               <span className="font-medium">Assigned</span>
             </span>
-            {/* In Progress */}
-
-            {/* Completed */}
             <span className="flex flex-col items-center gap-0.5 sm:gap-1 text-center min-w-[44px]">
               <span className="w-3.5 h-3.5 rounded-full shadow-sm mx-auto" style={{ backgroundColor: "#10b981" }} />
               <span className="font-medium">Completed</span>
             </span>
-            {/* Today */}
             <span className="flex flex-col items-center gap-0.5 sm:gap-1 text-center min-w-[44px]">
               <span className="w-3.5 h-3.5 rounded-full shadow-sm ring-2 ring-offset-1 ring-brand-primary/60 mx-auto" style={{ backgroundColor: "#833102" }} />
               <span className="font-medium">Today</span>
             </span>
-            {/* NEW: Guest Staying / Middle */}
             <span className="flex flex-col items-center gap-0.5 sm:gap-1 text-center min-w-[44px]">
               <span className="w-3.5 h-3.5 rounded-full shadow-sm border-2 border-dashed border-orange-400/80 mx-auto flex items-center justify-center p-0.5" style={{ backgroundColor: "#ffedd5" }} />
               <span className="font-medium text-orange-700 dark:text-orange-400">Staying</span>
