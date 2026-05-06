@@ -1467,28 +1467,12 @@ export default function DepositPage() {
                   ) : row.status === "Paid" ? (
                     <>
                       <button
-                        className="p-2 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors"
-                        title="Mark as Paid"
-                        type="button"
-                        onClick={() => handleStatusUpdate(row.id, "Paid")}
-                      >
-                        <Loader2 className="w-4 h-4" />
-                      </button>
-                      <button
                         className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg transition-colors"
                         title="Mark Returned"
                         type="button"
                         onClick={() => openReturnModal(row)}
                       >
                         <CheckCircle className="w-4 h-4" />
-                      </button>
-                      <button
-                        className="p-2 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/30 rounded-lg transition-colors"
-                        title="Mark Partial"
-                        type="button"
-                        onClick={() => openPartialModal(row)}
-                      >
-                        <RotateCcw className="w-4 h-4" />
                       </button>
                       <button
                         className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
@@ -1839,28 +1823,12 @@ export default function DepositPage() {
                         ) : row.status === "Paid" ? (
                           <>
                             <button
-                              className="p-2 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors"
-                              title="Mark as Paid"
-                              type="button"
-                              onClick={() => handleStatusUpdate(row.id, "Paid")}
-                            >
-                              <Loader2 className="w-4 h-4" />
-                            </button>
-                            <button
                               className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg transition-colors"
                               title="Mark Returned"
                               type="button"
                               onClick={() => openReturnModal(row)}
                             >
                               <CheckCircle className="w-4 h-4" />
-                            </button>
-                            <button
-                              className="p-2 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/30 rounded-lg transition-colors"
-                              title="Mark Partial"
-                              type="button"
-                              onClick={() => openPartialModal(row)}
-                            >
-                              <RotateCcw className="w-4 h-4" />
                             </button>
                             <button
                               className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"

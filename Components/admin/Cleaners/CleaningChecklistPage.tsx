@@ -38,6 +38,7 @@ type Haven = {
   address?: string;
   status?: string;
   bookingId?: string;
+  bookingUuid?: string;
   guestName?: string;
   checkOutDate?: string;
   cleaningStatus?: string;
@@ -200,21 +201,29 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
   };
 
   const handleUploadProof = async () => {
-    if (!proofFile) return;
+    if (!proofFile || !selectedHaven?.bookingUuid) {
+      toast.error("Cannot upload: missing booking information.");
+      return;
+    }
     setIsUploadingProof(true);
     try {
-      const reader = new FileReader();
-      await new Promise<void>((resolve, reject) => {
-        reader.onloadend = () => resolve();
-        reader.onerror = reject;
-        reader.readAsDataURL(proofFile);
+      const formData = new FormData();
+      formData.append("file", proofFile);
+      formData.append("booking_uuid", selectedHaven.bookingUuid);
+
+      const res = await fetch("/api/admin/cleaners/deposit-proof", {
+        method: "POST",
+        body: formData,
       });
-      // Simulate upload success (replace with real API call if needed)
-      await new Promise((r) => setTimeout(r, 800));
+      const payload = await res.json();
+      if (!res.ok || !payload.success) {
+        throw new Error(payload.error || "Upload failed");
+      }
       setProofUploaded(true);
       toast.success("Proof of payment uploaded successfully!");
-    } catch {
-      toast.error("Failed to upload proof. Please try again.");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      toast.error(message || "Failed to upload proof. Please try again.");
     } finally {
       setIsUploadingProof(false);
     }

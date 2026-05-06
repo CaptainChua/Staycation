@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { DepositRecord } from "@/app/admin/csr/actions";
 import {
@@ -10,8 +10,10 @@ import {
   User,
   Eye,
   ExternalLink,
-  Calendar,
-  DollarSign
+  DollarSign,
+  AlertCircle,
+  CheckCircle2,
+  ImageIcon,
 } from "lucide-react";
 
 interface ViewDepositModalProps {
@@ -119,21 +121,59 @@ export default function ViewDepositModal({
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Payment:</span>
-                <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                  {deposit.payment_method || 'No payment yet'}
-                </span>
+                {(() => {
+                  const isPaid = deposit.status !== "Pending" || !!deposit.payment_proof_url;
+                  const label = deposit.payment_method || (isPaid ? "Payment received" : null);
+                  if (label) {
+                    return (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">
+                        <CheckCircle2 className="w-3 h-3" />
+                        {label}
+                      </span>
+                    );
+                  }
+                  return (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300">
+                      <AlertCircle className="w-3 h-3" />
+                      No payment yet
+                    </span>
+                  );
+                })()}
               </div>
               {deposit.payment_proof_url && (
-                <div className="md:col-span-2">
-                  <a
-                    href={deposit.payment_proof_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-3 py-1 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 transition-colors"
-                  >
-                    <ExternalLink className="w-3 h-3" />
-                    View Payment Proof
-                  </a>
+                <div className="md:col-span-2 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Proof:</span>
+                    <a
+                      href={deposit.payment_proof_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-500 text-white text-xs rounded-lg hover:bg-blue-600 transition-colors"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      Open full image
+                    </a>
+                  </div>
+                  {deposit.payment_proof_url.match(/\.(jpg|jpeg|png|webp|gif)(\?|$)/i) ||
+                   deposit.payment_proof_url.includes("cloudinary") ? (
+                    <a
+                      href={deposit.payment_proof_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block w-full max-w-xs rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 hover:opacity-90 transition-opacity"
+                    >
+                      <img
+                        src={deposit.payment_proof_url}
+                        alt="Payment proof"
+                        className="w-full h-40 object-cover"
+                      />
+                    </a>
+                  ) : (
+                    <div className="flex items-center gap-2 p-3 bg-gray-100 dark:bg-gray-700 rounded-lg w-fit">
+                      <ImageIcon className="w-5 h-5 text-gray-400" />
+                      <span className="text-xs text-gray-500 dark:text-gray-400">PDF document</span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
