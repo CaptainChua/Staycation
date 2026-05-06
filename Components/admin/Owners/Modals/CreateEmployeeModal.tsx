@@ -4,9 +4,6 @@ import { X, Upload, User } from "lucide-react";
 import { useState, useRef } from "react";
 import { Input } from "@nextui-org/input";
 import { Select, SelectItem } from "@nextui-org/select";
-import { DatePicker } from "@nextui-org/date-picker";
-import { parseDate, toZoned } from "@internationalized/date";
-import type { DateValue } from "@internationalized/date";
 import { useCreateEmployeeMutation } from "@/redux/api/employeeApi";
 import { useCreateActivityLogMutation } from "@/redux/api/activityLogApi";
 import { useSession } from "next-auth/react";
@@ -138,9 +135,8 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
 
       case "phone":
         if (!value.trim()) return "Phone number is required";
-        const phoneRegex = /^(\+63|0)?9\d{9}$/;
-        if (!phoneRegex.test(value.replace(/[\s-]/g, ""))) {
-          return "Invalid PH phone number (e.g., 09123456789)";
+        if (!/^\d{11}$/.test(value)) {
+          return "Phone number must be exactly 11 digits";
         }
         return "";
 
@@ -180,9 +176,8 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
 
       case "emergencyContactPhone":
         if (!value.trim()) return "Emergency contact phone is required";
-        const emergencyPhoneRegex = /^(\+63|0)?9\d{9}$/;
-        if (!emergencyPhoneRegex.test(value.replace(/[\s-]/g, ""))) {
-          return "Invalid PH phone number";
+        if (!/^\d{11}$/.test(value)) {
+          return "Emergency contact phone must be exactly 11 digits";
         }
         return "";
 
@@ -530,13 +525,14 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       type="tel"
                       name="phone"
                       label="Phone Number *"
-                      placeholder="+63 912 345 6789"
+                      placeholder="09123456789"
                       labelPlacement="outside"
                       value={formData.phone}
                       onChange={(e) => {
-                        setFormData({ ...formData, phone: e.target.value });
+                        const digitsOnly = e.target.value.replace(/\D/g, "").slice(0, 11);
+                        setFormData({ ...formData, phone: digitsOnly });
                         if (touchedFields.phone) {
-                          const error = validateField("phone", e.target.value);
+                          const error = validateField("phone", digitsOnly);
                           setErrors(prev => ({ ...prev, phone: error }));
                         }
                       }}
@@ -639,32 +635,43 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                     />
                   </div>
                   <div>
-                    <DatePicker
+                    <Input
+                      type="date"
+                      name="hireDate"
                       label="Hire Date *"
                       labelPlacement="outside"
-                      value={
-                        formData.hireDate
-                          ? (parseDate(formData.hireDate) as any)
-                          : null
-                      }
-                      onChange={(date: DateValue | null) => {
-                        if (date) {
-                          const dateStr = `${date.year}-${String(
-                            date.month
-                          ).padStart(2, "0")}-${String(date.day).padStart(
-                            2,
-                            "0"
-                          )}`;
-                          setFormData({ ...formData, hireDate: dateStr });
+                      value={formData.hireDate}
+                      onChange={(e) => {
+                        setFormData({ ...formData, hireDate: e.target.value });
+                        if (touchedFields.hireDate) {
+                          const error = validateField("hireDate", e.target.value);
+                          setErrors((prev) => ({ ...prev, hireDate: error }));
                         }
                       }}
+                      onBlur={() => handleBlur("hireDate")}
+                      onKeyDown={(e) => {
+                        const allowedKeys = [
+                          "Tab",
+                          "Shift",
+                          "Backspace",
+                          "Delete",
+                          "ArrowLeft",
+                          "ArrowRight",
+                          "ArrowUp",
+                          "ArrowDown",
+                        ];
+                        if (!allowedKeys.includes(e.key)) {
+                          e.preventDefault();
+                        }
+                      }}
+                      onPaste={(e) => e.preventDefault()}
                       isRequired
                       isDisabled={isLoading}
                       classNames={{
                         base: "w-full",
                         label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
-                        calendarContent: "dark:bg-slate-900",
-                        calendar: "dark:bg-slate-900 dark:text-white",
+                        input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
+                        innerWrapper: "bg-transparent",
                       }}
                     />
                   </div>
@@ -847,15 +854,16 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                     <Input
                       type="tel"
                       label="Contact Phone *"
-                      placeholder="+63 912 345 6789"
+                      placeholder="09123456789"
                       labelPlacement="outside"
                       value={formData.emergencyContactPhone}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        const digitsOnly = e.target.value.replace(/\D/g, "").slice(0, 11);
                         setFormData({
                           ...formData,
-                          emergencyContactPhone: e.target.value,
-                        })
-                      }
+                          emergencyContactPhone: digitsOnly,
+                        });
+                      }}
                       isRequired
                       isDisabled={isLoading}
                       classNames={{
