@@ -1,0 +1,46 @@
+import { NextRequest, NextResponse } from "next/server";
+import pool from "@/backend/config/db";
+import { upload_file } from "@/backend/utils/cloudinary";
+
+export async function POST(req: NextRequest) {
+  const client = await pool.connect();
+  try {
+    const formData = await req.formData();
+    const file = formData.get("file") as File | null;
+    const bookingUuid = formData.get("booking_uuid") as string | null;
+
+    if (!file || !bookingUuid) {
+      return NextResponse.json(
+        { success: false, error: "file and booking_uuid are required" },
+        { status: 400 },
+      );
+    }
+
+    const bytes = await file.arrayBuffer();
+    const base64 = Buffer.from(bytes).toString("base64");
+    const dataUrl = `data:${file.type};base64,${base64}`;
+
+    const uploadResult = await upload_file(
+      dataUrl,
+      "staycation-haven/security-deposit-proofs",
+    );
+
+    await client.query(
+      `UPDATE booking_security_deposits
+       SET payment_proof_url = $1
+       WHERE booking_id = $2`,
+      [uploadResult.url, bookingUuid],
+    );
+
+    return NextResponse.json({ success: true, url: uploadResult.url });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("POST /api/admin/cleaners/deposit-proof error:", message);
+    return NextResponse.json(
+      { success: false, error: message },
+      { status: 500 },
+    );
+  } finally {
+    client.release();
+  }
+}

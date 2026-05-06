@@ -76,6 +76,7 @@ export async function GET() {
           status: "Checked Out",
           lastCleaned: new Date(row.updated_at).toLocaleDateString(),
           bookingId: row.booking_ref,
+          bookingUuid: row.booking_id,
           guestName,
           checkOutDate: checkOutDisplay,
           cleaningStatus: row.cleaning_status,
