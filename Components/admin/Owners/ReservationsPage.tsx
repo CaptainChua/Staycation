@@ -345,7 +345,6 @@ const ReservationsPage = () => {
   const statusCardsData = [
     { key: 'pending', label: 'Pending', bg: 'bg-yellow-400 text-white', icon: <AlertCircle className="w-14 h-14" /> },
     { key: 'approved', label: 'Approved', bg: 'bg-green-500 text-white', icon: <Check className="w-14 h-14" /> },
-    { key: 'confirmed', label: 'Confirmed', bg: 'bg-emerald-500 text-white', icon: <Calendar className="w-14 h-14" /> },
     { key: 'checked-in', label: 'Checked In', bg: 'bg-blue-500 text-white', icon: <MapPin className="w-14 h-14" /> },
     { key: 'completed', label: 'Completed', bg: 'bg-gray-500 text-white', icon: <Package className="w-14 h-14" /> },
     { key: 'rejected', label: 'Rejected', bg: 'bg-red-500 text-white', icon: <X className="w-14 h-14" /> },
@@ -602,8 +601,7 @@ const ReservationsPage = () => {
                   </>
                 )}
 
-                {(selectedBooking.status === "approved" ||
-                  selectedBooking.status === "confirmed") && (
+                {selectedBooking.status === "approved" && (
                     <button
                       onClick={() => {
                         handleCheckIn(selectedBooking.id);
@@ -667,12 +665,6 @@ const ReservationsPage = () => {
               label: "Approved",
               bg: "bg-green-500 text-white",
               icon: <Check className="w-10 h-10" />,
-            },
-            {
-              key: "confirmed",
-              label: "Confirmed",
-              bg: "bg-emerald-500 text-white",
-              icon: <Calendar className="w-10 h-10" />,
             },
             {
               key: "checked-in",
@@ -763,7 +755,6 @@ const ReservationsPage = () => {
                   "all",
                   "pending",
                   "approved",
-                  "confirmed",
                   "checked-in",
                   "completed",
                   "rejected",
@@ -931,8 +922,7 @@ const ReservationsPage = () => {
                             </>
                           )}
 
-                          {(reservation.status === "approved" ||
-                            reservation.status === "confirmed") && (
+                          {reservation.status === "approved" && (
                               <button
                                 onClick={() => handleCheckIn(reservation.id)}
                                 className="px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"

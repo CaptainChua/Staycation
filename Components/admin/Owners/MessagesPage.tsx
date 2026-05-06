@@ -5,13 +5,10 @@ import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import {
   Search,
-  Phone,
-  Video,
   Info,
   Send,
   Plus,
   Image as ImageIcon,
-  Smile,
   X,
   Loader2,
   ArrowLeft,
@@ -123,41 +120,12 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
   const [search, setSearch] = useState("");
   const [draft, setDraft] = useState("");
   const [isNewMessageModalOpen, setIsNewMessageModalOpen] = useState(false);
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showMobileChat, setShowMobileChat] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const emojiPickerRef = useRef<HTMLDivElement>(null);
   const hasInitializedActiveId = useRef(false);
   const hasProcessedInitialConversationId = useRef(false);
 
   // Common emojis organized by category
-  const emojiCategories = {
-    smileys: ["😀", "😃", "😄", "😁", "😅", "😂", "🤣", "😊", "😇", "🙂", "😉", "😍", "🥰", "😘", "😋", "😜", "🤪", "😎", "🤩", "🥳"],
-    gestures: ["👍", "👎", "👏", "🙌", "🤝", "🙏", "💪", "✌️", "🤞", "🤟", "🤘", "👌", "👋", "🤚", "✋", "🖐️", "👆", "👇", "👈", "👉"],
-    hearts: ["❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "🤎", "💔", "❣️", "💕", "💞", "💓", "💗", "💖", "💘", "💝", "💟", "♥️"],
-    objects: ["🎉", "🎊", "🎁", "🎈", "✨", "🌟", "⭐", "🔥", "💯", "✅", "❌", "⚠️", "📌", "📍", "💡", "🔔", "📢", "💬", "💭", "🗨️"],
-  };
-
-  // Close emoji picker when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
-        setShowEmojiPicker(false);
-      }
-    };
-
-    if (showEmojiPicker) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [showEmojiPicker]);
-
-  const handleEmojiSelect = (emoji: string) => {
-    setDraft((prev) => prev + emoji);
-  };
 
   // Fetch conversations
   const {
@@ -583,12 +551,6 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                       </div>
                     </div>
                     <div className="flex items-center gap-0.5 sm:gap-1">
-                      <button type="button" className="p-1.5 sm:p-2 rounded-full hover:bg-brand-primaryLighter transition-colors" title="Call">
-                        <Phone className="w-4 h-4 sm:w-5 sm:h-5 text-brand-primary" />
-                      </button>
-                      <button type="button" className="p-1.5 sm:p-2 rounded-full hover:bg-brand-primaryLighter transition-colors hidden sm:block" title="Video">
-                        <Video className="w-4 h-4 sm:w-5 sm:h-5 text-brand-primary" />
-                      </button>
                       <button type="button" className="p-1.5 sm:p-2 rounded-full hover:bg-brand-primaryLighter transition-colors" title="Info">
                         <Info className="w-4 h-4 sm:w-5 sm:h-5 text-brand-primary" />
                       </button>
@@ -674,40 +636,6 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                           disabled={isSending}
                           className="flex-1 bg-transparent outline-none text-xs sm:text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400"
                         />
-                        <div className="relative" ref={emojiPickerRef}>
-                          <button
-                            type="button"
-                            className="p-1 sm:p-1.5 rounded-full hover:bg-brand-primaryLighter transition-colors cursor-pointer"
-                            title="Emoji"
-                            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                          >
-                            <Smile className="w-4 h-4 sm:w-5 sm:h-5 text-brand-primary" />
-                          </button>
-
-                          {showEmojiPicker && (
-                            <div className="absolute bottom-full right-0 mb-2 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-3 w-[280px] sm:w-[320px] max-h-[280px] overflow-y-auto z-50">
-                              {Object.entries(emojiCategories).map(([category, emojis]) => (
-                                <div key={category} className="mb-3 last:mb-0">
-                                  <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2 capitalize">{category}</p>
-                                  <div className="grid grid-cols-8 sm:grid-cols-10 gap-1">
-                                    {emojis.map((emoji, index) => (
-                                      <button
-                                        key={index}
-                                        type="button"
-                                        onClick={() => {
-                                          handleEmojiSelect(emoji);
-                                        }}
-                                        className="w-7 h-7 flex items-center justify-center text-lg hover:bg-gray-100 dark:hover:bg-gray-700 rounded cursor-pointer transition-colors"
-                                      >
-                                        {emoji}
-                                      </button>
-                                    ))}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
                       </div>
 
                       <button
