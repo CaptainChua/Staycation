@@ -111,19 +111,6 @@ export const bookingsApi = createApi({
       },
       invalidatesTags: ["Booking"],
     }),
-
-    // Sync colors of existing Google Calendar events to match current booking status
-    syncCalendarColors: builder.mutation<
-      { success: boolean; message: string; updated: number; failed: number; total: number; error?: string; errors?: string[] },
-      void
-    >({
-      query() {
-        return {
-          url: "/bookings/sync-calendar-colors",
-          method: "POST",
-        };
-      },
-    }),
   }),
 });
 
@@ -137,5 +124,4 @@ export const {
   useGetRoomBookingsQuery,
   useUpdateCleaningStatusMutation,
   useSyncCalendarBookingsMutation,
-  useSyncCalendarColorsMutation,
 } = bookingsApi;

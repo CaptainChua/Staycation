@@ -28,8 +28,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Check if user is CSR or admin
-    const role = session.user?.role?.toLowerCase();
-    if (role !== 'csr' && role !== 'admin' && role !== 'owner') {
+    if (session.user?.role !== 'csr' && session.user?.role !== 'admin') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -52,8 +51,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user is CSR or admin
-    const role = session.user?.role?.toLowerCase();
-    if (role !== 'csr' && role !== 'admin' && role !== 'owner') {
+    if (session.user?.role !== 'csr' && session.user?.role !== 'admin') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

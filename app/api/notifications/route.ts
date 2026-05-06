@@ -103,9 +103,9 @@ export async function PATCH(request: NextRequest) {
 
     // Update notifications
     const query = `
-      UPDATE notifications
-      SET is_read = $1
-      WHERE notification_id = ANY($2::uuid[])
+      UPDATE notifications 
+      SET is_read = $1 
+      WHERE notification_id = ANY($2) 
       AND user_id = $3
     `;
 

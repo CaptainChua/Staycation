@@ -21,8 +21,6 @@ export interface CleaningTask {
   cleaning_time_out: string | null;
   cleaned_at: string | null;
   inspected_at: string | null;
-  checklist_completed: number;
-  checklist_total: number;
 }
 
 export interface UpdateCleaningTaskRequest {

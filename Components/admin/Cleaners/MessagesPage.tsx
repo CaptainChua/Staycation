@@ -4,16 +4,13 @@ import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import {
   Search,
-  Phone,
-  Video,
-  Info,
   Send,
   Plus,
   Image as ImageIcon,
-  Smile,
   X,
   Loader2,
   ArrowLeft,
+  ZoomIn,
 } from "lucide-react";
 import Image from "next/image";
 import {
@@ -58,62 +55,83 @@ interface Conversation {
   unread_count?: number;
 }
 
-// Helper functions defined outside the component to avoid conditional hooks
+// ─── helpers ────────────────────────────────────────────────────────────────
+
 const formatTime = (timestamp: string) => {
   const date = new Date(timestamp);
   const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-
+  const diffMins = Math.floor((now.getTime() - date.getTime()) / 60000);
   if (diffMins < 1) return "Just now";
   if (diffMins < 60) return `${diffMins}m`;
   if (diffMins < 1440) return `${Math.floor(diffMins / 60)}h`;
   return date.toLocaleDateString();
 };
 
-const formatMessageTime = (timestamp: string) => {
-  // Convert UTC timestamp to Philippine time (UTC+8)
-  const date = new Date(timestamp);
-  return date.toLocaleTimeString("en-PH", {
+const formatMessageTime = (timestamp: string) =>
+  new Date(timestamp).toLocaleTimeString("en-PH", {
     hour: "numeric",
     minute: "2-digit",
     timeZone: "Asia/Manila",
     hour12: true,
   });
-};
 
 const getActiveStatus = (lastMessageTime: string | undefined, type: string) => {
-  if (!lastMessageTime || type !== "internal") {
+  if (!lastMessageTime || type !== "internal")
     return { isActive: false, statusText: type === "internal" ? "Offline" : "Guest" };
-  }
-
-  const now = new Date();
-  const lastActive = new Date(lastMessageTime);
-  const diffMs = now.getTime() - lastActive.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-
-  // Active if last message was within 3 minutes
-  if (diffMins < 3) {
-    return { isActive: true, statusText: "Active now" };
-  }
-
-  // Show last active time
-  if (diffMins < 60) {
-    return { isActive: false, statusText: `Active ${diffMins}m ago` };
-  }
-
-  if (diffMins < 1440) {
-    const hours = Math.floor(diffMins / 60);
-    return { isActive: false, statusText: `Active ${hours}h ago` };
-  }
-
+  const diffMins = Math.floor((Date.now() - new Date(lastMessageTime).getTime()) / 60000);
+  if (diffMins < 3) return { isActive: true, statusText: "Active now" };
+  if (diffMins < 60) return { isActive: false, statusText: `Active ${diffMins}m ago` };
+  if (diffMins < 1440)
+    return { isActive: false, statusText: `Active ${Math.floor(diffMins / 60)}h ago` };
   return { isActive: false, statusText: "Offline" };
 };
 
-// Skeleton component defined outside the main component
 const Skeleton = ({ className }: { className: string }) => (
   <div className={`animate-pulse bg-gray-200 dark:bg-gray-800 ${className}`} />
 );
+
+// ─── Lightbox ────────────────────────────────────────────────────────────────
+
+function Lightbox({ src, onClose }: { src: string; onClose: () => void }) {
+  // Close on Escape key
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      {/* Close button */}
+      <button
+        type="button"
+        onClick={onClose}
+        className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+        title="Close"
+      >
+        <X className="w-6 h-6 text-white" />
+      </button>
+
+      {/* Image — stop propagation so clicking image doesn't close */}
+      <div
+        className="max-w-[90vw] max-h-[90vh] rounded-xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={src}
+          alt="Attachment"
+          className="max-w-[90vw] max-h-[90vh] object-contain"
+        />
+      </div>
+    </div>
+  );
+}
+
+// ─── Main component ──────────────────────────────────────────────────────────
 
 export default function MessagesPage({ onClose, initialConversationId }: MessagePageProps) {
   const { data: session } = useSession();
@@ -121,44 +139,18 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
 
   const [search, setSearch] = useState("");
   const [draft, setDraft] = useState("");
+  const [attachedImage, setAttachedImage] = useState<string | null>(null); // base64 preview
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [isNewMessageModalOpen, setIsNewMessageModalOpen] = useState(false);
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showMobileChat, setShowMobileChat] = useState(false);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const emojiPickerRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const hasInitializedActiveId = useRef(false);
   const hasProcessedInitialConversationId = useRef(false);
 
-  // Common emojis organized by category
-  const emojiCategories = {
-    smileys: ["😀", "😃", "😄", "😁", "😅", "😂", "🤣", "😊", "😇", "🙂", "😉", "😍", "🥰", "😘", "😋", "😜", "🤪", "😎", "🤩", "🥳"],
-    gestures: ["👍", "👎", "👏", "🙌", "🤝", "🙏", "💪", "✌️", "🤞", "🤟", "🤘", "👌", "👋", "🤚", "✋", "🖐️", "👆", "👇", "👈", "👉"],
-    hearts: ["❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "🤎", "💔", "❣️", "💕", "💞", "💓", "💗", "💖", "💘", "💝", "💟", "♥️"],
-    objects: ["🎉", "🎊", "🎁", "🎈", "✨", "🌟", "⭐", "🔥", "💯", "✅", "❌", "⚠️", "📌", "📍", "💡", "🔔", "📢", "💬", "💭", "🗨️"],
-  };
+  // ── data fetching ──────────────────────────────────────────────────────────
 
-  // Close emoji picker when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
-        setShowEmojiPicker(false);
-      }
-    };
-
-    if (showEmojiPicker) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [showEmojiPicker]);
-
-  const handleEmojiSelect = (emoji: string) => {
-    setDraft((prev) => prev + emoji);
-  };
-
-  // Fetch conversations
   const {
     data: conversationsData,
     isLoading: isLoadingConversations,
@@ -170,47 +162,33 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
 
   const conversations = useMemo(() => conversationsData?.data || [], [conversationsData?.data]);
 
-  // Compute initial active conversation ID
   const getInitialActiveId = useCallback((): string | null => {
     if (conversations.length === 0) return null;
-
     if (initialConversationId) {
       const exists = conversations.some((c: Conversation) => c.id === initialConversationId);
       if (exists) return initialConversationId;
     }
-
     return conversations[0]?.id || null;
   }, [conversations, initialConversationId]);
 
   const [activeId, setActiveId] = useState<string | null>(null);
 
-  // Initialize activeId once when conversations are loaded - FIXED VERSION
   useEffect(() => {
-    // Only run this effect once when conversations are loaded and we haven't initialized activeId yet
     if (conversations.length > 0 && !hasInitializedActiveId.current) {
-      const initialActiveId = getInitialActiveId();
-      if (initialActiveId !== activeId) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setActiveId(initialActiveId);
-      }
+      const id = getInitialActiveId();
+      if (id !== activeId) setActiveId(id);
       hasInitializedActiveId.current = true;
     }
   }, [conversations.length, activeId, getInitialActiveId]);
 
-  // Update activeId when initialConversationId changes - FIXED VERSION
   useEffect(() => {
-    // Skip if we've already processed the initialConversationId
     if (initialConversationId && conversations.length > 0 && !hasProcessedInitialConversationId.current) {
       const exists = conversations.some((c: Conversation) => c.id === initialConversationId);
-      if (exists && initialConversationId !== activeId) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setActiveId(initialConversationId);
-      }
+      if (exists && initialConversationId !== activeId) setActiveId(initialConversationId);
       hasProcessedInitialConversationId.current = true;
     }
   }, [initialConversationId, conversations, activeId]);
 
-  // Fetch messages for active conversation
   const {
     data: messagesData,
     isLoading: isLoadingMessages,
@@ -220,7 +198,6 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
     { skip: !activeId, pollingInterval: 3000 }
   );
 
-  // Mutations
   const [sendMessage, { isLoading: isSending }] = useSendMessageMutation();
   const [markAsRead] = useMarkMessagesAsReadMutation();
 
@@ -240,48 +217,40 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
   const employeeProfileImageById = useMemo(() => {
     const map: Record<string, string> = {};
     employees.forEach((emp: Employee) => {
-      if (emp?.id && emp?.profile_image_url) {
-        map[emp.id] = emp.profile_image_url;
-      }
+      if (emp?.id && emp?.profile_image_url) map[emp.id] = emp.profile_image_url;
     });
     return map;
   }, [employees]);
 
-  // Mark messages as read when opening a conversation
+  // ── side-effects ───────────────────────────────────────────────────────────
+
   useEffect(() => {
-    if (activeId && userId) {
-      markAsRead({ conversation_id: activeId, user_id: userId });
-    }
+    if (activeId && userId) markAsRead({ conversation_id: activeId, user_id: userId });
   }, [activeId, userId, markAsRead]);
 
-  // Auto-scroll to bottom when messages change
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
   useEffect(() => {
-    scrollToBottom();
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const getConversationDisplayName = useCallback((conversation: Conversation | undefined | null) => {
-    if (!conversation) return "";
-    if (conversation.type === "guest") {
-      return conversation.name;
-    }
+  // ── helpers (memoised) ─────────────────────────────────────────────────────
 
-    const otherParticipantIds = (conversation.participant_ids || []).filter(
-      (id: string) => id !== userId
-    );
-    const otherNames = otherParticipantIds
-      .map((id: string) => employeeMap[id])
-      .filter(Boolean);
+  const getConversationDisplayName = useCallback(
+    (conversation: Conversation | undefined | null) => {
+      if (!conversation) return "";
+      if (conversation.type === "guest") return conversation.name;
+      const otherIds = (conversation.participant_ids || []).filter((id: string) => id !== userId);
+      const names = otherIds.map((id: string) => employeeMap[id]).filter(Boolean);
+      return names.length > 0 ? names.join(", ") : conversation.name;
+    },
+    [employeeMap, userId]
+  );
 
-    if (otherNames.length > 0) {
-      return otherNames.join(", ");
-    }
-
-    return conversation.name;
-  }, [employeeMap, userId]);
+  const memoizedFormatTime = useCallback((ts: string) => formatTime(ts), []);
+  const memoizedFormatMessageTime = useCallback((ts: string) => formatMessageTime(ts), []);
+  const memoizedGetActiveStatus = useCallback(
+    (t: string | undefined, type: string) => getActiveStatus(t, type),
+    []
+  );
 
   const activeConversation = useMemo(
     () => conversations.find((c) => c.id === activeId) ?? conversations[0],
@@ -291,7 +260,7 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
   const activeConversationName = getConversationDisplayName(activeConversation);
   const activeConversationOtherParticipantIds = userId
     ? (activeConversation?.participant_ids || []).filter((id: string) => id !== userId)
-    : (activeConversation?.participant_ids || []);
+    : activeConversation?.participant_ids || [];
   const activeConversationAvatarUrl =
     activeConversation?.type !== "guest" && activeConversationOtherParticipantIds.length === 1
       ? employeeProfileImageById[activeConversationOtherParticipantIds[0]]
@@ -303,46 +272,78 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
   const filteredConversations = useMemo(() => {
     const term = search.trim().toLowerCase();
     if (!term) return conversations;
-    return conversations.filter((c: Conversation) => {
-      return (
-        c.name?.toLowerCase().includes(term) ||
-        (c.last_message && c.last_message.toLowerCase().includes(term)) ||
-        c.type.toLowerCase().includes(term)
-      );
-    });
+    return conversations.filter((c: Conversation) =>
+      c.name?.toLowerCase().includes(term) ||
+      c.last_message?.toLowerCase().includes(term) ||
+      c.type.toLowerCase().includes(term)
+    );
   }, [search, conversations]);
+
+  // ── image attachment ───────────────────────────────────────────────────────
+
+  const handleImageIconClick = () => fileInputRef.current?.click();
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Only image files are supported.");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image must be smaller than 5 MB.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => setAttachedImage(reader.result as string);
+    reader.readAsDataURL(file);
+
+    // Reset input so the same file can be re-selected
+    e.target.value = "";
+  };
+
+  const removeAttachedImage = () => setAttachedImage(null);
+
+  // ── send ───────────────────────────────────────────────────────────────────
+
 
   const handleSendMessage = async () => {
     const text = draft.trim();
-    if (!text || !activeId || !userId) return;
+    if (!text && !attachedImage) return;
+    if (!activeId || !userId) return;
 
     try {
-      await sendMessage({
+      const payload = {
         conversation_id: activeId,
         sender_id: userId,
         sender_name: session?.user?.name || "Cleaner",
-        message_text: text,
-      }).unwrap();
+        message_text: attachedImage || text,
+      };
+
+      console.log("Sending payload:", payload);
+
+      await sendMessage(payload).unwrap();
 
       setDraft("");
+      setAttachedImage(null);
       refetchMessages();
       refetchConversations();
+      
+      toast.success("Message sent!");
     } catch (error: unknown) {
       console.error("Failed to send message:", error);
-      const errorMessage = error && typeof error === 'object' && 'data' in error
-        ? (error as { data?: { error?: string } }).data?.error
-        : "Failed to send message";
-      toast.error(errorMessage || "Failed to send message");
+      const msg =
+        error && typeof error === "object" && "data" in error
+          ? (error as { data?: { error?: string } }).data?.error
+          : "Failed to send message";
+      toast.error(msg || "Failed to send message");
     }
   };
 
-  // Use useCallback for memoized functions - MOVED OUTSIDE CONDITIONAL RENDER
-  const memoizedFormatTime = useCallback((timestamp: string) => formatTime(timestamp), []);
-  const memoizedFormatMessageTime = useCallback((timestamp: string) => formatMessageTime(timestamp), []);
-  const memoizedGetActiveStatus = useCallback(
-    (lastMessageTime: string | undefined, type: string) => getActiveStatus(lastMessageTime, type),
-    []
-  );
+  // ── skeleton ───────────────────────────────────────────────────────────────
 
   if (showSkeletonConversations) {
     return (
@@ -354,7 +355,6 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
           </div>
           <Skeleton className="h-10 w-10 rounded-full" />
         </div>
-
         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
           <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr]">
             <div className="border-b lg:border-b-0 lg:border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex flex-col h-[72vh]">
@@ -377,7 +377,6 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                 ))}
               </div>
             </div>
-
             <div className="bg-white dark:bg-gray-900 flex flex-col h-[72vh]">
               <div className="h-16 px-4 flex items-center gap-3 border-b border-gray-200 dark:border-gray-800">
                 <Skeleton className="w-10 h-10 rounded-full" />
@@ -396,7 +395,6 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                   </div>
                 ))}
               </div>
-
               <div className="border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-3">
                 <div className="flex items-center gap-2">
                   <Skeleton className="h-10 w-10 rounded-full" />
@@ -411,17 +409,43 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
     );
   }
 
+  // ── render ─────────────────────────────────────────────────────────────────
+
   return (
+    <>
+      {/* Lightbox */}
+      {lightboxSrc && (
+        <Lightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
+      )}
+
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleFileChange}
+      />
+
       <div className="animate-in fade-in duration-700">
         <div className="flex items-center justify-between mb-2 sm:mb-4">
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-gray-800 dark:text-gray-100">Messages</h1>
-            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 hidden sm:block">Review and respond to guest and internal chat updates.</p>
+            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 hidden sm:block">
+              Review and respond to guest and internal chat updates.
+            </p>
           </div>
         </div>
+
         <div className="bg-white dark:bg-gray-900 rounded-xl sm:rounded-2xl shadow-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
           <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr]">
-            <div className={`border-b lg:border-b-0 lg:border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex flex-col h-[calc(100vh-180px)] sm:h-[65vh] lg:h-[72vh] ${showMobileChat ? "hidden lg:flex" : "flex"}`}>
+
+            {/* ── Conversation list ── */}
+            <div
+              className={`border-b lg:border-b-0 lg:border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex flex-col h-[calc(100vh-180px)] sm:h-[65vh] lg:h-[72vh] ${
+                showMobileChat ? "hidden lg:flex" : "flex"
+              }`}
+            >
               <div className="h-14 sm:h-16 px-3 sm:px-4 flex items-center gap-3 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
                 <p className="text-base font-bold text-gray-900 dark:text-gray-100">Chats</p>
                 <div className="ml-auto flex items-center gap-2">
@@ -445,7 +469,7 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                   )}
                 </div>
               </div>
-  
+
               <div className="p-4">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -457,7 +481,7 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                   />
                 </div>
               </div>
-  
+
               <div className="flex-1 overflow-y-auto">
                 {isLoadingConversations ? (
                   <div className="flex items-center justify-center py-10">
@@ -470,14 +494,13 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                     const activeStatus = memoizedGetActiveStatus(c.last_message_time, c.type);
                     const otherParticipantIds = userId
                       ? (c.participant_ids || []).filter((id: string) => id !== userId)
-                      : (c.participant_ids || []);
+                      : c.participant_ids || [];
                     const avatarUrl =
                       c.type !== "guest" && otherParticipantIds.length === 1
                         ? employeeProfileImageById[otherParticipantIds[0]]
                         : undefined;
-                    const avatarLetter = (conversationName || c.name || "?")
-                      .charAt(0)
-                      .toUpperCase();
+                    const avatarLetter = (conversationName || c.name || "?").charAt(0).toUpperCase();
+
                     return (
                       <button
                         key={c.id}
@@ -502,8 +525,7 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                                 height={44}
                                 className="w-11 h-11 rounded-full object-cover"
                                 onError={(e) => {
-                                  const target = e.target as HTMLImageElement;
-                                  target.style.display = 'none';
+                                  (e.target as HTMLImageElement).style.display = "none";
                                 }}
                               />
                             ) : (
@@ -528,7 +550,6 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                             {activeStatus.statusText}
                           </p>
                         </div>
-  
                         {(c.unread_count || 0) > 0 && (
                           <div className="w-6 flex justify-end">
                             <span className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-brand-primary text-white text-xs font-bold">
@@ -542,10 +563,16 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                 )}
               </div>
             </div>
-  
-            <div className={`bg-white dark:bg-gray-900 flex flex-col h-[calc(100vh-180px)] sm:h-[65vh] lg:h-[72vh] ${showMobileChat ? "flex" : "hidden lg:flex"}`}>
+
+            {/* ── Chat panel ── */}
+            <div
+              className={`bg-white dark:bg-gray-900 flex flex-col h-[calc(100vh-180px)] sm:h-[65vh] lg:h-[72vh] ${
+                showMobileChat ? "flex" : "hidden lg:flex"
+              }`}
+            >
               {activeConversation ? (
                 <>
+                  {/* Header */}
                   <div className="h-14 sm:h-16 px-2 sm:px-4 flex items-center justify-between border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 sticky top-0 z-10">
                     <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                       <button
@@ -565,8 +592,7 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                             height={40}
                             className="w-8 h-8 sm:w-10 sm:h-10 object-cover"
                             onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.style.display = 'none';
+                              (e.target as HTMLImageElement).style.display = "none";
                             }}
                           />
                         ) : (
@@ -586,19 +612,10 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-0.5 sm:gap-1">
-                      <button type="button" className="p-1.5 sm:p-2 rounded-full hover:bg-brand-primaryLighter transition-colors" title="Call">
-                        <Phone className="w-4 h-4 sm:w-5 sm:h-5 text-brand-primary" />
-                      </button>
-                      <button type="button" className="p-1.5 sm:p-2 rounded-full hover:bg-brand-primaryLighter transition-colors hidden sm:block" title="Video">
-                        <Video className="w-4 h-4 sm:w-5 sm:h-5 text-brand-primary" />
-                      </button>
-                      <button type="button" className="p-1.5 sm:p-2 rounded-full hover:bg-brand-primaryLighter transition-colors" title="Info">
-                        <Info className="w-4 h-4 sm:w-5 sm:h-5 text-brand-primary" />
-                      </button>
-                    </div>
+                    {/* Facebook Messenger link removed for admin panel */}
                   </div>
-  
+
+                  {/* Messages */}
                   <div className="flex-1 overflow-y-auto bg-white dark:bg-gray-900 px-2 sm:px-4 py-3 sm:py-4 space-y-2 sm:space-y-3">
                     {showSkeletonMessages ? (
                       Array.from({ length: 6 }).map((_, idx) => (
@@ -621,24 +638,50 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                             m.sender_name ||
                             (activeConversation?.type === "guest" ? "Guest" : "Staff")
                           : undefined;
+
                         return (
                           <div key={m.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
-                            <div className={`max-w-[85%] sm:max-w-[75%] ${isMe ? "items-end" : "items-start"} flex flex-col gap-0.5 sm:gap-1`}>
+                            <div
+                              className={`max-w-[85%] sm:max-w-[75%] ${
+                                isMe ? "items-end" : "items-start"
+                              } flex flex-col gap-0.5 sm:gap-1`}
+                            >
                               {!isMe && senderLabel && (
                                 <span className="text-[10px] sm:text-xs font-semibold text-gray-500 dark:text-gray-400">
                                   {senderLabel}
                                 </span>
                               )}
-                              <div
-                                className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl text-xs sm:text-sm leading-relaxed shadow-sm ${
-                                  isMe
-                                    ? "bg-brand-primary text-white rounded-br-md"
-                                    : "bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-800 rounded-bl-md"
-                                }`}
-                              >
-                                {m.message_text}
-                              </div>
-                              <span className="text-[10px] sm:text-[11px] text-gray-400">{memoizedFormatMessageTime(m.created_at)}</span>
+
+                              {m.message_text.startsWith("data:image") ? (
+                                <div
+                                  className="relative group cursor-zoom-in rounded-2xl overflow-hidden shadow-sm border border-gray-200 dark:border-gray-700"
+                                  onClick={() => setLightboxSrc(m.message_text)}
+                                >
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={m.message_text}
+                                    alt="Attachment"
+                                    className="max-w-[220px] sm:max-w-[280px] max-h-[220px] object-cover rounded-2xl transition-opacity group-hover:opacity-90"
+                                  />
+                                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20 rounded-2xl">
+                                    <ZoomIn className="w-7 h-7 text-white drop-shadow" />
+                                  </div>
+                                </div>
+                              ) : (
+                                <div
+                                  className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl text-xs sm:text-sm leading-relaxed shadow-sm ${
+                                    isMe
+                                      ? "bg-brand-primary text-white rounded-br-md"
+                                      : "bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-800 rounded-bl-md"
+                                  }`}
+                                >
+                                  {m.message_text}
+                                </div>
+                              )}
+
+                              <span className="text-[10px] sm:text-[11px] text-gray-400">
+                                {memoizedFormatMessageTime(m.created_at)}
+                              </span>
                             </div>
                           </div>
                         );
@@ -650,8 +693,32 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                     )}
                     <div ref={messagesEndRef} />
                   </div>
-  
+
+                  {/* Input area */}
                   <div className="border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-2 sm:px-4 py-2 sm:py-3">
+                    {/* Image preview strip */}
+                    {attachedImage && (
+                      <div className="mb-2 flex items-start gap-2">
+                        <div className="relative group">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={attachedImage}
+                            alt="Attachment preview"
+                            className="w-16 h-16 rounded-xl object-cover border border-gray-200 dark:border-gray-700 shadow-sm cursor-zoom-in"
+                            onClick={() => setLightboxSrc(attachedImage)}
+                          />
+                          <button
+                            type="button"
+                            onClick={removeAttachedImage}
+                            className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-gray-700 text-white flex items-center justify-center hover:bg-red-500 transition-colors shadow"
+                            title="Remove image"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
                     <div className="flex items-center gap-1 sm:gap-2">
                       <button
                         type="button"
@@ -661,9 +728,17 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                       >
                         <Plus className="w-4 h-4 sm:w-5 sm:h-5 text-brand-primary" />
                       </button>
-                      <button type="button" className="p-1.5 sm:p-2 rounded-full hover:bg-brand-primaryLighter transition-colors" title="Attach">
+
+                      {/* 📎 Image attach button — now functional */}
+                      <button
+                        type="button"
+                        onClick={handleImageIconClick}
+                        className="p-1.5 sm:p-2 rounded-full hover:bg-brand-primaryLighter transition-colors"
+                        title="Attach image"
+                      >
                         <ImageIcon className="w-4 h-4 sm:w-5 sm:h-5 text-brand-primary" />
                       </button>
+
                       <div className="flex-1 bg-gray-100 dark:bg-gray-800 rounded-full px-2 sm:px-3 py-1.5 sm:py-2 flex items-center gap-1 sm:gap-2 border border-gray-200 dark:border-gray-700 focus-within:bg-brand-primaryLighter dark:focus-within:bg-gray-800 focus-within:border-brand-primary dark:focus-within:border-brand-primary focus-within:ring-2 focus-within:ring-brand-primary/20">
                         <input
                           value={draft}
@@ -678,47 +753,13 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                           disabled={isSending}
                           className="flex-1 bg-transparent outline-none text-xs sm:text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400"
                         />
-                        <div className="relative" ref={emojiPickerRef}>
-                          <button
-                            type="button"
-                            className="p-1 sm:p-1.5 rounded-full hover:bg-brand-primaryLighter transition-colors cursor-pointer"
-                            title="Emoji"
-                            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                          >
-                            <Smile className="w-4 h-4 sm:w-5 sm:h-5 text-brand-primary" />
-                          </button>
-
-                          {showEmojiPicker && (
-                            <div className="absolute bottom-full right-0 mb-2 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-3 w-[280px] sm:w-[320px] max-h-[280px] overflow-y-auto z-50">
-                              {Object.entries(emojiCategories).map(([category, emojis]) => (
-                                <div key={category} className="mb-3 last:mb-0">
-                                  <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2 capitalize">{category}</p>
-                                  <div className="grid grid-cols-8 sm:grid-cols-10 gap-1">
-                                    {emojis.map((emoji, index) => (
-                                      <button
-                                        key={index}
-                                        type="button"
-                                        onClick={() => {
-                                          handleEmojiSelect(emoji);
-                                        }}
-                                        className="w-7 h-7 flex items-center justify-center text-lg hover:bg-gray-100 dark:hover:bg-gray-700 rounded cursor-pointer transition-colors"
-                                      >
-                                        {emoji}
-                                      </button>
-                                    ))}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
                       </div>
-  
+
                       <button
                         type="button"
                         onClick={handleSendMessage}
-                        disabled={isSending || !draft.trim()}
-                        className="p-1.5 sm:p-2 rounded-full hover:bg-brand-primaryLighter transition-colors disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed flex items-center justify-center"
+                        disabled={isSending || (!draft.trim() && !attachedImage)}
+                        className="p-1.5 sm:p-2 rounded-full hover:bg-brand-primaryLighter transition-colors disabled:opacity-50"
                         title="Send"
                       >
                         {isSending ? (
@@ -738,16 +779,17 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
             </div>
           </div>
         </div>
-  
-        <NewMessageModal
-          isOpen={isNewMessageModalOpen}
-          onClose={() => setIsNewMessageModalOpen(false)}
-          currentUserId={userId || ""}
-          onConversationCreated={(conversationId) => {
-            setActiveId(conversationId);
-            refetchConversations();
-          }}
-        />
       </div>
-    );
-  }
+
+      <NewMessageModal
+        isOpen={isNewMessageModalOpen}
+        onClose={() => setIsNewMessageModalOpen(false)}
+        currentUserId={userId || ""}
+        onConversationCreated={(conversationId) => {
+          setActiveId(conversationId);
+          refetchConversations();
+        }}
+      />
+    </>
+  );
+}
