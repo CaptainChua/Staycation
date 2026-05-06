@@ -7,7 +7,19 @@ import OwnerPageHeader from "./OwnerPageHeader";
 import { useGetBookingsQuery } from "@/redux/api/bookingsApi";
 import { useGetHavensQuery } from "@/redux/api/roomApi";
 import { useGetReviewsQuery } from "@/redux/api/reviewsApi";
+import { Calendar, DollarSign, Users, Package, CreditCard, Sparkles, XCircle, TrendingUp, TrendingDown, Home, Clock, AlertTriangle, CheckCircle, RefreshCw, Building2, Star, BarChart3, Target, UserCheck } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
+import OwnerPageHeader from "./OwnerPageHeader";
+import { useGetBookingsQuery } from "@/redux/api/bookingsApi";
+import { useGetHavensQuery } from "@/redux/api/roomApi";
+import { useGetReviewsQuery } from "@/redux/api/reviewsApi";
 
+// Export Haven type for use in other components
+export type Haven = {
+  id?: number;
+  uuid_id?: string;
+  haven_name: string;
 // Export Haven type for use in other components
 export type Haven = {
   id?: number;
@@ -33,14 +45,80 @@ export type Haven = {
   amenities?: any;
   created_at?: string;
   updated_at?: string;
+  tower: string;
+  floor: string;
+  view_type?: string;
+  capacity?: number;
+  room_size?: number;
+  beds?: string;
+  description?: string;
+  youtube_url?: string;
+  six_hour_rate?: number;
+  ten_hour_rate?: number;
+  weekday_rate?: number;
+  weekend_rate?: number;
+  six_hour_check_in?: string;
+  ten_hour_check_in?: string;
+  twenty_one_hour_check_in?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  amenities?: any;
+  created_at?: string;
+  updated_at?: string;
   blocked_dates?: Array<{
     from_date: string;
     to_date: string;
   }>;
   [key: string]: unknown;
 };
+  [key: string]: unknown;
+};
 
 interface Booking {
+  id: string;
+  booking_id: string;
+  user_id?: string | null;
+  room_name?: string | null;
+  check_in_date?: string | null;
+  check_out_date?: string | null;
+  check_in_time?: string | null;
+  check_out_time?: string | null;
+  adults?: number | null;
+  children?: number | null;
+  infants?: number | null;
+  status?: string | null;
+  rejection_reason?: string;
+  created_at: string;
+  updated_at: string;
+  // Payment data from booking_payments
+  booking_payments?: {
+    total_amount: number;
+    down_payment: number;
+    remaining_balance: number;
+    payment_method: string;
+  }[];
+  // Guest data from booking_guests
+  booking_guests?: {
+    first_name: string;
+    last_name: string;
+    email: string;
+    phone: string;
+  }[];
+}
+
+interface Review {
+  id: string;
+  booking_id: string;
+  rating?: number;
+  overall_rating?: number;
+  comment?: string;
+  created_at: string;
+  booking?: {
+    room_name: string;
+    booking_guests?: {
+      first_name: string;
+      last_name: string;
+    }[];
+  };
   id: string;
   booking_id: string;
   user_id?: string | null;
@@ -163,9 +241,91 @@ const DashboardPage = ({
     skipPollingIfUnfocused: true,
     refetchOnFocus: true,
     refetchOnReconnect: true,
+  const { data: session } = useSession();
+  const userId = (session?.user as any)?.id;
+  const [refreshing, setRefreshing] = useState(false);
+  const [analyticsData, setAnalyticsData] = useState<any>(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  
+  // Fetch ALL bookings across all havens
+  const { data: bookingsData = [], isLoading: bookingsLoading, refetch: refetchBookings } = useGetBookingsQuery({}, {
+    pollingInterval: 5000,
+    skipPollingIfUnfocused: true,
+    refetchOnFocus: true,
+    refetchOnReconnect: true,
   });
   const { data: reviewsData, isLoading: reviewsLoading, refetch: refetchReviews } = useGetReviewsQuery();
+  const { data: reviewsData, isLoading: reviewsLoading, refetch: refetchReviews } = useGetReviewsQuery();
 
+  // Fetch analytics data for real revenue
+  const fetchAnalyticsData = async () => {
+    try {
+      setAnalyticsLoading(true);
+      const res = await fetch('/api/admin/analytics/summary?period=30');
+      const data = await res.json();
+      if (data.success) {
+        setAnalyticsData(data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching analytics:', error);
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAnalyticsData();
+  }, []);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        refetchBookings(),
+        refetchReviews(),
+        fetchAnalyticsData()
+      ]);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  // Calculate owner-specific metrics
+  const bookings: Booking[] = (bookingsData || []) as unknown as Booking[];
+  const reviews: Review[] = reviewsData?.data || [];
+
+  // Get real revenue from analytics
+  const totalRevenue = Number(analyticsData?.total_revenue || 0);
+
+  // Calculate average rating - handle NaN and null values properly
+  const validRatings = reviews
+    .map((review: any) => review.overall_rating)
+    .filter((rating: any) => typeof rating === 'number' && !isNaN(rating));
+  
+  const averageRating = validRatings.length > 0
+    ? (validRatings.reduce((sum: number, rating: number) => sum + rating, 0) / validRatings.length).toFixed(1)
+    : '0.0';
+
+  // Calculate today's tasks
+  const today = new Date().toDateString();
+  const todayTasks = {
+    checkins: bookings.filter((booking) =>
+      booking.check_in_date ? new Date(booking.check_in_date).toDateString() === today : false
+    ).length,
+    checkouts: bookings.filter((booking) =>
+      booking.check_out_date ? new Date(booking.check_out_date).toDateString() === today : false
+    ).length,
+    pending: bookings.filter((booking) => booking.status === 'pending').length
+  };
+
+  // Calculate occupancy rate
+  const activeBookings = bookings.filter((booking) =>
+    ['approved', 'confirmed', 'checked-in'].includes(booking.status ?? "")
+  ).length;
+  const occupancyRate = havens.length > 0 ? Math.round((activeBookings / (havens.length * 30)) * 100) : 0;
+
+  // KPI data for owner
+  const kpiData: KPICard[] = [
   // Fetch analytics data for real revenue
   const fetchAnalyticsData = async () => {
     try {
@@ -242,8 +402,18 @@ const DashboardPage = ({
       color: "bg-green-500",
       loading: analyticsLoading,
       subtitle: "Last 30 days"
+      value: `₱${Number(totalRevenue).toLocaleString('en-US', { maximumFractionDigits: 0 })}`,
+      Icon: DollarSign,
+      color: "bg-green-500",
+      loading: analyticsLoading,
+      subtitle: "Last 30 days"
     },
     {
+      title: "Active Bookings",
+      value: activeBookings,
+      Icon: Calendar,
+      color: "bg-blue-500",
+      loading: bookingsLoading
       title: "Active Bookings",
       value: activeBookings,
       Icon: Calendar,
@@ -256,8 +426,17 @@ const DashboardPage = ({
       Icon: Star,
       color: "bg-yellow-500",
       loading: reviewsLoading
+    {
+      title: "Average Rating",
+      value: `${averageRating} ⭐`,
+      Icon: Star,
+      color: "bg-yellow-500",
+      loading: reviewsLoading
     },
     {
+      title: "Occupancy Rate",
+      value: `${occupancyRate}%`,
+      Icon: Building2,
       title: "Occupancy Rate",
       value: `${occupancyRate}%`,
       Icon: Building2,
@@ -331,7 +510,73 @@ const DashboardPage = ({
                 </div>
                 <IconComponent className="w-12 h-12 opacity-50 flex-shrink-0" />
               </div>
+    <div className="space-y-6 animate-in fade-in duration-700 overflow-hidden h-full flex flex-col">
+      <OwnerPageHeader
+        title="Owner Dashboard"
+        description="Monitor your property performance and guest satisfaction"
+        actions={
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="p-2 bg-brand-primary hover:bg-brand-primaryDark text-white rounded-lg shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Refresh Data"
+            type="button"
+          >
+            <RefreshCw className={`w-4 h-4 text-white ${refreshing ? "animate-spin" : ""}`} />
+          </button>
+        }
+      />
+
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 flex-shrink-0">
+        {kpiData.map((kpi, i) => {
+          const IconComponent = kpi.Icon;
+          return (
+            <div
+              key={i}
+              className={`${kpi.color} text-white rounded-lg p-6 shadow dark:shadow-gray-900 hover:shadow-lg transition-all border border-gray-200 dark:border-gray-600`}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <p className="text-sm opacity-90">{kpi.title}</p>
+                  <div className="text-3xl font-bold mt-2">
+                    {kpi.loading ? (
+                      <div className="w-16 h-8 bg-white/20 rounded animate-pulse" />
+                    ) : (
+                      kpi.value
+                    )}
+                  </div>
+                  {kpi.subtitle && (
+                    <p className="text-xs opacity-70 mt-1">{kpi.subtitle}</p>
+                  )}
+                </div>
+                <IconComponent className="w-12 h-12 opacity-50 flex-shrink-0" />
+              </div>
             </div>
+          );
+        })}
+      </div>
+
+      {/* Quick Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 flex-shrink-0">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-6 border border-gray-200 dark:border-gray-700">
+          <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4 flex items-center gap-2">
+            <Home className="w-5 h-5 text-brand-primary" />
+            Today&apos;s Overview
+          </h4>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-blue-600" />
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Check-ins</span>
+              </div>
+              <span className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                {bookingsLoading ? (
+                  <div className="w-8 h-6 bg-blue-200 dark:bg-blue-800 rounded animate-pulse" />
+                ) : (
+                  todayTasks.checkins
+                )}
+              </span>
           );
         })}
       </div>
@@ -369,6 +614,18 @@ const DashboardPage = ({
                   todayTasks.checkouts
                 )}
               </span>
+            <div className="flex items-center justify-between p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-orange-600" />
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Check-outs</span>
+              </div>
+              <span className="text-xl font-bold text-orange-600 dark:text-orange-400">
+                {bookingsLoading ? (
+                  <div className="w-8 h-6 bg-orange-200 dark:bg-orange-800 rounded animate-pulse" />
+                ) : (
+                  todayTasks.checkouts
+                )}
+              </span>
             </div>
             <div className="flex items-center justify-between p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
               <div className="flex items-center gap-2">
@@ -385,7 +642,56 @@ const DashboardPage = ({
             </div>
           </div>
         </div>
+            <div className="flex items-center justify-between p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-yellow-600" />
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Pending</span>
+              </div>
+              <span className="text-xl font-bold text-yellow-600 dark:text-yellow-400">
+                {bookingsLoading ? (
+                  <div className="w-8 h-6 bg-yellow-200 dark:bg-yellow-800 rounded animate-pulse" />
+                ) : (
+                  todayTasks.pending
+                )}
+              </span>
+            </div>
+          </div>
+        </div>
 
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-6 border border-gray-200 dark:border-gray-700">
+          <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4 flex items-center gap-2">
+            <Star className="w-5 h-5 text-brand-primary" />
+            Guest Satisfaction
+          </h4>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+              <div className="flex items-center gap-2">
+                <Star className="w-4 h-4 text-green-600" />
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Average Rating</span>
+              </div>
+              <span className="text-xl font-bold text-green-600 dark:text-green-400">
+                {reviewsLoading ? (
+                  <div className="w-12 h-6 bg-green-200 dark:bg-green-800 rounded animate-pulse" />
+                ) : (
+                  `${averageRating} ⭐`
+                )}
+              </span>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-blue-600" />
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Total Reviews</span>
+              </div>
+              <span className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                {reviewsLoading ? (
+                  <div className="w-8 h-6 bg-blue-200 dark:bg-blue-800 rounded animate-pulse" />
+                ) : (
+                  reviews.length
+                )}
+              </span>
+            </div>
+          </div>
+        </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-6 border border-gray-200 dark:border-gray-700">
           <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4 flex items-center gap-2">
             <Star className="w-5 h-5 text-brand-primary" />
@@ -438,7 +744,32 @@ const DashboardPage = ({
             <div className="flex items-center justify-between p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Occupancy Rate</span>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-6 border border-gray-200 dark:border-gray-700">
+          <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4 flex items-center gap-2">
+            <Building2 className="w-5 h-5 text-brand-primary" />
+            Property Stats
+          </h4>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Total Havens</span>
               </div>
+              <span className="text-xl font-bold text-purple-600 dark:text-purple-400">
+                {havens.length}
+              </span>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Occupancy Rate</span>
+              </div>
+              <span className="text-xl font-bold text-indigo-600 dark:text-indigo-400">
+                {bookingsLoading ? (
+                  <div className="w-12 h-6 bg-indigo-200 dark:bg-indigo-800 rounded animate-pulse" />
+                ) : (
+                  `${occupancyRate}%`
+                )}
+              </span>
+            </div>
               <span className="text-xl font-bold text-indigo-600 dark:text-indigo-400">
                 {bookingsLoading ? (
                   <div className="w-12 h-6 bg-indigo-200 dark:bg-indigo-800 rounded animate-pulse" />
@@ -458,9 +789,20 @@ const DashboardPage = ({
           {bookingsLoading && (
             <div className="w-6 h-6 border-2 border-brand-primary border-t-transparent rounded-full animate-spin" />
           )}
+      {/* Recent Activity Table */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-6 flex-1 flex flex-col min-h-0 border border-gray-200 dark:border-gray-700">
+        <div className="flex justify-between items-center mb-4 flex-shrink-0">
+          <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">Recent Bookings</h3>
+          {bookingsLoading && (
+            <div className="w-6 h-6 border-2 border-brand-primary border-t-transparent rounded-full animate-spin" />
+          )}
         </div>
         <div className="overflow-x-auto overflow-y-auto flex-1 min-h-0">
+        <div className="overflow-x-auto overflow-y-auto flex-1 min-h-0">
           <table className="w-full">
+            <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 border-b-2 border-gray-200 dark:border-gray-600">
+              <tr>
+                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
             <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 border-b-2 border-gray-200 dark:border-gray-600">
               <tr>
                 <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
@@ -468,10 +810,17 @@ const DashboardPage = ({
                 </th>
                 <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
                   Guest
+                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                  Guest
                 </th>
+                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
                 <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
                   Details
                 </th>
+                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                  Haven
+                </th>
+                <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
                 <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
                   Haven
                 </th>
@@ -568,8 +917,10 @@ const DashboardPage = ({
         </div>
       </div>
 
+
     </div>
   );
 };
 
 export default DashboardPage;
+

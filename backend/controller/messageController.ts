@@ -150,8 +150,9 @@ export const sendMessage = async (req: NextRequest): Promise<NextResponse> => {
   try {
     const body = await req.json();
     const { conversation_id, sender_id, sender_name, message_text } = body;
+    const safeMessageText = typeof message_text === "string" ? message_text : "";
 
-    if (!conversation_id || !sender_id || !sender_name || !message_text) {
+    if (!conversation_id || !sender_id || !sender_name || !safeMessageText) {
       return NextResponse.json(
         { success: false, error: "Missing required fields" },
         { status: 400 },
@@ -170,7 +171,11 @@ export const sendMessage = async (req: NextRequest): Promise<NextResponse> => {
       ) VALUES ($1, $2, $3, $4, false, timezone('Asia/Manila', NOW()))
       RETURNING *
       `,
+<<<<<<< HEAD
       [conversation_id, sender_id, sender_name, message_text],
+=======
+      [conversation_id, sender_id, sender_name, safeMessageText],
+>>>>>>> 4da347254b09e7d2af6a23069cf7e3a3638a878e
     );
 
     // Update conversation's updated_at timestamp

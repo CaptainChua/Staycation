@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
         n.message,
         n.notification_type,
         n.is_read,
-        (n.created_at AT TIME ZONE 'Asia/Manila') as created_at,
+        n.created_at as created_at,
         e.first_name,
         e.last_name,
         e.email
@@ -125,12 +125,16 @@ export async function PATCH(request: NextRequest) {
   }
 }
 
-function formatTimestamp(timestamp: string): string {
-  // The timestamp is already converted to Manila time by the database query
-  const date = new Date(timestamp);
+function formatTimestamp(utcTimestamp: string): string {
+  const date = new Date(utcTimestamp);
   const now = new Date();
   
-  const diffInMs = now.getTime() - date.getTime();
+  // Convert both to Manila time (UTC+8) for consistent calculation
+  const manilaOffset = 8 * 60 * 60 * 1000; // 8 hours in milliseconds
+  const dateManila = new Date(date.getTime() + manilaOffset);
+  const nowManila = new Date(now.getTime() + manilaOffset);
+  
+  const diffInMs = nowManila.getTime() - dateManila.getTime();
   const diffInMins = Math.floor(diffInMs / 60000);
   const diffInHours = Math.floor(diffInMs / 3600000);
   const diffInDays = Math.floor(diffInMs / 86400000);
@@ -140,10 +144,10 @@ function formatTimestamp(timestamp: string): string {
   if (diffInHours < 24) return `${diffInHours} hrs ago`;
   if (diffInDays < 7) return `${diffInDays} days ago`;
   
-  return date.toLocaleDateString('en-US', {
+  return dateManila.toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
-    year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
+    year: dateManila.getFullYear() !== nowManila.getFullYear() ? 'numeric' : undefined
   });
 }
 

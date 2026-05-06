@@ -1,5 +1,9 @@
 "use client";
 
+<<<<<<< HEAD
+=======
+import Link from 'next/link';
+>>>>>>> 4da347254b09e7d2af6a23069cf7e3a3638a878e
 import { ArrowRight, Mail, Eye, EyeOff, User, Lock } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -821,14 +825,14 @@ const Login = () => {
               <p className="text-xs text-gray-500 dark:text-gray-400">
                 By continuing, you agree to our{" "}
                 <a
-                  href="/terms"
+                  href="/terms-of-service"
                   className="text-brand-primary hover:text-brand-primaryDark underline transition-colors"
                 >
                   Terms
                 </a>{" "}
                 and{" "}
                 <a
-                  href="/privacy"
+                  href="/privacy-policy"
                   className="text-brand-primary hover:text-brand-primaryDark underline transition-colors"
                 >
                   Privacy Policy

@@ -1,7 +1,10 @@
 import { Calendar, User, Users, Mail, Phone, ArrowLeft, Upload, Plus, Minus, CreditCard, AlertCircle, CheckCircle, Clock, Package, Camera, Wallet, Info, ChevronRight, Building2, Receipt, LogIn, LogOut, X as XIcon } from "lucide-react";
 import { useState, useRef } from "react";
 import Image from "next/image";
+<<<<<<< HEAD
 import toast from "react-hot-toast";
+=======
+>>>>>>> 4da347254b09e7d2af6a23069cf7e3a3638a878e
 
 interface GuestInfo {
   firstName: string;
@@ -40,7 +43,10 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
   const [currentStep, setCurrentStep] = useState(1);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
+<<<<<<< HEAD
   const [isSubmitting, setIsSubmitting] = useState(false);
+=======
+>>>>>>> 4da347254b09e7d2af6a23069cf7e3a3638a878e
   const errorRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const initialFormData = {
@@ -90,7 +96,10 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
     setCurrentStep(1);
     setCompletedSteps([]);
     setErrors({});
+<<<<<<< HEAD
     setIsSubmitting(false);
+=======
+>>>>>>> 4da347254b09e7d2af6a23069cf7e3a3638a878e
   };
 
   // Reset form when modal opens/closes
@@ -149,10 +158,13 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
     });
   };
 
+<<<<<<< HEAD
   const handleDateKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     e.preventDefault();
   };
 
+=======
+>>>>>>> 4da347254b09e7d2af6a23069cf7e3a3638a878e
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
 
@@ -173,6 +185,7 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
       };
       setFormData(updatedFormData);
       updateAdditionalGuests(currentAdults, currentChildren);
+<<<<<<< HEAD
     } else if (name === "phone") {
       const digitsOnly = value.replace(/\D/g, "").slice(0, 11);
       setFormData((prev) => ({
@@ -185,6 +198,8 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
         ...prev,
         [name]: digitsOnly,
       }));
+=======
+>>>>>>> 4da347254b09e7d2af6a23069cf7e3a3638a878e
     } else {
       setFormData((prev) => ({
         ...prev,
@@ -315,6 +330,7 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
   };
 
   const validateStep4 = (): boolean => {
+<<<<<<< HEAD
     console.log('🔍 Validating step 4...');
     const newErrors: Record<string, string> = {};
     if (!formData.paymentProof) {
@@ -329,6 +345,13 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
     const isValid = Object.keys(newErrors).length === 0;
     console.log('✅ Step 4 validation result:', isValid);
     return isValid;
+=======
+    const newErrors: Record<string, string> = {};
+    if (!formData.paymentProof) newErrors.paymentProof = "Proof of payment is required";
+    if (!formData.termsAccepted) newErrors.termsAccepted = "You must accept the terms";
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+>>>>>>> 4da347254b09e7d2af6a23069cf7e3a3638a878e
   };
 
   const handleNext = () => {
@@ -350,6 +373,7 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+<<<<<<< HEAD
     console.log('🔄 Starting reservation submission...');
     if (!validateStep4() || isSubmitting) {
       console.log('❌ Validation failed or already submitting');
@@ -457,15 +481,39 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
       console.log('📤 Submitting booking data to API...');
       await onSubmit(bookingData);
       console.log('✅ Booking created successfully');
+=======
+    if (!validateStep4()) return;
+
+    const bookingData = {
+      ...formData,
+      additionalGuests,
+      addOns,
+      roomRate,
+      securityDeposit,
+      addOnsTotal,
+      totalAmount,
+      downPayment,
+      remainingBalance: totalAmount - downPayment,
+    };
+
+    try {
+      // Wait for the async submission to complete
+      await onSubmit(bookingData);
+>>>>>>> 4da347254b09e7d2af6a23069cf7e3a3638a878e
       // Only reset and close after successful submission
       resetForm();
       onClose();
     } catch (error) {
+<<<<<<< HEAD
       console.error('❌ Submission error:', error);
       toast.error('Failed to create reservation. Please try again.');
     } finally {
       setIsSubmitting(false);
       console.log('🔄 Submission process completed');
+=======
+      console.error('Submission error:', error);
+      // Don't close modal or reset on error, let parent handle the error message
+>>>>>>> 4da347254b09e7d2af6a23069cf7e3a3638a878e
     }
   };
 
@@ -552,7 +600,11 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                       </div>
                       <div>
                         <label className={labelClass}>Age *</label>
+<<<<<<< HEAD
                         <input type="number" name="age" value={formData.age} onChange={handleInputChange} required min="1" max="999" className={inputClass} placeholder="Enter age" />
+=======
+                        <input type="number" name="age" value={formData.age} onChange={handleInputChange} required min="1" max="120" className={inputClass} placeholder="Enter age" />
+>>>>>>> 4da347254b09e7d2af6a23069cf7e3a3638a878e
                       </div>
                       <div>
                         <label className={labelClass}>Gender *</label>
@@ -569,7 +621,11 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                       </div>
                       <div>
                         <label className={labelClass}>Phone *</label>
+<<<<<<< HEAD
                         <input type="tel" name="phone" value={formData.phone} onChange={handleInputChange} required className={inputClass} placeholder="e.g., 9123456789" maxLength={11} inputMode="numeric" pattern="\d*" />
+=======
+                        <input type="tel" name="phone" value={formData.phone} onChange={handleInputChange} required className={inputClass} placeholder="e.g., 9123456789" />
+>>>>>>> 4da347254b09e7d2af6a23069cf7e3a3638a878e
                       </div>
                     </div>
                   </div>
@@ -747,11 +803,19 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className={labelClass}>Check-in Date *</label>
+<<<<<<< HEAD
                         <input type="date" name="checkInDate" value={formData.checkInDate} onChange={handleInputChange} onKeyDown={handleDateKeyDown} required className={inputClass} />
                       </div>
                       <div>
                         <label className={labelClass}>Check-out Date *</label>
                         <input type="date" name="checkOutDate" value={formData.checkOutDate} onChange={handleInputChange} onKeyDown={handleDateKeyDown} required className={inputClass} />
+=======
+                        <input type="date" name="checkInDate" value={formData.checkInDate} onChange={handleInputChange} required className={inputClass} />
+                      </div>
+                      <div>
+                        <label className={labelClass}>Check-out Date *</label>
+                        <input type="date" name="checkOutDate" value={formData.checkOutDate} onChange={handleInputChange} required className={inputClass} />
+>>>>>>> 4da347254b09e7d2af6a23069cf7e3a3638a878e
                       </div>
                       <div>
                         <label className={labelClass}>Check-in Time *</label>
@@ -854,12 +918,19 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                     <div className="mt-6">
                       <label className={labelClass}>Upload Proof of Payment *</label>
                       <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'payment')} className="hidden" id="payment-proof" />
+<<<<<<< HEAD
                       <label htmlFor="payment-proof" className={`cursor-pointer flex flex-col items-center p-8 border-2 border-dashed bg-gray-50 dark:bg-gray-800 rounded-lg hover:border-[#A1823D] dark:hover:border-[#A1823D] transition ${errors.paymentProof ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}`}>
+=======
+                      <label htmlFor="payment-proof" className="cursor-pointer flex flex-col items-center p-8 border-2 border-dashed border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 rounded-lg hover:border-[#A1823D] dark:hover:border-[#A1823D] transition">
+>>>>>>> 4da347254b09e7d2af6a23069cf7e3a3638a878e
                         <Upload className="w-12 h-12 text-gray-400 mb-3" />
                         <p className="font-medium text-gray-600 dark:text-gray-300">Click to upload payment screenshot</p>
                         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">PNG, JPG up to 10MB</p>
                       </label>
+<<<<<<< HEAD
                       {errors.paymentProof && <p className="text-red-500 text-xs mt-2">{errors.paymentProof}</p>}
+=======
+>>>>>>> 4da347254b09e7d2af6a23069cf7e3a3638a878e
                       {formData.paymentProofPreview && (
                         <div className="mt-4">
                           <Image src={formData.paymentProofPreview} alt="Payment proof" width={300} height={200} className="max-w-xs mx-auto rounded-lg shadow border border-gray-200 dark:border-gray-600" />
@@ -869,6 +940,7 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                   </div>
 
                   <div className={sectionClass}>
+<<<<<<< HEAD
                     <label className={`flex items-start gap-3 cursor-pointer ${errors.termsAccepted ? 'text-red-500' : ''}`}>
                       <input type="checkbox" name="termsAccepted" checked={formData.termsAccepted} onChange={handleInputChange} className="w-5 h-5 mt-1 rounded" style={{ accentColor: '#A1823D' }} />
                       <span className="text-sm text-gray-900 dark:text-gray-100">I agree to the Terms and Conditions and Cancellation Policy</span>
@@ -918,6 +990,52 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
             </form>
           </div>
         </div>
+=======
+                    <label className="flex items-start gap-3 cursor-pointer">
+                      <input type="checkbox" name="termsAccepted" checked={formData.termsAccepted} onChange={handleInputChange} className="w-5 h-5 mt-1 rounded" style={{ accentColor: '#A1823D' }} />
+                      <span className="text-sm text-gray-900 dark:text-gray-100">I agree to the Terms and Conditions and Cancellation Policy</span>
+                    </label>
+                  </div>
+                </div>
+              )}
+            </form>
+          </div>
+        </div>
+
+        {/* Footer Actions */}
+        <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-6 rounded-b-2xl flex gap-4 flex-shrink-0">
+          {currentStep > 1 && (
+            <button 
+              type="button" 
+              onClick={handleBack}
+              className="flex-1 flex items-center justify-center gap-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-600 font-semibold py-3 px-6 rounded-lg transition"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              Back
+            </button>
+          )}
+          
+          {currentStep < 4 ? (
+            <button 
+              type="button" 
+              onClick={handleNext}
+              className="flex-1 flex items-center justify-center gap-2 text-white font-semibold py-3 px-6 rounded-lg transition hover:opacity-90"
+              style={{ backgroundColor: '#A1823D' }}
+            >
+              Next Step
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          ) : (
+            <button 
+              type="submit" 
+              onClick={handleSubmit}
+              className="flex-1 bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-6 rounded-lg transition"
+            >
+              Confirm Booking
+            </button>
+          )}
+        </div>
+>>>>>>> 4da347254b09e7d2af6a23069cf7e3a3638a878e
       </div>
     </div>
   );

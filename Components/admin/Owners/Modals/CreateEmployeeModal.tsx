@@ -7,6 +7,8 @@ import { Select, SelectItem } from "@nextui-org/select";
 import { useCreateEmployeeMutation } from "@/redux/api/employeeApi";
 import { useCreateActivityLogMutation } from "@/redux/api/activityLogApi";
 import { useSession } from "next-auth/react";
+import { useCreateActivityLogMutation } from "@/redux/api/activityLogApi";
+import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
 import Image from "next/image";
 
@@ -17,7 +19,9 @@ interface CreateEmployeeModalProps {
 
 const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
   const { data: session } = useSession();
+  const { data: session } = useSession();
   const [createEmployee, { isLoading }] = useCreateEmployeeMutation();
+  const [createActivityLog] = useCreateActivityLogMutation();
   const [createActivityLog] = useCreateActivityLogMutation();
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -304,6 +308,20 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
           console.error("Failed to create activity log:", logError);
         }
 
+        // Create activity log
+        try {
+          await createActivityLog({
+            employee_id: (session?.user as any)?.id,
+            action_type: "create",
+            description: `Created new staff: ${formData.firstName} ${formData.lastName}`,
+            details: `Role: ${formData.role}, Dept: ${formData.department}`,
+            entity_type: "staff",
+            entity_id: result.data.id
+          }).unwrap();
+        } catch (logError) {
+          console.error("Failed to create activity log:", logError);
+        }
+
         toast.success("Employee created successfully!");
         setFormData({
           firstName: "",
@@ -352,12 +370,16 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
       <div className="fixed inset-0 bg-black/50 z-40" onClick={onClose}></div>
       <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
         <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-4xl w-full max-h-[90vh] shadow-2xl flex flex-col border border-slate-200 dark:border-slate-800">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-4xl w-full max-h-[90vh] shadow-2xl flex flex-col border border-slate-200 dark:border-slate-800">
           {/* Header - Sticky */}
+          <div className="flex justify-between items-center p-6 border-b border-slate-200 dark:border-slate-800 bg-gradient-to-r from-orange-50 to-orange-100 dark:from-orange-950/20 dark:to-orange-900/10 rounded-t-2xl flex-shrink-0">
           <div className="flex justify-between items-center p-6 border-b border-slate-200 dark:border-slate-800 bg-gradient-to-r from-orange-50 to-orange-100 dark:from-orange-950/20 dark:to-orange-900/10 rounded-t-2xl flex-shrink-0">
             <div>
               <h2 className="text-2xl font-bold text-slate-800 dark:text-white">
+              <h2 className="text-2xl font-bold text-slate-800 dark:text-white">
                 Create New Employee
               </h2>
+              <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
               <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
                 Fill in the employee information below
               </p>
@@ -366,7 +388,10 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
               onClick={onClose}
               disabled={isLoading}
               className="p-2 hover:bg-white/50 dark:hover:bg-slate-800/50 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isLoading}
+              className="p-2 hover:bg-white/50 dark:hover:bg-slate-800/50 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
+              <X className="w-6 h-6 text-slate-600 dark:text-slate-400" />
               <X className="w-6 h-6 text-slate-600 dark:text-slate-400" />
             </button>
           </div>
@@ -377,10 +402,12 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
               {/* Personal Information Section */}
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-800 pb-2">
+                <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-800 pb-2">
                   Personal Information
                 </h3>
 
                 {/* Profile Picture Upload */}
+                <div className="flex flex-col items-center gap-4 p-6 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
                 <div className="flex flex-col items-center gap-4 p-6 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
                   <div className="relative">
                     {profilePreview ? (
@@ -395,6 +422,8 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                     ) : (
                       <div className="w-32 h-32 rounded-full bg-slate-200 dark:bg-slate-800 border-4 border-slate-300 dark:border-slate-700 flex items-center justify-center">
                         <User className="w-16 h-16 text-slate-400 dark:text-slate-600" />
+                      <div className="w-32 h-32 rounded-full bg-slate-200 dark:bg-slate-800 border-4 border-slate-300 dark:border-slate-700 flex items-center justify-center">
+                        <User className="w-16 h-16 text-slate-400 dark:text-slate-600" />
                       </div>
                     )}
                   </div>
@@ -407,8 +436,10 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                         accept="image/*"
                         onChange={handleProfilePictureUpload}
                         disabled={isLoading}
+                        disabled={isLoading}
                         className="hidden"
                       />
+                      <span className={`inline-flex items-center gap-2 px-4 py-2 ${isLoading ? 'bg-gray-400 cursor-not-allowed' : 'bg-orange-600 hover:bg-orange-700 cursor-pointer'} text-white rounded-lg font-medium transition-colors text-sm`}>
                       <span className={`inline-flex items-center gap-2 px-4 py-2 ${isLoading ? 'bg-gray-400 cursor-not-allowed' : 'bg-orange-600 hover:bg-orange-700 cursor-pointer'} text-white rounded-lg font-medium transition-colors text-sm`}>
                         <Upload className="w-4 h-4" />
                         {profilePreview ? "Change Photo" : "Upload Photo"}
@@ -421,12 +452,15 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                         onClick={handleRemoveProfilePicture}
                         disabled={isLoading}
                         className={`px-4 py-2 ${isLoading ? 'bg-gray-400 cursor-not-allowed' : 'bg-rose-500 hover:bg-rose-600'} text-white rounded-lg font-medium transition-colors text-sm`}
+                        disabled={isLoading}
+                        className={`px-4 py-2 ${isLoading ? 'bg-gray-400 cursor-not-allowed' : 'bg-rose-500 hover:bg-rose-600'} text-white rounded-lg font-medium transition-colors text-sm`}
                       >
                         Remove
                       </button>
                     )}
                   </div>
 
+                  <p className="text-xs text-slate-500 dark:text-slate-400 text-center font-medium">
                   <p className="text-xs text-slate-500 dark:text-slate-400 text-center font-medium">
                     Recommended: Square image, at least 400x400px
                   </p>
@@ -453,8 +487,12 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       errorMessage={touchedFields.firstName && errors.firstName}
                       isRequired
                       isDisabled={isLoading}
+                      isDisabled={isLoading}
                       classNames={{
                         base: "w-full",
+                        label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
+                        input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
+                        innerWrapper: "bg-transparent",
                         label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
                         input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
                         innerWrapper: "bg-transparent",
@@ -481,8 +519,12 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       errorMessage={touchedFields.lastName && errors.lastName}
                       isRequired
                       isDisabled={isLoading}
+                      isDisabled={isLoading}
                       classNames={{
                         base: "w-full",
+                        label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
+                        input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
+                        innerWrapper: "bg-transparent",
                         label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
                         input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
                         innerWrapper: "bg-transparent",
@@ -512,8 +554,12 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       errorMessage={touchedFields.email && errors.email}
                       isRequired
                       isDisabled={isLoading}
+                      isDisabled={isLoading}
                       classNames={{
                         base: "w-full",
+                        label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
+                        input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
+                        innerWrapper: "bg-transparent",
                         label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
                         input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
                         innerWrapper: "bg-transparent",
@@ -541,8 +587,12 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       errorMessage={touchedFields.phone && errors.phone}
                       isRequired
                       isDisabled={isLoading}
+                      isDisabled={isLoading}
                       classNames={{
                         base: "w-full",
+                        label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
+                        input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
+                        innerWrapper: "bg-transparent",
                         label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
                         input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
                         innerWrapper: "bg-transparent",
@@ -559,6 +609,7 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                     name="password"
                     label="Password *"
                     placeholder="Enter password"
+                    placeholder="Enter password"
                     labelPlacement="outside"
                     value={formData.password}
                     onChange={(e) => {
@@ -574,6 +625,9 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                     isRequired
                     classNames={{
                       base: "w-full",
+                      label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
+                      input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
+                      innerWrapper: "bg-transparent",
                       label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
                       input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
                       innerWrapper: "bg-transparent",
@@ -605,6 +659,9 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
                       input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
                       innerWrapper: "bg-transparent",
+                      label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
+                      input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
+                      innerWrapper: "bg-transparent",
                     }}
                   />
                 </div>
@@ -612,6 +669,7 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
 
               {/* Employment Details Section */}
               <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-800 pb-2">
                 <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-800 pb-2">
                   Employment Details
                 </h3>
@@ -628,6 +686,9 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       description="Auto-generated base on role"
                       classNames={{
                         base: "w-full",
+                        label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
+                        input: "bg-slate-100 dark:bg-slate-800/50 dark:text-slate-300",
+                        description: "dark:text-slate-500",
                         label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
                         input: "bg-slate-100 dark:bg-slate-800/50 dark:text-slate-300",
                         description: "dark:text-slate-500",
@@ -667,6 +728,7 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       onPaste={(e) => e.preventDefault()}
                       isRequired
                       isDisabled={isLoading}
+                      isDisabled={isLoading}
                       classNames={{
                         base: "w-full",
                         label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
@@ -690,14 +752,19 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       }}
                       isRequired
                       isDisabled={isLoading}
+                      isDisabled={isLoading}
                       classNames={{
                         base: "w-full",
+                        label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
+                        trigger: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
+                        popoverContent: "dark:bg-slate-900 dark:text-white",
                         label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
                         trigger: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
                         popoverContent: "dark:bg-slate-900 dark:text-white",
                       }}
                     >
                       {roles.map((role) => (
+                        <SelectItem key={role.value} value={role.value} className="dark:text-slate-200 dark:hover:bg-slate-800">
                         <SelectItem key={role.value} value={role.value} className="dark:text-slate-200 dark:hover:bg-slate-800">
                           {role.label}
                         </SelectItem>
@@ -718,14 +785,19 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       }}
                       isRequired
                       isDisabled={isLoading}
+                      isDisabled={isLoading}
                       classNames={{
                         base: "w-full",
+                        label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
+                        trigger: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
+                        popoverContent: "dark:bg-slate-900 dark:text-white",
                         label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
                         trigger: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
                         popoverContent: "dark:bg-slate-900 dark:text-white",
                       }}
                     >
                       {getAvailableDepartments().map((dept) => (
+                        <SelectItem key={dept.value} value={dept.value} className="dark:text-slate-200 dark:hover:bg-slate-800">
                         <SelectItem key={dept.value} value={dept.value} className="dark:text-slate-200 dark:hover:bg-slate-800">
                           {dept.label}
                         </SelectItem>
@@ -747,8 +819,11 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       }
                       isRequired
                       isDisabled={isLoading}
+                      isDisabled={isLoading}
                       classNames={{
                         base: "w-full",
+                        label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
+                        input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
                         label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
                         input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
                       }}
@@ -759,6 +834,7 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
 
               {/* Address Section */}
               <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-800 pb-2">
                 <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-800 pb-2">
                   Address Information
                 </h3>
@@ -777,6 +853,8 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       base: "w-full",
                       label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
                       input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
+                      label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
+                      input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
                     }}
                   />
                 </div>
@@ -793,8 +871,11 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       }
                       isRequired
                       isDisabled={isLoading}
+                      isDisabled={isLoading}
                       classNames={{
                         base: "w-full",
+                        label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
+                        input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
                         label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
                         input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
                       }}
@@ -812,8 +893,11 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       }
                       isRequired
                       isDisabled={isLoading}
+                      isDisabled={isLoading}
                       classNames={{
                         base: "w-full",
+                        label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
+                        input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
                         label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
                         input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
                       }}
@@ -824,6 +908,7 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
 
               {/* Emergency Contact Section */}
               <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-800 pb-2">
                 <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-800 pb-2">
                   Emergency Contact
                 </h3>
@@ -843,8 +928,11 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       }
                       isRequired
                       isDisabled={isLoading}
+                      isDisabled={isLoading}
                       classNames={{
                         base: "w-full",
+                        label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
+                        input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
                         label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
                         input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
                       }}
@@ -866,8 +954,11 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       }}
                       isRequired
                       isDisabled={isLoading}
+                      isDisabled={isLoading}
                       classNames={{
                         base: "w-full",
+                        label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
+                        input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
                         label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
                         input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
                       }}
@@ -890,8 +981,11 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       }
                       isRequired
                       isDisabled={isLoading}
+                      isDisabled={isLoading}
                       classNames={{
                         base: "w-full",
+                        label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
+                        input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
                         label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
                         input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
                       }}
@@ -904,9 +998,12 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
 
           {/* Footer - Sticky */}
           <div className="flex gap-3 p-6 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 rounded-b-2xl flex-shrink-0">
+          <div className="flex gap-3 p-6 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 rounded-b-2xl flex-shrink-0">
             <button
               type="button"
               onClick={onClose}
+              disabled={isLoading}
+              className="flex-1 px-6 py-3 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl hover:bg-white dark:hover:bg-slate-800 font-bold transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={isLoading}
               className="flex-1 px-6 py-3 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl hover:bg-white dark:hover:bg-slate-800 font-bold transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -916,6 +1013,7 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
               type="submit"
               onClick={handleSubmit}
               disabled={isLoading}
+              className="flex-1 px-6 py-3 bg-orange-600 text-white rounded-xl hover:bg-orange-700 font-bold transition-all shadow-lg shadow-orange-500/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm"
               className="flex-1 px-6 py-3 bg-orange-600 text-white rounded-xl hover:bg-orange-700 font-bold transition-all shadow-lg shadow-orange-500/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm"
             >
               {isLoading && (

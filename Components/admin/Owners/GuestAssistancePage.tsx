@@ -1,6 +1,9 @@
 
+
 "use client";
 
+import OwnerPageHeader from "./OwnerPageHeader";
+import { useState, useMemo, useEffect} from "react";
 import OwnerPageHeader from "./OwnerPageHeader";
 import { useState, useMemo, useEffect} from "react";
 import {
@@ -24,14 +27,37 @@ import {
   ChevronsRight,
   ArrowUpDown,
   AlertCircle,
+  Search,
+  Filter,
+  Plus,
+  Eye,
+  Edit,
+  Trash2,
+  MapPin,
+  User,
+  Phone,
+  Mail,
+  CheckCircle,
+  Clock,
+  LogIn,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  ArrowUpDown,
+  AlertCircle,
   Home,
   DollarSign,
   X,
   Check,
+  X,
+  Check,
 } from "lucide-react";
+import toast from "react-hot-toast";
 import toast from "react-hot-toast";
 
 interface Booking {
+  id: string;
   id: string;
   bookingRef: string;
   guestName: string;
@@ -44,7 +70,10 @@ interface Booking {
   amount: number;
   rateType?: string;
   status: "pending" | "approved" | "declined" | "rejected" | "confirmed" | "checked-in" | "completed" | "cancelled";
+  rateType?: string;
+  status: "pending" | "approved" | "declined" | "rejected" | "confirmed" | "checked-in" | "completed" | "cancelled";
   createdAt: string;
+  message?: string | null;
   message?: string | null;
 }
 
@@ -55,8 +84,90 @@ const GuestAssistancePage = () => {
   const [entriesPerPage, setEntriesPerPage] = useState(5);
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [entriesPerPage, setEntriesPerPage] = useState(5);
+  const [sortField, setSortField] = useState<string | null>(null);
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+
+ const [bookings, setBookings] = useState<Booking[]>([]);
+const [loading, setLoading] = useState(true);
+
+useEffect(() => {
+  fetchBookings();
+}, []);
+
+const fetchBookings = async () => {
+  try {
+    // Request only the booking table columns from the backend (Neon)
+    const res = await fetch("/api/bookings?raw=true");
+    const json = await res.json();
+    const rows = Array.isArray(json?.data) ? json.data : [];
+
+    const mapped: Booking[] = rows.map((r: any) => {
+      const guestsCount = Number(r.adults || 0) + Number(r.children || 0) + Number(r.infants || 0);
+      const createdAt = r.created_at ? new Date(r.created_at).toLocaleString() : "";
+
+      return {
+        id: String(r.id),
+        bookingRef: String(r.booking_id || r.id),
+        guestName: "", // guest info not stored directly on booking table
+        email: "",
+        phone: "",
+        havenName: r.room_name || "",
+        checkIn: r.check_in_date || "",
+        checkOut: r.check_out_date || "",
+        guests: guestsCount,
+        amount: 0,
+        rateType: undefined,
+        status: (r.status as Booking["status"]) || "pending",
+        createdAt,
+        message: r.rejection_reason || null,
+      };
+    });
+
+    setBookings(mapped);
+    // Fetch main guest info for each booking and merge into list
+    try {
+      await Promise.all(
+        mapped.map(async (b) => {
+          try {
+            const res = await fetch(`/api/bookings/${b.id}`);
+            if (!res.ok) return;
+            const json = await res.json();
+            const data = json?.data;
+            if (!data) return;
+            const mainGuest = data.main_guest || (Array.isArray(data.guests) && data.guests[0]) || null;
+            const guestName = mainGuest ? `${mainGuest.firstName || mainGuest.first_name || ""} ${mainGuest.lastName || mainGuest.last_name || ""}`.trim() : "";
+            const email = mainGuest?.email || data.guest_email || "";
+            const phone = mainGuest?.phone || data.guest_phone || "";
+            const amountVal = Number(
+              data.total_amount ??
+                data.totalAmount ??
+                data.booking_payment?.total_amount ??
+                (data.booking_payment && data.booking_payment.total_amount) ??
+                0,
+            );
+
+            setBookings((prev) => prev.map((p) => (p.id === b.id ? { ...p, guestName: guestName || p.guestName, email: email || p.email, phone: phone || p.phone, amount: amountVal || p.amount } : p)));
+          } catch (e) {
+            // ignore per-booking failure
+          }
+        }),
+      );
+    } catch (e) {
+      // ignore
+    }
+  } catch (error) {
+    console.error("Failed to fetch bookings:", error);
+  } finally {
+    setLoading(false);
+  }
+};
 
  const [bookings, setBookings] = useState<Booking[]>([]);
 const [loading, setLoading] = useState(true);
@@ -153,8 +264,45 @@ const fetchBookings = async () => {
           toast.error("Failed to approve booking");
         }
       })();
+  const handleApprove = (id: string) => {
+      // optimistic UI update handled in async function below
+      void (async () => {
+        try {
+          // send update to backend
+          const body = { id: id, status: "approved" };
+          const res = await fetch(`/api/bookings`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          if (!res.ok) throw new Error("Failed to update booking");
+          setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, status: "approved" } : b)));
+          toast.success("Booking approved");
+        } catch (err) {
+          console.error(err);
+          toast.error("Failed to approve booking");
+        }
+      })();
   };
 
+  const handleDecline = (id: string) => {
+      void (async () => {
+        try {
+          const body = { id: id, status: "rejected", rejection_reason: "Declined by owner" };
+          const res = await fetch(`/api/bookings`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          if (!res.ok) throw new Error("Failed to update booking");
+          setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, status: "rejected", message: "Declined by owner" } : b)));
+          toast.error("Booking declined");
+        } catch (err) {
+          console.error(err);
+          toast.error("Failed to decline booking");
+        }
+      })();
+  };
   const handleDecline = (id: string) => {
       void (async () => {
         try {
@@ -178,6 +326,8 @@ const fetchBookings = async () => {
     switch (status) {
       case "approved":
         return "bg-green-100 text-green-700";
+      case "pending":
+        return "bg-yellow-100 text-yellow-700";
       case "pending":
         return "bg-yellow-100 text-yellow-700";
       case "declined":
@@ -348,6 +498,69 @@ const stats = useMemo(() => {
       day: "numeric",
     });
   };
+  const handleViewBooking = async (booking: Booking) => {
+    // Fetch full booking details (includes guests/payments) for the modal
+    try {
+      const res = await fetch(`/api/bookings/${booking.id}`);
+      if (!res.ok) {
+        setSelectedBooking(booking);
+        setIsViewModalOpen(true);
+        return;
+      }
+      const json = await res.json();
+      const data = json?.data || {};
+
+      const mainGuest = (data.main_guest || (data.guests && data.guests[0]) || {});
+      const guestName = [mainGuest.firstName || data.guest_first_name, mainGuest.lastName || data.guest_last_name].filter(Boolean).join(" ") || "Guest";
+      const email = mainGuest.email || data.guest_email || "";
+      const phone = mainGuest.phone || data.guest_phone || "";
+      const amount = Number(data.total_amount ?? (data.booking_payment && data.booking_payment.total_amount) ?? 0);
+
+      const detailed: Booking = {
+        id: String(data.id || booking.id),
+        bookingRef: String(data.booking_id || booking.bookingRef),
+        guestName,
+        email,
+        phone,
+        havenName: data.room_name || booking.havenName || "",
+        checkIn: data.check_in_date || booking.checkIn,
+        checkOut: data.check_out_date || booking.checkOut,
+        guests: Number(data.adults || 0) + Number(data.children || 0) + Number(data.infants || 0),
+        amount,
+        rateType: data.room_rate ? String(data.room_rate) : booking.rateType,
+        status: (data.status as Booking["status"]) || booking.status,
+        createdAt: data.created_at ? new Date(data.created_at).toLocaleString() : booking.createdAt,
+        message: data.rejection_reason || booking.message || null,
+      };
+
+      setSelectedBooking(detailed);
+      setIsViewModalOpen(true);
+    } catch (error) {
+      console.error("Failed to fetch booking details:", error);
+      setSelectedBooking(booking);
+      setIsViewModalOpen(true);
+    }
+  };
+
+  const handleCloseModal = () => {
+    setIsViewModalOpen(false);
+    setSelectedBooking(null);
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat("en-PH", {
+      style: "currency",
+      currency: "PHP",
+    }).format(amount);
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-700">
@@ -355,7 +568,12 @@ const stats = useMemo(() => {
         title="Guest Assistance & Booking Approvals"
         description="Manage booking requests, approve reservations, and assist guests"
       />
+      <OwnerPageHeader
+        title="Guest Assistance & Booking Approvals"
+        description="Manage booking requests, approve reservations, and assist guests"
+      />
 
+      {/* Stats Cards */}
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {[
@@ -380,8 +598,51 @@ const stats = useMemo(() => {
             </div>
           );
         })}
+        {[
+          { label: "Total Bookings", value: stats.total.toString(), color: "bg-blue-500", icon: Calendar },
+          { label: "Pending", value: stats.pending.toString(), color: "bg-yellow-500", icon: Clock },
+          { label: "Approved", value: stats.approved.toString(), color: "bg-green-500", icon: CheckCircle },
+          { label: "Declined", value: stats.declined.toString(), color: "bg-red-500", icon: X },
+        ].map((stat, i) => {
+          const IconComponent = stat.icon;
+          return (
+            <div
+              key={i}
+              className={`${stat.color} text-white rounded-lg p-6 shadow hover:shadow-lg transition-all`}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm opacity-90">{stat.label}</p>
+                  <p className="text-3xl font-bold mt-2">{stat.value}</p>
+                </div>
+                <IconComponent className="w-12 h-12 opacity-50" />
+              </div>
+            </div>
+          );
+        })}
       </div>
 
+      {/* Search and Filter Bar */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-4">
+        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+          <div className="flex flex-col sm:flex-row gap-4 flex-1 w-full">
+            {/* Entries Per Page */}
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">Show</label>
+              <select
+                value={entriesPerPage}
+                onChange={(e) => {
+                  setEntriesPerPage(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-brand-primary text-sm"
+              >
+                <option value="5">5</option>
+                <option value="10">10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+              </select>
+              <label className="text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">entries</label>
       {/* Search and Filter Bar */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-4">
         <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
@@ -435,10 +696,52 @@ const stats = useMemo(() => {
         </div>
       </div>
 
+            {/* Search */}
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search by booking reference, guest name, or haven..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-brand-primary"
+              />
+            </div>
+          </div>
+
+          {/* Filter */}
+          <div className="flex items-center gap-2">
+            <Filter className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-brand-primary"
+            >
+              <option value="all">All Status</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="declined">Declined</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Desktop Table */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden hidden lg:block">
       {/* Desktop Table */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden hidden lg:block">
         <div className="overflow-x-auto">
           <table className="w-full">
+            <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 border-b-2 border-gray-200 dark:border-gray-600">
+              <tr>
+                <th
+                  onClick={() => handleSort("id")}
+                  className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
+                >
+                  <div className="flex items-center gap-2">
+                    Booking Ref
+                    <ArrowUpDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600" />
+                  </div>
             <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 border-b-2 border-gray-200 dark:border-gray-600">
               <tr>
                 <th
@@ -458,7 +761,23 @@ const stats = useMemo(() => {
                     Guest Details
                     <ArrowUpDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600" />
                   </div>
+                <th
+                  onClick={() => handleSort("guestName")}
+                  className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
+                >
+                  <div className="flex items-center gap-2">
+                    Guest Details
+                    <ArrowUpDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600" />
+                  </div>
                 </th>
+                <th
+                  onClick={() => handleSort("haven")}
+                  className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
+                >
+                  <div className="flex items-center gap-2">
+                    Haven
+                    <ArrowUpDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600" />
+                  </div>
                 <th
                   onClick={() => handleSort("haven")}
                   className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
@@ -476,7 +795,23 @@ const stats = useMemo(() => {
                     Check-In
                     <ArrowUpDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600" />
                   </div>
+                <th
+                  onClick={() => handleSort("checkIn")}
+                  className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
+                >
+                  <div className="flex items-center gap-2">
+                    Check-In
+                    <ArrowUpDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600" />
+                  </div>
                 </th>
+                <th
+                  onClick={() => handleSort("checkOut")}
+                  className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
+                >
+                  <div className="flex items-center gap-2">
+                    Check-Out
+                    <ArrowUpDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600" />
+                  </div>
                 <th
                   onClick={() => handleSort("checkOut")}
                   className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
@@ -495,7 +830,24 @@ const stats = useMemo(() => {
                     Amount
                     <ArrowUpDown className="w-4 h-4 text-gray-400" />
                   </div>
+                <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">Guests</th>
+                <th
+                  onClick={() => handleSort("amount")}
+                  className="text-right py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors whitespace-nowrap"
+                >
+                  <div className="flex items-center justify-end gap-2">
+                    Amount
+                    <ArrowUpDown className="w-4 h-4 text-gray-400" />
+                  </div>
                 </th>
+                <th
+                  onClick={() => handleSort("status")}
+                  className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors whitespace-nowrap"
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    Status
+                    <ArrowUpDown className="w-4 h-4 text-gray-400" />
+                  </div>
                 <th
                   onClick={() => handleSort("status")}
                   className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors whitespace-nowrap"
@@ -506,21 +858,30 @@ const stats = useMemo(() => {
                   </div>
                 </th>
                 <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">Actions</th>
+                <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody>
               {paginatedBookings.length === 0 ? (
+              {paginatedBookings.length === 0 ? (
                 <tr>
+                  <td colSpan={9} className="py-8 text-center text-gray-500">
+                    No bookings found
                   <td colSpan={9} className="py-8 text-center text-gray-500">
                     No bookings found
                   </td>
                 </tr>
               ) : (
                 paginatedBookings.map((booking) => (
+                paginatedBookings.map((booking) => (
                   <tr
                     key={booking.id}
                     className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                   >
+                    <td className="py-4 px-4">
+                      <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{booking.bookingRef}</span>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{booking.createdAt}</p>
                     <td className="py-4 px-4">
                       <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{booking.bookingRef}</span>
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{booking.createdAt}</p>
@@ -534,7 +895,19 @@ const stats = useMemo(() => {
                         <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                           <Mail className="w-3 h-3 flex-shrink-0" />
                           <span className="truncate">{booking.email}</span>
+                    <td className="py-4 px-4">
+                      <div className="space-y-1 min-w-[200px]">
+                        <div className="flex items-center gap-2">
+                          <User className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                          <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{booking.guestName}</span>
                         </div>
+                        <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                          <Mail className="w-3 h-3 flex-shrink-0" />
+                          <span className="truncate">{booking.email}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                          <Phone className="w-3 h-3 flex-shrink-0" />
+                          {booking.phone}
                         <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                           <Phone className="w-3 h-3 flex-shrink-0" />
                           {booking.phone}
@@ -542,12 +915,20 @@ const stats = useMemo(() => {
                       </div>
                     </td>
                     <td className="py-4 px-4">
+                    <td className="py-4 px-4">
                       <div className="flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-orange-500 flex-shrink-0" />
+                        <span className="font-medium text-gray-700 dark:text-gray-200 text-sm whitespace-nowrap">{booking.havenName}</span>
                         <MapPin className="w-4 h-4 text-orange-500 flex-shrink-0" />
                         <span className="font-medium text-gray-700 dark:text-gray-200 text-sm whitespace-nowrap">{booking.havenName}</span>
                       </div>
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{booking.rateType}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{booking.rateType}</p>
                     </td>
+                    <td className="py-4 px-4">
+                      <div className="text-sm text-gray-600 dark:text-gray-300">
+                        <div className="whitespace-nowrap">{formatDate(booking.checkIn)}</div>
+                      </div>
                     <td className="py-4 px-4">
                       <div className="text-sm text-gray-600 dark:text-gray-300">
                         <div className="whitespace-nowrap">{formatDate(booking.checkIn)}</div>
@@ -557,12 +938,22 @@ const stats = useMemo(() => {
                       <div className="text-sm text-gray-600 dark:text-gray-300">
                         <div className="whitespace-nowrap">{formatDate(booking.checkOut)}</div>
                       </div>
+                    <td className="py-4 px-4">
+                      <div className="text-sm text-gray-600 dark:text-gray-300">
+                        <div className="whitespace-nowrap">{formatDate(booking.checkOut)}</div>
+                      </div>
                     </td>
+                    <td className="py-4 px-4 text-center">
+                      <div className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                        {booking.guests}
                     <td className="py-4 px-4 text-center">
                       <div className="text-sm font-semibold text-gray-700 dark:text-gray-200">
                         {booking.guests}
                       </div>
                     </td>
+                    <td className="py-4 px-4 text-right">
+                      <div className="text-sm font-bold text-green-600 dark:text-green-400 whitespace-nowrap">
+                        {formatCurrency(booking.amount)}
                     <td className="py-4 px-4 text-right">
                       <div className="text-sm font-bold text-green-600 dark:text-green-400 whitespace-nowrap">
                         {formatCurrency(booking.amount)}
@@ -575,11 +966,17 @@ const stats = useMemo(() => {
                     </td>
                     <td className="py-4 px-4">
                       <div className="flex items-center justify-center gap-1">
+                    <td className="py-4 px-4">
+                      <div className="flex items-center justify-center gap-1">
                         <button
                           onClick={() => handleViewBooking(booking)}
                           className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                           title="View"
+                          onClick={() => handleViewBooking(booking)}
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          title="View"
                         >
+                          <Eye className="w-4 h-4" />
                           <Eye className="w-4 h-4" />
                         </button>
                         {booking.status === "pending" && (
@@ -590,8 +987,14 @@ const stats = useMemo(() => {
                                 toast.success("Booking approved");
                               }}
                               className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                              onClick={() => {
+                                handleApprove(booking.id);
+                                toast.success("Booking approved");
+                              }}
+                              className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                               title="Approve"
                             >
+                              <Check className="w-4 h-4" />
                               <Check className="w-4 h-4" />
                             </button>
                             <button
@@ -600,8 +1003,14 @@ const stats = useMemo(() => {
                                 toast.error("Booking declined");
                               }}
                               className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              onClick={() => {
+                                handleDecline(booking.id);
+                                toast.error("Booking declined");
+                              }}
+                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                               title="Decline"
                             >
+                              <X className="w-4 h-4" />
                               <X className="w-4 h-4" />
                             </button>
                           </>
@@ -737,7 +1146,30 @@ const stats = useMemo(() => {
             <p className="text-sm text-gray-600 dark:text-gray-300">
               Showing {startIndex + 1} to {Math.min(endIndex, sortedBookings.length)} of {sortedBookings.length} entries
               {searchTerm || filterStatus !== "all" ? ` (filtered from ${bookings.length} total entries)` : ""}
+      {/* Pagination */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden">
+        <div className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 px-6 py-4 border-t border-gray-200 dark:border-gray-600">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              Showing {startIndex + 1} to {Math.min(endIndex, sortedBookings.length)} of {sortedBookings.length} entries
+              {searchTerm || filterStatus !== "all" ? ` (filtered from ${bookings.length} total entries)` : ""}
             </p>
+            <div className="flex gap-1">
+              <button
+                onClick={() => setCurrentPage(1)}
+                disabled={currentPage === 1}
+                className="p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="First Page"
+              >
+                <ChevronsLeft className="w-4 h-4" />
+              </button>
+
+              <button
+                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft className="w-4 h-4" />
             <div className="flex gap-1">
               <button
                 onClick={() => setCurrentPage(1)}
@@ -789,7 +1221,49 @@ const stats = useMemo(() => {
                 className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <ChevronRight className="w-4 h-4" />
+
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let pageNum;
+                if (totalPages <= 5) {
+                  pageNum = i + 1;
+                } else if (currentPage <= 3) {
+                  pageNum = i + 1;
+                } else if (currentPage >= totalPages - 2) {
+                  pageNum = totalPages - 4 + i;
+                } else {
+                  pageNum = currentPage - 2 + i;
+                }
+
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => setCurrentPage(pageNum)}
+                    className={`px-4 py-2 rounded-lg transition-colors text-sm font-medium ${
+                      currentPage === pageNum
+                        ? "bg-gradient-to-r from-brand-primary to-brand-primaryDark text-white shadow-md"
+                        : "border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-600"
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+
+              <button
+                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <ChevronRight className="w-4 h-4" />
               </button>
+
+              <button
+                onClick={() => setCurrentPage(totalPages)}
+                disabled={currentPage === totalPages}
+                className="p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Last Page"
+              >
+                <ChevronsRight className="w-4 h-4" />
 
               <button
                 onClick={() => setCurrentPage(totalPages)}
@@ -807,10 +1281,26 @@ const stats = useMemo(() => {
       {/* View Modal */}
       {isViewModalOpen && selectedBooking && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* View Modal */}
+      {isViewModalOpen && selectedBooking && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
             className="fixed inset-0 bg-black/60"
             onClick={handleCloseModal}
+            className="fixed inset-0 bg-black/60"
+            onClick={handleCloseModal}
           ></div>
+          <div className="relative bg-white dark:bg-gray-800 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl z-50 animate-in fade-in zoom-in duration-300">
+            {/* Header */}
+            <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">Booking Details</h2>
+              <button
+                onClick={handleCloseModal}
+                className="p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
           <div className="relative bg-white dark:bg-gray-800 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl z-50 animate-in fade-in zoom-in duration-300">
             {/* Header */}
             <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
@@ -845,7 +1335,33 @@ const stats = useMemo(() => {
                   <p><span className="font-medium text-gray-700 dark:text-gray-300">Phone:</span> {selectedBooking.phone}</p>
                 </div>
               </div>
+              {/* Guest Info */}
+              <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg">
+                <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-3 flex items-center gap-2">
+                  <User className="w-5 h-5" />
+                  Guest Information
+                </h3>
+                <div className="space-y-2 text-sm">
+                  <p><span className="font-medium text-gray-700 dark:text-gray-300">Name:</span> {selectedBooking.guestName}</p>
+                  <p><span className="font-medium text-gray-700 dark:text-gray-300">Email:</span> {selectedBooking.email}</p>
+                  <p><span className="font-medium text-gray-700 dark:text-gray-300">Phone:</span> {selectedBooking.phone}</p>
+                </div>
+              </div>
 
+              {/* Reservation */}
+              <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg">
+                <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-3 flex items-center gap-2">
+                  <Home className="w-5 h-5" />
+                  Reservation Details
+                </h3>
+                <div className="space-y-2 text-sm">
+                  <p><span className="font-medium text-gray-700 dark:text-gray-300">Haven:</span> {selectedBooking.havenName}</p>
+                  <p><span className="font-medium text-gray-700 dark:text-gray-300">Rate Type:</span> {selectedBooking.rateType}</p>
+                  <p><span className="font-medium text-gray-700 dark:text-gray-300">Check-In:</span> {formatDate(selectedBooking.checkIn)}</p>
+                  <p><span className="font-medium text-gray-700 dark:text-gray-300">Check-Out:</span> {formatDate(selectedBooking.checkOut)}</p>
+                  <p><span className="font-medium text-gray-700 dark:text-gray-300">Guests:</span> {selectedBooking.guests}</p>
+                </div>
+              </div>
               {/* Reservation */}
               <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg">
                 <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-3 flex items-center gap-2">
@@ -872,6 +1388,17 @@ const stats = useMemo(() => {
                   <p><span className="font-medium text-gray-700 dark:text-gray-300">Booked On:</span> {selectedBooking.createdAt}</p>
                 </div>
               </div>
+              {/* Payment */}
+              <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg">
+                <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-3 flex items-center gap-2">
+                  <DollarSign className="w-5 h-5" />
+                  Payment Information
+                </h3>
+                <div className="space-y-2 text-sm">
+                  <p><span className="font-medium text-gray-700 dark:text-gray-300">Total Amount:</span> {formatCurrency(selectedBooking.amount)}</p>
+                  <p><span className="font-medium text-gray-700 dark:text-gray-300">Booked On:</span> {selectedBooking.createdAt}</p>
+                </div>
+              </div>
 
               {/* Message */}
               {selectedBooking.message && (
@@ -884,7 +1411,47 @@ const stats = useMemo(() => {
                 </div>
               )}
             </div>
+              {/* Message */}
+              {selectedBooking.message && (
+                <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg">
+                  <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-3 flex items-center gap-2">
+                    <Mail className="w-5 h-5" />
+                    Guest Message
+                  </h3>
+                  <p className="text-sm italic text-gray-700 dark:text-gray-300">“{selectedBooking.message}”</p>
+                </div>
+              )}
+            </div>
 
+            {/* Action Buttons */}
+            {selectedBooking.status === "pending" && (
+              <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex gap-3">
+                <button
+                  onClick={() => {
+                    handleDecline(selectedBooking.id);
+                    toast.error("Booking declined");
+                    handleCloseModal();
+                  }}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                  Decline
+                </button>
+                <button
+                  onClick={() => {
+                    handleApprove(selectedBooking.id);
+                    toast.success("Booking approved");
+                    handleCloseModal();
+                  }}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+                >
+                  <Check className="w-4 h-4" />
+                  Approve
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
             {/* Action Buttons */}
             {selectedBooking.status === "pending" && (
               <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex gap-3">
