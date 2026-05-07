@@ -42,6 +42,7 @@ type Haven = {
   guestName?: string;
   checkOutDate?: string;
   cleaningStatus?: string;
+  isUpcoming?: boolean;
 };
 
 interface Props {
@@ -80,9 +81,10 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
     const fetchHavens = async () => {
       setIsHavensLoading(true);
       try {
-        const res = await fetch("/api/admin/cleaners/havens", {
-          cache: "no-store",
-        });
+        const url = initialHavenId
+          ? `/api/admin/cleaners/havens?include_id=${encodeURIComponent(initialHavenId)}`
+          : "/api/admin/cleaners/havens";
+        const res = await fetch(url, { cache: "no-store" });
         const data = await res.json();
         if (!mounted) return;
         if (Array.isArray(data)) {
@@ -140,8 +142,13 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
           const { checklist } = payload.data;
           setChecklistId(checklist.id);
           setChecklist(checklist.categories || []);
-          const found = havens.find((h) => h.id === checklist.haven_id);
-          if (found) setSelectedHaven(found);
+          // Use haven info if the API returns it alongside the checklist
+          if (payload.data.haven) {
+            setSelectedHaven(payload.data.haven);
+          } else {
+            const found = havens.find((h) => h.id === checklist.haven_id);
+            if (found) setSelectedHaven(found);
+          }
         } else {
           throw new Error(payload.error || "Failed to load checklist");
         }
@@ -158,15 +165,30 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
     [havens],
   );
 
+  // Separately fetch haven info for the booking card (in case checklist endpoint doesn't return it)
+  const fetchHavenInfo = useCallback(async (havenId: string) => {
+    try {
+      const res = await fetch(`/api/admin/cleaners/havens`, { cache: "no-store" });
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        const found = data.find((h: Haven) => String(h.id) === String(havenId));
+        if (found) setSelectedHaven(found);
+      }
+    } catch {
+      // non-fatal — booking info card just won't show
+    }
+  }, []);
+
   useEffect(() => {
     if (selectedHavenId) {
       fetchChecklist(selectedHavenId);
+      fetchHavenInfo(selectedHavenId);
     } else {
       setChecklist([]);
       setChecklistId(null);
       setSelectedHaven(null);
     }
-  }, [selectedHavenId, fetchChecklist]);
+  }, [selectedHavenId, fetchChecklist, fetchHavenInfo]);
 
   // Update selectedHaven when haven selection changes
   const handleHavenChange = (havenId: string | null) => {
@@ -395,6 +417,20 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
         </div>
       )}
 
+      {/* Upcoming notice */}
+      {selectedHaven?.isUpcoming && (
+        <div className="flex items-start gap-3 bg-sky-50 dark:bg-sky-900/20 border border-sky-300 dark:border-sky-700 rounded-lg p-4">
+          <AlertCircle className="w-5 h-5 text-sky-500 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-sky-700 dark:text-sky-300">Guest has not checked out yet</p>
+            <p className="text-xs text-sky-600 dark:text-sky-400 mt-0.5">
+              You can preview the checklist to prepare, but cleaning tasks will be unlocked after the guest checks out on{" "}
+              <span className="font-semibold">{selectedHaven.checkOutDate}</span>.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Progress Overview */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-4 sm:p-6">
         <div className="flex items-center justify-between mb-4">
@@ -420,7 +456,7 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
       </div>
 
       {/* Proof of Payment */}
-      {!isLoading && (
+      {!isLoading && !selectedHaven?.isUpcoming && (
         <div className={`bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-4 sm:p-6 border-2 ${
           proofUploaded ? "border-green-400 dark:border-green-600" : "border-amber-400 dark:border-amber-600"
         }`}>
@@ -597,8 +633,8 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
                   {category.tasks.map((task: Task) => (
                     <div
                       key={task.id}
-                      onClick={() => toggleTask(task.id)}
-                      className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all ${
+                      onClick={() => { if (!selectedHaven?.isUpcoming) toggleTask(task.id); }}
+                      className={`flex items-center gap-3 p-3 rounded-lg transition-all ${selectedHaven?.isUpcoming ? "cursor-not-allowed opacity-60" : "cursor-pointer"} ${
                         task.completed
                           ? "bg-green-50 dark:bg-green-900/20"
                           : "bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600"
@@ -627,7 +663,7 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
       </div>
 
       {/* Action / Status */}
-      <div className="flex flex-col sm:flex-row gap-3 items-center">
+      {!selectedHaven?.isUpcoming && <div className="flex flex-col sm:flex-row gap-3 items-center">
         <p className="text-sm text-gray-500 flex-1 text-center sm:text-left">Changes are saved automatically</p>
         {!canComplete && (
           <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">
@@ -640,7 +676,39 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
             All tasks complete!
           </div>
         )}
-      </div>
+
+        {/* Finalize checklist: mark checklist as completed in backend */}
+        {canComplete && progress === 100 && checklistId && (
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                const res = await fetch("/api/admin/cleaners", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    action: "submit",
+                    checklist_id: checklistId,
+                  }),
+                });
+                const payload = await res.json();
+                if (!res.ok || !payload?.success) {
+                  throw new Error(payload?.error || "Failed to submit checklist");
+                }
+
+                toast.success("Checklist submitted successfully");
+              } catch (err) {
+                console.error("Submit checklist error:", err);
+                const message = err instanceof Error ? err.message : String(err);
+                toast.error(message || "Failed to submit checklist");
+              }
+            }}
+            className="flex-1 sm:flex-none w-full sm:w-auto bg-brand-primary text-white font-semibold rounded-lg px-4 py-2.5 hover:bg-brand-primary/90 transition-colors"
+          >
+            Confirm & Finish
+          </button>
+        )}
+      </div>}
     </div>
   );
 }

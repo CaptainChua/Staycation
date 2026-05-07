@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { useGetCleaningTasksQuery } from "@/redux/api/cleanersApi";
+import { useGetCleaningTasksQuery, CleaningTask } from "@/redux/api/cleanersApi";
 import ViewBookings from "./Modals/ViewBookings";
 import AssignCleanerModal from "./Modals/AssignCleanerModal";
 
@@ -49,8 +49,6 @@ interface CleanerRow {
   checklist_completed: number;
   checklist_total: number;
 }
-
-import { CleaningTask } from "@/redux/api/cleanersApi";
 
 // Translation content for guides
 const guideTranslations = {
@@ -619,11 +617,12 @@ export default function CleanersPage() {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 flex-shrink-0">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 flex-shrink-0">
           {[
             { label: "Total Tasks", value: String(totalCount), color: "bg-orange-500", icon: Sparkles },
             { label: "Unassigned", value: String(unassignedCount), color: "bg-gray-500", icon: Users },
             { label: "Assigned", value: String(assignedCount), color: "bg-indigo-500", icon: ClipboardList },
+            { label: "In Progress", value: String(inProgressCount), color: "bg-yellow-500", icon: Clock },
             { label: "Completed", value: String(completedCount), color: "bg-green-500", icon: CheckCircle },
           ].map((stat, i) => {
             const IconComponent = stat.icon;

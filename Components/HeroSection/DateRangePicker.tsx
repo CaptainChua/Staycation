@@ -54,7 +54,7 @@ const DateRangePicker = ({
 
   // Fetch blocked dates (maintenance) for the room if havenId is provided
   const { data: blockedDatesData, isLoading: isLoadingBlockedDates } = useGetBlockedDatesQuery(
-    { haven_id: havenId },
+    { haven_id: havenId, status: 'active' },
     { skip: !havenId }
   );
 

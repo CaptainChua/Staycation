@@ -33,7 +33,7 @@ export const blockedDatesApi = createApi({
   tagTypes: ['BlockedDate'],
   endpoints: (builder) => ({
     // Get all blocked dates
-    getBlockedDates: builder.query<BlockedDatesResponse, { haven_id?: string }>({
+    getBlockedDates: builder.query<BlockedDatesResponse, { haven_id?: string; status?: string }>({
       query: (params) => ({
         url: BLOCKED_DATES_ENDPOINT,
         params,

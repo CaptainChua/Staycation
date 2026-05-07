@@ -601,7 +601,8 @@ const ReservationsPage = () => {
                   </>
                 )}
 
-                {selectedBooking.status === "approved" && (
+                {(selectedBooking.status === "approved" ||
+                  selectedBooking.status === "confirmed") && (
                     <button
                       onClick={() => {
                         handleCheckIn(selectedBooking.id);
@@ -755,6 +756,7 @@ const ReservationsPage = () => {
                   "all",
                   "pending",
                   "approved",
+                  "confirmed",
                   "checked-in",
                   "completed",
                   "rejected",
@@ -922,7 +924,8 @@ const ReservationsPage = () => {
                             </>
                           )}
 
-                          {reservation.status === "approved" && (
+                          {(reservation.status === "approved" ||
+                            reservation.status === "confirmed") && (
                               <button
                                 onClick={() => handleCheckIn(reservation.id)}
                                 className="px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"

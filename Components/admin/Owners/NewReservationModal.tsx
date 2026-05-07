@@ -153,6 +153,7 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
     e.preventDefault();
   };
 
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
 
@@ -315,20 +316,11 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
   };
 
   const validateStep4 = (): boolean => {
-    console.log('🔍 Validating step 4...');
     const newErrors: Record<string, string> = {};
-    if (!formData.paymentProof) {
-      newErrors.paymentProof = "Proof of payment is required";
-      console.log('❌ Missing payment proof');
-    }
-    if (!formData.termsAccepted) {
-      newErrors.termsAccepted = "You must accept the terms";
-      console.log('❌ Terms not accepted');
-    }
+    if (!formData.paymentProof) newErrors.paymentProof = "Proof of payment is required";
+    if (!formData.termsAccepted) newErrors.termsAccepted = "You must accept the terms";
     setErrors(newErrors);
-    const isValid = Object.keys(newErrors).length === 0;
-    console.log('✅ Step 4 validation result:', isValid);
-    return isValid;
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleNext = () => {
@@ -350,14 +342,9 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('🔄 Starting reservation submission...');
-    if (!validateStep4() || isSubmitting) {
-      console.log('❌ Validation failed or already submitting');
-      return;
-    }
+    if (!validateStep4() || isSubmitting) return;
 
     setIsSubmitting(true);
-    console.log('✅ Validation passed, setting loading state');
     try {
       // Convert files to base64
       let validIdBase64 = '';
@@ -424,7 +411,7 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
 
       const bookingData = {
         booking_id: `BK${Date.now()}`,
-        user_id: null, // Admin-created bookings don't have a user_id
+        user_id: null,
         guest_first_name: formData.firstName,
         guest_last_name: formData.lastName,
         guest_age: formData.age,
@@ -453,19 +440,15 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
         addOns,
       };
 
-      // Wait for the async submission to complete
-      console.log('📤 Submitting booking data to API...');
       await onSubmit(bookingData);
-      console.log('✅ Booking created successfully');
       // Only reset and close after successful submission
       resetForm();
       onClose();
     } catch (error) {
-      console.error('❌ Submission error:', error);
+      console.error('Submission error:', error);
       toast.error('Failed to create reservation. Please try again.');
     } finally {
       setIsSubmitting(false);
-      console.log('🔄 Submission process completed');
     }
   };
 
@@ -881,8 +864,8 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
               {/* Footer Actions */}
               <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-6 rounded-b-2xl flex gap-4 flex-shrink-0">
                 {currentStep > 1 && (
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={handleBack}
                     className="flex-1 flex items-center justify-center gap-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-600 font-semibold py-3 px-6 rounded-lg transition"
                   >
@@ -890,10 +873,10 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                     Back
                   </button>
                 )}
-                
+
                 {currentStep < 4 ? (
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={handleNext}
                     className="flex-1 flex items-center justify-center gap-2 text-white font-semibold py-3 px-6 rounded-lg transition hover:opacity-90"
                     style={{ backgroundColor: '#A1823D' }}
@@ -902,12 +885,12 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                     <ChevronRight className="w-5 h-5" />
                   </button>
                 ) : (
-                  <button 
-                    type="submit" 
+                  <button
+                    type="submit"
                     disabled={isSubmitting}
                     className={`flex-1 font-semibold py-3 px-6 rounded-lg transition ${
-                      isSubmitting 
-                        ? 'bg-gray-400 cursor-not-allowed' 
+                      isSubmitting
+                        ? 'bg-gray-400 cursor-not-allowed'
                         : 'bg-green-500 hover:bg-green-600 text-white'
                     }`}
                   >

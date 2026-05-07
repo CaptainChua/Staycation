@@ -144,6 +144,7 @@ const getBookingStatusBadgeClasses = (status?: string | null) => {
   }
 };
 
+
 const DashboardPage = ({
   onAddUnitClick,
   onPaymentClick,
@@ -563,7 +564,7 @@ const DashboardPage = ({
             onClick={onBookingClick}
             className="text-sm font-semibold bg-gradient-to-r from-brand-primary to-brand-primaryDark bg-clip-text text-transparent hover:opacity-80 transition-opacity"
           >
-            View Booking Settings
+            View All Bookings
           </button>
         </div>
       </div>

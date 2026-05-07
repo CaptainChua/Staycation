@@ -1,9 +1,11 @@
 "use client";
 
-import { ClipboardList, Clock, AlertCircle, CheckCircle2 } from "lucide-react";
+import { ClipboardList, Clock, AlertCircle, CheckCircle2, Calendar } from "lucide-react";
 import { useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { useGetCleaningTasksQuery } from "@/redux/api/cleanersApi";
+import FullCalendar from '@fullcalendar/react';
+import dayGridPlugin from '@fullcalendar/daygrid';
 
 interface AssignmentStats {
   total: number;
@@ -62,6 +64,34 @@ export default function MyAssignmentPage() {
       pending: assignments.filter((a: any) => a.cleaning_status === "pending" || a.cleaning_status === "assigned").length,
     };
   }, [assignments]);
+
+  const dateAssignments = useMemo(() => {
+    const map: Record<string, {count: number, statuses: string[]}> = {};
+    assignments.forEach((a: any) => {
+      const dateStr = new Date(a.check_out_date).toISOString().split('T')[0];
+      if (!map[dateStr]) map[dateStr] = {count: 0, statuses: []};
+      map[dateStr].count++;
+      map[dateStr].statuses.push(a.cleaning_status);
+    });
+    return map;
+  }, [assignments]);
+
+  const calendarEvents = useMemo(() => {
+    return Object.entries(dateAssignments).map(([date, data]) => ({
+      id: date,
+      title: data.count.toString(),
+      date,
+      backgroundColor: data.statuses[0] === 'cleaned' ? '#10b981' :
+                      data.statuses[0] === 'in-progress' ? '#f59e0b' :
+                      data.statuses[0] === 'assigned' ? '#8b5cf6' :
+                      '#6b7280',
+      borderColor: data.statuses[0] === 'cleaned' ? '#059669' :
+                   data.statuses[0] === 'in-progress' ? '#d97706' :
+                   data.statuses[0] === 'assigned' ? '#7c3aed' :
+                   '#4b5563',
+      display: 'background' as const,
+    }));
+  }, [dateAssignments]);
 
   const statsArray = [
     {
@@ -154,6 +184,66 @@ export default function MyAssignmentPage() {
             );
           })
         )}
+      </div>
+
+      {/* Calendar - Desktop */}
+      <div className="lg:block hidden mb-6">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 border border-gray-200 dark:border-gray-700">
+          <div className="flex items-center gap-3 mb-4">
+            <Calendar className="w-6 h-6 text-brand-primary" />
+            <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">Assignment Calendar</h3>
+          </div>
+          <FullCalendar
+            plugins={[ dayGridPlugin ]}
+            initialView="dayGridMonth"
+            events={calendarEvents}
+            height="auto"
+            dayCellClassNames={(info) => {
+              const dayAssignments = dateAssignments[info.dateStr];
+              if (!dayAssignments) return [];
+              const status = dayAssignments.statuses[0];
+              return status === 'cleaned' ? 'fc-day-assigned-green' :
+                     status === 'in-progress' ? 'fc-day-assigned-yellow' :
+                     status === 'assigned' ? 'fc-day-assigned-purple' :
+                     'fc-day-assigned-gray';
+            }}
+            dayCellContent={(info) => {
+              const dayAssignments = dateAssignments[info.dateStr];
+              if (!dayAssignments) return { html: info.dayNumberText };
+
+              const status = dayAssignments.statuses[0];
+              const label = getStatusBadge(status).label.slice(0,3);
+
+              return {
+                html: `
+                  <div class="w-full h-full flex flex-col items-center justify-center p-2 rounded-lg shadow-sm">
+                    <div class="text-white font-bold text-sm mb-1">${info.dayNumberText}</div>
+                    <div class="text-white text-xs bg-black/20 px-1.5 py-0.5 rounded-full">${dayAssignments.count} ${label}</div>
+                  </div>
+                `
+              };
+            }}
+            eventDisplay="none"
+            dayHeaderFormat={{ weekday: 'short' }}
+            firstDay={1}
+            headerToolbar={false}
+            contentHeight="auto"
+            aspectRatio={1.8}
+            dayCellDidMount={(info) => {
+              const dayAssignments = dateAssignments[info.dateStr];
+              if (dayAssignments) {
+                const status = dayAssignments.statuses[0];
+                info.el.classList.add(
+                  status === 'cleaned' ? 'bg-green-400' :
+                  status === 'in-progress' ? 'bg-yellow-400' :
+                  status === 'assigned' ? 'bg-purple-400' :
+                  'bg-gray-400'
+                );
+                info.el.classList.add('!border-none', 'shadow-lg', 'hover:scale-105', 'transition-all');
+              }
+            }}
+          />
+        </div>
       </div>
 
       {/* Desktop table */}

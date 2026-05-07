@@ -197,6 +197,7 @@ const fetchBookings = async () => {
       .join(" ");
   };
 
+
   // Stats
 const stats = useMemo(() => {
   if (!Array.isArray(bookings)) {

@@ -452,6 +452,7 @@ export default function BookingsPage() {
     }
   };
 
+
   const handleApproveBooking = (booking: BookingData) => {
     setSelectedBooking(booking);
     setIsApproveModalOpen(true);

@@ -245,7 +245,7 @@ export default function OwnerDashboard() {
                 havens={havens}
               />
             )}
-            {page === "calendar" && <CalendarPage havens={havens} />}
+            {page === "calendar" && <CalendarPage />}
             {page === "havens" && (
               <div className="space-y-6">
                 <ViewAllUnits onAddUnitClick={() => openModal("addHaven")} />
