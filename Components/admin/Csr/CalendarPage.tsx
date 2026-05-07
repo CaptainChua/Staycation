@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useMemo, useState, useRef, useEffect } from "react";
 import FullCalendar from "@fullcalendar/react";
@@ -256,6 +256,7 @@ export default function CalendarPage() {
   const calendarRef = useRef<FullCalendar>(null);
   const [currentView, setCurrentView] = useState<"dayGridMonth" | "timeGridWeek" | "timeGridDay">("dayGridMonth");
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [selectedRoom, setSelectedRoom] = useState<string>("all");
   const [selectedEvent, setSelectedEvent] = useState<{ booking: Booking; duration: number } | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentMonthYear, setCurrentMonthYear] = useState<string>("");
@@ -292,6 +293,12 @@ export default function CalendarPage() {
     return diffDays;
   };
 
+  // Get unique room names for the dropdown
+  const roomOptions = useMemo(() => {
+    const rooms = new Set(bookings.map((b) => b.room_name).filter(Boolean));
+    return Array.from(rooms) as string[];
+  }, [bookings]);
+
   // Convert bookings to calendar events
   const calendarEvents: CalendarEvent[] = useMemo(() => {
     // Filter out bookings without valid dates
@@ -299,13 +306,21 @@ export default function CalendarPage() {
       (booking) => booking.check_in_date && booking.check_out_date
     );
 
+    if (selectedRoom !== "all") {
+      filteredBookings = filteredBookings.filter(
+        (booking) => booking.room_name === selectedRoom
+      );
+    }
+
     if (filterStatus !== "all") {
       filteredBookings = filteredBookings.filter(
         (booking) => booking.status?.toLowerCase() === filterStatus.toLowerCase()
       );
     }
 
-    // Strip time component so FullCalendar treats every event as an all-day block (not a timed dot)
+    // Strip time and normalize to local YYYY-MM-DD so FullCalendar treats every event as an all-day block.
+    // Uses LOCAL timezone methods â€” dates from the API can arrive as "2026-04-27T16:00:00.000Z"
+    // (UTC+8 midnight serialized as UTC), so splitting on "T" would give the wrong day.
     const toDateOnly = (d: any): string => {
       if (!d) return "";
       const s = String(d);
@@ -339,7 +354,7 @@ export default function CalendarPage() {
         },
       };
     });
-  }, [bookings, filterStatus]);
+  }, [bookings, filterStatus, selectedRoom]);
 
   // Handle event click
   const handleEventClick = (clickInfo: EventClickArg) => {
@@ -520,9 +535,25 @@ export default function CalendarPage() {
             </button>
           </div>
 
-          {/* Status Filter */}
+          {/* Room Filter */}
           <div className="flex items-center gap-2">
             <Filter className="w-4 h-4 text-gray-500" />
+            <select
+              value={selectedRoom}
+              onChange={(e) => setSelectedRoom(e.target.value)}
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-brand-primary focus:border-transparent"
+            >
+              <option value="all">All Rooms</option>
+              {roomOptions.map((room) => (
+                <option key={room} value={room}>
+                  {room}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Status Filter */}
+          <div className="flex items-center gap-2">
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}

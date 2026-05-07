@@ -146,6 +146,11 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
     });
   };
 
+  const handleDateKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+  };
+
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
 
@@ -322,29 +327,113 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validateStep4()) return;
+    if (!validateStep4() || isSubmitting) return;
 
-    const bookingData = {
-      ...formData,
-      additionalGuests,
-      addOns,
-      roomRate,
-      securityDeposit,
-      addOnsTotal,
-      totalAmount,
-      downPayment,
-      remainingBalance: totalAmount - downPayment,
-    };
-
+    setIsSubmitting(true);
     try {
-      // Wait for the async submission to complete
+      // Convert files to base64
+      let validIdBase64 = '';
+      if (formData.validId) {
+        try {
+          const reader = new FileReader();
+          validIdBase64 = await new Promise((resolve, reject) => {
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = () => reject(new Error('Failed to read valid ID file'));
+            reader.readAsDataURL(formData.validId);
+          });
+        } catch (error) {
+          console.error('Error converting valid ID to base64:', error);
+          toast.error('Failed to process valid ID file. Please try again.');
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
+      let paymentProofBase64 = '';
+      if (formData.paymentProof) {
+        try {
+          const reader = new FileReader();
+          paymentProofBase64 = await new Promise((resolve, reject) => {
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = () => reject(new Error('Failed to read payment proof file'));
+            reader.readAsDataURL(formData.paymentProof);
+          });
+        } catch (error) {
+          console.error('Error converting payment proof to base64:', error);
+          toast.error('Failed to process payment proof file. Please try again.');
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
+      // Convert additional guests' IDs to base64
+      const additionalGuestsData = [];
+      for (const guest of additionalGuests) {
+        let guestIdBase64 = '';
+        if (guest.validId) {
+          try {
+            const reader = new FileReader();
+            guestIdBase64 = await new Promise((resolve, reject) => {
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.onerror = () => reject(new Error(`Failed to read guest ID file for ${guest.firstName}`));
+              reader.readAsDataURL(guest.validId);
+            });
+          } catch (error) {
+            console.error('Error converting guest ID to base64:', error);
+            toast.error(`Failed to process ID file for ${guest.firstName}. Please try again.`);
+            setIsSubmitting(false);
+            return;
+          }
+        }
+        additionalGuestsData.push({
+          firstName: guest.firstName,
+          lastName: guest.lastName,
+          age: guest.age,
+          gender: guest.gender,
+          validId: guestIdBase64,
+        });
+      }
+
+      const bookingData = {
+        booking_id: `BK${Date.now()}`,
+        user_id: null,
+        guest_first_name: formData.firstName,
+        guest_last_name: formData.lastName,
+        guest_age: formData.age,
+        guest_gender: formData.gender,
+        guest_email: formData.email,
+        guest_phone: formData.phone,
+        facebook_link: formData.facebookLink,
+        valid_id: validIdBase64,
+        additional_guests: additionalGuestsData,
+        room_name: formData.roomName,
+        stay_type: formData.stayType,
+        check_in_date: formData.checkInDate,
+        check_out_date: formData.checkOutDate,
+        check_in_time: formData.checkInTime,
+        check_out_time: formData.checkOutTime,
+        adults: formData.adults,
+        children: formData.children,
+        infants: formData.infants,
+        payment_method: formData.paymentMethod,
+        payment_proof: paymentProofBase64,
+        room_rate: roomRate,
+        security_deposit: securityDeposit,
+        add_ons_total: addOnsTotal,
+        total_amount: totalAmount,
+        down_payment: downPayment,
+        addOns,
+      };
+
       await onSubmit(bookingData);
       // Only reset and close after successful submission
       resetForm();
       onClose();
     } catch (error) {
       console.error('Submission error:', error);
-      // Don't close modal or reset on error, let parent handle the error message
+      toast.error('Failed to create reservation. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -754,6 +843,44 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                   </div>
                 </div>
               )}
+
+              {/* Footer Actions */}
+              <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-6 rounded-b-2xl flex gap-4 flex-shrink-0">
+                {currentStep > 1 && (
+                  <button
+                    type="button"
+                    onClick={handleBack}
+                    className="flex-1 flex items-center justify-center gap-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-600 font-semibold py-3 px-6 rounded-lg transition"
+                  >
+                    <ArrowLeft className="w-5 h-5" />
+                    Back
+                  </button>
+                )}
+
+                {currentStep < 4 ? (
+                  <button
+                    type="button"
+                    onClick={handleNext}
+                    className="flex-1 flex items-center justify-center gap-2 text-white font-semibold py-3 px-6 rounded-lg transition hover:opacity-90"
+                    style={{ backgroundColor: '#A1823D' }}
+                  >
+                    Next Step
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className={`flex-1 font-semibold py-3 px-6 rounded-lg transition ${
+                      isSubmitting
+                        ? 'bg-gray-400 cursor-not-allowed'
+                        : 'bg-green-500 hover:bg-green-600 text-white'
+                    }`}
+                  >
+                    {isSubmitting ? 'Creating Reservation...' : 'Confirm Booking'}
+                  </button>
+                )}
+              </div>
             </form>
           </div>
         </div>

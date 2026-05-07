@@ -86,6 +86,20 @@ function formatDate(s: string): string {
 
 function getStatusBadge(status: string) {
   switch (status) {
+    case "upcoming":
+      return {
+        label: "Upcoming",
+        bg: "bg-sky-100 dark:bg-sky-900/30",
+        text: "text-sky-600 dark:text-sky-300",
+        dot: "#0ea5e9",
+      };
+    case "ready":
+      return {
+        label: "Ready to Clean",
+        bg: "bg-amber-100 dark:bg-amber-900/30",
+        text: "text-amber-600 dark:text-amber-300",
+        dot: "#f59e0b",
+      };
     case "in-progress":
       return {
         label: "In Progress",
@@ -153,6 +167,9 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning 
     const mStart = startOfMonth(now);
     const mEnd   = endOfMonth(now);
 
+    const todayMidnight = new Date(now);
+    todayMidnight.setHours(0, 0, 0, 0);
+
     return {
       total:      assignments.length,
       todayCount: assignments.filter((a: any) => {
@@ -172,9 +189,21 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning 
       completed: assignments.filter(
         (a: any) => a.cleaning_status === "cleaned" || a.cleaning_status === "inspected",
       ).length,
+      readyCount: assignments.filter((a: any) => {
+        if (!a.check_out_date) return false;
+        const d = toLocalMidnight(a.check_out_date);
+        const isDone = a.cleaning_status === "cleaned" || a.cleaning_status === "inspected";
+        return d <= todayMidnight && !isDone;
+      }).length,
+      upcomingCount: assignments.filter((a: any) => {
+        if (!a.check_out_date) return false;
+        const d = toLocalMidnight(a.check_out_date);
+        return d > todayMidnight;
+      }).length,
     };
   }, [assignments]);
 
+  // ── Schedule map: dateString → enhanced schedule info ────────────────────────
   const scheduleMap = useMemo(() => {
     const map: Record<string, {
       assignments: any[];
@@ -253,13 +282,19 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning 
 
   const selectedDateKey = selectedDate.toDateString();
   const selectedSchedule = scheduleMap[selectedDateKey];
-  const selectedAssignments: any[] = selectedSchedule ? selectedSchedule.assignments : [];
+  // Only show tasks in the detail panel on their actual checkout date
+  const selectedAssignments: any[] = selectedSchedule
+    ? selectedSchedule.assignments.filter((a: any) => {
+        if (!a.check_out_date) return true;
+        return isSameDay(toLocalMidnight(a.check_out_date), selectedDate);
+      })
+    : [];
 
   const statsCards = [
-    { label: "Total",      value: stats.total,     color: "bg-brand-primary", icon: ClipboardList },
-    { label: "This Week",  value: stats.thisWeek,  color: "bg-blue-500",      icon: Calendar      },
-    { label: "This Month", value: stats.thisMonth, color: "bg-green-500",     icon: Building2     },
-    { label: "Completed",  value: stats.completed, color: "bg-purple-500",    icon: CheckCircle2  },
+    { label: "Total",      value: stats.total,     color: "bg-brand-primary", icon: ClipboardList, sub: `${stats.readyCount} ready · ${stats.upcomingCount} upcoming` },
+    { label: "This Week",  value: stats.thisWeek,  color: "bg-blue-500",      icon: Calendar,      sub: null },
+    { label: "This Month", value: stats.thisMonth, color: "bg-green-500",     icon: Building2,     sub: null },
+    { label: "Completed",  value: stats.completed, color: "bg-purple-500",    icon: CheckCircle2,  sub: null },
   ];
 
   return (
@@ -274,7 +309,7 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning 
 
       {/* Stats row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {statsCards.map(({ label, value, color, icon: Icon }) => (
+        {statsCards.map(({ label, value, color, icon: Icon, sub }) => (
           <div
             key={label}
             className={`${color} text-white rounded-lg p-4 shadow dark:shadow-gray-900 hover:shadow-lg transition-all`}
@@ -283,6 +318,9 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning 
               <div>
                 <p className="text-xs opacity-90">{label}</p>
                 <p className="text-2xl font-bold mt-1">{isLoading ? "…" : value}</p>
+                {sub && !isLoading && (
+                  <p className="text-[10px] opacity-75 mt-0.5 leading-tight">{sub}</p>
+                )}
               </div>
               <Icon className="w-8 h-8 opacity-40" />
             </div>
@@ -346,13 +384,16 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning 
               const effectiveStatus = dateSchedule?.effectiveStatus || "pending";
               const dayType         = dateSchedule?.dayType;
               const badge           = getStatusBadge(effectiveStatus);
-              const taskCount       = dateSchedule?.assignments.length ?? 0;
+              // Only count assignments whose checkout date is this specific day
+              const taskCount       = dateSchedule?.assignments.filter((a: any) =>
+                a.check_out_date ? isSameDay(toLocalMidnight(a.check_out_date), date) : true
+              ).length ?? 0;
 
               const isMiddleDay   = hasTask && dayType === "middle";
               const isCheckOutDay = hasTask && (dayType === "checkOut" || dayType === "both");
 
-              // ✅ FIX: showTaskBadges AND the count badge both suppress on middle days
-              const showTaskBadges = hasTask && !isMiddleDay;
+              // Show task badge only when there are actual checkout tasks this day
+              const showTaskBadges = taskCount > 0;
 
               const cellClasses = [
                 "aspect-square flex flex-col items-center justify-center rounded-lg transition-all duration-200 hover:scale-[1.02] hover:shadow-lg relative group p-0.5",
@@ -406,7 +447,7 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning 
                   style={cellStyle}
                   title={hasTask ? `${taskCount} task${taskCount !== 1 ? "s" : ""} · ${badge.label}` : ""}
                 >
-                  {/* ✅ FIX: Task count badge — hidden on middle days */}
+                  {/* Task count badge — hidden on middle days */}
                   {showTaskBadges && !isSelected && !isToday && taskCount > 0 && (
                     <>
                       <div className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 bg-white dark:bg-gray-800 border-2 border-current rounded-full text-[10px] font-black flex items-center justify-center z-30 shadow-sm leading-none">
@@ -423,7 +464,7 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning 
                     {dayAbbr}
                   </div>
 
-                  {/* Task count + label — 1 line pill, hidden on middle days */}
+                  {/* Task count + label pill, hidden on middle days */}
                   {showTaskBadges && !isSelected && !isToday && taskCount > 0 && (
                     <div
                       className="flex items-center gap-0.5 leading-none mt-1 px-1.5 py-0.5 rounded-md shadow-sm whitespace-nowrap"
@@ -500,8 +541,16 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning 
               </div>
             ) : (
               selectedAssignments.map((a: any) => {
-                const badge = getStatusBadge(a.cleaning_status);
-                const isActionable = a.cleaning_status !== "cleaned" && a.cleaning_status !== "inspected";
+                const todayMidnight = new Date(); todayMidnight.setHours(0,0,0,0);
+                const checkoutDate = a.check_out_date ? toLocalMidnight(a.check_out_date) : null;
+                const isUpcoming = checkoutDate ? checkoutDate > todayMidnight : false;
+                const isDone = a.cleaning_status === "cleaned" || a.cleaning_status === "inspected";
+                const effectiveBadgeStatus = isDone ? a.cleaning_status
+                  : isUpcoming ? "upcoming"
+                  : a.cleaning_status === "in-progress" ? "in-progress"
+                  : "ready";
+                const badge = getStatusBadge(effectiveBadgeStatus);
+                const isActionable = !isDone && !isUpcoming;
 
                 return (
                   <div
@@ -566,7 +615,25 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning 
                         </button>
                       )}
 
-                      {!isActionable && (
+                      {isUpcoming && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const havenId = a.haven_id ?? a.id;
+                            if (onStartCleaning && havenId) {
+                              onStartCleaning(String(havenId));
+                            } else {
+                              onNavigate("cleaning-checklist");
+                            }
+                          }}
+                          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-sky-50 dark:bg-sky-900/20 text-sky-600 dark:text-sky-400 text-xs font-semibold hover:bg-sky-100 dark:hover:bg-sky-900/40 transition-colors"
+                        >
+                          <CheckSquare className="w-3.5 h-3.5" />
+                          View Checklist
+                        </button>
+                      )}
+
+                      {isDone && (
                         <div className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 text-xs font-semibold">
                           <CheckCircle2 className="w-3.5 h-3.5" />
                           Done

@@ -438,6 +438,54 @@ export const createBooking = async (
     }
     // --- END AVAILABILITY CHECK ---
 
+    // --- BOOKING WINDOW VALIDATION ---
+    const { stay_type, haven_id } = body;
+    if (stay_type && haven_id) {
+      try {
+        const bwResult = await client.query(
+          `SELECT booking_windows FROM havens WHERE uuid_id = $1 LIMIT 1`,
+          [haven_id]
+        );
+        const bw = bwResult.rows[0]?.booking_windows;
+        const types: Array<{
+          name: string; duration: number; available_days: string[];
+          first_check_in: string; last_check_in: string;
+        }> = bw?.types ?? [];
+        const bType = types.find(t => t.name === stay_type);
+
+        if (bType) {
+          // Day-of-week check
+          const DAY_ABBR = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+          const cinDay = DAY_ABBR[new Date(check_in_date + 'T12:00:00').getDay()];
+          if (!bType.available_days.includes(cinDay)) {
+            await client.query("ROLLBACK");
+            return NextResponse.json(
+              { success: false, error: `${stay_type} is not available on ${cinDay}` },
+              { status: 400 }
+            );
+          }
+          // Time window check
+          const toMins = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+          const cinMins = toMins(check_in_time);
+          const firstMins = toMins(bType.first_check_in);
+          const lastMins = toMins(bType.last_check_in);
+          const inWindow = firstMins <= lastMins
+            ? cinMins >= firstMins && cinMins <= lastMins
+            : cinMins >= firstMins || cinMins <= lastMins;
+          if (!inWindow) {
+            await client.query("ROLLBACK");
+            return NextResponse.json(
+              { success: false, error: `Check-in time must be between ${bType.first_check_in} and ${bType.last_check_in} for ${stay_type}` },
+              { status: 400 }
+            );
+          }
+        }
+      } catch {
+        // Booking window validation is advisory — don't block booking if check fails
+      }
+    }
+    // --- END BOOKING WINDOW VALIDATION ---
+
     // --- IDENTITY-BASED OVERLAP CHECK ---
     const overlapCheckQuery = `
       SELECT b.id, b.booking_id, b.status, b.check_in_date, b.check_out_date

@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { useGetCleaningTasksQuery } from "@/redux/api/cleanersApi";
+import { useGetCleaningTasksQuery, CleaningTask } from "@/redux/api/cleanersApi";
 import ViewBookings from "./Modals/ViewBookings";
 import AssignCleanerModal from "./Modals/AssignCleanerModal";
 
@@ -47,8 +47,6 @@ interface CleanerRow {
   status: CleaningStatus;
   statusColor: string;
 }
-
-import { CleaningTask } from "@/redux/api/cleanersApi";
 
 // Translation content for guides
 const guideTranslations = {

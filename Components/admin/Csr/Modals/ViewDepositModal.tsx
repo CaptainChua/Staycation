@@ -11,7 +11,10 @@ import {
   Eye,
   ExternalLink,
   Calendar,
-  DollarSign
+  DollarSign,
+  AlertCircle,
+  CheckCircle2,
+  ImageIcon,
 } from "lucide-react";
 
 interface ViewDepositModalProps {

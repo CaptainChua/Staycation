@@ -145,9 +145,33 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
   const [showMobileChat, setShowMobileChat] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const hasInitializedActiveId = useRef(false);
   const hasProcessedInitialConversationId = useRef(false);
+
+  // ── data fetching ──────────────────────────────────────────────────────────
+
+  // Close emoji picker when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
+        setShowEmojiPicker(false);
+      }
+    };
+
+    if (showEmojiPicker) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showEmojiPicker]);
+
+  const handleEmojiSelect = (emoji: string) => {
+    setDraft((prev) => prev + emoji);
+  };
 
   // ── data fetching ──────────────────────────────────────────────────────────
 
@@ -173,6 +197,7 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
 
   const [activeId, setActiveId] = useState<string | null>(null);
 
+  // Initialize activeId once when conversations are loaded
   useEffect(() => {
     if (conversations.length > 0 && !hasInitializedActiveId.current) {
       const id = getInitialActiveId();
@@ -181,6 +206,7 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
     }
   }, [conversations.length, activeId, getInitialActiveId]);
 
+  // Update activeId when initialConversationId changes
   useEffect(() => {
     if (initialConversationId && conversations.length > 0 && !hasProcessedInitialConversationId.current) {
       const exists = conversations.some((c: Conversation) => c.id === initialConversationId);
@@ -224,6 +250,7 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
 
   // ── side-effects ───────────────────────────────────────────────────────────
 
+  // Mark messages as read when opening a conversation
   useEffect(() => {
     if (activeId && userId) markAsRead({ conversation_id: activeId, user_id: userId });
   }, [activeId, userId, markAsRead]);
@@ -233,6 +260,12 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
   }, [messages]);
 
   // ── helpers (memoised) ─────────────────────────────────────────────────────
+
+  const getConversationDisplayName = useCallback((conversation: Conversation | undefined | null) => {
+    if (!conversation) return "";
+    if (conversation.type === "guest") {
+      return conversation.name;
+    }
 
   const getConversationDisplayName = useCallback(
     (conversation: Conversation | undefined | null) => {
@@ -309,7 +342,6 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
 
   // ── send ───────────────────────────────────────────────────────────────────
 
-
   const handleSendMessage = async () => {
     const text = draft.trim();
     if (!text && !attachedImage) return;
@@ -321,11 +353,7 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
         sender_id: userId,
         sender_name: session?.user?.name || "Cleaner",
         message_text: attachedImage || text,
-      };
-
-      console.log("Sending payload:", payload);
-
-      await sendMessage(payload).unwrap();
+      }).unwrap();
 
       setDraft("");
       setAttachedImage(null);
@@ -343,7 +371,13 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
     }
   };
 
-  // ── skeleton ───────────────────────────────────────────────────────────────
+  // Use useCallback for memoized functions
+  const memoizedFormatTime = useCallback((timestamp: string) => formatTime(timestamp), []);
+  const memoizedFormatMessageTime = useCallback((timestamp: string) => formatMessageTime(timestamp), []);
+  const memoizedGetActiveStatus = useCallback(
+    (lastMessageTime: string | undefined, type: string) => getActiveStatus(lastMessageTime, type),
+    []
+  );
 
   if (showSkeletonConversations) {
     return (
@@ -441,11 +475,7 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
           <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr]">
 
             {/* ── Conversation list ── */}
-            <div
-              className={`border-b lg:border-b-0 lg:border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex flex-col h-[calc(100vh-180px)] sm:h-[65vh] lg:h-[72vh] ${
-                showMobileChat ? "hidden lg:flex" : "flex"
-              }`}
-            >
+            <div className={`border-b lg:border-b-0 lg:border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex flex-col h-[calc(100vh-180px)] sm:h-[65vh] lg:h-[72vh] ${showMobileChat ? "hidden lg:flex" : "flex"}`}>
               <div className="h-14 sm:h-16 px-3 sm:px-4 flex items-center gap-3 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
                 <p className="text-base font-bold text-gray-900 dark:text-gray-100">Chats</p>
                 <div className="ml-auto flex items-center gap-2">
@@ -499,7 +529,9 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                       c.type !== "guest" && otherParticipantIds.length === 1
                         ? employeeProfileImageById[otherParticipantIds[0]]
                         : undefined;
-                    const avatarLetter = (conversationName || c.name || "?").charAt(0).toUpperCase();
+                    const avatarLetter = (conversationName || c.name || "?")
+                      .charAt(0)
+                      .toUpperCase();
 
                     return (
                       <button
@@ -550,6 +582,7 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                             {activeStatus.statusText}
                           </p>
                         </div>
+
                         {(c.unread_count || 0) > 0 && (
                           <div className="w-6 flex justify-end">
                             <span className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-brand-primary text-white text-xs font-bold">
@@ -565,11 +598,7 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
             </div>
 
             {/* ── Chat panel ── */}
-            <div
-              className={`bg-white dark:bg-gray-900 flex flex-col h-[calc(100vh-180px)] sm:h-[65vh] lg:h-[72vh] ${
-                showMobileChat ? "flex" : "hidden lg:flex"
-              }`}
-            >
+            <div className={`bg-white dark:bg-gray-900 flex flex-col h-[calc(100vh-180px)] sm:h-[65vh] lg:h-[72vh] ${showMobileChat ? "flex" : "hidden lg:flex"}`}>
               {activeConversation ? (
                 <>
                   {/* Header */}
@@ -679,9 +708,7 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                                 </div>
                               )}
 
-                              <span className="text-[10px] sm:text-[11px] text-gray-400">
-                                {memoizedFormatMessageTime(m.created_at)}
-                              </span>
+                              <span className="text-[10px] sm:text-[11px] text-gray-400">{memoizedFormatMessageTime(m.created_at)}</span>
                             </div>
                           </div>
                         );
@@ -729,7 +756,7 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                         <Plus className="w-4 h-4 sm:w-5 sm:h-5 text-brand-primary" />
                       </button>
 
-                      {/* 📎 Image attach button — now functional */}
+                      {/* Image attach button */}
                       <button
                         type="button"
                         onClick={handleImageIconClick}
@@ -759,7 +786,7 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                         type="button"
                         onClick={handleSendMessage}
                         disabled={isSending || (!draft.trim() && !attachedImage)}
-                        className="p-1.5 sm:p-2 rounded-full hover:bg-brand-primaryLighter transition-colors disabled:opacity-50"
+                        className="p-1.5 sm:p-2 rounded-full hover:bg-brand-primaryLighter transition-colors disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed flex items-center justify-center"
                         title="Send"
                       >
                         {isSending ? (
@@ -779,17 +806,17 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
             </div>
           </div>
         </div>
-      </div>
 
-      <NewMessageModal
-        isOpen={isNewMessageModalOpen}
-        onClose={() => setIsNewMessageModalOpen(false)}
-        currentUserId={userId || ""}
-        onConversationCreated={(conversationId) => {
-          setActiveId(conversationId);
-          refetchConversations();
-        }}
-      />
+        <NewMessageModal
+          isOpen={isNewMessageModalOpen}
+          onClose={() => setIsNewMessageModalOpen(false)}
+          currentUserId={userId || ""}
+          onConversationCreated={(conversationId) => {
+            setActiveId(conversationId);
+            refetchConversations();
+          }}
+        />
+      </div>
     </>
   );
 }

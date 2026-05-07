@@ -6,7 +6,6 @@ import { useSession } from "next-auth/react";
 import { useGetCleaningTasksQuery } from "@/redux/api/cleanersApi";
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
-import interactionPlugin from '@fullcalendar/interaction';
 
 interface AssignmentStats {
   total: number;
@@ -187,7 +186,7 @@ export default function MyAssignmentPage() {
         )}
       </div>
 
-      {/* Calendar - Desktop - Bigger assigned color + label */}
+      {/* Calendar - Desktop */}
       <div className="lg:block hidden mb-6">
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-3 mb-4">
@@ -211,17 +210,17 @@ export default function MyAssignmentPage() {
             dayCellContent={(info) => {
               const dayAssignments = dateAssignments[info.dateStr];
               if (!dayAssignments) return { html: info.dayNumberText };
-              
+
               const status = dayAssignments.statuses[0];
               const label = getStatusBadge(status).label.slice(0,3);
-              
-              return { 
+
+              return {
                 html: `
                   <div class="w-full h-full flex flex-col items-center justify-center p-2 rounded-lg shadow-sm">
                     <div class="text-white font-bold text-sm mb-1">${info.dayNumberText}</div>
                     <div class="text-white text-xs bg-black/20 px-1.5 py-0.5 rounded-full">${dayAssignments.count} ${label}</div>
                   </div>
-                ` 
+                `
               };
             }}
             eventDisplay="none"

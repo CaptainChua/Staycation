@@ -187,6 +187,16 @@ const fetchBookings = async () => {
     }
   };
 
+  const getStatusLabel = (status: string) => {
+    if (status === "rejected") return "Declined";
+
+    return status
+      .split("-")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+  };
+
+
   // Stats
 const stats = useMemo(() => {
   if (!Array.isArray(bookings)) {

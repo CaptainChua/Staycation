@@ -41,6 +41,7 @@ type Haven = {
   guestName?: string;
   checkOutDate?: string;
   cleaningStatus?: string;
+  isUpcoming?: boolean;
 };
 
 interface Props {
@@ -69,22 +70,41 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
     General: Sparkles,
   };
 
-  // Fetch checklist for the haven passed via prop (set by MySchedulePage → Start Cleaning)
-  const fetchChecklist = useCallback(async (havenId: string) => {
-    setIsLoading(true);
-    try {
-      const res = await fetch(
-        `/api/admin/cleaners?haven_id=${encodeURIComponent(havenId)}`,
-        { cache: "no-store" },
-      );
-      const payload = await res.json();
-      if (res.ok && payload.success && payload.data?.checklist) {
-        const { checklist } = payload.data;
-        setChecklistId(checklist.id);
-        setChecklist(checklist.categories || []);
-        // Use haven info if the API returns it alongside the checklist
-        if (payload.data.haven) {
-          setSelectedHaven(payload.data.haven);
+  // Fetch havens on mount (only checked-out ones that need cleaning)
+  useEffect(() => {
+    let mounted = true;
+
+    const fetchHavens = async () => {
+      setIsHavensLoading(true);
+      try {
+        const url = initialHavenId
+          ? `/api/admin/cleaners/havens?include_id=${encodeURIComponent(initialHavenId)}`
+          : "/api/admin/cleaners/havens";
+        const res = await fetch(url, { cache: "no-store" });
+        const data = await res.json();
+        if (!mounted) return;
+        if (Array.isArray(data)) {
+          setHavens(data);
+          if (data.length > 0) {
+            // Priority: initialHavenId prop → currently selected → first in list
+            const preferred =
+              initialHavenId
+                ? data.find((h: Haven) => String(h.id) === String(initialHavenId))
+                : null;
+
+            const stillExists = !preferred && selectedHavenId
+              ? data.find((h: Haven) => h.id === selectedHavenId)
+              : null;
+
+            const target = preferred ?? stillExists ?? data[0];
+            setSelectedHavenId(target.id);
+            setSelectedHaven(target);
+          } else {
+            setSelectedHavenId(null);
+            setSelectedHaven(null);
+          }
+        } else {
+          toast.error("Failed to load havens");
         }
       } else {
         throw new Error(payload.error || "Failed to load checklist");
@@ -97,6 +117,46 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
       toast.error(message || "Failed to load checklist");
     } finally {
       setIsLoading(false);
+    }
+  }, []);
+
+  // Fetch checklist for a haven
+  const fetchChecklist = useCallback(
+    async (havenId: string) => {
+      setIsLoading(true);
+      try {
+        const res = await fetch(
+          `/api/admin/cleaners?haven_id=${encodeURIComponent(havenId)}`,
+          {
+            cache: "no-store",
+          },
+        );
+        const payload = await res.json();
+        if (res.ok && payload.success && payload.data?.checklist) {
+          const { checklist } = payload.data;
+          setChecklistId(checklist.id);
+          setChecklist(checklist.categories || []);
+          // Use haven info if the API returns it alongside the checklist
+          if (payload.data.haven) {
+            setSelectedHaven(payload.data.haven);
+          } else {
+            const found = havens.find((h) => h.id === checklist.haven_id);
+            if (found) setSelectedHaven(found);
+          }
+        } else {
+          throw new Error(payload.error || "Failed to load checklist");
+        }
+      } catch (err) {
+        console.error("Failed to fetch checklist", err);
+        setChecklist([]);
+        setChecklistId(null);
+        const message = err instanceof Error ? err.message : String(err);
+        toast.error(message || "Failed to load checklist");
+      } finally {
+        setIsLoading(false);
+      }
+    } catch {
+      // non-fatal — booking info card just won't show
     }
   }, []);
 
@@ -115,15 +175,30 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
   }, []);
 
   useEffect(() => {
-    if (initialHavenId) {
-      fetchChecklist(initialHavenId);
-      fetchHavenInfo(initialHavenId);
+    if (selectedHavenId) {
+      fetchChecklist(selectedHavenId);
+      fetchHavenInfo(selectedHavenId);
     } else {
       setChecklist([]);
       setChecklistId(null);
       setSelectedHaven(null);
     }
-  }, [initialHavenId, fetchChecklist, fetchHavenInfo]);
+  }, [selectedHavenId, fetchChecklist, fetchHavenInfo]);
+
+  // Update selectedHaven when haven selection changes
+  const handleHavenChange = (havenId: string | null) => {
+    setSelectedHavenId(havenId);
+    // Reset proof when switching havens
+    setProofFile(null);
+    setProofPreview(null);
+    setProofUploaded(false);
+    if (havenId) {
+      const found = havens.find((h) => h.id === havenId);
+      setSelectedHaven(found ?? null);
+    } else {
+      setSelectedHaven(null);
+    }
+  };
 
   const handleProofFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -307,6 +382,20 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
         </div>
       )}
 
+      {/* Upcoming notice */}
+      {selectedHaven?.isUpcoming && (
+        <div className="flex items-start gap-3 bg-sky-50 dark:bg-sky-900/20 border border-sky-300 dark:border-sky-700 rounded-lg p-4">
+          <AlertCircle className="w-5 h-5 text-sky-500 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-sky-700 dark:text-sky-300">Guest has not checked out yet</p>
+            <p className="text-xs text-sky-600 dark:text-sky-400 mt-0.5">
+              You can preview the checklist to prepare, but cleaning tasks will be unlocked after the guest checks out on{" "}
+              <span className="font-semibold">{selectedHaven.checkOutDate}</span>.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Progress Overview */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-4 sm:p-6">
         <div className="flex items-center justify-between mb-4">
@@ -339,14 +428,10 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
       </div>
 
       {/* Proof of Payment */}
-      {!isLoading && (
-        <div
-          className={`bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-4 sm:p-6 border-2 ${
-            proofUploaded
-              ? "border-green-400 dark:border-green-600"
-              : "border-amber-400 dark:border-amber-600"
-          }`}
-        >
+      {!isLoading && !selectedHaven?.isUpcoming && (
+        <div className={`bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-4 sm:p-6 border-2 ${
+          proofUploaded ? "border-green-400 dark:border-green-600" : "border-amber-400 dark:border-amber-600"
+        }`}>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <div
@@ -556,8 +641,8 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
                   {category.tasks.map((task: Task) => (
                     <div
                       key={task.id}
-                      onClick={() => toggleTask(task.id)}
-                      className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all ${
+                      onClick={() => { if (!selectedHaven?.isUpcoming) toggleTask(task.id); }}
+                      className={`flex items-center gap-3 p-3 rounded-lg transition-all ${selectedHaven?.isUpcoming ? "cursor-not-allowed opacity-60" : "cursor-pointer"} ${
                         task.completed
                           ? "bg-green-50 dark:bg-green-900/20"
                           : "bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600"
@@ -586,10 +671,8 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
       </div>
 
       {/* Action / Status */}
-      <div className="flex flex-col sm:flex-row gap-3 items-center">
-        <p className="text-sm text-gray-500 flex-1 text-center sm:text-left">
-          Changes are saved automatically
-        </p>
+      {!selectedHaven?.isUpcoming && <div className="flex flex-col sm:flex-row gap-3 items-center">
+        <p className="text-sm text-gray-500 flex-1 text-center sm:text-left">Changes are saved automatically</p>
         {!canComplete && (
           <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">
             ⚠ Upload proof of payment to complete the checklist
@@ -633,7 +716,7 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
             Confirm & Finish
           </button>
         )}
-      </div>
+      </div>}
     </div>
   );
 }

@@ -429,6 +429,28 @@ export default function BookingsPage() {
     }
   };
 
+  const handleCheckIn = async (booking: BookingData) => {
+    try {
+      const response = await fetch('/api/bookings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: booking.id, status: 'checked-in' }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        toast.error(data?.error || "Failed to check in booking");
+        return;
+      }
+
+      toast.success(`${booking.guest_first_name} ${booking.guest_last_name} checked in successfully`);
+      logEmployeeActivity('CHECKIN_BOOKING', `Checked in booking ${booking.booking_id}`, booking.id);
+    } catch {
+      toast.error("Failed to check in booking");
+    }
+  };
+
+
   const handleApproveBooking = (booking: BookingData) => {
     setSelectedBooking(booking);
     setIsApproveModalOpen(true);
