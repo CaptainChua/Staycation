@@ -106,18 +106,12 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
         } else {
           toast.error("Failed to load havens");
         }
-      } else {
-        throw new Error(payload.error || "Failed to load checklist");
+      } catch (err) {
+        console.error("Failed to fetch havens", err);
+        toast.error("Failed to load havens");
+      } finally {
+        setIsHavensLoading(false);
       }
-    } catch (err) {
-      console.error("Failed to fetch checklist", err);
-      setChecklist([]);
-      setChecklistId(null);
-      const message = err instanceof Error ? err.message : String(err);
-      toast.error(message || "Failed to load checklist");
-    } finally {
-      setIsLoading(false);
-    }
   }, []);
 
   // Fetch checklist for a haven

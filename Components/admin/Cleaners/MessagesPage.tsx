@@ -348,7 +348,7 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
     if (!activeId || !userId) return;
 
     try {
-      const payload = {
+      await sendMessage({
         conversation_id: activeId,
         sender_id: userId,
         sender_name: session?.user?.name || "Cleaner",
