@@ -2084,17 +2084,17 @@ const Checkout = () => {
                           {availableBookingTypes.length > 0 ? (
                             availableBookingTypes.map(t => (
                               <option key={t.name} value={t.name}>
-                                {t.name} — ₱{t.price.toLocaleString()} ({to12Hour(t.first_check_in)} – {to12Hour(addHoursToTime(t.first_check_in, t.duration))})
+                                {t.name} — ₱{t.price.toLocaleString()}
                               </option>
                             ))
                           ) : (
                             <>
-                              <option value="10 Hours - ₱1,599">10 Hours - ₱1,599 (2:00 PM - 12:00 AM)</option>
+                              <option value="10 Hours - ₱1,599">10 Hours - ₱1,599</option>
                               {(checkInIsSunThu || checkInDay === null) && (
-                                <option value="21 Hours (Sun-Thu weekday) - ₱1,799">21 Hours (Sun-Thu weekday) - ₱1,799 (2:00 PM - 11:00 AM)</option>
+                                <option value="21 Hours (Sun-Thu weekday) - ₱1,799">21 Hours (Sun-Thu weekday) - ₱1,799</option>
                               )}
                               {(checkInIsFriSat || checkInDay === null) && (
-                                <option value="21 Hours (Fri-Sat) - ₱1,999">21 Hours (Fri-Sat) - ₱1,999 (2:00 PM - 11:00 AM)</option>
+                                <option value="21 Hours (Fri-Sat) - ₱1,999">21 Hours (Fri-Sat) - ₱1,999</option>
                               )}
                               <option value="Multi-Day Stay">Multi-Day Stay (Custom dates)</option>
                             </>
