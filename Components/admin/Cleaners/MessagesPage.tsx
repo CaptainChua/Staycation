@@ -261,12 +261,6 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
 
   // ── helpers (memoised) ─────────────────────────────────────────────────────
 
-  const getConversationDisplayName = useCallback((conversation: Conversation | undefined | null) => {
-    if (!conversation) return "";
-    if (conversation.type === "guest") {
-      return conversation.name;
-    }
-
   const getConversationDisplayName = useCallback(
     (conversation: Conversation | undefined | null) => {
       if (!conversation) return "";
@@ -370,14 +364,6 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
       toast.error(msg || "Failed to send message");
     }
   };
-
-  // Use useCallback for memoized functions
-  const memoizedFormatTime = useCallback((timestamp: string) => formatTime(timestamp), []);
-  const memoizedFormatMessageTime = useCallback((timestamp: string) => formatMessageTime(timestamp), []);
-  const memoizedGetActiveStatus = useCallback(
-    (lastMessageTime: string | undefined, type: string) => getActiveStatus(lastMessageTime, type),
-    []
-  );
 
   if (showSkeletonConversations) {
     return (

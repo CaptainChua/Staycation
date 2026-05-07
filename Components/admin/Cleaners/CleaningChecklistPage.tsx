@@ -50,6 +50,9 @@ interface Props {
 }
 
 export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
+  const [havens, setHavens] = useState<Haven[]>([]);
+  const [selectedHavenId, setSelectedHavenId] = useState<string | null>(null);
+  const [isHavensLoading, setIsHavensLoading] = useState<boolean>(false);
   const [selectedHaven, setSelectedHaven] = useState<Haven | null>(null);
 
   const [checklist, setChecklist] = useState<Category[]>([]);
@@ -112,6 +115,13 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
       } finally {
         setIsHavensLoading(false);
       }
+    };
+
+    fetchHavens();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   // Fetch checklist for a haven
@@ -149,10 +159,9 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
       } finally {
         setIsLoading(false);
       }
-    } catch {
-      // non-fatal — booking info card just won't show
-    }
-  }, []);
+    },
+    [havens]
+  );
 
   // Separately fetch haven info for the booking card (in case checklist endpoint doesn't return it)
   const fetchHavenInfo = useCallback(async (havenId: string) => {
