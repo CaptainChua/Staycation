@@ -113,10 +113,12 @@ export default function PropertyLocationPage() {
   };
 
   const handleGetDirections = () => {
-    if (selectedBuilding) {
-      const url = `https://www.google.com/maps/dir/?api=1&destination=${selectedBuilding.latitude},${selectedBuilding.longitude}`;
-      window.open(url, '_blank');
+    if (!selectedBuilding) {
+      toast.error("Please select a building first");
+      return;
     }
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${selectedBuilding.latitude},${selectedBuilding.longitude}`;
+    window.open(url, '_blank');
   };
 
   const getStatusIcon = (status: string) => {
@@ -156,20 +158,20 @@ export default function PropertyLocationPage() {
       </div>
 
       {/* Building (Tower) Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
         {buildings.map((building, i) => (
           <div
             key={i}
-            className="bg-brand-primary text-white rounded-lg p-6 shadow dark:shadow-gray-900 hover:shadow-lg transition-all cursor-pointer"
+            className="bg-brand-primary text-white rounded-lg p-4 sm:p-6 shadow dark:shadow-gray-900 hover:shadow-lg transition-all cursor-pointer"
             onClick={() => handleBuildingClick(building)}
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm opacity-90">{building.name}</p>
-                <p className="text-3xl font-bold mt-2">{building.totalUnits}</p>
+                <p className="text-xs sm:text-sm opacity-90">{building.name}</p>
+                <p className="text-2xl sm:text-3xl font-bold mt-1 sm:mt-2">{building.totalUnits}</p>
                 <p className="text-xs opacity-75 mt-1">{building.availableUnits} Available</p>
               </div>
-              <Building2 className="w-12 h-12 opacity-50" />
+              <Building2 className="w-8 h-8 sm:w-12 sm:h-12 opacity-50" />
             </div>
           </div>
         ))}
@@ -177,13 +179,13 @@ export default function PropertyLocationPage() {
 
       {/* Map Placeholder */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
+          <h2 className="text-base sm:text-lg font-bold text-gray-800 dark:text-gray-100">
             Property Map
           </h2>
           <button 
             onClick={handleGetDirections}
-            className="flex items-center gap-2 bg-brand-primary hover:bg-brand-primaryDark text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+            className="flex items-center justify-center gap-2 bg-brand-primary hover:bg-brand-primaryDark text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors w-full sm:w-auto"
           >
             <Navigation className="w-4 h-4" />
             Get Directions

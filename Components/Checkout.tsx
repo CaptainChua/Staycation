@@ -62,6 +62,29 @@ interface BlockedDate {
   to_date: string;
 }
 
+interface BookingType {
+  name: string;
+  duration: number;
+  price: number;
+  available_days: string[];
+  first_check_in: string;
+  last_check_in: string;
+}
+
+function to12Hour(time: string): string {
+  if (!time) return "--:--";
+  const [h, m] = time.split(":").map(Number);
+  if (isNaN(h) || isNaN(m)) return "--:--";
+  return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h >= 12 ? "PM" : "AM"}`;
+}
+
+function addHoursToTime(time: string, hours: number): string {
+  if (!time) return "";
+  const [h, m] = time.split(":").map(Number);
+  const total = h * 60 + m + hours * 60;
+  return `${String(Math.floor(total / 60) % 24).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+}
+
 interface SessionUser {
   id?: string;
   role?: string;
@@ -105,6 +128,24 @@ const Checkout = () => {
     bookingData.selectedRoom?.id || '',
     { skip: !bookingData.selectedRoom?.id }
   );
+
+  // Booking windows from admin settings
+  const [bookingWindowTypes, setBookingWindowTypes] = useState<BookingType[]>([]);
+  const [selectedBookingType, setSelectedBookingType] = useState<BookingType | null>(null);
+
+  useEffect(() => {
+    const havenId = bookingData.selectedRoom?.id;
+    if (!havenId) return;
+    fetch(`/api/admin/haven/${havenId}/times`)
+      .then(r => r.json())
+      .then(res => {
+        if (res.success && Array.isArray(res.data?.booking_windows?.types)) {
+          setBookingWindowTypes(res.data.booking_windows.types);
+        }
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookingData.selectedRoom?.id]);
 
 
   // Track if initial sync from Redux is done
@@ -277,6 +318,19 @@ const Checkout = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.stayType, localCheckInDate]);
 
+  // Reset 21-hour stayType if the check-in date changes to an incompatible day
+  useEffect(() => {
+    if (!localCheckInDate) return;
+    const day = new Date(localCheckInDate + 'T12:00:00').getDay();
+    const isFriSat = day === 5 || day === 6;
+    const selectedIsWeekday = formData.stayType.includes('Sun-Thu');
+    const selectedIsFriSat = formData.stayType.includes('Fri-Sat');
+    if ((selectedIsWeekday && isFriSat) || (selectedIsFriSat && !isFriSat)) {
+      setFormData(prev => ({ ...prev, stayType: '', checkInTime: '', checkOutTime: '' }));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [localCheckInDate]);
+
   // Fetch payment methods from API
   const fetchPaymentMethods = async () => {
     setIsLoadingPaymentMethods(true);
@@ -366,10 +420,11 @@ const Checkout = () => {
           setAddOns(parsed.addOns);
         }
         
-        // Only restore step and form data if it's the same room being booked
+        // Only restore if it's the same room, or if Redux was reset (page refresh)
         const savedRoomId = parsed.bookingData?.selectedRoom?.id;
         const currentRoomId = bookingData.selectedRoom?.id;
-        const isSameRoom = savedRoomId && currentRoomId && savedRoomId === currentRoomId;
+        // Allow restore when: same room, OR currentRoom not yet set (page refresh)
+        const isSameRoom = savedRoomId && (!currentRoomId || savedRoomId === currentRoomId);
 
         if (isSameRoom) {
           // Restore Step only for the same room
@@ -378,7 +433,7 @@ const Checkout = () => {
             setCompletedSteps(Array.from({length: parsed.currentStep - 1}, (_, i) => i + 1));
           }
         } else {
-          // Different room or new booking — always start from step 1
+          // Explicitly booking a different room — clear saved session and start fresh
           localStorage.removeItem(STORAGE_KEY);
           return;
         }
@@ -437,22 +492,27 @@ const Checkout = () => {
 
   // Calculate room rate from selected stay type
   const getRoomRateFromStayType = (): number => {
-    if (!formData.stayType) return 0; // Return 0 if no stay type selected
+    if (!formData.stayType) return 0;
 
-    if (formData.stayType === "10 Hours - ₱1,599") {
-      return 1599;
-    } else if (formData.stayType.includes("weekday")) {
-      return 1799;
-    } else if (formData.stayType.includes("Fri-Sat")) {
-      return 1999;
-    } else if (formData.stayType === "Multi-Day Stay") {
-      // For multi-day, calculate: base rate × number of days
+    // Dynamic: use booking_windows price
+    if (selectedBookingType) {
+      if (selectedBookingType.duration >= 24) {
+        // Overnight / multi-day: multiply by nights
+        const nights = Math.max(1, calculateNumberOfDays());
+        return selectedBookingType.price * nights;
+      }
+      return selectedBookingType.price;
+    }
+
+    // Fallback: hardcoded legacy values
+    if (formData.stayType === "10 Hours - ₱1,599") return 1599;
+    if (formData.stayType.includes("weekday")) return 1799;
+    if (formData.stayType.includes("Fri-Sat")) return 1999;
+    if (formData.stayType === "Multi-Day Stay") {
       const baseRate = bookingData.selectedRoom?.price
         ? parseInt(bookingData.selectedRoom.price.replace(/[₱,]/g, ""))
         : 1799;
-
-      const numberOfDays = calculateNumberOfDays();
-      return baseRate * numberOfDays;
+      return baseRate * Math.max(1, calculateNumberOfDays());
     }
     return 0;
   };
@@ -461,6 +521,21 @@ const Checkout = () => {
   const numberOfDays = calculateNumberOfDays();
   const securityDeposit = formData.stayType ? 1000 : 0; // Only show if stay type selected
   const downPayment = 500;
+
+  // Day-of-week filter for 21-hour options (use noon to avoid UTC offset issues)
+  const checkInDay = localCheckInDate ? new Date(localCheckInDate + 'T12:00:00').getDay() : null;
+  const checkInIsFriSat = checkInDay === 5 || checkInDay === 6;
+  const checkInIsSunThu = checkInDay !== null && !checkInIsFriSat;
+
+  const DAY_ABBR = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const checkInDayAbbr = checkInDay !== null ? DAY_ABBR[checkInDay] : null;
+
+  // Filter booking types by the selected check-in day
+  const availableBookingTypes = useMemo(() => {
+    if (!bookingWindowTypes.length) return [];
+    if (!checkInDayAbbr) return bookingWindowTypes;
+    return bookingWindowTypes.filter(t => t.available_days.includes(checkInDayAbbr));
+  }, [bookingWindowTypes, checkInDayAbbr]);
 
   // Calculate add-ons total
   const addOnsTotal = Object.entries(addOns).reduce((total, [key, quantity]) => {
@@ -741,45 +816,53 @@ const Checkout = () => {
   const handleStayTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedStayType = e.target.value;
 
-    // Set default times based on stay type
-    let defaultCheckInTime = "";
-    let defaultCheckOutTime = "";
+    if (bookingWindowTypes.length > 0) {
+      // Dynamic mode: derive everything from booking_windows
+      const bType = bookingWindowTypes.find(t => t.name === selectedStayType) || null;
+      setSelectedBookingType(bType);
 
-    if (selectedStayType === "10 Hours - ₱1,599") {
-      defaultCheckInTime = "14:00"; // 2:00 PM
-      defaultCheckOutTime = "00:00"; // 12:00 AM (midnight)
-    } else if (selectedStayType.includes("21 Hours")) {
-      defaultCheckInTime = "14:00"; // 2:00 PM
-      defaultCheckOutTime = "11:00"; // 11:00 AM
-    } else if (selectedStayType === "Multi-Day Stay") {
-      defaultCheckInTime = "14:00"; // 2:00 PM
-      defaultCheckOutTime = "11:00"; // 11:00 AM
+      const checkInTime = bType?.first_check_in || "14:00";
+      const checkOutTime = bType ? addHoursToTime(checkInTime, bType.duration) : "11:00";
+
+      setFormData(prev => ({ ...prev, stayType: selectedStayType, checkInTime, checkOutTime }));
+
+      // Auto-set checkout date
+      if (localCheckInDate && bType) {
+        const cin = new Date(localCheckInDate);
+        const totalMins = parseInt(checkInTime.split(':')[0]) * 60 + parseInt(checkInTime.split(':')[1]) + bType.duration * 60;
+        const daysToAdd = Math.floor(totalMins / (24 * 60));
+        const cout = new Date(cin);
+        cout.setDate(cout.getDate() + daysToAdd);
+        const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        setLocalCheckOutDate(fmt(cout));
+      }
+      return;
     }
 
-    setFormData((prev) => ({
-      ...prev,
-      stayType: selectedStayType,
-      checkInTime: defaultCheckInTime,
-      checkOutTime: defaultCheckOutTime,
-    }));
+    // Fallback: hardcoded legacy behaviour
+    let defaultCheckInTime = "";
+    let defaultCheckOutTime = "";
+    if (selectedStayType === "10 Hours - ₱1,599") {
+      defaultCheckInTime = "14:00";
+      defaultCheckOutTime = "00:00";
+    } else if (selectedStayType.includes("21 Hours")) {
+      defaultCheckInTime = "14:00";
+      defaultCheckOutTime = "11:00";
+    } else if (selectedStayType === "Multi-Day Stay") {
+      defaultCheckInTime = "14:00";
+      defaultCheckOutTime = "11:00";
+    }
+    setSelectedBookingType(null);
+    setFormData(prev => ({ ...prev, stayType: selectedStayType, checkInTime: defaultCheckInTime, checkOutTime: defaultCheckOutTime }));
 
-    // Auto-calculate check-out date if check-in date is already selected
     if (bookingData.checkInDate && selectedStayType) {
       const checkInDate = new Date(bookingData.checkInDate);
       const checkOutDate = new Date(checkInDate);
-
-      if (selectedStayType === "10 Hours - ₱1,599") {
-        // 10 hours: check-out is same day (next midnight)
+      if (selectedStayType === "10 Hours - ₱1,599" || selectedStayType.includes("21 Hours")) {
         checkOutDate.setDate(checkOutDate.getDate() + 1);
-        const checkOutStr = `${checkOutDate.getFullYear()}-${String(checkOutDate.getMonth() + 1).padStart(2, '0')}-${String(checkOutDate.getDate()).padStart(2, '0')}`;
-        dispatch(setCheckOutDate(checkOutStr));
-      } else if (selectedStayType.includes("21 Hours")) {
-        // 21 hours: check-out is always the next day
-        checkOutDate.setDate(checkOutDate.getDate() + 1);
-        const checkOutStr = `${checkOutDate.getFullYear()}-${String(checkOutDate.getMonth() + 1).padStart(2, '0')}-${String(checkOutDate.getDate()).padStart(2, '0')}`;
-        dispatch(setCheckOutDate(checkOutStr));
+        const s = `${checkOutDate.getFullYear()}-${String(checkOutDate.getMonth()+1).padStart(2,'0')}-${String(checkOutDate.getDate()).padStart(2,'0')}`;
+        dispatch(setCheckOutDate(s));
       }
-      // Multi-Day Stay uses custom dates picked by the user — never auto-override
     }
   };
 
@@ -878,6 +961,20 @@ const Checkout = () => {
     // Validate check-in/out times
     if (!formData.checkInTime) newErrors.checkInTime = "Check-in time is required";
     if (!formData.checkOutTime) newErrors.checkOutTime = "Check-out time is required";
+
+    // Validate check-in time is within the allowed booking window
+    if (formData.checkInTime && selectedBookingType) {
+      const toMins = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+      const cinMins = toMins(formData.checkInTime);
+      const firstMins = toMins(selectedBookingType.first_check_in);
+      const lastMins = toMins(selectedBookingType.last_check_in);
+      const inWindow = firstMins <= lastMins
+        ? cinMins >= firstMins && cinMins <= lastMins
+        : cinMins >= firstMins || cinMins <= lastMins; // wraps midnight
+      if (!inWindow) {
+        newErrors.checkInTime = `Check-in must be between ${to12Hour(selectedBookingType.first_check_in)} and ${to12Hour(selectedBookingType.last_check_in)}`;
+      }
+    }
 
     // Real-time overlap check
     if (!newErrors.checkInDate && !newErrors.checkOutDate && bookingData.checkInDate && bookingData.checkOutDate) {
@@ -1065,6 +1162,7 @@ const Checkout = () => {
         facebook_link: formData.facebookLink,
         valid_id: validIdBase64,
         additional_guests: additionalGuestsData,
+        haven_id: bookingData.selectedRoom?.id || null,
         room_name: bookingData.selectedRoom?.name || bookingData.location?.name || 'Standard Room',
         stay_type: formData.stayType,
         check_in_date: bookingData.checkInDate,
@@ -1983,14 +2081,24 @@ const Checkout = () => {
                           }`}
                         >
                           <option value="">Select Stay Type</option>
-                          <option value="10 Hours - ₱1,599">10 Hours - ₱1,599 (2:00 PM - 12:00 AM)</option>
-                          <option value="21 Hours (Sun-Thu weekday) - ₱1,799">
-                            21 Hours (Sun-Thu weekday) - ₱1,799 (2:00 PM - 11:00 AM)
-                          </option>
-                          <option value="21 Hours (Fri-Sat) - ₱1,999">
-                            21 Hours (Fri-Sat) - ₱1,999 (2:00 PM - 11:00 AM)
-                          </option>
-                          <option value="Multi-Day Stay">Multi-Day Stay (Custom dates)</option>
+                          {availableBookingTypes.length > 0 ? (
+                            availableBookingTypes.map(t => (
+                              <option key={t.name} value={t.name}>
+                                {t.name} — ₱{t.price.toLocaleString()} ({to12Hour(t.first_check_in)} – {to12Hour(addHoursToTime(t.first_check_in, t.duration))})
+                              </option>
+                            ))
+                          ) : (
+                            <>
+                              <option value="10 Hours - ₱1,599">10 Hours - ₱1,599 (2:00 PM - 12:00 AM)</option>
+                              {(checkInIsSunThu || checkInDay === null) && (
+                                <option value="21 Hours (Sun-Thu weekday) - ₱1,799">21 Hours (Sun-Thu weekday) - ₱1,799 (2:00 PM - 11:00 AM)</option>
+                              )}
+                              {(checkInIsFriSat || checkInDay === null) && (
+                                <option value="21 Hours (Fri-Sat) - ₱1,999">21 Hours (Fri-Sat) - ₱1,999 (2:00 PM - 11:00 AM)</option>
+                              )}
+                              <option value="Multi-Day Stay">Multi-Day Stay (Custom dates)</option>
+                            </>
+                          )}
                         </select>
                         {errors.stayType && (
                           <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
@@ -2099,15 +2207,28 @@ const Checkout = () => {
                             type="time"
                             name="checkInTime"
                             value={formData.checkInTime}
+                            min={selectedBookingType?.first_check_in}
+                            max={selectedBookingType?.last_check_in}
                             onChange={(e) => {
                               handleInputChange(e);
                               setErrors(prev => ({...prev, checkInTime: ''}));
+                              // Auto-recalculate checkout time when check-in changes
+                              if (selectedBookingType) {
+                                const newOut = addHoursToTime(e.target.value, selectedBookingType.duration);
+                                setFormData(prev => ({ ...prev, checkOutTime: newOut }));
+                              }
                             }}
                             required
                             className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-colors ${
                               errors.checkInTime ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-gray-600'
                             }`}
                           />
+                          {selectedBookingType && (
+                            <p className="mt-1 text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              Allowed: {to12Hour(selectedBookingType.first_check_in)} – {to12Hour(selectedBookingType.last_check_in)}
+                            </p>
+                          )}
                           {errors.checkInTime && (
                             <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
                               <AlertCircle className="w-4 h-4" />

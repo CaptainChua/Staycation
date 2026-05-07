@@ -14,6 +14,7 @@ import {
   X,
   Loader2,
   ArrowLeft,
+  ZoomIn,
 } from "lucide-react";
 import Image from "next/image";
 import {
@@ -58,7 +59,8 @@ interface Conversation {
   unread_count?: number;
 }
 
-// Helper functions defined outside the component to avoid conditional hooks
+// ─── helpers ────────────────────────────────────────────────────────────────
+
 const formatTime = (timestamp: string) => {
   const date = new Date(timestamp);
   const now = new Date();
@@ -115,17 +117,64 @@ const Skeleton = ({ className }: { className: string }) => (
   <div className={`animate-pulse bg-gray-200 dark:bg-gray-800 ${className}`} />
 );
 
+// ─── Lightbox ────────────────────────────────────────────────────────────────
+
+function Lightbox({ src, onClose }: { src: string; onClose: () => void }) {
+  // Close on Escape key
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      {/* Close button */}
+      <button
+        type="button"
+        onClick={onClose}
+        className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+        title="Close"
+      >
+        <X className="w-6 h-6 text-white" />
+      </button>
+
+      {/* Image — stop propagation so clicking image doesn't close */}
+      <div
+        className="max-w-[90vw] max-h-[90vh] rounded-xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={src}
+          alt="Attachment"
+          className="max-w-[90vw] max-h-[90vh] object-contain"
+        />
+      </div>
+    </div>
+  );
+}
+
+// ─── Main component ──────────────────────────────────────────────────────────
+
 export default function MessagesPage({ onClose, initialConversationId }: MessagePageProps) {
   const { data: session } = useSession();
   const userId = (session?.user as { id?: string })?.id;
 
   const [search, setSearch] = useState("");
   const [draft, setDraft] = useState("");
+  const [attachedImage, setAttachedImage] = useState<string | null>(null); // base64 preview
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [isNewMessageModalOpen, setIsNewMessageModalOpen] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showMobileChat, setShowMobileChat] = useState(false);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const hasInitializedActiveId = useRef(false);
   const hasProcessedInitialConversationId = useRef(false);
 
@@ -158,7 +207,8 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
     setDraft((prev) => prev + emoji);
   };
 
-  // Fetch conversations
+  // ── data fetching ──────────────────────────────────────────────────────────
+
   const {
     data: conversationsData,
     isLoading: isLoadingConversations,
@@ -184,7 +234,7 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
 
   const [activeId, setActiveId] = useState<string | null>(null);
 
-  // Initialize activeId once when conversations are loaded - FIXED VERSION
+  // Initialize activeId once when conversations are loaded
   useEffect(() => {
     // Only run this effect once when conversations are loaded and we haven't initialized activeId yet
     if (conversations.length > 0 && !hasInitializedActiveId.current) {
@@ -197,7 +247,7 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
     }
   }, [conversations.length, activeId, getInitialActiveId]);
 
-  // Update activeId when initialConversationId changes - FIXED VERSION
+  // Update activeId when initialConversationId changes
   useEffect(() => {
     // Skip if we've already processed the initialConversationId
     if (initialConversationId && conversations.length > 0 && !hasProcessedInitialConversationId.current) {
@@ -210,7 +260,6 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
     }
   }, [initialConversationId, conversations, activeId]);
 
-  // Fetch messages for active conversation
   const {
     data: messagesData,
     isLoading: isLoadingMessages,
@@ -220,7 +269,6 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
     { skip: !activeId, pollingInterval: 3000 }
   );
 
-  // Mutations
   const [sendMessage, { isLoading: isSending }] = useSendMessageMutation();
   const [markAsRead] = useMarkMessagesAsReadMutation();
 
@@ -247,6 +295,8 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
     return map;
   }, [employees]);
 
+  // ── side-effects ───────────────────────────────────────────────────────────
+
   // Mark messages as read when opening a conversation
   useEffect(() => {
     if (activeId && userId) {
@@ -262,6 +312,8 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // ── helpers (memoised) ─────────────────────────────────────────────────────
 
   const getConversationDisplayName = useCallback((conversation: Conversation | undefined | null) => {
     if (!conversation) return "";
@@ -312,19 +364,51 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
     });
   }, [search, conversations]);
 
+  // ── image attachment ───────────────────────────────────────────────────────
+
+  const handleImageIconClick = () => fileInputRef.current?.click();
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Only image files are supported.");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image must be smaller than 5 MB.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => setAttachedImage(reader.result as string);
+    reader.readAsDataURL(file);
+
+    // Reset input so the same file can be re-selected
+    e.target.value = "";
+  };
+
+  const removeAttachedImage = () => setAttachedImage(null);
+
+  // ── send ───────────────────────────────────────────────────────────────────
+
   const handleSendMessage = async () => {
     const text = draft.trim();
-    if (!text || !activeId || !userId) return;
+    if (!text && !attachedImage) return;
+    if (!activeId || !userId) return;
 
     try {
       await sendMessage({
         conversation_id: activeId,
         sender_id: userId,
         sender_name: session?.user?.name || "Cleaner",
-        message_text: text,
+        message_text: attachedImage || text,
       }).unwrap();
 
       setDraft("");
+      setAttachedImage(null);
       refetchMessages();
       refetchConversations();
     } catch (error: unknown) {
@@ -336,7 +420,7 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
     }
   };
 
-  // Use useCallback for memoized functions - MOVED OUTSIDE CONDITIONAL RENDER
+  // Use useCallback for memoized functions
   const memoizedFormatTime = useCallback((timestamp: string) => formatTime(timestamp), []);
   const memoizedFormatMessageTime = useCallback((timestamp: string) => formatMessageTime(timestamp), []);
   const memoizedGetActiveStatus = useCallback(
@@ -411,7 +495,24 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
     );
   }
 
+  // ── render ─────────────────────────────────────────────────────────────────
+
   return (
+    <>
+      {/* Lightbox */}
+      {lightboxSrc && (
+        <Lightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
+      )}
+
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleFileChange}
+      />
+
       <div className="animate-in fade-in duration-700">
         <div className="flex items-center justify-between mb-2 sm:mb-4">
           <div>
@@ -421,6 +522,8 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
         </div>
         <div className="bg-white dark:bg-gray-900 rounded-xl sm:rounded-2xl shadow-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
           <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr]">
+
+            {/* ── Conversation list ── */}
             <div className={`border-b lg:border-b-0 lg:border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex flex-col h-[calc(100vh-180px)] sm:h-[65vh] lg:h-[72vh] ${showMobileChat ? "hidden lg:flex" : "flex"}`}>
               <div className="h-14 sm:h-16 px-3 sm:px-4 flex items-center gap-3 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
                 <p className="text-base font-bold text-gray-900 dark:text-gray-100">Chats</p>
@@ -445,7 +548,7 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                   )}
                 </div>
               </div>
-  
+
               <div className="p-4">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -457,7 +560,7 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                   />
                 </div>
               </div>
-  
+
               <div className="flex-1 overflow-y-auto">
                 {isLoadingConversations ? (
                   <div className="flex items-center justify-center py-10">
@@ -478,6 +581,7 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                     const avatarLetter = (conversationName || c.name || "?")
                       .charAt(0)
                       .toUpperCase();
+
                     return (
                       <button
                         key={c.id}
@@ -528,7 +632,7 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                             {activeStatus.statusText}
                           </p>
                         </div>
-  
+
                         {(c.unread_count || 0) > 0 && (
                           <div className="w-6 flex justify-end">
                             <span className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-brand-primary text-white text-xs font-bold">
@@ -542,10 +646,12 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                 )}
               </div>
             </div>
-  
+
+            {/* ── Chat panel ── */}
             <div className={`bg-white dark:bg-gray-900 flex flex-col h-[calc(100vh-180px)] sm:h-[65vh] lg:h-[72vh] ${showMobileChat ? "flex" : "hidden lg:flex"}`}>
               {activeConversation ? (
                 <>
+                  {/* Header */}
                   <div className="h-14 sm:h-16 px-2 sm:px-4 flex items-center justify-between border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 sticky top-0 z-10">
                     <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                       <button
@@ -598,7 +704,8 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                       </button>
                     </div>
                   </div>
-  
+
+                  {/* Messages */}
                   <div className="flex-1 overflow-y-auto bg-white dark:bg-gray-900 px-2 sm:px-4 py-3 sm:py-4 space-y-2 sm:space-y-3">
                     {showSkeletonMessages ? (
                       Array.from({ length: 6 }).map((_, idx) => (
@@ -621,6 +728,7 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                             m.sender_name ||
                             (activeConversation?.type === "guest" ? "Guest" : "Staff")
                           : undefined;
+
                         return (
                           <div key={m.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
                             <div className={`max-w-[85%] sm:max-w-[75%] ${isMe ? "items-end" : "items-start"} flex flex-col gap-0.5 sm:gap-1`}>
@@ -629,15 +737,34 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                                   {senderLabel}
                                 </span>
                               )}
-                              <div
-                                className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl text-xs sm:text-sm leading-relaxed shadow-sm ${
-                                  isMe
-                                    ? "bg-brand-primary text-white rounded-br-md"
-                                    : "bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-800 rounded-bl-md"
-                                }`}
-                              >
-                                {m.message_text}
-                              </div>
+
+                              {m.message_text.startsWith("data:image") ? (
+                                <div
+                                  className="relative group cursor-zoom-in rounded-2xl overflow-hidden shadow-sm border border-gray-200 dark:border-gray-700"
+                                  onClick={() => setLightboxSrc(m.message_text)}
+                                >
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={m.message_text}
+                                    alt="Attachment"
+                                    className="max-w-[220px] sm:max-w-[280px] max-h-[220px] object-cover rounded-2xl transition-opacity group-hover:opacity-90"
+                                  />
+                                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20 rounded-2xl">
+                                    <ZoomIn className="w-7 h-7 text-white drop-shadow" />
+                                  </div>
+                                </div>
+                              ) : (
+                                <div
+                                  className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl text-xs sm:text-sm leading-relaxed shadow-sm ${
+                                    isMe
+                                      ? "bg-brand-primary text-white rounded-br-md"
+                                      : "bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-800 rounded-bl-md"
+                                  }`}
+                                >
+                                  {m.message_text}
+                                </div>
+                              )}
+
                               <span className="text-[10px] sm:text-[11px] text-gray-400">{memoizedFormatMessageTime(m.created_at)}</span>
                             </div>
                           </div>
@@ -650,8 +777,32 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                     )}
                     <div ref={messagesEndRef} />
                   </div>
-  
+
+                  {/* Input area */}
                   <div className="border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-2 sm:px-4 py-2 sm:py-3">
+                    {/* Image preview strip */}
+                    {attachedImage && (
+                      <div className="mb-2 flex items-start gap-2">
+                        <div className="relative group">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={attachedImage}
+                            alt="Attachment preview"
+                            className="w-16 h-16 rounded-xl object-cover border border-gray-200 dark:border-gray-700 shadow-sm cursor-zoom-in"
+                            onClick={() => setLightboxSrc(attachedImage)}
+                          />
+                          <button
+                            type="button"
+                            onClick={removeAttachedImage}
+                            className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-gray-700 text-white flex items-center justify-center hover:bg-red-500 transition-colors shadow"
+                            title="Remove image"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
                     <div className="flex items-center gap-1 sm:gap-2">
                       <button
                         type="button"
@@ -661,9 +812,17 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                       >
                         <Plus className="w-4 h-4 sm:w-5 sm:h-5 text-brand-primary" />
                       </button>
-                      <button type="button" className="p-1.5 sm:p-2 rounded-full hover:bg-brand-primaryLighter transition-colors" title="Attach">
+
+                      {/* Image attach button */}
+                      <button
+                        type="button"
+                        onClick={handleImageIconClick}
+                        className="p-1.5 sm:p-2 rounded-full hover:bg-brand-primaryLighter transition-colors"
+                        title="Attach image"
+                      >
                         <ImageIcon className="w-4 h-4 sm:w-5 sm:h-5 text-brand-primary" />
                       </button>
+
                       <div className="flex-1 bg-gray-100 dark:bg-gray-800 rounded-full px-2 sm:px-3 py-1.5 sm:py-2 flex items-center gap-1 sm:gap-2 border border-gray-200 dark:border-gray-700 focus-within:bg-brand-primaryLighter dark:focus-within:bg-gray-800 focus-within:border-brand-primary dark:focus-within:border-brand-primary focus-within:ring-2 focus-within:ring-brand-primary/20">
                         <input
                           value={draft}
@@ -713,11 +872,11 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                           )}
                         </div>
                       </div>
-  
+
                       <button
                         type="button"
                         onClick={handleSendMessage}
-                        disabled={isSending || !draft.trim()}
+                        disabled={isSending || (!draft.trim() && !attachedImage)}
                         className="p-1.5 sm:p-2 rounded-full hover:bg-brand-primaryLighter transition-colors disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed flex items-center justify-center"
                         title="Send"
                       >
@@ -738,7 +897,7 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
             </div>
           </div>
         </div>
-  
+
         <NewMessageModal
           isOpen={isNewMessageModalOpen}
           onClose={() => setIsNewMessageModalOpen(false)}
@@ -749,5 +908,6 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
           }}
         />
       </div>
-    );
-  }
+    </>
+  );
+}

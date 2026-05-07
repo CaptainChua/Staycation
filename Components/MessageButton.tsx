@@ -436,6 +436,21 @@ const MessageButton = () => {
 
   return (
     <HydrationSafeWrapper>
+      {/* Facebook Messenger Button */}
+      <a
+        href="https://www.facebook.com/messages/t/209951102209946"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="fixed bottom-20 right-4 sm:bottom-24 sm:right-6 z-50 w-12 h-12 sm:w-14 sm:h-14 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-110 flex items-center justify-center"
+        style={{ background: "linear-gradient(135deg, #0099FF 0%, #A033FF 50%, #FF5280 100%)" }}
+        aria-label="Chat on Facebook Messenger"
+        title="Message us on Facebook"
+      >
+        <svg viewBox="0 0 24 24" className="w-6 h-6 sm:w-7 sm:h-7" fill="white">
+          <path d="M12 2C6.477 2 2 6.145 2 11.243c0 2.908 1.438 5.503 3.688 7.217V22l3.37-1.853c.9.25 1.855.383 2.842.383 5.523 0 10-4.145 10-9.243C22 6.145 17.523 2 12 2zm1 12.457l-2.545-2.713-4.968 2.713 5.469-5.8 2.609 2.713 4.904-2.713-5.469 5.8z" />
+        </svg>
+      </a>
+
       {/* Fixed Message Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}

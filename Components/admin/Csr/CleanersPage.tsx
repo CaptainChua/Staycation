@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { useGetCleaningTasksQuery } from "@/redux/api/cleanersApi";
+import { useGetCleaningTasksQuery, CleaningTask } from "@/redux/api/cleanersApi";
 import ViewBookings from "./Modals/ViewBookings";
 import AssignCleanerModal from "./Modals/AssignCleanerModal";
 
@@ -46,9 +46,9 @@ interface CleanerRow {
   cleaned_at?: string;
   status: CleaningStatus;
   statusColor: string;
+  checklist_completed: number;
+  checklist_total: number;
 }
-
-import { CleaningTask } from "@/redux/api/cleanersApi";
 
 // Translation content for guides
 const guideTranslations = {
@@ -358,6 +358,8 @@ export default function CleanersPage() {
           cleaned_at: task.cleaned_at ?? undefined,
           status,
           statusColor,
+          checklist_completed: task.checklist_completed ?? 0,
+          checklist_total: task.checklist_total ?? 0,
         };
       });
   }, [cleaningTasks]);
@@ -811,9 +813,20 @@ export default function CleanersPage() {
                         Guest: {highlightText(row.guest, searchTerm)}
                       </div>
                     </div>
-                    <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${row.statusColor}`}>
-                      {row.status}
-                    </span>
+                    {row.checklist_total > 0 ? (() => {
+                      const pct = Math.round((row.checklist_completed / row.checklist_total) * 100);
+                      return (
+                        <div className="flex flex-col items-end gap-1 min-w-[110px]">
+                          <span className="text-xs font-bold text-gray-800 dark:text-gray-100">Overall Progress</span>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">{row.checklist_completed} of {row.checklist_total} tasks completed</span>
+                          <div className="w-full h-1.5 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
+                            <div className="h-full bg-yellow-400 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })() : (
+                      <span className="text-xs text-gray-400 dark:text-gray-500 italic">—</span>
+                    )}
                   </div>
 
                   <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
@@ -900,13 +913,9 @@ export default function CleanersPage() {
                     </div>
                   </th>
                   <th
-                    onClick={() => handleSort("status")}
-                    className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors whitespace-nowrap border border-gray-200 dark:border-gray-700"
+                    className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap border border-gray-200 dark:border-gray-700"
                   >
-                    <div className="flex items-center justify-center gap-2">
-                      Status
-                      <ArrowUpDown className="w-4 h-4 text-gray-400 dark:text-gray-300" />
-                    </div>
+                    Progress
                   </th>
                   <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap border border-gray-200 dark:border-gray-700">Actions</th>
                 </tr>
@@ -1062,11 +1071,22 @@ export default function CleanersPage() {
                         </div>
                       </td>
 
-                      {/* Status Column */}
+                      {/* Progress Column */}
                       <td className="py-4 px-4 text-center border border-gray-200 dark:border-gray-700">
-                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${row.statusColor}`}>
-                          {row.status}
-                        </span>
+                        {row.checklist_total > 0 ? (() => {
+                          const pct = Math.round((row.checklist_completed / row.checklist_total) * 100);
+                          return (
+                            <div className="flex flex-col items-center gap-1 min-w-[110px]">
+                              <span className="text-xs font-bold text-gray-800 dark:text-gray-100">Overall Progress</span>
+                              <span className="text-xs text-gray-500 dark:text-gray-400">{row.checklist_completed} of {row.checklist_total} tasks completed</span>
+                              <div className="w-full h-1.5 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
+                                <div className="h-full bg-yellow-400 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                              </div>
+                            </div>
+                          );
+                        })() : (
+                          <span className="text-xs text-gray-400 dark:text-gray-500 italic">—</span>
+                        )}
                       </td>
 
                       {/* Actions Column */}

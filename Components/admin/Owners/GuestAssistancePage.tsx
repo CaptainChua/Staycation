@@ -181,11 +181,22 @@ const fetchBookings = async () => {
       case "pending":
         return "bg-yellow-100 text-yellow-700";
       case "declined":
+      case "rejected":
         return "bg-red-100 text-red-700";
       default:
         return "bg-gray-100 text-gray-700";
     }
   };
+
+  const getStatusLabel = (status: string) => {
+    if (status === "rejected") return "Declined";
+
+    return status
+      .split("-")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+  };
+
 
   // Stats
 const stats = useMemo(() => {
@@ -559,8 +570,8 @@ const stats = useMemo(() => {
                       </div>
                     </td>
                     <td className="py-4 px-4 text-center">
-                      <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap capitalize ${getStatusColor(booking.status)}`}>
-                        {booking.status}
+                      <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${getStatusColor(booking.status)}`}>
+                        {getStatusLabel(booking.status)}
                       </span>
                     </td>
                     <td className="py-4 px-4">
@@ -623,8 +634,8 @@ const stats = useMemo(() => {
                   <p className="font-bold text-gray-800 dark:text-gray-100">{booking.bookingRef}</p>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{booking.createdAt}</p>
                 </div>
-                <span className={`px-3 py-1 rounded-full text-xs font-bold capitalize ${getStatusColor(booking.status)}`}>
-                  {booking.status}
+                <span className={`px-3 py-1 rounded-full text-xs font-bold ${getStatusColor(booking.status)}`}>
+                  {getStatusLabel(booking.status)}
                 </span>
               </div>
 
@@ -819,7 +830,7 @@ const stats = useMemo(() => {
               <div className="flex justify-center">
                 <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold ${getStatusColor(selectedBooking.status)}`}>
                   {selectedBooking.status === "pending" ? <Clock className="w-4 h-4" /> : selectedBooking.status === "approved" ? <Check className="w-4 h-4" /> : <X className="w-4 h-4" />}
-                  {selectedBooking.status.charAt(0).toUpperCase() + selectedBooking.status.slice(1)}
+                  {getStatusLabel(selectedBooking.status)}
                 </span>
               </div>
 

@@ -1,4 +1,5 @@
-import type { Metadata, MetadataRoute } from "next";
+import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import { Inter, Poppins } from "next/font/google";
 import "./globals.css";
 import { Providers } from '@/Components/Providers'
@@ -105,6 +106,52 @@ export const metadata: Metadata = {
   },
 };
 
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
+};
+
+const travelAgencySchema = {
+  "@context": "https://schema.org",
+  "@type": "TravelAgency",
+  "name": "Staycation Haven Philippines",
+  "description": "Premium short-term stays and vacation rentals across the Philippines",
+  "url": "https://www.staycationhavenph.com",
+  "logo": "https://www.staycationhavenph.com/haven_logo.png",
+  "image": "https://www.staycationhavenph.com/Images/bg.jpg",
+  "telephone": "+639615718391",
+  "email": "info@staycationhavenph.com",
+  "address": {
+    "@type": "PostalAddress",
+    "addressCountry": "PH",
+    "addressLocality": "M Place South Triangle Tower D, Panay Ave, Diliman, Quezon City, 1103 Metro Manila",
+    "addressRegion": "Philippines"
+  },
+  "geo": { "@type": "GeoCoordinates", "latitude": "14.63756", "longitude": "121.03598" },
+  "openingHours": "Mo-Su 06:00-18:00",
+  "priceRange": "1999 - 2999",
+  "sameAs": [
+    "https://www.facebook.com/staycationhavenph",
+    "https://www.instagram.com/staycationhavenph",
+    "https://www.tiktok.com/@staycationhavenph"
+  ],
+  "areaServed": { "@type": "Country", "name": "Philippines" }
+};
+
+const websiteSchema = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "Staycation Haven Philippines",
+  "url": "https://www.staycationhavenph.com",
+  "potentialAction": {
+    "@type": "SearchAction",
+    "target": "https://www.staycationhavenph.com/search?q={search_term_string}",
+    "query-input": "required name=search_term_string"
+  }
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -113,11 +160,6 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <script
-          src="https://challenges.cloudflare.com/turnstile/v0/api.js"
-          async
-          defer
-        />
         <link rel="icon" href="/favicon-16x16v2.png" sizes="16x16" type="image/png" />
         <link rel="icon" href="/favicon-32x32v2.png" sizes="32x32" type="image/png" />
         <link rel="icon" href="/android-chrome-196x196v2.png" sizes="196x196" type="image/png" />
@@ -125,106 +167,27 @@ export default function RootLayout({
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="apple-touch-icon" href="/apple-touch-iconv2.png" />
         <link rel="manifest" href="/site.webmanifest" />
-        
-        {/* Structured Data for SEO */}
-        <script
+        <Script
+          id="schema-travel-agency"
           type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "TravelAgency",
-              "name": "Staycation Haven Philippines",
-              "description": "Premium short-term stays and vacation rentals across the Philippines",
-              "url": "https://www.staycationhavenph.com",
-              "logo": "https://www.staycationhavenph.com/haven_logo.png",
-              "image": "https://www.staycationhavenph.com/Images/bg.jpg",
-              "telephone": "+639615718391",
-              "email": "info@staycationhavenph.com",
-              "address": {
-                "@type": "PostalAddress",
-                "addressCountry": "PH",
-                "addressLocality": "M Place South Triangle Tower D, Panay Ave, Diliman, Quezon City, 1103 Metro Manila",
-                "addressRegion": "Philippines"
-              },
-              "geo": {
-                "@type": "GeoCoordinates",
-                "latitude": "14.63756",
-                "longitude": "121.03598"
-              },
-              "openingHours": "Mo-Su 06:00-18:00",
-              "priceRange": "1999 - 2999",
-              "sameAs": [
-                "https://www.facebook.com/staycationhavenph",
-                "https://www.instagram.com/staycationhavenph",
-                "https://www.tiktok.com/@staycationhavenph"
-              ],
-              "services": "Short-term rentals, vacation stays, luxury accommodations, family getaways, couple retreats",
-              "areaServed": {
-                "@type": "Country",
-                "name": "Philippines"
-              },
-              "hasOfferCatalog": {
-                "@type": "OfferCatalog",
-                "name": "Accommodation Services",
-                "itemListElement": [
-                  {
-                    "@type": "Offer",
-                    "itemOffered": {
-                      "@type": "Accommodation",
-                      "name": "Luxury Staycation Packages",
-                      "description": "Premium short-term accommodation with modern amenities"
-                    }
-                  },
-                  {
-                    "@type": "Offer", 
-                    "itemOffered": {
-                      "@type": "Accommodation",
-                      "name": "Family Vacation Rentals",
-                      "description": "Spacious accommodations perfect for families"
-                    }
-                  },
-                  {
-                    "@type": "Offer",
-                    "itemOffered": {
-                      "@type": "Accommodation", 
-                      "name": "Business Travel Stays",
-                      "description": "Comfortable accommodations for business travelers"
-                    }
-                  }
-                ]
-              }
-            }),
-          }}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(travelAgencySchema) }}
+          strategy="beforeInteractive"
         />
-        
-        {/* Additional structured data for Website */}
-        <script
+        <Script
+          id="schema-website"
           type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "WebSite",
-              "name": "Staycation Haven Philippines",
-              "url": "https://www.staycationhavenph.com",
-              "description": "Discover premium staycation havens across the Philippines. Book luxurious short-term stays, vacation rentals, and getaways.",
-              "potentialAction": {
-                "@type": "SearchAction",
-                "target": "https://www.staycationhavenph.com/search?q={search_term_string}",
-                "query-input": "required name=search_term_string"
-              },
-              "publisher": {
-                "@type": "Organization",
-                "name": "Staycation Haven Philippines",
-                "url": "https://www.staycationhavenph.com"
-              }
-            }),
-          }}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
+          strategy="beforeInteractive"
         />
       </head>
       <body className={`${inter.variable} ${poppins.variable} font-sans antialiased`} suppressHydrationWarning>
         <Providers>
           {children}
         </Providers>
+        <Script
+          src="https://challenges.cloudflare.com/turnstile/v0/api.js"
+          strategy="lazyOnload"
+        />
       </body>
     </html>
   );

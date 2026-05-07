@@ -43,6 +43,11 @@ const GuestSelector = ({ guests, onGuestChange, maxCapacity }: GuestSelectorProp
   // Weight formula only applies to adults + children (infants are not counted)
   const weightLimit = maxCapacity ?? 4;
   const currentWeight = guests.adults + Math.floor(guests.children / 2);
+<<<<<<< HEAD
+=======
+  // Max adults+children: with children=4 (weight 2), remaining weight goes to adults; cap at 8 (4+4)
+  const maxAdultsChildren = Math.min(8, weightLimit + 2);
+>>>>>>> leonard
 
   const canAddAdult =
     guests.adults < 4 &&
@@ -147,7 +152,11 @@ const GuestSelector = ({ guests, onGuestChange, maxCapacity }: GuestSelectorProp
         <div className="absolute top-full left-0 right-0 sm:left-auto sm:right-0 mt-2 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600 shadow-lg z-50 p-3 sm:p-4 w-full sm:w-80">
           {maxCapacity !== undefined && (
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+<<<<<<< HEAD
               Adults + Children: <span className="font-semibold text-brand-primary">{guests.adults + guests.children} / {weightLimit * 2}</span> · Infants: <span className="font-semibold text-brand-primary">{guests.infants} / 4</span>
+=======
+              Adults + Children: <span className="font-semibold text-brand-primary">{guests.adults + guests.children} / {maxAdultsChildren}</span> · Infants: <span className="font-semibold text-brand-primary">{guests.infants} / 4</span>
+>>>>>>> leonard
               {isAtMax && <span className="ml-1 text-red-500"> · limit reached</span>}
             </p>
           )}

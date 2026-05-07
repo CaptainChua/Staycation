@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "../config/db";
 import { upload_file } from "../utils/cloudinary";
-import { createCalendarEvent, createCalendarEventWithResult, CalendarEventData } from "../utils/googleCalendar";
+import { createCalendarEvent, createCalendarEventWithResult, updateCalendarEventColor, CalendarEventData } from "../utils/googleCalendar";
 
 // Add-on prices
 const ADD_ON_PRICES = {
@@ -394,6 +394,97 @@ export const createBooking = async (
       // Add-ons
       addOns = {},
     } = body;
+
+    // --- GENERAL ROOM AVAILABILITY CHECK (time-aware) ---
+    // '00:00' checkout means end-of-day midnight, so treat it as the start of the next day.
+    const availabilityCheckQuery = `
+      SELECT b.id, b.booking_id
+      FROM booking b
+      WHERE b.room_name = $1
+        AND b.status NOT IN ('rejected', 'cancelled')
+        AND (b.check_in_date::DATE + b.check_in_time::TIME) <
+            CASE WHEN $5 = '00:00'
+                 THEN ($4::DATE + INTERVAL '1 day')::TIMESTAMP
+                 ELSE ($4::DATE + $5::TIME)::TIMESTAMP
+            END
+        AND (
+            CASE WHEN b.check_out_time = '00:00'
+                 THEN (b.check_out_date::DATE + INTERVAL '1 day')::TIMESTAMP
+                 ELSE (b.check_out_date::DATE + b.check_out_time::TIME)::TIMESTAMP
+            END
+        ) > ($2::DATE + $3::TIME)::TIMESTAMP
+      LIMIT 1
+    `;
+
+    const availabilityCheckValues = [
+      room_name,
+      check_in_date,
+      check_in_time,
+      check_out_date,
+      check_out_time,
+    ];
+
+    const availabilityResult = await client.query(availabilityCheckQuery, availabilityCheckValues);
+
+    if (availabilityResult.rows.length > 0) {
+      await client.query("ROLLBACK");
+      return NextResponse.json(
+        {
+          success: false,
+          error: "This room is already booked during the selected time slot. Please choose a different date or time.",
+        },
+        { status: 400 }
+      );
+    }
+    // --- END AVAILABILITY CHECK ---
+
+    // --- BOOKING WINDOW VALIDATION ---
+    const { stay_type, haven_id } = body;
+    if (stay_type && haven_id) {
+      try {
+        const bwResult = await client.query(
+          `SELECT booking_windows FROM havens WHERE uuid_id = $1 LIMIT 1`,
+          [haven_id]
+        );
+        const bw = bwResult.rows[0]?.booking_windows;
+        const types: Array<{
+          name: string; duration: number; available_days: string[];
+          first_check_in: string; last_check_in: string;
+        }> = bw?.types ?? [];
+        const bType = types.find(t => t.name === stay_type);
+
+        if (bType) {
+          // Day-of-week check
+          const DAY_ABBR = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+          const cinDay = DAY_ABBR[new Date(check_in_date + 'T12:00:00').getDay()];
+          if (!bType.available_days.includes(cinDay)) {
+            await client.query("ROLLBACK");
+            return NextResponse.json(
+              { success: false, error: `${stay_type} is not available on ${cinDay}` },
+              { status: 400 }
+            );
+          }
+          // Time window check
+          const toMins = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+          const cinMins = toMins(check_in_time);
+          const firstMins = toMins(bType.first_check_in);
+          const lastMins = toMins(bType.last_check_in);
+          const inWindow = firstMins <= lastMins
+            ? cinMins >= firstMins && cinMins <= lastMins
+            : cinMins >= firstMins || cinMins <= lastMins;
+          if (!inWindow) {
+            await client.query("ROLLBACK");
+            return NextResponse.json(
+              { success: false, error: `Check-in time must be between ${bType.first_check_in} and ${bType.last_check_in} for ${stay_type}` },
+              { status: 400 }
+            );
+          }
+        }
+      } catch {
+        // Booking window validation is advisory — don't block booking if check fails
+      }
+    }
+    // --- END BOOKING WINDOW VALIDATION ---
 
     // --- IDENTITY-BASED OVERLAP CHECK ---
     const overlapCheckQuery = `
@@ -972,6 +1063,7 @@ export const getBookingById = async (
         bp.down_payment,
         bp.remaining_balance,
         bp.payment_method,
+        bp.payment_proof_url,
         bp.room_rate,
         bp.add_ons_total,
         COALESCE(bd.amount, 0) as security_deposit,
@@ -1023,7 +1115,7 @@ export const getBookingById = async (
       LEFT JOIN booking_guests bg ON b.id = bg.booking_id
       LEFT JOIN booking_security_deposits bd ON b.id = bd.booking_id
       WHERE b.id = $1
-      GROUP BY b.id, h.tower, h.uuid_id, bp.total_amount, bp.down_payment, bp.remaining_balance, bp.payment_method, bp.room_rate, bp.add_ons_total, bg.first_name, bg.last_name, bg.email, bg.phone, bg.valid_id_url, bd.amount
+      GROUP BY b.id, h.tower, h.uuid_id, bp.total_amount, bp.down_payment, bp.remaining_balance, bp.payment_method, bp.payment_proof_url, bp.room_rate, bp.add_ons_total, bg.first_name, bg.last_name, bg.email, bg.phone, bg.valid_id_url, bd.amount
       LIMIT 1
     `;
     const bookingResult = await pool.query(query, [id]);
@@ -1127,7 +1219,7 @@ export const updateBookingStatus = async (
 
     // If status is provided, validate it
     const validStatuses = [
-      "pending", "approved", "rejected", "confirmed",
+      "pending", "on-going", "approved", "rejected", "confirmed",
       "checked-in", "completed", "cancelled",
     ];
     if (typeof status !== "undefined" && status !== null) {
@@ -1174,6 +1266,11 @@ export const updateBookingStatus = async (
     }
 
     console.log("✅ Booking status updated:", result.rows[0]);
+
+    // Update Google Calendar event color to reflect new status (non-blocking)
+    if (typeof status === "string" && result.rows[0]?.google_event_id) {
+      updateCalendarEventColor(result.rows[0].google_event_id, status);
+    }
 
     // Get booking details with guest info for email
     const bookingDetailsQuery = `
@@ -1704,6 +1801,76 @@ export const syncCalendarBookings = async (
         success: false,
         error: error instanceof Error ? error.message : "Failed to sync bookings to Google Calendar",
       },
+      { status: 500 },
+    );
+  }
+};
+
+// SYNC Colors of existing Google Calendar events to match current booking status
+export const syncCalendarColors = async (
+  _req: NextRequest,
+): Promise<NextResponse> => {
+  try {
+    const syncedQuery = `
+      SELECT id, booking_id, status, google_event_id
+      FROM booking
+      WHERE google_event_id IS NOT NULL
+      ORDER BY created_at ASC
+    `;
+    const { rows: bookings } = await pool.query(syncedQuery);
+
+    console.log(`🎨 [COLOR-SYNC] Found ${bookings.length} booking(s) with a google_event_id`);
+
+    if (bookings.length === 0) {
+      return NextResponse.json({
+        success: true,
+        message: "No bookings with a Google Event ID found.",
+        updated: 0,
+        failed: 0,
+        total: 0,
+      });
+    }
+
+    let updated = 0;
+    let failed = 0;
+    const errors: string[] = [];
+
+    for (const booking of bookings) {
+      const err = await updateCalendarEventColor(booking.google_event_id, booking.status);
+      if (err === null) {
+        updated++;
+        console.log(`✅ [COLOR-SYNC] ${booking.booking_id} (${booking.status}) → color updated`);
+      } else {
+        failed++;
+        errors.push(`${booking.booking_id}: ${err}`);
+        console.warn(`⚠️ [COLOR-SYNC] ${booking.booking_id} — ${err}`);
+        // Stop early only on auth or network failures (all events will fail for same reason)
+        if (
+          err.includes("Auth failed") ||
+          err.includes("Network error") ||
+          err.includes("Calendar not found") ||
+          err.includes("Missing")
+        ) {
+          console.error(`❌ [COLOR-SYNC] Stopping early — persistent error: ${err}`);
+          break;
+        }
+      }
+    }
+
+    const uniqueErrors = [...new Set(errors)];
+
+    return NextResponse.json({
+      success: updated > 0,
+      message: `Updated ${updated} of ${bookings.length} event color(s).`,
+      updated,
+      failed,
+      total: bookings.length,
+      ...(uniqueErrors.length > 0 && { errors: uniqueErrors }),
+    });
+  } catch (error) {
+    console.error("❌ [COLOR-SYNC] Error:", error);
+    return NextResponse.json(
+      { success: false, error: error instanceof Error ? error.message : "Failed to sync calendar colors" },
       { status: 500 },
     );
   }

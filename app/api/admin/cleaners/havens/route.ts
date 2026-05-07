@@ -1,7 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import pool from "@/backend/config/db";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const includeId = searchParams.get("include_id");
+
   try {
     const client = await pool.connect();
     try {
@@ -76,11 +79,63 @@ export async function GET() {
           status: "Checked Out",
           lastCleaned: new Date(row.updated_at).toLocaleDateString(),
           bookingId: row.booking_ref,
+          bookingUuid: row.booking_id,
           guestName,
           checkOutDate: checkOutDisplay,
           cleaningStatus: row.cleaning_status,
         };
       });
+
+      // If include_id was requested but not in the results, fetch it as an upcoming haven
+      if (includeId && !havens.find((h) => h.id === includeId)) {
+        try {
+          const upcomingRes = await client.query(`
+            SELECT DISTINCT ON (h.uuid_id)
+              h.uuid_id, h.haven_name, h.tower, h.floor, h.updated_at,
+              b.id as booking_id, b.booking_id as booking_ref,
+              b.check_out_date, b.check_out_time,
+              bg.first_name as guest_first_name, bg.last_name as guest_last_name,
+              bc.cleaning_status
+            FROM havens h
+            INNER JOIN booking b ON b.room_name = h.haven_name
+            INNER JOIN booking_cleaning bc ON bc.booking_id = b.id
+            LEFT JOIN booking_guests bg ON bg.booking_id = b.id
+              AND bg.id = (SELECT id FROM booking_guests WHERE booking_id = b.id ORDER BY id LIMIT 1)
+            WHERE h.uuid_id = $1
+            ORDER BY h.uuid_id, b.check_out_date DESC
+          `, [includeId]);
+
+          if (upcomingRes.rows.length > 0) {
+            const row = upcomingRes.rows[0];
+            const name = row.haven_name.replace(/Room/i, "Haven");
+            const towerName = row.tower
+              .split("-")
+              .map((part: string) => part.charAt(0).toUpperCase() + part.slice(1))
+              .join(" ");
+            const guestName = [row.guest_first_name, row.guest_last_name].filter(Boolean).join(" ") || "Guest";
+            let checkOutDisplay = "";
+            if (row.check_out_date) {
+              checkOutDisplay = new Date(row.check_out_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+              if (row.check_out_time) checkOutDisplay += ` ${row.check_out_time}`;
+            }
+            havens.unshift({
+              id: row.uuid_id,
+              name,
+              address: `${towerName}, Floor ${row.floor}`,
+              status: "Upcoming",
+              lastCleaned: new Date(row.updated_at).toLocaleDateString(),
+              bookingId: row.booking_ref,
+              bookingUuid: row.booking_id,
+              guestName,
+              checkOutDate: checkOutDisplay,
+              cleaningStatus: row.cleaning_status,
+              isUpcoming: true,
+            } as any);
+          }
+        } catch {
+          // non-fatal — just don't include the upcoming haven
+        }
+      }
 
       return NextResponse.json(havens);
     } finally {

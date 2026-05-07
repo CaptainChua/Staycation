@@ -31,6 +31,8 @@ import BlockedDatesManagementPage from "./BlockedDatesManagementPage";
 import UserManagementPage from "./UserManagementPage";
 import PaymentMethodsManagementPage from "./PaymentMethodsManagementPage";
 import PartnerManagementPage from "./PartnerManagementPage";
+import GuestBookings from "./GuestBookings";
+import GoogleCalendar from "./GoogleCalendar";
 import AdminFooter from "../AdminFooter";
 import toast from 'react-hot-toast';
 import { useState, useEffect } from "react";
@@ -243,7 +245,7 @@ export default function OwnerDashboard() {
                 havens={havens}
               />
             )}
-            {page === "calendar" && <CalendarPage havens={havens} />}
+            {page === "calendar" && <CalendarPage />}
             {page === "havens" && (
               <div className="space-y-6">
                 <ViewAllUnits onAddUnitClick={() => openModal("addHaven")} />
@@ -281,6 +283,8 @@ export default function OwnerDashboard() {
                 }}
               />
             )}
+            {page === "guestBookings" && <GuestBookings />}
+            {page === "googleCalendar" && <GoogleCalendar />}
           </div>
         </div>
         <AdminFooter />

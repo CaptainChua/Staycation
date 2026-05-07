@@ -5,8 +5,6 @@ import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import {
   Search,
-  Phone,
-  Video,
   Info,
   Send,
   Plus,
@@ -583,12 +581,6 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                       </div>
                     </div>
                     <div className="flex items-center gap-0.5 sm:gap-1">
-                      <button type="button" className="p-1.5 sm:p-2 rounded-full hover:bg-brand-primaryLighter transition-colors" title="Call">
-                        <Phone className="w-4 h-4 sm:w-5 sm:h-5 text-brand-primary" />
-                      </button>
-                      <button type="button" className="p-1.5 sm:p-2 rounded-full hover:bg-brand-primaryLighter transition-colors hidden sm:block" title="Video">
-                        <Video className="w-4 h-4 sm:w-5 sm:h-5 text-brand-primary" />
-                      </button>
                       <button type="button" className="p-1.5 sm:p-2 rounded-full hover:bg-brand-primaryLighter transition-colors" title="Info">
                         <Info className="w-4 h-4 sm:w-5 sm:h-5 text-brand-primary" />
                       </button>

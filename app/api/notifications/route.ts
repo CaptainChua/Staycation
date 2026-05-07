@@ -7,8 +7,32 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
 
+async function ensureNotificationsTable() {
+  const client = await pool.connect();
+  try {
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS notifications (
+        notification_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID NOT NULL,
+        title VARCHAR(255) NOT NULL,
+        message TEXT NOT NULL,
+        notification_type VARCHAR(50) NOT NULL DEFAULT 'info',
+        is_read BOOLEAN NOT NULL DEFAULT FALSE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        CONSTRAINT fk_notifications_user
+          FOREIGN KEY (user_id) REFERENCES employees(id) ON DELETE CASCADE
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id)`);
+  } finally {
+    client.release();
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
+    await ensureNotificationsTable();
+
     // Verify authentication using NextAuth
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
@@ -83,6 +107,8 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
+    await ensureNotificationsTable();
+
     // Verify authentication using NextAuth
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
@@ -103,9 +129,9 @@ export async function PATCH(request: NextRequest) {
 
     // Update notifications
     const query = `
-      UPDATE notifications 
-      SET is_read = $1 
-      WHERE notification_id = ANY($2) 
+      UPDATE notifications
+      SET is_read = $1
+      WHERE notification_id = ANY($2::uuid[])
       AND user_id = $3
     `;
 

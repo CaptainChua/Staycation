@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "../config/db";
 import { upload_file } from "../utils/cloudinary";
+import { updateCalendarEventColor } from "../utils/googleCalendar";
 
 /**
  * Controller for booking payments (booking_payments table)
@@ -656,11 +657,24 @@ export const updateBookingPayment = async (
 
     // If payment_status_effective is rejected, update booking.status to rejected.
     // If payment_status_effective is approved and remaining_balance is zero, mark booking as approved (fully paid).
+    // If payment_status_effective is approved_down_payment, mark booking as on-going.
     if (payment_status_effective === "rejected") {
       await client.query(
         `UPDATE booking SET status = $1, rejection_reason = $2, updated_at = NOW() WHERE id = $3`,
         ["rejected", rejection_reason ?? null, updatedPayment.booking_id],
       );
+      pool.query(`SELECT google_event_id FROM booking WHERE id = $1`, [updatedPayment.booking_id])
+        .then(r => { if (r.rows[0]?.google_event_id) updateCalendarEventColor(r.rows[0].google_event_id, "rejected").catch(() => {}); })
+        .catch(() => {});
+    } else if (payment_status_effective === "approved_down_payment") {
+      await client.query(
+        `UPDATE booking SET status = $1, updated_at = NOW() WHERE id = $2`,
+        ["on-going", updatedPayment.booking_id],
+      );
+      // Update Google Calendar event color (non-blocking, after commit)
+      pool.query(`SELECT google_event_id FROM booking WHERE id = $1`, [updatedPayment.booking_id])
+        .then(r => { if (r.rows[0]?.google_event_id) updateCalendarEventColor(r.rows[0].google_event_id, "on-going").catch(() => {}); })
+        .catch(() => {});
     } else if (payment_status_effective === "approved") {
       const remainingAfter = Number(updatedPayment.remaining_balance ?? 0);
       if (remainingAfter === 0) {
@@ -668,6 +682,9 @@ export const updateBookingPayment = async (
           `UPDATE booking SET status = $1, rejection_reason = $2, updated_at = NOW() WHERE id = $3`,
           ["approved", null, updatedPayment.booking_id],
         );
+        pool.query(`SELECT google_event_id FROM booking WHERE id = $1`, [updatedPayment.booking_id])
+          .then(r => { if (r.rows[0]?.google_event_id) updateCalendarEventColor(r.rows[0].google_event_id, "approved").catch(() => {}); })
+          .catch(() => {});
       }
     }
 

@@ -69,7 +69,7 @@ const HavenDetailsClient = ({ havenId, havens }: HavenDetailsClientProps) => {
 
   const rooms: Room[] = havens.map((haven: Haven) => ({
     id: haven.uuid_id ?? haven.id ?? '',
-    name: haven.haven_name ?? haven.name ?? "Unnamed Haven",
+    name: haven.haven_name || haven.name || "Unnamed Haven",
     price: `₱${haven.six_hour_rate ?? haven.weekday_rate ?? haven.weekend_rate ?? "N/A"}`,
     pricePerNight: "per night",
     images: haven.images?.map((img) => img.image_url) ?? [],
