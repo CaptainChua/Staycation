@@ -8,7 +8,9 @@ import { z } from "zod";
 const basicInfoSchema = z.object({
   haven_name: z.string().min(1, "Haven Name is required"),
   tower: z.string().min(1, "Tower is required"),
-  floor: z.string().min(1, "Floor is required"),
+  floor: z.string()
+    .min(1, "Floor is required")
+    .regex(/^\d+$/, "Floor must be a number"),
   view_type: z.string().min(1, "View Type is required"),
 });
 
@@ -75,6 +77,19 @@ const BasicInformationModal = ({
     setFormData(newData);
     setTouched(prev => ({ ...prev, [field]: true }));
     onSave(newData);
+  };
+
+  const handleFloorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Strip anything that isn't a digit
+    const numericOnly = e.target.value.replace(/[^0-9]/g, "");
+    handleChange("floor", numericOnly);
+  };
+
+  const handleFloorKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Block decimal, minus, plus, and scientific notation keys
+    if ([".", "-", "+", "e", "E"].includes(e.key)) {
+      e.preventDefault();
+    }
   };
 
   const getInputClasses = (field: keyof BasicInformationData) => {
@@ -168,17 +183,22 @@ const BasicInformationModal = ({
             <SelectItem key={tower.value} textValue={tower.label}>{tower.label}</SelectItem>
           ))}
         </Select>
+
+        {/* Floor — numbers only */}
         <Input
           label="Floor"
           labelPlacement="outside"
-          placeholder="e.g., 1"
+          placeholder="e.g., 5"
           value={formData.floor}
-          onChange={(e) => handleChange('floor', e.target.value)}
+          onChange={handleFloorChange}
+          onKeyDown={handleFloorKeyDown}
+          inputMode="numeric"
           classNames={getInputClasses('floor')}
           isInvalid={touched.floor && !!errors?.floor}
           errorMessage={touched.floor && errors?.floor?._errors[0]}
           isRequired
         />
+
         <Select
           label="View Type"
           labelPlacement="outside"

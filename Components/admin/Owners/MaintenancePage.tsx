@@ -119,6 +119,16 @@ const MaintenancePage = () => {
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null); // Added to track selected report
   const [viewModalOpen, setViewModalOpen] = useState(false);
   const [viewReportId, setViewReportId] = useState<string | null>(null);
+  const [lightboxImages, setLightboxImages] = useState<Array<{ image_url: string; cloudinary_public_id?: string }>>([]);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+
+  const handleImageClick = (images: MaintenanceRow["images"], index = 0) => {
+  if (!images || images.length === 0) return;
+  setLightboxImages(images);
+  setLightboxIndex(index);
+  setLightboxOpen(true);
+  };
 
   // Fetch data from API
   const { data: reportsData, error: reportsError, isLoading: reportsLoading } = useGetReportsQuery({});

@@ -107,7 +107,9 @@ interface HavenFormModalProps {
 const basicInfoSchema = z.object({
   havenName: z.string().min(1, "Haven Name is required"),
   tower: z.string().min(1, "Tower is required"),
-  floor: z.string().min(1, "Floor is required"),
+  floor: z.string()
+    .min(1, "Floor is required")
+    .regex(/^\d+$/, "Floor must be a number"),
   view: z.string().min(1, "View Type is required"),
 });
 

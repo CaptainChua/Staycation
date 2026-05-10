@@ -5,7 +5,7 @@ import { useState, useRef } from "react";
 import { Input } from "@nextui-org/input";
 import { Select, SelectItem } from "@nextui-org/select";
 import { DatePicker } from "@nextui-org/date-picker";
-import { parseDate, toZoned } from "@internationalized/date";
+import { parseDate } from "@internationalized/date";
 import type { DateValue } from "@internationalized/date";
 import { useCreateEmployeeMutation } from "@/redux/api/employeeApi";
 import { useCreateActivityLogMutation } from "@/redux/api/activityLogApi";
@@ -58,17 +58,14 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
     { value: "Partner", label: "Partner" },
   ];
 
-  const departmentByRole: Record<
-    string,
-    Array<{ value: string; label: string }>
-  > = {
+  const departmentByRole: Record<string, Array<{ value: string; label: string }>> = {
     Owner: [{ value: "management", label: "Management" }],
     CSR: [
       { value: "front-desk", label: "Front Desk" },
       { value: "customer-service", label: "Customer Service" },
     ],
     Cleaner: [
-      { value: "housekeeping", label: "housekeeping" },
+      { value: "housekeeping", label: "Housekeeping" },
       { value: "maintenance", label: "Maintenance" },
     ],
     Partner: [
@@ -86,33 +83,39 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
     const rolePrefix = value.substring(0, 3).toUpperCase();
     const timeStamp = Date.now().toString().slice(-6);
     const generatedId = `${rolePrefix}-${timeStamp}`;
-
     setFormData((prev) => ({
       ...prev,
       role: value,
       employeeId: generatedId,
-      department: ""
+      department: "",
     }));
   };
 
-  // const departments = [
-  //   { value: "front-desk", label: "Front Desk" },
-  //   { value: "housekeeping", label: "Housekeeping" },
-  //   { value: "maintenance", label: "Maintenance" },
-  //   { value: "management", label: "Management" },
-  //   { value: "customer-service", label: "Customer Service" },
-  // ];
+  // ── Numeric-only helpers ─────────────────────────────────────
 
-  const handleProfilePictureUpload = (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
+  /** Strips non-digit characters; keeps + only if it's the first character (for phone) */
+  const toPhoneNumeric = (value: string) => {
+    // Allow digits, spaces, hyphens, and leading +
+    return value.replace(/[^\d\s\-+]/g, "");
+  };
+
+  const toDigitsOnly = (value: string) => value.replace(/\D/g, "");
+
+  const blockNonNumericKeys = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Block e, E, +, -, . (common non-numeric keys on number inputs)
+    if (["e", "E", "+", "-", "."].includes(e.key)) {
+      e.preventDefault();
+    }
+  };
+
+  // ── Profile picture ──────────────────────────────────────────
+
+  const handleProfilePictureUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setProfilePicture(file);
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setProfilePreview(reader.result as string);
-      };
+      reader.onloadend = () => setProfilePreview(reader.result as string);
       reader.readAsDataURL(file);
     }
   };
@@ -121,6 +124,8 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
     setProfilePicture(null);
     setProfilePreview("");
   };
+
+  // ── Validation ───────────────────────────────────────────────
 
   const validateField = (name: string, value: string): string => {
     switch (name) {
@@ -132,16 +137,13 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
 
       case "email":
         if (!value.trim()) return "Email is required";
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(value)) return "Invalid email format";
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return "Invalid email format";
         return "";
 
       case "phone":
         if (!value.trim()) return "Phone number is required";
-        const phoneRegex = /^(\+63|0)?9\d{9}$/;
-        if (!phoneRegex.test(value.replace(/[\s-]/g, ""))) {
+        if (!/^(\+63|0)?9\d{9}$/.test(value.replace(/[\s-]/g, "")))
           return "Invalid PH phone number (e.g., 09123456789)";
-        }
         return "";
 
       case "role":
@@ -180,10 +182,8 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
 
       case "emergencyContactPhone":
         if (!value.trim()) return "Emergency contact phone is required";
-        const emergencyPhoneRegex = /^(\+63|0)?9\d{9}$/;
-        if (!emergencyPhoneRegex.test(value.replace(/[\s-]/g, ""))) {
+        if (!/^(\+63|0)?9\d{9}$/.test(value.replace(/[\s-]/g, "")))
           return "Invalid PH phone number";
-        }
         return "";
 
       case "emergencyContactRelation":
@@ -211,16 +211,12 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
       "firstName", "lastName", "email", "phone", "role", "department",
       "hireDate", "salary", "address", "city", "zipCode",
       "emergencyContactName", "emergencyContactPhone", "emergencyContactRelation",
-      "password", "confirmPassword"
+      "password", "confirmPassword",
     ];
-
-    fields.forEach(field => {
+    fields.forEach((field) => {
       const error = validateField(field, formData[field as keyof typeof formData]);
-      if (error) {
-        newErrors[field] = error;
-      }
+      if (error) newErrors[field] = error;
     });
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -231,30 +227,26 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
       const errorElement = formRef.current.querySelector(`[name="${firstErrorField}"]`);
       if (errorElement) {
         errorElement.scrollIntoView({ behavior: "smooth", block: "center" });
-        setTimeout(() => {
-          (errorElement as HTMLElement).focus();
-        }, 500);
+        setTimeout(() => (errorElement as HTMLElement).focus(), 500);
       }
     }
   };
 
   const handleBlur = (fieldName: string) => {
-    setTouchedFields(prev => ({ ...prev, [fieldName]: true }));
+    setTouchedFields((prev) => ({ ...prev, [fieldName]: true }));
     const error = validateField(fieldName, formData[fieldName as keyof typeof formData]);
-    setErrors(prev => ({ ...prev, [fieldName]: error }));
+    setErrors((prev) => ({ ...prev, [fieldName]: error }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Mark all fields as touched
     const allFields = Object.keys(formData).reduce((acc, key) => {
       acc[key] = true;
       return acc;
     }, {} as Record<string, boolean>);
     setTouchedFields(allFields);
 
-    // Validate all fields
     if (!validateForm()) {
       toast.error("Please fix all validation errors");
       setTimeout(scrollToFirstError, 100);
@@ -295,7 +287,6 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
       const result = await createEmployee(employeeData).unwrap();
 
       if (result.success) {
-        // Create activity log
         try {
           await createActivityLog({
             employee_id: (session?.user as any)?.id,
@@ -303,7 +294,7 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
             description: `Created new staff: ${formData.firstName} ${formData.lastName}`,
             details: `Role: ${formData.role}, Dept: ${formData.department}`,
             entity_type: "staff",
-            entity_id: result.data.id
+            entity_id: result.data.id,
           }).unwrap();
         } catch (logError) {
           console.error("Failed to create activity log:", logError);
@@ -311,23 +302,11 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
 
         toast.success("Employee created successfully!");
         setFormData({
-          firstName: "",
-          lastName: "",
-          email: "",
-          phone: "",
-          employeeId: "",
-          role: "",
-          department: "",
-          hireDate: "",
-          salary: "",
-          address: "",
-          city: "",
-          zipCode: "",
-          emergencyContactName: "",
-          emergencyContactPhone: "",
-          emergencyContactRelation: "",
-          password: "",
-          confirmPassword: "",
+          firstName: "", lastName: "", email: "", phone: "",
+          employeeId: "", role: "", department: "", hireDate: "",
+          salary: "", address: "", city: "", zipCode: "",
+          emergencyContactName: "", emergencyContactPhone: "",
+          emergencyContactRelation: "", password: "", confirmPassword: "",
           profile_image: "",
         });
         setProfilePicture(null);
@@ -339,33 +318,37 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
     } catch (error: unknown) {
       console.error("Error creating employee: ", error);
       const errorMessage =
-        error && typeof error === 'object' && 'data' in error &&
-        error.data && typeof error.data === 'object' && 'error' in error.data &&
-        typeof error.data.error === 'string'
-        ? error.data.error
-        : error instanceof Error
-        ? error.message
-        : "Failed to create employee";
+        error && typeof error === "object" && "data" in error &&
+        error.data && typeof error.data === "object" && "error" in error.data &&
+        typeof (error.data as any).error === "string"
+          ? (error.data as any).error
+          : error instanceof Error
+          ? error.message
+          : "Failed to create employee";
       toast.error(errorMessage);
     }
   };
 
   if (!isOpen) return null;
 
+  const inputClasses = {
+    base: "w-full",
+    label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
+    input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
+    innerWrapper: "bg-transparent",
+  };
+
   return (
     <>
-      <div className="fixed inset-0 bg-black/50 z-40" onClick={onClose}></div>
+      <div className="fixed inset-0 bg-black/50 z-40" onClick={onClose} />
       <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
         <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-4xl w-full max-h-[90vh] shadow-2xl flex flex-col border border-slate-200 dark:border-slate-800">
-          {/* Header - Sticky */}
+
+          {/* Header */}
           <div className="flex justify-between items-center p-6 border-b border-slate-200 dark:border-slate-800 bg-gradient-to-r from-orange-50 to-orange-100 dark:from-orange-950/20 dark:to-orange-900/10 rounded-t-2xl flex-shrink-0">
             <div>
-              <h2 className="text-2xl font-bold text-slate-800 dark:text-white">
-                Create New Employee
-              </h2>
-              <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                Fill in the employee information below
-              </p>
+              <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Create New Employee</h2>
+              <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">Fill in the employee information below</p>
             </div>
             <button
               onClick={onClose}
@@ -376,26 +359,22 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
             </button>
           </div>
 
-          {/* Form - Scrollable */}
+          {/* Form */}
           <form ref={formRef} onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6">
             <div className="space-y-6">
-              {/* Personal Information Section */}
+
+              {/* Personal Information */}
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-800 pb-2">
                   Personal Information
                 </h3>
 
-                {/* Profile Picture Upload */}
+                {/* Profile Picture */}
                 <div className="flex flex-col items-center gap-4 p-6 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
                   <div className="relative">
                     {profilePreview ? (
                       <div className="relative w-32 h-32 rounded-full overflow-hidden border-4 border-orange-500 shadow-lg">
-                        <Image
-                          src={profilePreview}
-                          alt="Profile Preview"
-                          fill
-                          className="object-cover"
-                        />
+                        <Image src={profilePreview} alt="Profile Preview" fill className="object-cover" />
                       </div>
                     ) : (
                       <div className="w-32 h-32 rounded-full bg-slate-200 dark:bg-slate-800 border-4 border-slate-300 dark:border-slate-700 flex items-center justify-center">
@@ -403,7 +382,6 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       </div>
                     )}
                   </div>
-
                   <div className="flex gap-3">
                     <label htmlFor="profile-picture-upload">
                       <input
@@ -414,31 +392,30 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                         disabled={isLoading}
                         className="hidden"
                       />
-                      <span className={`inline-flex items-center gap-2 px-4 py-2 ${isLoading ? 'bg-gray-400 cursor-not-allowed' : 'bg-orange-600 hover:bg-orange-700 cursor-pointer'} text-white rounded-lg font-medium transition-colors text-sm`}>
+                      <span className={`inline-flex items-center gap-2 px-4 py-2 ${isLoading ? "bg-gray-400 cursor-not-allowed" : "bg-orange-600 hover:bg-orange-700 cursor-pointer"} text-white rounded-lg font-medium transition-colors text-sm`}>
                         <Upload className="w-4 h-4" />
                         {profilePreview ? "Change Photo" : "Upload Photo"}
                       </span>
                     </label>
-
                     {profilePreview && (
                       <button
                         type="button"
                         onClick={handleRemoveProfilePicture}
                         disabled={isLoading}
-                        className={`px-4 py-2 ${isLoading ? 'bg-gray-400 cursor-not-allowed' : 'bg-rose-500 hover:bg-rose-600'} text-white rounded-lg font-medium transition-colors text-sm`}
+                        className={`px-4 py-2 ${isLoading ? "bg-gray-400 cursor-not-allowed" : "bg-rose-500 hover:bg-rose-600"} text-white rounded-lg font-medium transition-colors text-sm`}
                       >
                         Remove
                       </button>
                     )}
                   </div>
-
                   <p className="text-xs text-slate-500 dark:text-slate-400 text-center font-medium">
                     Recommended: Square image, at least 400x400px
                   </p>
                 </div>
 
+                {/* First / Last Name */}
                 <div className="grid grid-cols-2 gap-4">
-                  <div className={`transition-all duration-300 ${touchedFields.firstName && errors.firstName ? 'animate-shake' : ''}`}>
+                  <div className={`transition-all duration-300 ${touchedFields.firstName && errors.firstName ? "animate-shake" : ""}`}>
                     <Input
                       type="text"
                       name="firstName"
@@ -449,8 +426,7 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       onChange={(e) => {
                         setFormData({ ...formData, firstName: e.target.value });
                         if (touchedFields.firstName) {
-                          const error = validateField("firstName", e.target.value);
-                          setErrors(prev => ({ ...prev, firstName: error }));
+                          setErrors((prev) => ({ ...prev, firstName: validateField("firstName", e.target.value) }));
                         }
                       }}
                       onBlur={() => handleBlur("firstName")}
@@ -458,15 +434,10 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       errorMessage={touchedFields.firstName && errors.firstName}
                       isRequired
                       isDisabled={isLoading}
-                      classNames={{
-                        base: "w-full",
-                        label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
-                        input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
-                        innerWrapper: "bg-transparent",
-                      }}
+                      classNames={inputClasses}
                     />
                   </div>
-                  <div className={`transition-all duration-300 ${touchedFields.lastName && errors.lastName ? 'animate-shake' : ''}`}>
+                  <div className={`transition-all duration-300 ${touchedFields.lastName && errors.lastName ? "animate-shake" : ""}`}>
                     <Input
                       type="text"
                       name="lastName"
@@ -477,8 +448,7 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       onChange={(e) => {
                         setFormData({ ...formData, lastName: e.target.value });
                         if (touchedFields.lastName) {
-                          const error = validateField("lastName", e.target.value);
-                          setErrors(prev => ({ ...prev, lastName: error }));
+                          setErrors((prev) => ({ ...prev, lastName: validateField("lastName", e.target.value) }));
                         }
                       }}
                       onBlur={() => handleBlur("lastName")}
@@ -486,18 +456,14 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       errorMessage={touchedFields.lastName && errors.lastName}
                       isRequired
                       isDisabled={isLoading}
-                      classNames={{
-                        base: "w-full",
-                        label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
-                        input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
-                        innerWrapper: "bg-transparent",
-                      }}
+                      classNames={inputClasses}
                     />
                   </div>
                 </div>
 
+                {/* Email / Phone */}
                 <div className="grid grid-cols-2 gap-4">
-                  <div className={`transition-all duration-300 ${touchedFields.email && errors.email ? 'animate-shake' : ''}`}>
+                  <div className={`transition-all duration-300 ${touchedFields.email && errors.email ? "animate-shake" : ""}`}>
                     <Input
                       type="email"
                       name="email"
@@ -508,8 +474,7 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       onChange={(e) => {
                         setFormData({ ...formData, email: e.target.value });
                         if (touchedFields.email) {
-                          const error = validateField("email", e.target.value);
-                          setErrors(prev => ({ ...prev, email: error }));
+                          setErrors((prev) => ({ ...prev, email: validateField("email", e.target.value) }));
                         }
                       }}
                       onBlur={() => handleBlur("email")}
@@ -517,27 +482,25 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       errorMessage={touchedFields.email && errors.email}
                       isRequired
                       isDisabled={isLoading}
-                      classNames={{
-                        base: "w-full",
-                        label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
-                        input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
-                        innerWrapper: "bg-transparent",
-                      }}
+                      classNames={inputClasses}
                     />
                   </div>
-                  <div className={`transition-all duration-300 ${touchedFields.phone && errors.phone ? 'animate-shake' : ''}`}>
+
+                  {/* ── Phone — digits, spaces, hyphens, + only ── */}
+                  <div className={`transition-all duration-300 ${touchedFields.phone && errors.phone ? "animate-shake" : ""}`}>
                     <Input
                       type="tel"
                       name="phone"
                       label="Phone Number *"
-                      placeholder="+63 912 345 6789"
+                      placeholder="09123456789"
                       labelPlacement="outside"
+                      inputMode="tel"
                       value={formData.phone}
                       onChange={(e) => {
-                        setFormData({ ...formData, phone: e.target.value });
+                        const cleaned = toPhoneNumeric(e.target.value);
+                        setFormData({ ...formData, phone: cleaned });
                         if (touchedFields.phone) {
-                          const error = validateField("phone", e.target.value);
-                          setErrors(prev => ({ ...prev, phone: error }));
+                          setErrors((prev) => ({ ...prev, phone: validateField("phone", cleaned) }));
                         }
                       }}
                       onBlur={() => handleBlur("phone")}
@@ -545,19 +508,15 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       errorMessage={touchedFields.phone && errors.phone}
                       isRequired
                       isDisabled={isLoading}
-                      classNames={{
-                        base: "w-full",
-                        label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
-                        input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
-                        innerWrapper: "bg-transparent",
-                      }}
+                      classNames={inputClasses}
                     />
                   </div>
                 </div>
               </div>
 
+              {/* Password */}
               <div className="grid grid-cols-2 gap-4 mt-2">
-                <div className={`transition-all duration-300 ${touchedFields.password && errors.password ? 'animate-shake' : ''}`}>
+                <div className={`transition-all duration-300 ${touchedFields.password && errors.password ? "animate-shake" : ""}`}>
                   <Input
                     type="password"
                     name="password"
@@ -568,24 +527,17 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                     onChange={(e) => {
                       setFormData({ ...formData, password: e.target.value });
                       if (touchedFields.password) {
-                        const error = validateField("password", e.target.value);
-                        setErrors(prev => ({ ...prev, password: error }));
+                        setErrors((prev) => ({ ...prev, password: validateField("password", e.target.value) }));
                       }
                     }}
                     onBlur={() => handleBlur("password")}
                     isInvalid={touchedFields.password && !!errors.password}
                     errorMessage={touchedFields.password && errors.password}
                     isRequired
-                    classNames={{
-                      base: "w-full",
-                      label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
-                      input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
-                      innerWrapper: "bg-transparent",
-                    }}
+                    classNames={inputClasses}
                   />
                 </div>
-
-                <div className={`transition-all duration-300 ${touchedFields.confirmPassword && errors.confirmPassword ? 'animate-shake' : ''}`}>
+                <div className={`transition-all duration-300 ${touchedFields.confirmPassword && errors.confirmPassword ? "animate-shake" : ""}`}>
                   <Input
                     type="password"
                     name="confirmPassword"
@@ -596,305 +548,253 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                     onChange={(e) => {
                       setFormData({ ...formData, confirmPassword: e.target.value });
                       if (touchedFields.confirmPassword) {
-                        const error = validateField("confirmPassword", e.target.value);
-                        setErrors(prev => ({ ...prev, confirmPassword: error }));
+                        setErrors((prev) => ({ ...prev, confirmPassword: validateField("confirmPassword", e.target.value) }));
                       }
                     }}
                     onBlur={() => handleBlur("confirmPassword")}
                     isInvalid={touchedFields.confirmPassword && !!errors.confirmPassword}
                     errorMessage={touchedFields.confirmPassword && errors.confirmPassword}
                     isRequired
-                    classNames={{
-                      base: "w-full",
-                      label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
-                      input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
-                      innerWrapper: "bg-transparent",
-                    }}
+                    classNames={inputClasses}
                   />
                 </div>
               </div>
 
-              {/* Employment Details Section */}
+              {/* Employment Details */}
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-800 pb-2">
                   Employment Details
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Input
-                      type="text"
-                      label="Employee ID *"
-                      placeholder="Auto-generated"
-                      labelPlacement="outside"
-                      value={formData.employeeId}
-                      isReadOnly
-                      isDisabled
-                      description="Auto-generated base on role"
-                      classNames={{
-                        base: "w-full",
-                        label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
-                        input: "bg-slate-100 dark:bg-slate-800/50 dark:text-slate-300",
-                        description: "dark:text-slate-500",
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <DatePicker
-                      label="Hire Date *"
-                      labelPlacement="outside"
-                      value={
-                        formData.hireDate
-                          ? (parseDate(formData.hireDate) as any)
-                          : null
+                  <Input
+                    type="text"
+                    label="Employee ID *"
+                    placeholder="Auto-generated"
+                    labelPlacement="outside"
+                    value={formData.employeeId}
+                    isReadOnly
+                    isDisabled
+                    description="Auto-generated based on role"
+                    classNames={{
+                      base: "w-full",
+                      label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
+                      input: "bg-slate-100 dark:bg-slate-800/50 dark:text-slate-300",
+                      description: "dark:text-slate-500",
+                    }}
+                  />
+                  <DatePicker
+                    label="Hire Date *"
+                    labelPlacement="outside"
+                    value={formData.hireDate ? (parseDate(formData.hireDate) as any) : null}
+                    onChange={(date: DateValue | null) => {
+                      if (date) {
+                        const dateStr = `${date.year}-${String(date.month).padStart(2, "0")}-${String(date.day).padStart(2, "0")}`;
+                        setFormData({ ...formData, hireDate: dateStr });
                       }
-                      onChange={(date: DateValue | null) => {
-                        if (date) {
-                          const dateStr = `${date.year}-${String(
-                            date.month
-                          ).padStart(2, "0")}-${String(date.day).padStart(
-                            2,
-                            "0"
-                          )}`;
-                          setFormData({ ...formData, hireDate: dateStr });
-                        }
-                      }}
-                      isRequired
-                      isDisabled={isLoading}
-                      classNames={{
-                        base: "w-full",
-                        label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
-                        calendarContent: "dark:bg-slate-900",
-                        calendar: "dark:bg-slate-900 dark:text-white",
-                      }}
-                    />
-                  </div>
+                    }}
+                    isRequired
+                    isDisabled={isLoading}
+                    classNames={{
+                      base: "w-full",
+                      label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
+                      calendarContent: "dark:bg-slate-900",
+                      calendar: "dark:bg-slate-900 dark:text-white",
+                    }}
+                  />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Select
-                      label="Role *"
-                      placeholder="Select a role"
-                      labelPlacement="outside"
-                      selectedKeys={formData.role ? [formData.role] : []}
-                      onSelectionChange={(keys) => {
-                        const selectedValue = Array.from(keys)[0] as string;
-                        handleRoleChange(selectedValue);
-                      }}
-                      isRequired
-                      isDisabled={isLoading}
-                      classNames={{
-                        base: "w-full",
-                        label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
-                        trigger: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
-                        popoverContent: "dark:bg-slate-900 dark:text-white",
-                      }}
-                    >
-                      {roles.map((role) => (
-                        <SelectItem key={role.value} value={role.value} className="dark:text-slate-200 dark:hover:bg-slate-800">
-                          {role.label}
-                        </SelectItem>
-                      ))}
-                    </Select>
-                  </div>
-                  <div>
-                    <Select
-                      label="Department *"
-                      placeholder="Select a department"
-                      labelPlacement="outside"
-                      selectedKeys={
-                        formData.department ? [formData.department] : []
-                      }
-                      onSelectionChange={(keys) => {
-                        const selectedValue = Array.from(keys)[0] as string;
-                        setFormData({ ...formData, department: selectedValue });
-                      }}
-                      isRequired
-                      isDisabled={isLoading}
-                      classNames={{
-                        base: "w-full",
-                        label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
-                        trigger: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
-                        popoverContent: "dark:bg-slate-900 dark:text-white",
-                      }}
-                    >
-                      {getAvailableDepartments().map((dept) => (
-                        <SelectItem key={dept.value} value={dept.value} className="dark:text-slate-200 dark:hover:bg-slate-800">
-                          {dept.label}
-                        </SelectItem>
-                      ))}
-                    </Select>
-                  </div>
+                  <Select
+                    label="Role *"
+                    placeholder="Select a role"
+                    labelPlacement="outside"
+                    selectedKeys={formData.role ? [formData.role] : []}
+                    onSelectionChange={(keys) => handleRoleChange(Array.from(keys)[0] as string)}
+                    isRequired
+                    isDisabled={isLoading}
+                    classNames={{
+                      base: "w-full",
+                      label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
+                      trigger: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
+                      popoverContent: "dark:bg-slate-900 dark:text-white",
+                    }}
+                  >
+                    {roles.map((role) => (
+                      <SelectItem key={role.value} value={role.value} className="dark:text-slate-200 dark:hover:bg-slate-800">
+                        {role.label}
+                      </SelectItem>
+                    ))}
+                  </Select>
+                  <Select
+                    label="Department *"
+                    placeholder="Select a department"
+                    labelPlacement="outside"
+                    selectedKeys={formData.department ? [formData.department] : []}
+                    onSelectionChange={(keys) => setFormData({ ...formData, department: Array.from(keys)[0] as string })}
+                    isRequired
+                    isDisabled={isLoading}
+                    classNames={{
+                      base: "w-full",
+                      label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
+                      trigger: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
+                      popoverContent: "dark:bg-slate-900 dark:text-white",
+                    }}
+                  >
+                    {getAvailableDepartments().map((dept) => (
+                      <SelectItem key={dept.value} value={dept.value} className="dark:text-slate-200 dark:hover:bg-slate-800">
+                        {dept.label}
+                      </SelectItem>
+                    ))}
+                  </Select>
                 </div>
 
+                {/* ── Monthly Salary — digits only ── */}
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Input
-                      type="number"
-                      label="Monthly Salary (₱) *"
-                      placeholder="25000"
-                      labelPlacement="outside"
-                      value={formData.salary}
-                      onChange={(e) =>
-                        setFormData({ ...formData, salary: e.target.value })
+                  <Input
+                    type="number"
+                    name="salary"
+                    label="Monthly Salary (₱) *"
+                    placeholder="25000"
+                    labelPlacement="outside"
+                    inputMode="numeric"
+                    value={formData.salary}
+                    onChange={(e) => {
+                      const cleaned = toDigitsOnly(e.target.value);
+                      setFormData({ ...formData, salary: cleaned });
+                      if (touchedFields.salary) {
+                        setErrors((prev) => ({ ...prev, salary: validateField("salary", cleaned) }));
                       }
-                      isRequired
-                      isDisabled={isLoading}
-                      classNames={{
-                        base: "w-full",
-                        label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
-                        input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
-                      }}
-                    />
-                  </div>
+                    }}
+                    onKeyDown={blockNonNumericKeys}
+                    onBlur={() => handleBlur("salary")}
+                    isInvalid={touchedFields.salary && !!errors.salary}
+                    errorMessage={touchedFields.salary && errors.salary}
+                    isRequired
+                    isDisabled={isLoading}
+                    classNames={inputClasses}
+                  />
                 </div>
               </div>
 
-              {/* Address Section */}
+              {/* Address */}
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-800 pb-2">
                   Address Information
                 </h3>
-                <div>
+                <Input
+                  type="text"
+                  label="Street Address *"
+                  placeholder="123 Main Street, Barangay Name"
+                  labelPlacement="outside"
+                  value={formData.address}
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  isRequired
+                  classNames={inputClasses}
+                />
+                <div className="grid grid-cols-2 gap-4">
                   <Input
                     type="text"
-                    label="Street Address *"
-                    placeholder="123 Main Street, Barangay Name"
+                    label="City *"
+                    placeholder="Manila"
                     labelPlacement="outside"
-                    value={formData.address}
-                    onChange={(e) =>
-                      setFormData({ ...formData, address: e.target.value })
-                    }
+                    value={formData.city}
+                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                     isRequired
-                    classNames={{
-                      base: "w-full",
-                      label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
-                      input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
-                    }}
+                    isDisabled={isLoading}
+                    classNames={inputClasses}
                   />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Input
-                      type="text"
-                      label="City *"
-                      placeholder="Manila"
-                      labelPlacement="outside"
-                      value={formData.city}
-                      onChange={(e) =>
-                        setFormData({ ...formData, city: e.target.value })
+
+                  {/* ── Zip Code — 4 digits only ── */}
+                  <Input
+                    type="text"
+                    name="zipCode"
+                    label="Zip Code *"
+                    placeholder="1000"
+                    labelPlacement="outside"
+                    inputMode="numeric"
+                    maxLength={4}
+                    value={formData.zipCode}
+                    onChange={(e) => {
+                      const cleaned = toDigitsOnly(e.target.value).slice(0, 4);
+                      setFormData({ ...formData, zipCode: cleaned });
+                      if (touchedFields.zipCode) {
+                        setErrors((prev) => ({ ...prev, zipCode: validateField("zipCode", cleaned) }));
                       }
-                      isRequired
-                      isDisabled={isLoading}
-                      classNames={{
-                        base: "w-full",
-                        label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
-                        input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <Input
-                      type="text"
-                      label="Zip Code *"
-                      placeholder="1000"
-                      labelPlacement="outside"
-                      value={formData.zipCode}
-                      onChange={(e) =>
-                        setFormData({ ...formData, zipCode: e.target.value })
-                      }
-                      isRequired
-                      isDisabled={isLoading}
-                      classNames={{
-                        base: "w-full",
-                        label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
-                        input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
-                      }}
-                    />
-                  </div>
+                    }}
+                    onKeyDown={(e) => {
+                      if (["e", "E", "+", "-", "."].includes(e.key)) e.preventDefault();
+                    }}
+                    onBlur={() => handleBlur("zipCode")}
+                    isInvalid={touchedFields.zipCode && !!errors.zipCode}
+                    errorMessage={touchedFields.zipCode && errors.zipCode}
+                    isRequired
+                    isDisabled={isLoading}
+                    classNames={inputClasses}
+                  />
                 </div>
               </div>
 
-              {/* Emergency Contact Section */}
+              {/* Emergency Contact */}
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-800 pb-2">
                   Emergency Contact
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Input
-                      type="text"
-                      label="Contact Name *"
-                      placeholder="Full name"
-                      labelPlacement="outside"
-                      value={formData.emergencyContactName}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          emergencyContactName: e.target.value,
-                        })
+                  <Input
+                    type="text"
+                    label="Contact Name *"
+                    placeholder="Full name"
+                    labelPlacement="outside"
+                    value={formData.emergencyContactName}
+                    onChange={(e) => setFormData({ ...formData, emergencyContactName: e.target.value })}
+                    isRequired
+                    isDisabled={isLoading}
+                    classNames={inputClasses}
+                  />
+
+                  {/* ── Emergency Phone — same rules as main phone ── */}
+                  <Input
+                    type="tel"
+                    name="emergencyContactPhone"
+                    label="Contact Phone *"
+                    placeholder="09123456789"
+                    labelPlacement="outside"
+                    inputMode="tel"
+                    value={formData.emergencyContactPhone}
+                    onChange={(e) => {
+                      const cleaned = toPhoneNumeric(e.target.value);
+                      setFormData({ ...formData, emergencyContactPhone: cleaned });
+                      if (touchedFields.emergencyContactPhone) {
+                        setErrors((prev) => ({ ...prev, emergencyContactPhone: validateField("emergencyContactPhone", cleaned) }));
                       }
-                      isRequired
-                      isDisabled={isLoading}
-                      classNames={{
-                        base: "w-full",
-                        label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
-                        input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <Input
-                      type="tel"
-                      label="Contact Phone *"
-                      placeholder="+63 912 345 6789"
-                      labelPlacement="outside"
-                      value={formData.emergencyContactPhone}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          emergencyContactPhone: e.target.value,
-                        })
-                      }
-                      isRequired
-                      isDisabled={isLoading}
-                      classNames={{
-                        base: "w-full",
-                        label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
-                        input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
-                      }}
-                    />
-                  </div>
+                    }}
+                    onBlur={() => handleBlur("emergencyContactPhone")}
+                    isInvalid={touchedFields.emergencyContactPhone && !!errors.emergencyContactPhone}
+                    errorMessage={touchedFields.emergencyContactPhone && errors.emergencyContactPhone}
+                    isRequired
+                    isDisabled={isLoading}
+                    classNames={inputClasses}
+                  />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Input
-                      type="text"
-                      label="Relationship *"
-                      placeholder="e.g., Spouse, Parent, Sibling"
-                      labelPlacement="outside"
-                      value={formData.emergencyContactRelation}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          emergencyContactRelation: e.target.value,
-                        })
-                      }
-                      isRequired
-                      isDisabled={isLoading}
-                      classNames={{
-                        base: "w-full",
-                        label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
-                        input: "bg-slate-50 dark:bg-slate-800 dark:text-white border-slate-200 dark:border-slate-700",
-                      }}
-                    />
-                  </div>
+                  <Input
+                    type="text"
+                    label="Relationship *"
+                    placeholder="e.g., Spouse, Parent, Sibling"
+                    labelPlacement="outside"
+                    value={formData.emergencyContactRelation}
+                    onChange={(e) => setFormData({ ...formData, emergencyContactRelation: e.target.value })}
+                    isRequired
+                    isDisabled={isLoading}
+                    classNames={inputClasses}
+                  />
                 </div>
               </div>
+
             </div>
           </form>
 
-          {/* Footer - Sticky */}
+          {/* Footer */}
           <div className="flex gap-3 p-6 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 rounded-b-2xl flex-shrink-0">
             <button
               type="button"
@@ -912,8 +812,8 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
             >
               {isLoading && (
                 <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                 </svg>
               )}
               {isLoading ? "Creating..." : "Create Employee"}
