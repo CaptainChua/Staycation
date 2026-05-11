@@ -69,6 +69,16 @@ const AddPartnerModal = ({
     }
   };
 
+  // Intercept phone input to strip non-numeric characters before passing to parent handler
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const numericOnly = e.target.value.replace(/\D/g, "");
+    const syntheticEvent = {
+      ...e,
+      target: { ...e.target, name: "phone", value: numericOnly },
+    } as React.ChangeEvent<HTMLInputElement>;
+    onFormChange(syntheticEvent);
+  };
+
   return createPortal(
     <>
       <div
@@ -171,7 +181,7 @@ const AddPartnerModal = ({
                 />
               </div>
 
-              {/* Phone */}
+              {/* FIXED: Phone — numeric only via synthetic event */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                   Phone Number
@@ -180,7 +190,7 @@ const AddPartnerModal = ({
                   type="tel"
                   name="phone"
                   value={formData.phone}
-                  onChange={onFormChange}
+                  onChange={handlePhoneChange}
                   disabled={isLoading}
                   placeholder="+63 912 345 6789"
                   className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-xl focus:ring-2 focus:ring-brand-primary focus:border-brand-primary disabled:opacity-50 disabled:cursor-not-allowed"
