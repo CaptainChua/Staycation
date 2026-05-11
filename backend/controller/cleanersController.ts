@@ -5,6 +5,7 @@ export interface CleaningTask {
   cleaning_id: string;
   booking_id: string;
   haven: string;
+  haven_id: string | null;
   guest_first_name: string;
   guest_last_name: string;
   guest_email: string;
@@ -91,6 +92,7 @@ export const getAllCleaningTasks = async (
           bc.id::text as cleaning_id,
           b.booking_id,
           b.room_name as haven,
+          h.uuid_id::text as haven_id,
           bg.first_name as guest_first_name,
           bg.last_name as guest_last_name,
           bg.email as guest_email,
@@ -110,6 +112,7 @@ export const getAllCleaningTasks = async (
           bc.inspected_at
         FROM booking_cleaning bc
         INNER JOIN booking b ON bc.booking_id = b.id
+        LEFT JOIN havens h ON h.haven_name = b.room_name
         LEFT JOIN booking_guests bg ON bg.booking_id = b.id
         LEFT JOIN employees e ON bc.assigned_to::text = e.id::text
     `;
@@ -174,6 +177,7 @@ export const getCleaningTaskById = async (
         bc.id::text as cleaning_id,
         b.booking_id,
         b.room_name as haven,
+        h.uuid_id::text as haven_id,
         bg.first_name as guest_first_name,
         bg.last_name as guest_last_name,
         bg.email as guest_email,
@@ -193,6 +197,7 @@ export const getCleaningTaskById = async (
         bc.inspected_at
       FROM booking_cleaning bc
       INNER JOIN booking b ON bc.booking_id = b.id
+      LEFT JOIN havens h ON h.haven_name = b.room_name
       LEFT JOIN booking_guests bg ON bg.booking_id = b.id
       LEFT JOIN employees e ON bc.assigned_to::text = e.id::text
       WHERE bc.id = $1::uuid

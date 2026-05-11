@@ -134,11 +134,13 @@ export const getChecklistByHaven = async (
       );
     }
 
-    // Try to get the most recent checklist for this haven
+    // Try to get the most recent checklist for this haven that is not yet completed.
+    // Completed checklists belong to past bookings — a new cleaning job gets a fresh one.
     const checklistResult = await pool.query(
       `SELECT id, haven_id, status, completed_at, created_at, updated_at
        FROM cleaning_checklists
        WHERE haven_id = $1
+         AND status != 'completed'
        ORDER BY created_at DESC
        LIMIT 1`,
       [havenId],
@@ -184,11 +186,12 @@ export const getChecklistByHaven = async (
         havenId,
       ]);
 
-      // Re-check if a checklist was created while we waited for the lock
+      // Re-check if a non-completed checklist was created while we waited for the lock
       const recheckRes = await client.query(
         `SELECT id, haven_id, status, completed_at, created_at, updated_at
          FROM cleaning_checklists
          WHERE haven_id = $1
+           AND status != 'completed'
          ORDER BY created_at DESC
          LIMIT 1`,
         [havenId],
@@ -289,6 +292,7 @@ export const getChecklistByHaven = async (
             `SELECT id, haven_id, status, completed_at, created_at, updated_at
              FROM cleaning_checklists
              WHERE haven_id = $1
+               AND status != 'completed'
              ORDER BY created_at DESC
              LIMIT 1`,
             [havenId],

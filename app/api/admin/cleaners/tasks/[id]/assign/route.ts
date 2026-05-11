@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import pool from "@/backend/config/db";
 import { logActivity } from "@/backend/utils/activityLogger";
 import { createNotificationForUser } from "@/backend/utils/notificationHelper";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -16,9 +18,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       );
     }
 
-    // Get current user from session (you'll need to implement this based on your auth system)
-    // For now, we'll use a placeholder - you should get this from your NextAuth session
-    const currentUserId = req.headers.get('x-user-id') || '00000000-0000-0000-0000-000000000000';
+    const session = await getServerSession(authOptions);
+    const currentUserId = (session?.user as { id?: string })?.id ?? '00000000-0000-0000-0000-000000000000';
 
     // Get cleaner and task details for logging and notification
     const taskDetailsQuery = `

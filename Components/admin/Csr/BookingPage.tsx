@@ -733,12 +733,19 @@ export default function BookingsPage() {
       {/* Booking Status Guide */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-6 flex-shrink-0 border border-gray-200 dark:border-gray-700">
         <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4">Booking Status Guide</h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <div className="flex items-start gap-3">
             <div className="w-3 h-3 bg-yellow-500 rounded-full mt-1 flex-shrink-0"></div>
             <div>
               <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">Pending</h5>
               <p className="text-xs text-gray-600 dark:text-gray-300">Booking awaiting approval or payment confirmation</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <div className="w-3 h-3 bg-teal-500 rounded-full mt-1 flex-shrink-0"></div>
+            <div>
+              <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">On-going</h5>
+              <p className="text-xs text-gray-600 dark:text-gray-300">Down payment accepted, booking is confirmed</p>
             </div>
           </div>
           <div className="flex items-start gap-3">

@@ -23,7 +23,6 @@ import { useSession } from "next-auth/react";
 import { useGetConversationsQuery } from "@/redux/api/messagesApi";
 
 // Page Components
-import MyAssignmentPage from "./MyAssignmentPage";
 import PropertyLocationPage from "./PropertyLocationPage";
 import CleaningChecklistPage from "./CleaningChecklistPage";
 import ReportIssuePage from "./ReportIssuePage";
@@ -77,7 +76,7 @@ export default function CleanersDashboard() {
   const router = useRouter();
   const [sidebar, setSidebar] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [page, setPage] = useState("my-assignment");
+  const [page, setPage] = useState("my-schedule");
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [now, setNow] = useState<Date | null>(null);
