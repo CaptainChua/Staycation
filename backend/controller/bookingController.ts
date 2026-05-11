@@ -817,6 +817,7 @@ export const createBooking = async (
         firstName: booking.first_name,
         lastName: booking.last_name,
         email: booking.email,
+        phone: booking.phone,
         bookingId: booking.booking_id,
         roomName: booking.room_name,
         checkInDate: new Date(booking.check_in_date).toLocaleDateString(),
@@ -824,9 +825,9 @@ export const createBooking = async (
         checkOutDate: new Date(booking.check_out_date).toLocaleDateString(),
         checkOutTime: booking.check_out_time,
         guests: `${booking.adults} Adults, ${booking.children} Children, ${booking.infants} Infants`,
-        paymentMethod: booking.payment_method,
-        downPayment: booking.down_payment,
-        totalAmount: booking.total_amount,
+        paymentMethod: booking.booking_payment?.payment_method,
+        downPayment: booking.booking_payment?.down_payment,
+        totalAmount: booking.booking_payment?.total_amount,
       };
 
       const emailResponse = await fetch(
