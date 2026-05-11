@@ -188,6 +188,8 @@ function mapCleaningStatus(
   statusColor: string;
 } {
   switch (cleaning_status) {
+    case "assigned":
+      return { status: "Assigned", statusColor: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300" };
     case "in-progress":
       return { status: "In Progress", statusColor: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300" };
     case "cleaned":
@@ -474,7 +476,7 @@ export default function CleanersPage() {
   };
 
   const handleAssignmentSuccess = () => {
-    // Refetch bookings to update the status
+    refetch();
   };
 
   const totalCount = rows.length;
