@@ -12,10 +12,19 @@ import {
   Navigation,
   CheckSquare,
   Building2,
+  Shield,
+  ShieldCheck,
+  Loader2,
+  Upload,
+  X,
+  Banknote,
 } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useSession } from "next-auth/react";
 import { useGetCleaningTasksQuery } from "@/redux/api/cleanersApi";
+import { updateDepositStatusByBookingId } from "@/app/admin/csr/actions";
+import { toast } from "react-hot-toast";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -41,8 +50,14 @@ function isSameDay(a: Date, b: Date) {
 }
 
 function toLocalMidnight(dateStr: string): Date {
-  const [year, month, day] = dateStr.split("T")[0].split("-").map(Number);
-  return new Date(year, month - 1, day);
+  // For pure date strings (no time), parse directly as local date
+  if (!dateStr.includes("T") && !dateStr.includes("Z")) {
+    const [year, month, day] = dateStr.split("-").map(Number);
+    return new Date(year, month - 1, day);
+  }
+  // For timestamps, parse then extract LOCAL date components to avoid UTC off-by-one
+  const d = new Date(dateStr);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 }
 
 function startOfWeek(d: Date) {
@@ -157,6 +172,66 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning 
   }, [allTasks, userId]);
 
   const today = useMemo(() => new Date(), []);
+
+  // Security deposit collection state
+  const [collectedDeposits, setCollectedDeposits] = useState<Set<string>>(new Set());
+  const [collectingDepositId, setCollectingDepositId] = useState<string | null>(null);
+
+  // Deposit collection modal state
+  const [depositModalTask, setDepositModalTask] = useState<any | null>(null);
+  const [depositPaymentMethod, setDepositPaymentMethod] = useState("cash");
+  const [depositAmountReceived, setDepositAmountReceived] = useState<string>("");
+  const [depositProofFile, setDepositProofFile] = useState<File | null>(null);
+  const [depositProofPreview, setDepositProofPreview] = useState<string | null>(null);
+  const [isConfirmingDeposit, setIsConfirmingDeposit] = useState(false);
+  const depositProofInputRef = useRef<HTMLInputElement>(null);
+
+  const openDepositModal = (a: any) => {
+    setDepositModalTask(a);
+    setDepositPaymentMethod("cash");
+    const defaultAmt = Number(a.security_deposit) > 0 ? String(Number(a.security_deposit)) : "1000";
+    setDepositAmountReceived(defaultAmt);
+    setDepositProofFile(null);
+    setDepositProofPreview(null);
+  };
+
+  const closeDepositModal = () => {
+    if (isConfirmingDeposit) return;
+    setDepositModalTask(null);
+    setDepositProofFile(null);
+    setDepositProofPreview(null);
+  };
+
+  const handleDepositProofChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setDepositProofFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => setDepositProofPreview(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const handleConfirmDeposit = async () => {
+    if (!depositModalTask?.booking_uuid) {
+      toast.error("Booking information not found");
+      return;
+    }
+    setIsConfirmingDeposit(true);
+    setCollectingDepositId(depositModalTask.cleaning_id);
+    try {
+      const amountReceived = Number(depositAmountReceived) > 0 ? Number(depositAmountReceived) : 1000;
+      await updateDepositStatusByBookingId(depositModalTask.booking_uuid, "Paid", userId, undefined, amountReceived);
+      setCollectedDeposits(prev => new Set([...prev, depositModalTask.cleaning_id]));
+      toast.success(`Security deposit of ₱${amountReceived.toLocaleString()} collected from ${depositModalTask.guest_first_name}`);
+      setDepositModalTask(null);
+    } catch {
+      toast.error("Failed to record security deposit");
+    } finally {
+      setIsConfirmingDeposit(false);
+      setCollectingDepositId(null);
+    }
+  };
+
   const [calMonth, setCalMonth] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
   const [selectedDate, setSelectedDate] = useState<Date>(today);
 
@@ -282,11 +357,12 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning 
 
   const selectedDateKey = selectedDate.toDateString();
   const selectedSchedule = scheduleMap[selectedDateKey];
-  // Only show tasks in the detail panel on their actual checkout date
+  // Show tasks on their check-in day (deposit collection) or check-out day (cleaning)
   const selectedAssignments: any[] = selectedSchedule
     ? selectedSchedule.assignments.filter((a: any) => {
-        if (!a.check_out_date) return true;
-        return isSameDay(toLocalMidnight(a.check_out_date), selectedDate);
+        const isCheckoutDay = a.check_out_date && isSameDay(toLocalMidnight(a.check_out_date), selectedDate);
+        const isCheckinDay = a.check_in_date && isSameDay(toLocalMidnight(a.check_in_date), selectedDate);
+        return isCheckoutDay || isCheckinDay;
       })
     : [];
 
@@ -541,6 +617,79 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning 
               </div>
             ) : (
               selectedAssignments.map((a: any) => {
+                const isCheckinDay = a.check_in_date && isSameDay(toLocalMidnight(a.check_in_date), selectedDate);
+                const isCheckoutDay = a.check_out_date && isSameDay(toLocalMidnight(a.check_out_date), selectedDate);
+
+                // ── Check-in day: show deposit collection card ──────────────
+                if (isCheckinDay && !isCheckoutDay) {
+                  const depositCollected =
+                    a.deposit_status === "held" ||
+                    a.deposit_status === "paid" ||
+                    collectedDeposits.has(a.cleaning_id);
+                  const depositAmount = Number(a.security_deposit) > 0
+                    ? new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(Number(a.security_deposit))
+                    : "₱1,000.00";
+                  const isCollecting = collectingDepositId === a.cleaning_id;
+
+                  return (
+                    <div
+                      key={`checkin-${a.cleaning_id ?? a.id}`}
+                      className="rounded-xl border border-indigo-100 dark:border-indigo-900/40 bg-indigo-50/50 dark:bg-indigo-900/10 p-4 space-y-3"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 mb-0.5">
+                            <Shield className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
+                            <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-wide">Check-in Today</span>
+                          </div>
+                          <p className="font-bold text-gray-800 dark:text-gray-100 text-sm truncate">
+                            {a.haven ?? a.room_name ?? "—"}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                            {a.guest_first_name} {a.guest_last_name}
+                          </p>
+                        </div>
+                        {depositCollected ? (
+                          <span className="flex items-center gap-1 px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs font-bold rounded-full flex-shrink-0">
+                            <CheckCircle2 className="w-3 h-3" /> Collected
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-xs font-bold rounded-full flex-shrink-0">
+                            Pending
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3.5 h-3.5 flex-shrink-0" />
+                          Check-in: {a.check_in_time ? formatTime(a.check_in_time) : "—"}
+                        </span>
+                        <span className="flex items-center gap-1 font-semibold text-indigo-600 dark:text-indigo-400">
+                          <Shield className="w-3.5 h-3.5 flex-shrink-0" />
+                          {depositAmount}
+                        </span>
+                      </div>
+
+                      {depositCollected ? (
+                        <div className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 text-xs font-semibold">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          Deposit Collected
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => openDepositModal(a)}
+                          disabled={isCollecting}
+                          className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold disabled:opacity-50 transition-colors"
+                        >
+                          <Shield className="w-3.5 h-3.5" /> Security Deposit
+                        </button>
+                      )}
+                    </div>
+                  );
+                }
+
+                // ── Check-out day: show cleaning task card ──────────────────
                 const todayMidnight = new Date(); todayMidnight.setHours(0,0,0,0);
                 const checkoutDate = a.check_out_date ? toLocalMidnight(a.check_out_date) : null;
                 const isUpcoming = checkoutDate ? checkoutDate > todayMidnight : false;
@@ -671,6 +820,172 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning 
           </div>
           <span className="text-xs text-brand-primary font-medium">View today →</span>
         </button>
+      )}
+
+      {/* ── Collect Security Deposit Modal ── */}
+      {depositModalTask && typeof window !== "undefined" && createPortal(
+        <>
+          <div className="fixed inset-0 z-[9980] bg-black/50" aria-hidden="true" onClick={closeDepositModal} />
+          <div className="fixed z-[9991] w-full max-w-md bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col"
+            style={{ top: "50%", left: "50%", transform: "translate(-50%, -50%)" }}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-indigo-600 rounded-lg">
+                  <Shield className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-gray-900 dark:text-gray-100">Collect Security Deposit</h2>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Record deposit collected from guest at entrance</p>
+                </div>
+              </div>
+              <button onClick={closeDepositModal} disabled={isConfirmingDeposit} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50">
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-5 space-y-4 overflow-y-auto">
+
+              {/* Booking info */}
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                <p className="font-bold text-gray-800 dark:text-gray-100 text-sm">{depositModalTask.haven ?? depositModalTask.room_name ?? "—"}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{depositModalTask.guest_first_name} {depositModalTask.guest_last_name}</p>
+                <div className="flex items-center gap-4 mt-2">
+                  <span className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                    <Clock className="w-3.5 h-3.5" /> Check-in: {depositModalTask.check_in_time ? formatTime(depositModalTask.check_in_time) : "—"}
+                  </span>
+                  <span className="text-lg font-black text-indigo-600 dark:text-indigo-400">
+                    {Number(depositModalTask.security_deposit) > 0
+                      ? new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(Number(depositModalTask.security_deposit))
+                      : "₱1,000.00"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Amount received */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-gray-600 dark:text-gray-400 flex items-center gap-1.5">
+                  <Banknote className="w-3.5 h-3.5" /> Amount Received from Guest
+                </label>
+                <div className="flex items-center border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-700">
+                  <span className="px-3 py-2.5 text-sm font-bold text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 border-r border-gray-300 dark:border-gray-600 select-none">₱</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={depositAmountReceived}
+                    onChange={e => setDepositAmountReceived(e.target.value)}
+                    disabled={isConfirmingDeposit}
+                    placeholder="1000.00"
+                    className="flex-1 px-3 py-2.5 text-sm text-gray-900 dark:text-gray-100 bg-transparent outline-none disabled:opacity-50"
+                  />
+                </div>
+              </div>
+
+              {/* Payment method */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-gray-600 dark:text-gray-400 flex items-center gap-1.5">
+                  <Banknote className="w-3.5 h-3.5" /> Payment Method
+                </label>
+                <select
+                  value={depositPaymentMethod}
+                  onChange={e => setDepositPaymentMethod(e.target.value)}
+                  disabled={isConfirmingDeposit}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg text-sm"
+                >
+                  <option value="cash">Cash</option>
+                  <option value="gcash">GCash</option>
+                  <option value="bank_transfer">Bank Transfer</option>
+                </select>
+              </div>
+
+              {/* Upload Proof — styled like Cleaning Checklist */}
+              <div className={`rounded-lg border-2 p-4 sm:p-5 ${depositProofFile ? "border-green-400 dark:border-green-600" : "border-amber-400 dark:border-amber-600"}`}>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className={`p-3 rounded-lg ${depositProofFile ? "bg-green-500" : "bg-amber-500"} text-white`}>
+                      <ShieldCheck className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-bold text-gray-800 dark:text-gray-100 text-sm">Upload Proof of Payment</h3>
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">Required</span>
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Security deposit receipt or screenshot</p>
+                    </div>
+                  </div>
+                  {depositProofFile && <CheckCircle2 className="w-6 h-6 text-green-500 flex-shrink-0" />}
+                </div>
+
+                {!depositProofFile ? (
+                  <button
+                    type="button"
+                    onClick={() => depositProofInputRef.current?.click()}
+                    disabled={isConfirmingDeposit}
+                    className="w-full border-2 border-dashed border-amber-300 dark:border-amber-700 rounded-lg p-6 flex flex-col items-center gap-2 hover:border-amber-400 dark:hover:border-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/10 transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    <Upload className="w-8 h-8 text-amber-500" />
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Tap to upload receipt</span>
+                    <span className="text-xs text-gray-400">JPG, PNG, WEBP or PDF · Max 10MB</span>
+                  </button>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                      {depositProofPreview && depositProofFile.type.startsWith("image/") ? (
+                        <img src={depositProofPreview} alt="proof" className="w-14 h-14 object-cover rounded-lg flex-shrink-0" />
+                      ) : (
+                        <div className="w-14 h-14 bg-gray-200 dark:bg-gray-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <ShieldCheck className="w-6 h-6 text-gray-400" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">{depositProofFile.name}</p>
+                        <p className="text-xs text-gray-400">{(depositProofFile.size / 1024).toFixed(1)} KB</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => { setDepositProofFile(null); setDepositProofPreview(null); if (depositProofInputRef.current) depositProofInputRef.current.value = ""; }}
+                        className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors flex-shrink-0"
+                      >
+                        <X className="w-4 h-4 text-gray-500" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+                <input
+                  ref={depositProofInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,application/pdf"
+                  className="hidden"
+                  onChange={handleDepositProofChange}
+                />
+              </div>
+
+              <p className="text-xs text-gray-400 italic">
+                This deposit will be returned to the guest after checkout if there are no damages.
+              </p>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end gap-3 p-5 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+              <button onClick={closeDepositModal} disabled={isConfirmingDeposit} className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium text-sm disabled:opacity-50">
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDeposit}
+                disabled={isConfirmingDeposit}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium text-sm disabled:opacity-50 flex items-center gap-2"
+              >
+                {isConfirmingDeposit
+                  ? <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</>
+                  : <><Shield className="w-4 h-4" /> Confirm Collected</>}
+              </button>
+            </div>
+          </div>
+        </>,
+        document.body
       )}
     </div>
   );

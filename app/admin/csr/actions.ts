@@ -320,7 +320,8 @@ export async function updateDepositStatusByBookingId(
   bookingId: string,
   newStatus: string,
   employeeId?: string,
-  notes?: string
+  notes?: string,
+  amountReceived?: number
 ): Promise<void> {
   const client = await pool.connect();
   try {
@@ -334,13 +335,15 @@ export async function updateDepositStatusByBookingId(
 
     const dbStatus = statusMap[newStatus] || newStatus.toLowerCase();
     const now = new Date();
+    const finalAmount = (amountReceived && amountReceived > 0) ? amountReceived : DEFAULT_SECURITY_DEPOSIT_AMOUNT;
 
     if (dbStatus === 'held') {
       await client.query(
-        `UPDATE booking_security_deposits 
-         SET deposit_status = $2, held_at = $3, processed_by = $4, notes = COALESCE($5, notes), amount = COALESCE(amount, $6)
+        `UPDATE booking_security_deposits
+         SET deposit_status = $2, held_at = $3, processed_by = $4, notes = COALESCE($5, notes),
+             amount = $6
          WHERE booking_id = $1`,
-        [bookingId, dbStatus, now, employeeId, notes, DEFAULT_SECURITY_DEPOSIT_AMOUNT]
+        [bookingId, dbStatus, now, employeeId, notes, finalAmount]
       );
     } else {
       await client.query(

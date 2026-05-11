@@ -102,11 +102,11 @@ useEffect(() => {
 }, [isLoading, conversationsData]);
 
   const unreadMessageCount = useMemo(() => {
-  const conversations = conversationsData?.data || [];
-  return conversations.reduce((sum: number, c: any) => 
-    sum + (c.unread_count || 0), 0
-  );
-}, [conversationsData]);
+    const conversations = conversationsData?.data || [];
+    return conversations.reduce((sum: number, c: any) =>
+      sum + (Number(c.unread_count) || 0), 0
+    );
+  }, [conversationsData]);
 
   // Synthesize message notifications from unread conversations
   const [messageNotifications, setMessageNotifications] = useState<ApiNotification[]>([]);
@@ -306,7 +306,7 @@ useEffect(() => {
     { id: "my-schedule", icon: Calendar, label: "My Schedule", color: "text-indigo-500" },
     { id: "cleaning-checklist", icon: CheckSquare, label: "Cleaning Checklist", color: "text-pink-500" },
     { id: "report-issue", icon: AlertCircle, label: "Report Issue", color: "text-red-500" },
-    { id: "messages", icon: MessageSquare, label: "Messages", color: "text-blue-500", badge: unreadMessageCount },
+    { id: "messages", icon: MessageSquare, label: "Messages", color: "text-blue-500", badge: unreadMessageCount > 0 ? unreadMessageCount : undefined },
   ];
 
   const renderPage = () => {

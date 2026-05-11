@@ -143,6 +143,7 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [isNewMessageModalOpen, setIsNewMessageModalOpen] = useState(false);
   const [showMobileChat, setShowMobileChat] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);

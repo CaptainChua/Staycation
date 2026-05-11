@@ -4,6 +4,7 @@ import pool from "@/backend/config/db";
 export interface CleaningTask {
   cleaning_id: string;
   booking_id: string;
+  booking_uuid: string;
   haven: string;
   haven_id: string | null;
   guest_first_name: string;
@@ -23,6 +24,8 @@ export interface CleaningTask {
   cleaning_time_out: string | null;
   cleaned_at: string | null;
   inspected_at: string | null;
+  deposit_status: string | null;
+  security_deposit: number | null;
 }
 
 // GET All Cleaning Tasks
@@ -91,6 +94,7 @@ export const getAllCleaningTasks = async (
         SELECT DISTINCT ON (bc.id)
           bc.id::text as cleaning_id,
           b.booking_id,
+          b.id::text as booking_uuid,
           b.room_name as haven,
           h.uuid_id::text as haven_id,
           bg.first_name as guest_first_name,
@@ -109,12 +113,15 @@ export const getAllCleaningTasks = async (
           bc.cleaning_time_in,
           bc.cleaning_time_out,
           bc.cleaned_at,
-          bc.inspected_at
+          bc.inspected_at,
+          sd.deposit_status,
+          sd.amount as security_deposit
         FROM booking_cleaning bc
         INNER JOIN booking b ON bc.booking_id = b.id
         LEFT JOIN havens h ON h.haven_name = b.room_name
         LEFT JOIN booking_guests bg ON bg.booking_id = b.id
         LEFT JOIN employees e ON bc.assigned_to::text = e.id::text
+        LEFT JOIN booking_security_deposits sd ON sd.booking_id = b.id
     `;
     const values: string[] = [];
 
