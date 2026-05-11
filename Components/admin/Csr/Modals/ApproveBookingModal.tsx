@@ -13,15 +13,12 @@ import {
   Banknote,
   Phone,
   Mail,
-  Shield,
   Home,
   CheckCircle,
   Loader2,
-  UserCheck,
-  AlertCircle,
 } from "lucide-react";
 import { toast } from "react-hot-toast";
-import { approveDownPaymentByBookingId, updateDepositStatusByBookingId } from "@/app/admin/csr/actions";
+import { approveDownPaymentByBookingId } from "@/app/admin/csr/actions";
 import { useSession } from "next-auth/react";
 
 interface Booking {
@@ -72,17 +69,12 @@ interface ApproveBookingModalProps {
   isBulk?: boolean;
 }
 
-const STEPS = ["Down Payment", "Security Deposit", "Approve Booking"] as const;
+const STEPS = ["Down Payment", "Approve Booking"] as const;
 
 function getInitialStep(booking?: Booking): number {
   if (!booking) return 0;
   const downPaymentDone = booking.payment_status === "approved_down_payment";
-  const depositDone =
-    booking.deposit_status?.toLowerCase() === "held" ||
-    booking.deposit_status?.toLowerCase() === "paid";
-  if (!downPaymentDone) return 0;
-  if (!depositDone) return 1;
-  return 2;
+  return downPaymentDone ? 1 : 0;
 }
 
 export default function ApproveBookingModal({
@@ -103,12 +95,6 @@ export default function ApproveBookingModal({
   const [downPaymentDone, setDownPaymentDone] = useState(
     booking?.payment_status === "approved_down_payment"
   );
-  const [depositDone, setDepositDone] = useState(
-    booking?.deposit_status?.toLowerCase() === "held" ||
-    booking?.deposit_status?.toLowerCase() === "paid"
-  );
-  const [cleaner, setCleaner] = useState<{ first_name: string; last_name: string; employment_id: string; cleaning_status: string } | null>(null);
-  const [cleanerLoading, setCleanerLoading] = useState(false);
 
   useEffect(() => {
     const rafId = requestAnimationFrame(() => setIsMounted(true));
@@ -126,27 +112,6 @@ export default function ApproveBookingModal({
       return () => document.removeEventListener("mousedown", handleClickOutside);
     }
   }, [isMounted, onClose, stepLoading]);
-
-  useEffect(() => {
-    if (currentStep !== 1 || !booking?.booking_id || isBulk) return;
-    setCleanerLoading(true);
-    fetch(`/api/admin/cleaners/tasks/by-booking/${booking.booking_id}`)
-      .then(r => r.json())
-      .then(res => {
-        if (res.success && res.data?.cleaner_first_name) {
-          setCleaner({
-            first_name: res.data.cleaner_first_name,
-            last_name: res.data.cleaner_last_name,
-            employment_id: res.data.cleaner_employment_id,
-            cleaning_status: res.data.cleaning_status,
-          });
-        } else {
-          setCleaner(null);
-        }
-      })
-      .catch(() => setCleaner(null))
-      .finally(() => setCleanerLoading(false));
-  }, [currentStep, booking?.booking_id, isBulk]);
 
   if (!isMounted) return null;
   if (!isBulk && !booking) return null;
@@ -186,23 +151,7 @@ export default function ApproveBookingModal({
     }
   };
 
-  // Step 2: Mark Security Deposit as Paid
-  const handleMarkDepositPaid = async () => {
-    if (!b?.id) return;
-    setStepLoading(true);
-    try {
-      await updateDepositStatusByBookingId(b.id, "Paid", employeeId);
-      setDepositDone(true);
-      toast.success("Security deposit marked as paid");
-      setCurrentStep(2);
-    } catch {
-      toast.error("Failed to update deposit status");
-    } finally {
-      setStepLoading(false);
-    }
-  };
-
-  // Step 3: Final booking approval
+  // Step 2: Final booking approval
   const handleFinalApprove = () => {
     if (isBulk && onBulkApprove) {
       onBulkApprove(selectedBookings.map((bk) => bk.id));
@@ -264,10 +213,9 @@ export default function ApproveBookingModal({
   }
 
   // Single booking: 3-step wizard
-  const stepTitles = ["Approve Down Payment", "Security Deposit", "Approve Booking"];
+  const stepTitles = ["Approve Down Payment", "Approve Booking"];
   const stepDescriptions = [
     "Review and approve the guest's down payment",
-    "Confirm the security deposit has been collected",
     "Finalize and approve the booking",
   ];
 
@@ -296,22 +244,22 @@ export default function ApproveBookingModal({
         </div>
 
         {/* Step Indicator */}
-        <div className="flex items-center px-5 py-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+        <div className="flex items-start px-5 py-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
           {STEPS.map((label, i) => (
-            <div key={label} className="flex items-center flex-1">
-              <div className="flex flex-col items-center gap-1">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all
+            <div key={label} className="flex items-start flex-1">
+              <div className="flex flex-col items-center gap-1 min-w-0">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all flex-shrink-0
                   ${i < currentStep ? "bg-green-500 border-green-500 text-white"
                     : i === currentStep ? "bg-white dark:bg-gray-800 border-green-500 text-green-600"
                     : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-400"}`}>
                   {i < currentStep ? <CheckCircle className="w-4 h-4" /> : i + 1}
                 </div>
-                <span className={`text-[10px] font-semibold whitespace-nowrap ${i <= currentStep ? "text-green-600 dark:text-green-400" : "text-gray-400"}`}>
+                <span className={`text-[10px] font-semibold whitespace-nowrap text-center ${i <= currentStep ? "text-green-600 dark:text-green-400" : "text-gray-400"}`}>
                   {label}
                 </span>
               </div>
               {i < STEPS.length - 1 && (
-                <div className={`flex-1 h-0.5 mx-2 mb-4 transition-all ${i < currentStep ? "bg-green-500" : "bg-gray-200 dark:bg-gray-600"}`} />
+                <div className={`flex-1 h-0.5 mx-2 mt-4 transition-all ${i < currentStep ? "bg-green-500" : "bg-gray-200 dark:bg-gray-600"}`} />
               )}
             </div>
           ))}
@@ -378,107 +326,26 @@ export default function ApproveBookingModal({
             </>
           )}
 
-          {/* STEP 1: Security Deposit */}
+          {/* STEP 1: Approve Booking */}
           {currentStep === 1 && (
             <>
               <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/10 rounded-lg border border-green-200 dark:border-green-900/30">
                 <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
                 <p className="text-sm font-medium text-green-700 dark:text-green-400">Down payment approved successfully</p>
               </div>
-
-              <div className="bg-indigo-50 dark:bg-indigo-900/10 rounded-lg p-4 space-y-3 border border-indigo-100 dark:border-indigo-900/30">
-                <div className="flex items-center gap-2 text-sm font-semibold text-indigo-700 dark:text-indigo-300">
-                  <Shield className="w-4 h-4" /> Security Deposit Details
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="space-y-1">
-                    {b.security_deposit_payment_method ? (
-                      <div className="flex items-center gap-2">
-                        <CreditCard className="w-4 h-4 text-indigo-500" />
-                        <span className="text-sm capitalize text-gray-700 dark:text-gray-300">{b.security_deposit_payment_method}</span>
-                      </div>
-                    ) : (
-                      <p className="text-xs text-gray-500 italic">No payment method provided yet</p>
-                    )}
-                    {b.security_deposit_payment_proof_url && (
-                      <a href={b.security_deposit_payment_proof_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm text-indigo-600 dark:text-indigo-400">
-                        <ExternalLink className="w-3 h-3" /> View Deposit Proof
-                      </a>
-                    )}
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs text-gray-500">Amount</p>
-                    <p className="text-xl font-black text-indigo-600 dark:text-indigo-400">{formatCurrency(b.security_deposit || 1000)}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500">Current Status:</span>
-                  <span className="inline-block px-2 py-0.5 rounded-full text-xs font-bold bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300">
-                    {b.deposit_status || "Pending"}
-                  </span>
-                </div>
-              </div>
-
-              {/* Assigned Cleaner */}
               <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-2 border border-gray-200 dark:border-gray-700">
-                <div className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
-                  <UserCheck className="w-4 h-4" /> Assigned Cleaner
-                </div>
-                {cleanerLoading ? (
-                  <div className="flex items-center gap-2 text-sm text-gray-500">
-                    <Loader2 className="w-4 h-4 animate-spin" /> Loading...
-                  </div>
-                ) : cleaner ? (
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-                        {cleaner.first_name} {cleaner.last_name}
-                      </p>
-                      <p className="text-xs text-gray-500">ID: {cleaner.employment_id}</p>
-                    </div>
-                    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold capitalize
-                      ${cleaner.cleaning_status === "cleaned" || cleaner.cleaning_status === "inspected"
-                        ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
-                        : cleaner.cleaning_status === "in-progress"
-                        ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
-                        : "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300"}`}>
-                      {cleaner.cleaning_status}
-                    </span>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2 text-sm text-orange-600 dark:text-orange-400">
-                    <AlertCircle className="w-4 h-4" />
-                    No cleaner assigned yet
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-
-          {/* STEP 2: Final Approval */}
-          {currentStep === 2 && (
-            <>
-              <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/10 rounded-lg border border-green-200 dark:border-green-900/30">
-                <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
-                <p className="text-sm font-medium text-green-700 dark:text-green-400">Down payment approved</p>
-              </div>
-              <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/10 rounded-lg border border-green-200 dark:border-green-900/30">
-                <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
-                <p className="text-sm font-medium text-green-700 dark:text-green-400">Security deposit confirmed</p>
-              </div>
-              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-2 border border-gray-200 dark:border-gray-700">
-                <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">Summary</p>
+                <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">Booking Summary</p>
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div><span className="text-xs text-gray-500">Guest:</span><p className="font-medium text-gray-800 dark:text-gray-200">{guestName}</p></div>
                   <div><span className="text-xs text-gray-500">Haven:</span><p className="font-medium text-gray-800 dark:text-gray-200">{b.room_name}</p></div>
                   <div><span className="text-xs text-gray-500">Check-in:</span><p className="text-gray-800 dark:text-gray-200">{formatDate(b.check_in_date)}</p></div>
                   <div><span className="text-xs text-gray-500">Check-out:</span><p className="text-gray-800 dark:text-gray-200">{formatDate(b.check_out_date)}</p></div>
                   <div><span className="text-xs text-gray-500">Down Payment:</span><p className="font-bold text-green-600">{formatCurrency(b.down_payment || 500)}</p></div>
-                  <div><span className="text-xs text-gray-500">Security Deposit:</span><p className="font-bold text-indigo-600">{formatCurrency(b.security_deposit || 1000)}</p></div>
+                  <div><span className="text-xs text-gray-500">Security Deposit:</span><p className="text-xs text-gray-500 italic">Collected on check-in day</p></div>
                 </div>
               </div>
               <p className="text-sm text-gray-600 dark:text-gray-400 text-center">
-                All requirements are complete. Click <span className="font-semibold text-green-600">Approve Booking</span> to finalize.
+                Click <span className="font-semibold text-green-600">Approve Booking</span> to confirm. Security deposit will be collected by the cleaner on check-in day.
               </p>
             </>
           )}
@@ -489,20 +356,12 @@ export default function ApproveBookingModal({
           <button onClick={onClose} disabled={stepLoading || isLoading} className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium text-sm disabled:opacity-50">
             Cancel
           </button>
-
           {currentStep === 0 && (
             <button onClick={handleApproveDownPayment} disabled={stepLoading} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm disabled:opacity-50 flex items-center gap-2">
               {stepLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Approving...</> : <><CheckCircle className="w-4 h-4" /> Approve Down Payment</>}
             </button>
           )}
-
           {currentStep === 1 && (
-            <button onClick={handleMarkDepositPaid} disabled={stepLoading} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium text-sm disabled:opacity-50 flex items-center gap-2">
-              {stepLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</> : <><Shield className="w-4 h-4" /> Mark Deposit as Paid</>}
-            </button>
-          )}
-
-          {currentStep === 2 && (
             <button onClick={handleFinalApprove} disabled={isLoading} className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium text-sm disabled:opacity-50 flex items-center gap-2">
               {isLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Approving...</> : <><CheckCircle className="w-4 h-4" /> Approve Booking</>}
             </button>

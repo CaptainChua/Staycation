@@ -15,6 +15,7 @@ import ExportBookingsModal from "./Modals/ExportBookingsModal";
 import TotalBreakdown from "./TotalBreakdown";
 import { DateRangeWithDays } from "./Column";
 import MarkDepositPaidModal from "./Modals/MarkDepositPaidModal";
+import CheckInModal from "./Modals/CheckInModal";
 
 interface BookingData {
   id: string;
@@ -87,6 +88,9 @@ export default function BookingsPage() {
   const [isBulkMode, setIsBulkMode] = useState(false);
   const [isMarkDepositPaidModalOpen, setIsMarkDepositPaidModalOpen] = useState(false);
   const [bookingForDepositUpdate, setBookingForDepositUpdate] = useState<BookingData | null>(null);
+  const [isCheckInModalOpen, setIsCheckInModalOpen] = useState(false);
+  const [bookingForCheckIn, setBookingForCheckIn] = useState<BookingData | null>(null);
+  const [isCheckInLoading, setIsCheckInLoading] = useState(false);
 
   const logEmployeeActivity = async (action: string, details: string, bookingId?: string) => {
     if (!employeeId) return;
@@ -432,12 +436,18 @@ export default function BookingsPage() {
     }
   };
 
-  const handleCheckIn = async (booking: BookingData) => {
+  const handleCheckIn = (booking: BookingData) => {
+    setBookingForCheckIn(booking);
+    setIsCheckInModalOpen(true);
+  };
+
+  const handleConfirmCheckIn = async (bookingId: string) => {
+    setIsCheckInLoading(true);
     try {
       const response = await fetch('/api/bookings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: booking.id, status: 'checked-in' }),
+        body: JSON.stringify({ id: bookingId, status: 'checked-in' }),
       });
 
       if (!response.ok) {
@@ -446,10 +456,14 @@ export default function BookingsPage() {
         return;
       }
 
-      toast.success(`${booking.guest_first_name} ${booking.guest_last_name} checked in successfully`);
-      logEmployeeActivity('CHECKIN_BOOKING', `Checked in booking ${booking.booking_id}`, booking.id);
+      toast.success(`${bookingForCheckIn?.guest_first_name} ${bookingForCheckIn?.guest_last_name} checked in successfully`);
+      logEmployeeActivity('CHECKIN_BOOKING', `Checked in booking ${bookingForCheckIn?.booking_id}`, bookingId);
+      setIsCheckInModalOpen(false);
+      setBookingForCheckIn(null);
     } catch {
       toast.error("Failed to check in booking");
+    } finally {
+      setIsCheckInLoading(false);
     }
   };
 
@@ -1301,9 +1315,9 @@ export default function BookingsPage() {
                       </td>
                       <td className="py-4 px-4">
                         <div className="flex items-center justify-center gap-1">
-                          {booking.status?.toLowerCase() === 'pending' && (
+                          {['pending', 'on-going'].includes(booking.status?.toLowerCase() ?? '') && (
                             <>
-                              {(() => {
+                              {booking.status?.toLowerCase() === 'pending' && (() => {
                                 const isDepositPaid = booking.deposit_status?.toLowerCase() === 'paid' || booking.deposit_status?.toLowerCase() === 'held';
                                 if (!isDepositPaid) {
                                   return (
@@ -1339,8 +1353,9 @@ export default function BookingsPage() {
                           )}
                           {booking.status?.toLowerCase() === 'approved' && (
                             <button
-                              className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
-                              title="Ready for Check-in"
+                              onClick={() => handleCheckIn(booking)}
+                              className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                              title="Check In Guest"
                             >
                               <LogIn className="w-4 h-4" />
                             </button>
@@ -1569,9 +1584,9 @@ export default function BookingsPage() {
                     />
                   </div>
                   <div className="flex items-center gap-2">
-                    {booking.status?.toLowerCase() === 'pending' && (
+                    {['pending', 'on-going'].includes(booking.status?.toLowerCase() ?? '') && (
                       <>
-                        {(() => {
+                        {booking.status?.toLowerCase() === 'pending' && (() => {
                           const isDepositPaid = booking.deposit_status?.toLowerCase() === 'paid' || booking.deposit_status?.toLowerCase() === 'held';
                           if (!isDepositPaid) {
                             return (
@@ -1607,8 +1622,9 @@ export default function BookingsPage() {
                     )}
                     {booking.status?.toLowerCase() === 'approved' && (
                       <button
-                        className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
-                        title="Ready for Check-in"
+                        onClick={() => handleCheckIn(booking)}
+                        className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                        title="Check In Guest"
                       >
                         <LogIn className="w-5 h-5" />
                       </button>
@@ -1809,6 +1825,20 @@ export default function BookingsPage() {
             toast.success("Deposit status updated");
           }}
           employeeId={employeeId!}
+        />
+      )}
+
+      {/* Check In Modal */}
+      {isCheckInModalOpen && bookingForCheckIn && (
+        <CheckInModal
+          booking={bookingForCheckIn}
+          onClose={() => {
+            if (isCheckInLoading) return;
+            setIsCheckInModalOpen(false);
+            setBookingForCheckIn(null);
+          }}
+          onConfirm={handleConfirmCheckIn}
+          isLoading={isCheckInLoading}
         />
       )}
     </div>
