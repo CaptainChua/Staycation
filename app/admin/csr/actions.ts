@@ -383,6 +383,34 @@ export async function updateDepositStatusByBookingId(
   }
 }
 
+/**
+ * Approve down payment for a booking by its UUID
+ * Used in Step 1 of the booking approval wizard
+ */
+export async function approveDownPaymentByBookingId(bookingId: string): Promise<void> {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      `UPDATE booking_payments
+       SET payment_status = 'approved_down_payment', reviewed_at = NOW()
+       WHERE booking_id = $1 AND payment_status = 'pending_down_payment'`,
+      [bookingId]
+    );
+    await client.query(
+      `UPDATE booking SET status = 'on-going', updated_at = NOW() WHERE id = $1`,
+      [bookingId]
+    );
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error("Error approving down payment:", error);
+    throw new Error("Failed to approve down payment");
+  } finally {
+    client.release();
+  }
+}
+
 // Test function to check database connection
 export async function testDatabaseConnection(): Promise<string> {
   console.log('Testing database connection...');

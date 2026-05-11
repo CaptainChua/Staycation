@@ -1220,7 +1220,7 @@ export const updateBookingStatus = async (
     // If status is provided, validate it
     const validStatuses = [
       "pending", "approved", "rejected", "confirmed",
-      "checked-in", "completed", "cancelled",
+      "on-going", "checked-in", "completed", "cancelled",
     ];
     if (typeof status !== "undefined" && status !== null) {
       if (typeof status !== "string" || !validStatuses.includes(status)) {

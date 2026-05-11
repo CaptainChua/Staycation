@@ -7,7 +7,7 @@ import ViewBookingDetails from "../Csr/Modals/ViewBookingDetails";
 import ApproveBookingModal from "../Csr/Modals/ApproveBookingModal";
 import RejectBookingModal from "../Csr/Modals/RejectBookingModal";
 import NewBookings from "../Csr/Modals/NewBookings";
-import { useGetBookingsQuery, useDeleteBookingMutation } from "@/redux/api/bookingsApi";
+import { useGetBookingsQuery, useDeleteBookingMutation, useUpdateBookingStatusMutation } from "@/redux/api/bookingsApi";
 import toast from "react-hot-toast";
 import DeleteConfirmation from "../Csr/Modals/DeleteConfirmation";
 import ExportBookingsModal from "../Csr/Modals/ExportBookingsModal";
@@ -128,6 +128,7 @@ export default function BookingsPage() {
     }
   ) as { data: BookingData[]; isLoading: boolean; error: unknown };
   const [deleteBooking, { isLoading: isDeletingBooking }] = useDeleteBookingMutation();
+  const [updateBookingStatus] = useUpdateBookingStatusMutation();
 
   useEffect(() => {
     if (!liveSheetAutoSync) return;
@@ -161,6 +162,8 @@ export default function BookingsPage() {
     switch (statusLower) {
       case "approved":
         return "bg-green-100 text-green-700";
+      case "on-going":
+        return "bg-teal-100 text-teal-700";
       case "pending":
         return "bg-yellow-100 text-yellow-700";
       case "declined":
@@ -635,21 +638,10 @@ export default function BookingsPage() {
     }
 
     try {
-      const response = await fetch('/api/admin/bookings/bulk-delete', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ bookingIds: selectedBookings }),
-      });
-
-      if (response.ok) {
-        toast.success(`${selectedBookings.length} booking(s) deleted successfully`);
-        logEmployeeActivity('BULK_DELETE_BOOKINGS', `Bulk deleted ${selectedBookings.length} bookings`);
-        setSelectedBookings([]);
-      } else {
-        toast.error("Failed to delete bookings");
-      }
+      await Promise.all(selectedBookings.map(id => deleteBooking(id).unwrap()));
+      toast.success(`${selectedBookings.length} booking(s) deleted successfully`);
+      logEmployeeActivity('BULK_DELETE_BOOKINGS', `Bulk deleted ${selectedBookings.length} bookings`);
+      setSelectedBookings([]);
     } catch (error) {
       toast.error("Failed to delete bookings");
       console.error(error);
@@ -663,21 +655,10 @@ export default function BookingsPage() {
     }
 
     try {
-      const response = await fetch('/api/admin/bookings/bulk-checkin', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ bookingIds: selectedBookings }),
-      });
-
-      if (response.ok) {
-        toast.success(`${selectedBookings.length} booking(s) checked in successfully`);
-        logEmployeeActivity('BULK_CHECKIN_BOOKINGS', `Bulk checked in ${selectedBookings.length} bookings`);
-        setSelectedBookings([]);
-      } else {
-        toast.error("Failed to check in bookings");
-      }
+      await Promise.all(selectedBookings.map(id => updateBookingStatus({ id, status: 'checked-in' }).unwrap()));
+      toast.success(`${selectedBookings.length} booking(s) checked in successfully`);
+      logEmployeeActivity('BULK_CHECKIN_BOOKINGS', `Bulk checked in ${selectedBookings.length} bookings`);
+      setSelectedBookings([]);
     } catch (error) {
       toast.error("Failed to check in bookings");
       console.error(error);
@@ -689,8 +670,11 @@ export default function BookingsPage() {
       toast.error("No bookings selected");
       return;
     }
-    // TODO: Implement bulk view modal or navigation
-    toast(`Viewing ${selectedBookings.length} selected bookings`);
+    const first = bookings.find(b => b.id === selectedBookings[0]);
+    if (first) {
+      setSelectedBooking(first);
+      setIsViewModalOpen(true);
+    }
   };
 
   // Format currency
