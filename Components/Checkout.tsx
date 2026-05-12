@@ -1632,6 +1632,12 @@ const Checkout = () => {
                               {errors.email}
                             </p>
                           )}
+                          {!errors.email && (
+                            <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-md px-3 py-1.5">
+                              <Mail className="w-3.5 h-3.5 flex-shrink-0" />
+                              Your booking confirmation will be sent to this email.
+                            </p>
+                          )}
                         </div>
 
                         <div ref={(el) => { errorRefs.current.phone = el; }}>
@@ -2428,6 +2434,12 @@ const Checkout = () => {
                             {bookingData.selectedRoom?.name || bookingData.location?.name || 'Standard Room'}
                           </p>
                         </div>
+                      </div>
+
+                      {/* Email confirmation reminder */}
+                      <div className="flex items-center gap-2 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-md px-3 py-2 mb-4">
+                        <Mail className="w-3.5 h-3.5 flex-shrink-0" />
+                        Your booking confirmation will be sent to <span className="font-bold">{formData.email}</span>
                       </div>
 
                       {/* Price Breakdown */}
