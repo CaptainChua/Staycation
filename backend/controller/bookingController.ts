@@ -997,6 +997,7 @@ export const getAllBookings = async (
         bd.deposit_status,
         bd.payment_method as security_deposit_payment_method,
         bd.payment_proof_url as security_deposit_payment_proof_url,
+        bd.notes as security_deposit_notes,
         bc.cleaning_status
       FROM booking b
       LEFT JOIN booking_guests bg ON b.id = bg.booking_id

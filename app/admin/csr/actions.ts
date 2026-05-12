@@ -321,7 +321,8 @@ export async function updateDepositStatusByBookingId(
   newStatus: string,
   employeeId?: string,
   notes?: string,
-  amountReceived?: number
+  amountReceived?: number,
+  paymentMethod?: string
 ): Promise<void> {
   const client = await pool.connect();
   try {
@@ -341,16 +342,17 @@ export async function updateDepositStatusByBookingId(
       await client.query(
         `UPDATE booking_security_deposits
          SET deposit_status = $2, held_at = $3, processed_by = $4, notes = COALESCE($5, notes),
-             amount = $6
+             amount = $6, payment_method = COALESCE($7, payment_method)
          WHERE booking_id = $1`,
-        [bookingId, dbStatus, now, employeeId, notes, finalAmount]
+        [bookingId, dbStatus, now, employeeId, notes, finalAmount, paymentMethod ?? null]
       );
     } else {
       await client.query(
-        `UPDATE booking_security_deposits 
-         SET deposit_status = $2, processed_by = $3, notes = COALESCE($4, notes)
+        `UPDATE booking_security_deposits
+         SET deposit_status = $2, processed_by = $3, notes = COALESCE($4, notes),
+             payment_method = COALESCE($5, payment_method)
          WHERE booking_id = $1`,
-        [bookingId, dbStatus, employeeId, notes]
+        [bookingId, dbStatus, employeeId, notes, paymentMethod ?? null]
       );
     }
 

@@ -42,6 +42,7 @@ interface BookingData {
   deposit_status?: string;
   security_deposit_payment_method?: string;
   security_deposit_payment_proof_url?: string;
+  security_deposit_notes?: string;
   add_ons_total: number;
   total_amount: number;
   down_payment: number;

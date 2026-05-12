@@ -126,6 +126,17 @@ export default function ViewDepositModal({
                   {deposit.payment_method || 'No payment yet'}
                 </span>
               </div>
+              {(() => {
+                const refMatch = deposit.notes?.match(/Ref:\s*([^|]+)/);
+                const ref = refMatch?.[1]?.trim();
+                if (!ref) return null;
+                return (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Reference No.:</span>
+                    <span className="text-sm font-mono font-semibold text-gray-900 dark:text-gray-100">{ref}</span>
+                  </div>
+                );
+              })()}
               {deposit.payment_proof_url && (
                 <div className="md:col-span-2">
                   <a

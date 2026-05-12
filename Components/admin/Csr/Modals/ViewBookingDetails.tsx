@@ -46,6 +46,7 @@ interface Booking {
   deposit_status?: string;
   security_deposit_payment_method?: string;
   security_deposit_payment_proof_url?: string;
+  security_deposit_notes?: string;
   add_ons_total: number;
   total_amount: number;
   down_payment: number;
@@ -382,6 +383,18 @@ export default function ViewBookingDetails({ booking, onClose }: ViewBookingDeta
                       </span>
                     )}
                   </div>
+
+                  {(() => {
+                    const refMatch = booking.security_deposit_notes?.match(/Ref:\s*([^|]+)/);
+                    const ref = refMatch?.[1]?.trim();
+                    if (!ref) return null;
+                    return (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Reference No.:</span>
+                        <span className="text-sm font-mono font-semibold text-gray-900 dark:text-gray-100">{ref}</span>
+                      </div>
+                    );
+                  })()}
 
                   {booking.security_deposit_payment_proof_url && (
                     <div className="flex items-center gap-2">

@@ -188,6 +188,7 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning 
   const [depositProofPreview, setDepositProofPreview] = useState<string | null>(null);
   const [isConfirmingDeposit, setIsConfirmingDeposit] = useState(false);
   const depositProofInputRef = useRef<HTMLInputElement>(null);
+  const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
 
   const openDepositModal = (a: any) => {
     setDepositModalTask(a);
@@ -197,6 +198,10 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning 
     setDepositReferenceNumber("");
     setDepositProofFile(null);
     setDepositProofPreview(null);
+    fetch("/api/payment-methods")
+      .then(r => r.json())
+      .then(data => setPaymentMethods(Array.isArray(data.data) ? data.data.filter((m: any) => m.is_active) : []))
+      .catch(() => setPaymentMethods([]));
   };
 
   const closeDepositModal = () => {
@@ -225,8 +230,19 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning 
     setCollectingDepositId(depositModalTask.cleaning_id);
     try {
       const amountReceived = Number(depositAmountReceived) > 0 ? Number(depositAmountReceived) : 1000;
-      const notes = depositReferenceNumber.trim() ? `Ref: ${depositReferenceNumber.trim()} | Method: ${depositPaymentMethod}` : `Method: ${depositPaymentMethod}`;
-      await updateDepositStatusByBookingId(depositModalTask.booking_uuid, "Paid", userId, notes, amountReceived);
+      const selectedPm = paymentMethods.find((m: any) => m.id === depositPaymentMethod);
+      const methodLabel = depositPaymentMethod === "cash" ? "Cash" : (selectedPm?.payment_name ?? depositPaymentMethod);
+      const notes = depositReferenceNumber.trim() ? `Ref: ${depositReferenceNumber.trim()} | Method: ${methodLabel}` : `Method: ${methodLabel}`;
+      await updateDepositStatusByBookingId(depositModalTask.booking_uuid, "Paid", userId, notes, amountReceived, methodLabel);
+
+      // Upload proof file if provided
+      if (depositProofFile) {
+        const fd = new FormData();
+        fd.append("file", depositProofFile);
+        fd.append("booking_uuid", depositModalTask.booking_uuid);
+        await fetch("/api/admin/cleaners/deposit-proof", { method: "POST", body: fd });
+      }
+
       setCollectedDeposits(prev => new Set([...prev, depositModalTask.cleaning_id]));
       toast.success(`Security deposit of ₱${amountReceived.toLocaleString()} collected from ${depositModalTask.guest_first_name}`);
       setDepositModalTask(null);
@@ -931,13 +947,47 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning 
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg text-sm"
                 >
                   <option value="cash">Cash</option>
-                  <option value="gcash">GCash</option>
-                  <option value="bank_transfer">Bank Transfer</option>
+                  {paymentMethods.filter((m: any) => m.payment_method !== "cash").map((m: any) => (
+                    <option key={m.id} value={m.id}>{m.payment_name}</option>
+                  ))}
                 </select>
               </div>
 
-              {/* Reference number — GCash / Bank Transfer only */}
-              {(depositPaymentMethod === "gcash" || depositPaymentMethod === "bank_transfer") && (
+              {/* QR code + account details for selected non-cash method */}
+              {depositPaymentMethod !== "cash" && (() => {
+                const pm = paymentMethods.find((m: any) => m.id === depositPaymentMethod);
+                if (!pm) return null;
+                return (
+                  <div className="rounded-lg border border-indigo-200 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-900/20 p-4 space-y-3">
+                    <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wide">{pm.payment_name} Details</p>
+                    {pm.payment_qr_link && (
+                      <div className="flex justify-center">
+                        <img
+                          src={pm.payment_qr_link}
+                          alt={`${pm.payment_name} QR Code`}
+                          className="w-36 h-36 object-contain rounded-lg border border-indigo-200 dark:border-indigo-700 bg-white p-1"
+                        />
+                      </div>
+                    )}
+                    <div className="text-xs space-y-1">
+                      <div className="flex justify-between">
+                        <span className="text-gray-500 dark:text-gray-400">Provider</span>
+                        <span className="font-semibold text-gray-800 dark:text-gray-100">{pm.provider}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500 dark:text-gray-400">Account</span>
+                        <span className="font-semibold text-gray-800 dark:text-gray-100">{pm.account_details}</span>
+                      </div>
+                      {pm.description && (
+                        <p className="text-gray-500 dark:text-gray-400 italic pt-1">{pm.description}</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Reference number — non-cash only */}
+              {depositPaymentMethod !== "cash" && (
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-gray-600 dark:text-gray-400 flex items-center gap-1.5">
                     <Banknote className="w-3.5 h-3.5" /> Reference Number
@@ -947,7 +997,7 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning 
                     value={depositReferenceNumber}
                     onChange={e => setDepositReferenceNumber(e.target.value)}
                     disabled={isConfirmingDeposit}
-                    placeholder={depositPaymentMethod === "gcash" ? "GCash reference no." : "Bank transfer reference no."}
+                    placeholder="Transaction / reference no."
                     className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-400 disabled:opacity-50"
                   />
                 </div>
