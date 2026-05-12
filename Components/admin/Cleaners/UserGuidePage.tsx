@@ -10,6 +10,7 @@ import {
   HelpCircle,
   Play,
   FileText,
+  ChevronDown,
 } from "lucide-react";
 import { useState } from "react";
 import Link from "next/link";
@@ -22,7 +23,11 @@ export default function UserGuidePage() {
       id: "getting-started",
       title: "Getting Started",
       icon: Play,
-      color: "bg-blue-500",
+      accent: "#3B82F6",
+      lightBg: "bg-blue-50 dark:bg-blue-950/30",
+      badge: "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300",
+      border: "border-blue-200 dark:border-blue-800",
+      iconBg: "bg-blue-500",
       sections: [
         {
           title: "Welcome to Cleaners Portal",
@@ -45,7 +50,11 @@ export default function UserGuidePage() {
       id: "my-assignments",
       title: "Managing Assignments",
       icon: ClipboardList,
-      color: "bg-green-500",
+      accent: "#22C55E",
+      lightBg: "bg-green-50 dark:bg-green-950/30",
+      badge: "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300",
+      border: "border-green-200 dark:border-green-800",
+      iconBg: "bg-green-500",
       sections: [
         {
           title: "Viewing Assignments",
@@ -68,7 +77,11 @@ export default function UserGuidePage() {
       id: "cleaning-checklist",
       title: "Using the Cleaning Checklist",
       icon: CheckCircle,
-      color: "bg-purple-500",
+      accent: "#A855F7",
+      lightBg: "bg-purple-50 dark:bg-purple-950/30",
+      badge: "bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300",
+      border: "border-purple-200 dark:border-purple-800",
+      iconBg: "bg-purple-500",
       sections: [
         {
           title: "Checklist Overview",
@@ -91,7 +104,11 @@ export default function UserGuidePage() {
       id: "property-locations",
       title: "Finding Property Locations",
       icon: MapPin,
-      color: "bg-orange-500",
+      accent: "#F97316",
+      lightBg: "bg-orange-50 dark:bg-orange-950/30",
+      badge: "bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300",
+      border: "border-orange-200 dark:border-orange-800",
+      iconBg: "bg-orange-500",
       sections: [
         {
           title: "Property Map",
@@ -114,7 +131,11 @@ export default function UserGuidePage() {
       id: "reporting-issues",
       title: "Reporting Issues",
       icon: AlertCircle,
-      color: "bg-red-500",
+      accent: "#EF4444",
+      lightBg: "bg-red-50 dark:bg-red-950/30",
+      badge: "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300",
+      border: "border-red-200 dark:border-red-800",
+      iconBg: "bg-red-500",
       sections: [
         {
           title: "When to Report",
@@ -142,7 +163,11 @@ export default function UserGuidePage() {
       id: "schedule",
       title: "Managing Your Schedule",
       icon: Calendar,
-      color: "bg-indigo-500",
+      accent: "#6366F1",
+      lightBg: "bg-indigo-50 dark:bg-indigo-950/30",
+      badge: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300",
+      border: "border-indigo-200 dark:border-indigo-800",
+      iconBg: "bg-indigo-500",
       sections: [
         {
           title: "Calendar View",
@@ -165,7 +190,11 @@ export default function UserGuidePage() {
       id: "best-practices",
       title: "Best Practices",
       icon: FileText,
-      color: "bg-teal-500",
+      accent: "#14B8A6",
+      lightBg: "bg-teal-50 dark:bg-teal-950/30",
+      badge: "bg-teal-100 text-teal-700 dark:bg-teal-900/50 dark:text-teal-300",
+      border: "border-teal-200 dark:border-teal-800",
+      iconBg: "bg-teal-500",
       sections: [
         {
           title: "Time Management",
@@ -198,7 +227,11 @@ export default function UserGuidePage() {
       id: "faq",
       title: "Frequently Asked Questions",
       icon: HelpCircle,
-      color: "bg-yellow-500",
+      accent: "#EAB308",
+      lightBg: "bg-yellow-50 dark:bg-yellow-950/30",
+      badge: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300",
+      border: "border-yellow-200 dark:border-yellow-800",
+      iconBg: "bg-yellow-500",
       sections: [
         {
           title: "What if I can't complete a task on time?",
@@ -231,34 +264,56 @@ export default function UserGuidePage() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-700">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 flex-shrink-0 border border-gray-200 dark:border-gray-700 rounded-lg p-6 bg-white dark:bg-gray-800 shadow dark:shadow-gray-900">
+
+      {/* Header */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border border-gray-200 dark:border-gray-700 rounded-2xl p-7 bg-white dark:bg-gray-800 shadow-sm">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">User Guide</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          <h1 className="text-5xl md:text-6xl font-extrabold text-gray-900 dark:text-gray-50 tracking-tight">
+            User Guide
+          </h1>
+          <p className="text-xl text-gray-500 dark:text-gray-400 mt-2 font-medium">
             Everything you need to know about using the Cleaners Portal
           </p>
+        </div>
+        <div className="flex items-center gap-2 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 rounded-full px-5 py-2">
+          <BookOpen className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+          <span className="text-base font-semibold text-amber-700 dark:text-amber-300">
+            {guides.length} Sections
+          </span>
         </div>
       </div>
 
       {/* Quick Tips Card */}
-      <div className="bg-gradient-to-r from-brand-primary to-brand-primaryDark text-white rounded-lg p-6 shadow-lg">
-        <div className="flex items-start gap-4">
-          <BookOpen className="w-8 h-8 flex-shrink-0" />
-          <div>
-            <h2 className="text-xl font-bold mb-2">Quick Tips</h2>
-            <ul className="space-y-2 text-sm opacity-90">
-              <li>• Check your dashboard every morning for new assignments</li>
-              <li>• Complete all checklist items before marking tasks as done</li>
-              <li>• Report issues immediately - don't wait until end of day</li>
-              <li>• Keep notifications enabled for urgent updates</li>
-              <li>• Review your schedule weekly to plan your work</li>
-            </ul>
+      <div className="bg-gradient-to-br from-amber-500 via-yellow-400 to-orange-400 rounded-2xl p-8 shadow-xl">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="bg-white/25 p-3 rounded-xl">
+            <BookOpen className="w-8 h-8 text-white" />
           </div>
+          <h2 className="text-4xl md:text-5xl font-black text-white drop-shadow-md">
+            Quick Tips
+          </h2>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {[
+            { icon: "✓", text: "Check your dashboard every morning for new assignments", bg: "bg-white/15" },
+            { icon: "✓", text: "Complete all checklist items before marking tasks as done", bg: "bg-white/15" },
+            { icon: "⚠", text: "Report issues immediately — don't wait until end of day", bg: "bg-white/20" },
+            { icon: "🔔", text: "Keep notifications enabled for urgent updates", bg: "bg-white/15" },
+            { icon: "📅", text: "Review your weekly schedule to plan your work", bg: "bg-white/15" },
+          ].map((tip, i) => (
+            <div
+              key={i}
+              className={`${tip.bg} backdrop-blur-sm border border-white/25 rounded-xl px-5 py-4 flex items-start gap-4 ${i === 4 ? "md:col-span-2" : ""}`}
+            >
+              <span className="text-2xl font-black flex-shrink-0 mt-0.5">{tip.icon}</span>
+              <p className="text-white text-xl md:text-2xl font-semibold leading-snug">{tip.text}</p>
+            </div>
+          ))}
         </div>
       </div>
 
       {/* Guide Sections */}
-      <div className="space-y-4">
+      <div className="space-y-3">
         {guides.map((guide) => {
           const Icon = guide.icon;
           const isExpanded = expandedSection === guide.id;
@@ -266,57 +321,70 @@ export default function UserGuidePage() {
           return (
             <div
               key={guide.id}
-              className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden"
+              className={`rounded-2xl overflow-hidden border-2 transition-all duration-200 ${
+                isExpanded
+                  ? `${guide.border} shadow-lg`
+                  : "border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600"
+              } bg-white dark:bg-gray-800`}
             >
+              {/* Accordion Header */}
               <button
                 onClick={() => setExpandedSection(isExpanded ? null : guide.id)}
-                className="w-full flex items-center gap-4 p-6 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                className={`w-full flex items-center gap-5 p-6 transition-colors ${
+                  isExpanded
+                    ? `${guide.lightBg}`
+                    : "hover:bg-gray-50 dark:hover:bg-gray-750"
+                }`}
               >
-                <div className={`${guide.color} p-3 rounded-lg`}>
-                  <Icon className="w-6 h-6 text-white" />
+                <div className={`${guide.iconBg} p-3.5 rounded-xl shadow-sm flex-shrink-0`}>
+                  <Icon className="w-7 h-7 text-white" />
                 </div>
+
                 <div className="flex-1 text-left">
-                  <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">
+                  <h3 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-50">
                     {guide.title}
                   </h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                  <p className="text-base text-gray-500 dark:text-gray-400 mt-1 font-medium">
                     {guide.sections.length} topics
                   </p>
                 </div>
+
+                <div className={`flex-shrink-0 ${guide.badge} rounded-full px-4 py-1.5 text-base font-bold hidden sm:block mr-2`}>
+                  {guide.sections.length} topics
+                </div>
+
                 <div
-                  className={`transform transition-transform ${
+                  className={`flex-shrink-0 transform transition-transform duration-200 ${
                     isExpanded ? "rotate-180" : ""
                   }`}
                 >
-                  <svg
-                    className="w-5 h-5 text-gray-400"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 9l-7 7-7-7"
-                    />
-                  </svg>
+                  <ChevronDown className="w-6 h-6 text-gray-400" />
                 </div>
               </button>
 
+              {/* Accordion Content */}
               {isExpanded && (
-                <div className="px-6 pb-6 space-y-4 border-t border-gray-200 dark:border-gray-700 pt-4 animate-in slide-in-from-top-2 duration-200">
+                <div className="px-6 pb-6 pt-4 space-y-3 border-t border-gray-100 dark:border-gray-700 animate-in slide-in-from-top-2 duration-200">
                   {guide.sections.map((section, index) => (
                     <div
                       key={index}
-                      className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg"
+                      className={`p-5 ${guide.lightBg} border ${guide.border} rounded-xl`}
                     >
-                      <h4 className="font-semibold text-gray-800 dark:text-gray-100 mb-2">
-                        {section.title}
-                      </h4>
-                      <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
-                        {section.content}
-                      </p>
+                      <div className="flex items-start gap-3">
+                        <span
+                          className={`flex-shrink-0 w-7 h-7 rounded-full ${guide.iconBg} text-white text-sm font-black flex items-center justify-center mt-0.5`}
+                        >
+                          {index + 1}
+                        </span>
+                        <div>
+                          <h4 className="text-xl md:text-2xl font-bold text-gray-800 dark:text-gray-100 mb-1.5">
+                            {section.title}
+                          </h4>
+                          <p className="text-lg text-gray-600 dark:text-gray-300 leading-relaxed">
+                            {section.content}
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -327,25 +395,25 @@ export default function UserGuidePage() {
       </div>
 
       {/* Contact Support Card */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-6">
-        <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-7">
+        <h3 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-gray-50 mb-3">
           Need More Help?
         </h3>
-        <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
+        <p className="text-xl text-gray-600 dark:text-gray-300 mb-6 leading-relaxed">
           If you can't find the answer you're looking for, contact your supervisor or IT support.
         </p>
         <div className="flex flex-col sm:flex-row gap-3">
           <Link
             href="/contacts"
             onClick={(e) => e.stopPropagation()}
-            className="px-6 py-3 bg-gradient-to-r from-brand-primary to-brand-primaryDark text-white rounded-lg hover:shadow-lg transition-all font-semibold text-center"
+            className="px-7 py-4 bg-gradient-to-r from-brand-primary to-brand-primaryDark text-white rounded-xl hover:shadow-lg transition-all font-bold text-xl text-center"
           >
             Contact Supervisor
           </Link>
           <Link
             href="/help-center"
             onClick={(e) => e.stopPropagation()}
-            className="px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-semibold text-center"
+            className="px-7 py-4 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-bold text-xl text-center"
           >
             IT Support
           </Link>

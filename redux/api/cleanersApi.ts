@@ -4,6 +4,7 @@ export interface CleaningTask {
   cleaning_id: string;
   booking_id: string;
   haven: string;
+  haven_id: string | null;
   guest_first_name: string;
   guest_last_name: string;
   guest_email: string;
@@ -12,7 +13,7 @@ export interface CleaningTask {
   check_in_time: string;
   check_out_date: string;
   check_out_time: string;
-  cleaning_status: "pending" | "in-progress" | "cleaned" | "inspected";
+  cleaning_status: "pending" | "assigned" | "in-progress" | "cleaned" | "inspected";
   assigned_cleaner_id: string | null;
   cleaner_first_name: string | null;
   cleaner_last_name: string | null;
@@ -24,7 +25,7 @@ export interface CleaningTask {
 }
 
 export interface UpdateCleaningTaskRequest {
-  cleaning_status?: "pending" | "in-progress" | "cleaned" | "inspected";
+  cleaning_status?: "pending" | "assigned" | "in-progress" | "cleaned" | "inspected";
   assigned_to?: string | null;
   cleaning_time_in?: string | null;
   cleaning_time_out?: string | null;
@@ -86,7 +87,7 @@ export const cleanersApi = createApi({
     }),
 
     // Update cleaning status
-    updateCleaningStatus: builder.mutation<CleaningTask, { taskId: string; status: "pending" | "in-progress" | "cleaned" | "inspected" }>({
+    updateCleaningStatus: builder.mutation<CleaningTask, { taskId: string; status: "pending" | "assigned" | "in-progress" | "cleaned" | "inspected" }>({
       query({ taskId, status }) {
         return {
           url: `/tasks/${taskId}/status`,

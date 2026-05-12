@@ -13,24 +13,40 @@ export interface BlockedDate {
   floor?: string;
 }
 
-async function hasBlockedDateStatusColumn(): Promise<boolean> {
-  const columnCheckQuery = `
-    SELECT 1
-    FROM information_schema.columns
-    WHERE table_name = 'blocked_dates'
-      AND column_name = 'status'
-    LIMIT 1
-  `;
+async function ensureBlockedDatesTable(): Promise<void> {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS blocked_dates (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      haven_id UUID NOT NULL REFERENCES havens(uuid_id) ON DELETE CASCADE,
+      from_date DATE NOT NULL,
+      to_date DATE NOT NULL,
+      reason TEXT,
+      status VARCHAR(20) NOT NULL DEFAULT 'active'
+        CHECK (status IN ('active', 'inactive')),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_blocked_dates_haven_id ON blocked_dates(haven_id)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_blocked_dates_range ON blocked_dates(from_date, to_date)`);
+}
 
-  const columnCheckResult = await pool.query(columnCheckQuery);
-  return columnCheckResult.rows.length > 0;
+async function hasBlockedDateStatusColumn(): Promise<boolean> {
+  const result = await pool.query(`
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'blocked_dates' AND column_name = 'status' LIMIT 1
+  `);
+  return result.rows.length > 0;
 }
 
 // Get all blocked dates with optional filtering
 export async function getAllBlockedDates(req: NextRequest): Promise<NextResponse> {
   try {
+    await ensureBlockedDatesTable();
+
     const { searchParams } = new URL(req.url);
     const haven_id = searchParams.get("haven_id");
+    // 'active' | 'inactive' | null (null = return all, used by management page)
+    const statusFilter = searchParams.get("status");
 
     let query = `
       SELECT bd.*, h.haven_name, h.tower, h.floor
@@ -48,11 +64,10 @@ export async function getAllBlockedDates(req: NextRequest): Promise<NextResponse
       paramCount++;
     }
 
-    // Only filter by status if the column exists in this database schema
     const statusColumnExists = await hasBlockedDateStatusColumn();
-    if (statusColumnExists) {
+    if (statusColumnExists && statusFilter) {
       conditions.push(`bd.status = $${paramCount}`);
-      values.push("active");
+      values.push(statusFilter);
       paramCount++;
     }
 
@@ -128,6 +143,7 @@ export async function getBlockedDateById(
 // Create new blocked date
 export async function createBlockedDate(req: NextRequest): Promise<NextResponse> {
   try {
+    await ensureBlockedDatesTable();
     const body = await req.json();
     const { haven_id, from_date, to_date, reason, status } = body;
 
@@ -185,6 +201,7 @@ export async function createBlockedDate(req: NextRequest): Promise<NextResponse>
 // Update blocked date
 export async function updateBlockedDate(req: NextRequest): Promise<NextResponse> {
   try {
+    await ensureBlockedDatesTable();
     const body = await req.json();
     const { id, haven_id, from_date, to_date, reason, status } = body;
 
@@ -258,6 +275,7 @@ export async function updateBlockedDate(req: NextRequest): Promise<NextResponse>
 // Delete blocked date
 export async function deleteBlockedDate(req: NextRequest): Promise<NextResponse> {
   try {
+    await ensureBlockedDatesTable();
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
 

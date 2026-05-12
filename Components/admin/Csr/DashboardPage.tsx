@@ -55,6 +55,10 @@ export default function DashboardPage() {
     }
   };
 
+  const isPending  = (s: string) => s === 'pending_down_payment' || s === 'pending_full_payment' || s === 'pending';
+  const isApproved = (s: string) => s === 'approved_down_payment' || s === 'approved_full_payment' || s === 'approved';
+  const isRejected = (s: string) => s === 'rejected' || s === 'rejected_down_payment';
+
   // Calculate payment totals (amounts) from all payments data
   const paymentTotals = {
     pending: paymentsData?.filter((payment: any) => payment.payment_status === 'pending').reduce((sum: number, payment: any) => sum + (Number(payment.total_amount) || 0), 0) || 0,

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useMemo, useState, useRef, useEffect } from "react";
 import FullCalendar from "@fullcalendar/react";
@@ -22,6 +22,7 @@ interface CalendarEvent {
   extendedProps: {
     booking: Booking;
     duration: number;
+    status: string;
   };
 }
 
@@ -72,9 +73,12 @@ function EventDetailsModal({ isOpen, onClose, booking, duration }: EventModalPro
     switch (statusLower) {
       case "approved":
         return "bg-green-100 text-green-700";
+      case "on-going":
+        return "bg-teal-500 text-white";
       case "pending":
         return "bg-yellow-100 text-yellow-700";
       case "declined":
+      case "rejected":
         return "bg-red-100 text-red-700";
       case "checked-in":
         return "bg-blue-100 text-blue-700";
@@ -250,38 +254,62 @@ function EventDetailsModal({ isOpen, onClose, booking, duration }: EventModalPro
   );
 }
 
+const HAVEN_COLORS: Record<string, { bg: string; border: string }> = {
+  "Haven 1":  { bg: "#0EA5E9", border: "#0284C7" },
+  "Haven 2":  { bg: "#7C3AED", border: "#6D28D9" },
+  "Haven 3":  { bg: "#F43F5E", border: "#E11D48" },
+  "Haven 4":  { bg: "#0D9488", border: "#0F766E" },
+  "Haven 5":  { bg: "#D946EF", border: "#C026D3" },
+  "Haven 7":  { bg: "#B45309", border: "#92400E" },
+  "Haven 8":  { bg: "#64748B", border: "#475569" },
+  "Haven 10": { bg: "#65A30D", border: "#4D7C0F" },
+};
+
+const getRoomColor = (roomName: string) =>
+  HAVEN_COLORS[roomName] ?? { bg: "#6B7280", border: "#4B5563" };
+
+const getStatusBadgeStyle = (status: string) => {
+  switch (status?.toLowerCase() || "") {
+    case "pending":     return { color: "rgba(255,255,255,0.80)", bg: "rgba(202,138,4,0.80)",   border: "rgba(161,98,7,0.9)" };
+    case "approved":
+    case "confirmed":   return { color: "rgba(255,255,255,0.80)", bg: "rgba(22,163,74,0.80)",   border: "rgba(21,128,61,0.9)" };
+    case "checked-in":  return { color: "rgba(255,255,255,0.80)", bg: "rgba(37,99,235,0.80)",   border: "rgba(29,78,216,0.9)" };
+    case "checked-out": return { color: "rgba(255,255,255,0.80)", bg: "rgba(79,70,229,0.80)",   border: "rgba(67,56,202,0.9)" };
+    case "completed":   return { color: "rgba(255,255,255,0.80)", bg: "rgba(5,150,105,0.80)",   border: "rgba(4,120,87,0.9)" };
+    case "on-going":    return { color: "rgba(255,255,255,0.80)", bg: "rgba(20,184,166,0.80)",  border: "rgba(15,118,110,0.9)" };
+    case "declined":
+    case "rejected":    return { color: "rgba(255,255,255,0.80)", bg: "rgba(220,38,38,0.80)",   border: "rgba(185,28,28,0.9)" };
+    case "cancelled":   return { color: "rgba(255,255,255,0.80)", bg: "rgba(234,88,12,0.80)",   border: "rgba(194,65,12,0.9)" };
+    default:            return { color: "rgba(255,255,255,0.80)", bg: "rgba(107,114,128,0.80)", border: "rgba(75,85,99,0.9)" };
+  }
+};
+
+const getStatusLabel = (status: string) => {
+  switch (status?.toLowerCase() || "") {
+    case "pending":     return "Pending";
+    case "on-going":    return "On-going";
+    case "approved":
+    case "confirmed":   return "Approved";
+    case "checked-in":  return "Checked-in";
+    case "checked-out": return "Checked-out";
+    case "completed":   return "Completed";
+    case "declined":
+    case "rejected":    return "Declined";
+    case "cancelled":   return "Cancelled";
+    default:            return status;
+  }
+};
+
 export default function CalendarPage() {
   const { data: bookings = [], isLoading, error } = useGetBookingsQuery({});
 
   const calendarRef = useRef<FullCalendar>(null);
   const [currentView, setCurrentView] = useState<"dayGridMonth" | "timeGridWeek" | "timeGridDay">("dayGridMonth");
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [selectedRoom, setSelectedRoom] = useState<string>("all");
   const [selectedEvent, setSelectedEvent] = useState<{ booking: Booking; duration: number } | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentMonthYear, setCurrentMonthYear] = useState<string>("");
-
-  // Get status color for calendar events
-  const getEventColor = (status: string) => {
-    const statusLower = status?.toLowerCase() || "";
-    switch (statusLower) {
-      case "approved":
-        return { bg: "#22c55e", border: "#16a34a", text: "#ffffff" };
-      case "pending":
-        return { bg: "#eab308", border: "#ca8a04", text: "#ffffff" };
-      case "declined":
-        return { bg: "#ef4444", border: "#dc2626", text: "#ffffff" };
-      case "checked-in":
-        return { bg: "#3b82f6", border: "#2563eb", text: "#ffffff" };
-      case "checked-out":
-        return { bg: "#6366f1", border: "#4f46e5", text: "#ffffff" };
-      case "cancelled":
-        return { bg: "#f97316", border: "#ea580c", text: "#ffffff" };
-      case "completed":
-        return { bg: "#10b981", border: "#059669", text: "#ffffff" };
-      default:
-        return { bg: "#6b7280", border: "#4b5563", text: "#ffffff" };
-    }
-  };
 
   // Calculate duration in nights
   const calculateDuration = (checkIn: string, checkOut: string): number => {
@@ -292,6 +320,12 @@ export default function CalendarPage() {
     return diffDays;
   };
 
+  // Get unique room names for the dropdown
+  const roomOptions = useMemo(() => {
+    const rooms = new Set(bookings.map((b) => b.room_name).filter(Boolean));
+    return Array.from(rooms) as string[];
+  }, [bookings]);
+
   // Convert bookings to calendar events
   const calendarEvents: CalendarEvent[] = useMemo(() => {
     // Filter out bookings without valid dates
@@ -299,28 +333,36 @@ export default function CalendarPage() {
       (booking) => booking.check_in_date && booking.check_out_date
     );
 
+    if (selectedRoom !== "all") {
+      filteredBookings = filteredBookings.filter(
+        (booking) => booking.room_name === selectedRoom
+      );
+    }
+
     if (filterStatus !== "all") {
       filteredBookings = filteredBookings.filter(
         (booking) => booking.status?.toLowerCase() === filterStatus.toLowerCase()
       );
     }
 
-    // Strip time component so FullCalendar treats every event as an all-day block (not a timed dot)
-    const toDateOnly = (d: any): string => {
+    // Strip time and normalize to local YYYY-MM-DD so FullCalendar treats every event as an all-day block.
+    // Uses LOCAL timezone methods â€” dates from the API can arrive as "2026-04-27T16:00:00.000Z"
+    // (UTC+8 midnight serialized as UTC), so splitting on "T" would give the wrong day.
+    // Normalize to local YYYY-MM-DD so FullCalendar treats events as all-day blocks
+    const toDateOnly = (d: unknown): string => {
       if (!d) return "";
       const s = String(d);
-      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;       // already "YYYY-MM-DD"
-      if (s.includes("T")) return s.split("T")[0];          // ISO string
-      const dt = new Date(d);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+      const dt = new Date(d as string);
       if (isNaN(dt.getTime())) return s;
-      const yyyy = dt.getUTCFullYear();
-      const mm = String(dt.getUTCMonth() + 1).padStart(2, "0");
-      const dd = String(dt.getUTCDate()).padStart(2, "0");
+      const yyyy = dt.getFullYear();
+      const mm = String(dt.getMonth() + 1).padStart(2, "0");
+      const dd = String(dt.getDate()).padStart(2, "0");
       return `${yyyy}-${mm}-${dd}`;
     };
 
     return filteredBookings.map((booking) => {
-      const colors = getEventColor(booking.status || "");
+      const roomColors = getRoomColor(booking.room_name || "");
       const checkInDate = toDateOnly(booking.check_in_date);
       const checkOutDate = toDateOnly(booking.check_out_date);
       const duration = calculateDuration(checkInDate, checkOutDate);
@@ -330,16 +372,17 @@ export default function CalendarPage() {
         title: `${booking.guest_first_name} ${booking.guest_last_name} - ${booking.room_name || "Unknown Room"}`,
         start: checkInDate,
         end: checkOutDate,
-        backgroundColor: colors.bg,
-        borderColor: colors.border,
-        textColor: colors.text,
+        backgroundColor: roomColors.bg,
+        borderColor: roomColors.border,
+        textColor: "#FFFFFF",
         extendedProps: {
           booking,
           duration,
+          status: booking.status || "",
         },
       };
     });
-  }, [bookings, filterStatus]);
+  }, [bookings, filterStatus, selectedRoom]);
 
   // Handle event click
   const handleEventClick = (clickInfo: EventClickArg) => {
@@ -350,14 +393,37 @@ export default function CalendarPage() {
 
   // Custom event content
   const renderEventContent = (eventInfo: EventContentArg) => {
-    const { duration } = eventInfo.event.extendedProps;
+    const { duration, status } = eventInfo.event.extendedProps;
     const isMonthView = currentView === "dayGridMonth";
+    const badge = getStatusBadgeStyle(status);
 
     return (
-      <div className="p-1 overflow-hidden">
-        <div className="font-semibold text-xs truncate">{eventInfo.event.title}</div>
+      <div className="px-1.5 py-0.5 overflow-hidden">
+        <div className="flex items-center gap-1 min-w-0 overflow-hidden">
+          <div className="font-bold text-xs truncate min-w-0" style={{ color: "#FFFFFF" }}>
+            {eventInfo.event.title}
+          </div>
+          {status && (
+            <span
+              style={{
+                color: badge.color,
+                backgroundColor: badge.bg,
+                border: `1px solid ${badge.border}`,
+                fontSize: "9px",
+                padding: "1px 5px",
+                borderRadius: "999px",
+                fontWeight: 700,
+                letterSpacing: "0.04em",
+                whiteSpace: "nowrap",
+                flexShrink: 0,
+              }}
+            >
+              {getStatusLabel(status)}
+            </span>
+          )}
+        </div>
         {isMonthView && (
-          <div className="text-xs opacity-90">
+          <div className="text-xs truncate" style={{ color: "#FFFFFF", opacity: 0.80 }}>
             {duration} {duration === 1 ? "night" : "nights"}
           </div>
         )}
@@ -520,9 +586,25 @@ export default function CalendarPage() {
             </button>
           </div>
 
-          {/* Status Filter */}
+          {/* Room Filter */}
           <div className="flex items-center gap-2">
             <Filter className="w-4 h-4 text-gray-500" />
+            <select
+              value={selectedRoom}
+              onChange={(e) => setSelectedRoom(e.target.value)}
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-brand-primary focus:border-transparent"
+            >
+              <option value="all">All Rooms</option>
+              {roomOptions.map((room) => (
+                <option key={room} value={room}>
+                  {room}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Status Filter */}
+          <div className="flex items-center gap-2">
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
@@ -531,7 +613,7 @@ export default function CalendarPage() {
               <option value="all">All Statuses</option>
               {statusOptions.map((status) => (
                 <option key={status} value={status} className="capitalize">
-                  {status.charAt(0).toUpperCase() + status.slice(1)}
+                  {getStatusLabel(status)}
                 </option>
               ))}
             </select>
@@ -539,34 +621,33 @@ export default function CalendarPage() {
         </div>
 
         {/* Legend */}
-        <div className="flex flex-wrap gap-3 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-            <span className="text-xs text-gray-600 dark:text-gray-400">Pending</span>
+        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 flex flex-wrap gap-x-6 gap-y-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">Rooms:</span>
+            {Object.entries(HAVEN_COLORS).map(([name, colors]) => (
+              <div key={name} className="flex items-center gap-1">
+                <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: colors.bg }}></div>
+                <span className="text-xs text-gray-600 dark:text-gray-400">{name}</span>
+              </div>
+            ))}
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-green-500"></div>
-            <span className="text-xs text-gray-600 dark:text-gray-400">Approved</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-            <span className="text-xs text-gray-600 dark:text-gray-400">Checked-in</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-indigo-500"></div>
-            <span className="text-xs text-gray-600 dark:text-gray-400">Checked-out</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
-            <span className="text-xs text-gray-600 dark:text-gray-400">Completed</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-red-500"></div>
-            <span className="text-xs text-gray-600 dark:text-gray-400">Declined</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-orange-500"></div>
-            <span className="text-xs text-gray-600 dark:text-gray-400">Cancelled</span>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">Status:</span>
+            {[
+              { label: "Pending",     color: "#EAB308" },
+              { label: "On-going",    color: "#14B8A6" },
+              { label: "Approved",    color: "#22C55E" },
+              { label: "Checked-in",  color: "#3B82F6" },
+              { label: "Checked-out", color: "#6366F1" },
+              { label: "Completed",   color: "#10B981" },
+              { label: "Declined",    color: "#EF4444" },
+              { label: "Cancelled",   color: "#F97316" },
+            ].map(({ label, color }) => (
+              <div key={label} className="flex items-center gap-1">
+                <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }}></div>
+                <span className="text-xs text-gray-600 dark:text-gray-400">{label}</span>
+              </div>
+            ))}
           </div>
         </div>
       </div>

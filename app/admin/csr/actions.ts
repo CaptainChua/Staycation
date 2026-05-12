@@ -320,7 +320,9 @@ export async function updateDepositStatusByBookingId(
   bookingId: string,
   newStatus: string,
   employeeId?: string,
-  notes?: string
+  notes?: string,
+  amountReceived?: number,
+  paymentMethod?: string
 ): Promise<void> {
   const client = await pool.connect();
   try {
@@ -334,20 +336,23 @@ export async function updateDepositStatusByBookingId(
 
     const dbStatus = statusMap[newStatus] || newStatus.toLowerCase();
     const now = new Date();
+    const finalAmount = (amountReceived && amountReceived > 0) ? amountReceived : DEFAULT_SECURITY_DEPOSIT_AMOUNT;
 
     if (dbStatus === 'held') {
       await client.query(
-        `UPDATE booking_security_deposits 
-         SET deposit_status = $2, held_at = $3, processed_by = $4, notes = COALESCE($5, notes), amount = COALESCE(amount, $6)
+        `UPDATE booking_security_deposits
+         SET deposit_status = $2, held_at = $3, processed_by = $4, notes = COALESCE($5, notes),
+             amount = $6, payment_method = COALESCE($7, payment_method)
          WHERE booking_id = $1`,
-        [bookingId, dbStatus, now, employeeId, notes, DEFAULT_SECURITY_DEPOSIT_AMOUNT]
+        [bookingId, dbStatus, now, employeeId, notes, finalAmount, paymentMethod ?? null]
       );
     } else {
       await client.query(
-        `UPDATE booking_security_deposits 
-         SET deposit_status = $2, processed_by = $3, notes = COALESCE($4, notes)
+        `UPDATE booking_security_deposits
+         SET deposit_status = $2, processed_by = $3, notes = COALESCE($4, notes),
+             payment_method = COALESCE($5, payment_method)
          WHERE booking_id = $1`,
-        [bookingId, dbStatus, employeeId, notes]
+        [bookingId, dbStatus, employeeId, notes, paymentMethod ?? null]
       );
     }
 
@@ -378,6 +383,34 @@ export async function updateDepositStatusByBookingId(
   } catch (error) {
     console.error("Error updating deposit status by booking ID:", error);
     throw new Error("Failed to update deposit status");
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Approve down payment for a booking by its UUID
+ * Used in Step 1 of the booking approval wizard
+ */
+export async function approveDownPaymentByBookingId(bookingId: string): Promise<void> {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      `UPDATE booking_payments
+       SET payment_status = 'approved_down_payment', reviewed_at = NOW()
+       WHERE booking_id = $1 AND payment_status = 'pending_down_payment'`,
+      [bookingId]
+    );
+    await client.query(
+      `UPDATE booking SET status = 'on-going', updated_at = NOW() WHERE id = $1`,
+      [bookingId]
+    );
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error("Error approving down payment:", error);
+    throw new Error("Failed to approve down payment");
   } finally {
     client.release();
   }

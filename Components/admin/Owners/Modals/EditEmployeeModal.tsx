@@ -354,11 +354,12 @@ const EditEmployeeModal = ({ isOpen, onClose, employee }: EditEmployeeModalProps
                     inputWrapper: "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700",
                   }}
                 />
+                {/* FIXED: Phone — numeric only */}
                 <Input
                   label="Phone"
                   placeholder="Enter phone number"
                   value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, "") })}
                   required
                   classNames={{
                     label: "text-sm font-semibold text-slate-700 dark:text-slate-300",
@@ -493,11 +494,12 @@ const EditEmployeeModal = ({ isOpen, onClose, employee }: EditEmployeeModalProps
                     inputWrapper: "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700",
                   }}
                 />
+                {/* FIXED: Zip Code — numeric only */}
                 <Input
                   label="Zip Code"
                   placeholder="Enter zip code"
                   value={formData.zipCode}
-                  onChange={(e) => setFormData({ ...formData, zipCode: e.target.value })}
+                  onChange={(e) => setFormData({ ...formData, zipCode: e.target.value.replace(/\D/g, "") })}
                   classNames={{
                     label: "text-sm font-semibold text-slate-700 dark:text-slate-300",
                     input: "text-sm dark:text-white",
@@ -523,11 +525,12 @@ const EditEmployeeModal = ({ isOpen, onClose, employee }: EditEmployeeModalProps
                       inputWrapper: "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700",
                     }}
                   />
+                  {/* FIXED: Emergency Contact Phone — numeric only */}
                   <Input
                     label="Contact Phone"
                     placeholder="+63 912 345 6789"
                     value={formData.emergencyContactPhone}
-                    onChange={(e) => setFormData({ ...formData, emergencyContactPhone: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, emergencyContactPhone: e.target.value.replace(/\D/g, "") })}
                     classNames={{
                       label: "text-sm font-semibold text-slate-700 dark:text-slate-300",
                       input: "text-sm dark:text-white",

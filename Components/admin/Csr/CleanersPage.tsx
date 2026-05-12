@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { useGetCleaningTasksQuery } from "@/redux/api/cleanersApi";
+import { useGetCleaningTasksQuery, CleaningTask } from "@/redux/api/cleanersApi";
 import ViewBookings from "./Modals/ViewBookings";
 import AssignCleanerModal from "./Modals/AssignCleanerModal";
 
@@ -47,8 +47,6 @@ interface CleanerRow {
   status: CleaningStatus;
   statusColor: string;
 }
-
-import { CleaningTask } from "@/redux/api/cleanersApi";
 
 // Translation content for guides
 const guideTranslations = {
@@ -190,6 +188,8 @@ function mapCleaningStatus(
   statusColor: string;
 } {
   switch (cleaning_status) {
+    case "assigned":
+      return { status: "Assigned", statusColor: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300" };
     case "in-progress":
       return { status: "In Progress", statusColor: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300" };
     case "cleaned":
@@ -476,7 +476,7 @@ export default function CleanersPage() {
   };
 
   const handleAssignmentSuccess = () => {
-    // Refetch bookings to update the status
+    refetch();
   };
 
   const totalCount = rows.length;

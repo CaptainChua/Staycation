@@ -23,7 +23,6 @@ import { useSession } from "next-auth/react";
 import { useGetConversationsQuery } from "@/redux/api/messagesApi";
 
 // Page Components
-import MyAssignmentPage from "./MyAssignmentPage";
 import PropertyLocationPage from "./PropertyLocationPage";
 import CleaningChecklistPage from "./CleaningChecklistPage";
 import ReportIssuePage from "./ReportIssuePage";
@@ -77,7 +76,7 @@ export default function CleanersDashboard() {
   const router = useRouter();
   const [sidebar, setSidebar] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [page, setPage] = useState("my-assignment");
+  const [page, setPage] = useState("my-schedule");
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [now, setNow] = useState<Date | null>(null);
@@ -103,11 +102,11 @@ useEffect(() => {
 }, [isLoading, conversationsData]);
 
   const unreadMessageCount = useMemo(() => {
-  const conversations = conversationsData?.data || [];
-  return conversations.reduce((sum: number, c: any) => 
-    sum + (c.unread_count || 0), 0
-  );
-}, [conversationsData]);
+    const conversations = conversationsData?.data || [];
+    return conversations.reduce((sum: number, c: any) =>
+      sum + (Number(c.unread_count) || 0), 0
+    );
+  }, [conversationsData]);
 
   // Synthesize message notifications from unread conversations
   const [messageNotifications, setMessageNotifications] = useState<ApiNotification[]>([]);
@@ -307,7 +306,7 @@ useEffect(() => {
     { id: "my-schedule", icon: Calendar, label: "My Schedule", color: "text-indigo-500" },
     { id: "cleaning-checklist", icon: CheckSquare, label: "Cleaning Checklist", color: "text-pink-500" },
     { id: "report-issue", icon: AlertCircle, label: "Report Issue", color: "text-red-500" },
-    { id: "messages", icon: MessageSquare, label: "Messages", color: "text-blue-500", badge: unreadMessageCount },
+    { id: "messages", icon: MessageSquare, label: "Messages", color: "text-blue-500", badge: unreadMessageCount > 0 ? unreadMessageCount : undefined },
   ];
 
   const renderPage = () => {
