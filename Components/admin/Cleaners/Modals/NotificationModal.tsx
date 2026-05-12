@@ -2,7 +2,7 @@
 
 import { ReactNode, RefObject, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { BellRing, CheckCircle2, Clock, Info, MessageSquare, X } from "lucide-react";
+import { BellRing, CheckCircle2, Clock, Info, X } from "lucide-react";
 
 interface Notification {
   id: string;
@@ -10,7 +10,6 @@ interface Notification {
   description: string;
   timestamp: string;
   type?: "info" | "success" | "warning";
-  conversationId?: string;
 }
 
 type LocalNotification = Notification & { read: boolean };
@@ -20,7 +19,6 @@ interface NotificationModalProps {
   onClose: () => void;
   onViewAll?: () => void;
   onMarkRead?: (ids: string[]) => void;
-  onNotificationClick?: (notif: Notification) => void;
   anchorRef?: RefObject<HTMLElement | null>;
 }
 
@@ -28,10 +26,9 @@ const iconMap: Record<string, ReactNode> = {
   info: <Info className="w-4 h-4" />,
   success: <CheckCircle2 className="w-4 h-4" />,
   warning: <Clock className="w-4 h-4" />,
-  message: <MessageSquare className="w-4 h-4" />,
 };
 
-const typeStyles: Record<string, { wrapper: string; iconWrap: string }> = {
+const typeStyles: Record<NonNullable<Notification["type"]>, { wrapper: string; iconWrap: string }> = {
   info: {
     wrapper: "border border-gray-100 hover:border-brand-primary/30",
     iconWrap: "bg-brand-primaryLighter text-brand-primary",
@@ -44,13 +41,9 @@ const typeStyles: Record<string, { wrapper: string; iconWrap: string }> = {
     wrapper: "border border-gray-100 hover:border-yellow-200",
     iconWrap: "bg-yellow-50 text-yellow-600",
   },
-  message: {
-    wrapper: "border border-blue-100 hover:border-blue-300",
-    iconWrap: "bg-blue-50 text-blue-600",
-  },
 };
 
-export default function NotificationModal({ notifications, onClose, onViewAll, onMarkRead, onNotificationClick, anchorRef }: NotificationModalProps) {
+export default function NotificationModal({ notifications, onClose, onViewAll, onMarkRead, anchorRef }: NotificationModalProps) {
   const [isMounted, setIsMounted] = useState(false);
   const [position, setPosition] = useState({ top: 96, right: 16 });
   const [filter, setFilter] = useState<"all" | "unread">("all");

@@ -1,5 +1,24 @@
 "use client";
+"use client";
 
+import OwnerPageHeader from "./OwnerPageHeader";
+import {
+  Calendar,
+  User,
+  MapPin,
+  Check,
+  X,
+  AlertCircle,
+  Eye,
+  XCircle,
+  Package,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  CreditCard, // added (was used but not imported)
+} from "lucide-react";
+import Image from "next/image"; // added (used in modal)
 import OwnerPageHeader from "./OwnerPageHeader";
 import {
   Calendar,
@@ -27,9 +46,31 @@ import {
 import { Booking, AdditionalGuest } from "@/types/booking";
 import NewReservationModal from "./NewReservationModal";
 import toast from "react-hot-toast";
+import {
+  useGetBookingsQuery,
+  useCreateBookingMutation,
+  useUpdateBookingStatusMutation,
+} from "@/redux/api/bookingsApi";
+import { Booking, AdditionalGuest } from "@/types/booking";
+import NewReservationModal from "./NewReservationModal";
+import toast from "react-hot-toast";
 
 const ReservationsPage = () => {
   const [filter, setFilter] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(5);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const { data, isLoading, refetch } = useGetBookingsQuery(
+    {},
+    {
+      pollingInterval: 5000,
+      skipPollingIfUnfocused: true,
+      refetchOnFocus: true,
+      refetchOnReconnect: true,
+    }
+  );
+  const [createBooking] = useCreateBookingMutation();
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
   const [searchQuery, setSearchQuery] = useState("");
@@ -82,19 +123,62 @@ const ReservationsPage = () => {
     status
       ? status.charAt(0).toUpperCase() + status.slice(1).replace("-", " ")
       : "";
+  const [isNewReservationModalOpen, setIsNewReservationModalOpen] = useState(false);
+  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
+  const [rejectingBookingId, setRejectingBookingId] = useState<string | null>(null);
+  const [rejectionReasonDraft, setRejectionReasonDraft] = useState("");
+  const [isRejecting, setIsRejecting] = useState(false);
+  const [isRejectConfirmStep, setIsRejectConfirmStep] = useState(false);
+
+  const reservations: Booking[] = data ?? [];
+
+  const formatShortDate = (date?: string | null) =>
+    date
+      ? new Date(date).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+      })
+      : "N/A";
+
+  const formatDateSafe = (date?: string | null) =>
+    date ? new Date(date).toLocaleDateString() : "";
+
+  const formatTime = (time?: string | null) => {
+    if (!time) return "N/A";
+    // Handle "HH:MM:SS" or "HH:MM" formats
+    const [hourStr, minuteStr] = time.split(":");
+    const hour = parseInt(hourStr, 10);
+    const minute = minuteStr ?? "00";
+    if (isNaN(hour)) return time;
+    const period = hour >= 12 ? "PM" : "AM";
+    const hour12 = hour % 12 === 0 ? 12 : hour % 12;
+    return `${hour12}:${minute} ${period}`;
+  };
+
+  const formatStatus = (status?: string | null) =>
+    status
+      ? status.charAt(0).toUpperCase() + status.slice(1).replace("-", " ")
+      : "";
 
   const handleApprove = async (bookingId: string) => {
     try {
       console.log('🔄 Approving booking:', bookingId);
 
       const result = await updateBookingStatus({
+      console.log('🔄 Approving booking:', bookingId);
+
+      const result = await updateBookingStatus({
         id: bookingId,
+        status: "approved",
         status: "approved",
       }).unwrap();
 
       alert("Booking approved! Confirmation email will be sent to the guest.");
+      alert("Booking approved! Confirmation email will be sent to the guest.");
       refetch();
     } catch (error) {
+      console.error("Error approving booking:", error);
+      alert("Failed to approve booking. Please try again.");
       console.error("Error approving booking:", error);
       alert("Failed to approve booking. Please try again.");
     }
@@ -127,7 +211,37 @@ const ReservationsPage = () => {
     try {
       console.log('🔄 Rejecting booking:', rejectingBookingId, 'Reason:', reason);
 
+  const openRejectModal = (bookingId: string) => {
+    setRejectingBookingId(bookingId);
+    setRejectionReasonDraft("");
+    setIsRejectConfirmStep(false);
+    setIsRejectModalOpen(true);
+  };
+
+  const closeRejectModal = () => {
+    if (isRejecting) return;
+    setIsRejectModalOpen(false);
+    setRejectingBookingId(null);
+    setRejectionReasonDraft("");
+    setIsRejectConfirmStep(false);
+  };
+
+  const confirmReject = async () => {
+    if (!rejectingBookingId) return;
+    const reason = rejectionReasonDraft.trim();
+    if (!reason) {
+      toast.error("Rejection reason is required");
+      return;
+    }
+
+    setIsRejecting(true);
+    try {
+      console.log('🔄 Rejecting booking:', rejectingBookingId, 'Reason:', reason);
+
       await updateBookingStatus({
+        id: rejectingBookingId,
+        status: "rejected",
+        rejection_reason: reason,
         id: rejectingBookingId,
         status: "rejected",
         rejection_reason: reason,
@@ -135,8 +249,14 @@ const ReservationsPage = () => {
 
       toast.success("Booking rejected. Guest will be notified.");
       closeRejectModal();
+      toast.success("Booking rejected. Guest will be notified.");
+      closeRejectModal();
       refetch();
     } catch (error) {
+      console.error("Error rejecting booking:", error);
+      toast.error("Failed to reject booking. Please try again.");
+    } finally {
+      setIsRejecting(false);
       console.error("Error rejecting booking:", error);
       toast.error("Failed to reject booking. Please try again.");
     } finally {
@@ -147,11 +267,19 @@ const ReservationsPage = () => {
   const handleCheckIn = async (bookingId: string) => {
     try {
       const booking = reservations.find((r) => r.id === bookingId);
+      const booking = reservations.find((r) => r.id === bookingId);
       if (!booking) {
+        alert("Booking not found");
         alert("Booking not found");
         return;
       }
 
+      const guestFirstName = booking.guest_first_name || "Guest";
+      const guestLastName = booking.guest_last_name || "";
+      const guestEmail = booking.guest_email || "";
+
+      // Update booking status
+      const updateResult = await updateBookingStatus({
       const guestFirstName = booking.guest_first_name || "Guest";
       const guestLastName = booking.guest_last_name || "";
       const guestEmail = booking.guest_email || "";
@@ -160,8 +288,12 @@ const ReservationsPage = () => {
       const updateResult = await updateBookingStatus({
         id: bookingId,
         status: "checked-in",
+        status: "checked-in",
       }).unwrap();
 
+      console.log('✅ Check-in status updated:', updateResult);
+
+      // Send check-in email
       console.log('✅ Check-in status updated:', updateResult);
 
       // Send check-in email
@@ -170,15 +302,24 @@ const ReservationsPage = () => {
           firstName: guestFirstName,
           lastName: guestLastName,
           email: guestEmail,
+          firstName: guestFirstName,
+          lastName: guestLastName,
+          email: guestEmail,
           bookingId: booking.booking_id,
           roomName: booking.room_name,
           checkInDate: formatDateSafe(booking.check_in_date),
+          checkInDate: formatDateSafe(booking.check_in_date),
           checkInTime: booking.check_in_time,
+          checkOutDate: formatDateSafe(booking.check_out_date),
           checkOutDate: formatDateSafe(booking.check_out_date),
           checkOutTime: booking.check_out_time,
           guests: `${booking.adults || 0} Adults, ${booking.children || 0} Children, ${booking.infants || 0} Infants`,
+          guests: `${booking.adults || 0} Adults, ${booking.children || 0} Children, ${booking.infants || 0} Infants`,
         };
 
+        const emailResponse = await fetch("/api/send-checkin-email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
         const emailResponse = await fetch("/api/send-checkin-email", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -187,14 +328,19 @@ const ReservationsPage = () => {
 
         if (!emailResponse.ok) {
           console.error("Failed to send check-in email");
+          console.error("Failed to send check-in email");
         }
       } catch (emailError) {
+        console.error("Email sending error:", emailError);
         console.error("Email sending error:", emailError);
       }
 
       alert("Guest checked in successfully! Confirmation email sent.");
+      alert("Guest checked in successfully! Confirmation email sent.");
       refetch();
     } catch (error) {
+      console.error("Error checking in:", error);
+      alert("Failed to check in. Please try again.");
       console.error("Error checking in:", error);
       alert("Failed to check in. Please try again.");
     }
@@ -203,7 +349,9 @@ const ReservationsPage = () => {
   const handleCheckOut = async (bookingId: string) => {
     try {
       const booking = reservations.find((r) => r.id === bookingId);
+      const booking = reservations.find((r) => r.id === bookingId);
       if (!booking) {
+        alert("Booking not found");
         alert("Booking not found");
         return;
       }
@@ -214,10 +362,20 @@ const ReservationsPage = () => {
 
       // Update booking status
       const updateResult = await updateBookingStatus({
+      const guestFirstName = booking.guest_first_name || "Guest";
+      const guestLastName = booking.guest_last_name || "";
+      const guestEmail = booking.guest_email || "";
+
+      // Update booking status
+      const updateResult = await updateBookingStatus({
         id: bookingId,
+        status: "completed",
         status: "completed",
       }).unwrap();
 
+      console.log('✅ Check-out status updated:', updateResult);
+
+      // Send check-out email
       console.log('✅ Check-out status updated:', updateResult);
 
       // Send check-out email
@@ -226,8 +384,13 @@ const ReservationsPage = () => {
           firstName: guestFirstName,
           lastName: guestLastName,
           email: guestEmail,
+          firstName: guestFirstName,
+          lastName: guestLastName,
+          email: guestEmail,
           bookingId: booking.booking_id,
           roomName: booking.room_name,
+          checkInDate: formatDateSafe(booking.check_in_date),
+          checkOutDate: formatDateSafe(booking.check_out_date),
           checkInDate: formatDateSafe(booking.check_in_date),
           checkOutDate: formatDateSafe(booking.check_out_date),
           totalAmount: Number(booking.total_amount).toLocaleString(),
@@ -237,24 +400,33 @@ const ReservationsPage = () => {
         const emailResponse = await fetch("/api/send-checkout-email", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+        const emailResponse = await fetch("/api/send-checkout-email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(emailData),
         });
 
         if (!emailResponse.ok) {
           console.error("Failed to send check-out email");
+          console.error("Failed to send check-out email");
         }
       } catch (emailError) {
         console.error("Email sending error:", emailError);
+        console.error("Email sending error:", emailError);
       }
 
+      alert("Guest checked out successfully! Thank you email sent.");
       alert("Guest checked out successfully! Thank you email sent.");
       refetch();
     } catch (error) {
       console.error("Error checking out:", error);
       alert("Failed to check out. Please try again.");
+      console.error("Error checking out:", error);
+      alert("Failed to check out. Please try again.");
     }
   };
 
+  const getStatusColor = (status: string | null | undefined) => {
   const getStatusColor = (status: string | null | undefined) => {
     switch (status) {
       case "approved":
@@ -266,7 +438,19 @@ const ReservationsPage = () => {
         return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400";
       case "completed":
         return "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300";
+      case "confirmed":
+        return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
+      case "pending":
+        return "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400";
+      case "checked-in":
+        return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400";
+      case "completed":
+        return "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300";
       case "rejected":
+      case "cancelled":
+        return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400";
+      default:
+        return "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300";
       case "cancelled":
         return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400";
       default:
@@ -298,7 +482,50 @@ const ReservationsPage = () => {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const currentReservations = filteredReservations.slice(startIndex, endIndex);
+  const filteredReservations = reservations.filter((r: Booking) => {
+    const matchesStatus = filter === "all" || r.status === filter;
 
+    if (!searchQuery?.trim()) return matchesStatus;
+
+    const q = searchQuery.trim().toLowerCase();
+    const bookingId = String(r.booking_id || r.id || "").toLowerCase();
+    const guestFirst = String(r.guest_first_name || "").toLowerCase();
+    const guestLast = String(r.guest_last_name || "").toLowerCase();
+    const guestFull = `${guestFirst} ${guestLast}`.trim();
+
+    return (
+      matchesStatus &&
+      (bookingId.includes(q) ||
+        guestFirst.includes(q) ||
+        guestLast.includes(q) ||
+        guestFull.includes(q))
+    );
+  });
+
+  const totalPages = Math.ceil(filteredReservations.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentReservations = filteredReservations.slice(startIndex, endIndex);
+
+  const handleViewDetails = async (booking: Booking) => {
+    try {
+      console.log('🔍 Viewing details for booking:', booking.id);
+
+      // Fetch complete booking data with all related tables
+      const response = await fetch(`/api/bookings/${booking.id}`);
+      const result = await response.json();
+
+      console.log('📥 Fetched complete booking:', result);
+
+      if (result.success) {
+        setSelectedBooking(result.data);
+      } else {
+        toast.error('Failed to load booking details');
+      }
+    } catch (error) {
+      console.error('❌ Error loading booking details:', error);
+      toast.error('Failed to load booking details');
+    }
   const handleViewDetails = async (booking: Booking) => {
     try {
       console.log('🔍 Viewing details for booking:', booking.id);
@@ -345,7 +572,6 @@ const ReservationsPage = () => {
   const statusCardsData = [
     { key: 'pending', label: 'Pending', bg: 'bg-yellow-400 text-white', icon: <AlertCircle className="w-14 h-14" /> },
     { key: 'approved', label: 'Approved', bg: 'bg-green-500 text-white', icon: <Check className="w-14 h-14" /> },
-    { key: 'confirmed', label: 'Confirmed', bg: 'bg-emerald-500 text-white', icon: <Calendar className="w-14 h-14" /> },
     { key: 'checked-in', label: 'Checked In', bg: 'bg-blue-500 text-white', icon: <MapPin className="w-14 h-14" /> },
     { key: 'completed', label: 'Completed', bg: 'bg-gray-500 text-white', icon: <Package className="w-14 h-14" /> },
     { key: 'rejected', label: 'Rejected', bg: 'bg-red-500 text-white', icon: <X className="w-14 h-14" /> },
@@ -360,8 +586,15 @@ const ReservationsPage = () => {
           <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto border border-slate-200 dark:border-slate-800">
             {/* Header */}
             <div className="sticky top-0 bg-[#a1823d] text-white p-6 rounded-t-2xl flex justify-between items-center z-10">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto border border-slate-200 dark:border-slate-800">
+            {/* Header */}
+            <div className="sticky top-0 bg-[#a1823d] text-white p-6 rounded-t-2xl flex justify-between items-center z-10">
               <div>
                 <h2 className="text-2xl font-bold">Booking Details</h2>
+                <p className="text-sm opacity-90">
+                  ID: {selectedBooking.booking_id}
+                </p>
                 <p className="text-sm opacity-90">
                   ID: {selectedBooking.booking_id}
                 </p>
@@ -381,9 +614,17 @@ const ReservationsPage = () => {
                   className={`px-6 py-2 rounded-full text-sm font-semibold ${getStatusColor(selectedBooking.status)}`}
                 >
                   {formatStatus(selectedBooking.status)}
+                <span
+                  className={`px-6 py-2 rounded-full text-sm font-semibold ${getStatusColor(selectedBooking.status)}`}
+                >
+                  {formatStatus(selectedBooking.status)}
                 </span>
               </div>
 
+              {/* Main Guest Information */}
+              <div className="bg-slate-100 dark:bg-[#334155] rounded-lg p-6 border border-slate-200 dark:border-[#475569]">
+                <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
+                  <User className="w-5 h-5 text-[#d4a574]" />
               {/* Main Guest Information */}
               <div className="bg-slate-100 dark:bg-[#334155] rounded-lg p-6 border border-slate-200 dark:border-[#475569]">
                 <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
@@ -397,8 +638,17 @@ const ReservationsPage = () => {
                       {selectedBooking.guest_first_name}{" "}
                       {selectedBooking.guest_last_name}
                     </p>
+                    <p className="text-sm text-slate-500 dark:text-gray-400">Full Name</p>
+                    <p className="font-semibold text-slate-900 dark:text-gray-100">
+                      {selectedBooking.guest_first_name}{" "}
+                      {selectedBooking.guest_last_name}
+                    </p>
                   </div>
                   <div>
+                    <p className="text-sm text-slate-500 dark:text-gray-400">Email</p>
+                    <p className="font-semibold text-slate-900 dark:text-gray-100">
+                      {selectedBooking.guest_email}
+                    </p>
                     <p className="text-sm text-slate-500 dark:text-gray-400">Email</p>
                     <p className="font-semibold text-slate-900 dark:text-gray-100">
                       {selectedBooking.guest_email}
@@ -409,10 +659,19 @@ const ReservationsPage = () => {
                     <p className="font-semibold text-slate-900 dark:text-gray-100">
                       {selectedBooking.guest_phone}
                     </p>
+                    <p className="text-sm text-slate-500 dark:text-gray-400">Phone</p>
+                    <p className="font-semibold text-slate-900 dark:text-gray-100">
+                      {selectedBooking.guest_phone}
+                    </p>
                   </div>
+
 
                   {selectedBooking.guest_gender && (
                     <div>
+                      <p className="text-sm text-slate-500 dark:text-gray-400">Gender</p>
+                      <p className="font-semibold text-slate-900 dark:text-gray-100 capitalize">
+                        {selectedBooking.guest_gender}
+                      </p>
                       <p className="text-sm text-slate-500 dark:text-gray-400">Gender</p>
                       <p className="font-semibold text-slate-900 dark:text-gray-100 capitalize">
                         {selectedBooking.guest_gender}
@@ -421,6 +680,13 @@ const ReservationsPage = () => {
                   )}
                   {selectedBooking.facebook_link && (
                     <div>
+                      <p className="text-sm text-slate-500 dark:text-gray-400">Facebook</p>
+                      <a
+                        href={selectedBooking.facebook_link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+                      >
                       <p className="text-sm text-slate-500 dark:text-gray-400">Facebook</p>
                       <a
                         href={selectedBooking.facebook_link}
@@ -589,21 +855,23 @@ const ReservationsPage = () => {
                       className="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2"
                     >
                       <Check className="w-5 h-5" /> Approve
+                      <Check className="w-5 h-5" /> Approve
                     </button>
                     <button
                       onClick={() => {
+                        openRejectModal(selectedBooking.id);
                         openRejectModal(selectedBooking.id);
                         closeModal();
                       }}
                       className="px-6 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2"
                     >
                       <X className="w-5 h-5" /> Reject
+                      <X className="w-5 h-5" /> Reject
                     </button>
                   </>
                 )}
 
-                {(selectedBooking.status === "approved" ||
-                  selectedBooking.status === "confirmed") && (
+                {selectedBooking.status === "approved" && (
                     <button
                       onClick={() => {
                         handleCheckIn(selectedBooking.id);
@@ -627,8 +895,10 @@ const ReservationsPage = () => {
                   </button>
                 )}
 
+
                 <button
                   onClick={closeModal}
+                  className="px-6 py-3 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-gray-300 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                   className="px-6 py-3 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-gray-300 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                 >
                   Close
@@ -667,12 +937,6 @@ const ReservationsPage = () => {
               label: "Approved",
               bg: "bg-green-500 text-white",
               icon: <Check className="w-10 h-10" />,
-            },
-            {
-              key: "confirmed",
-              label: "Confirmed",
-              bg: "bg-emerald-500 text-white",
-              icon: <Calendar className="w-10 h-10" />,
             },
             {
               key: "checked-in",
@@ -763,7 +1027,6 @@ const ReservationsPage = () => {
                   "all",
                   "pending",
                   "approved",
-                  "confirmed",
                   "checked-in",
                   "completed",
                   "rejected",
@@ -931,8 +1194,7 @@ const ReservationsPage = () => {
                             </>
                           )}
 
-                          {(reservation.status === "approved" ||
-                            reservation.status === "confirmed") && (
+                          {reservation.status === "approved" && (
                               <button
                                 onClick={() => handleCheckIn(reservation.id)}
                                 className="px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"

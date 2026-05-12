@@ -10,6 +10,8 @@ import type { DateValue } from "@internationalized/date";
 import { useCreateEmployeeMutation } from "@/redux/api/employeeApi";
 import { useCreateActivityLogMutation } from "@/redux/api/activityLogApi";
 import { useSession } from "next-auth/react";
+import { useCreateActivityLogMutation } from "@/redux/api/activityLogApi";
+import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
 import Image from "next/image";
 
@@ -20,7 +22,9 @@ interface CreateEmployeeModalProps {
 
 const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
   const { data: session } = useSession();
+  const { data: session } = useSession();
   const [createEmployee, { isLoading }] = useCreateEmployeeMutation();
+  const [createActivityLog] = useCreateActivityLogMutation();
   const [createActivityLog] = useCreateActivityLogMutation();
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -343,6 +347,7 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
       <div className="fixed inset-0 bg-black/50 z-40" onClick={onClose} />
       <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
         <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-4xl w-full max-h-[90vh] shadow-2xl flex flex-col border border-slate-200 dark:border-slate-800">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-4xl w-full max-h-[90vh] shadow-2xl flex flex-col border border-slate-200 dark:border-slate-800">
 
           {/* Header */}
           <div className="flex justify-between items-center p-6 border-b border-slate-200 dark:border-slate-800 bg-gradient-to-r from-orange-50 to-orange-100 dark:from-orange-950/20 dark:to-orange-900/10 rounded-t-2xl flex-shrink-0">
@@ -354,7 +359,10 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
               onClick={onClose}
               disabled={isLoading}
               className="p-2 hover:bg-white/50 dark:hover:bg-slate-800/50 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isLoading}
+              className="p-2 hover:bg-white/50 dark:hover:bg-slate-800/50 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
+              <X className="w-6 h-6 text-slate-600 dark:text-slate-400" />
               <X className="w-6 h-6 text-slate-600 dark:text-slate-400" />
             </button>
           </div>
@@ -365,6 +373,7 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
 
               {/* Personal Information */}
               <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-800 pb-2">
                 <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-800 pb-2">
                   Personal Information
                 </h3>
@@ -379,6 +388,8 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                     ) : (
                       <div className="w-32 h-32 rounded-full bg-slate-200 dark:bg-slate-800 border-4 border-slate-300 dark:border-slate-700 flex items-center justify-center">
                         <User className="w-16 h-16 text-slate-400 dark:text-slate-600" />
+                      <div className="w-32 h-32 rounded-full bg-slate-200 dark:bg-slate-800 border-4 border-slate-300 dark:border-slate-700 flex items-center justify-center">
+                        <User className="w-16 h-16 text-slate-400 dark:text-slate-600" />
                       </div>
                     )}
                   </div>
@@ -389,6 +400,7 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                         id="profile-picture-upload"
                         accept="image/*"
                         onChange={handleProfilePictureUpload}
+                        disabled={isLoading}
                         disabled={isLoading}
                         className="hidden"
                       />
@@ -434,6 +446,7 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       errorMessage={touchedFields.firstName && errors.firstName}
                       isRequired
                       isDisabled={isLoading}
+                      isDisabled={isLoading}
                       classNames={inputClasses}
                     />
                   </div>
@@ -455,6 +468,7 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       isInvalid={touchedFields.lastName && !!errors.lastName}
                       errorMessage={touchedFields.lastName && errors.lastName}
                       isRequired
+                      isDisabled={isLoading}
                       isDisabled={isLoading}
                       classNames={inputClasses}
                     />
@@ -482,6 +496,7 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       errorMessage={touchedFields.email && errors.email}
                       isRequired
                       isDisabled={isLoading}
+                      isDisabled={isLoading}
                       classNames={inputClasses}
                     />
                   </div>
@@ -492,6 +507,7 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       type="tel"
                       name="phone"
                       label="Phone Number *"
+                      placeholder="09123456789"
                       placeholder="09123456789"
                       labelPlacement="outside"
                       inputMode="tel"
@@ -508,6 +524,7 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       errorMessage={touchedFields.phone && errors.phone}
                       isRequired
                       isDisabled={isLoading}
+                      isDisabled={isLoading}
                       classNames={inputClasses}
                     />
                   </div>
@@ -521,6 +538,7 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                     type="password"
                     name="password"
                     label="Password *"
+                    placeholder="Enter password"
                     placeholder="Enter password"
                     labelPlacement="outside"
                     value={formData.password}
@@ -562,6 +580,7 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
 
               {/* Employment Details */}
               <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-800 pb-2">
                 <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-800 pb-2">
                   Employment Details
                 </h3>
@@ -679,6 +698,7 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
               {/* Address */}
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-800 pb-2">
+                <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-800 pb-2">
                   Address Information
                 </h3>
                 <Input
@@ -736,6 +756,7 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
 
               {/* Emergency Contact */}
               <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-800 pb-2">
                 <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-800 pb-2">
                   Emergency Contact
                 </h3>
@@ -801,6 +822,8 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
               onClick={onClose}
               disabled={isLoading}
               className="flex-1 px-6 py-3 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl hover:bg-white dark:hover:bg-slate-800 font-bold transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isLoading}
+              className="flex-1 px-6 py-3 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl hover:bg-white dark:hover:bg-slate-800 font-bold transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Cancel
             </button>
@@ -808,6 +831,7 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
               type="submit"
               onClick={handleSubmit}
               disabled={isLoading}
+              className="flex-1 px-6 py-3 bg-orange-600 text-white rounded-xl hover:bg-orange-700 font-bold transition-all shadow-lg shadow-orange-500/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm"
               className="flex-1 px-6 py-3 bg-orange-600 text-white rounded-xl hover:bg-orange-700 font-bold transition-all shadow-lg shadow-orange-500/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm"
             >
               {isLoading && (
