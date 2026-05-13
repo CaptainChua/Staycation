@@ -8,13 +8,14 @@ import ViewBookingDetails from "./Modals/ViewBookingDetails";
 import ApproveBookingModal from "./Modals/ApproveBookingModal";
 import RejectBookingModal from "./Modals/RejectBookingModal";
 import NewBookings from "./Modals/NewBookings";
-import { useGetBookingsQuery, useDeleteBookingMutation } from "@/redux/api/bookingsApi";
+import { useGetBookingsQuery, useDeleteBookingMutation, useUpdateBookingStatusMutation } from "@/redux/api/bookingsApi";
 import toast from "react-hot-toast";
 import DeleteConfirmation from "./Modals/DeleteConfirmation";
 import ExportBookingsModal from "./Modals/ExportBookingsModal";
 import TotalBreakdown from "./TotalBreakdown";
 import { DateRangeWithDays } from "./Column";
 import MarkDepositPaidModal from "./Modals/MarkDepositPaidModal";
+import CheckInModal from "./Modals/CheckInModal";
 
 interface BookingData {
   id: string;
@@ -41,6 +42,7 @@ interface BookingData {
   deposit_status?: string;
   security_deposit_payment_method?: string;
   security_deposit_payment_proof_url?: string;
+  security_deposit_notes?: string;
   add_ons_total: number;
   total_amount: number;
   down_payment: number;
@@ -87,6 +89,9 @@ export default function BookingsPage() {
   const [isBulkMode, setIsBulkMode] = useState(false);
   const [isMarkDepositPaidModalOpen, setIsMarkDepositPaidModalOpen] = useState(false);
   const [bookingForDepositUpdate, setBookingForDepositUpdate] = useState<BookingData | null>(null);
+  const [isCheckInModalOpen, setIsCheckInModalOpen] = useState(false);
+  const [bookingForCheckIn, setBookingForCheckIn] = useState<BookingData | null>(null);
+  const [isCheckInLoading, setIsCheckInLoading] = useState(false);
 
   const logEmployeeActivity = async (action: string, details: string, bookingId?: string) => {
     if (!employeeId) return;
@@ -129,6 +134,7 @@ export default function BookingsPage() {
     }
   ) as { data: BookingData[]; isLoading: boolean; error: unknown };
   const [deleteBooking, { isLoading: isDeletingBooking }] = useDeleteBookingMutation();
+  const [updateBookingStatus] = useUpdateBookingStatusMutation();
 
   useEffect(() => {
     if (!liveSheetAutoSync) return;
@@ -162,6 +168,8 @@ export default function BookingsPage() {
     switch (statusLower) {
       case "approved":
         return "bg-green-100 text-green-700";
+      case "on-going":
+        return "bg-teal-100 text-teal-700";
       case "pending":
         return "bg-yellow-100 text-yellow-700";
       case "declined":
@@ -429,12 +437,18 @@ export default function BookingsPage() {
     }
   };
 
-  const handleCheckIn = async (booking: BookingData) => {
+  const handleCheckIn = (booking: BookingData) => {
+    setBookingForCheckIn(booking);
+    setIsCheckInModalOpen(true);
+  };
+
+  const handleConfirmCheckIn = async (bookingId: string) => {
+    setIsCheckInLoading(true);
     try {
       const response = await fetch('/api/bookings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: booking.id, status: 'checked-in' }),
+        body: JSON.stringify({ id: bookingId, status: 'checked-in' }),
       });
 
       if (!response.ok) {
@@ -443,10 +457,14 @@ export default function BookingsPage() {
         return;
       }
 
-      toast.success(`${booking.guest_first_name} ${booking.guest_last_name} checked in successfully`);
-      logEmployeeActivity('CHECKIN_BOOKING', `Checked in booking ${booking.booking_id}`, booking.id);
+      toast.success(`${bookingForCheckIn?.guest_first_name} ${bookingForCheckIn?.guest_last_name} checked in successfully`);
+      logEmployeeActivity('CHECKIN_BOOKING', `Checked in booking ${bookingForCheckIn?.booking_id}`, bookingId);
+      setIsCheckInModalOpen(false);
+      setBookingForCheckIn(null);
     } catch {
       toast.error("Failed to check in booking");
+    } finally {
+      setIsCheckInLoading(false);
     }
   };
 
@@ -637,21 +655,10 @@ export default function BookingsPage() {
     }
 
     try {
-      const response = await fetch('/api/admin/bookings/bulk-delete', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ bookingIds: selectedBookings }),
-      });
-
-      if (response.ok) {
-        toast.success(`${selectedBookings.length} booking(s) deleted successfully`);
-        logEmployeeActivity('BULK_DELETE_BOOKINGS', `Bulk deleted ${selectedBookings.length} bookings`);
-        setSelectedBookings([]);
-      } else {
-        toast.error("Failed to delete bookings");
-      }
+      await Promise.all(selectedBookings.map(id => deleteBooking(id).unwrap()));
+      toast.success(`${selectedBookings.length} booking(s) deleted successfully`);
+      logEmployeeActivity('BULK_DELETE_BOOKINGS', `Bulk deleted ${selectedBookings.length} bookings`);
+      setSelectedBookings([]);
     } catch (error) {
       toast.error("Failed to delete bookings");
       console.error(error);
@@ -665,21 +672,10 @@ export default function BookingsPage() {
     }
 
     try {
-      const response = await fetch('/api/admin/bookings/bulk-checkin', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ bookingIds: selectedBookings }),
-      });
-
-      if (response.ok) {
-        toast.success(`${selectedBookings.length} booking(s) checked in successfully`);
-        logEmployeeActivity('BULK_CHECKIN_BOOKINGS', `Bulk checked in ${selectedBookings.length} bookings`);
-        setSelectedBookings([]);
-      } else {
-        toast.error("Failed to check in bookings");
-      }
+      await Promise.all(selectedBookings.map(id => updateBookingStatus({ id, status: 'checked-in' }).unwrap()));
+      toast.success(`${selectedBookings.length} booking(s) checked in successfully`);
+      logEmployeeActivity('BULK_CHECKIN_BOOKINGS', `Bulk checked in ${selectedBookings.length} bookings`);
+      setSelectedBookings([]);
     } catch (error) {
       toast.error("Failed to check in bookings");
       console.error(error);
@@ -691,8 +687,11 @@ export default function BookingsPage() {
       toast.error("No bookings selected");
       return;
     }
-    // TODO: Implement bulk view modal or navigation
-    toast(`Viewing ${selectedBookings.length} selected bookings`);
+    const first = bookings.find(b => b.id === selectedBookings[0]);
+    if (first) {
+      setSelectedBooking(first);
+      setIsViewModalOpen(true);
+    }
   };
 
   const handleSelectAll = () => {
@@ -1317,9 +1316,9 @@ export default function BookingsPage() {
                       </td>
                       <td className="py-4 px-4">
                         <div className="flex items-center justify-center gap-1">
-                          {booking.status?.toLowerCase() === 'pending' && (
+                          {['pending', 'on-going'].includes(booking.status?.toLowerCase() ?? '') && (
                             <>
-                              {(() => {
+                              {booking.status?.toLowerCase() === 'pending' && (() => {
                                 const isDepositPaid = booking.deposit_status?.toLowerCase() === 'paid' || booking.deposit_status?.toLowerCase() === 'held';
                                 if (!isDepositPaid) {
                                   return (
@@ -1355,8 +1354,9 @@ export default function BookingsPage() {
                           )}
                           {booking.status?.toLowerCase() === 'approved' && (
                             <button
-                              className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
-                              title="Ready for Check-in"
+                              onClick={() => handleCheckIn(booking)}
+                              className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                              title="Check In Guest"
                             >
                               <LogIn className="w-4 h-4" />
                             </button>
@@ -1585,9 +1585,9 @@ export default function BookingsPage() {
                     />
                   </div>
                   <div className="flex items-center gap-2">
-                    {booking.status?.toLowerCase() === 'pending' && (
+                    {['pending', 'on-going'].includes(booking.status?.toLowerCase() ?? '') && (
                       <>
-                        {(() => {
+                        {booking.status?.toLowerCase() === 'pending' && (() => {
                           const isDepositPaid = booking.deposit_status?.toLowerCase() === 'paid' || booking.deposit_status?.toLowerCase() === 'held';
                           if (!isDepositPaid) {
                             return (
@@ -1623,8 +1623,9 @@ export default function BookingsPage() {
                     )}
                     {booking.status?.toLowerCase() === 'approved' && (
                       <button
-                        className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
-                        title="Ready for Check-in"
+                        onClick={() => handleCheckIn(booking)}
+                        className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                        title="Check In Guest"
                       >
                         <LogIn className="w-5 h-5" />
                       </button>
@@ -1825,6 +1826,20 @@ export default function BookingsPage() {
             toast.success("Deposit status updated");
           }}
           employeeId={employeeId!}
+        />
+      )}
+
+      {/* Check In Modal */}
+      {isCheckInModalOpen && bookingForCheckIn && (
+        <CheckInModal
+          booking={bookingForCheckIn}
+          onClose={() => {
+            if (isCheckInLoading) return;
+            setIsCheckInModalOpen(false);
+            setBookingForCheckIn(null);
+          }}
+          onConfirm={handleConfirmCheckIn}
+          isLoading={isCheckInLoading}
         />
       )}
     </div>

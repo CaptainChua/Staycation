@@ -817,6 +817,7 @@ export const createBooking = async (
         firstName: booking.first_name,
         lastName: booking.last_name,
         email: booking.email,
+        phone: booking.phone,
         bookingId: booking.booking_id,
         roomName: booking.room_name,
         checkInDate: new Date(booking.check_in_date).toLocaleDateString(),
@@ -824,9 +825,9 @@ export const createBooking = async (
         checkOutDate: new Date(booking.check_out_date).toLocaleDateString(),
         checkOutTime: booking.check_out_time,
         guests: `${booking.adults} Adults, ${booking.children} Children, ${booking.infants} Infants`,
-        paymentMethod: booking.payment_method,
-        downPayment: booking.down_payment,
-        totalAmount: booking.total_amount,
+        paymentMethod: booking.booking_payment?.payment_method,
+        downPayment: booking.booking_payment?.down_payment,
+        totalAmount: booking.booking_payment?.total_amount,
       };
 
       const emailResponse = await fetch(
@@ -996,6 +997,7 @@ export const getAllBookings = async (
         bd.deposit_status,
         bd.payment_method as security_deposit_payment_method,
         bd.payment_proof_url as security_deposit_payment_proof_url,
+        bd.notes as security_deposit_notes,
         bc.cleaning_status
       FROM booking b
       LEFT JOIN booking_guests bg ON b.id = bg.booking_id
@@ -1220,7 +1222,7 @@ export const updateBookingStatus = async (
     // If status is provided, validate it
     const validStatuses = [
       "pending", "approved", "rejected", "confirmed",
-      "checked-in", "completed", "cancelled",
+      "on-going", "checked-in", "completed", "cancelled",
     ];
     if (typeof status !== "undefined" && status !== null) {
       if (typeof status !== "string" || !validStatuses.includes(status)) {

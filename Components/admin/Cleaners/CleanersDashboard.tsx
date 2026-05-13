@@ -105,27 +105,49 @@ export default function CleanersDashboard() {
     { skip: !userId, pollingInterval: 5000 }
   );
 
-  const { data: employeesData } = useGetEmployeesQuery({});
-  const employees = useMemo(() => {
-    return employeesData?.data || [];
-  }, [employeesData?.data]);
-  const employeeNameById = useMemo(() => {
-    const map: Record<string, string> = {};
-    employees.forEach((emp: EmployeeProfile) => {
-      const name = `${emp.first_name ?? ""} ${emp.last_name ?? ""}`.trim();
-      map[emp.id] = name || emp.email || emp.employment_id || "Employee";
-    });
-    return map;
-  }, [employees]);
-  const employeeProfileImageById = useMemo(() => {
-    const map: Record<string, string> = {};
-    employees.forEach((emp: EmployeeProfile) => {
-      if (emp?.id && emp?.profile_image_url) {
-        map[emp.id] = emp.profile_image_url;
-      }
-    });
-    return map;
-  }, [employees]);
+useEffect(() => {
+  if (!isLoading && conversationsData) {
+    console.log("conversations data:", JSON.stringify(conversationsData));
+  }
+}, [isLoading, conversationsData]);
+
+  const unreadMessageCount = useMemo(() => {
+    const conversations = conversationsData?.data || [];
+    return conversations.reduce((sum: number, c: any) =>
+      sum + (Number(c.unread_count) || 0), 0
+    );
+  }, [conversationsData]);
+
+  // Synthesize message notifications from unread conversations
+  const [messageNotifications, setMessageNotifications] = useState<ApiNotification[]>([]);
+  const prevConversationIdsRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    const conversations = conversationsData?.data || [];
+    const unread = conversations.filter(
+      (c: { id: string; last_message_read?: boolean; last_sender_id?: string; name?: string; last_message?: string; last_message_time?: string }) =>
+        c.last_message_read === false && c.last_sender_id !== userId
+    );
+
+    const newNotifs: ApiNotification[] = unread.map((c: {
+      id: string;
+      name?: string;
+      last_message?: string;
+      last_message_time?: string;
+    }) => ({
+      id: `msg-${c.id}`,
+      title: c.name || "New Message",
+      description: c.last_message ? c.last_message.slice(0, 80) : "You have a new message",
+      timestamp: c.last_message_time
+        ? new Date(c.last_message_time).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })
+        : "Just now",
+      type: "info" as const,
+      read: false,
+      conversationId: c.id,
+    } as ApiNotification & { conversationId: string }));
+
+    setMessageNotifications(newNotifs);
+  }, [conversationsData, userId]);
 
   // Logout handler
   const handleLogout = async () => {
@@ -280,10 +302,8 @@ export default function CleanersDashboard() {
     { id: "my-assignment", icon: ClipboardList, label: "My Assignment", color: "text-green-500" },
     { id: "property-location", icon: MapPin, label: "Property Location", color: "text-purple-500" },
     { id: "cleaning-checklist", icon: CheckSquare, label: "Cleaning Checklist", color: "text-pink-500" },
-    { id: "report-issue", icon: AlertCircle, label: "Report an Issue", color: "text-red-500" },
-    { id: "notifications", icon: Bell, label: "Notifications", color: "text-yellow-500" },
-    { id: "my-schedule", icon: Calendar, label: "My Schedule", color: "text-indigo-500" },
-    { id: "user-guide", icon: BookOpen, label: "User Guide", color: "text-teal-500" },
+    { id: "report-issue", icon: AlertCircle, label: "Report Issue", color: "text-red-500" },
+    { id: "messages", icon: MessageSquare, label: "Messages", color: "text-blue-500", badge: unreadMessageCount > 0 ? unreadMessageCount : undefined },
   ];
 
   const renderPage = () => {

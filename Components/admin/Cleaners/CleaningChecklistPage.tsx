@@ -15,7 +15,6 @@ import {
   AlertCircle,
 } from "lucide-react";
 import React, { useEffect, useState, useCallback } from "react";
-
 import toast from "react-hot-toast";
 
 type Task = {
@@ -119,51 +118,7 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
       setChecklistId(null);
       setSelectedHaven(null);
     }
-  }, [initialHavenId, fetchChecklist, fetchHavenInfo]);
-
-  const handleProofFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const allowed = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
-    if (!allowed.includes(file.type)) {
-      toast.error("Only JPG, PNG, WEBP, or PDF files are allowed");
-      return;
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error("File must be under 10MB");
-      return;
-    }
-    setProofFile(file);
-    setProofPreview(file.type.startsWith("image/") ? URL.createObjectURL(file) : null);
-    setProofUploaded(false);
-  };
-
-  const handleUploadProof = async () => {
-    if (!proofFile) return;
-    setIsUploadingProof(true);
-    try {
-      const reader = new FileReader();
-      await new Promise<void>((resolve, reject) => {
-        reader.onloadend = () => resolve();
-        reader.onerror = reject;
-        reader.readAsDataURL(proofFile);
-      });
-      await new Promise((r) => setTimeout(r, 800));
-      setProofUploaded(true);
-      toast.success("Proof of payment uploaded successfully!");
-    } catch {
-      toast.error("Failed to upload proof. Please try again.");
-    } finally {
-      setIsUploadingProof(false);
-    }
-  };
-
-  const handleRemoveProof = () => {
-    setProofFile(null);
-    setProofPreview(null);
-    setProofUploaded(false);
-    if (proofInputRef.current) proofInputRef.current.value = "";
-  };
+  }, [selectedHavenId, fetchChecklist, fetchHavenInfo]);
 
   const toggleTask = async (taskId: string) => {
     let newCompleted = false;
@@ -217,14 +172,13 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
     }
   };
 
-  const totalTasks = checklist.reduce((acc, cat) => acc + cat.tasks.length, 0) + 1;
-  const completedTasks =
-    checklist.reduce(
-      (acc, cat: Category) => acc + cat.tasks.filter((t: Task) => t.completed).length,
-      0,
-    ) + (proofUploaded ? 1 : 0);
+  const totalTasks = checklist.reduce((acc, cat) => acc + cat.tasks.length, 0);
+  const completedTasks = checklist.reduce(
+    (acc, cat: Category) => acc + cat.tasks.filter((t: Task) => t.completed).length,
+    0,
+  );
   const progress = totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
-  const canComplete = proofUploaded;
+  const canComplete = progress === 100;
 
   // Empty / no task selected — shown when navigating directly to the tab without clicking Start Cleaning
   if (!initialHavenId && !isLoading) {
@@ -346,141 +300,6 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
         </div>
       </div>
 
-      {/* Proof of Payment */}
-      {!isLoading && !selectedHaven?.isUpcoming && (
-        <div className={`bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-4 sm:p-6 border-2 ${
-          proofUploaded ? "border-green-400 dark:border-green-600" : "border-amber-400 dark:border-amber-600"
-        }`}>
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div
-                className={`p-3 rounded-lg ${
-                  proofUploaded ? "bg-green-500" : "bg-amber-500"
-                } text-white`}
-              >
-                <ShieldCheck className="w-5 h-5 sm:w-6 sm:h-6" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="font-bold text-gray-800 dark:text-gray-100 text-sm sm:text-base">
-                    Upload Proof of Payment
-                  </h3>
-                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                    Required
-                  </span>
-                </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                  Security deposit receipt or screenshot
-                </p>
-              </div>
-            </div>
-            {proofUploaded && (
-              <CheckCircle2 className="w-6 h-6 text-green-500 flex-shrink-0" />
-            )}
-          </div>
-
-          {!proofUploaded ? (
-            <div className="space-y-3">
-              {!proofFile ? (
-                <button
-                  type="button"
-                  onClick={() => proofInputRef.current?.click()}
-                  className="w-full border-2 border-dashed border-amber-300 dark:border-amber-700 rounded-lg p-6 flex flex-col items-center gap-2 hover:border-amber-400 dark:hover:border-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/10 transition-colors cursor-pointer"
-                >
-                  <Upload className="w-8 h-8 text-amber-500" />
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Tap to upload receipt
-                  </span>
-                  <span className="text-xs text-gray-400">
-                    JPG, PNG, WEBP or PDF · Max 10MB
-                  </span>
-                </button>
-              ) : (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                    {proofPreview ? (
-                      <img
-                        src={proofPreview}
-                        alt="Proof preview"
-                        className="w-14 h-14 object-cover rounded-lg flex-shrink-0"
-                      />
-                    ) : (
-                      <div className="w-14 h-14 bg-gray-200 dark:bg-gray-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <ShieldCheck className="w-6 h-6 text-gray-400" />
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">
-                        {proofFile.name}
-                      </p>
-                      <p className="text-xs text-gray-400">
-                        {(proofFile.size / 1024).toFixed(1)} KB
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleRemoveProof}
-                      className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors flex-shrink-0"
-                    >
-                      <X className="w-4 h-4 text-gray-500" />
-                    </button>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleUploadProof}
-                    disabled={isUploadingProof}
-                    className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-60 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 text-sm"
-                  >
-                    {isUploadingProof ? (
-                      <>
-                        <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                        Uploading...
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="w-4 h-4" />
-                        Confirm Upload
-                      </>
-                    )}
-                  </button>
-                </div>
-              )}
-              <input
-                ref={proofInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp,application/pdf"
-                className="hidden"
-                onChange={handleProofFileChange}
-              />
-            </div>
-          ) : (
-            <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-              {proofPreview && (
-                <img
-                  src={proofPreview}
-                  alt="Uploaded proof"
-                  className="w-12 h-12 object-cover rounded-lg flex-shrink-0"
-                />
-              )}
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-green-700 dark:text-green-400">
-                  Proof uploaded successfully
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                  {proofFile?.name}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={handleRemoveProof}
-                className="text-xs text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
-              >
-                Remove
-              </button>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Checklist by Category */}
       <div className="space-y-4">
@@ -633,15 +452,8 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
       </div>
 
       {/* Action / Status */}
-      <div className="flex flex-col sm:flex-row gap-3 items-center">
-        <p className="text-sm text-gray-500 flex-1 text-center sm:text-left">
-          Changes are saved automatically
-        </p>
-        {!canComplete && (
-          <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">
-            ⚠ Upload proof of payment to complete the checklist
-          </p>
-        )}
+      {!selectedHaven?.isUpcoming && <div className="flex flex-col sm:flex-row gap-3 items-center">
+        <p className="text-sm text-gray-500 flex-1 text-center sm:text-left">Changes are saved automatically</p>
         {canComplete && progress === 100 && (
           <div className="flex items-center gap-2 text-green-600 dark:text-green-400 font-semibold text-sm">
             <CheckCircle2 className="w-5 h-5" />
