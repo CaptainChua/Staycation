@@ -1,6 +1,7 @@
 import { Calendar, User, Users, Mail, Phone, ArrowLeft, Upload, Plus, Minus, CreditCard, AlertCircle, CheckCircle, Clock, Package, Camera, Wallet, Info, ChevronRight, Building2, Receipt, LogIn, LogOut, X as XIcon } from "lucide-react";
 import { useState, useRef } from "react";
 import Image from "next/image";
+import toast from "react-hot-toast";
 
 interface GuestInfo {
   firstName: string;
@@ -79,6 +80,7 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
 
   const [additionalGuests, setAdditionalGuests] = useState<GuestInfo[]>([]);
   const [addOns, setAddOns] = useState<AddOns>(initialAddOns);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Reset function to clear all form data
   const resetForm = () => {
@@ -339,7 +341,7 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
           validIdBase64 = await new Promise((resolve, reject) => {
             reader.onloadend = () => resolve(reader.result as string);
             reader.onerror = () => reject(new Error('Failed to read valid ID file'));
-            reader.readAsDataURL(formData.validId);
+            reader.readAsDataURL(formData.validId as File);
           });
         } catch (error) {
           console.error('Error converting valid ID to base64:', error);
@@ -356,7 +358,7 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
           paymentProofBase64 = await new Promise((resolve, reject) => {
             reader.onloadend = () => resolve(reader.result as string);
             reader.onerror = () => reject(new Error('Failed to read payment proof file'));
-            reader.readAsDataURL(formData.paymentProof);
+            reader.readAsDataURL(formData.paymentProof as File);
           });
         } catch (error) {
           console.error('Error converting payment proof to base64:', error);
@@ -376,7 +378,7 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
             guestIdBase64 = await new Promise((resolve, reject) => {
               reader.onloadend = () => resolve(reader.result as string);
               reader.onerror = () => reject(new Error(`Failed to read guest ID file for ${guest.firstName}`));
-              reader.readAsDataURL(guest.validId);
+              reader.readAsDataURL(guest.validId as File);
             });
           } catch (error) {
             console.error('Error converting guest ID to base64:', error);
