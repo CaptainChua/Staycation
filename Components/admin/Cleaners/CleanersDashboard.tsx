@@ -586,16 +586,19 @@ useEffect(() => {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-3">
             {/* Language Toggle */}
             <button
               onClick={toggleLang}
               title={lang === "en" ? "Switch to Tagalog" : "Switch to English"}
-              className="flex items-center gap-1 px-2 py-1.5 sm:px-2.5 sm:py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg transition-colors text-xs font-bold border border-gray-200 dark:border-gray-700"
+              className="flex items-center gap-1 px-2 py-1 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg transition-colors text-xs font-bold border border-gray-200 dark:border-gray-700"
             >
-              <span className={lang === "en" ? "text-brand-primary" : "text-gray-400 dark:text-gray-500"}>EN</span>
-              <span className="text-gray-300 dark:text-gray-600">|</span>
-              <span className={lang === "tl" ? "text-brand-primary" : "text-gray-400 dark:text-gray-500"}>TL</span>
+              {/* Mobile: show only active lang */}
+              <span className="sm:hidden text-brand-primary">{lang.toUpperCase()}</span>
+              {/* Desktop: show full EN | TL */}
+              <span className={`hidden sm:inline ${lang === "en" ? "text-brand-primary" : "text-gray-400 dark:text-gray-500"}`}>EN</span>
+              <span className="hidden sm:inline text-gray-300 dark:text-gray-600">|</span>
+              <span className={`hidden sm:inline ${lang === "tl" ? "text-brand-primary" : "text-gray-400 dark:text-gray-500"}`}>TL</span>
             </button>
 
             {/* User Guide */}

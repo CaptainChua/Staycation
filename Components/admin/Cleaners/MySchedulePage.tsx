@@ -20,6 +20,7 @@ import {
   Banknote,
   User,
   Phone,
+  Pencil,
 } from "lucide-react";
 import { useState, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
@@ -190,7 +191,9 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning,
   const [depositProofFile, setDepositProofFile] = useState<File | null>(null);
   const [depositProofPreview, setDepositProofPreview] = useState<string | null>(null);
   const [isConfirmingDeposit, setIsConfirmingDeposit] = useState(false);
+  const [depositErrors, setDepositErrors] = useState<Record<string, string>>({});
   const depositProofInputRef = useRef<HTMLInputElement>(null);
+  const depositModalBodyRef = useRef<HTMLDivElement>(null);
   const taskPanelRef = useRef<HTMLDivElement>(null);
   const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
 
@@ -202,6 +205,7 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning,
     setDepositReferenceNumber("");
     setDepositProofFile(null);
     setDepositProofPreview(null);
+    setDepositErrors({});
     fetch("/api/payment-methods")
       .then(r => r.json())
       .then(data => setPaymentMethods(Array.isArray(data.data) ? data.data.filter((m: any) => m.is_active) : []))
@@ -230,6 +234,30 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning,
       toast.error("Booking information not found");
       return;
     }
+
+    // Validate
+    const errs: Record<string, string> = {};
+    const requiredDeposit = Number(depositModalTask.security_deposit) > 0 ? Number(depositModalTask.security_deposit) : 1000;
+    const enteredAmount = Number(depositAmountReceived);
+    if (!depositAmountReceived || enteredAmount <= 0) {
+      errs.amount = "Please enter the amount received from the guest.";
+    } else if (enteredAmount < requiredDeposit) {
+      errs.amount = `Amount is less than the required deposit of ${new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(requiredDeposit)}.`;
+    }
+    if (depositPaymentMethod !== "cash" && !depositReferenceNumber.trim()) {
+      errs.reference = "Please enter the reference number for this payment.";
+    }
+    if (!depositProofFile) {
+      errs.proof = "Please upload a proof of payment before confirming.";
+    }
+    if (Object.keys(errs).length > 0) {
+      setDepositErrors(errs);
+      setTimeout(() => {
+        depositModalBodyRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+      }, 50);
+      return;
+    }
+    setDepositErrors({});
     setIsConfirmingDeposit(true);
     setCollectingDepositId(depositModalTask.cleaning_id);
     try {
@@ -625,22 +653,22 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning,
           </div>
 
           {/* Legend */}
-          <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-3 mt-6 pt-4 border-t border-gray-100 dark:border-gray-700 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
-            <span className="flex flex-col items-center gap-0.5 sm:gap-1 text-center min-w-[44px]">
-              <span className="w-3.5 h-3.5 rounded-full shadow-sm mx-auto" style={{ backgroundColor: "#6366f1" }} />
-              <span className="font-medium">{t.legendAssigned}</span>
+          <div className="flex flex-nowrap justify-between gap-x-3 mt-6 pt-4 border-t border-gray-100 dark:border-gray-700 text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 overflow-x-auto scrollbar-hide">
+            <span className="flex items-center gap-1.5 flex-shrink-0">
+              <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: "#6366f1" }} />
+              <span className="font-medium whitespace-nowrap">{t.legendAssigned}</span>
             </span>
-            <span className="flex flex-col items-center gap-0.5 sm:gap-1 text-center min-w-[44px]">
-              <span className="w-3.5 h-3.5 rounded-full shadow-sm mx-auto" style={{ backgroundColor: "#10b981" }} />
-              <span className="font-medium">{t.legendCompleted}</span>
+            <span className="flex items-center gap-1.5 flex-shrink-0">
+              <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: "#10b981" }} />
+              <span className="font-medium whitespace-nowrap">{t.legendCompleted}</span>
             </span>
-            <span className="flex flex-col items-center gap-0.5 sm:gap-1 text-center min-w-[44px]">
-              <span className="w-3.5 h-3.5 rounded-full shadow-sm ring-2 ring-offset-1 ring-brand-primary/60 mx-auto" style={{ backgroundColor: "#833102" }} />
-              <span className="font-medium">{t.legendToday}</span>
+            <span className="flex items-center gap-1.5 flex-shrink-0">
+              <span className="w-3 h-3 rounded-full flex-shrink-0 ring-2 ring-offset-1 ring-brand-primary/60" style={{ backgroundColor: "#833102" }} />
+              <span className="font-medium whitespace-nowrap">{t.legendToday}</span>
             </span>
-            <span className="flex flex-col items-center gap-0.5 sm:gap-1 text-center min-w-[44px]">
-              <span className="w-3.5 h-3.5 rounded-full shadow-sm border-2 border-dashed border-orange-400/80 mx-auto flex items-center justify-center p-0.5" style={{ backgroundColor: "#ffedd5" }} />
-              <span className="font-medium text-orange-700 dark:text-orange-400">{t.legendStaying}</span>
+            <span className="flex items-center gap-1.5 flex-shrink-0">
+              <span className="w-3 h-3 rounded-full flex-shrink-0 border-2 border-dashed border-orange-400/80" style={{ backgroundColor: "#ffedd5" }} />
+              <span className="font-medium whitespace-nowrap text-orange-700 dark:text-orange-400">{t.legendStaying}</span>
             </span>
           </div>
 
@@ -735,9 +763,17 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning,
                       </div>
 
                       {depositCollected ? (
-                        <div className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 text-xs font-semibold">
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          {t.depositCollected}
+                        <div className="w-full flex items-center gap-2">
+                          <div className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 text-xs font-semibold">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            {t.depositCollected}
+                          </div>
+                          <button
+                            onClick={() => openDepositModal(a)}
+                            className="flex items-center justify-center gap-1 py-2 px-3 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 text-xs font-semibold transition-colors"
+                          >
+                            <Pencil className="w-3.5 h-3.5" /> Edit
+                          </button>
                         </div>
                       ) : (
                         <button
@@ -904,8 +940,8 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning,
                   <Shield className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h2 className="text-base font-bold text-gray-900 dark:text-gray-100">Collect Security Deposit</h2>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Record deposit collected from guest at entrance</p>
+                  <h2 className="text-base font-bold text-gray-900 dark:text-gray-100">{t.depositModalTitle}</h2>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{t.depositModalSub}</p>
                 </div>
               </div>
               <button onClick={closeDepositModal} disabled={isConfirmingDeposit} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50">
@@ -914,7 +950,7 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning,
             </div>
 
             {/* Body */}
-            <div className="p-5 space-y-4 overflow-y-auto">
+            <div ref={depositModalBodyRef} className="p-5 space-y-4 overflow-y-auto">
 
               {/* Booking info */}
               <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 space-y-3">
@@ -926,11 +962,14 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning,
                       <Clock className="w-3 h-3" /> Check-in: {depositModalTask.check_in_time ? formatTime(depositModalTask.check_in_time) : "—"}
                     </span>
                   </div>
-                  <span className="text-lg font-black text-indigo-600 dark:text-indigo-400 flex-shrink-0">
-                    {Number(depositModalTask.security_deposit) > 0
-                      ? new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(Number(depositModalTask.security_deposit))
-                      : "₱1,000.00"}
-                  </span>
+                  <div className="flex flex-col items-end flex-shrink-0">
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-indigo-400 dark:text-indigo-500">{t.collectFromGuest}</span>
+                    <span className="text-lg font-black text-indigo-600 dark:text-indigo-400">
+                      {Number(depositModalTask.security_deposit) > 0
+                        ? new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(Number(depositModalTask.security_deposit))
+                        : "₱1,000.00"}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Divider */}
@@ -938,7 +977,7 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning,
 
                 {/* Guest info */}
                 <div className="space-y-1.5">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Guest to Meet</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">{t.guestToMeet}</p>
                   <div className="flex items-center gap-2">
                     <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center flex-shrink-0">
                       <User className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
@@ -963,27 +1002,28 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning,
               {/* Amount received */}
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-gray-600 dark:text-gray-400 flex items-center gap-1.5">
-                  <Banknote className="w-3.5 h-3.5" /> Amount Received from Guest
+                  <Banknote className="w-3.5 h-3.5" /> {t.amountReceived}
                 </label>
-                <div className="flex items-center border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-700">
+                <div className={`flex items-center border rounded-lg overflow-hidden bg-white dark:bg-gray-700 ${depositErrors.amount ? "border-red-500" : "border-gray-300 dark:border-gray-600"}`}>
                   <span className="px-3 py-2.5 text-sm font-bold text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 border-r border-gray-300 dark:border-gray-600 select-none">₱</span>
                   <input
                     type="number"
                     min="0"
                     step="0.01"
                     value={depositAmountReceived}
-                    onChange={e => setDepositAmountReceived(e.target.value)}
+                    onChange={e => { setDepositAmountReceived(e.target.value); setDepositErrors(p => ({ ...p, amount: "" })); }}
                     disabled={isConfirmingDeposit}
                     placeholder="1000.00"
                     className="flex-1 px-3 py-2.5 text-sm text-gray-900 dark:text-gray-100 bg-transparent outline-none disabled:opacity-50"
                   />
                 </div>
+                {depositErrors.amount && <p className="text-xs text-red-500 flex items-center gap-1"><AlertCircle className="w-3 h-3 flex-shrink-0" />{depositErrors.amount}</p>}
               </div>
 
               {/* Payment method */}
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-gray-600 dark:text-gray-400 flex items-center gap-1.5">
-                  <Banknote className="w-3.5 h-3.5" /> Payment Method
+                  <Banknote className="w-3.5 h-3.5" /> {t.paymentMethod}
                 </label>
                 <select
                   value={depositPaymentMethod}
@@ -1035,21 +1075,22 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning,
               {depositPaymentMethod !== "cash" && (
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-gray-600 dark:text-gray-400 flex items-center gap-1.5">
-                    <Banknote className="w-3.5 h-3.5" /> Reference Number
+                    <Banknote className="w-3.5 h-3.5" /> {t.referenceNumber}
                   </label>
                   <input
                     type="text"
                     value={depositReferenceNumber}
-                    onChange={e => setDepositReferenceNumber(e.target.value)}
+                    onChange={e => { setDepositReferenceNumber(e.target.value); setDepositErrors(p => ({ ...p, reference: "" })); }}
                     disabled={isConfirmingDeposit}
-                    placeholder="Transaction / reference no."
-                    className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-400 disabled:opacity-50"
+                    placeholder={t.referencePlaceholder}
+                    className={`w-full px-3 py-2.5 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-400 disabled:opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ${depositErrors.reference ? "border-red-500" : "border-gray-300 dark:border-gray-600"}`}
                   />
+                  {depositErrors.reference && <p className="text-xs text-red-500 flex items-center gap-1 mt-1"><AlertCircle className="w-3 h-3 flex-shrink-0" />{depositErrors.reference}</p>}
                 </div>
               )}
 
               {/* Upload Proof — styled like Cleaning Checklist */}
-              <div className={`rounded-lg border-2 p-4 sm:p-5 ${depositProofFile ? "border-green-400 dark:border-green-600" : "border-amber-400 dark:border-amber-600"}`}>
+              <div className={`rounded-lg border-2 p-4 sm:p-5 ${depositProofFile ? "border-green-400 dark:border-green-600" : depositErrors.proof ? "border-red-500" : "border-amber-400 dark:border-amber-600"}`}>
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
                     <div className={`p-3 rounded-lg ${depositProofFile ? "bg-green-500" : "bg-amber-500"} text-white`}>
@@ -1057,10 +1098,10 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning,
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <h3 className="font-bold text-gray-800 dark:text-gray-100 text-sm">Upload Proof of Payment</h3>
-                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">Required</span>
+                        <h3 className="font-bold text-gray-800 dark:text-gray-100 text-sm">{t.uploadProofTitle}</h3>
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">{t.uploadProofRequired}</span>
                       </div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Security deposit receipt or screenshot</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{t.uploadProofSub}</p>
                     </div>
                   </div>
                   {depositProofFile && <CheckCircle2 className="w-6 h-6 text-green-500 flex-shrink-0" />}
@@ -1074,8 +1115,8 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning,
                     className="w-full border-2 border-dashed border-amber-300 dark:border-amber-700 rounded-lg p-6 flex flex-col items-center gap-2 hover:border-amber-400 dark:hover:border-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/10 transition-colors cursor-pointer disabled:opacity-50"
                   >
                     <Upload className="w-8 h-8 text-amber-500" />
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Tap to upload receipt</span>
-                    <span className="text-xs text-gray-400">JPG, PNG, WEBP or PDF · Max 10MB</span>
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t.uploadProofBtn}</span>
+                    <span className="text-xs text-gray-400">{t.uploadProofHint}</span>
                   </button>
                 ) : (
                   <div className="space-y-3">
@@ -1106,19 +1147,18 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning,
                   type="file"
                   accept="image/jpeg,image/png,image/webp,application/pdf"
                   className="hidden"
-                  onChange={handleDepositProofChange}
+                  onChange={e => { handleDepositProofChange(e); setDepositErrors(p => ({ ...p, proof: "" })); }}
                 />
               </div>
+              {depositErrors.proof && <p className="text-xs text-red-500 flex items-center gap-1"><AlertCircle className="w-3 h-3 flex-shrink-0" />{depositErrors.proof}</p>}
 
-              <p className="text-xs text-gray-400 italic">
-                This deposit will be returned to the guest after checkout if there are no damages.
-              </p>
+              <p className="text-xs text-gray-400 italic">{t.depositDisclaimer}</p>
             </div>
 
             {/* Footer */}
             <div className="flex items-center justify-end gap-3 p-5 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
               <button onClick={closeDepositModal} disabled={isConfirmingDeposit} className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium text-sm disabled:opacity-50">
-                Cancel
+                {t.cancelBtn}
               </button>
               <button
                 onClick={handleConfirmDeposit}
@@ -1126,8 +1166,8 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning,
                 className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium text-sm disabled:opacity-50 flex items-center gap-2"
               >
                 {isConfirmingDeposit
-                  ? <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</>
-                  : <><Shield className="w-4 h-4" /> Confirm Collected</>}
+                  ? <><Loader2 className="w-4 h-4 animate-spin" /> {t.processing}</>
+                  : <><Shield className="w-4 h-4" /> {t.confirmCollected}</>}
               </button>
             </div>
           </div>
