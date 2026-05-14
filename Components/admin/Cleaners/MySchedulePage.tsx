@@ -27,12 +27,14 @@ import { useSession } from "next-auth/react";
 import { useGetCleaningTasksQuery } from "@/redux/api/cleanersApi";
 import { updateDepositStatusByBookingId } from "@/app/admin/csr/actions";
 import { toast } from "react-hot-toast";
+import { useTranslations, type Lang } from "./translations";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Props {
   onNavigate?: (page: string) => void;
   onStartCleaning?: (havenId: string) => void;
+  lang?: Lang;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -160,7 +162,8 @@ function openInMaps(location: string | undefined) {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning }: Props) {
+export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning, lang = "en" }: Props) {
+  const t = useTranslations(lang);
   const { data: session } = useSession();
   const userId = (session?.user as any)?.id;
 
@@ -188,6 +191,7 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning 
   const [depositProofPreview, setDepositProofPreview] = useState<string | null>(null);
   const [isConfirmingDeposit, setIsConfirmingDeposit] = useState(false);
   const depositProofInputRef = useRef<HTMLInputElement>(null);
+  const taskPanelRef = useRef<HTMLDivElement>(null);
   const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
 
   const openDepositModal = (a: any) => {
@@ -389,42 +393,73 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning 
       })
     : [];
 
+  const handleTotalTasksClick = () => {
+    const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    // Find the nearest assignment date that is ready or upcoming
+    const nearest = assignments
+      .filter((a: any) => a.check_out_date && typeof a.check_out_date === "string")
+      .map((a: any) => toLocalMidnight(a.check_out_date))
+      .filter((d: Date) => d >= todayMidnight)
+      .sort((a: Date, b: Date) => a.getTime() - b.getTime())[0];
+
+    if (nearest) {
+      setSelectedDate(nearest);
+      setCalMonth(new Date(nearest.getFullYear(), nearest.getMonth(), 1));
+    }
+    setTimeout(() => {
+      taskPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
+  };
+
   const statsCards = [
-    { label: "Total",      value: stats.total,     color: "bg-brand-primary", icon: ClipboardList, sub: `${stats.readyCount} ready · ${stats.upcomingCount} upcoming` },
-    { label: "This Week",  value: stats.thisWeek,  color: "bg-blue-500",      icon: Calendar,      sub: null },
-    { label: "This Month", value: stats.thisMonth, color: "bg-green-500",     icon: Building2,     sub: null },
-    { label: "Completed",  value: stats.completed, color: "bg-purple-500",    icon: CheckCircle2,  sub: null },
+    { label: t.totalTasks, value: stats.total,     color: "bg-brand-primary", icon: ClipboardList, sub: `${stats.readyCount} ${t.ready} · ${stats.upcomingCount} ${t.upcoming}`, onClick: handleTotalTasksClick },
+    { label: t.thisWeek,   value: stats.thisWeek,  color: "bg-blue-500",      icon: Calendar,      sub: null, onClick: undefined },
+    { label: t.thisMonth,  value: stats.thisMonth, color: "bg-green-500",     icon: Building2,     sub: null, onClick: undefined },
+    { label: t.completed,  value: stats.completed, color: "bg-purple-500",    icon: CheckCircle2,  sub: null, onClick: undefined },
   ];
 
   return (
     <div className="space-y-5 animate-in fade-in duration-700">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">My Schedule</h1>
+        <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">{t.pageTitle}</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          View your assignments and manage cleaning tasks
+          {t.pageSubtitle}
         </p>
       </div>
 
       {/* Stats row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {statsCards.map(({ label, value, color, icon: Icon, sub }) => (
-          <div
-            key={label}
-            className={`${color} text-white rounded-lg p-4 shadow dark:shadow-gray-900 hover:shadow-lg transition-all`}
-          >
+        {statsCards.map(({ label, value, color, icon: Icon, sub, onClick }) => {
+          const inner = (
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs opacity-90">{label}</p>
-                <p className="text-2xl font-bold mt-1">{isLoading ? "…" : value}</p>
+                <p className="text-[10px] sm:text-xs opacity-90">{label}</p>
+                <p className="text-lg sm:text-2xl font-bold mt-0.5">{isLoading ? "…" : value}</p>
                 {sub && !isLoading && (
-                  <p className="text-[10px] opacity-75 mt-0.5 leading-tight">{sub}</p>
+                  <p className="text-[9px] sm:text-[10px] opacity-75 mt-0.5 leading-tight">{sub}</p>
                 )}
               </div>
-              <Icon className="w-8 h-8 opacity-40" />
+              <Icon className="w-5 h-5 sm:w-8 sm:h-8 opacity-40" />
             </div>
-          </div>
-        ))}
+          );
+          return onClick ? (
+            <button
+              key={label}
+              onClick={onClick}
+              className={`${color} text-white rounded-lg p-2.5 sm:p-4 shadow dark:shadow-gray-900 hover:shadow-lg hover:brightness-110 active:scale-95 transition-all text-left w-full`}
+            >
+              {inner}
+            </button>
+          ) : (
+            <div
+              key={label}
+              className={`${color} text-white rounded-lg p-2.5 sm:p-4 shadow dark:shadow-gray-900 hover:shadow-lg transition-all`}
+            >
+              {inner}
+            </div>
+          );
+        })}
       </div>
 
       {/* Main grid */}
@@ -541,7 +576,12 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning 
               return (
                 <button
                   key={day}
-                  onClick={() => setSelectedDate(date)}
+                  onClick={() => {
+                    setSelectedDate(date);
+                    setTimeout(() => {
+                      taskPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                    }, 50);
+                  }}
                   className={cellClasses}
                   style={cellStyle}
                   title={hasTask ? `${taskCount} task${taskCount !== 1 ? "s" : ""} · ${badge.label}` : ""}
@@ -588,26 +628,26 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning 
           <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-3 mt-6 pt-4 border-t border-gray-100 dark:border-gray-700 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
             <span className="flex flex-col items-center gap-0.5 sm:gap-1 text-center min-w-[44px]">
               <span className="w-3.5 h-3.5 rounded-full shadow-sm mx-auto" style={{ backgroundColor: "#6366f1" }} />
-              <span className="font-medium">Assigned</span>
+              <span className="font-medium">{t.legendAssigned}</span>
             </span>
             <span className="flex flex-col items-center gap-0.5 sm:gap-1 text-center min-w-[44px]">
               <span className="w-3.5 h-3.5 rounded-full shadow-sm mx-auto" style={{ backgroundColor: "#10b981" }} />
-              <span className="font-medium">Completed</span>
+              <span className="font-medium">{t.legendCompleted}</span>
             </span>
             <span className="flex flex-col items-center gap-0.5 sm:gap-1 text-center min-w-[44px]">
               <span className="w-3.5 h-3.5 rounded-full shadow-sm ring-2 ring-offset-1 ring-brand-primary/60 mx-auto" style={{ backgroundColor: "#833102" }} />
-              <span className="font-medium">Today</span>
+              <span className="font-medium">{t.legendToday}</span>
             </span>
             <span className="flex flex-col items-center gap-0.5 sm:gap-1 text-center min-w-[44px]">
               <span className="w-3.5 h-3.5 rounded-full shadow-sm border-2 border-dashed border-orange-400/80 mx-auto flex items-center justify-center p-0.5" style={{ backgroundColor: "#ffedd5" }} />
-              <span className="font-medium text-orange-700 dark:text-orange-400">Staying</span>
+              <span className="font-medium text-orange-700 dark:text-orange-400">{t.legendStaying}</span>
             </span>
           </div>
 
         </div>
 
         {/* ── Detail panel ── */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-gray-900 p-5 flex flex-col gap-4">
+        <div ref={taskPanelRef} className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-gray-900 p-5 flex flex-col gap-4">
           <div className="flex items-center gap-2">
             <Calendar className="w-4 h-4 text-brand-primary flex-shrink-0" />
             <div>
@@ -619,7 +659,7 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning 
                 })}
               </p>
               {isSameDay(selectedDate, today) && (
-                <span className="text-xs font-semibold text-brand-primary">Today</span>
+                <span className="text-xs font-semibold text-brand-primary">{t.today}</span>
               )}
             </div>
           </div>
@@ -635,8 +675,8 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning 
             ) : selectedAssignments.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10 text-center">
                 <CheckCircle2 className="w-10 h-10 text-gray-300 dark:text-gray-600 mb-2" />
-                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">No assignments this day</p>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Select a highlighted date to see tasks</p>
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{t.noAssignments}</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{t.noAssignmentsSub}</p>
               </div>
             ) : (
               selectedAssignments.map((a: any) => {
@@ -663,7 +703,7 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning 
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5 mb-0.5">
                             <Shield className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
-                            <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-wide">Check-in Today</span>
+                            <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-wide">{t.checkInToday}</span>
                           </div>
                           <p className="font-bold text-gray-800 dark:text-gray-100 text-sm truncate">
                             {a.haven ?? a.room_name ?? "—"}
@@ -674,11 +714,11 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning 
                         </div>
                         {depositCollected ? (
                           <span className="flex items-center gap-1 px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs font-bold rounded-full flex-shrink-0">
-                            <CheckCircle2 className="w-3 h-3" /> Collected
+                            <CheckCircle2 className="w-3 h-3" /> {t.collected}
                           </span>
                         ) : (
                           <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-xs font-bold rounded-full flex-shrink-0">
-                            Pending
+                            {t.pending}
                           </span>
                         )}
                       </div>
@@ -686,7 +726,7 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning 
                       <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
                         <span className="flex items-center gap-1">
                           <Clock className="w-3.5 h-3.5 flex-shrink-0" />
-                          Check-in: {a.check_in_time ? formatTime(a.check_in_time) : "—"}
+                          {t.checkInLabel} {a.check_in_time ? formatTime(a.check_in_time) : "—"}
                         </span>
                         <span className="flex items-center gap-1 font-semibold text-indigo-600 dark:text-indigo-400">
                           <Shield className="w-3.5 h-3.5 flex-shrink-0" />
@@ -697,7 +737,7 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning 
                       {depositCollected ? (
                         <div className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 text-xs font-semibold">
                           <CheckCircle2 className="w-3.5 h-3.5" />
-                          Deposit Collected
+                          {t.depositCollected}
                         </div>
                       ) : (
                         <button
@@ -705,7 +745,7 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning 
                           disabled={isCollecting}
                           className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold disabled:opacity-50 transition-colors"
                         >
-                          <Shield className="w-3.5 h-3.5" /> Security Deposit
+                          <Shield className="w-3.5 h-3.5" /> {t.securityDeposit}
                         </button>
                       )}
                     </div>
@@ -748,14 +788,14 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning 
                       <div className="flex items-center gap-3">
                         <span className="flex items-center gap-1">
                           <Clock className="w-3.5 h-3.5" />
-                          Checkout: {formatDate(a.check_out_date)}
+                          {t.checkoutLabel} {formatDate(a.check_out_date)}
                           {a.check_out_time ? ` · ${formatTime(a.check_out_time)}` : ""}
                         </span>
                       </div>
                       {(a.cleaning_time_in || a.cleaning_time_out) && (
                         <div className="flex items-center gap-3">
-                          <span>In: {formatTime(a.cleaning_time_in)}</span>
-                          <span>Out: {formatTime(a.cleaning_time_out)}</span>
+                          <span>{t.inLabel} {formatTime(a.cleaning_time_in)}</span>
+                          <span>{t.outLabel} {formatTime(a.cleaning_time_out)}</span>
                         </div>
                       )}
                     </div>
@@ -766,7 +806,7 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning 
                         className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 text-xs font-semibold hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
                       >
                         <Navigation className="w-3.5 h-3.5" />
-                        Open in Maps
+                        {t.openInMaps}
                       </button>
 
                       {isActionable && (
@@ -783,7 +823,7 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning 
                           className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-brand-primary/10 dark:bg-brand-primary/20 text-brand-primary text-xs font-semibold hover:bg-brand-primary/20 dark:hover:bg-brand-primary/30 transition-colors"
                         >
                           <CheckSquare className="w-3.5 h-3.5" />
-                          Start Cleaning
+                          {t.startCleaning}
                         </button>
                       )}
 
@@ -801,14 +841,14 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning 
                           className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-sky-50 dark:bg-sky-900/20 text-sky-600 dark:text-sky-400 text-xs font-semibold hover:bg-sky-100 dark:hover:bg-sky-900/40 transition-colors"
                         >
                           <CheckSquare className="w-3.5 h-3.5" />
-                          View Checklist
+                          {t.viewChecklist}
                         </button>
                       )}
 
                       {isDone && (
                         <div className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 text-xs font-semibold">
                           <CheckCircle2 className="w-3.5 h-3.5" />
-                          Done
+                          {t.done}
                         </div>
                       )}
                     </div>
@@ -820,12 +860,12 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning 
 
           {!isLoading && selectedAssignments.length > 0 && (
             <div className="pt-3 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-              <span>{selectedAssignments.length} assignment{selectedAssignments.length !== 1 ? "s" : ""}</span>
+              <span>{t.assignmentCount(selectedAssignments.length)}</span>
               <span>
                 {selectedAssignments.filter(
                   (a: any) => a.cleaning_status === "cleaned" || a.cleaning_status === "inspected",
                 ).length}{" "}
-                completed
+                {t.completedCount}
               </span>
             </div>
           )}
@@ -834,14 +874,19 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning 
 
       {!isLoading && !isSameDay(selectedDate, today) && stats.todayCount > 0 && (
         <button
-          onClick={() => setSelectedDate(today)}
+          onClick={() => {
+            setSelectedDate(today);
+            setTimeout(() => {
+              taskPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+            }, 50);
+          }}
           className="w-full flex items-center justify-between gap-3 bg-brand-primary/10 dark:bg-brand-primary/20 border border-brand-primary/30 rounded-xl px-4 py-3 hover:bg-brand-primary/20 dark:hover:bg-brand-primary/30 transition-colors"
         >
           <div className="flex items-center gap-2 text-brand-primary text-sm font-semibold">
             <AlertCircle className="w-4 h-4" />
-            You have {stats.todayCount} assignment{stats.todayCount !== 1 ? "s" : ""} today
+            {t.todayBanner(stats.todayCount)}
           </div>
-          <span className="text-xs text-brand-primary font-medium">View today →</span>
+          <span className="text-xs text-brand-primary font-medium">{t.viewToday}</span>
         </button>
       )}
 

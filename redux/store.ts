@@ -59,7 +59,17 @@ export const store = configureStore({
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
       serializableCheck: {
-        ignoredActions: ["persist/PERSIST"],
+        warnAfter: 128,
+        ignoredActions: [
+          "persist/PERSIST",
+          "persist/REHYDRATE",
+        ],
+        ignoredPaths: [
+          "booking._persist",
+        ],
+      },
+      immutableCheck: {
+        warnAfter: 128,
       },
     })
       .concat(employeeApi.middleware)

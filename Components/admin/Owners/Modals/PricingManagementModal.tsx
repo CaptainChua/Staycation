@@ -42,15 +42,20 @@ interface PricingManagementModalProps {
   haven?: Haven | null;
   havens?: Haven[];
   isAddMode?: boolean;
+  /** "step" when rendered inside the Add New Haven wizard — hides the property selector */
+  mode?: string;
 }
 
-const PricingManagementModal = ({ 
-  onSave, 
+const PricingManagementModal = ({
+  onSave,
   initialData,
   haven,
   havens = [],
   isAddMode = false,
+  mode,
 }: PricingManagementModalProps) => {
+  // Inside the wizard the haven is being created, so no existing property to select
+  const isWizardStep = mode === "step";
   const [formData, setFormData] = useState<Record<string, string>>({
     six_hour_rate: "",
     ten_hour_rate: "",
@@ -68,6 +73,9 @@ const PricingManagementModal = ({
     id: String(h?.id || h?.uuid_id || ""),
     name: String(h?.name || h?.haven_name || "Unknown")
   })) : [];
+
+  // Clear stale errors when the component mounts (e.g. when the wizard navigates to this step)
+  useEffect(() => { setError(null); }, []);
 
   useEffect(() => {
     if (haven && !isAddMode) {
@@ -95,7 +103,9 @@ const PricingManagementModal = ({
   }, [initialData, haven, isAddMode]);
 
   const validation = pricingSchema.safeParse(formData);
-  const errors = !validation.success ? validation.error.format() : null;
+  const errors = !validation.success
+    ? validation.error.flatten((i) => i.message).fieldErrors
+    : null;
 
   const handleChange = (field: string, value: string) => {
     const newData = { ...formData, [field]: value };
@@ -112,8 +122,9 @@ const PricingManagementModal = ({
       weekend_rate: true,
     });
 
-    // In Add mode, validate haven is selected
-    if (isAddMode && !selectedHaven) {
+    // In standalone add mode (not the wizard), a property must be selected
+    const isInvalidHaven = !selectedHaven || selectedHaven === "__no_properties__";
+    if (isAddMode && !isWizardStep && isInvalidHaven) {
       setError("Please select a property first");
       return;
     }
@@ -123,17 +134,30 @@ const PricingManagementModal = ({
       return;
     }
 
+    const pricingData = {
+      six_hour_rate: formData.six_hour_rate,
+      ten_hour_rate: formData.ten_hour_rate,
+      weekday_rate: formData.weekday_rate,
+      weekend_rate: formData.weekend_rate,
+    };
+
+    // In wizard mode just hand the data to the parent — the haven doesn't exist yet
+    if (isWizardStep) {
+      onSave(pricingData);
+      return;
+    }
+
+    // Standalone mode: persist pricing to an existing haven via API
     try {
       setIsSaving(true);
       setError(null);
 
       const havenId = isAddMode ? selectedHaven : haven?.id;
-      
+
       if (!havenId) {
         throw new Error("No haven selected");
       }
 
-      // Make API call to update haven pricing
       const response = await fetch(`/api/haven/${havenId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -150,12 +174,7 @@ const PricingManagementModal = ({
         throw new Error(errorData.message || "Failed to update pricing");
       }
 
-      onSave({
-        six_hour_rate: formData.six_hour_rate,
-        ten_hour_rate: formData.ten_hour_rate,
-        weekday_rate: formData.weekday_rate,
-        weekend_rate: formData.weekend_rate,
-      });
+      onSave(pricingData);
     } catch (error) {
       setError(error instanceof Error ? error.message : "An error occurred while saving");
       console.error("[PricingManagementModal] Error saving pricing:", error);
@@ -204,8 +223,8 @@ const PricingManagementModal = ({
           </div>
         )}
 
-        {/* Property Selection - Only in Add Mode */}
-        {isAddMode && (
+        {/* Property Selection - Only in standalone Add Mode (not inside the wizard) */}
+        {isAddMode && !isWizardStep && (
           <div>
             <Select
               label="Select Property"
@@ -216,6 +235,7 @@ const PricingManagementModal = ({
                 setError(null);
               }}
               isRequired
+              disabledKeys={cleanHavens.length === 0 ? ["__no_properties__"] : []}
               classNames={{
                 label: "text-sm font-bold text-gray-700 dark:text-gray-300 mb-2 ml-1 uppercase tracking-wider",
                 trigger: [
@@ -241,7 +261,7 @@ const PricingManagementModal = ({
                   </SelectItem>
                 ))
               ) : (
-                <SelectItem key="empty" value="">
+                <SelectItem key="__no_properties__" value="__no_properties__">
                   No properties available
                 </SelectItem>
               )}
@@ -264,7 +284,7 @@ const PricingManagementModal = ({
               onChange={(e) => handleChange('six_hour_rate', e.target.value)}
               classNames={getInputClasses('six_hour_rate')}
               isInvalid={touched.six_hour_rate && !!errors?.six_hour_rate}
-              errorMessage={touched.six_hour_rate && (errors as any)?.six_hour_rate?._errors[0]}
+              errorMessage={touched.six_hour_rate && (errors as any)?.six_hour_rate?.[0]}
               startContent={<span className="text-gray-500 dark:text-gray-400 font-medium">₱</span>}
               isRequired
             />
@@ -277,7 +297,7 @@ const PricingManagementModal = ({
               onChange={(e) => handleChange('ten_hour_rate', e.target.value)}
               classNames={getInputClasses('ten_hour_rate')}
               isInvalid={touched.ten_hour_rate && !!errors?.ten_hour_rate}
-              errorMessage={touched.ten_hour_rate && (errors as any)?.ten_hour_rate?._errors[0]}
+              errorMessage={touched.ten_hour_rate && (errors as any)?.ten_hour_rate?.[0]}
               startContent={<span className="text-gray-500 dark:text-gray-400 font-medium">₱</span>}
               isRequired
             />
@@ -290,7 +310,7 @@ const PricingManagementModal = ({
               onChange={(e) => handleChange('weekday_rate', e.target.value)}
               classNames={getInputClasses('weekday_rate')}
               isInvalid={touched.weekday_rate && !!errors?.weekday_rate}
-              errorMessage={touched.weekday_rate && (errors as any)?.weekday_rate?._errors[0]}
+              errorMessage={touched.weekday_rate && (errors as any)?.weekday_rate?.[0]}
               startContent={<span className="text-gray-500 dark:text-gray-400 font-medium">₱</span>}
               isRequired
             />
@@ -303,7 +323,7 @@ const PricingManagementModal = ({
               onChange={(e) => handleChange('weekend_rate', e.target.value)}
               classNames={getInputClasses('weekend_rate')}
               isInvalid={touched.weekend_rate && !!errors?.weekend_rate}
-              errorMessage={touched.weekend_rate && (errors as any)?.weekend_rate?._errors[0]}
+              errorMessage={touched.weekend_rate && (errors as any)?.weekend_rate?.[0]}
               startContent={<span className="text-gray-500 dark:text-gray-400 font-medium">₱</span>}
               isRequired
             />
@@ -313,8 +333,8 @@ const PricingManagementModal = ({
         {/* Action Buttons */}
         <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
           <Button
-            onClick={handleSave}
-            disabled={isSaving}
+            onPress={handleSave}
+            isDisabled={isSaving}
             className="flex-1 bg-brand-primary hover:bg-brand-primaryDarker text-white font-bold rounded-xl h-12 transition-colors"
           >
             {isSaving ? (

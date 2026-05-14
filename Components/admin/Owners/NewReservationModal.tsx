@@ -1,5 +1,5 @@
 import { Calendar, User, Users, Mail, Phone, ArrowLeft, Upload, Plus, Minus, CreditCard, AlertCircle, CheckCircle, Clock, Package, Camera, Wallet, Info, ChevronRight, Building2, Receipt, LogIn, LogOut, X as XIcon } from "lucide-react";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import toast from "react-hot-toast";
 
@@ -41,6 +41,7 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const errorRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
 
   const initialFormData = {
     firstName: "",
@@ -92,7 +93,11 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
     setErrors({});
   };
 
-  // Reset form when modal opens/closes
+  // Reset form whenever the modal opens
+  useEffect(() => {
+    if (isOpen) resetForm();
+  }, [isOpen]);
+
   const handleClose = () => {
     resetForm();
     onClose();
@@ -173,6 +178,15 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
       };
       setFormData(updatedFormData);
       updateAdditionalGuests(currentAdults, currentChildren);
+    } else if (name === "age") {
+      const digitsOnly = value.replace(/\D/g, "").replace(/^0+/, "").slice(0, 3);
+      const ageVal = parseInt(digitsOnly);
+      if (digitsOnly && ageVal < 18) {
+        setErrors(prev => ({ ...prev, age: "Main guest must be at least 18 years old to book" }));
+      } else {
+        setErrors(prev => ({ ...prev, age: "" }));
+      }
+      setFormData((prev) => ({ ...prev, age: digitsOnly }));
     } else {
       setFormData((prev) => ({
         ...prev,
@@ -260,7 +274,11 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
     const newErrors: Record<string, string> = {};
     if (!formData.firstName) newErrors.firstName = "First name is required";
     if (!formData.lastName) newErrors.lastName = "Last name is required";
-    if (!formData.age) newErrors.age = "Age is required";
+    if (!formData.age) {
+      newErrors.age = "Age is required";
+    } else if (parseInt(formData.age) < 18) {
+      newErrors.age = "Main guest must be at least 18 years old to book";
+    }
     if (!formData.gender) newErrors.gender = "Please select a gender";
     if (!formData.email) newErrors.email = "Email is required";
     if (!formData.phone) newErrors.phone = "Phone number is required";
@@ -270,9 +288,16 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
 
     for (let i = 0; i < additionalGuests.length; i++) {
       const guest = additionalGuests[i];
+      const isGuestAdult = i < formData.adults - 1;
       if (!guest.firstName) newErrors[`guest${i}FirstName`] = `Guest ${i + 2} first name is required`;
       if (!guest.lastName) newErrors[`guest${i}LastName`] = `Guest ${i + 2} last name is required`;
-      if (!guest.age) newErrors[`guest${i}Age`] = `Guest ${i + 2} age is required`;
+      if (!guest.age) {
+        newErrors[`guest${i}Age`] = `Guest ${i + 2} age is required`;
+      } else if (isGuestAdult && parseInt(guest.age) < 18) {
+        newErrors[`guest${i}Age`] = `Adult guest must be at least 18 years old`;
+      } else if (!isGuestAdult && (parseInt(guest.age) < 4 || parseInt(guest.age) > 17)) {
+        newErrors[`guest${i}Age`] = `Child guest age must be between 4 and 17`;
+      }
       if (!guest.gender) newErrors[`guest${i}Gender`] = `Guest ${i + 2} gender is required`;
       if (guest.age && parseInt(guest.age) >= 10 && !guest.validId) {
         newErrors[`guest${i}ValidId`] = `Valid ID required for Guest ${i + 2}`;
@@ -280,12 +305,7 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
     }
 
     setErrors(newErrors);
-    
-    if (Object.keys(newErrors).length > 0) {
-      const errorMessages = Object.values(newErrors);
-      alert(`Please fill in all required fields:\n\n${errorMessages.join('\n')}`);
-    }
-    
+
     return Object.keys(newErrors).length === 0;
   };
 
@@ -311,12 +331,22 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
   };
 
   const handleNext = () => {
-    if (currentStep === 1 && validateStep1()) {
-      setCompletedSteps(prev => [...prev, 1]);
-      setCurrentStep(2);
-    } else if (currentStep === 2 && validateStep2()) {
-      setCompletedSteps(prev => [...prev, 2]);
-      setCurrentStep(3);
+    if (currentStep === 1) {
+      if (validateStep1()) {
+        setCompletedSteps(prev => [...prev, 1]);
+        setCurrentStep(2);
+      } else {
+        scrollContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+        toast.error("Please fix the errors above before continuing.");
+      }
+    } else if (currentStep === 2) {
+      if (validateStep2()) {
+        setCompletedSteps(prev => [...prev, 2]);
+        setCurrentStep(3);
+      } else {
+        scrollContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+        toast.error("Please fix the errors above before continuing.");
+      }
     } else if (currentStep === 3) {
       setCompletedSteps(prev => [...prev, 3]);
       setCurrentStep(4);
@@ -500,7 +530,7 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
         </div>
 
         {/* Content - Scrollable */}
-        <div className="flex-1 overflow-y-auto px-6 py-6">
+        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-6 py-6">
           <div className="max-w-4xl mx-auto">
             <form onSubmit={handleSubmit}>
               {/* Step 1: Guest Information */}
@@ -514,32 +544,38 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className={labelClass}>First Name *</label>
-                        <input type="text" name="firstName" value={formData.firstName} onChange={handleInputChange} required className={inputClass} placeholder="Enter first name" />
+                        <input type="text" name="firstName" value={formData.firstName} onChange={handleInputChange} required className={`${inputClass} ${errors.firstName ? 'border-red-500' : ''}`} placeholder="Enter first name" />
+                        {errors.firstName && <p className="text-red-500 text-xs mt-1">{errors.firstName}</p>}
                       </div>
                       <div>
                         <label className={labelClass}>Last Name *</label>
-                        <input type="text" name="lastName" value={formData.lastName} onChange={handleInputChange} required className={inputClass} placeholder="Enter last name" />
+                        <input type="text" name="lastName" value={formData.lastName} onChange={handleInputChange} required className={`${inputClass} ${errors.lastName ? 'border-red-500' : ''}`} placeholder="Enter last name" />
+                        {errors.lastName && <p className="text-red-500 text-xs mt-1">{errors.lastName}</p>}
                       </div>
                       <div>
                         <label className={labelClass}>Age *</label>
-                        <input type="number" name="age" value={formData.age} onChange={handleInputChange} required min="1" max="120" className={inputClass} placeholder="Enter age" />
+                        <input type="text" inputMode="numeric" name="age" value={formData.age} onChange={handleInputChange} required maxLength={3} className={`${inputClass} ${errors.age ? 'border-red-500' : ''}`} placeholder="Enter age" />
+                        {errors.age && <p className="text-red-500 text-xs mt-1">{errors.age}</p>}
                       </div>
                       <div>
                         <label className={labelClass}>Gender *</label>
-                        <select name="gender" value={formData.gender} onChange={handleInputChange} required className={inputClass}>
+                        <select name="gender" value={formData.gender} onChange={handleInputChange} required className={`${inputClass} ${errors.gender ? 'border-red-500' : ''}`}>
                           <option value="">Select Gender</option>
                           <option value="male">Male</option>
                           <option value="female">Female</option>
                           <option value="other">Other</option>
                         </select>
+                        {errors.gender && <p className="text-red-500 text-xs mt-1">{errors.gender}</p>}
                       </div>
                       <div>
                         <label className={labelClass}>Email *</label>
-                        <input type="email" name="email" value={formData.email} onChange={handleInputChange} required className={inputClass} placeholder="Enter email" />
+                        <input type="email" name="email" value={formData.email} onChange={handleInputChange} required className={`${inputClass} ${errors.email ? 'border-red-500' : ''}`} placeholder="Enter email" />
+                        {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
                       </div>
                       <div>
                         <label className={labelClass}>Phone *</label>
-                        <input type="tel" name="phone" value={formData.phone} onChange={handleInputChange} required className={inputClass} placeholder="e.g., 9123456789" />
+                        <input type="tel" name="phone" value={formData.phone} onChange={handleInputChange} required className={`${inputClass} ${errors.phone ? 'border-red-500' : ''}`} placeholder="e.g., 9123456789" />
+                        {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
                       </div>
                     </div>
                   </div>
@@ -611,11 +647,16 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                           {errors[`guest${index}LastName`] && <p className="text-red-500 text-xs mt-1">{errors[`guest${index}LastName`]}</p>}
                         </div>
                         <div>
-                          <input 
-                            type="number" 
-                            value={guest.age} 
-                            onChange={(e) => handleAdditionalGuestChange(index, 'age', e.target.value)} 
-                            placeholder="Age *" 
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={guest.age}
+                            onChange={(e) => {
+                              const digitsOnly = e.target.value.replace(/\D/g, "").replace(/^0+/, "").slice(0, 3);
+                              handleAdditionalGuestChange(index, 'age', digitsOnly);
+                            }}
+                            maxLength={3}
+                            placeholder="Age *"
                             className={`${inputClass} ${errors[`guest${index}Age`] ? 'border-red-500' : ''}`}
                           />
                           {errors[`guest${index}Age`] && <p className="text-red-500 text-xs mt-1">{errors[`guest${index}Age`]}</p>}
@@ -846,43 +887,6 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                 </div>
               )}
 
-              {/* Footer Actions */}
-              <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-6 rounded-b-2xl flex gap-4 flex-shrink-0">
-                {currentStep > 1 && (
-                  <button
-                    type="button"
-                    onClick={handleBack}
-                    className="flex-1 flex items-center justify-center gap-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-600 font-semibold py-3 px-6 rounded-lg transition"
-                  >
-                    <ArrowLeft className="w-5 h-5" />
-                    Back
-                  </button>
-                )}
-
-                {currentStep < 4 ? (
-                  <button
-                    type="button"
-                    onClick={handleNext}
-                    className="flex-1 flex items-center justify-center gap-2 text-white font-semibold py-3 px-6 rounded-lg transition hover:opacity-90"
-                    style={{ backgroundColor: '#A1823D' }}
-                  >
-                    Next Step
-                    <ChevronRight className="w-5 h-5" />
-                  </button>
-                ) : (
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className={`flex-1 font-semibold py-3 px-6 rounded-lg transition ${
-                      isSubmitting
-                        ? 'bg-gray-400 cursor-not-allowed'
-                        : 'bg-green-500 hover:bg-green-600 text-white'
-                    }`}
-                  >
-                    {isSubmitting ? 'Creating Reservation...' : 'Confirm Booking'}
-                  </button>
-                )}
-              </div>
             </form>
           </div>
         </div>

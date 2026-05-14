@@ -400,6 +400,15 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
       const haven = havens.find(h => h.haven_name === value);
       setSelectedHaven(haven || null);
       setFormData(prev => ({ ...prev, [name]: value }));
+    } else if (name === "age") {
+      const digitsOnly = value.replace(/\D/g, "").replace(/^0+/, "").slice(0, 3);
+      const ageVal = parseInt(digitsOnly);
+      if (digitsOnly && ageVal < 18) {
+        setErrors(prev => ({ ...prev, age: "Main guest must be at least 18 years old to book" }));
+      } else {
+        setErrors(prev => ({ ...prev, age: "" }));
+      }
+      setFormData(prev => ({ ...prev, age: digitsOnly }));
     } else {
       setFormData(prev => ({
         ...prev,
@@ -528,7 +537,11 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
     const newErrors: Record<string, string> = {};
     if (!formData.firstName) newErrors.firstName = "First name is required";
     if (!formData.lastName) newErrors.lastName = "Last name is required";
-    if (!isEditMode && !formData.age) newErrors.age = "Age is required";
+    if (!isEditMode && !formData.age) {
+      newErrors.age = "Age is required";
+    } else if (!isEditMode && parseInt(formData.age) < 18) {
+      newErrors.age = "Main guest must be at least 18 years old to book";
+    }
     if (!isEditMode && !formData.gender) newErrors.gender = "Please select a gender";
     if (!formData.email) newErrors.email = "Email is required";
     if (!formData.phone) newErrors.phone = "Phone number is required";
@@ -887,15 +900,13 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                         Age *
                       </label>
                       <input
-                        type="number"
+                        type="text"
+                        inputMode="numeric"
                         name="age"
                         value={formData.age}
-                        onChange={(e) => {
-                          handleInputChange(e);
-                          setErrors(prev => ({...prev, age: ''}));
-                        }}
-                        min="1"
-                        max="120"
+                        onChange={(e) => handleInputChange(e)}
+                        maxLength={3}
+                        placeholder="Enter age"
                         className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
                           errors.age ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                         }`}
@@ -1156,14 +1167,16 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                             Age *
                           </label>
                           <input
-                            type="number"
+                            type="text"
+                            inputMode="numeric"
                             value={guest.age}
                             onChange={(e) => {
-                              handleAdditionalGuestChange(index, 'age', e.target.value);
+                              const digitsOnly = e.target.value.replace(/\D/g, "").replace(/^0+/, "").slice(0, 3);
+                              handleAdditionalGuestChange(index, 'age', digitsOnly);
                               setErrors(prev => ({...prev, [`guest${index}Age`]: ''}));
                             }}
-                            min="1"
-                            max="120"
+                            maxLength={3}
+                            placeholder="Enter age"
                             className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
                               errors[`guest${index}Age`] ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                             }`}

@@ -22,6 +22,9 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useGetConversationsQuery } from "@/redux/api/messagesApi";
 
+// Translations
+import { useTranslations, type Lang } from "./translations";
+
 // Page Components
 import PropertyLocationPage from "./PropertyLocationPage";
 import CleaningChecklistPage from "./CleaningChecklistPage";
@@ -302,11 +305,29 @@ useEffect(() => {
 
   const [checklistHavenId, setChecklistHavenId] = useState<string | null>(null);
 
+  const LANG_STORAGE_KEY = "cleaners-lang";
+  const [lang, setLang] = useState<Lang>(() => {
+    if (typeof window !== "undefined") {
+      const saved = window.localStorage.getItem(LANG_STORAGE_KEY);
+      if (saved === "en" || saved === "tl") return saved;
+    }
+    return "en";
+  });
+  const t = useTranslations(lang);
+
+  const toggleLang = () => {
+    const next: Lang = lang === "en" ? "tl" : "en";
+    setLang(next);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(LANG_STORAGE_KEY, next);
+    }
+  };
+
   const navItems = [
-    { id: "my-schedule", icon: Calendar, label: "My Schedule", color: "text-indigo-500" },
-    { id: "cleaning-checklist", icon: CheckSquare, label: "Cleaning Checklist", color: "text-pink-500" },
-    { id: "report-issue", icon: AlertCircle, label: "Report Issue", color: "text-red-500" },
-    { id: "messages", icon: MessageSquare, label: "Messages", color: "text-blue-500", badge: unreadMessageCount > 0 ? unreadMessageCount : undefined },
+    { id: "my-schedule", icon: Calendar, label: t.mySchedule, color: "text-indigo-500" },
+    { id: "cleaning-checklist", icon: CheckSquare, label: t.cleaningChecklist, color: "text-pink-500" },
+    { id: "report-issue", icon: AlertCircle, label: t.reportIssue, color: "text-red-500" },
+    { id: "messages", icon: MessageSquare, label: t.messages, color: "text-blue-500", badge: unreadMessageCount > 0 ? unreadMessageCount : undefined },
   ];
 
   const renderPage = () => {
@@ -327,10 +348,11 @@ useEffect(() => {
               setChecklistHavenId(havenId);
               setPage("cleaning-checklist");
             }}
+            lang={lang}
           />
         );
       case "cleaning-checklist":
-        return <CleaningChecklistPage initialHavenId={checklistHavenId} />;
+        return <CleaningChecklistPage initialHavenId={checklistHavenId} lang={lang} />;
       default:
         return (
           <MySchedulePage
@@ -339,6 +361,7 @@ useEffect(() => {
               setChecklistHavenId(havenId);
               setPage("cleaning-checklist");
             }}
+            lang={lang}
           />
         );
     }
@@ -386,7 +409,7 @@ useEffect(() => {
                   <h1 className="font-bold text-lg text-gray-800 dark:text-gray-100">
                     Staycation Haven
                   </h1>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Cleaners Portal</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{t.cleanersPortal}</p>
                 </div>
               )}
             </div>
@@ -494,7 +517,7 @@ useEffect(() => {
                   className="w-full flex items-center gap-3 px-4 py-3 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all font-medium"
                 >
                   <LogOut className="w-5 h-5" />
-                  <span className="text-sm">Logout</span>
+                  <span className="text-sm">{t.logout}</span>
                 </button>
               </div>
             </div>
@@ -564,14 +587,25 @@ useEffect(() => {
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Language Toggle */}
+            <button
+              onClick={toggleLang}
+              title={lang === "en" ? "Switch to Tagalog" : "Switch to English"}
+              className="flex items-center gap-1 px-2 py-1.5 sm:px-2.5 sm:py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg transition-colors text-xs font-bold border border-gray-200 dark:border-gray-700"
+            >
+              <span className={lang === "en" ? "text-brand-primary" : "text-gray-400 dark:text-gray-500"}>EN</span>
+              <span className="text-gray-300 dark:text-gray-600">|</span>
+              <span className={lang === "tl" ? "text-brand-primary" : "text-gray-400 dark:text-gray-500"}>TL</span>
+            </button>
+
             {/* User Guide */}
             <button
               className="flex items-center gap-1.5 px-2 py-1.5 sm:px-3 sm:py-2 bg-brand-primary/10 hover:bg-brand-primary/20 dark:bg-brand-primary/20 dark:hover:bg-brand-primary/30 text-brand-primary rounded-lg transition-colors"
               onClick={() => setPage("user-guide")}
-              title="User Guide"
+              title={t.userGuide}
             >
               <HelpCircle className="w-4 h-4 flex-shrink-0" />
-              <span className="hidden md:inline text-sm font-medium">User Guide</span>
+              <span className="hidden md:inline text-sm font-medium">{t.userGuide}</span>
             </button>
 
             {/* Notifications */}
@@ -673,7 +707,7 @@ useEffect(() => {
                           className="w-full px-4 py-2.5 flex items-center gap-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-150 text-left"
                         >
                           <User className="w-4 h-4 text-brand-primary" />
-                          <span className="text-sm font-medium">My Profile</span>
+                          <span className="text-sm font-medium">{t.myProfile}</span>
                         </button>
                       </div>
 
@@ -684,7 +718,7 @@ useEffect(() => {
                           className="w-full px-4 py-2.5 flex items-center gap-3 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors duration-150 text-left"
                         >
                           <LogOut className="w-4 h-4" />
-                          <span className="text-sm font-medium">Sign Out</span>
+                          <span className="text-sm font-medium">{t.signOut}</span>
                         </button>
                       </div>
                     </div>
@@ -706,8 +740,8 @@ useEffect(() => {
                   <HelpCircle className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-white">Welcome to Cleaners Portal!</h2>
-                  <p className="text-white/80 text-sm">Let&apos;s get you started</p>
+                  <h2 className="text-lg font-bold text-white">{t.welcomeTitle}</h2>
+                  <p className="text-white/80 text-sm">{t.welcomeSub}</p>
                 </div>
               </div>
             </div>
@@ -715,15 +749,15 @@ useEffect(() => {
             {/* Body */}
             <div className="px-6 py-5 space-y-4">
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Here&apos;s a quick overview of what you can do in this portal:
+                {t.guideOverview}
               </p>
               <ul className="space-y-3">
                 {[
-                  { icon: ClipboardList, color: "text-green-500", label: "My Assignments", desc: "View and manage your cleaning tasks" },
-                  { icon: Calendar, color: "text-indigo-500", label: "My Schedule", desc: "Check your daily and upcoming schedule" },
-                  { icon: CheckSquare, color: "text-pink-500", label: "Cleaning Checklist", desc: "Follow step-by-step cleaning procedures" },
-                  { icon: MapPin, color: "text-purple-500", label: "Property Locations", desc: "Find assigned property details" },
-                  { icon: AlertCircle, color: "text-red-500", label: "Report Issue", desc: "Report problems or damages instantly" },
+                  { icon: ClipboardList, color: "text-green-500", label: t.guideMyAssignments, desc: t.guideMyAssignmentsDesc },
+                  { icon: Calendar, color: "text-indigo-500", label: t.guideMySchedule, desc: t.guideMyScheduleDesc },
+                  { icon: CheckSquare, color: "text-pink-500", label: t.guideCleaningChecklist, desc: t.guideCleaningChecklistDesc },
+                  { icon: MapPin, color: "text-purple-500", label: t.guidePropertyLocations, desc: t.guidePropertyLocationsDesc },
+                  { icon: AlertCircle, color: "text-red-500", label: t.guideReportIssue, desc: t.guideReportIssueDesc },
                 ].map(({ icon: Icon, color, label, desc }) => (
                   <li key={label} className="flex items-start gap-3">
                     <Icon className={`w-4 h-4 mt-0.5 flex-shrink-0 ${color}`} />
@@ -746,7 +780,7 @@ useEffect(() => {
                 }}
                 className="flex-1 px-4 py-2.5 bg-brand-primary hover:bg-brand-primaryDark text-white text-sm font-semibold rounded-lg transition-colors"
               >
-                Open Full Guide
+                {t.openFullGuide}
               </button>
               <button
                 onClick={() => {
@@ -755,7 +789,7 @@ useEffect(() => {
                 }}
                 className="flex-1 px-4 py-2.5 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-semibold rounded-lg transition-colors"
               >
-                Got it, Skip
+                {t.skipGuide}
               </button>
             </div>
           </div>

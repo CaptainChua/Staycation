@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import React, { useEffect, useState, useCallback } from "react";
 import toast from "react-hot-toast";
+import { useTranslations, type Lang } from "./translations";
 
 type Task = {
   id: string;
@@ -44,9 +45,11 @@ type Haven = {
 interface Props {
   /** Passed from MySchedulePage when "Start Cleaning" is clicked */
   initialHavenId?: string | null;
+  lang?: Lang;
 }
 
-export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
+export default function CleaningChecklistPage({ initialHavenId, lang = "en" }: Props = {}) {
+  const t = useTranslations(lang);
   const [havens, setHavens] = useState<Haven[]>([]);
   const [selectedHavenId, setSelectedHavenId] = useState<string | null>(null);
   const [isHavensLoading, setIsHavensLoading] = useState<boolean>(false);
@@ -245,10 +248,10 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
       <div className="space-y-6 animate-in fade-in duration-700">
         <div>
           <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
-            Cleaning Checklist
+            {t.checklistTitle}
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Complete cleaning tasks for your assigned haven
+            {t.checklistSubtitle}
           </p>
         </div>
 
@@ -257,14 +260,14 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
             <AlertCircle className="w-12 h-12 text-blue-500 dark:text-blue-400" />
           </div>
           <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">
-            No Task Selected
+            {t.noTaskSelected}
           </h2>
           <p className="text-gray-500 dark:text-gray-400 max-w-md">
-            Go to{" "}
-            <span className="font-semibold text-gray-700 dark:text-gray-200">My Schedule</span> and
-            tap{" "}
-            <span className="font-semibold text-brand-primary">Start Cleaning</span> on your
-            assigned haven to begin the checklist.
+            {t.noTaskMsg}{" "}
+            <span className="font-semibold text-gray-700 dark:text-gray-200">{t.noTaskDesc1}</span>{" "}
+            {t.noTaskMsg2}{" "}
+            <span className="font-semibold text-brand-primary">{t.noTaskDesc2}</span>{" "}
+            {t.noTaskMsg3}
           </p>
         </div>
       </div>
@@ -276,10 +279,10 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
       {/* Header */}
       <div>
         <h1 className="text-xl sm:text-2xl font-bold text-gray-800 dark:text-gray-100">
-          Cleaning Checklist
+          {t.checklistTitle}
         </h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Complete cleaning tasks for your assigned haven
+          {t.checklistSubtitle}
         </p>
       </div>
 
@@ -299,18 +302,18 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
             {selectedHaven.guestName && (
               <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
                 <User className="w-4 h-4" />
-                <span>Guest: {selectedHaven.guestName}</span>
+                <span>{t.guest} {selectedHaven.guestName}</span>
               </div>
             )}
             {selectedHaven.checkOutDate && (
               <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
                 <CalendarCheck className="w-4 h-4" />
-                <span>Checked out: {selectedHaven.checkOutDate}</span>
+                <span>{t.checkedOut} {selectedHaven.checkOutDate}</span>
               </div>
             )}
             {selectedHaven.bookingId && (
               <div className="text-xs text-gray-400 dark:text-gray-500">
-                Booking #{selectedHaven.bookingId}
+                {t.bookingHash}{selectedHaven.bookingId}
               </div>
             )}
           </div>
@@ -322,10 +325,9 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
         <div className="flex items-start gap-3 bg-sky-50 dark:bg-sky-900/20 border border-sky-300 dark:border-sky-700 rounded-lg p-4">
           <AlertCircle className="w-5 h-5 text-sky-500 flex-shrink-0 mt-0.5" />
           <div>
-            <p className="text-sm font-semibold text-sky-700 dark:text-sky-300">Guest has not checked out yet</p>
+            <p className="text-sm font-semibold text-sky-700 dark:text-sky-300">{t.upcomingTitle}</p>
             <p className="text-xs text-sky-600 dark:text-sky-400 mt-0.5">
-              You can preview the checklist to prepare, but cleaning tasks will be unlocked after the guest checks out on{" "}
-              <span className="font-semibold">{selectedHaven.checkOutDate}</span>.
+              {t.upcomingMsg(selectedHaven.checkOutDate ?? "")}
             </p>
           </div>
         </div>
@@ -336,13 +338,13 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">
-              Overall Progress
+              {t.overallProgress}
             </h2>
             <p className="text-sm text-gray-500 dark:text-gray-400">
               <span className="font-semibold text-brand-primary text-base">
                 {completedTasks}/{totalTasks}
               </span>{" "}
-              tasks completed
+              {t.tasksCompleted}
             </p>
           </div>
           <div className="text-right">
@@ -425,7 +427,7 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
                         {category.category}
                       </h3>
                       <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {categoryCompleted} of {categoryTotal} completed
+                        {t.ofCompleted(categoryCompleted, categoryTotal)}
                       </p>
                     </div>
                   </div>
@@ -469,11 +471,11 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
 
       {/* Action / Status */}
       {!selectedHaven?.isUpcoming && <div className="flex flex-col sm:flex-row gap-3 items-center">
-        <p className="text-sm text-gray-500 flex-1 text-center sm:text-left">Changes are saved automatically</p>
+        <p className="text-sm text-gray-500 flex-1 text-center sm:text-left">{t.autoSave}</p>
         {canComplete && progress === 100 && (
           <div className="flex items-center gap-2 text-green-600 dark:text-green-400 font-semibold text-sm">
             <CheckCircle2 className="w-5 h-5" />
-            All tasks complete!
+            {t.allDone}
           </div>
         )}
 
@@ -505,7 +507,7 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
             }}
             className="flex-1 sm:flex-none w-full sm:w-auto bg-brand-primary text-white font-semibold rounded-lg px-4 py-2.5 hover:bg-brand-primary/90 transition-colors"
           >
-            Confirm & Finish
+            {t.confirmFinish}
           </button>
         )}
       </div>}
