@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
+import type { Metadata, MetadataRoute } from "next";
 import { Inter, Poppins } from "next/font/google";
 import "./globals.css";
+import { Providers } from '@/Components/Providers'
 import { Providers } from '@/Components/Providers'
 
 const inter = Inter({
@@ -150,6 +152,92 @@ const websiteSchema = {
     "target": "https://www.staycationhavenph.com/search?q={search_term_string}",
     "query-input": "required name=search_term_string"
   }
+  title: {
+    default: "Staycation Haven PH | Premium Short-Term Stays & Vacation Rentals",
+    template: "Staycation Haven PH | %s"
+  },
+  description: "Discover premium staycation havens across the Philippines. Book luxurious short-term stays, vacation rentals, and getaways with modern amenities. Perfect for couples, families, and business travelers.",
+  keywords: [
+    "staycation Philippines",
+    "short-term rentals Philippines",
+    "staycation quezon city",
+    "staycation haven ph", 
+    "staycation haven", 
+    "staycation qc", 
+    "vacation rentals",
+    "luxury stays",
+    "holiday homes",
+    "temporary accommodation",
+    "Manila staycation",
+    "Quezon city vacation rentals",
+    "Quezon city stays",
+    "Quezon city getaways",
+    "condotel booking",
+    "apartment rentals",
+    "beachfront stays",
+    "city view accommodations",
+    "family vacation",
+    "couple retreat",
+    "business travel accommodation"
+  ],
+  authors: [{ name: "Staycation Haven" }],
+  creator: "Staycation Haven",
+  publisher: "Staycation Haven",
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': 150,
+    },
+  },
+  openGraph: {
+    type: 'website',
+    locale: 'en_US',
+    url: 'https://www.staycationhavenph.com',
+    title: 'Staycation Haven Philippines | Premium Short-Term Stays & Vacation Rentals',
+    description: 'Discover premium staycation havens across the Philippines. Book luxurious short-term stays, vacation rentals, and getaways with modern amenities.',
+    siteName: 'Staycation Haven Philippines',
+    images: [
+      {
+        url: '/Images/bg.jpg',
+        width: 1200,
+        height: 630,
+        alt: 'Staycation Haven Philippines - Premium Vacation Rentals',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Staycation Haven Philippines | Premium Short-Term Stays & Vacation Rentals',
+    description: 'Discover premium staycation havens across the Philippines. Book luxurious short-term stays, vacation rentals, and getaways.',
+    images: ['/Images/bg.jpg'],
+  },
+  alternates: {
+    canonical: 'https://www.staycationhavenph.com',
+    languages: {
+      'en-US': 'https://www.staycationhavenph.com',
+      'en-PH': 'https://www.staycationhavenph.com',
+    },
+  },
+  category: 'travel',
+  classification: 'Travel and Tourism',
+  referrer: 'origin-when-cross-origin',
+  icons: {
+    icon: [
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/favicon-16x16v2.png', sizes: '16x16', type: 'image/png' },
+      { url: '/favicon-32x32v2.png', sizes: '32x32', type: 'image/png' },
+      { url: '/android-chrome-196x196v2.png', sizes: '196x196', type: 'image/png' },
+      { url: '/android-chrome-512x512v2.png', sizes: '512x512', type: 'image/png' },
+    ],
+    apple: [
+      { url: '/apple-touch-iconv2.png', sizes: '180x180', type: 'image/png' },
+    ],
+  },
 };
 
 export default function RootLayout({

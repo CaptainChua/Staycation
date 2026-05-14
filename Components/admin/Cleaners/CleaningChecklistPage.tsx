@@ -38,7 +38,6 @@ type Haven = {
   guestName?: string;
   checkOutDate?: string;
   cleaningStatus?: string;
-  isUpcoming?: boolean;
 };
 
 interface Props {
@@ -65,95 +64,36 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
     General: Sparkles,
   };
 
-  // Fetch havens on mount (only checked-out ones that need cleaning)
-  useEffect(() => {
-    let mounted = true;
-
-    const fetchHavens = async () => {
-      setIsHavensLoading(true);
-      try {
-        const url = initialHavenId
-          ? `/api/admin/cleaners/havens?include_id=${encodeURIComponent(initialHavenId)}`
-          : "/api/admin/cleaners/havens";
-        const res = await fetch(url, { cache: "no-store" });
-        const data = await res.json();
-        if (!mounted) return;
-        if (Array.isArray(data)) {
-          setHavens(data);
-          if (data.length > 0) {
-            // Priority: initialHavenId prop → currently selected → first in list
-            const preferred =
-              initialHavenId
-                ? data.find((h: Haven) => String(h.id) === String(initialHavenId))
-                : null;
-
-            const stillExists = !preferred && selectedHavenId
-              ? data.find((h: Haven) => h.id === selectedHavenId)
-              : null;
-
-            const target = preferred ?? stillExists ?? data[0];
-            setSelectedHavenId(target.id);
-            setSelectedHaven(target);
-          } else {
-            setSelectedHavenId(null);
-            setSelectedHaven(null);
-          }
-        } else {
-          toast.error("Failed to load havens");
+  // Fetch checklist for the haven passed via prop (set by MySchedulePage → Start Cleaning)
+  const fetchChecklist = useCallback(async (havenId: string) => {
+    setIsLoading(true);
+    try {
+      const res = await fetch(
+        `/api/admin/cleaners?haven_id=${encodeURIComponent(havenId)}`,
+        { cache: "no-store" },
+      );
+      const payload = await res.json();
+      if (res.ok && payload.success && payload.data?.checklist) {
+        const { checklist } = payload.data;
+        setChecklistId(checklist.id);
+        setChecklist(checklist.categories || []);
+        // Use haven info if the API returns it alongside the checklist
+        if (payload.data.haven) {
+          setSelectedHaven(payload.data.haven);
         }
-      } catch (err) {
-        console.error("Failed to fetch havens", err);
-        toast.error("Failed to load havens");
-      } finally {
-        setIsHavensLoading(false);
+      } else {
+        throw new Error(payload.error || "Failed to load checklist");
       }
-    };
-
-    fetchHavens();
-
-    return () => {
-      mounted = false;
-    };
+    } catch (err) {
+      console.error("Failed to fetch checklist", err);
+      setChecklist([]);
+      setChecklistId(null);
+      const message = err instanceof Error ? err.message : String(err);
+      toast.error(message || "Failed to load checklist");
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
-
-  // Fetch checklist for a haven
-  const fetchChecklist = useCallback(
-    async (havenId: string) => {
-      setIsLoading(true);
-      try {
-        const res = await fetch(
-          `/api/admin/cleaners?haven_id=${encodeURIComponent(havenId)}`,
-          {
-            cache: "no-store",
-          },
-        );
-        const payload = await res.json();
-        if (res.ok && payload.success && payload.data?.checklist) {
-          const { checklist } = payload.data;
-          setChecklistId(checklist.id);
-          setChecklist(checklist.categories || []);
-          // Use haven info if the API returns it alongside the checklist
-          if (payload.data.haven) {
-            setSelectedHaven(payload.data.haven);
-          } else {
-            const found = havens.find((h) => h.id === checklist.haven_id);
-            if (found) setSelectedHaven(found);
-          }
-        } else {
-          throw new Error(payload.error || "Failed to load checklist");
-        }
-      } catch (err) {
-        console.error("Failed to fetch checklist", err);
-        setChecklist([]);
-        setChecklistId(null);
-        const message = err instanceof Error ? err.message : String(err);
-        toast.error(message || "Failed to load checklist");
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [havens]
-  );
 
   // Separately fetch haven info for the booking card (in case checklist endpoint doesn't return it)
   const fetchHavenInfo = useCallback(async (havenId: string) => {
@@ -170,9 +110,9 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
   }, []);
 
   useEffect(() => {
-    if (selectedHavenId) {
-      fetchChecklist(selectedHavenId);
-      fetchHavenInfo(selectedHavenId);
+    if (initialHavenId) {
+      fetchChecklist(initialHavenId);
+      fetchHavenInfo(initialHavenId);
     } else {
       setChecklist([]);
       setChecklistId(null);
@@ -183,6 +123,7 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
   const toggleTask = async (taskId: string) => {
     let newCompleted = false;
 
+    // Optimistically update UI
     setChecklist((prev) =>
       prev.map((category: Category) => ({
         ...category,
@@ -332,7 +273,7 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
       )}
 
       {/* Progress Overview */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-4 sm:p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-6">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">
@@ -355,7 +296,7 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
               progress === 100 ? "bg-green-500" : "bg-brand-primary"
             }`}
             style={{ width: `${progress}%` }}
-          />
+          ></div>
         </div>
       </div>
 
@@ -364,34 +305,75 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
       <div className="space-y-4">
         {isLoading && (
           <div aria-busy="true" aria-live="polite" className="space-y-4">
+            {/* Progress skeleton */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <Skeleton className="h-5 w-40 rounded mb-2" label="Loading progress title" />
-                  <Skeleton className="h-3 w-28 rounded" label="Loading progress detail" />
+                  <Skeleton
+                    className="h-5 w-40 rounded mb-2"
+                    label="Loading progress title"
+                  />
+                  <Skeleton
+                    className="h-3 w-28 rounded"
+                    label="Loading progress detail"
+                  />
                 </div>
-                <Skeleton className="h-10 w-14 rounded" label="Loading progress number" />
+                <Skeleton
+                  className="h-10 w-14 rounded"
+                  label="Loading progress number"
+                />
               </div>
-              <Skeleton className="h-3 w-3/5 rounded-full" label="Loading progress bar" />
+              <div className="w-full">
+                <Skeleton
+                  className="h-3 w-3/5 rounded-full"
+                  label="Loading progress bar"
+                />
+              </div>
             </div>
 
+            {/* Category skeletons */}
             {[1, 2, 3].map((i) => (
-              <div key={i} className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+              <div
+                key={i}
+                className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6"
+              >
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
-                    <Skeleton className="w-10 h-10 rounded-lg" label="Loading category icon" />
+                    <Skeleton
+                      className="w-10 h-10 rounded-lg"
+                      label="Loading category icon"
+                    />
                     <div>
-                      <Skeleton className="h-4 w-32 rounded mb-1" label="Loading category name" />
-                      <Skeleton className="h-3 w-20 rounded" label="Loading category meta" />
+                      <Skeleton
+                        className="h-4 w-32 rounded mb-1"
+                        label="Loading category name"
+                      />
+                      <Skeleton
+                        className="h-3 w-20 rounded"
+                        label="Loading category meta"
+                      />
                     </div>
                   </div>
-                  <Skeleton className="h-6 w-12 rounded" label="Loading category stat" />
+                  <Skeleton
+                    className="h-6 w-12 rounded"
+                    label="Loading category stat"
+                  />
                 </div>
+
                 <div className="space-y-2">
                   {[1, 2, 3, 4].map((t) => (
-                    <div key={t} className="flex items-center gap-3 p-3 rounded-lg">
-                      <Skeleton className="w-5 h-5 rounded-full" label="Loading task icon" />
-                      <Skeleton className="h-4 w-full rounded" label="Loading task" />
+                    <div
+                      key={t}
+                      className="flex items-center gap-3 p-3 rounded-lg"
+                    >
+                      <Skeleton
+                        className="w-5 h-5 rounded-full"
+                        label="Loading task icon"
+                      />
+                      <Skeleton
+                        className="h-4 w-full rounded"
+                        label="Loading task"
+                      />
                     </div>
                   ))}
                 </div>
@@ -399,12 +381,14 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
             ))}
           </div>
         )}
-
         {!isLoading &&
           checklist.map((category: Category) => {
             const CategoryIcon =
-              (iconMap as Record<string, typeof Sparkles>)[category.category] ?? Sparkles;
-            const categoryCompleted = category.tasks.filter((t) => t.completed).length;
+              (iconMap as Record<string, typeof Sparkles>)[category.category] ??
+              Sparkles;
+            const categoryCompleted = category.tasks.filter(
+              (t) => t.completed,
+            ).length;
             const categoryTotal = category.tasks.length;
             const categoryProgress = Math.round(
               (categoryCompleted / Math.max(1, categoryTotal)) * 100,
@@ -508,7 +492,13 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
             Confirm & Finish
           </button>
         )}
-      </div>}
+      </div>
+
+      {progress < 100 && (
+        <p className="text-xs text-gray-500 mt-2">
+          Complete all tasks to enable submission.
+        </p>
+      )}
     </div>
   );
 }
