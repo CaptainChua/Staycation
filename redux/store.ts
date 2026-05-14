@@ -1,7 +1,15 @@
 import { configureStore } from "@reduxjs/toolkit";
 import { setupListeners } from "@reduxjs/toolkit/query";
 import { persistStore, persistReducer } from "redux-persist";
-import storage from "redux-persist/lib/storage";
+import createWebStorage from "redux-persist/lib/storage/createWebStorage";
+
+const createNoopStorage = () => ({
+  getItem: (_key: string) => Promise.resolve(null),
+  setItem: (_key: string, value: unknown) => Promise.resolve(value),
+  removeItem: (_key: string) => Promise.resolve(),
+});
+
+const storage = typeof window !== "undefined" ? createWebStorage("local") : createNoopStorage();
 import bookingReducer from "./slices/bookingSlice";
 import { employeeApi } from "./api/employeeApi";
 import { roomApi } from "./api/roomApi";
