@@ -433,114 +433,91 @@ export const authOptions: NextAuthOptions = {
     },
 
     async jwt({ token, user }) {
-      if (user) {
-        token.id = user.id;
-        token.role = (user as { role?: string }).role;
-        console.log("✅ JWT token created with role:", (user as { role?: string }).role);
-        
-        // For OAuth users (no role), fetch and store the database user_id and provider IDs
-        if (!token.role && user.email) {
-          try {
-            console.log("🔵 Fetching OAuth user database info for:", user.email);
-            const result = await pool.query(
-              "SELECT user_id, facebook_id, google_id FROM users WHERE email = $1",
-              [user.email]
-            );
-            
-            if (result.rows[0]) {
-              token.db_id = result.rows[0].user_id;
-              token.facebook_id = result.rows[0].facebook_id;
-              token.google_id = result.rows[0].google_id;
-              console.log("✅ Stored in JWT - DB ID:", token.db_id, "Facebook ID:", token.facebook_id, "Google ID:", token.google_id);
+      try {
+        if (user) {
+          token.id = user.id;
+          token.role = (user as { role?: string }).role;
+          console.log("✅ JWT token created with role:", (user as { role?: string }).role);
+
+          // For OAuth users (no role), fetch and store DB user_id and provider IDs
+          if (!token.role && user.email) {
+            try {
+              const result = await pool.query(
+                "SELECT user_id, facebook_id, google_id FROM users WHERE email = $1",
+                [user.email]
+              );
+              if (result.rows[0]) {
+                token.db_id = result.rows[0].user_id;
+                token.facebook_id = result.rows[0].facebook_id;
+                token.google_id = result.rows[0].google_id;
+              }
+            } catch (error) {
+              console.error("❌ Error fetching OAuth user IDs in JWT:", error);
             }
-          } catch (error) {
-            console.error("❌ Error fetching OAuth user IDs in JWT:", error);
           }
         }
+      } catch (error) {
+        // Always return the token so the route never throws and returns HTML
+        console.error("❌ Unhandled error in JWT callback:", error);
       }
       return token;
     },
     
     async session({ session, token }) {
-      if (session.user) {
-        // ALWAYS fetch the latest user data from the database to ensure fresh data
-        try {
-          const userEmail = session.user.email;
-          const result = await pool.query(
-            "SELECT user_id, name, email, picture FROM users WHERE email = $1",
-            [userEmail]
-          );
+      try {
+        if (session.user) {
+          // Read from JWT token — no DB query on every session poll.
+          // User data is written into the token at sign-in (jwt callback) and
+          // persisted in the encrypted cookie, so it's always available here.
+          if (token.name) session.user.name = token.name as string;
+          if (token.picture) session.user.image = token.picture as string;
 
-          if (result.rows[0]) {
-            const dbUser = result.rows[0];
-            // Update session with latest data from database
-            session.user.name = dbUser.name;
-            session.user.email = dbUser.email;
-            if (dbUser.picture) {
-              session.user.image = dbUser.picture;
-            }
-            session.user.id = dbUser.user_id;
-            console.log("✅ Session refreshed with latest data from DB - Name:", dbUser.name);
+          // Priority 1: DB user_id already cached in JWT
+          if (token.db_id) {
+            session.user.id = typeof token.db_id === 'string' ? token.db_id : String(token.db_id);
           }
-        } catch (error) {
-          console.error("⚠️ Error fetching fresh user data in session callback:", error);
-          // Continue with existing token data if DB query fails
-        }
-
-        // Priority 1: Use the database user_id stored in JWT (fastest path)
-        if (token.db_id) {
-          // Ensure db_id is converted to string properly
-          const dbIdStr = typeof token.db_id === 'string' ? token.db_id : String(token.db_id);
-          session.user.id = dbIdStr;
-        }
-        // Priority 2: For OAuth users (Google or Facebook) without stored DB ID
-        // Check if token.role is 'google' or 'facebook' OR token.sub exists
-        else if (token.sub && (token.role === 'google' || token.role === 'facebook' || token.role === 'haven')) {
-          try {
-            console.log("🔍 OAuth user detected, querying for user ID using token.sub:", token.sub, "role:", token.role);
-            
-            // Try Google ID first
-            let result = await pool.query(
-              "SELECT user_id FROM users WHERE google_id = $1",
-              [token.sub]
-            );
-
-            // If not found as Google user, try Facebook ID
-            if (!result.rows[0]) {
-              console.log("⚠️ Not found by Google ID, trying Facebook ID:", token.sub);
-              result = await pool.query(
-                "SELECT user_id FROM users WHERE facebook_id = $1",
+          // Priority 2: OAuth users — look up once and cache in token.db_id
+          else if (token.sub && (token.role === 'google' || token.role === 'facebook' || token.role === 'haven')) {
+            try {
+              let result = await pool.query(
+                "SELECT user_id FROM users WHERE google_id = $1",
                 [token.sub]
               );
-            }
-
-            // If found, use the database UUID
-            if (result.rows[0]) {
-              const userId = result.rows[0].user_id;
-              const userIdStr = typeof userId === 'string' ? userId : String(userId);
-              session.user.id = userIdStr;
-            } else {
-              // Fallback to token sub if user not found in DB (shouldn't happen if upsert worked)
-              console.warn("⚠️ User not found in database by provider ID, using token.sub:", token.sub);
+              if (!result.rows[0]) {
+                result = await pool.query(
+                  "SELECT user_id FROM users WHERE facebook_id = $1",
+                  [token.sub]
+                );
+              }
+              if (result.rows[0]) {
+                const userId = result.rows[0].user_id;
+                session.user.id = typeof userId === 'string' ? userId : String(userId);
+                token.db_id = session.user.id;
+              } else {
+                session.user.id = token.sub!;
+              }
+            } catch (error) {
+              console.error("❌ Error fetching user ID in session callback:", error);
               session.user.id = token.sub!;
             }
-          } catch (error) {
-            console.error("❌ Error fetching user ID in session callback:", error);
-            session.user.id = token.sub!;
+          }
+          // Priority 3: Credential users (employees / regular users with role)
+          else {
+            session.user.id = (token.id as string) || token.sub!;
+          }
+
+          if (token.role) {
+            (session.user as { role?: string }).role = token.role as string;
           }
         }
-        // Priority 3: For credential users (employees or regular users with role), use token.id or token.sub
-        else if (token.role && token.role !== 'google' && token.role !== 'facebook' && token.role !== 'haven') {
-          session.user.id = token.id || token.sub!;
-        }
-        // Priority 4: Fallback to token.sub or token.id
-        else {
-          session.user.id = token.id || token.sub!;
-        }
-
-        // Add role if available
-        if (token.role) {
-          (session.user as { role?: string }).role = token.role as string;
+      } catch (error) {
+        // Always return JSON — never let this throw and produce an HTML error page
+        console.error("❌ Unhandled error in session callback:", error);
+        if (session.user) {
+          session.user.id = (token.id as string) || token.sub!;
+          if (token.role) {
+            (session.user as { role?: string }).role = token.role as string;
+          }
         }
       }
       return session;
