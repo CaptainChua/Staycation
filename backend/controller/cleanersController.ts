@@ -122,11 +122,12 @@ export const getAllCleaningTasks = async (
         LEFT JOIN booking_guests bg ON bg.booking_id = b.id
         LEFT JOIN employees e ON bc.assigned_to::text = e.id::text
         LEFT JOIN booking_security_deposits sd ON sd.booking_id = b.id
+        WHERE b.status NOT IN ('rejected', 'cancelled')
     `;
     const values: string[] = [];
 
     if (status) {
-      query += ` WHERE bc.cleaning_status = $1`;
+      query += ` AND bc.cleaning_status = $1`;
       values.push(status);
     }
 

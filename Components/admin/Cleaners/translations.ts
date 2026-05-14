@@ -102,7 +102,9 @@ const translations = {
     cancelBtn: "Cancel",
     confirmCollected: "Confirm Collected",
     processing: "Processing...",
-    collectFromGuest: "Collect from Guest",
+    collectFromGuest: "Need to Collect from Guest",
+    calDepositLabel: "Collect Money",
+    calCleanLabel: "Start Cleaning",
   },
   tl: {
     // Nav
@@ -205,7 +207,9 @@ const translations = {
     cancelBtn: "Kanselahin",
     confirmCollected: "Nakuha Na, I-confirm",
     processing: "Sandali lang...",
-    collectFromGuest: "Kunin sa Bisita",
+    collectFromGuest: "Kailangan Kunin sa Bisita",
+    calDepositLabel: "Kumuha ng Bayad",
+    calCleanLabel: "Maglinis Na",
   },
 } as const;
 

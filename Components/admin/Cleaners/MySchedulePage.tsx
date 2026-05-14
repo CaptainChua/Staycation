@@ -191,21 +191,32 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning,
   const [depositProofFile, setDepositProofFile] = useState<File | null>(null);
   const [depositProofPreview, setDepositProofPreview] = useState<string | null>(null);
   const [isConfirmingDeposit, setIsConfirmingDeposit] = useState(false);
+  const [isDepositEditMode, setIsDepositEditMode] = useState(false);
+  const [existingProofUrl, setExistingProofUrl] = useState<string | null>(null);
   const [depositErrors, setDepositErrors] = useState<Record<string, string>>({});
   const depositProofInputRef = useRef<HTMLInputElement>(null);
   const depositModalBodyRef = useRef<HTMLDivElement>(null);
   const taskPanelRef = useRef<HTMLDivElement>(null);
   const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
 
-  const openDepositModal = (a: any) => {
+  const openDepositModal = (a: any, isEdit = false) => {
     setDepositModalTask(a);
+    setIsDepositEditMode(isEdit);
     setDepositPaymentMethod("cash");
     const defaultAmt = Number(a.security_deposit) > 0 ? String(Number(a.security_deposit)) : "1000";
     setDepositAmountReceived(defaultAmt);
     setDepositReferenceNumber("");
     setDepositProofFile(null);
     setDepositProofPreview(null);
+    setExistingProofUrl(null);
     setDepositErrors({});
+
+    if (isEdit && a.booking_uuid) {
+      fetch(`/api/admin/cleaners/deposit-proof?booking_uuid=${encodeURIComponent(a.booking_uuid)}`)
+        .then(r => r.json())
+        .then(data => { if (data.success && data.url) setExistingProofUrl(data.url); })
+        .catch(() => {});
+    }
     fetch("/api/payment-methods")
       .then(r => r.json())
       .then(data => setPaymentMethods(Array.isArray(data.data) ? data.data.filter((m: any) => m.is_active) : []))
@@ -247,7 +258,7 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning,
     if (depositPaymentMethod !== "cash" && !depositReferenceNumber.trim()) {
       errs.reference = "Please enter the reference number for this payment.";
     }
-    if (!depositProofFile) {
+    if (!depositProofFile && !existingProofUrl) {
       errs.proof = "Please upload a proof of payment before confirming.";
     }
     if (Object.keys(errs).length > 0) {
@@ -546,15 +557,20 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning,
               const effectiveStatus = dateSchedule?.effectiveStatus || "pending";
               const dayType         = dateSchedule?.dayType;
               const badge           = getStatusBadge(effectiveStatus);
-              // Only count assignments whose checkout date is this specific day
-              const taskCount       = dateSchedule?.assignments.filter((a: any) =>
-                a.check_out_date ? isSameDay(toLocalMidnight(a.check_out_date), date) : true
+              // Count checkout (clean) tasks and checkin (deposit) tasks separately
+              const cleanCount    = dateSchedule?.assignments.filter((a: any) =>
+                a.check_out_date && isSameDay(toLocalMidnight(a.check_out_date), date)
               ).length ?? 0;
+              const depositCount  = dateSchedule?.assignments.filter((a: any) =>
+                a.check_in_date && isSameDay(toLocalMidnight(a.check_in_date), date) &&
+                !(a.check_out_date && isSameDay(toLocalMidnight(a.check_out_date), date))
+              ).length ?? 0;
+              const taskCount     = cleanCount + depositCount;
 
               const isMiddleDay   = hasTask && dayType === "middle";
               const isCheckOutDay = hasTask && (dayType === "checkOut" || dayType === "both");
 
-              // Show task badge only when there are actual checkout tasks this day
+              // Show task badge only when there are actual tasks this day
               const showTaskBadges = taskCount > 0;
 
               const cellClasses = [
@@ -612,12 +628,12 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning,
                   }}
                   className={cellClasses}
                   style={cellStyle}
-                  title={hasTask ? `${taskCount} task${taskCount !== 1 ? "s" : ""} · ${badge.label}` : ""}
+                  title={hasTask ? `${depositCount > 0 ? `${depositCount} deposit` : ""}${depositCount > 0 && cleanCount > 0 ? " · " : ""}${cleanCount > 0 ? `${cleanCount} cleaning` : ""}` : ""}
                 >
                   {/* Task count badge — hidden on middle days */}
                   {showTaskBadges && !isSelected && !isToday && taskCount > 0 && (
                     <>
-                      <div className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 bg-white dark:bg-gray-800 border-2 border-current rounded-full text-[10px] font-black flex items-center justify-center z-30 shadow-sm leading-none">
+                      <div className="absolute -top-2 -right-2 min-w-[22px] h-[22px] px-1 bg-white dark:bg-gray-800 border-2 border-current rounded-full text-xs font-black flex items-center justify-center z-30 shadow-md leading-none">
                         {taskCount}
                       </div>
                       <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg backdrop-blur-sm" />
@@ -631,16 +647,33 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning,
                     {dayAbbr}
                   </div>
 
-                  {/* Task count + label pill, hidden on middle days */}
-                  {showTaskBadges && !isSelected && !isToday && taskCount > 0 && (
-                    <div
-                      className="flex items-center gap-0.5 leading-none mt-1 px-1.5 py-0.5 rounded-md shadow-sm whitespace-nowrap"
-                      style={{ backgroundColor: "#fafafa", color: "#df1010" }}
-                    >
-                      <span className="text-sm font-black leading-none">{taskCount}</span>
-                      <span className="text-[11px] font-black leading-none">
-                        {taskCount === 1 ? "task" : "tasks"}
-                      </span>
+                  {/* Task indicators */}
+                  {showTaskBadges && !isSelected && !isToday && (
+                    <div className="flex flex-col items-center gap-0.5 mt-0.5">
+                      {/* Mobile: small colored dots only */}
+                      <div className="flex items-center gap-0.5 sm:hidden">
+                        {depositCount > 0 && <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: "#4338ca" }} />}
+                        {cleanCount > 0 && <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: "#15803d" }} />}
+                      </div>
+                      {/* Desktop: full pill labels */}
+                      <div className="hidden sm:flex flex-col items-center gap-0.5">
+                        {depositCount > 0 && (
+                          <div
+                            className="flex items-center gap-0.5 leading-none px-1 py-0.5 rounded-md shadow-sm whitespace-nowrap"
+                            style={{ backgroundColor: "#e0e7ff", color: "#4338ca" }}
+                          >
+                            <span className="text-[9px] font-black leading-none">💰 {t.calDepositLabel}</span>
+                          </div>
+                        )}
+                        {cleanCount > 0 && (
+                          <div
+                            className="flex items-center gap-0.5 leading-none px-1 py-0.5 rounded-md shadow-sm whitespace-nowrap"
+                            style={{ backgroundColor: "#dcfce7", color: "#15803d" }}
+                          >
+                            <span className="text-[9px] font-black leading-none">🧹 {t.calCleanLabel}</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
 
@@ -769,7 +802,7 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning,
                             {t.depositCollected}
                           </div>
                           <button
-                            onClick={() => openDepositModal(a)}
+                            onClick={() => openDepositModal(a, true)}
                             className="flex items-center justify-center gap-1 py-2 px-3 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 text-xs font-semibold transition-colors"
                           >
                             <Pencil className="w-3.5 h-3.5" /> Edit
@@ -1090,35 +1123,31 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning,
               )}
 
               {/* Upload Proof — styled like Cleaning Checklist */}
-              <div className={`rounded-lg border-2 p-4 sm:p-5 ${depositProofFile ? "border-green-400 dark:border-green-600" : depositErrors.proof ? "border-red-500" : "border-amber-400 dark:border-amber-600"}`}>
+              <div className={`rounded-lg border-2 p-4 sm:p-5 ${depositProofFile || existingProofUrl ? "border-green-400 dark:border-green-600" : depositErrors.proof ? "border-red-500" : "border-amber-400 dark:border-amber-600"}`}>
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
-                    <div className={`p-3 rounded-lg ${depositProofFile ? "bg-green-500" : "bg-amber-500"} text-white`}>
+                    <div className={`p-3 rounded-lg ${depositProofFile || existingProofUrl ? "bg-green-500" : "bg-amber-500"} text-white`}>
                       <ShieldCheck className="w-5 h-5" />
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
                         <h3 className="font-bold text-gray-800 dark:text-gray-100 text-sm">{t.uploadProofTitle}</h3>
-                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">{t.uploadProofRequired}</span>
+                        {depositProofFile || existingProofUrl ? (
+                          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Attached</span>
+                        ) : (
+                          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">{t.uploadProofRequired}</span>
+                        )}
                       </div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{t.uploadProofSub}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        {isDepositEditMode ? "Previously uploaded proof shown below. Upload new to replace." : t.uploadProofSub}
+                      </p>
                     </div>
                   </div>
-                  {depositProofFile && <CheckCircle2 className="w-6 h-6 text-green-500 flex-shrink-0" />}
+                  {(depositProofFile || existingProofUrl) && <CheckCircle2 className="w-6 h-6 text-green-500 flex-shrink-0" />}
                 </div>
 
-                {!depositProofFile ? (
-                  <button
-                    type="button"
-                    onClick={() => depositProofInputRef.current?.click()}
-                    disabled={isConfirmingDeposit}
-                    className="w-full border-2 border-dashed border-amber-300 dark:border-amber-700 rounded-lg p-6 flex flex-col items-center gap-2 hover:border-amber-400 dark:hover:border-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/10 transition-colors cursor-pointer disabled:opacity-50"
-                  >
-                    <Upload className="w-8 h-8 text-amber-500" />
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t.uploadProofBtn}</span>
-                    <span className="text-xs text-gray-400">{t.uploadProofHint}</span>
-                  </button>
-                ) : (
+                {/* New file selected */}
+                {depositProofFile ? (
                   <div className="space-y-3">
                     <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                       {depositProofPreview && depositProofFile.type.startsWith("image/") ? (
@@ -1141,6 +1170,38 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning,
                       </button>
                     </div>
                   </div>
+                ) : existingProofUrl ? (
+                  /* Existing proof from server (edit mode) */
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                      <img src={existingProofUrl} alt="existing proof" className="w-14 h-14 object-cover rounded-lg flex-shrink-0 border border-gray-200 dark:border-gray-600" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-800 dark:text-gray-100">Previously uploaded proof</p>
+                        <button
+                          type="button"
+                          onClick={() => depositProofInputRef.current?.click()}
+                          className="text-xs text-indigo-500 hover:underline mt-0.5"
+                        >
+                          Replace with new photo
+                        </button>
+                      </div>
+                      <a href={existingProofUrl} target="_blank" rel="noreferrer" className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors flex-shrink-0 text-xs text-indigo-500 font-medium">
+                        View
+                      </a>
+                    </div>
+                  </div>
+                ) : (
+                  /* No file yet — upload prompt */
+                  <button
+                    type="button"
+                    onClick={() => depositProofInputRef.current?.click()}
+                    disabled={isConfirmingDeposit}
+                    className="w-full border-2 border-dashed border-amber-300 dark:border-amber-700 rounded-lg p-6 flex flex-col items-center gap-2 hover:border-amber-400 dark:hover:border-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/10 transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    <Upload className="w-8 h-8 text-amber-500" />
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t.uploadProofBtn}</span>
+                    <span className="text-xs text-gray-400">{t.uploadProofHint}</span>
+                  </button>
                 )}
                 <input
                   ref={depositProofInputRef}
