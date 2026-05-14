@@ -669,12 +669,6 @@ const ReservationsPage = () => {
               icon: <Check className="w-10 h-10" />,
             },
             {
-              key: "confirmed",
-              label: "Confirmed",
-              bg: "bg-emerald-500 text-white",
-              icon: <Calendar className="w-10 h-10" />,
-            },
-            {
               key: "checked-in",
               label: "Checked In",
               bg: "bg-blue-500 text-white",

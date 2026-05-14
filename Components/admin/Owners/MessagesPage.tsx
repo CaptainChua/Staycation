@@ -5,13 +5,8 @@ import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import {
   Search,
-  Phone,
-  Video,
-  Info,
   Send,
-  Plus,
   Image as ImageIcon,
-  Smile,
   X,
   Loader2,
   ArrowLeft,
@@ -111,6 +106,19 @@ const getActiveStatus = (lastMessageTime: string | undefined, type: string) => {
   return { isActive: false, statusText: "Offline" };
 };
 
+const isImageMessage = (text: string) => {
+  if (!text) return false;
+  const trimmed = text.trim();
+  if (trimmed.startsWith("data:image")) return true;
+
+  try {
+    const url = new URL(trimmed);
+    return /\.(jpe?g|png|gif|webp|avif|svg)(\?.*)?$/i.test(url.pathname);
+  } catch {
+    return false;
+  }
+};
+
 // Skeleton component defined outside the main component
 const Skeleton = ({ className }: { className: string }) => (
   <div className={`animate-pulse bg-gray-200 dark:bg-gray-800 ${className}`} />
@@ -123,41 +131,12 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
   const [search, setSearch] = useState("");
   const [draft, setDraft] = useState("");
   const [isNewMessageModalOpen, setIsNewMessageModalOpen] = useState(false);
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showMobileChat, setShowMobileChat] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const emojiPickerRef = useRef<HTMLDivElement>(null);
   const hasInitializedActiveId = useRef(false);
   const hasProcessedInitialConversationId = useRef(false);
 
   // Common emojis organized by category
-  const emojiCategories = {
-    smileys: ["😀", "😃", "😄", "😁", "😅", "😂", "🤣", "😊", "😇", "🙂", "😉", "😍", "🥰", "😘", "😋", "😜", "🤪", "😎", "🤩", "🥳"],
-    gestures: ["👍", "👎", "👏", "🙌", "🤝", "🙏", "💪", "✌️", "🤞", "🤟", "🤘", "👌", "👋", "🤚", "✋", "🖐️", "👆", "👇", "👈", "👉"],
-    hearts: ["❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "🤎", "💔", "❣️", "💕", "💞", "💓", "💗", "💖", "💘", "💝", "💟", "♥️"],
-    objects: ["🎉", "🎊", "🎁", "🎈", "✨", "🌟", "⭐", "🔥", "💯", "✅", "❌", "⚠️", "📌", "📍", "💡", "🔔", "📢", "💬", "💭", "🗨️"],
-  };
-
-  // Close emoji picker when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
-        setShowEmojiPicker(false);
-      }
-    };
-
-    if (showEmojiPicker) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [showEmojiPicker]);
-
-  const handleEmojiSelect = (emoji: string) => {
-    setDraft((prev) => prev + emoji);
-  };
 
   // Fetch conversations
   const {
@@ -421,14 +400,6 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
               <div className="h-14 sm:h-16 px-3 sm:px-4 flex items-center gap-3 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
                 <p className="text-base font-bold text-gray-900 dark:text-gray-100">Chats</p>
                 <div className="ml-auto flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsNewMessageModalOpen(true)}
-                    className="p-2 rounded-full hover:bg-brand-primaryLighter transition-colors"
-                    title="New message"
-                  >
-                    <Plus className="w-5 h-5 text-gray-600" />
-                  </button>
                   {onClose && (
                     <button
                       onClick={onClose}
@@ -582,17 +553,6 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-0.5 sm:gap-1">
-                      <button type="button" className="p-1.5 sm:p-2 rounded-full hover:bg-brand-primaryLighter transition-colors" title="Call">
-                        <Phone className="w-4 h-4 sm:w-5 sm:h-5 text-brand-primary" />
-                      </button>
-                      <button type="button" className="p-1.5 sm:p-2 rounded-full hover:bg-brand-primaryLighter transition-colors hidden sm:block" title="Video">
-                        <Video className="w-4 h-4 sm:w-5 sm:h-5 text-brand-primary" />
-                      </button>
-                      <button type="button" className="p-1.5 sm:p-2 rounded-full hover:bg-brand-primaryLighter transition-colors" title="Info">
-                        <Info className="w-4 h-4 sm:w-5 sm:h-5 text-brand-primary" />
-                      </button>
-                    </div>
                   </div>
 
                   <div className="flex-1 overflow-y-auto bg-white dark:bg-gray-900 px-2 sm:px-4 py-3 sm:py-4 space-y-2 sm:space-y-3">
@@ -626,13 +586,23 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                                 </span>
                               )}
                               <div
-                                className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl text-xs sm:text-sm leading-relaxed shadow-sm ${
-                                  isMe
-                                    ? "bg-brand-primary text-white rounded-br-md"
-                                    : "bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-800 rounded-bl-md"
+                                className={`rounded-2xl text-xs sm:text-sm leading-relaxed shadow-sm overflow-hidden ${
+                                  isImageMessage(m.message_text)
+                                    ? "p-0"
+                                    : `px-3 sm:px-4 py-2 sm:py-2.5 ${isMe ? "bg-brand-primary text-white rounded-br-md" : "bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-800 rounded-bl-md"}`
                                 }`}
                               >
-                                {m.message_text}
+                                {isImageMessage(m.message_text) ? (
+                                  <Image
+                                    src={m.message_text}
+                                    alt="sent image"
+                                    width={220}
+                                    height={220}
+                                    className="max-w-[220px] rounded-2xl object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                                  />
+                                ) : (
+                                  m.message_text
+                                )}
                               </div>
                               <span className="text-[10px] sm:text-[11px] text-gray-400">{memoizedFormatMessageTime(m.created_at)}</span>
                             </div>
@@ -649,14 +619,6 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
 
                   <div className="border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-2 sm:px-4 py-2 sm:py-3">
                     <div className="flex items-center gap-1 sm:gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setIsNewMessageModalOpen(true)}
-                        className="p-1.5 sm:p-2 rounded-full hover:bg-brand-primaryLighter transition-colors hidden sm:block"
-                        title="New message"
-                      >
-                        <Plus className="w-4 h-4 sm:w-5 sm:h-5 text-brand-primary" />
-                      </button>
                       <button type="button" className="p-1.5 sm:p-2 rounded-full hover:bg-brand-primaryLighter transition-colors" title="Attach">
                         <ImageIcon className="w-4 h-4 sm:w-5 sm:h-5 text-brand-primary" />
                       </button>
@@ -674,40 +636,6 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                           disabled={isSending}
                           className="flex-1 bg-transparent outline-none text-xs sm:text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400"
                         />
-                        <div className="relative" ref={emojiPickerRef}>
-                          <button
-                            type="button"
-                            className="p-1 sm:p-1.5 rounded-full hover:bg-brand-primaryLighter transition-colors cursor-pointer"
-                            title="Emoji"
-                            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                          >
-                            <Smile className="w-4 h-4 sm:w-5 sm:h-5 text-brand-primary" />
-                          </button>
-
-                          {showEmojiPicker && (
-                            <div className="absolute bottom-full right-0 mb-2 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-3 w-[280px] sm:w-[320px] max-h-[280px] overflow-y-auto z-50">
-                              {Object.entries(emojiCategories).map(([category, emojis]) => (
-                                <div key={category} className="mb-3 last:mb-0">
-                                  <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2 capitalize">{category}</p>
-                                  <div className="grid grid-cols-8 sm:grid-cols-10 gap-1">
-                                    {emojis.map((emoji, index) => (
-                                      <button
-                                        key={index}
-                                        type="button"
-                                        onClick={() => {
-                                          handleEmojiSelect(emoji);
-                                        }}
-                                        className="w-7 h-7 flex items-center justify-center text-lg hover:bg-gray-100 dark:hover:bg-gray-700 rounded cursor-pointer transition-colors"
-                                      >
-                                        {emoji}
-                                      </button>
-                                    ))}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
                       </div>
 
                       <button

@@ -1,5 +1,5 @@
-import { Calendar, User, Users, Mail, Phone, ArrowLeft, Upload, Plus, Minus, CreditCard, AlertCircle, CheckCircle, Clock, Package, Camera, Wallet, Info, ChevronRight, Building2, Receipt, LogIn, LogOut, X as XIcon } from "lucide-react";
-import { useState, useRef } from "react";
+import { User, Users, ArrowLeft, Upload, Plus, Minus, CreditCard, CheckCircle, ChevronRight, X as XIcon } from "lucide-react";
+import { useState } from "react";
 import Image from "next/image";
 import toast from "react-hot-toast";
 
@@ -33,14 +33,36 @@ const ADD_ON_PRICES = {
 interface NewReservationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (bookingData: any) => Promise<void>;
+  onSubmit: (bookingData: {
+    firstName: string;
+    lastName: string;
+    age: string;
+    gender: string;
+    email: string;
+    phone: string;
+    facebookLink: string;
+    validId: File | null;
+    adults: number;
+    children: number;
+    infants: number;
+    stayType: string;
+    checkInDate: string;
+    checkOutDate: string;
+    checkInTime: string;
+    checkOutTime: string;
+    roomName: string;
+    paymentProof: File | null;
+    paymentMethod: string;
+    termsAccepted: boolean;
+    additionalGuests?: GuestInfo[];
+    addOns?: AddOns;
+  }) => Promise<void>;
 }
 
 const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalProps) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const errorRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const initialFormData = {
     firstName: "",
@@ -119,7 +141,6 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
   };
 
   const roomRate = getRoomRateFromStayType();
-  const numberOfDays = calculateNumberOfDays();
   const securityDeposit = formData.stayType ? 1000 : 0;
   const downPayment = 500;
   const addOnsTotal = Object.entries(addOns).reduce((total, [key, quantity]) => {
@@ -152,9 +173,46 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
     e.preventDefault();
   };
 
+  const handlePhoneChange = (value: string) => {
+    // Keep only digits, limit to 11 digits
+    let cleaned = value.replace(/[^0-9]/g, ''); // Remove all non-digits
+    
+    // Limit to 11 digits
+    if (cleaned.length > 11) {
+      cleaned = cleaned.slice(0, 11);
+    }
+    
+    return cleaned;
+  };
+
+  const handleAgeChange = (value: string) => {
+    let cleaned = value.replace(/[^0-9]/g, '');
+    if (cleaned.length > 3) {
+      cleaned = cleaned.slice(0, 3);
+    }
+    return cleaned;
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
+
+    if (name === "phone") {
+      const formatted = handlePhoneChange(value);
+      setFormData((prev) => ({
+        ...prev,
+        [name]: formatted,
+      }));
+      return;
+    }
+
+    if (name === "age") {
+      const formatted = handleAgeChange(value);
+      setFormData((prev) => ({
+        ...prev,
+        [name]: formatted,
+      }));
+      return;
+    }
 
     if (name === "adults" || name === "children") {
       const newValue = parseInt(value) || 0;
@@ -207,7 +265,8 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
 
   const handleAdditionalGuestChange = (index: number, field: keyof GuestInfo, value: string) => {
     const updatedGuests = [...additionalGuests];
-    updatedGuests[index] = { ...updatedGuests[index], [field]: value };
+    const sanitizedValue = field === 'age' ? handleAgeChange(value) : value;
+    updatedGuests[index] = { ...updatedGuests[index], [field]: sanitizedValue };
     setAdditionalGuests(updatedGuests);
   };
 
@@ -297,6 +356,25 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
     if (!formData.checkInTime) newErrors.checkInTime = "Check-in time is required";
     if (!formData.checkOutTime) newErrors.checkOutTime = "Check-out time is required";
     if (!formData.roomName) newErrors.roomName = "Room/Haven name is required";
+
+    // Validate check-in date is not in the past
+    if (formData.checkInDate) {
+      const checkInDate = new Date(formData.checkInDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // Set to start of today
+      if (checkInDate < today) {
+        newErrors.checkInDate = "Check-in date cannot be in the past";
+      }
+    }
+
+    // Validate check-out date is after check-in date
+    if (formData.checkInDate && formData.checkOutDate) {
+      const checkInDate = new Date(formData.checkInDate);
+      const checkOutDate = new Date(formData.checkOutDate);
+      if (checkOutDate <= checkInDate) {
+        newErrors.checkOutDate = "Check-out date must be after check-in date";
+      }
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -514,32 +592,38 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className={labelClass}>First Name *</label>
-                        <input type="text" name="firstName" value={formData.firstName} onChange={handleInputChange} required className={inputClass} placeholder="Enter first name" />
+                        <input type="text" name="firstName" value={formData.firstName} onChange={handleInputChange} required className={`${inputClass} ${errors.firstName ? 'border-red-500' : ''}`} placeholder="Enter first name" />
+                        {errors.firstName && <p className="text-red-500 text-xs mt-1">{errors.firstName}</p>}
                       </div>
                       <div>
                         <label className={labelClass}>Last Name *</label>
-                        <input type="text" name="lastName" value={formData.lastName} onChange={handleInputChange} required className={inputClass} placeholder="Enter last name" />
+                        <input type="text" name="lastName" value={formData.lastName} onChange={handleInputChange} required className={`${inputClass} ${errors.lastName ? 'border-red-500' : ''}`} placeholder="Enter last name" />
+                        {errors.lastName && <p className="text-red-500 text-xs mt-1">{errors.lastName}</p>}
                       </div>
                       <div>
                         <label className={labelClass}>Age *</label>
-                        <input type="number" name="age" value={formData.age} onChange={handleInputChange} required min="1" max="120" className={inputClass} placeholder="Enter age" />
+                        <input type="number" name="age" value={formData.age} onChange={handleInputChange} required min="1" max="999" inputMode="numeric" className={`${inputClass} ${errors.age ? 'border-red-500' : ''}`} placeholder="Enter age" />
+                        {errors.age && <p className="text-red-500 text-xs mt-1">{errors.age}</p>}
                       </div>
                       <div>
                         <label className={labelClass}>Gender *</label>
-                        <select name="gender" value={formData.gender} onChange={handleInputChange} required className={inputClass}>
+                        <select name="gender" value={formData.gender} onChange={handleInputChange} required className={`${inputClass} ${errors.gender ? 'border-red-500' : ''}`}>
                           <option value="">Select Gender</option>
                           <option value="male">Male</option>
                           <option value="female">Female</option>
                           <option value="other">Other</option>
                         </select>
+                        {errors.gender && <p className="text-red-500 text-xs mt-1">{errors.gender}</p>}
                       </div>
                       <div>
                         <label className={labelClass}>Email *</label>
-                        <input type="email" name="email" value={formData.email} onChange={handleInputChange} required className={inputClass} placeholder="Enter email" />
+                        <input type="email" name="email" value={formData.email} onChange={handleInputChange} required className={`${inputClass} ${errors.email ? 'border-red-500' : ''}`} placeholder="Enter email" />
+                        {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
                       </div>
                       <div>
                         <label className={labelClass}>Phone *</label>
-                        <input type="tel" name="phone" value={formData.phone} onChange={handleInputChange} required className={inputClass} placeholder="e.g., 9123456789" />
+                        <input type="tel" name="phone" value={formData.phone} onChange={handleInputChange} required className={`${inputClass} ${errors.phone ? 'border-red-500' : ''}`} placeholder="Enter Mobile Number" inputMode="numeric" />
+                        {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
                       </div>
                     </div>
                   </div>
@@ -550,14 +634,23 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                       Valid ID (Required for 10+ years old)
                     </h4>
                     <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'id')} className="hidden" id="valid-id" />
-                    <label htmlFor="valid-id" className="cursor-pointer flex flex-col items-center p-8 border-2 border-dashed border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 rounded-lg hover:border-blue-500 dark:hover:border-blue-400 transition">
+                    <label htmlFor="valid-id" className={`cursor-pointer flex flex-col items-center p-8 border-2 border-dashed bg-gray-50 dark:bg-gray-800 rounded-lg hover:border-blue-500 dark:hover:border-blue-400 transition ${errors.validId ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}`}>
                       <Upload className="w-12 h-12 text-blue-500 mb-3" />
                       <p className="text-blue-600 dark:text-blue-400 font-medium">Click to upload ID</p>
                       <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">PNG, JPG up to 10MB</p>
                     </label>
+                    {errors.validId && <p className="text-red-500 text-xs mt-2 text-center">{errors.validId}</p>}
                     {formData.validIdPreview && (
-                      <div className="mt-4">
+                      <div className="mt-4 relative">
                         <Image src={formData.validIdPreview} alt="ID preview" width={300} height={200} className="max-w-xs mx-auto rounded-lg shadow border border-gray-200 dark:border-gray-600" />
+                        <button
+                          type="button"
+                          onClick={() => setFormData(prev => ({ ...prev, validId: null, validIdPreview: '' }))}
+                          className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 transition-colors"
+                          title="Remove image"
+                        >
+                          <XIcon className="w-4 h-4" />
+                        </button>
                       </div>
                     )}
                   </div>
@@ -616,6 +709,9 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                             value={guest.age} 
                             onChange={(e) => handleAdditionalGuestChange(index, 'age', e.target.value)} 
                             placeholder="Age *" 
+                            min="1" 
+                            max="999" 
+                            inputMode="numeric" 
                             className={`${inputClass} ${errors[`guest${index}Age`] ? 'border-red-500' : ''}`}
                           />
                           {errors[`guest${index}Age`] && <p className="text-red-500 text-xs mt-1">{errors[`guest${index}Age`]}</p>}
@@ -659,7 +755,7 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                           </label>
                           {errors[`guest${index}ValidId`] && <p className="text-red-500 text-xs mt-2">{errors[`guest${index}ValidId`]}</p>}
                           {guest.validIdPreview && (
-                            <div className="mt-3">
+                            <div className="mt-3 relative">
                               <Image 
                                 src={guest.validIdPreview} 
                                 alt={`Guest ${index + 2} ID preview`} 
@@ -667,6 +763,19 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                                 height={130} 
                                 className="max-w-xs mx-auto rounded-lg shadow border border-gray-200 dark:border-gray-600" 
                               />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const updatedGuests = [...additionalGuests];
+                                  updatedGuests[index].validId = null;
+                                  updatedGuests[index].validIdPreview = '';
+                                  setAdditionalGuests(updatedGuests);
+                                }}
+                                className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 transition-colors"
+                                title="Remove image"
+                              >
+                                <XIcon className="w-4 h-4" />
+                              </button>
                             </div>
                           )}
                         </div>
@@ -689,7 +798,7 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                           value={formData.roomName} 
                           onChange={handleInputChange} 
                           required 
-                          className={inputClass}
+                          className={`${inputClass} ${errors.roomName ? 'border-red-500' : ''}`}
                         >
                           <option value="">Select Room/Haven</option>
                           <option value="Haven 1">Haven 1</option>
@@ -698,16 +807,18 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                           <option value="Haven 4">Haven 4</option>
                           <option value="Haven 5">Haven 5</option>
                         </select>
+                        {errors.roomName && <p className="text-red-500 text-xs mt-1">{errors.roomName}</p>}
                       </div>
                       <div>
                         <label className={labelClass}>Stay Type *</label>
-                        <select name="stayType" value={formData.stayType} onChange={handleStayTypeChange} required className={inputClass}>
+                        <select name="stayType" value={formData.stayType} onChange={handleStayTypeChange} required className={`${inputClass} ${errors.stayType ? 'border-red-500' : ''}`}>
                           <option value="">Select Stay Type</option>
                           <option value="10 Hours - ₱1,599">10 Hours - ₱1,599</option>
                           <option value="21 Hours (Sun-Thu weekday) - ₱1,799">21 Hours (Weekday) - ₱1,799</option>
                           <option value="21 Hours (Fri-Sat) - ₱1,999">21 Hours (Weekend) - ₱1,999</option>
                           <option value="Multi-Day Stay">Multi-Day Stay</option>
                         </select>
+                        {errors.stayType && <p className="text-red-500 text-xs mt-1">{errors.stayType}</p>}
                       </div>
                     </div>
                   </div>
@@ -717,19 +828,23 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className={labelClass}>Check-in Date *</label>
-                        <input type="date" name="checkInDate" value={formData.checkInDate} onChange={handleInputChange} required className={inputClass} />
+                        <input type="date" name="checkInDate" value={formData.checkInDate} onChange={handleInputChange} onKeyDown={handleDateKeyDown} required className={`${inputClass} ${errors.checkInDate ? 'border-red-500' : ''}`} min={new Date().toISOString().split('T')[0]} />
+                        {errors.checkInDate && <p className="text-red-500 text-xs mt-1">{errors.checkInDate}</p>}
                       </div>
                       <div>
                         <label className={labelClass}>Check-out Date *</label>
-                        <input type="date" name="checkOutDate" value={formData.checkOutDate} onChange={handleInputChange} required className={inputClass} />
+                        <input type="date" name="checkOutDate" value={formData.checkOutDate} onChange={handleInputChange} onKeyDown={handleDateKeyDown} required className={`${inputClass} ${errors.checkOutDate ? 'border-red-500' : ''}`} min={formData.checkInDate || new Date().toISOString().split('T')[0]} />
+                        {errors.checkOutDate && <p className="text-red-500 text-xs mt-1">{errors.checkOutDate}</p>}
                       </div>
                       <div>
                         <label className={labelClass}>Check-in Time *</label>
-                        <input type="time" name="checkInTime" value={formData.checkInTime} onChange={handleInputChange} required className={inputClass} />
+                        <input type="time" name="checkInTime" value={formData.checkInTime} onChange={handleInputChange} required className={`${inputClass} ${errors.checkInTime ? 'border-red-500' : ''}`} />
+                        {errors.checkInTime && <p className="text-red-500 text-xs mt-1">{errors.checkInTime}</p>}
                       </div>
                       <div>
                         <label className={labelClass}>Check-out Time *</label>
-                        <input type="time" name="checkOutTime" value={formData.checkOutTime} onChange={handleInputChange} required className={inputClass} />
+                        <input type="time" name="checkOutTime" value={formData.checkOutTime} onChange={handleInputChange} required className={`${inputClass} ${errors.checkOutTime ? 'border-red-500' : ''}`} />
+                        {errors.checkOutTime && <p className="text-red-500 text-xs mt-1">{errors.checkOutTime}</p>}
                       </div>
                     </div>
                   </div>
@@ -830,8 +945,16 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">PNG, JPG up to 10MB</p>
                       </label>
                       {formData.paymentProofPreview && (
-                        <div className="mt-4">
+                        <div className="mt-4 relative">
                           <Image src={formData.paymentProofPreview} alt="Payment proof" width={300} height={200} className="max-w-xs mx-auto rounded-lg shadow border border-gray-200 dark:border-gray-600" />
+                          <button
+                            type="button"
+                            onClick={() => setFormData(prev => ({ ...prev, paymentProof: null, paymentProofPreview: '' }))}
+                            className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 transition-colors"
+                            title="Remove image"
+                          >
+                            <XIcon className="w-4 h-4" />
+                          </button>
                         </div>
                       )}
                     </div>

@@ -599,6 +599,7 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
                       calendarContent: "dark:bg-slate-900",
                       calendar: "dark:bg-slate-900 dark:text-white",
+                      inputWrapper: "cursor-pointer",
                     }}
                   />
                 </div>
