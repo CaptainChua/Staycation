@@ -203,7 +203,9 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning,
     setDepositModalTask(a);
     setIsDepositEditMode(isEdit);
     setDepositPaymentMethod("cash");
-    const defaultAmt = Number(a.security_deposit) > 0 ? String(Number(a.security_deposit)) : "1000";
+    const secDep = Number(a.security_deposit) > 0 ? Number(a.security_deposit) : 1000;
+    const remBal = Number(a.remaining_balance) > 0 ? Number(a.remaining_balance) : 0;
+    const defaultAmt = String(secDep + remBal);
     setDepositAmountReceived(defaultAmt);
     setDepositReferenceNumber("");
     setDepositProofFile(null);
@@ -248,12 +250,14 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning,
 
     // Validate
     const errs: Record<string, string> = {};
-    const requiredDeposit = Number(depositModalTask.security_deposit) > 0 ? Number(depositModalTask.security_deposit) : 1000;
+    const secDep = Number(depositModalTask.security_deposit) > 0 ? Number(depositModalTask.security_deposit) : 1000;
+    const remBal = Number(depositModalTask.remaining_balance) > 0 ? Number(depositModalTask.remaining_balance) : 0;
+    const requiredTotal = secDep + remBal;
     const enteredAmount = Number(depositAmountReceived);
     if (!depositAmountReceived || enteredAmount <= 0) {
       errs.amount = "Please enter the amount received from the guest.";
-    } else if (enteredAmount < requiredDeposit) {
-      errs.amount = `Amount is less than the required deposit of ${new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(requiredDeposit)}.`;
+    } else if (enteredAmount < requiredTotal) {
+      errs.amount = `Amount is less than the required total of ${new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(requiredTotal)}.`;
     }
     if (depositPaymentMethod !== "cash" && !depositReferenceNumber.trim()) {
       errs.reference = "Please enter the reference number for this payment.";
@@ -750,21 +754,21 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning,
                     a.deposit_status === "held" ||
                     a.deposit_status === "paid" ||
                     collectedDeposits.has(a.cleaning_id);
-                  const depositAmount = Number(a.security_deposit) > 0
-                    ? new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(Number(a.security_deposit))
-                    : "₱1,000.00";
+                  const secDepAmt = Number(a.security_deposit) > 0 ? Number(a.security_deposit) : 1000;
+                  const remBalAmt = Number(a.remaining_balance) > 0 ? Number(a.remaining_balance) : 0;
+                  const depositAmount = new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(secDepAmt + remBalAmt);
                   const isCollecting = collectingDepositId === a.cleaning_id;
 
                   return (
                     <div
                       key={`checkin-${a.cleaning_id ?? a.id}`}
-                      className="rounded-xl border border-indigo-100 dark:border-indigo-900/40 bg-indigo-50/50 dark:bg-indigo-900/10 p-4 space-y-3"
+                      className="rounded-xl border border-green-100 dark:border-green-900/40 bg-green-50/50 dark:bg-green-900/10 p-4 space-y-3"
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5 mb-0.5">
-                            <Shield className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
-                            <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-wide">{t.checkInToday}</span>
+                            <Banknote className="w-3.5 h-3.5 text-green-600 flex-shrink-0" />
+                            <span className="text-[10px] font-bold text-green-600 uppercase tracking-wide">{t.checkInToday}</span>
                           </div>
                           <p className="font-bold text-gray-800 dark:text-gray-100 text-sm truncate">
                             {a.haven ?? a.room_name ?? "—"}
@@ -789,8 +793,8 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning,
                           <Clock className="w-3.5 h-3.5 flex-shrink-0" />
                           {t.checkInLabel} {a.check_in_time ? formatTime(a.check_in_time) : "—"}
                         </span>
-                        <span className="flex items-center gap-1 font-semibold text-indigo-600 dark:text-indigo-400">
-                          <Shield className="w-3.5 h-3.5 flex-shrink-0" />
+                        <span className="flex items-center gap-1 font-semibold text-green-700 dark:text-green-400">
+                          <Banknote className="w-3.5 h-3.5 flex-shrink-0" />
                           {depositAmount}
                         </span>
                       </div>
@@ -812,9 +816,9 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning,
                         <button
                           onClick={() => openDepositModal(a)}
                           disabled={isCollecting}
-                          className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold disabled:opacity-50 transition-colors"
+                          className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-semibold disabled:opacity-50 transition-colors"
                         >
-                          <Shield className="w-3.5 h-3.5" /> {t.securityDeposit}
+                          <Banknote className="w-3.5 h-3.5" /> {t.securityDeposit}
                         </button>
                       )}
                     </div>
@@ -959,7 +963,7 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning,
         </button>
       )}
 
-      {/* ── Collect Security Deposit Modal ── */}
+      {/* ── Collect from Guest Modal ── */}
       {depositModalTask && typeof window !== "undefined" && createPortal(
         <>
           <div className="fixed inset-0 z-[9980] bg-black/50" aria-hidden="true" onClick={closeDepositModal} />
@@ -969,8 +973,8 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning,
             {/* Header */}
             <div className="flex items-center justify-between p-5 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-indigo-600 rounded-lg">
-                  <Shield className="w-5 h-5 text-white" />
+                <div className="p-2 bg-green-600 rounded-lg">
+                  <Banknote className="w-5 h-5 text-white" />
                 </div>
                 <div>
                   <h2 className="text-base font-bold text-gray-900 dark:text-gray-100">{t.depositModalTitle}</h2>
@@ -995,13 +999,35 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning,
                       <Clock className="w-3 h-3" /> Check-in: {depositModalTask.check_in_time ? formatTime(depositModalTask.check_in_time) : "—"}
                     </span>
                   </div>
-                  <div className="flex flex-col items-end flex-shrink-0">
-                    <span className="text-[10px] font-semibold uppercase tracking-wide text-indigo-400 dark:text-indigo-500">{t.collectFromGuest}</span>
-                    <span className="text-lg font-black text-indigo-600 dark:text-indigo-400">
-                      {Number(depositModalTask.security_deposit) > 0
-                        ? new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(Number(depositModalTask.security_deposit))
-                        : "₱1,000.00"}
-                    </span>
+                  <div className="flex flex-col items-end flex-shrink-0 gap-0.5">
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-green-600 dark:text-green-500">{t.collectFromGuest}</span>
+                    {/* Breakdown */}
+                    {Number(depositModalTask.remaining_balance) > 0 && (
+                      <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                        <span>Balance:</span>
+                        <span className="font-semibold text-amber-600 dark:text-amber-400">
+                          {new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(Number(depositModalTask.remaining_balance))}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                      <span>Security Deposit:</span>
+                      <span className="font-semibold text-green-600 dark:text-green-400">
+                        {new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(
+                          Number(depositModalTask.security_deposit) > 0 ? Number(depositModalTask.security_deposit) : 1000
+                        )}
+                      </span>
+                    </div>
+                    {/* Total */}
+                    <div className="flex items-center gap-1 mt-0.5 pt-0.5 border-t border-green-200 dark:border-green-700">
+                      <span className="text-[10px] text-gray-400">Total:</span>
+                      <span className="text-base font-black text-green-600 dark:text-green-400">
+                        {new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(
+                          (Number(depositModalTask.remaining_balance) > 0 ? Number(depositModalTask.remaining_balance) : 0) +
+                          (Number(depositModalTask.security_deposit) > 0 ? Number(depositModalTask.security_deposit) : 1000)
+                        )}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
@@ -1224,11 +1250,11 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning,
               <button
                 onClick={handleConfirmDeposit}
                 disabled={isConfirmingDeposit}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium text-sm disabled:opacity-50 flex items-center gap-2"
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium text-sm disabled:opacity-50 flex items-center gap-2"
               >
                 {isConfirmingDeposit
                   ? <><Loader2 className="w-4 h-4 animate-spin" /> {t.processing}</>
-                  : <><Shield className="w-4 h-4" /> {t.confirmCollected}</>}
+                  : <><Banknote className="w-4 h-4" /> {t.confirmCollected}</>}
               </button>
             </div>
           </div>

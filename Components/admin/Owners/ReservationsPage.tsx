@@ -18,7 +18,7 @@ import {
   CreditCard, // added (was used but not imported)
 } from "lucide-react";
 import Image from "next/image"; // added (used in modal)
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   useGetBookingsQuery,
   useCreateBookingMutation,
@@ -33,6 +33,9 @@ const ReservationsPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedHaven, setSelectedHaven] = useState("all");
+  const [checkInDateFrom, setCheckInDateFrom] = useState("");
+  const [checkInDateTo, setCheckInDateTo] = useState("");
 
   const { data, isLoading, refetch } = useGetBookingsQuery(
     {},
@@ -274,10 +277,33 @@ const ReservationsPage = () => {
     }
   };
 
-  const filteredReservations = reservations.filter((r: Booking) => {
+  const uniqueHavens = useMemo(() => {
+    const names = reservations.map((r: Booking) => r.room_name).filter(Boolean) as string[];
+    return [...new Set(names)].sort();
+  }, [reservations]);
+
+  const filteredReservations = useMemo(() => reservations.filter((r: Booking) => {
     const matchesStatus = filter === "all" || r.status === filter;
 
-    if (!searchQuery?.trim()) return matchesStatus;
+    const matchesHaven = selectedHaven === "all" || (r.room_name || "") === selectedHaven;
+
+    let matchesCheckIn = true;
+    if (checkInDateFrom || checkInDateTo) {
+      const checkIn = r.check_in_date ? new Date(r.check_in_date) : null;
+      if (checkIn) {
+        checkIn.setHours(0, 0, 0, 0);
+        if (checkInDateFrom) {
+          const from = new Date(checkInDateFrom); from.setHours(0, 0, 0, 0);
+          if (checkIn < from) matchesCheckIn = false;
+        }
+        if (checkInDateTo) {
+          const to = new Date(checkInDateTo); to.setHours(23, 59, 59, 999);
+          if (checkIn > to) matchesCheckIn = false;
+        }
+      }
+    }
+
+    if (!searchQuery?.trim()) return matchesStatus && matchesHaven && matchesCheckIn;
 
     const q = searchQuery.trim().toLowerCase();
     const bookingId = String(r.booking_id || r.id || "").toLowerCase();
@@ -286,13 +312,10 @@ const ReservationsPage = () => {
     const guestFull = `${guestFirst} ${guestLast}`.trim();
 
     return (
-      matchesStatus &&
-      (bookingId.includes(q) ||
-        guestFirst.includes(q) ||
-        guestLast.includes(q) ||
-        guestFull.includes(q))
+      matchesStatus && matchesHaven && matchesCheckIn &&
+      (bookingId.includes(q) || guestFirst.includes(q) || guestLast.includes(q) || guestFull.includes(q))
     );
-  });
+  }), [reservations, filter, searchQuery, selectedHaven, checkInDateFrom, checkInDateTo]);
 
   const totalPages = Math.ceil(filteredReservations.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -753,27 +776,51 @@ const ReservationsPage = () => {
             <div className="w-full sm:w-auto">
               <select
                 value={filter}
-                onChange={(e) => {
-                  setFilter(e.target.value);
-                  setCurrentPage(1);
-                }}
+                onChange={(e) => { setFilter(e.target.value); setCurrentPage(1); }}
                 className="border rounded-lg px-3 py-2 text-sm w-full dark:bg-slate-800 dark:border-slate-700 dark:text-gray-200"
               >
-                {[
-                  "all",
-                  "pending",
-                  "approved",
-                  "confirmed",
-                  "checked-in",
-                  "completed",
-                  "rejected",
-                  "cancelled",
-                ].map((s) => (
-                  <option key={s} value={s}>
-                    {s.charAt(0).toUpperCase() + s.slice(1).replace("-", " ")}
-                  </option>
+                {["all","pending","approved","confirmed","checked-in","completed","rejected","cancelled"].map((s) => (
+                  <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1).replace("-", " ")}</option>
                 ))}
               </select>
+            </div>
+
+            {/* Haven filter */}
+            <div className="w-full sm:w-auto">
+              <select
+                value={selectedHaven}
+                onChange={(e) => { setSelectedHaven(e.target.value); setCurrentPage(1); }}
+                className="border rounded-lg px-3 py-2 text-sm w-full dark:bg-slate-800 dark:border-slate-700 dark:text-gray-200"
+              >
+                <option value="all">All Havens</option>
+                {uniqueHavens.map((name) => <option key={name} value={name}>{name}</option>)}
+              </select>
+            </div>
+
+            {/* Check-in date range */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">Check-in:</span>
+              <input
+                type="date"
+                value={checkInDateFrom}
+                onChange={(e) => { setCheckInDateFrom(e.target.value); setCurrentPage(1); }}
+                className="border rounded-lg px-2 py-1.5 text-sm dark:bg-slate-800 dark:border-slate-700 dark:text-gray-200 focus:ring-2 focus:ring-yellow-500 outline-none"
+              />
+              <span className="text-gray-400 text-xs">–</span>
+              <input
+                type="date"
+                value={checkInDateTo}
+                min={checkInDateFrom}
+                onChange={(e) => { setCheckInDateTo(e.target.value); setCurrentPage(1); }}
+                className="border rounded-lg px-2 py-1.5 text-sm dark:bg-slate-800 dark:border-slate-700 dark:text-gray-200 focus:ring-2 focus:ring-yellow-500 outline-none"
+              />
+              {(checkInDateFrom || checkInDateTo) && (
+                <button
+                  onClick={() => { setCheckInDateFrom(""); setCheckInDateTo(""); setCurrentPage(1); }}
+                  className="p-1 rounded hover:bg-gray-200 dark:hover:bg-slate-700 text-gray-400 hover:text-gray-600 transition-colors text-xs"
+                  title="Clear dates"
+                >✕</button>
+              )}
             </div>
           </div>
         </div>

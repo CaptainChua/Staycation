@@ -470,19 +470,27 @@ export default function CleaningChecklistPage({ initialHavenId, lang = "en" }: P
       </div>
 
       {/* Action / Status */}
-      {!selectedHaven?.isUpcoming && <div className="flex flex-col sm:flex-row gap-3 items-center">
-        <p className="text-sm text-gray-500 flex-1 text-center sm:text-left">{t.autoSave}</p>
-        {canComplete && progress === 100 && (
-          <div className="flex items-center gap-2 text-green-600 dark:text-green-400 font-semibold text-sm">
-            <CheckCircle2 className="w-5 h-5" />
-            {t.allDone}
+      {!selectedHaven?.isUpcoming && !isLoading && checklist.length > 0 && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-4 flex flex-col sm:flex-row gap-3 items-center">
+          <div className="flex-1 text-center sm:text-left">
+            {canComplete ? (
+              <div className="flex items-center gap-2 text-green-600 dark:text-green-400 font-semibold text-sm">
+                <CheckCircle2 className="w-5 h-5" />
+                {t.allDone}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                {t.autoSave} &nbsp;·&nbsp;{" "}
+                <span className="font-semibold text-brand-primary">
+                  {totalTasks - completedTasks} task{totalTasks - completedTasks !== 1 ? "s" : ""} remaining
+                </span>
+              </p>
+            )}
           </div>
-        )}
 
-        {/* Finalize checklist: mark checklist as completed in backend */}
-        {canComplete && progress === 100 && checklistId && (
           <button
             type="button"
+            disabled={!canComplete || !checklistId}
             onClick={async () => {
               try {
                 const res = await fetch("/api/admin/cleaners", {
@@ -497,7 +505,6 @@ export default function CleaningChecklistPage({ initialHavenId, lang = "en" }: P
                 if (!res.ok || !payload?.success) {
                   throw new Error(payload?.error || "Failed to submit checklist");
                 }
-
                 toast.success("Checklist submitted successfully");
               } catch (err) {
                 console.error("Submit checklist error:", err);
@@ -505,12 +512,17 @@ export default function CleaningChecklistPage({ initialHavenId, lang = "en" }: P
                 toast.error(message || "Failed to submit checklist");
               }
             }}
-            className="flex-1 sm:flex-none w-full sm:w-auto bg-brand-primary text-white font-semibold rounded-lg px-4 py-2.5 hover:bg-brand-primary/90 transition-colors"
+            className={`w-full sm:w-auto font-semibold rounded-lg px-6 py-2.5 transition-colors flex items-center justify-center gap-2 ${
+              canComplete
+                ? "bg-brand-primary text-white hover:bg-brand-primary/90"
+                : "bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed"
+            }`}
           >
+            <CheckCircle2 className="w-4 h-4" />
             {t.confirmFinish}
           </button>
-        )}
-      </div>}
+        </div>
+      )}
     </div>
   );
 }

@@ -61,6 +61,9 @@ export default function BookingsPage() {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [selectedHaven, setSelectedHaven] = useState("all");
+  const [checkInDateFrom, setCheckInDateFrom] = useState("");
+  const [checkInDateTo, setCheckInDateTo] = useState("");
   const [dateFilter, setDateFilter] = useState<"all" | "weekly" | "monthly" | "yearly">("all");
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1); // 1-12
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
@@ -304,6 +307,12 @@ export default function BookingsPage() {
     }
   };
 
+  const uniqueHavens = useMemo(() => {
+    if (!Array.isArray(bookings)) return [];
+    const names = bookings.map((b: BookingData) => b.room_name).filter(Boolean) as string[];
+    return [...new Set(names)].sort();
+  }, [bookings]);
+
   const filteredBookings = useMemo(() => {
     if (!Array.isArray(bookings)) return [];
 
@@ -337,9 +346,31 @@ export default function BookingsPage() {
         }
       }
 
-      return matchesSearch && matchesFilter && matchesDate;
+      // Haven filter
+      const matchesHaven = selectedHaven === "all" || (booking.room_name || "") === selectedHaven;
+
+      // Check-in date range filter
+      let matchesCheckIn = true;
+      if (checkInDateFrom || checkInDateTo) {
+        const checkIn = booking.check_in_date ? new Date(booking.check_in_date) : null;
+        if (checkIn) {
+          checkIn.setHours(0, 0, 0, 0);
+          if (checkInDateFrom) {
+            const from = new Date(checkInDateFrom);
+            from.setHours(0, 0, 0, 0);
+            if (checkIn < from) matchesCheckIn = false;
+          }
+          if (checkInDateTo) {
+            const to = new Date(checkInDateTo);
+            to.setHours(23, 59, 59, 999);
+            if (checkIn > to) matchesCheckIn = false;
+          }
+        }
+      }
+
+      return matchesSearch && matchesFilter && matchesDate && matchesHaven && matchesCheckIn;
     });
-  }, [bookings, searchTerm, filterStatus, dateFilter, selectedMonth, selectedYear]);
+  }, [bookings, searchTerm, filterStatus, dateFilter, selectedMonth, selectedYear, selectedHaven, checkInDateFrom, checkInDateTo]);
 
   // Sort bookings
   const sortedBookings = useMemo(() => {
@@ -849,153 +880,53 @@ export default function BookingsPage() {
       )}
 
       {/* Search and Filter Bar */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-4 flex-shrink-0 border border-gray-200 dark:border-gray-700">
-        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-          <div className="flex flex-col sm:flex-row gap-4 flex-1 w-full">
-            {/* Entries Per Page */}
-            <div className="flex items-center gap-2">
-              <label className="text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">Show</label>
-              <select
-                value={entriesPerPage}
-                onChange={(e) => {
-                  setEntriesPerPage(Number(e.target.value));
-                  setCurrentPage(1);
-                }}
-                className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-brand-primary text-sm"
-              >
-                <option value="5">5</option>
-                <option value="10">10</option>
-                <option value="25">25</option>
-                <option value="50">50</option>
-              </select>
-              <label className="text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">entries</label>
-            </div>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-4 flex-shrink-0 border border-gray-200 dark:border-gray-700 space-y-3">
 
-            {/* Search */}
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search by booking ID, guest name, or haven..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-brand-primary"
-              />
-            </div>
+        {/* Row 1: Show entries + Search + Action buttons */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">Show</label>
+            <select
+              value={entriesPerPage}
+              onChange={(e) => { setEntriesPerPage(Number(e.target.value)); setCurrentPage(1); }}
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-brand-primary text-sm"
+            >
+              <option value="5">5</option>
+              <option value="10">10</option>
+              <option value="25">25</option>
+              <option value="50">50</option>
+            </select>
+            <label className="text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">entries</label>
           </div>
 
-          {/* Filters */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <Filter className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-            <select
-              value={dateFilter}
-              onChange={(e) => {
-                setDateFilter(e.target.value as "all" | "weekly" | "monthly" | "yearly");
-                setCurrentPage(1);
-              }}
-              className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-brand-primary text-sm"
-            >
-              <option value="all">All Time</option>
-              <option value="weekly">This Week</option>
-              <option value="monthly">Monthly</option>
-              <option value="yearly">Yearly</option>
-            </select>
+          <div className="flex-1 relative min-w-[200px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search by booking ID, guest name, or haven..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-brand-primary text-sm"
+            />
+          </div>
 
-            {/* Month selector - shown when monthly filter is selected */}
-            {dateFilter === "monthly" && (
-              <>
-                <select
-                  value={selectedMonth}
-                  onChange={(e) => {
-                    setSelectedMonth(Number(e.target.value));
-                    setCurrentPage(1);
-                  }}
-                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-brand-primary text-sm"
-                >
-                  {monthNames.map((month, index) => (
-                    <option key={index} value={index + 1}>
-                      {month}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={selectedYear}
-                  onChange={(e) => {
-                    setSelectedYear(Number(e.target.value));
-                    setCurrentPage(1);
-                  }}
-                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-brand-primary text-sm"
-                >
-                  {yearOptions.map((year) => (
-                    <option key={year} value={year}>
-                      {year}
-                    </option>
-                  ))}
-                </select>
-              </>
-            )}
-
-            {/* Year selector - shown when yearly filter is selected */}
-            {dateFilter === "yearly" && (
-              <select
-                value={selectedYear}
-                onChange={(e) => {
-                  setSelectedYear(Number(e.target.value));
-                  setCurrentPage(1);
-                }}
-                className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-brand-primary text-sm"
-              >
-                {yearOptions.map((year) => (
-                  <option key={year} value={year}>
-                    {year}
-                  </option>
-                ))}
-              </select>
-            )}
-
-            <select
-              value={filterStatus}
-              onChange={(e) => {
-                setFilterStatus(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-brand-primary text-sm"
-            >
-              <option value="all">All Status</option>
-              <option value="pending">Pending</option>
-              <option value="approved">Approved</option>
-              <option value="declined">Declined</option>
-              <option value="checked-in">Checked-In</option>
-              <option value="checked-out">Checked-Out</option>
-              <option value="cancelled">Cancelled</option>
-              <option value="completed">Completed</option>
-            </select>
+          <div className="flex items-center gap-2 ml-auto">
             <button
               onClick={openLiveSheet}
               disabled={isOpeningLiveSheet}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-400 disabled:cursor-not-allowed text-white rounded-lg transition-colors text-sm font-medium"
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-400 disabled:cursor-not-allowed text-white rounded-lg transition-colors text-sm font-medium whitespace-nowrap"
             >
               {isOpeningLiveSheet ? (
-                <>
-                  <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                  Opening...
-                </>
+                <><div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />Opening...</>
               ) : (
-                <>
-                  <FileSpreadsheet className="w-4 h-4" />
-                  View Live Sheet
-                </>
+                <><FileSpreadsheet className="w-4 h-4" />View Live Sheet</>
               )}
             </button>
             <button
-              onClick={() => {
-                setIsExportModalOpen(true);
-                logEmployeeActivity('OPEN_EXPORT_BOOKINGS', 'Opened export bookings modal');
-              }}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors text-sm font-medium"
+              onClick={() => { setIsExportModalOpen(true); logEmployeeActivity('OPEN_EXPORT_BOOKINGS', 'Opened export bookings modal'); }}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors text-sm font-medium whitespace-nowrap"
             >
-              <Download className="w-4 h-4" />
-              Export
+              <Download className="w-4 h-4" />Export
             </button>
             <button
               onClick={() => window.location.reload()}
@@ -1006,6 +937,93 @@ export default function BookingsPage() {
             </button>
           </div>
         </div>
+
+        {/* Row 2: Filters */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <Filter className="w-4 h-4 text-gray-500 dark:text-gray-400 flex-shrink-0" />
+
+          {/* Period filter */}
+          <select
+            value={dateFilter}
+            onChange={(e) => { setDateFilter(e.target.value as "all" | "weekly" | "monthly" | "yearly"); setCurrentPage(1); }}
+            className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg text-sm focus:ring-2 focus:ring-brand-primary"
+          >
+            <option value="all">All Time</option>
+            <option value="weekly">This Week</option>
+            <option value="monthly">Monthly</option>
+            <option value="yearly">Yearly</option>
+          </select>
+
+          {dateFilter === "monthly" && (
+            <>
+              <select value={selectedMonth} onChange={(e) => { setSelectedMonth(Number(e.target.value)); setCurrentPage(1); }} className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg text-sm focus:ring-2 focus:ring-brand-primary">
+                {monthNames.map((month, index) => <option key={index} value={index + 1}>{month}</option>)}
+              </select>
+              <select value={selectedYear} onChange={(e) => { setSelectedYear(Number(e.target.value)); setCurrentPage(1); }} className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg text-sm focus:ring-2 focus:ring-brand-primary">
+                {yearOptions.map((year) => <option key={year} value={year}>{year}</option>)}
+              </select>
+            </>
+          )}
+
+          {dateFilter === "yearly" && (
+            <select value={selectedYear} onChange={(e) => { setSelectedYear(Number(e.target.value)); setCurrentPage(1); }} className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg text-sm focus:ring-2 focus:ring-brand-primary">
+              {yearOptions.map((year) => <option key={year} value={year}>{year}</option>)}
+            </select>
+          )}
+
+          {/* Status filter */}
+          <select
+            value={filterStatus}
+            onChange={(e) => { setFilterStatus(e.target.value); setCurrentPage(1); }}
+            className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg text-sm focus:ring-2 focus:ring-brand-primary"
+          >
+            <option value="all">All Status</option>
+            <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
+            <option value="declined">Declined</option>
+            <option value="checked-in">Checked-In</option>
+            <option value="checked-out">Checked-Out</option>
+            <option value="cancelled">Cancelled</option>
+            <option value="completed">Completed</option>
+          </select>
+
+          {/* Haven filter */}
+          <select
+            value={selectedHaven}
+            onChange={(e) => { setSelectedHaven(e.target.value); setCurrentPage(1); }}
+            className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg text-sm focus:ring-2 focus:ring-brand-primary"
+          >
+            <option value="all">All Havens</option>
+            {uniqueHavens.map((name) => <option key={name} value={name}>{name}</option>)}
+          </select>
+
+          {/* Check-in date range */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">Check-in:</span>
+            <input
+              type="date"
+              value={checkInDateFrom}
+              onChange={(e) => { setCheckInDateFrom(e.target.value); setCurrentPage(1); }}
+              className="px-2 py-1.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg text-sm focus:ring-2 focus:ring-brand-primary"
+            />
+            <span className="text-gray-400 text-xs">–</span>
+            <input
+              type="date"
+              value={checkInDateTo}
+              min={checkInDateFrom}
+              onChange={(e) => { setCheckInDateTo(e.target.value); setCurrentPage(1); }}
+              className="px-2 py-1.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg text-sm focus:ring-2 focus:ring-brand-primary"
+            />
+            {(checkInDateFrom || checkInDateTo) && (
+              <button
+                onClick={() => { setCheckInDateFrom(""); setCheckInDateTo(""); setCurrentPage(1); }}
+                className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors text-xs"
+                title="Clear dates"
+              >✕</button>
+            )}
+          </div>
+        </div>
+
       </div>
 
       {/* Bookings Table - Desktop View */}
