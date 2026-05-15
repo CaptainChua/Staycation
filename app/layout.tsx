@@ -18,6 +18,7 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://www.staycationhavenph.com'),
   title: {
     default: "Staycation Haven PH | Premium Short-Term Stays & Vacation Rentals",
     template: "Staycation Haven PH | %s"
