@@ -1,4 +1,4 @@
-import { User, Users, ArrowLeft, Upload, Plus, Minus, CreditCard, CheckCircle, ChevronRight, X as XIcon } from "lucide-react";
+import { User, Users, ArrowLeft, Upload, Plus, Minus, CreditCard, CheckCircle, ChevronRight, X as XIcon, AlertCircle } from "lucide-react";
 import { useState } from "react";
 import Image from "next/image";
 import toast from "react-hot-toast";
@@ -234,6 +234,10 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
     return value.replace(/[^0-9]/g, "").slice(0, 3);
   };
 
+  // Letters (incl. accented), spaces, hyphens, apostrophes, periods only
+  const sanitizeName = (value: string) =>
+    value.replace(/[^a-zA-ZÀ-ÖØ-öø-ÿ\s'\-.]/g, "");
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
 
@@ -369,8 +373,36 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
       const firstError = Object.values(newErrors)[0];
       const remaining = Object.keys(newErrors).length - 1;
       toast.error(remaining > 0 ? `${firstError} (+${remaining} more)` : firstError);
+      scrollToFirstError(Object.keys(newErrors)[0]);
     }
     return Object.keys(newErrors).length === 0;
+  };
+
+  // Find the first errored field's input and scroll it into view + focus it
+  const scrollToFirstError = (fieldKey: string) => {
+    setTimeout(() => {
+      // Try by `name` first (covers firstName, age, gender, email, phone, etc.)
+      let target = document.querySelector<HTMLElement>(
+        `[name="${fieldKey}"]`
+      );
+      // For "guestNValidId" / "validId" — they don't have a name on file input, try the dropzone via id
+      if (!target) {
+        if (fieldKey === "validId") {
+          target = document.getElementById("valid-id");
+        } else if (fieldKey.startsWith("guest") && fieldKey.endsWith("ValidId")) {
+          const idx = fieldKey.replace("guest", "").replace("ValidId", "");
+          target = document.getElementById(`valid-id-guest-${idx}`);
+        } else if (fieldKey === "termsAccepted") {
+          target = document.querySelector<HTMLElement>(`[name="termsAccepted"]`);
+        }
+      }
+      if (target) {
+        target.scrollIntoView({ behavior: "smooth", block: "center" });
+        if (typeof (target as HTMLInputElement).focus === "function") {
+          setTimeout(() => (target as HTMLInputElement).focus({ preventScroll: true }), 250);
+        }
+      }
+    }, 50);
   };
 
   const validateStep2 = (): boolean => {
@@ -395,6 +427,12 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
       }
     }
     setErrors(newErrors);
+    if (Object.keys(newErrors).length > 0) {
+      const firstError = Object.values(newErrors)[0];
+      const remaining = Object.keys(newErrors).length - 1;
+      toast.error(remaining > 0 ? `${firstError} (+${remaining} more)` : firstError);
+      scrollToFirstError(Object.keys(newErrors)[0]);
+    }
     return Object.keys(newErrors).length === 0;
   };
 
@@ -403,6 +441,12 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
     if (!formData.paymentProof) newErrors.paymentProof = "Proof of payment is required";
     if (!formData.termsAccepted) newErrors.termsAccepted = "You must accept the terms";
     setErrors(newErrors);
+    if (Object.keys(newErrors).length > 0) {
+      const firstError = Object.values(newErrors)[0];
+      const remaining = Object.keys(newErrors).length - 1;
+      toast.error(remaining > 0 ? `${firstError} (+${remaining} more)` : firstError);
+      scrollToFirstError(Object.keys(newErrors)[0]);
+    }
     return Object.keys(newErrors).length === 0;
   };
 
@@ -628,7 +672,7 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                       <div>
                         <label className={labelClass}>Age *</label>
                         <input type="number" name="age" value={formData.age} onChange={handleInputChange} required min="1" max="999" inputMode="numeric" className={`${inputClass} ${errors.age ? "border-red-500" : ""}`} placeholder="Enter age" />
-                        {errors.age && <p className="text-red-500 text-xs mt-1">{errors.age}</p>}
+                        {errors.age && <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3 flex-shrink-0" /> {errors.age}</p>}
                       </div>
                       <div>
                         <label className={labelClass}>Gender *</label>
@@ -638,7 +682,7 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                           <option value="female">Female</option>
                           <option value="other">Other</option>
                         </select>
-                        {errors.gender && <p className="text-red-500 text-xs mt-1">{errors.gender}</p>}
+                        {errors.gender && <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3 flex-shrink-0" /> {errors.gender}</p>}
                       </div>
                       <div>
                         <label className={labelClass}>Email *</label>
@@ -661,7 +705,7 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                       <div>
                         <label className={labelClass}>Phone *</label>
                         <input type="tel" name="phone" value={formData.phone} onChange={handleInputChange} required inputMode="numeric" className={`${inputClass} ${errors.phone ? "border-red-500" : ""}`} placeholder="Enter Mobile Number" />
-                        {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
+                        {errors.phone && <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3 flex-shrink-0" /> {errors.phone}</p>}
                       </div>
                     </div>
                   </div>
@@ -750,7 +794,7 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                         </div>
                         <div>
                           <input type="number" value={guest.age} onChange={(e) => handleAdditionalGuestChange(index, "age", e.target.value)} placeholder="Age *" min="1" max="999" inputMode="numeric" className={`${inputClass} ${errors[`guest${index}Age`] ? "border-red-500" : ""}`} />
-                          {errors[`guest${index}Age`] && <p className="text-red-500 text-xs mt-1">{errors[`guest${index}Age`]}</p>}
+                          {errors[`guest${index}Age`] && <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3 flex-shrink-0" /> {errors[`guest${index}Age`]}</p>}
                         </div>
                         <div>
                           <select aria-label="Guest gender" title="Guest gender" value={guest.gender} onChange={(e) => handleAdditionalGuestChange(index, "gender", e.target.value)} className={`${inputClass} ${errors[`guest${index}Gender`] ? "border-red-500" : ""}`}>
@@ -759,7 +803,7 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                             <option value="female">Female</option>
                             <option value="other">Other</option>
                           </select>
-                          {errors[`guest${index}Gender`] && <p className="text-red-500 text-xs mt-1">{errors[`guest${index}Gender`]}</p>}
+                          {errors[`guest${index}Gender`] && <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3 flex-shrink-0" /> {errors[`guest${index}Gender`]}</p>}
                         </div>
                       </div>
 
@@ -818,7 +862,7 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                             <option key={h} value={h}>{h}</option>
                           ))}
                         </select>
-                        {errors.roomName && <p className="text-red-500 text-xs mt-1">{errors.roomName}</p>}
+                        {errors.roomName && <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3 flex-shrink-0" /> {errors.roomName}</p>}
                       </div>
                       <div>
                         <label className={labelClass}>Stay Type *</label>
@@ -829,7 +873,7 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                           <option value="21 Hours (Fri-Sat) - ₱1,999">21 Hours (Weekend) - ₱1,999</option>
                           <option value="Multi-Day Stay">Multi-Day Stay</option>
                         </select>
-                        {errors.stayType && <p className="text-red-500 text-xs mt-1">{errors.stayType}</p>}
+                        {errors.stayType && <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3 flex-shrink-0" /> {errors.stayType}</p>}
                       </div>
                     </div>
                   </div>
@@ -840,22 +884,22 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                       <div>
                         <label className={labelClass}>Check-in Date *</label>
                         <input type="date" name="checkInDate" aria-label="Check-in Date" title="Check-in Date" value={formData.checkInDate} onChange={handleInputChange} onKeyDown={handleDateKeyDown} required className={`${inputClass} ${errors.checkInDate ? "border-red-500" : ""}`} min={new Date().toISOString().split("T")[0]} />
-                        {errors.checkInDate && <p className="text-red-500 text-xs mt-1">{errors.checkInDate}</p>}
+                        {errors.checkInDate && <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3 flex-shrink-0" /> {errors.checkInDate}</p>}
                       </div>
                       <div>
                         <label className={labelClass}>Check-out Date *</label>
                         <input type="date" name="checkOutDate" aria-label="Check-out Date" title="Check-out Date" value={formData.checkOutDate} onChange={handleInputChange} onKeyDown={handleDateKeyDown} required className={`${inputClass} ${errors.checkOutDate ? "border-red-500" : ""}`} min={formData.checkInDate || new Date().toISOString().split("T")[0]} />
-                        {errors.checkOutDate && <p className="text-red-500 text-xs mt-1">{errors.checkOutDate}</p>}
+                        {errors.checkOutDate && <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3 flex-shrink-0" /> {errors.checkOutDate}</p>}
                       </div>
                       <div>
                         <label className={labelClass}>Check-in Time *</label>
                         <input type="time" name="checkInTime" aria-label="Check-in Time" title="Check-in Time" value={formData.checkInTime} onChange={handleInputChange} required className={`${inputClass} ${errors.checkInTime ? "border-red-500" : ""}`} />
-                        {errors.checkInTime && <p className="text-red-500 text-xs mt-1">{errors.checkInTime}</p>}
+                        {errors.checkInTime && <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3 flex-shrink-0" /> {errors.checkInTime}</p>}
                       </div>
                       <div>
                         <label className={labelClass}>Check-out Time *</label>
                         <input type="time" name="checkOutTime" aria-label="Check-out Time" title="Check-out Time" value={formData.checkOutTime} onChange={handleInputChange} required className={`${inputClass} ${errors.checkOutTime ? "border-red-500" : ""}`} />
-                        {errors.checkOutTime && <p className="text-red-500 text-xs mt-1">{errors.checkOutTime}</p>}
+                        {errors.checkOutTime && <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3 flex-shrink-0" /> {errors.checkOutTime}</p>}
                       </div>
                     </div>
                   </div>
