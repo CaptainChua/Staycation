@@ -93,16 +93,11 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
 
   // ── Numeric-only helpers ─────────────────────────────────────
 
-  /** Strips non-digit characters; keeps + only if it's the first character (for phone) */
-  const toPhoneNumeric = (value: string) => {
-    // Allow digits, spaces, hyphens, and leading +
-    return value.replace(/[^\d\s\-+]/g, "");
-  };
+  const toPhoneNumeric = (value: string) => value.replace(/[^\d\s\-+]/g, "");
 
   const toDigitsOnly = (value: string) => value.replace(/\D/g, "");
 
   const blockNonNumericKeys = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    // Block e, E, +, -, . (common non-numeric keys on number inputs)
     if (["e", "E", "+", "-", "."].includes(e.key)) {
       e.preventDefault();
     }
@@ -319,12 +314,12 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
       console.error("Error creating employee: ", error);
       const errorMessage =
         error && typeof error === "object" && "data" in error &&
-        error.data && typeof error.data === "object" && "error" in error.data &&
-        typeof (error.data as any).error === "string"
+          error.data && typeof error.data === "object" && "error" in error.data &&
+          typeof (error.data as any).error === "string"
           ? (error.data as any).error
           : error instanceof Error
-          ? error.message
-          : "Failed to create employee";
+            ? error.message
+            : "Failed to create employee";
       toast.error(errorMessage);
     }
   };
@@ -534,6 +529,7 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                     isInvalid={touchedFields.password && !!errors.password}
                     errorMessage={touchedFields.password && errors.password}
                     isRequired
+                    isDisabled={isLoading}
                     classNames={inputClasses}
                   />
                 </div>
@@ -555,6 +551,7 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                     isInvalid={touchedFields.confirmPassword && !!errors.confirmPassword}
                     errorMessage={touchedFields.confirmPassword && errors.confirmPassword}
                     isRequired
+                    isDisabled={isLoading}
                     classNames={inputClasses}
                   />
                 </div>
@@ -583,24 +580,45 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                     }}
                   />
                   <DatePicker
-                    label="Hire Date *"
-                    labelPlacement="outside"
-                    value={formData.hireDate ? (parseDate(formData.hireDate) as any) : null}
-                    onChange={(date: DateValue | null) => {
-                      if (date) {
-                        const dateStr = `${date.year}-${String(date.month).padStart(2, "0")}-${String(date.day).padStart(2, "0")}`;
-                        setFormData({ ...formData, hireDate: dateStr });
-                      }
-                    }}
-                    isRequired
-                    isDisabled={isLoading}
-                    classNames={{
-                      base: "w-full",
-                      label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
-                      calendarContent: "dark:bg-slate-900",
-                      calendar: "dark:bg-slate-900 dark:text-white",
-                    }}
-                  />
+  name="hireDate"
+  label="Hire Date *"
+  labelPlacement="outside"
+  value={(() => {
+    try {
+      return formData.hireDate ? (parseDate(formData.hireDate) as any) : null;
+    } catch {
+      return null;
+    }
+  })()}
+  onChange={(date: DateValue | null) => {
+    if (date) {
+      const year = String(date.year).padStart(4, "0");
+      const month = String(date.month).padStart(2, "0");
+      const day = String(date.day).padStart(2, "0");
+      const dateStr = `${year}-${month}-${day}`;
+      setFormData((prev) => ({ ...prev, hireDate: dateStr }));
+      setErrors((prev) => ({ ...prev, hireDate: "" }));
+      setTouchedFields((prev) => ({ ...prev, hireDate: true }));
+    } else {
+      setFormData((prev) => ({ ...prev, hireDate: "" }));
+      setErrors((prev) => ({ ...prev, hireDate: "Hire date is required" }));
+    }
+  }}
+  onBlur={() => {
+    setTouchedFields((prev) => ({ ...prev, hireDate: true }));
+  }}
+  isRequired
+  isDisabled={isLoading}
+  isInvalid={touchedFields.hireDate && !!errors.hireDate}
+  errorMessage={touchedFields.hireDate && errors.hireDate}
+  classNames={{
+    base: "w-full",
+    label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
+    calendarContent: "dark:bg-slate-900",
+    calendar: "dark:bg-slate-900 dark:text-white",
+    inputWrapper: "cursor-pointer",
+  }}
+/>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -689,6 +707,7 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                   value={formData.address}
                   onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                   isRequired
+                  isDisabled={isLoading}
                   classNames={inputClasses}
                 />
                 <div className="grid grid-cols-2 gap-4">

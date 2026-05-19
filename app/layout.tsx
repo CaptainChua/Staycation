@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import { Inter, Poppins } from "next/font/google";
+// @ts-ignore
 import "./globals.css";
 import { Providers } from '@/Components/Providers'
 

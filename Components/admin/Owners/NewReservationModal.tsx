@@ -1,5 +1,5 @@
-import { Calendar, User, Users, Mail, Phone, ArrowLeft, Upload, Plus, Minus, CreditCard, AlertCircle, CheckCircle, Clock, Package, Camera, Wallet, Info, ChevronRight, Building2, Receipt, LogIn, LogOut, X as XIcon } from "lucide-react";
-import { useState, useRef, useEffect } from "react";
+import { User, Users, ArrowLeft, Upload, Plus, Minus, CreditCard, CheckCircle, ChevronRight, X as XIcon } from "lucide-react";
+import { useState } from "react";
 import Image from "next/image";
 import toast from "react-hot-toast";
 
@@ -33,15 +33,47 @@ const ADD_ON_PRICES = {
 interface NewReservationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (bookingData: any) => Promise<void>;
+  onSubmit: (bookingData: {
+    firstName: string;
+    lastName: string;
+    age: string;
+    gender: string;
+    email: string;
+    phone: string;
+    facebookLink: string;
+    validId: string;
+    adults: number;
+    children: number;
+    infants: number;
+    stayType: string;
+    checkInDate: string;
+    checkOutDate: string;
+    checkInTime: string;
+    checkOutTime: string;
+    roomName: string;
+    paymentProof: string;
+    paymentMethod: string;
+    termsAccepted: boolean;
+    additionalGuests?: {
+      firstName: string;
+      lastName: string;
+      age: string;
+      gender: string;
+      validId: string;
+    }[];
+    roomRate: number;
+    securityDeposit: number;
+    addOnsTotal: number;
+    totalAmount: number;
+    downPayment: number;
+    addOns: AddOns;
+  }) => Promise<void>;
 }
 
 const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalProps) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const errorRefs = useRef<Record<string, HTMLDivElement | null>>({});
-  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
 
   const initialFormData = {
     firstName: "",
@@ -70,7 +102,7 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
 
   const [formData, setFormData] = useState(initialFormData);
 
-  const initialAddOns = {
+  const initialAddOns: AddOns = {
     poolPass: 0,
     towels: 0,
     bathRobe: 0,
@@ -83,7 +115,6 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
   const [addOns, setAddOns] = useState<AddOns>(initialAddOns);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Reset function to clear all form data
   const resetForm = () => {
     setFormData(initialFormData);
     setAdditionalGuests([]);
@@ -91,12 +122,8 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
     setCurrentStep(1);
     setCompletedSteps([]);
     setErrors({});
+    setIsSubmitting(false);
   };
-
-  // Reset form whenever the modal opens
-  useEffect(() => {
-    if (isOpen) resetForm();
-  }, [isOpen]);
 
   const handleClose = () => {
     resetForm();
@@ -106,50 +133,37 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
   const getRoomRateFromStayType = (): number => {
     if (!formData.stayType) return 0;
     if (formData.stayType === "10 Hours - ₱1,599") return 1599;
-    else if (formData.stayType.includes("weekday")) return 1799;
-    else if (formData.stayType.includes("Fri-Sat")) return 1999;
-    else if (formData.stayType === "Multi-Day Stay") {
-      const numberOfDays = calculateNumberOfDays();
-      return 1799 * numberOfDays;
-    }
+    if (formData.stayType.includes("weekday")) return 1799;
+    if (formData.stayType.includes("Fri-Sat")) return 1999;
+    if (formData.stayType === "Multi-Day Stay") return 1799 * calculateNumberOfDays();
     return 0;
   };
 
   const calculateNumberOfDays = (): number => {
     if (!formData.checkInDate || !formData.checkOutDate) return 0;
-    const checkIn = new Date(formData.checkInDate);
-    const checkOut = new Date(formData.checkOutDate);
-    const diffTime = Math.abs(checkOut.getTime() - checkIn.getTime());
+    const diffTime = Math.abs(new Date(formData.checkOutDate).getTime() - new Date(formData.checkInDate).getTime());
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
   const roomRate = getRoomRateFromStayType();
-  const numberOfDays = calculateNumberOfDays();
   const securityDeposit = formData.stayType ? 1000 : 0;
   const downPayment = 500;
-  const addOnsTotal = Object.entries(addOns).reduce((total, [key, quantity]) => {
-    return total + quantity * ADD_ON_PRICES[key as keyof AddOns];
-  }, 0);
+  const addOnsTotal = Object.entries(addOns).reduce(
+    (total, [key, quantity]) => total + quantity * ADD_ON_PRICES[key as keyof AddOns],
+    0
+  );
   const totalAmount = roomRate + securityDeposit + addOnsTotal;
 
   const updateAdditionalGuests = (adults: number, children: number) => {
     const totalAdditionalGuests = adults + children - 1;
-    setAdditionalGuests(prev => {
-      const currentLength = prev.length;
-      if (totalAdditionalGuests > currentLength) {
-        const newGuests = Array(totalAdditionalGuests - currentLength).fill(null).map(() => ({
-          firstName: "",
-          lastName: "",
-          age: "",
-          gender: "",
-          validId: null,
-          validIdPreview: "",
-        }));
+    setAdditionalGuests((prev) => {
+      if (totalAdditionalGuests > prev.length) {
+        const newGuests = Array(totalAdditionalGuests - prev.length)
+          .fill(null)
+          .map(() => ({ firstName: "", lastName: "", age: "", gender: "", validId: null, validIdPreview: "" }));
         return [...prev, ...newGuests];
-      } else if (totalAdditionalGuests < currentLength) {
-        return prev.slice(0, totalAdditionalGuests);
       }
-      return prev;
+      return prev.slice(0, totalAdditionalGuests);
     });
   };
 
@@ -157,71 +171,106 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
     e.preventDefault();
   };
 
+  // ── Name helpers ──────────────────────────────────────────────
+  const toNameOnly = (value: string): string =>
+    value.replace(/[^a-zA-ZÀ-ÿ\s'-]/g, "");
+
+  const blockNonNameKeys = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (/[0-9!@#$%^&*()_+=\[\]{};:"\\|,.<>?/`~]/.test(e.key)) {
+      e.preventDefault();
+    }
+  };
+
+  // ── Email helper ──────────────────────────────────────────────
+  const isValidEmail = (value: string): boolean =>
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+
+  // ── Other input helpers ───────────────────────────────────────
+  const handlePhoneChange = (value: string): string => {
+    const cleaned = value.replace(/[^0-9]/g, "");
+    return cleaned.slice(0, 11);
+  };
+
+  const handleAgeChange = (value: string): string => {
+    return value.replace(/[^0-9]/g, "").slice(0, 3);
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
+
+    // ── Name fields: letters only ─────────────────────────────
+    if (name === "firstName" || name === "lastName") {
+      setFormData((prev) => ({ ...prev, [name]: toNameOnly(value) }));
+      return;
+    }
+
+    // ── Email: real-time format validation ────────────────────
+    if (name === "email") {
+      setFormData((prev) => ({ ...prev, email: value }));
+      if (value && !isValidEmail(value)) {
+        setErrors((prev) => ({ ...prev, email: "Invalid email format (e.g. name@example.com)" }));
+      } else {
+        setErrors((prev) => ({ ...prev, email: "" }));
+      }
+      return;
+    }
+
+    if (name === "phone") {
+      setFormData((prev) => ({ ...prev, phone: handlePhoneChange(value) }));
+      return;
+    }
+
+    if (name === "age") {
+      setFormData((prev) => ({ ...prev, age: handleAgeChange(value) }));
+      return;
+    }
 
     if (name === "adults" || name === "children") {
       const newValue = parseInt(value) || 0;
       const currentAdults = name === "adults" ? newValue : formData.adults;
       const currentChildren = name === "children" ? newValue : formData.children;
-      const newTotal = currentAdults + currentChildren;
 
-      if (newTotal > 4) {
+      if (currentAdults + currentChildren > 4) {
         alert("Maximum 4 guests allowed (adults + children).");
         return;
       }
 
-      const updatedFormData = {
-        ...formData,
-        [name]: type === "number" ? newValue : value,
-      };
-      setFormData(updatedFormData);
+      setFormData((prev) => ({ ...prev, [name]: newValue }));
       updateAdditionalGuests(currentAdults, currentChildren);
-    } else if (name === "age") {
-      const digitsOnly = value.replace(/\D/g, "").replace(/^0+/, "").slice(0, 3);
-      const ageVal = parseInt(digitsOnly);
-      if (digitsOnly && ageVal < 18) {
-        setErrors(prev => ({ ...prev, age: "Main guest must be at least 18 years old to book" }));
-      } else {
-        setErrors(prev => ({ ...prev, age: "" }));
-      }
-      setFormData((prev) => ({ ...prev, age: digitsOnly }));
-    } else {
-      setFormData((prev) => ({
-        ...prev,
-        [name]: type === "checkbox" ? (e.target as HTMLInputElement).checked : type === "number" ? parseInt(value) || 0 : value,
-      }));
+      return;
     }
+
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? (e.target as HTMLInputElement).checked : type === "number" ? parseInt(value) || 0 : value,
+    }));
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'payment' | 'id', guestIndex?: number) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: "payment" | "id", guestIndex?: number) => {
     const file = e.target.files?.[0];
-    if (file) {
-      if (type === 'payment') {
-        setFormData((prev) => ({
-          ...prev,
-          paymentProof: file,
-          paymentProofPreview: URL.createObjectURL(file),
-        }));
-      } else if (guestIndex === undefined) {
-        setFormData((prev) => ({
-          ...prev,
-          validId: file,
-          validIdPreview: URL.createObjectURL(file),
-        }));
-      } else {
-        const updatedGuests = [...additionalGuests];
-        updatedGuests[guestIndex].validId = file;
-        updatedGuests[guestIndex].validIdPreview = URL.createObjectURL(file);
-        setAdditionalGuests(updatedGuests);
-      }
+    if (!file) return;
+
+    if (type === "payment") {
+      setFormData((prev) => ({ ...prev, paymentProof: file, paymentProofPreview: URL.createObjectURL(file) }));
+    } else if (guestIndex === undefined) {
+      setFormData((prev) => ({ ...prev, validId: file, validIdPreview: URL.createObjectURL(file) }));
+    } else {
+      const updatedGuests = [...additionalGuests];
+      updatedGuests[guestIndex].validId = file;
+      updatedGuests[guestIndex].validIdPreview = URL.createObjectURL(file);
+      setAdditionalGuests(updatedGuests);
     }
   };
 
   const handleAdditionalGuestChange = (index: number, field: keyof GuestInfo, value: string) => {
     const updatedGuests = [...additionalGuests];
-    updatedGuests[index] = { ...updatedGuests[index], [field]: value };
+    const sanitizedValue =
+      field === "age"
+        ? handleAgeChange(value)
+        : field === "firstName" || field === "lastName"
+        ? toNameOnly(value)
+        : value;
+    updatedGuests[index] = { ...updatedGuests[index], [field]: sanitizedValue };
     setAdditionalGuests(updatedGuests);
   };
 
@@ -233,79 +282,53 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
     if (selectedStayType === "10 Hours - ₱1,599") {
       defaultCheckInTime = "14:00";
       defaultCheckOutTime = "00:00";
-    } else if (selectedStayType.includes("21 Hours")) {
-      defaultCheckInTime = "14:00";
-      defaultCheckOutTime = "11:00";
-    } else if (selectedStayType === "Multi-Day Stay") {
+    } else if (selectedStayType.includes("21 Hours") || selectedStayType === "Multi-Day Stay") {
       defaultCheckInTime = "14:00";
       defaultCheckOutTime = "11:00";
     }
 
-    setFormData((prev) => ({
-      ...prev,
-      stayType: selectedStayType,
-      checkInTime: defaultCheckInTime,
-      checkOutTime: defaultCheckOutTime,
-    }));
+    setFormData((prev) => ({ ...prev, stayType: selectedStayType, checkInTime: defaultCheckInTime, checkOutTime: defaultCheckOutTime }));
 
     if (formData.checkInDate && selectedStayType) {
-      const checkInDate = new Date(formData.checkInDate);
-      const checkOutDate = new Date(checkInDate);
-
-      if (selectedStayType === "10 Hours - ₱1,599" || selectedStayType.includes("21 Hours")) {
-        checkOutDate.setDate(checkOutDate.getDate() + 1);
-      } else if (selectedStayType === "Multi-Day Stay") {
-        checkOutDate.setDate(checkOutDate.getDate() + 1);
-      }
-
-      const checkOutStr = checkOutDate.toISOString().split('T')[0];
-      setFormData(prev => ({ ...prev, checkOutDate: checkOutStr }));
+      const checkOutDate = new Date(formData.checkInDate);
+      checkOutDate.setDate(checkOutDate.getDate() + 1);
+      setFormData((prev) => ({ ...prev, checkOutDate: checkOutDate.toISOString().split("T")[0] }));
     }
   };
 
   const handleAddOnChange = (item: keyof AddOns, increment: boolean) => {
-    setAddOns((prev) => ({
-      ...prev,
-      [item]: Math.max(0, prev[item] + (increment ? 1 : -1)),
-    }));
+    setAddOns((prev) => ({ ...prev, [item]: Math.max(0, prev[item] + (increment ? 1 : -1)) }));
   };
 
   const validateStep1 = (): boolean => {
     const newErrors: Record<string, string> = {};
     if (!formData.firstName) newErrors.firstName = "First name is required";
     if (!formData.lastName) newErrors.lastName = "Last name is required";
-    if (!formData.age) {
-      newErrors.age = "Age is required";
-    } else if (parseInt(formData.age) < 18) {
-      newErrors.age = "Main guest must be at least 18 years old to book";
-    }
+    if (!formData.age) newErrors.age = "Age is required";
     if (!formData.gender) newErrors.gender = "Please select a gender";
-    if (!formData.email) newErrors.email = "Email is required";
+    if (!formData.email) {
+      newErrors.email = "Email is required";
+    } else if (!isValidEmail(formData.email)) {
+      newErrors.email = "Invalid email format (e.g. name@example.com)";
+    }
     if (!formData.phone) newErrors.phone = "Phone number is required";
     if (formData.age && parseInt(formData.age) >= 10 && !formData.validId) {
       newErrors.validId = "Valid ID is required for guests 10+ years old";
     }
-
     for (let i = 0; i < additionalGuests.length; i++) {
       const guest = additionalGuests[i];
-      const isGuestAdult = i < formData.adults - 1;
       if (!guest.firstName) newErrors[`guest${i}FirstName`] = `Guest ${i + 2} first name is required`;
       if (!guest.lastName) newErrors[`guest${i}LastName`] = `Guest ${i + 2} last name is required`;
-      if (!guest.age) {
-        newErrors[`guest${i}Age`] = `Guest ${i + 2} age is required`;
-      } else if (isGuestAdult && parseInt(guest.age) < 18) {
-        newErrors[`guest${i}Age`] = `Adult guest must be at least 18 years old`;
-      } else if (!isGuestAdult && (parseInt(guest.age) < 4 || parseInt(guest.age) > 17)) {
-        newErrors[`guest${i}Age`] = `Child guest age must be between 4 and 17`;
-      }
+      if (!guest.age) newErrors[`guest${i}Age`] = `Guest ${i + 2} age is required`;
       if (!guest.gender) newErrors[`guest${i}Gender`] = `Guest ${i + 2} gender is required`;
       if (guest.age && parseInt(guest.age) >= 10 && !guest.validId) {
         newErrors[`guest${i}ValidId`] = `Valid ID required for Guest ${i + 2}`;
       }
     }
-
     setErrors(newErrors);
-
+    if (Object.keys(newErrors).length > 0) {
+      alert(`Please fill in all required fields:\n\n${Object.values(newErrors).join("\n")}`);
+    }
     return Object.keys(newErrors).length === 0;
   };
 
@@ -318,6 +341,18 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
     if (!formData.checkOutTime) newErrors.checkOutTime = "Check-out time is required";
     if (!formData.roomName) newErrors.roomName = "Room/Haven name is required";
 
+    if (formData.checkInDate) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (new Date(formData.checkInDate) < today) {
+        newErrors.checkInDate = "Check-in date cannot be in the past";
+      }
+    }
+    if (formData.checkInDate && formData.checkOutDate) {
+      if (new Date(formData.checkOutDate) <= new Date(formData.checkInDate)) {
+        newErrors.checkOutDate = "Check-out date must be after check-in date";
+      }
+    }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -331,24 +366,14 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
   };
 
   const handleNext = () => {
-    if (currentStep === 1) {
-      if (validateStep1()) {
-        setCompletedSteps(prev => [...prev, 1]);
-        setCurrentStep(2);
-      } else {
-        scrollContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-        toast.error("Please fix the errors above before continuing.");
-      }
-    } else if (currentStep === 2) {
-      if (validateStep2()) {
-        setCompletedSteps(prev => [...prev, 2]);
-        setCurrentStep(3);
-      } else {
-        scrollContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-        toast.error("Please fix the errors above before continuing.");
-      }
+    if (currentStep === 1 && validateStep1()) {
+      setCompletedSteps((prev) => [...prev, 1]);
+      setCurrentStep(2);
+    } else if (currentStep === 2 && validateStep2()) {
+      setCompletedSteps((prev) => [...prev, 2]);
+      setCurrentStep(3);
     } else if (currentStep === 3) {
-      setCompletedSteps(prev => [...prev, 3]);
+      setCompletedSteps((prev) => [...prev, 3]);
       setCurrentStep(4);
     }
   };
@@ -363,60 +388,20 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
 
     setIsSubmitting(true);
     try {
-      // Convert files to base64
-      let validIdBase64 = '';
-      if (formData.validId) {
-        try {
+      const toBase64 = (file: File): Promise<string> =>
+        new Promise((resolve, reject) => {
           const reader = new FileReader();
-          validIdBase64 = await new Promise((resolve, reject) => {
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.onerror = () => reject(new Error('Failed to read valid ID file'));
-            reader.readAsDataURL(formData.validId as File);
-          });
-        } catch (error) {
-          console.error('Error converting valid ID to base64:', error);
-          toast.error('Failed to process valid ID file. Please try again.');
-          setIsSubmitting(false);
-          return;
-        }
-      }
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = () => reject(new Error("Failed to read file"));
+          reader.readAsDataURL(file);
+        });
 
-      let paymentProofBase64 = '';
-      if (formData.paymentProof) {
-        try {
-          const reader = new FileReader();
-          paymentProofBase64 = await new Promise((resolve, reject) => {
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.onerror = () => reject(new Error('Failed to read payment proof file'));
-            reader.readAsDataURL(formData.paymentProof as File);
-          });
-        } catch (error) {
-          console.error('Error converting payment proof to base64:', error);
-          toast.error('Failed to process payment proof file. Please try again.');
-          setIsSubmitting(false);
-          return;
-        }
-      }
+      const validIdBase64 = formData.validId ? await toBase64(formData.validId) : "";
+      const paymentProofBase64 = formData.paymentProof ? await toBase64(formData.paymentProof) : "";
 
-      // Convert additional guests' IDs to base64
       const additionalGuestsData = [];
       for (const guest of additionalGuests) {
-        let guestIdBase64 = '';
-        if (guest.validId) {
-          try {
-            const reader = new FileReader();
-            guestIdBase64 = await new Promise((resolve, reject) => {
-              reader.onloadend = () => resolve(reader.result as string);
-              reader.onerror = () => reject(new Error(`Failed to read guest ID file for ${guest.firstName}`));
-              reader.readAsDataURL(guest.validId as File);
-            });
-          } catch (error) {
-            console.error('Error converting guest ID to base64:', error);
-            toast.error(`Failed to process ID file for ${guest.firstName}. Please try again.`);
-            setIsSubmitting(false);
-            return;
-          }
-        }
+        const guestIdBase64 = guest.validId ? await toBase64(guest.validId) : "";
         additionalGuestsData.push({
           firstName: guest.firstName,
           lastName: guest.lastName,
@@ -427,43 +412,41 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
       }
 
       const bookingData = {
-        booking_id: `BK${Date.now()}`,
-        user_id: null,
-        guest_first_name: formData.firstName,
-        guest_last_name: formData.lastName,
-        guest_age: formData.age,
-        guest_gender: formData.gender,
-        guest_email: formData.email,
-        guest_phone: formData.phone,
-        facebook_link: formData.facebookLink,
-        valid_id: validIdBase64,
-        additional_guests: additionalGuestsData,
-        room_name: formData.roomName,
-        stay_type: formData.stayType,
-        check_in_date: formData.checkInDate,
-        check_out_date: formData.checkOutDate,
-        check_in_time: formData.checkInTime,
-        check_out_time: formData.checkOutTime,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        age: formData.age,
+        gender: formData.gender,
+        email: formData.email,
+        phone: formData.phone,
+        facebookLink: formData.facebookLink,
+        validId: validIdBase64,
+        additionalGuests: additionalGuestsData,
+        roomName: formData.roomName,
+        stayType: formData.stayType,
+        checkInDate: formData.checkInDate,
+        checkOutDate: formData.checkOutDate,
+        checkInTime: formData.checkInTime,
+        checkOutTime: formData.checkOutTime,
         adults: formData.adults,
         children: formData.children,
         infants: formData.infants,
-        payment_method: formData.paymentMethod,
-        payment_proof: paymentProofBase64,
-        room_rate: roomRate,
-        security_deposit: securityDeposit,
-        add_ons_total: addOnsTotal,
-        total_amount: totalAmount,
-        down_payment: downPayment,
+        paymentMethod: formData.paymentMethod,
+        paymentProof: paymentProofBase64,
+        roomRate: roomRate,
+        securityDeposit: securityDeposit,
+        addOnsTotal: addOnsTotal,
+        totalAmount: totalAmount,
+        downPayment: downPayment,
         addOns,
+        termsAccepted: formData.termsAccepted,
       };
 
       await onSubmit(bookingData);
-      // Only reset and close after successful submission
       resetForm();
       onClose();
     } catch (error) {
-      console.error('Submission error:', error);
-      toast.error('Failed to create reservation. Please try again.');
+      console.error("Submission error:", error);
+      toast.error("Failed to create reservation. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -471,12 +454,11 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
 
   if (!isOpen) return null;
 
-  const getStepTitle = () => {
-    const titles = ["Guest Information", "Booking Details", "Optional Add-ons", "Payment & Review"];
-    return titles[currentStep - 1];
-  };
+  const getStepTitle = () =>
+    ["Guest Information", "Booking Details", "Optional Add-ons", "Payment & Review"][currentStep - 1];
 
-  const inputClass = "w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-[#A1823D] focus:border-transparent";
+  const inputClass =
+    "w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-[#A1823D] focus:border-transparent";
   const labelClass = "block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300";
   const sectionClass = "border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-xl p-6";
 
@@ -484,7 +466,7 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-5xl w-full max-h-[95vh] flex flex-col">
         {/* Header */}
-        <div className="text-white p-6 rounded-t-2xl flex justify-between items-center flex-shrink-0" style={{ backgroundColor: '#A1823D' }}>
+        <div className="text-white p-6 rounded-t-2xl flex justify-between items-center flex-shrink-0" style={{ backgroundColor: "#A1823D" }}>
           <div>
             <h2 className="text-2xl font-bold">{getStepTitle()}</h2>
             <p className="text-sm opacity-90">Step {currentStep} of 4</p>
@@ -500,37 +482,43 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
             {[1, 2, 3, 4].map((step, idx) => (
               <div key={step} className="flex items-center">
                 <div className="flex flex-col items-center">
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-2 transition-all font-semibold ${
-                    completedSteps.includes(step) 
-                      ? "bg-green-500 text-white" 
-                      : currentStep === step 
-                      ? "text-white" 
-                      : "bg-gray-200 dark:bg-gray-600 text-gray-500 dark:text-gray-400"
-                  }`} style={currentStep === step ? { backgroundColor: '#A1823D' } : {}}>
+                  <div
+                    className={`w-12 h-12 rounded-full flex items-center justify-center mb-2 transition-all font-semibold ${
+                      completedSteps.includes(step)
+                        ? "bg-green-500 text-white"
+                        : currentStep === step
+                        ? "text-white"
+                        : "bg-gray-200 dark:bg-gray-600 text-gray-500 dark:text-gray-400"
+                    }`}
+                    style={currentStep === step && !completedSteps.includes(step) ? { backgroundColor: "#A1823D" } : {}}
+                  >
                     {completedSteps.includes(step) ? <CheckCircle className="w-6 h-6" /> : step}
                   </div>
-                  <span className={`text-xs font-medium text-center whitespace-nowrap ${
-                    completedSteps.includes(step) || currentStep === step 
-                      ? "text-gray-900 dark:text-gray-100" 
-                      : "text-gray-500 dark:text-gray-400"
-                  }`} style={completedSteps.includes(step) || currentStep === step ? { color: '#A1823D' } : {}}>
+                  <span
+                    className={`text-xs font-medium text-center whitespace-nowrap ${
+                      completedSteps.includes(step) || currentStep === step
+                        ? "text-gray-900 dark:text-gray-100"
+                        : "text-gray-500 dark:text-gray-400"
+                    }`}
+                    style={completedSteps.includes(step) || currentStep === step ? { color: "#A1823D" } : {}}
+                  >
                     {["Guest", "Booking", "Add-ons", "Payment"][idx]}
                   </span>
                 </div>
                 {idx < 3 && (
-                  <div className={`w-24 h-1 mx-4 -mt-8 ${
-                    completedSteps.includes(step) 
-                      ? "bg-green-500" 
-                      : "bg-gray-200 dark:bg-gray-600"
-                  }`}></div>
+                  <div
+                    className={`w-24 h-1 mx-4 -mt-8 ${
+                      completedSteps.includes(step) ? "bg-green-500" : "bg-gray-200 dark:bg-gray-600"
+                    }`}
+                  />
                 )}
               </div>
             ))}
           </div>
         </div>
 
-        {/* Content - Scrollable */}
-        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-6 py-6">
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-y-auto px-6 py-6">
           <div className="max-w-4xl mx-auto">
             <form onSubmit={handleSubmit}>
               {/* Step 1: Guest Information */}
@@ -538,28 +526,46 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                 <div className="space-y-6">
                   <div className={sectionClass}>
                     <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-gray-900 dark:text-gray-100">
-                      <User className="w-5 h-5" style={{ color: '#A1823D' }} />
+                      <User className="w-5 h-5" style={{ color: "#A1823D" }} />
                       Main Guest Information
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className={labelClass}>First Name *</label>
-                        <input type="text" name="firstName" value={formData.firstName} onChange={handleInputChange} required className={`${inputClass} ${errors.firstName ? 'border-red-500' : ''}`} placeholder="Enter first name" />
+                        <input
+                          type="text"
+                          name="firstName"
+                          value={formData.firstName}
+                          onChange={handleInputChange}
+                          onKeyDown={blockNonNameKeys}
+                          required
+                          className={`${inputClass} ${errors.firstName ? "border-red-500" : ""}`}
+                          placeholder="Enter first name"
+                        />
                         {errors.firstName && <p className="text-red-500 text-xs mt-1">{errors.firstName}</p>}
                       </div>
                       <div>
                         <label className={labelClass}>Last Name *</label>
-                        <input type="text" name="lastName" value={formData.lastName} onChange={handleInputChange} required className={`${inputClass} ${errors.lastName ? 'border-red-500' : ''}`} placeholder="Enter last name" />
+                        <input
+                          type="text"
+                          name="lastName"
+                          value={formData.lastName}
+                          onChange={handleInputChange}
+                          onKeyDown={blockNonNameKeys}
+                          required
+                          className={`${inputClass} ${errors.lastName ? "border-red-500" : ""}`}
+                          placeholder="Enter last name"
+                        />
                         {errors.lastName && <p className="text-red-500 text-xs mt-1">{errors.lastName}</p>}
                       </div>
                       <div>
                         <label className={labelClass}>Age *</label>
-                        <input type="text" inputMode="numeric" name="age" value={formData.age} onChange={handleInputChange} required maxLength={3} className={`${inputClass} ${errors.age ? 'border-red-500' : ''}`} placeholder="Enter age" />
+                        <input type="number" name="age" value={formData.age} onChange={handleInputChange} required min="1" max="999" inputMode="numeric" className={`${inputClass} ${errors.age ? "border-red-500" : ""}`} placeholder="Enter age" />
                         {errors.age && <p className="text-red-500 text-xs mt-1">{errors.age}</p>}
                       </div>
                       <div>
                         <label className={labelClass}>Gender *</label>
-                        <select name="gender" value={formData.gender} onChange={handleInputChange} required className={`${inputClass} ${errors.gender ? 'border-red-500' : ''}`}>
+                        <select name="gender" value={formData.gender} onChange={handleInputChange} required className={`${inputClass} ${errors.gender ? "border-red-500" : ""}`}>
                           <option value="">Select Gender</option>
                           <option value="male">Male</option>
                           <option value="female">Female</option>
@@ -569,12 +575,25 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                       </div>
                       <div>
                         <label className={labelClass}>Email *</label>
-                        <input type="email" name="email" value={formData.email} onChange={handleInputChange} required className={`${inputClass} ${errors.email ? 'border-red-500' : ''}`} placeholder="Enter email" />
+                        <input
+                          type="email"
+                          name="email"
+                          value={formData.email}
+                          onChange={handleInputChange}
+                          onBlur={() => {
+                            if (formData.email && !isValidEmail(formData.email)) {
+                              setErrors((prev) => ({ ...prev, email: "Invalid email format (e.g. name@example.com)" }));
+                            }
+                          }}
+                          required
+                          className={`${inputClass} ${errors.email ? "border-red-500" : ""}`}
+                          placeholder="name@example.com"
+                        />
                         {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
                       </div>
                       <div>
                         <label className={labelClass}>Phone *</label>
-                        <input type="tel" name="phone" value={formData.phone} onChange={handleInputChange} required className={`${inputClass} ${errors.phone ? 'border-red-500' : ''}`} placeholder="e.g., 9123456789" />
+                        <input type="tel" name="phone" value={formData.phone} onChange={handleInputChange} required inputMode="numeric" className={`${inputClass} ${errors.phone ? "border-red-500" : ""}`} placeholder="Enter Mobile Number" />
                         {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
                       </div>
                     </div>
@@ -585,22 +604,36 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                       <CreditCard className="w-5 h-5 text-blue-600" />
                       Valid ID (Required for 10+ years old)
                     </h4>
-                    <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'id')} className="hidden" id="valid-id" />
-                    <label htmlFor="valid-id" className="cursor-pointer flex flex-col items-center p-8 border-2 border-dashed border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 rounded-lg hover:border-blue-500 dark:hover:border-blue-400 transition">
+                    <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, "id")} className="hidden" id="valid-id" />
+                    <label
+                      htmlFor="valid-id"
+                      className={`cursor-pointer flex flex-col items-center p-8 border-2 border-dashed bg-gray-50 dark:bg-gray-800 rounded-lg hover:border-blue-500 dark:hover:border-blue-400 transition ${
+                        errors.validId ? "border-red-500" : "border-gray-300 dark:border-gray-600"
+                      }`}
+                    >
                       <Upload className="w-12 h-12 text-blue-500 mb-3" />
                       <p className="text-blue-600 dark:text-blue-400 font-medium">Click to upload ID</p>
                       <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">PNG, JPG up to 10MB</p>
                     </label>
+                    {errors.validId && <p className="text-red-500 text-xs mt-2 text-center">{errors.validId}</p>}
                     {formData.validIdPreview && (
-                      <div className="mt-4">
+                      <div className="mt-4 relative">
                         <Image src={formData.validIdPreview} alt="ID preview" width={300} height={200} className="max-w-xs mx-auto rounded-lg shadow border border-gray-200 dark:border-gray-600" />
+                        <button
+                          type="button"
+                          onClick={() => setFormData((prev) => ({ ...prev, validId: null, validIdPreview: "" }))}
+                          className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 transition-colors"
+                          title="Remove image"
+                        >
+                          <XIcon className="w-4 h-4" />
+                        </button>
                       </div>
                     )}
                   </div>
 
                   <div className={sectionClass}>
                     <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-gray-900 dark:text-gray-100">
-                      <Users className="w-5 h-5" style={{ color: '#A1823D' }} />
+                      <Users className="w-5 h-5" style={{ color: "#A1823D" }} />
                       Number of Guests
                     </h3>
                     <div className="grid grid-cols-3 gap-4">
@@ -622,51 +655,38 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                   {additionalGuests.map((guest, index) => (
                     <div key={index} className={sectionClass}>
                       <h3 className="font-bold mb-4 flex items-center gap-2 text-gray-900 dark:text-gray-100">
-                        <User className="w-5 h-5" style={{ color: '#A1823D' }} />
+                        <User className="w-5 h-5" style={{ color: "#A1823D" }} />
                         {index < formData.adults - 1 ? `Adult ${index + 2}` : `Child ${index - (formData.adults - 1) + 1}`}
                       </h3>
                       <div className="grid grid-cols-2 gap-4 mb-4">
                         <div>
-                          <input 
-                            type="text" 
-                            value={guest.firstName} 
-                            onChange={(e) => handleAdditionalGuestChange(index, 'firstName', e.target.value)} 
-                            placeholder="First Name *" 
-                            className={`${inputClass} ${errors[`guest${index}FirstName`] ? 'border-red-500' : ''}`}
+                          <input
+                            type="text"
+                            value={guest.firstName}
+                            onChange={(e) => handleAdditionalGuestChange(index, "firstName", e.target.value)}
+                            onKeyDown={blockNonNameKeys}
+                            placeholder="First Name *"
+                            className={`${inputClass} ${errors[`guest${index}FirstName`] ? "border-red-500" : ""}`}
                           />
                           {errors[`guest${index}FirstName`] && <p className="text-red-500 text-xs mt-1">{errors[`guest${index}FirstName`]}</p>}
                         </div>
                         <div>
-                          <input 
-                            type="text" 
-                            value={guest.lastName} 
-                            onChange={(e) => handleAdditionalGuestChange(index, 'lastName', e.target.value)} 
-                            placeholder="Last Name *" 
-                            className={`${inputClass} ${errors[`guest${index}LastName`] ? 'border-red-500' : ''}`}
+                          <input
+                            type="text"
+                            value={guest.lastName}
+                            onChange={(e) => handleAdditionalGuestChange(index, "lastName", e.target.value)}
+                            onKeyDown={blockNonNameKeys}
+                            placeholder="Last Name *"
+                            className={`${inputClass} ${errors[`guest${index}LastName`] ? "border-red-500" : ""}`}
                           />
                           {errors[`guest${index}LastName`] && <p className="text-red-500 text-xs mt-1">{errors[`guest${index}LastName`]}</p>}
                         </div>
                         <div>
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            value={guest.age}
-                            onChange={(e) => {
-                              const digitsOnly = e.target.value.replace(/\D/g, "").replace(/^0+/, "").slice(0, 3);
-                              handleAdditionalGuestChange(index, 'age', digitsOnly);
-                            }}
-                            maxLength={3}
-                            placeholder="Age *"
-                            className={`${inputClass} ${errors[`guest${index}Age`] ? 'border-red-500' : ''}`}
-                          />
+                          <input type="number" value={guest.age} onChange={(e) => handleAdditionalGuestChange(index, "age", e.target.value)} placeholder="Age *" min="1" max="999" inputMode="numeric" className={`${inputClass} ${errors[`guest${index}Age`] ? "border-red-500" : ""}`} />
                           {errors[`guest${index}Age`] && <p className="text-red-500 text-xs mt-1">{errors[`guest${index}Age`]}</p>}
                         </div>
                         <div>
-                          <select 
-                            value={guest.gender} 
-                            onChange={(e) => handleAdditionalGuestChange(index, 'gender', e.target.value)} 
-                            className={`${inputClass} ${errors[`guest${index}Gender`] ? 'border-red-500' : ''}`}
-                          >
+                          <select value={guest.gender} onChange={(e) => handleAdditionalGuestChange(index, "gender", e.target.value)} className={`${inputClass} ${errors[`guest${index}Gender`] ? "border-red-500" : ""}`}>
                             <option value="">Select Gender *</option>
                             <option value="male">Male</option>
                             <option value="female">Female</option>
@@ -675,24 +695,17 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                           {errors[`guest${index}Gender`] && <p className="text-red-500 text-xs mt-1">{errors[`guest${index}Gender`]}</p>}
                         </div>
                       </div>
-                      
-                      {/* Valid ID Upload for Additional Guest (if age >= 10) */}
+
                       {guest.age && parseInt(guest.age) >= 10 && (
                         <div className="mt-4 p-4 border-2 border-dashed border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 rounded-lg">
                           <h4 className="font-semibold mb-3 flex items-center gap-2 text-gray-900 dark:text-gray-100 text-sm">
                             <CreditCard className="w-4 h-4 text-blue-600" />
                             Valid ID Required (10+ years old)
                           </h4>
-                          <input 
-                            type="file" 
-                            accept="image/*" 
-                            onChange={(e) => handleFileChange(e, 'id', index)} 
-                            className="hidden" 
-                            id={`valid-id-guest-${index}`} 
-                          />
-                          <label 
-                            htmlFor={`valid-id-guest-${index}`} 
-                            className={`cursor-pointer flex flex-col items-center p-6 bg-white dark:bg-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition ${errors[`guest${index}ValidId`] ? 'border-2 border-red-500' : ''}`}
+                          <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, "id", index)} className="hidden" id={`valid-id-guest-${index}`} />
+                          <label
+                            htmlFor={`valid-id-guest-${index}`}
+                            className={`cursor-pointer flex flex-col items-center p-6 bg-white dark:bg-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition ${errors[`guest${index}ValidId`] ? "border-2 border-red-500" : ""}`}
                           >
                             <Upload className="w-10 h-10 text-blue-500 mb-2" />
                             <p className="text-blue-600 dark:text-blue-400 font-medium text-sm">Click to upload ID</p>
@@ -700,14 +713,21 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                           </label>
                           {errors[`guest${index}ValidId`] && <p className="text-red-500 text-xs mt-2">{errors[`guest${index}ValidId`]}</p>}
                           {guest.validIdPreview && (
-                            <div className="mt-3">
-                              <Image 
-                                src={guest.validIdPreview} 
-                                alt={`Guest ${index + 2} ID preview`} 
-                                width={200} 
-                                height={130} 
-                                className="max-w-xs mx-auto rounded-lg shadow border border-gray-200 dark:border-gray-600" 
-                              />
+                            <div className="mt-3 relative">
+                              <Image src={guest.validIdPreview} alt={`Guest ${index + 2} ID preview`} width={200} height={130} className="max-w-xs mx-auto rounded-lg shadow border border-gray-200 dark:border-gray-600" />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const updatedGuests = [...additionalGuests];
+                                  updatedGuests[index].validId = null;
+                                  updatedGuests[index].validIdPreview = "";
+                                  setAdditionalGuests(updatedGuests);
+                                }}
+                                className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 transition-colors"
+                                title="Remove image"
+                              >
+                                <XIcon className="w-4 h-4" />
+                              </button>
                             </div>
                           )}
                         </div>
@@ -725,30 +745,24 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                     <div className="space-y-4">
                       <div>
                         <label className={labelClass}>Room/Haven Name *</label>
-                        <select 
-                          name="roomName" 
-                          value={formData.roomName} 
-                          onChange={handleInputChange} 
-                          required 
-                          className={inputClass}
-                        >
+                        <select name="roomName" value={formData.roomName} onChange={handleInputChange} required className={`${inputClass} ${errors.roomName ? "border-red-500" : ""}`}>
                           <option value="">Select Room/Haven</option>
-                          <option value="Haven 1">Haven 1</option>
-                          <option value="Haven 2">Haven 2</option>
-                          <option value="Haven 3">Haven 3</option>
-                          <option value="Haven 4">Haven 4</option>
-                          <option value="Haven 5">Haven 5</option>
+                          {["Haven 1", "Haven 2", "Haven 3", "Haven 4", "Haven 5"].map((h) => (
+                            <option key={h} value={h}>{h}</option>
+                          ))}
                         </select>
+                        {errors.roomName && <p className="text-red-500 text-xs mt-1">{errors.roomName}</p>}
                       </div>
                       <div>
                         <label className={labelClass}>Stay Type *</label>
-                        <select name="stayType" value={formData.stayType} onChange={handleStayTypeChange} required className={inputClass}>
+                        <select name="stayType" value={formData.stayType} onChange={handleStayTypeChange} required className={`${inputClass} ${errors.stayType ? "border-red-500" : ""}`}>
                           <option value="">Select Stay Type</option>
                           <option value="10 Hours - ₱1,599">10 Hours - ₱1,599</option>
                           <option value="21 Hours (Sun-Thu weekday) - ₱1,799">21 Hours (Weekday) - ₱1,799</option>
                           <option value="21 Hours (Fri-Sat) - ₱1,999">21 Hours (Weekend) - ₱1,999</option>
                           <option value="Multi-Day Stay">Multi-Day Stay</option>
                         </select>
+                        {errors.stayType && <p className="text-red-500 text-xs mt-1">{errors.stayType}</p>}
                       </div>
                     </div>
                   </div>
@@ -758,19 +772,23 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className={labelClass}>Check-in Date *</label>
-                        <input type="date" name="checkInDate" value={formData.checkInDate} onChange={handleInputChange} required className={inputClass} />
+                        <input type="date" name="checkInDate" value={formData.checkInDate} onChange={handleInputChange} onKeyDown={handleDateKeyDown} required className={`${inputClass} ${errors.checkInDate ? "border-red-500" : ""}`} min={new Date().toISOString().split("T")[0]} />
+                        {errors.checkInDate && <p className="text-red-500 text-xs mt-1">{errors.checkInDate}</p>}
                       </div>
                       <div>
                         <label className={labelClass}>Check-out Date *</label>
-                        <input type="date" name="checkOutDate" value={formData.checkOutDate} onChange={handleInputChange} required className={inputClass} />
+                        <input type="date" name="checkOutDate" value={formData.checkOutDate} onChange={handleInputChange} onKeyDown={handleDateKeyDown} required className={`${inputClass} ${errors.checkOutDate ? "border-red-500" : ""}`} min={formData.checkInDate || new Date().toISOString().split("T")[0]} />
+                        {errors.checkOutDate && <p className="text-red-500 text-xs mt-1">{errors.checkOutDate}</p>}
                       </div>
                       <div>
                         <label className={labelClass}>Check-in Time *</label>
-                        <input type="time" name="checkInTime" value={formData.checkInTime} onChange={handleInputChange} required className={inputClass} />
+                        <input type="time" name="checkInTime" value={formData.checkInTime} onChange={handleInputChange} required className={`${inputClass} ${errors.checkInTime ? "border-red-500" : ""}`} />
+                        {errors.checkInTime && <p className="text-red-500 text-xs mt-1">{errors.checkInTime}</p>}
                       </div>
                       <div>
                         <label className={labelClass}>Check-out Time *</label>
-                        <input type="time" name="checkOutTime" value={formData.checkOutTime} onChange={handleInputChange} required className={inputClass} />
+                        <input type="time" name="checkOutTime" value={formData.checkOutTime} onChange={handleInputChange} required className={`${inputClass} ${errors.checkOutTime ? "border-red-500" : ""}`} />
+                        {errors.checkOutTime && <p className="text-red-500 text-xs mt-1">{errors.checkOutTime}</p>}
                       </div>
                     </div>
                   </div>
@@ -783,27 +801,27 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                   <div className={sectionClass}>
                     <h3 className="font-bold text-lg mb-4 text-gray-900 dark:text-gray-100">Optional Add-ons</h3>
                     <div className="space-y-3">
-                      {[
-                        { key: "poolPass", label: "Pool Pass", price: ADD_ON_PRICES.poolPass },
-                        { key: "towels", label: "Towels", price: ADD_ON_PRICES.towels },
-                        { key: "bathRobe", label: "Bath Robe", price: ADD_ON_PRICES.bathRobe },
-                        { key: "extraComforter", label: "Extra Comforter", price: ADD_ON_PRICES.extraComforter },
-                        { key: "guestKit", label: "Guest Kit", price: ADD_ON_PRICES.guestKit },
-                        { key: "extraSlippers", label: "Extra Slippers", price: ADD_ON_PRICES.extraSlippers },
-                      ].map((item) => (
+                      {(
+                        [
+                          { key: "poolPass", label: "Pool Pass", price: ADD_ON_PRICES.poolPass },
+                          { key: "towels", label: "Towels", price: ADD_ON_PRICES.towels },
+                          { key: "bathRobe", label: "Bath Robe", price: ADD_ON_PRICES.bathRobe },
+                          { key: "extraComforter", label: "Extra Comforter", price: ADD_ON_PRICES.extraComforter },
+                          { key: "guestKit", label: "Guest Kit", price: ADD_ON_PRICES.guestKit },
+                          { key: "extraSlippers", label: "Extra Slippers", price: ADD_ON_PRICES.extraSlippers },
+                        ] as { key: keyof AddOns; label: string; price: number }[]
+                      ).map((item) => (
                         <div key={item.key} className="flex items-center justify-between p-4 border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 rounded-lg">
                           <div>
                             <p className="font-medium text-gray-900 dark:text-gray-100">{item.label}</p>
                             <p className="text-sm text-gray-600 dark:text-gray-400">₱{item.price} each</p>
                           </div>
                           <div className="flex items-center gap-3">
-                            <button type="button" onClick={() => handleAddOnChange(item.key as keyof AddOns, false)}
-                              className="w-8 h-8 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 rounded-full flex items-center justify-center transition">
+                            <button type="button" onClick={() => handleAddOnChange(item.key, false)} className="w-8 h-8 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 rounded-full flex items-center justify-center transition">
                               <Minus className="w-4 h-4" />
                             </button>
-                            <span className="w-8 text-center font-semibold text-gray-900 dark:text-gray-100">{addOns[item.key as keyof AddOns]}</span>
-                            <button type="button" onClick={() => handleAddOnChange(item.key as keyof AddOns, true)}
-                              className="w-8 h-8 text-white rounded-full flex items-center justify-center transition" style={{ backgroundColor: '#A1823D' }}>
+                            <span className="w-8 text-center font-semibold text-gray-900 dark:text-gray-100">{addOns[item.key]}</span>
+                            <button type="button" onClick={() => handleAddOnChange(item.key, true)} className="w-8 h-8 text-white rounded-full flex items-center justify-center transition" style={{ backgroundColor: "#A1823D" }}>
                               <Plus className="w-4 h-4" />
                             </button>
                           </div>
@@ -812,7 +830,9 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                     </div>
                     {addOnsTotal > 0 && (
                       <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                        <p className="text-sm text-gray-900 dark:text-gray-100"><strong>Add-ons Total:</strong> ₱{addOnsTotal.toLocaleString()}</p>
+                        <p className="text-sm text-gray-900 dark:text-gray-100">
+                          <strong>Add-ons Total:</strong> ₱{addOnsTotal.toLocaleString()}
+                        </p>
                       </div>
                     )}
                   </div>
@@ -832,7 +852,6 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                       <div><span className="text-gray-600 dark:text-gray-400">Check-in:</span> <strong className="text-gray-900 dark:text-gray-100">{formData.checkInDate} at {formData.checkInTime}</strong></div>
                       <div><span className="text-gray-600 dark:text-gray-400">Check-out:</span> <strong className="text-gray-900 dark:text-gray-100">{formData.checkOutDate} at {formData.checkOutTime}</strong></div>
                     </div>
-
                     <div className="border-t border-gray-200 dark:border-gray-600 pt-4 space-y-2">
                       <h4 className="font-bold mb-3 text-gray-900 dark:text-gray-100">Price Breakdown</h4>
                       <div className="flex justify-between text-gray-700 dark:text-gray-300"><span>Room Rate</span><span>₱{roomRate.toLocaleString()}</span></div>
@@ -840,7 +859,7 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                       {addOnsTotal > 0 && <div className="flex justify-between text-gray-700 dark:text-gray-300"><span>Add-ons</span><span>₱{addOnsTotal.toLocaleString()}</span></div>}
                       <div className="flex justify-between pt-2 border-t border-gray-200 dark:border-gray-600 font-bold text-lg">
                         <span className="text-gray-900 dark:text-gray-100">Total</span>
-                        <span style={{ color: '#A1823D' }}>₱{totalAmount.toLocaleString()}</span>
+                        <span style={{ color: "#A1823D" }}>₱{totalAmount.toLocaleString()}</span>
                       </div>
                       <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg mt-4 space-y-2 border border-green-200 dark:border-green-800">
                         <div className="flex justify-between text-sm text-gray-900 dark:text-gray-100"><span>Downpayment</span><strong>₱{downPayment.toLocaleString()}</strong></div>
@@ -852,77 +871,97 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                   <div className={sectionClass}>
                     <h3 className="font-bold text-lg mb-4 text-gray-900 dark:text-gray-100">Payment Method</h3>
                     <div className="space-y-3">
-                      <label className="flex items-center gap-3 p-4 border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg cursor-pointer transition" style={{ borderColor: formData.paymentMethod === "gcash" ? '#A1823D' : '' }}>
-                        <input type="radio" name="paymentMethod" value="gcash" checked={formData.paymentMethod === "gcash"} onChange={handleInputChange} className="w-4 h-4 focus:ring-[#A1823D]" style={{ accentColor: '#A1823D' }} />
-                        <span className="text-gray-900 dark:text-gray-100 font-medium">GCash</span>
-                      </label>
-                      <label className="flex items-center gap-3 p-4 border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg cursor-pointer transition" style={{ borderColor: formData.paymentMethod === "bank" ? '#A1823D' : '' }}>
-                        <input type="radio" name="paymentMethod" value="bank" checked={formData.paymentMethod === "bank"} onChange={handleInputChange} className="w-4 h-4 focus:ring-[#A1823D]" style={{ accentColor: '#A1823D' }} />
-                        <span className="text-gray-900 dark:text-gray-100 font-medium">Bank Transfer</span>
-                      </label>
+                      {[
+                        { value: "gcash", label: "GCash" },
+                        { value: "bank", label: "Bank Transfer" },
+                      ].map((method) => (
+                        <label
+                          key={method.value}
+                          className="flex items-center gap-3 p-4 border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg cursor-pointer transition"
+                          style={{ borderColor: formData.paymentMethod === method.value ? "#A1823D" : "" }}
+                        >
+                          <input type="radio" name="paymentMethod" value={method.value} checked={formData.paymentMethod === method.value} onChange={handleInputChange} className="w-4 h-4" style={{ accentColor: "#A1823D" }} />
+                          <span className="text-gray-900 dark:text-gray-100 font-medium">{method.label}</span>
+                        </label>
+                      ))}
                     </div>
 
                     <div className="mt-6">
                       <label className={labelClass}>Upload Proof of Payment *</label>
-                      <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'payment')} className="hidden" id="payment-proof" />
-                      <label htmlFor="payment-proof" className="cursor-pointer flex flex-col items-center p-8 border-2 border-dashed border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 rounded-lg hover:border-[#A1823D] dark:hover:border-[#A1823D] transition">
+                      <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, "payment")} className="hidden" id="payment-proof" />
+                      <label
+                        htmlFor="payment-proof"
+                        className={`cursor-pointer flex flex-col items-center p-8 border-2 border-dashed bg-gray-50 dark:bg-gray-800 rounded-lg hover:border-[#A1823D] transition ${
+                          errors.paymentProof ? "border-red-500" : "border-gray-300 dark:border-gray-600"
+                        }`}
+                      >
                         <Upload className="w-12 h-12 text-gray-400 mb-3" />
                         <p className="font-medium text-gray-600 dark:text-gray-300">Click to upload payment screenshot</p>
                         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">PNG, JPG up to 10MB</p>
                       </label>
+                      {errors.paymentProof && <p className="text-red-500 text-xs mt-2">{errors.paymentProof}</p>}
                       {formData.paymentProofPreview && (
-                        <div className="mt-4">
+                        <div className="mt-4 relative">
                           <Image src={formData.paymentProofPreview} alt="Payment proof" width={300} height={200} className="max-w-xs mx-auto rounded-lg shadow border border-gray-200 dark:border-gray-600" />
+                          <button
+                            type="button"
+                            onClick={() => setFormData((prev) => ({ ...prev, paymentProof: null, paymentProofPreview: "" }))}
+                            className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 transition-colors"
+                            title="Remove image"
+                          >
+                            <XIcon className="w-4 h-4" />
+                          </button>
                         </div>
                       )}
                     </div>
                   </div>
 
                   <div className={sectionClass}>
-                    <label className="flex items-start gap-3 cursor-pointer">
-                      <input type="checkbox" name="termsAccepted" checked={formData.termsAccepted} onChange={handleInputChange} className="w-5 h-5 mt-1 rounded" style={{ accentColor: '#A1823D' }} />
+                    <label className={`flex items-start gap-3 cursor-pointer ${errors.termsAccepted ? "text-red-500" : ""}`}>
+                      <input type="checkbox" name="termsAccepted" checked={formData.termsAccepted} onChange={handleInputChange} className="w-5 h-5 mt-1 rounded" style={{ accentColor: "#A1823D" }} />
                       <span className="text-sm text-gray-900 dark:text-gray-100">I agree to the Terms and Conditions and Cancellation Policy</span>
                     </label>
+                    {errors.termsAccepted && <p className="text-red-500 text-xs mt-2">{errors.termsAccepted}</p>}
                   </div>
                 </div>
               )}
 
+              {/* Footer Actions */}
+              <div className="border-t border-gray-200 dark:border-gray-700 pt-6 mt-6 flex gap-4">
+                {currentStep > 1 && (
+                  <button
+                    type="button"
+                    onClick={handleBack}
+                    className="flex-1 flex items-center justify-center gap-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-600 font-semibold py-3 px-6 rounded-lg transition"
+                  >
+                    <ArrowLeft className="w-5 h-5" />
+                    Back
+                  </button>
+                )}
+                {currentStep < 4 ? (
+                  <button
+                    type="button"
+                    onClick={handleNext}
+                    className="flex-1 flex items-center justify-center gap-2 text-white font-semibold py-3 px-6 rounded-lg transition hover:opacity-90"
+                    style={{ backgroundColor: "#A1823D" }}
+                  >
+                    Next Step
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className={`flex-1 font-semibold py-3 px-6 rounded-lg transition ${
+                      isSubmitting ? "bg-gray-400 cursor-not-allowed" : "bg-green-500 hover:bg-green-600 text-white"
+                    }`}
+                  >
+                    {isSubmitting ? "Creating Reservation..." : "Confirm Booking"}
+                  </button>
+                )}
+              </div>
             </form>
           </div>
-        </div>
-
-        {/* Footer Actions */}
-        <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-6 rounded-b-2xl flex gap-4 flex-shrink-0">
-          {currentStep > 1 && (
-            <button 
-              type="button" 
-              onClick={handleBack}
-              className="flex-1 flex items-center justify-center gap-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-600 font-semibold py-3 px-6 rounded-lg transition"
-            >
-              <ArrowLeft className="w-5 h-5" />
-              Back
-            </button>
-          )}
-          
-          {currentStep < 4 ? (
-            <button 
-              type="button" 
-              onClick={handleNext}
-              className="flex-1 flex items-center justify-center gap-2 text-white font-semibold py-3 px-6 rounded-lg transition hover:opacity-90"
-              style={{ backgroundColor: '#A1823D' }}
-            >
-              Next Step
-              <ChevronRight className="w-5 h-5" />
-            </button>
-          ) : (
-            <button 
-              type="submit" 
-              onClick={handleSubmit}
-              className="flex-1 bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-6 rounded-lg transition"
-            >
-              Confirm Booking
-            </button>
-          )}
         </div>
       </div>
     </div>

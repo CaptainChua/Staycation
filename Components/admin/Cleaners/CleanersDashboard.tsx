@@ -105,11 +105,11 @@ useEffect(() => {
 }, [isLoading, conversationsData]);
 
   const unreadMessageCount = useMemo(() => {
-    const conversations = conversationsData?.data || [];
-    return conversations.reduce((sum: number, c: any) =>
-      sum + (Number(c.unread_count) || 0), 0
-    );
-  }, [conversationsData]);
+  const conversations = conversationsData?.data || [];
+  return conversations.reduce((sum: number, c: any) => 
+    sum + (c.unread_count || 0), 0
+  );
+}, [conversationsData]);
 
   // Synthesize message notifications from unread conversations
   const [messageNotifications, setMessageNotifications] = useState<ApiNotification[]>([]);
@@ -305,24 +305,6 @@ useEffect(() => {
 
   const [checklistHavenId, setChecklistHavenId] = useState<string | null>(null);
 
-  const LANG_STORAGE_KEY = "cleaners-lang";
-  const [lang, setLang] = useState<Lang>(() => {
-    if (typeof window !== "undefined") {
-      const saved = window.localStorage.getItem(LANG_STORAGE_KEY);
-      if (saved === "en" || saved === "tl") return saved;
-    }
-    return "en";
-  });
-  const t = useTranslations(lang);
-
-  const toggleLang = () => {
-    const next: Lang = lang === "en" ? "tl" : "en";
-    setLang(next);
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(LANG_STORAGE_KEY, next);
-    }
-  };
-
   const navItems = [
     { id: "my-schedule", icon: Calendar, label: t.mySchedule, color: "text-indigo-500" },
     { id: "cleaning-checklist", icon: CheckSquare, label: t.cleaningChecklist, color: "text-pink-500" },
@@ -348,11 +330,10 @@ useEffect(() => {
               setChecklistHavenId(havenId);
               setPage("cleaning-checklist");
             }}
-            lang={lang}
           />
         );
       case "cleaning-checklist":
-        return <CleaningChecklistPage initialHavenId={checklistHavenId} lang={lang} />;
+        return <CleaningChecklistPage initialHavenId={checklistHavenId} />;
       default:
         return (
           <MySchedulePage
@@ -361,7 +342,6 @@ useEffect(() => {
               setChecklistHavenId(havenId);
               setPage("cleaning-checklist");
             }}
-            lang={lang}
           />
         );
     }
@@ -605,7 +585,7 @@ useEffect(() => {
             <button
               className="flex items-center gap-1.5 px-2 py-1.5 sm:px-3 sm:py-2 bg-brand-primary/10 hover:bg-brand-primary/20 dark:bg-brand-primary/20 dark:hover:bg-brand-primary/30 text-brand-primary rounded-lg transition-colors"
               onClick={() => setPage("user-guide")}
-              title={t.userGuide}
+              title="User Guide"
             >
               <HelpCircle className="w-4 h-4 flex-shrink-0" />
               <span className="hidden md:inline text-sm font-medium">{t.userGuide}</span>
@@ -743,8 +723,8 @@ useEffect(() => {
                   <HelpCircle className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-white">{t.welcomeTitle}</h2>
-                  <p className="text-white/80 text-sm">{t.welcomeSub}</p>
+                  <h2 className="text-lg font-bold text-white">Welcome to Cleaners Portal!</h2>
+                  <p className="text-white/80 text-sm">Let&apos;s get you started</p>
                 </div>
               </div>
             </div>
@@ -752,15 +732,15 @@ useEffect(() => {
             {/* Body */}
             <div className="px-6 py-5 space-y-4">
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                {t.guideOverview}
+                Here&apos;s a quick overview of what you can do in this portal:
               </p>
               <ul className="space-y-3">
                 {[
-                  { icon: ClipboardList, color: "text-green-500", label: t.guideMyAssignments, desc: t.guideMyAssignmentsDesc },
-                  { icon: Calendar, color: "text-indigo-500", label: t.guideMySchedule, desc: t.guideMyScheduleDesc },
-                  { icon: CheckSquare, color: "text-pink-500", label: t.guideCleaningChecklist, desc: t.guideCleaningChecklistDesc },
-                  { icon: MapPin, color: "text-purple-500", label: t.guidePropertyLocations, desc: t.guidePropertyLocationsDesc },
-                  { icon: AlertCircle, color: "text-red-500", label: t.guideReportIssue, desc: t.guideReportIssueDesc },
+                  { icon: ClipboardList, color: "text-green-500", label: "My Assignments", desc: "View and manage your cleaning tasks" },
+                  { icon: Calendar, color: "text-indigo-500", label: "My Schedule", desc: "Check your daily and upcoming schedule" },
+                  { icon: CheckSquare, color: "text-pink-500", label: "Cleaning Checklist", desc: "Follow step-by-step cleaning procedures" },
+                  { icon: MapPin, color: "text-purple-500", label: "Property Locations", desc: "Find assigned property details" },
+                  { icon: AlertCircle, color: "text-red-500", label: "Report Issue", desc: "Report problems or damages instantly" },
                 ].map(({ icon: Icon, color, label, desc }) => (
                   <li key={label} className="flex items-start gap-3">
                     <Icon className={`w-4 h-4 mt-0.5 flex-shrink-0 ${color}`} />
@@ -783,7 +763,7 @@ useEffect(() => {
                 }}
                 className="flex-1 px-4 py-2.5 bg-brand-primary hover:bg-brand-primaryDark text-white text-sm font-semibold rounded-lg transition-colors"
               >
-                {t.openFullGuide}
+                Open Full Guide
               </button>
               <button
                 onClick={() => {
@@ -792,7 +772,7 @@ useEffect(() => {
                 }}
                 className="flex-1 px-4 py-2.5 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-semibold rounded-lg transition-colors"
               >
-                {t.skipGuide}
+                Got it, Skip
               </button>
             </div>
           </div>
