@@ -916,7 +916,7 @@ export default function CsrDashboard() {
         {/* PAGE CONTENT */}
         <div className="flex-1 p-6">
           <div className="w-full">
-            {page === "dashboard" && <DashboardPage />}
+            {page === "dashboard" && <DashboardPage onViewAllBookings={() => setPage("bookings")} />}
             {page === "bookings" && <BookingsPage />}
             {page === "calendar" && <CalendarPage />}
             {page === "google-calendar" && <GoogleCalendarPage />}
