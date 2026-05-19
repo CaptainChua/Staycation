@@ -18,6 +18,7 @@ import {
   Monitor,
   Trash2,
   AlertTriangle,
+  Handshake,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import HelpSidebar from "./HelpSidebar";
@@ -148,6 +149,16 @@ const Navbar = () => {
       iconColor: "text-brand-primary",
       count: wishlistCount,
     },
+    ...(session?.user?.role === "admin" || session?.user?.role === "owner"
+      ? [
+          {
+            href: "/admin/partners",
+            label: "Partners Dashboard",
+            icon: Handshake,
+            iconColor: "text-indigo-500",
+          },
+        ]
+      : []),
   ];
 
   // Check if a path is active (exact match or starts with for nested routes)
