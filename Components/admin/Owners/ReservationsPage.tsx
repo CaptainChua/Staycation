@@ -272,7 +272,19 @@ const ReservationsPage = () => {
       const response = await fetch(`/api/bookings/${booking.id}`);
       const result = await response.json();
       if (result.success) {
-        setSelectedBooking(result.data);
+        const data = result.data;
+        // Normalize additional_guests to camelCase so the display renders correctly
+        data.additional_guests = (data.additional_guests || []).map((g: any) => ({
+          firstName: g.first_name || g.firstName || '',
+          lastName: g.last_name || g.lastName || '',
+          age: g.age,
+          gender: g.gender,
+          validIdUrl: g.valid_id_url || g.validIdUrl || '',
+          email: g.email,
+          phone: g.phone,
+          facebook_link: g.facebook_link,
+        }));
+        setSelectedBooking(data);
       } else {
         toast.error("Failed to load booking details");
       }
@@ -328,6 +340,60 @@ const ReservationsPage = () => {
                 <span className={`px-6 py-2 rounded-full text-sm font-semibold ${getStatusColor(selectedBooking.status)}`}>
                   {formatStatus(selectedBooking.status)}
                 </span>
+              </div>
+
+              {/* Booking / Haven Information */}
+              <div className="bg-slate-100 dark:bg-[#334155] rounded-lg p-6 border border-slate-200 dark:border-[#475569]">
+                <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-[#d4a574]" />
+                  Booking Information
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-slate-500 dark:text-gray-400">Haven</p>
+                    <p className="font-semibold text-slate-900 dark:text-gray-100">{selectedBooking.room_name || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-slate-500 dark:text-gray-400">Total Guests</p>
+                    <p className="font-semibold text-slate-900 dark:text-gray-100">
+                      {(selectedBooking.adults || 0) + (selectedBooking.children || 0) + (selectedBooking.infants || 0)}
+                      <span className="text-xs text-slate-500 dark:text-gray-400 ml-1">
+                        (A:{selectedBooking.adults || 0} C:{selectedBooking.children || 0} I:{selectedBooking.infants || 0})
+                      </span>
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-slate-500 dark:text-gray-400">Check-In</p>
+                    <p className="font-semibold text-green-700 dark:text-green-400">
+                      {formatDateSafe(selectedBooking.check_in_date)} {formatTime(selectedBooking.check_in_time)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-slate-500 dark:text-gray-400">Check-Out</p>
+                    <p className="font-semibold text-red-600 dark:text-red-400">
+                      {formatDateSafe(selectedBooking.check_out_date)} {formatTime(selectedBooking.check_out_time)}
+                    </p>
+                  </div>
+                  {selectedBooking.payment_method && (
+                    <div>
+                      <p className="text-sm text-slate-500 dark:text-gray-400">Payment Method</p>
+                      <p className="font-semibold text-slate-900 dark:text-gray-100 capitalize">{selectedBooking.payment_method}</p>
+                    </div>
+                  )}
+                  {selectedBooking.total_amount != null && (
+                    <div>
+                      <p className="text-sm text-slate-500 dark:text-gray-400">Total Amount</p>
+                      <p className="font-semibold text-slate-900 dark:text-gray-100">
+                        ₱{Number(selectedBooking.total_amount).toLocaleString()}
+                        {Number(selectedBooking.remaining_balance) > 0 && (
+                          <span className="text-xs text-orange-600 dark:text-orange-400 ml-2">
+                            (Bal: ₱{Number(selectedBooking.remaining_balance).toLocaleString()})
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Main Guest Information */}
