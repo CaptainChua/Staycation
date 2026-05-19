@@ -112,6 +112,7 @@ const PricingManagementModal = ({
     setFormData(newData);
     setTouched(prev => ({ ...prev, [field]: true }));
     setError(null);
+    if (isWizardStep) onSave(newData);
   };
 
   const handleSave = async () => {
@@ -269,6 +270,15 @@ const PricingManagementModal = ({
           </div>
         )}
 
+        {/* Guide Box */}
+        <div className="flex items-start gap-3 p-4 bg-brand-primary/5 dark:bg-brand-primary/10 border border-brand-primary/20 rounded-2xl">
+          <span className="mt-0.5 inline-flex items-center justify-center w-6 h-6 rounded-full bg-brand-primary/15 text-brand-primary text-xs font-bold flex-shrink-0">?</span>
+          <div>
+            <p className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-0.5">What is this step?</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">Set how much guests pay for each type of stay. The <span className="font-medium text-gray-600 dark:text-gray-300">6-Hour</span> and <span className="font-medium text-gray-600 dark:text-gray-300">10-Hour</span> rates are for daytime visits. The <span className="font-medium text-gray-600 dark:text-gray-300">Weekday</span> and <span className="font-medium text-gray-600 dark:text-gray-300">Weekend</span> rates apply to overnight (21-hour) bookings — weekend rates are typically higher due to demand.</p>
+          </div>
+        </div>
+
         {/* Rates Configuration */}
         <div>
           <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2 mb-4">
@@ -330,23 +340,25 @@ const PricingManagementModal = ({
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-          <Button
-            onPress={handleSave}
-            isDisabled={isSaving}
-            className="flex-1 bg-brand-primary hover:bg-brand-primaryDarker text-white font-bold rounded-xl h-12 transition-colors"
-          >
-            {isSaving ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                Saving...
-              </>
-            ) : (
-              'Save Changes'
-            )}
-          </Button>
-        </div>
+        {/* Action Buttons - only shown in standalone mode, not inside the wizard */}
+        {!isWizardStep && (
+          <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <Button
+              onPress={handleSave}
+              isDisabled={isSaving}
+              className="flex-1 bg-brand-primary hover:bg-brand-primaryDarker text-white font-bold rounded-xl h-12 transition-colors"
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  Saving...
+                </>
+              ) : (
+                'Save Changes'
+              )}
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );

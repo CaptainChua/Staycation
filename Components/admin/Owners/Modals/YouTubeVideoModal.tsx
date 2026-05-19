@@ -78,13 +78,22 @@ const YouTubeVideoModal = ({
   const inputContent = (
     <div className="space-y-8 max-w-3xl mx-auto py-4">
       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-3xl p-8 shadow-sm transition-all duration-[250ms] [transition-timing-function:cubic-bezier(0.4,0,0.2,1)] hover:scale-[1.01] hover:shadow-md will-change-transform">
-        <div className="flex items-center gap-4 mb-8">
+        <div className="flex items-center gap-4 mb-6">
           <div className="bg-red-50 dark:bg-red-900/20 p-3 rounded-2xl">
             <Youtube className="w-8 h-8 text-red-600 dark:text-red-400" />
           </div>
           <div>
             <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">Featured Video</h2>
             <p className="text-sm text-gray-500 dark:text-gray-400">Add a virtual tour, promotional video, or YouTube Short</p>
+          </div>
+        </div>
+
+        {/* Guide Box */}
+        <div className="flex items-start gap-3 p-4 bg-brand-primary/5 dark:bg-brand-primary/10 border border-brand-primary/20 rounded-2xl mb-6">
+          <span className="mt-0.5 inline-flex items-center justify-center w-6 h-6 rounded-full bg-brand-primary/15 text-brand-primary text-xs font-bold flex-shrink-0">?</span>
+          <div>
+            <p className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-0.5">What is this step?</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">Paste a YouTube link to show a video or short tour of your haven. This is <span className="font-medium text-gray-600 dark:text-gray-300">optional</span> — you can skip this step and finish. But a video is a great way to show off the space and give guests a feel of the haven before they book.</p>
           </div>
         </div>
 

@@ -370,6 +370,8 @@ const DateRangePicker = ({
       <div className="flex items-center justify-between mb-2 sm:mb-4 flex-shrink-0">
         <button
           type="button"
+          title="Previous month"
+          aria-label="Previous month"
           onClick={() => canGoBack && setCurrentMonthOffset(currentMonthOffset - 1)}
           disabled={!canGoBack}
           className={`p-1.5 sm:p-2 rounded-lg transition-all ${
@@ -389,6 +391,8 @@ const DateRangePicker = ({
 
         <button
           type="button"
+          title="Next month"
+          aria-label="Next month"
           onClick={() => canGoForward && setCurrentMonthOffset(currentMonthOffset + 1)}
           disabled={!canGoForward}
           className={`p-1.5 sm:p-2 rounded-lg transition-all ${
@@ -492,21 +496,10 @@ const DateRangePicker = ({
       {/* Date Range Display Button - Airbnb Style */}
       <button
         type="button"
+        title="Select date range"
+        aria-label="Select date range"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full h-full flex items-center gap-2 px-3 sm:px-4 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-full hover:border-[#8B4513] transition-all duration-200 focus:outline-none"
-        onMouseEnter={(e) => {
-          if (!isOpen) {
-            e.currentTarget.style.borderColor = '#8B4513';
-          }
-        }}
-        onMouseLeave={(e) => {
-          if (!isOpen) {
-            e.currentTarget.style.borderColor = '';
-          }
-        }}
-        style={{
-          borderColor: isOpen ? '#8B4513' : undefined
-        }}
+        className={`w-full h-full flex items-center gap-2 px-3 sm:px-4 bg-white dark:bg-gray-800 border rounded-full hover:border-[#8B4513] transition-all duration-200 focus:outline-none ${isOpen ? 'border-[#8B4513]' : 'border-gray-300 dark:border-gray-600'}`}
       >
         <Calendar className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 text-gray-500 dark:text-gray-400 group-hover:text-[#8B4513] transition-colors duration-200" />
         <div className="flex-1 text-left min-w-0">

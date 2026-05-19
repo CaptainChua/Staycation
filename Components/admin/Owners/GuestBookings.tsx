@@ -1,6 +1,6 @@
 "use client";
 
-import { Calendar, Search, Filter, Plus, XCircle, CheckSquare, Eye, Edit, Trash2, MapPin, User, Phone, Mail, CheckCircle, Clock, LogIn, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUpDown, Download, FileSpreadsheet, RefreshCw, Check, X, ExternalLink, CreditCard, Banknote, Shield } from "lucide-react";
+import { Calendar, Search, Filter, Plus, XCircle, CheckSquare, Eye, Edit, Trash2, MapPin, User, Phone, Mail, CheckCircle, Clock, LogIn, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUpDown, Download, FileSpreadsheet, RefreshCw, Check, X, ExternalLink, CreditCard, Banknote, Shield, ShieldAlert } from "lucide-react";
 import { useEffect, useMemo, useState, useRef } from "react";
 import { useSession } from "next-auth/react";
 import ViewBookingDetails from "../Csr/Modals/ViewBookingDetails";
@@ -15,6 +15,7 @@ import TotalBreakdown from "../Csr/TotalBreakdown";
 import { DateRangeWithDays } from "../Csr/Column";
 import MarkDepositPaidModal from "../Csr/Modals/MarkDepositPaidModal";
 import CheckInModal from "../Csr/Modals/CheckInModal";
+import VerifyCollectionModal from "../Csr/Modals/VerifyCollectionModal";
 
 interface BookingData {
   id: string;
@@ -94,6 +95,8 @@ export default function BookingsPage() {
   const [isCheckInModalOpen, setIsCheckInModalOpen] = useState(false);
   const [bookingForCheckIn, setBookingForCheckIn] = useState<BookingData | null>(null);
   const [isCheckInLoading, setIsCheckInLoading] = useState(false);
+  const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false);
+  const [bookingForVerify, setBookingForVerify] = useState<BookingData | null>(null);
 
   const logEmployeeActivity = async (action: string, details: string, bookingId?: string) => {
     if (!employeeId) return;
@@ -1308,12 +1311,29 @@ export default function BookingsPage() {
                         />
                       </td>
                       <td className="py-4 px-4 text-center">
-                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap capitalize ${getStatusColor(booking.status)}`}>
-                          {booking.status}
-                        </span>
+                        <div className="flex flex-col items-center gap-1">
+                          <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap capitalize ${getStatusColor(booking.status)}`}>
+                            {booking.status}
+                          </span>
+                          {booking.deposit_status?.toLowerCase() === 'pending_verification' && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 whitespace-nowrap">
+                              <ShieldAlert className="w-3 h-3" />
+                              Verify Payment
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="py-4 px-4">
                         <div className="flex items-center justify-center gap-1">
+                          {booking.deposit_status?.toLowerCase() === 'pending_verification' && (
+                            <button
+                              onClick={() => { setBookingForVerify(booking); setIsVerifyModalOpen(true); }}
+                              className="p-2 text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded-lg transition-colors"
+                              title="Verify Cleaner Collection"
+                            >
+                              <ShieldAlert className="w-4 h-4" />
+                            </button>
+                          )}
                           {['pending', 'on-going'].includes(booking.status?.toLowerCase() ?? '') && (
                             <>
                               {booking.status?.toLowerCase() === 'pending' && (() => {
@@ -1582,6 +1602,15 @@ export default function BookingsPage() {
                     />
                   </div>
                   <div className="flex items-center gap-2">
+                    {booking.deposit_status?.toLowerCase() === 'pending_verification' && (
+                      <button
+                        onClick={() => { setBookingForVerify(booking); setIsVerifyModalOpen(true); }}
+                        className="p-2 text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded-lg transition-colors"
+                        title="Verify Cleaner Collection"
+                      >
+                        <ShieldAlert className="w-5 h-5" />
+                      </button>
+                    )}
                     {['pending', 'on-going'].includes(booking.status?.toLowerCase() ?? '') && (
                       <>
                         {booking.status?.toLowerCase() === 'pending' && (() => {
@@ -1837,6 +1866,16 @@ export default function BookingsPage() {
           }}
           onConfirm={handleConfirmCheckIn}
           isLoading={isCheckInLoading}
+        />
+      )}
+
+      {/* Verify Collection Modal */}
+      {isVerifyModalOpen && bookingForVerify && (
+        <VerifyCollectionModal
+          booking={bookingForVerify}
+          employeeId={employeeId!}
+          onClose={() => { setIsVerifyModalOpen(false); setBookingForVerify(null); }}
+          onDone={() => { setIsVerifyModalOpen(false); setBookingForVerify(null); }}
         />
       )}
     </div>

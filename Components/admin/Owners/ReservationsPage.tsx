@@ -390,6 +390,9 @@ const ReservationsPage = () => {
                 </p>
               </div>
               <button
+                type="button"
+                title="Close"
+                aria-label="Close"
                 onClick={closeModal}
                 className="p-2 hover:bg-white/20 rounded-full transition-colors"
               >
@@ -745,6 +748,7 @@ const ReservationsPage = () => {
             <div className="flex items-center gap-2">
               <label className="text-sm text-gray-600 dark:text-gray-400">Show</label>
               <select
+                aria-label="Entries per page"
                 value={itemsPerPage}
                 onChange={(e) => {
                   setItemsPerPage(Number(e.target.value));
@@ -775,6 +779,7 @@ const ReservationsPage = () => {
 
             <div className="w-full sm:w-auto">
               <select
+                aria-label="Filter by status"
                 value={filter}
                 onChange={(e) => { setFilter(e.target.value); setCurrentPage(1); }}
                 className="border rounded-lg px-3 py-2 text-sm w-full dark:bg-slate-800 dark:border-slate-700 dark:text-gray-200"
@@ -788,6 +793,7 @@ const ReservationsPage = () => {
             {/* Haven filter */}
             <div className="w-full sm:w-auto">
               <select
+                aria-label="Filter by haven"
                 value={selectedHaven}
                 onChange={(e) => { setSelectedHaven(e.target.value); setCurrentPage(1); }}
                 className="border rounded-lg px-3 py-2 text-sm w-full dark:bg-slate-800 dark:border-slate-700 dark:text-gray-200"
@@ -802,6 +808,7 @@ const ReservationsPage = () => {
               <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">Check-in:</span>
               <input
                 type="date"
+                aria-label="Check-in date from"
                 value={checkInDateFrom}
                 onChange={(e) => { setCheckInDateFrom(e.target.value); setCurrentPage(1); }}
                 className="border rounded-lg px-2 py-1.5 text-sm dark:bg-slate-800 dark:border-slate-700 dark:text-gray-200 focus:ring-2 focus:ring-yellow-500 outline-none"
@@ -809,6 +816,7 @@ const ReservationsPage = () => {
               <span className="text-gray-400 text-xs">–</span>
               <input
                 type="date"
+                aria-label="Check-in date to"
                 value={checkInDateTo}
                 min={checkInDateFrom}
                 onChange={(e) => { setCheckInDateTo(e.target.value); setCurrentPage(1); }}
@@ -1024,6 +1032,9 @@ const ReservationsPage = () => {
 
             <div className="flex items-center gap-1">
               <button
+                type="button"
+                title="First page"
+                aria-label="First page"
                 onClick={goToFirstPage}
                 disabled={currentPage === 1}
                 className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-700 dark:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1031,6 +1042,9 @@ const ReservationsPage = () => {
                 <ChevronsLeft className="w-4 h-4" />
               </button>
               <button
+                type="button"
+                title="Previous page"
+                aria-label="Previous page"
                 onClick={goToPrevPage}
                 disabled={currentPage === 1}
                 className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-700 dark:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1064,6 +1078,9 @@ const ReservationsPage = () => {
               })}
 
               <button
+                type="button"
+                title="Next page"
+                aria-label="Next page"
                 onClick={goToNextPage}
                 disabled={currentPage === totalPages}
                 className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-700 dark:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1071,6 +1088,9 @@ const ReservationsPage = () => {
                 <ChevronRight className="w-4 h-4" />
               </button>
               <button
+                type="button"
+                title="Last page"
+                aria-label="Last page"
                 onClick={goToLastPage}
                 disabled={currentPage === totalPages}
                 className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-700 dark:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"

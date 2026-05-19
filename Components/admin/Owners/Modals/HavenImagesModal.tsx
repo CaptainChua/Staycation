@@ -101,6 +101,15 @@ const HavenImagesModal = ({
 
   const galleryContent = (
     <div className="space-y-8">
+      {/* Guide Box */}
+      <div className="flex items-start gap-3 p-4 bg-brand-primary/5 dark:bg-brand-primary/10 border border-brand-primary/20 rounded-2xl">
+        <span className="mt-0.5 inline-flex items-center justify-center w-6 h-6 rounded-full bg-brand-primary/15 text-brand-primary text-xs font-bold flex-shrink-0">?</span>
+        <div>
+          <p className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-0.5">What is this step?</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">Upload photos of your haven. Clear, well-lit photos attract more bookings — guests decide mostly based on images. You can upload multiple photos and one will be set as the main cover photo shown on the listing.</p>
+        </div>
+      </div>
+
       {/* Uploader Zone */}
       <div 
         onDragOver={onDragOver}
@@ -171,6 +180,8 @@ const HavenImagesModal = ({
                 )}
                 <button
                   type="button"
+                  title="Remove image"
+                  aria-label="Remove image"
                   onClick={() => handleRemoveExistingImage(index)}
                   className="absolute -top-2 -right-2 p-2 bg-white dark:bg-gray-800 text-red-500 dark:text-red-400 rounded-full shadow-xl opacity-0 group-hover:opacity-100 transition-all hover:bg-red-50 dark:hover:bg-red-900/30 z-20 border border-gray-100 dark:border-gray-700"
                 >
@@ -194,7 +205,7 @@ const HavenImagesModal = ({
                     
                     {/* Simulated Progress Bar */}
                     <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-gray-200 dark:bg-gray-700">
-                      <div className="h-full bg-brand-primary animate-progress-flow" style={{ width: '100%' }} />
+                      <div className="h-full w-full bg-brand-primary animate-progress-flow" />
                     </div>
                     
                     <div className="absolute inset-0 bg-brand-primary/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -203,6 +214,8 @@ const HavenImagesModal = ({
                   </div>
                   <button
                     type="button"
+                    title="Remove image"
+                    aria-label="Remove image"
                     onClick={() => handleRemoveImage(index)}
                     className="absolute -top-2 -right-2 p-2 bg-white dark:bg-gray-800 text-red-500 dark:text-red-400 rounded-full shadow-xl opacity-0 group-hover:opacity-100 transition-all hover:bg-red-50 dark:hover:bg-red-900/30 z-20 border border-gray-100 dark:border-gray-700"
                   >

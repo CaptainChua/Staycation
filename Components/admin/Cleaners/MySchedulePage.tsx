@@ -280,7 +280,7 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning,
       const selectedPm = paymentMethods.find((m: any) => m.id === depositPaymentMethod);
       const methodLabel = depositPaymentMethod === "cash" ? "Cash" : (selectedPm?.payment_name ?? depositPaymentMethod);
       const notes = depositReferenceNumber.trim() ? `Ref: ${depositReferenceNumber.trim()} | Method: ${methodLabel}` : `Method: ${methodLabel}`;
-      await updateDepositStatusByBookingId(depositModalTask.booking_uuid, "Paid", userId, notes, amountReceived, methodLabel);
+      await updateDepositStatusByBookingId(depositModalTask.booking_uuid, "Paid", userId, notes, amountReceived, methodLabel, "cleaner");
 
       // Upload proof file if provided
       if (depositProofFile) {

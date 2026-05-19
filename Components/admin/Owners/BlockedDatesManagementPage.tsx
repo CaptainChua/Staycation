@@ -144,6 +144,8 @@ const BlockedDatesManagementPage = () => {
         date.tower?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         date.floor?.toLowerCase().includes(searchQuery.toLowerCase());
 
+      const matchesHaven = filterHaven === "all" || date.haven_id === filterHaven;
+
       const toDate = new Date(date.to_date);
       const isActive = toDate >= today;
       const matchesStatus =
@@ -151,9 +153,9 @@ const BlockedDatesManagementPage = () => {
         (filterStatus === "active" && isActive) ||
         (filterStatus === "expired" && !isActive);
 
-      return matchesSearch && matchesStatus;
+      return matchesSearch && matchesHaven && matchesStatus;
     });
-  }, [blockedDates, searchQuery, filterStatus]);
+  }, [blockedDates, searchQuery, filterHaven, filterStatus]);
 
   // Pagination calculations
   const totalPages = Math.ceil(filteredBlockedDates.length / entriesPerPage);
@@ -271,6 +273,7 @@ const BlockedDatesManagementPage = () => {
           <div className="flex justify-start flex-shrink-0 gap-2">
 
             <button
+              type="button"
               onClick={() => handleOpenModal()}
               className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-lg hover:bg-opacity-90 transition-all font-semibold"
             >
@@ -298,6 +301,7 @@ const BlockedDatesManagementPage = () => {
               <div className="flex items-center gap-2">
                 <Filter className="w-5 h-5 text-gray-600 dark:text-gray-300" />
                 <select
+                  aria-label="Filter by haven"
                   value={filterHaven}
                   onChange={(e) => setFilterHaven(e.target.value)}
                   className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-amber-600"
@@ -305,11 +309,12 @@ const BlockedDatesManagementPage = () => {
                   <option value="all">All Havens</option>
                   {uniqueHavens.map((haven: Haven) => (
                     <option key={haven.uuid_id} value={haven.uuid_id}>
-                      {haven.haven_name} {haven.tower && `- ${haven.tower}`}
+                      {haven.haven_name}{haven.tower && ` - ${haven.tower}`}{haven.floor && ` - Floor ${haven.floor}`}
                     </option>
                   ))}
                 </select>
                 <select
+                  aria-label="Filter by status"
                   value={filterStatus}
                   onChange={(e) => setFilterStatus(e.target.value)}
                   className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-amber-600"
@@ -377,6 +382,7 @@ const BlockedDatesManagementPage = () => {
                           </div>
                           {(searchQuery || filterHaven !== "all" || filterStatus !== "all") && (
                             <button
+                              type="button"
                               onClick={() => {
                                 setSearchQuery("");
                                 setFilterHaven("all");
@@ -463,6 +469,7 @@ const BlockedDatesManagementPage = () => {
                           <td className="py-4 px-4 text-center">
                             <div className="flex items-center justify-center gap-2">
                               <button
+                                type="button"
                                 onClick={() => handleOpenModal(blockedDate)}
                                 className="p-2 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
                                 title="Edit"
@@ -470,6 +477,7 @@ const BlockedDatesManagementPage = () => {
                                 <Edit className="w-4 h-4" />
                               </button>
                               <button
+                                type="button"
                                 onClick={() => handleDelete(blockedDate.id)}
                                 disabled={isDeleting}
                                 className="p-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 transition-colors disabled:opacity-50"
@@ -515,6 +523,7 @@ const BlockedDatesManagementPage = () => {
                     onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                     disabled={currentPage === 1 || totalPages === 0}
                     className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Previous Page"
                     type="button"
                   >
                     <ChevronLeft className="w-4 h-4" />
@@ -553,6 +562,7 @@ const BlockedDatesManagementPage = () => {
                     onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                     disabled={currentPage === totalPages || totalPages === 0}
                     className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Next Page"
                     type="button"
                   >
                     <ChevronRight className="w-4 h-4" />
