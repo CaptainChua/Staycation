@@ -103,6 +103,15 @@ const AmenitiesModal = ({
   };
   const gridContent = (
     <div className="space-y-6">
+      {/* Guide Box */}
+      <div className="flex items-start gap-3 p-4 bg-brand-primary/5 dark:bg-brand-primary/10 border border-brand-primary/20 rounded-2xl">
+        <span className="mt-0.5 inline-flex items-center justify-center w-6 h-6 rounded-full bg-brand-primary/15 text-brand-primary text-xs font-bold flex-shrink-0">?</span>
+        <div>
+          <p className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-0.5">What is this step?</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">Select everything that's included in your haven — from WiFi and air conditioning to Netflix, pool access, and parking. Only check what guests can actually use during their stay. These amenities are shown on your listing.</p>
+        </div>
+      </div>
+
       {/* Search Header */}
       <div className="sticky top-0 z-10 bg-gray-50/50 dark:bg-gray-900/50 pb-4 backdrop-blur-sm">
         <Input

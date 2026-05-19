@@ -3,8 +3,15 @@ import { NextResponse } from "next/server";
 
 export default withAuth(
   function middleware(req) {
-    const token = req.nextauth.token;
     const path = req.nextUrl.pathname;
+
+    // Hard guardrail: never intercept API routes — prevents withAuth from
+    // redirecting /api/auth/session to the HTML login page on token errors.
+    if (path.startsWith("/api")) {
+      return NextResponse.next();
+    }
+
+    const token = req.nextauth.token;
     const role = token?.role as string | undefined;
     const normalizedRole = role?.toLowerCase();
 

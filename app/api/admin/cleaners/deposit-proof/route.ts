@@ -2,6 +2,27 @@ import { NextRequest, NextResponse } from "next/server";
 import pool from "@/backend/config/db";
 import { upload_file } from "@/backend/utils/cloudinary";
 
+export async function GET(req: NextRequest) {
+  const bookingUuid = req.nextUrl.searchParams.get("booking_uuid");
+  if (!bookingUuid) {
+    return NextResponse.json({ success: false, error: "booking_uuid is required" }, { status: 400 });
+  }
+  const client = await pool.connect();
+  try {
+    const result = await client.query(
+      `SELECT payment_proof_url FROM booking_security_deposits WHERE booking_id = $1 LIMIT 1`,
+      [bookingUuid],
+    );
+    const url = result.rows[0]?.payment_proof_url ?? null;
+    return NextResponse.json({ success: true, url });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
+  } finally {
+    client.release();
+  }
+}
+
 export async function POST(req: NextRequest) {
   const client = await pool.connect();
   try {

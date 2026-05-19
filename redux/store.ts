@@ -1,7 +1,15 @@
 import { configureStore } from "@reduxjs/toolkit";
 import { setupListeners } from "@reduxjs/toolkit/query";
 import { persistStore, persistReducer } from "redux-persist";
-import storage from "redux-persist/lib/storage";
+import createWebStorage from "redux-persist/lib/storage/createWebStorage";
+
+const createNoopStorage = () => ({
+  getItem: (_key: string) => Promise.resolve(null),
+  setItem: (_key: string, value: unknown) => Promise.resolve(value),
+  removeItem: (_key: string) => Promise.resolve(),
+});
+
+const storage = typeof window !== "undefined" ? createWebStorage("local") : createNoopStorage();
 import bookingReducer from "./slices/bookingSlice";
 import { employeeApi } from "./api/employeeApi";
 import { roomApi } from "./api/roomApi";
@@ -19,6 +27,7 @@ import { blockedDatesApi } from "./api/blockedDatesApi";
 import { adminUsersApi } from "./api/adminUsersApi";
 import { cleanersApi } from "./api/cleanersApi";
 import { partnersApi } from "./api/partnersApi";
+import { partnerSelfApi } from "./api/partnerSelfApi";
 
 const persistConfig = {
   key: "root",
@@ -47,11 +56,22 @@ export const store = configureStore({
     [adminUsersApi.reducerPath]: adminUsersApi.reducer,
     [cleanersApi.reducerPath]: cleanersApi.reducer,
     [partnersApi.reducerPath]: partnersApi.reducer,
+    [partnerSelfApi.reducerPath]: partnerSelfApi.reducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
       serializableCheck: {
-        ignoredActions: ["persist/PERSIST"],
+        warnAfter: 128,
+        ignoredActions: [
+          "persist/PERSIST",
+          "persist/REHYDRATE",
+        ],
+        ignoredPaths: [
+          "booking._persist",
+        ],
+      },
+      immutableCheck: {
+        warnAfter: 128,
       },
     })
       .concat(employeeApi.middleware)
@@ -69,7 +89,8 @@ export const store = configureStore({
       .concat(blockedDatesApi.middleware)
       .concat(adminUsersApi.middleware)
       .concat(cleanersApi.middleware)
-      .concat(partnersApi.middleware),
+      .concat(partnersApi.middleware)
+      .concat(partnerSelfApi.middleware),
 });
 
 export const persistor = persistStore(store);

@@ -1,5 +1,16 @@
 'use client';
 
+// Suppress React 19 dev-only false positive: next-themes intentionally injects a
+// <script> tag server-side only to prevent theme flash. React not executing it on
+// the client is expected behavior. Remove once next-themes ships a React 19 fix.
+if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+  const _consoleError = console.error.bind(console);
+  console.error = (...args: unknown[]) => {
+    if (typeof args[0] === 'string' && args[0].includes('Encountered a script tag while rendering React component')) return;
+    _consoleError(...args);
+  };
+}
+
 import { store, persistor } from '@/redux/store';
 import { Provider } from 'react-redux';
 import { PersistGate } from 'redux-persist/integration/react';
@@ -31,6 +42,9 @@ export function Providers ({ children }: {children:React.ReactNode}) {
                             </ConditionalLayout>
                             <Toaster
                                 position="top-center"
+                                containerStyle={{
+                                    zIndex: 999999,
+                                }}
                                 toastOptions={{
                                     duration: 4000,
                                     style: {

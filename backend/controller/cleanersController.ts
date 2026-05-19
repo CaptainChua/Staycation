@@ -26,6 +26,10 @@ export interface CleaningTask {
   inspected_at: string | null;
   deposit_status: string | null;
   security_deposit: number | null;
+  total_amount: number | null;
+  amount_paid: number | null;
+  down_payment: number | null;
+  remaining_balance: number | null;
 }
 
 // GET All Cleaning Tasks
@@ -115,18 +119,24 @@ export const getAllCleaningTasks = async (
           bc.cleaned_at,
           bc.inspected_at,
           sd.deposit_status,
-          sd.amount as security_deposit
+          sd.amount as security_deposit,
+          bp.total_amount,
+          bp.amount_paid,
+          bp.down_payment,
+          GREATEST(COALESCE(bp.total_amount, 0) - COALESCE(bp.amount_paid, 0), 0) AS remaining_balance
         FROM booking_cleaning bc
         INNER JOIN booking b ON bc.booking_id = b.id
         LEFT JOIN havens h ON h.haven_name = b.room_name
         LEFT JOIN booking_guests bg ON bg.booking_id = b.id
         LEFT JOIN employees e ON bc.assigned_to::text = e.id::text
         LEFT JOIN booking_security_deposits sd ON sd.booking_id = b.id
+        LEFT JOIN booking_payments bp ON bp.booking_id = b.id
+        WHERE b.status NOT IN ('rejected', 'cancelled')
     `;
     const values: string[] = [];
 
     if (status) {
-      query += ` WHERE bc.cleaning_status = $1`;
+      query += ` AND bc.cleaning_status = $1`;
       values.push(status);
     }
 

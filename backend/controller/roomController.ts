@@ -41,6 +41,7 @@ export const createHaven = async (req: NextRequest): Promise<NextResponse> => {
       haven_images,
       photo_tour_images,
       blocked_dates,
+      partner_id,
     } = body;
 
     // Required fields validation
@@ -108,9 +109,9 @@ export const createHaven = async (req: NextRequest): Promise<NextResponse> => {
         haven_name, tower, floor, view_type, capacity, room_size, beds,
         description, youtube_url, six_hour_rate, ten_hour_rate, weekday_rate,
         weekend_rate, six_hour_check_in, six_hour_check_out, ten_hour_check_in, ten_hour_check_out, twenty_one_hour_check_in, twenty_one_hour_check_out,
-        amenities, created_at, updated_at
+        amenities, partner_id, created_at, updated_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, NOW(), NOW())
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, NOW(), NOW())
       RETURNING *
     `;
 
@@ -135,6 +136,7 @@ export const createHaven = async (req: NextRequest): Promise<NextResponse> => {
       twenty_one_hour_check_in || "14:00",
       twenty_one_hour_check_out || "11:00",
       JSON.stringify(amenities || {}),
+      partner_id || null,
     ];
 
     const havenResult = await pool.query(havenQuery, havenValues);

@@ -20,9 +20,9 @@ import {
   ZoomIn,
   X,
 } from "lucide-react";
-import Skeleton from "@/Components/common/Skeleton";
-
-/* ---------- Types ---------- */
+import React, { useEffect, useState, useCallback } from "react";
+import toast from "react-hot-toast";
+import { useTranslations, type Lang } from "./translations";
 
 type Photo = {
   id: string;
@@ -50,19 +50,28 @@ type Haven = {
 interface Props {
   /** Passed from MySchedulePage when "Start Cleaning" is clicked */
   initialHavenId?: string | null;
+  lang?: Lang;
 }
 
-/* ---------- Constants ---------- */
+export default function CleaningChecklistPage({ initialHavenId, lang = "en" }: Props = {}) {
+  const t = useTranslations(lang);
+  const [havens, setHavens] = useState<Haven[]>([]);
+  const [selectedHavenId, setSelectedHavenId] = useState<string | null>(null);
+  const [isHavensLoading, setIsHavensLoading] = useState<boolean>(false);
+  const [selectedHaven, setSelectedHaven] = useState<Haven | null>(null);
 
-const CATEGORIES = ["Bedroom", "Bathroom", "Kitchen", "Living Room", "General"];
+  const [checklist, setChecklist] = useState<Category[]>([]);
+  const [checklistId, setChecklistId] = useState<string | null>(null);
 
-const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  Bedroom: BedDouble,
-  Bathroom: Bath,
-  Kitchen: ChefHat,
-  "Living Room": Sofa,
-  General: Sparkles,
-};
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  const iconMap = {
+    Bedroom: BedDouble,
+    Bathroom: Bath,
+    Kitchen: ChefHat,
+    "Living Room": Sofa,
+    General: Sparkles,
+  };
 
 /* ==============================
  * Main Component
@@ -284,10 +293,10 @@ export default function CleaningPhotoPage({ initialHavenId }: Props = {}) {
       <div className="space-y-6 animate-in fade-in duration-700">
         <div>
           <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
-            Cleaning Photos
+            {t.checklistTitle}
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Capture a photo of each room after cleaning
+            {t.checklistSubtitle}
           </p>
         </div>
 
@@ -296,18 +305,14 @@ export default function CleaningPhotoPage({ initialHavenId }: Props = {}) {
             <AlertCircle className="w-12 h-12 text-blue-500 dark:text-blue-400" />
           </div>
           <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">
-            No Task Selected
+            {t.noTaskSelected}
           </h2>
           <p className="text-gray-500 dark:text-gray-400 max-w-md">
-            Go to{" "}
-            <span className="font-semibold text-gray-700 dark:text-gray-200">
-              My Schedule
-            </span>{" "}
-            and tap{" "}
-            <span className="font-semibold text-brand-primary">
-              Start Cleaning
-            </span>{" "}
-            on your assigned haven to begin.
+            {t.noTaskMsg}{" "}
+            <span className="font-semibold text-gray-700 dark:text-gray-200">{t.noTaskDesc1}</span>{" "}
+            {t.noTaskMsg2}{" "}
+            <span className="font-semibold text-brand-primary">{t.noTaskDesc2}</span>{" "}
+            {t.noTaskMsg3}
           </p>
         </div>
       </div>
@@ -318,83 +323,79 @@ export default function CleaningPhotoPage({ initialHavenId }: Props = {}) {
    * Main render
    * ============================== */
   return (
-    <>
-      <div className="space-y-6 animate-in fade-in duration-700">
-        {/* ---- Page header ---- */}
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-800 dark:text-gray-100">
-            Cleaning Photos
-          </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Take or upload a photo for every room
-          </p>
-        </div>
+    <div className="space-y-6 animate-in fade-in duration-700">
+      {/* Header */}
+      <div>
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-800 dark:text-gray-100">
+          {t.checklistTitle}
+        </h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          {t.checklistSubtitle}
+        </p>
+      </div>
 
-        {/* ---- Booking info card ---- */}
-        {haven && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-4 border-l-4 border-brand-primary">
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
-              <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
-                <Home className="w-4 h-4 text-brand-primary" />
-                <span className="font-medium">{haven.name}</span>
-                {haven.address && (
-                  <span className="text-gray-400 dark:text-gray-500">
-                    ({haven.address})
-                  </span>
-                )}
+      {/* Booking Info Card */}
+      {selectedHaven && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-4 border-l-4 border-brand-primary">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+            <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
+              <Home className="w-4 h-4 text-brand-primary" />
+              <span className="font-medium">{selectedHaven.name}</span>
+              {selectedHaven.address && (
+                <span className="text-gray-400 dark:text-gray-500">
+                  ({selectedHaven.address})
+                </span>
+              )}
+            </div>
+            {selectedHaven.guestName && (
+              <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                <User className="w-4 h-4" />
+                <span>{t.guest} {selectedHaven.guestName}</span>
               </div>
-              {haven.guestName && (
-                <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-                  <User className="w-4 h-4" />
-                  <span>Guest: {haven.guestName}</span>
-                </div>
-              )}
-              {haven.checkOutDate && (
-                <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-                  <CalendarCheck className="w-4 h-4" />
-                  <span>Checked out: {haven.checkOutDate}</span>
-                </div>
-              )}
-              {haven.bookingId && (
-                <div className="text-xs text-gray-400 dark:text-gray-500">
-                  Booking #{haven.bookingId}
-                </div>
-              )}
-            </div>
+            )}
+            {selectedHaven.checkOutDate && (
+              <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                <CalendarCheck className="w-4 h-4" />
+                <span>{t.checkedOut} {selectedHaven.checkOutDate}</span>
+              </div>
+            )}
+            {selectedHaven.bookingId && (
+              <div className="text-xs text-gray-400 dark:text-gray-500">
+                {t.bookingHash}{selectedHaven.bookingId}
+              </div>
+            )}
           </div>
-        )}
+        </div>
+      )}
 
-        {/* ---- Upcoming notice ---- */}
-        {haven?.isUpcoming && (
-          <div className="flex items-start gap-3 bg-sky-50 dark:bg-sky-900/20 border border-sky-300 dark:border-sky-700 rounded-lg p-4">
-            <AlertCircle className="w-5 h-5 text-sky-500 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-semibold text-sky-700 dark:text-sky-300">
-                Guest has not checked out yet
-              </p>
-              <p className="text-xs text-sky-600 dark:text-sky-400 mt-0.5">
-                You can preview the rooms, but photo uploads will be unlocked
-                after the guest checks out on{" "}
-                <span className="font-semibold">{haven.checkOutDate}</span>.
-              </p>
-            </div>
+      {/* Upcoming notice */}
+      {selectedHaven?.isUpcoming && (
+        <div className="flex items-start gap-3 bg-sky-50 dark:bg-sky-900/20 border border-sky-300 dark:border-sky-700 rounded-lg p-4">
+          <AlertCircle className="w-5 h-5 text-sky-500 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-sky-700 dark:text-sky-300">{t.upcomingTitle}</p>
+            <p className="text-xs text-sky-600 dark:text-sky-400 mt-0.5">
+              {t.upcomingMsg(selectedHaven.checkOutDate ?? "")}
+            </p>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* ---- Progress overview ---- */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-4 sm:p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">
-                Overall Progress
-              </h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                <span className="font-semibold text-brand-primary text-base">
-                  {roomsWithPhotos}/{totalRooms}
-                </span>{" "}
-                rooms photographed
-              </p>
-            </div>
+      {/* Progress Overview */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-4 sm:p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">
+              {t.overallProgress}
+            </h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              <span className="font-semibold text-brand-primary text-base">
+                {completedTasks}/{totalTasks}
+              </span>{" "}
+              {t.tasksCompleted}
+            </p>
+          </div>
+          <div className="text-right">
             <p className="text-3xl font-bold text-brand-primary">{progress}%</p>
           </div>
           <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
@@ -449,43 +450,29 @@ export default function CleaningPhotoPage({ initialHavenId }: Props = {}) {
                 const isDone = room.photos.length > 0;
                 const isLocked = !!haven?.isUpcoming;
 
-                return (
-                  <div
-                    key={room.category}
-                    className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-5"
-                  >
-                    {/* Room header */}
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className={`p-2.5 rounded-lg text-white transition-colors ${
-                            isDone ? "bg-green-500" : "bg-brand-primary"
-                          }`}
-                        >
-                          {isDone ? (
-                            <CheckCircle2 className="w-5 h-5" />
-                          ) : (
-                            <RoomIcon className="w-5 h-5" />
-                          )}
-                        </div>
-                        <div>
-                          <h3 className="font-bold text-gray-800 dark:text-gray-100">
-                            {room.category}
-                          </h3>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">
-                            {isDone
-                              ? `${room.photos.length} photo${room.photos.length !== 1 ? "s" : ""} uploaded`
-                              : "No photos yet"}
-                          </p>
-                        </div>
-                      </div>
-
-                      {isDone && (
-                        <span className="text-xs font-semibold text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-2.5 py-1 rounded-full">
-                          Done
-                        </span>
-                      )}
+            return (
+              <div
+                key={category.category}
+                className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-6"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-brand-primary text-white p-3 rounded-lg">
+                      <CategoryIcon className="w-6 h-6" />
                     </div>
+                    <div>
+                      <h3 className="font-bold text-gray-800 dark:text-gray-100">
+                        {category.category}
+                      </h3>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {t.ofCompleted(categoryCompleted, categoryTotal)}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-sm font-bold text-brand-primary">
+                    {categoryProgress}%
+                  </span>
+                </div>
 
                     {/* Photo grid */}
                     {room.photos.length > 0 && (
@@ -594,58 +581,60 @@ export default function CleaningPhotoPage({ initialHavenId }: Props = {}) {
               })}
         </div>
 
-        {/* ---- Action / status bar ---- */}
-        {!haven?.isUpcoming && (
-          <div className="flex flex-col sm:flex-row gap-3 items-center">
-            <p className="text-sm text-gray-500 flex-1 text-center sm:text-left">
-              Photos are saved automatically
-            </p>
-
-            {canSubmit && (
+      {/* Action / Status */}
+      {!selectedHaven?.isUpcoming && !isLoading && checklist.length > 0 && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-4 flex flex-col sm:flex-row gap-3 items-center">
+          <div className="flex-1 text-center sm:text-left">
+            {canComplete ? (
               <div className="flex items-center gap-2 text-green-600 dark:text-green-400 font-semibold text-sm">
                 <CheckCircle2 className="w-5 h-5" />
-                All rooms photographed!
+                {t.allDone}
               </div>
-            )}
-
-            {canSubmit && sessionId && (
-              <button
-                type="button"
-                disabled={isSubmitting}
-                onClick={handleSubmit}
-                className="flex-1 sm:flex-none w-full sm:w-auto bg-brand-primary text-white font-semibold rounded-lg px-5 py-2.5 hover:bg-brand-primary/90 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-              >
-                {isSubmitting && (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                )}
-                Confirm & Finish
-              </button>
+            ) : (
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                {t.autoSave} &nbsp;·&nbsp;{" "}
+                <span className="font-semibold text-brand-primary">
+                  {totalTasks - completedTasks} task{totalTasks - completedTasks !== 1 ? "s" : ""} remaining
+                </span>
+              </p>
             )}
           </div>
-        )}
-      </div>
 
-      {/* ---- Lightbox ---- */}
-      {lightboxUrl && (
-        <div
-          className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
-          onClick={() => setLightboxUrl(null)}
-        >
-          <img
-            src={lightboxUrl}
-            alt="Full-size preview"
-            className="max-w-full max-h-full object-contain rounded-lg"
-          />
           <button
             type="button"
-            aria-label="Close preview"
-            className="absolute top-4 right-4 bg-black/60 hover:bg-black/80 text-white rounded-full p-2 transition-colors"
-            onClick={() => setLightboxUrl(null)}
+            disabled={!canComplete || !checklistId}
+            onClick={async () => {
+              try {
+                const res = await fetch("/api/admin/cleaners", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    action: "submit",
+                    checklist_id: checklistId,
+                  }),
+                });
+                const payload = await res.json();
+                if (!res.ok || !payload?.success) {
+                  throw new Error(payload?.error || "Failed to submit checklist");
+                }
+                toast.success("Checklist submitted successfully");
+              } catch (err) {
+                console.error("Submit checklist error:", err);
+                const message = err instanceof Error ? err.message : String(err);
+                toast.error(message || "Failed to submit checklist");
+              }
+            }}
+            className={`w-full sm:w-auto font-semibold rounded-lg px-6 py-2.5 transition-colors flex items-center justify-center gap-2 ${
+              canComplete
+                ? "bg-brand-primary text-white hover:bg-brand-primary/90"
+                : "bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed"
+            }`}
           >
-            <X className="w-5 h-5" />
+            <CheckCircle2 className="w-4 h-4" />
+            {t.confirmFinish}
           </button>
         </div>
       )}
-    </>
+    </div>
   );
 }

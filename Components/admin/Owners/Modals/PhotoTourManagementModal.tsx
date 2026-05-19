@@ -109,7 +109,17 @@ const PhotoTourManagementModal = ({
   };
 
   const content = (
-    <div className="flex flex-col md:flex-row gap-8 h-full min-h-[500px]">
+    <div className="flex flex-col gap-6 h-full">
+      {/* Guide Box */}
+      <div className="flex items-start gap-3 p-4 bg-brand-primary/5 dark:bg-brand-primary/10 border border-brand-primary/20 rounded-2xl flex-shrink-0">
+        <span className="mt-0.5 inline-flex items-center justify-center w-6 h-6 rounded-full bg-brand-primary/15 text-brand-primary text-xs font-bold flex-shrink-0">?</span>
+        <div>
+          <p className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-0.5">What is this step?</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">Upload photos organized by room — bedroom, bathroom, kitchen, living area, and more. This gives guests a virtual tour of every part of the space. Required rooms are marked — at least one photo per required room is needed to continue.</p>
+        </div>
+      </div>
+
+      <div className="flex flex-col md:flex-row gap-8 flex-1 min-h-[500px]">
       {/* Category Sidebar */}
       <div className="w-full md:w-72 flex flex-col gap-2">
         <h3 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2 px-2">
@@ -189,12 +199,14 @@ const PhotoTourManagementModal = ({
                         exit={{ opacity: 0 }}
                         className="flex flex-col items-center justify-center border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-2xl p-12 hover:border-brand-primary/50 hover:bg-brand-primary/5 transition-all cursor-pointer group h-full w-full"
                       >
-                        <input 
-                          type="file" 
-                          multiple 
-                          accept="image/*" 
-                          className="hidden" 
-                          onChange={(e) => handleUpload(cat.key, e)} 
+                        <input
+                          type="file"
+                          multiple
+                          accept="image/*"
+                          className="hidden"
+                          title={`Upload photos for ${cat.label}`}
+                          aria-label={`Upload photos for ${cat.label}`}
+                          onChange={(e) => handleUpload(cat.key, e)}
                         />
                         <div className="bg-brand-primary/10 p-6 rounded-full mb-4 group-hover:scale-110 transition-transform">
                           <Upload className="w-10 h-10 text-brand-primary" />
@@ -218,8 +230,10 @@ const PhotoTourManagementModal = ({
                             .map((photo, i) => (
                               <div key={`ex-${i}`} className="relative aspect-[4/3] rounded-xl overflow-hidden border border-gray-100 dark:border-gray-700 group shadow-sm hover:scale-[1.03] hover:shadow-xl transition-all duration-[250ms] [transition-timing-function:cubic-bezier(0.4,0,0.2,1)] will-change-transform">
                                 <Image src={photo.image_url!} alt="Existing" fill className="object-cover" />
-                                <button 
+                                <button
                                   type="button"
+                                  title="Remove photo"
+                                  aria-label="Remove photo"
                                   onClick={() => removeExisting(photo.globalIdx!)}
                                   className="absolute top-2 right-2 p-1.5 bg-white/90 dark:bg-gray-800/90 text-red-500 dark:text-red-400 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow-md z-10"
                                 >
@@ -232,8 +246,10 @@ const PhotoTourManagementModal = ({
                             <div key={`new-${i}`} className="relative aspect-[4/3] rounded-xl overflow-hidden border-2 border-brand-primary/20 group shadow-sm hover:scale-[1.03] hover:shadow-xl transition-all duration-[250ms] [transition-timing-function:cubic-bezier(0.4,0,0.2,1)] will-change-transform">
                               <Image src={URL.createObjectURL(file)} alt="New" fill className="object-cover" />
                               <div className="absolute inset-0 bg-brand-primary/10" />
-                              <button 
+                              <button
                                 type="button"
+                                title="Remove photo"
+                                aria-label="Remove photo"
                                 onClick={() => removeNew(cat.key, i)}
                                 className="absolute top-2 right-2 p-1.5 bg-white/90 dark:bg-gray-800/90 text-red-500 dark:text-red-400 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow-md z-10"
                               >
@@ -265,6 +281,7 @@ const PhotoTourManagementModal = ({
             </motion.div>
           ))}
         </AnimatePresence>
+      </div>
       </div>
     </div>
   );

@@ -377,6 +377,10 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
     });
   }
 
+  const isEmailValid = (email: string) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
 
@@ -400,6 +404,29 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
       const haven = havens.find(h => h.haven_name === value);
       setSelectedHaven(haven || null);
       setFormData(prev => ({ ...prev, [name]: value }));
+    } else if (name === "age") {
+      const digitsOnly = value.replace(/\D/g, "").replace(/^0+/, "").slice(0, 3);
+      const ageVal = parseInt(digitsOnly);
+      if (digitsOnly && ageVal < 18) {
+        setErrors(prev => ({ ...prev, age: "Main guest must be at least 18 years old to book" }));
+      } else {
+        setErrors(prev => ({ ...prev, age: "" }));
+      }
+      setFormData(prev => ({ ...prev, age: digitsOnly }));
+    } else if (name === "firstName" || name === "lastName") {
+      const lettersOnly = value.replace(/[^a-zA-Z\s'-]/g, "");
+      setFormData(prev => ({ ...prev, [name]: lettersOnly }));
+    } else if (name === "email") {
+      const v = value.trim();
+      setFormData(prev => ({ ...prev, email: v }));
+      if (!v.includes('@') || !v.includes('.com')) {
+        setErrors(prev => ({ ...prev, email: "Please include '@'" }));
+      } else {
+        setErrors(prev => ({ ...prev, email: "" }));
+      }
+    } else if (name === "phone") {
+      const digitsOnly = value.replace(/\D/g, "").slice(0, 11);
+      setFormData(prev => ({ ...prev, phone: digitsOnly }));
     } else {
       setFormData(prev => ({
         ...prev,
@@ -434,9 +461,16 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
 
   const handleAdditionalGuestChange = (index: number, field: keyof GuestInfo, value: string) => {
     const updatedGuests = [...additionalGuests];
+    let newValue = value;
+    if (field === 'firstName' || field === 'lastName') {
+      newValue = value.replace(/[^a-zA-Z\s'-]/g, '');
+    }
+    if (field === 'age') {
+      newValue = value.replace(/\D/g, '').replace(/^0+/, '').slice(0, 3);
+    }
     updatedGuests[index] = {
       ...updatedGuests[index],
-      [field]: value,
+      [field]: newValue,
     };
     setAdditionalGuests(updatedGuests);
   };
@@ -526,12 +560,32 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
 
   const validateStep1 = (): boolean => {
     const newErrors: Record<string, string> = {};
-    if (!formData.firstName) newErrors.firstName = "First name is required";
-    if (!formData.lastName) newErrors.lastName = "Last name is required";
-    if (!isEditMode && !formData.age) newErrors.age = "Age is required";
+    if (!formData.firstName) {
+      newErrors.firstName = "First name is required";
+    } else if (!/^[a-zA-Z\s'-]+$/.test(formData.firstName)) {
+      newErrors.firstName = "First name must contain only letters";
+    }
+    if (!formData.lastName) {
+      newErrors.lastName = "Last name is required";
+    } else if (!/^[a-zA-Z\s'-]+$/.test(formData.lastName)) {
+      newErrors.lastName = "Last name must contain only letters";
+    }
+    if (!isEditMode && !formData.age) {
+      newErrors.age = "Age is required";
+    } else if (!isEditMode && parseInt(formData.age) < 18) {
+      newErrors.age = "Main guest must be at least 18 years old to book";
+    }
     if (!isEditMode && !formData.gender) newErrors.gender = "Please select a gender";
-    if (!formData.email) newErrors.email = "Email is required";
-    if (!formData.phone) newErrors.phone = "Phone number is required";
+    if (!formData.email) {
+      newErrors.email = "Email is required";
+    } else if (!isEmailValid(formData.email)) {
+      newErrors.email = "Please enter a valid email address";
+    }
+    if (!formData.phone) {
+      newErrors.phone = "Phone number is required";
+    } else if (!/^\d{11}$/.test(formData.phone)) {
+      newErrors.phone = "Phone number must be 11 digits";
+    }
     if (formData.age && parseInt(formData.age) >= 10 && !formData.validId && !formData.validIdPreview) {
       newErrors.validId = "Valid ID is required for guests 10+ years old";
     }
@@ -887,15 +941,13 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                         Age *
                       </label>
                       <input
-                        type="number"
+                        type="text"
+                        inputMode="numeric"
                         name="age"
                         value={formData.age}
-                        onChange={(e) => {
-                          handleInputChange(e);
-                          setErrors(prev => ({...prev, age: ''}));
-                        }}
-                        min="1"
-                        max="120"
+                        onChange={(e) => handleInputChange(e)}
+                        maxLength={3}
+                        placeholder="Enter age"
                         className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
                           errors.age ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                         }`}
@@ -944,10 +996,7 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                         type="email"
                         name="email"
                         value={formData.email}
-                        onChange={(e) => {
-                          handleInputChange(e);
-                          setErrors(prev => ({...prev, email: ''}));
-                        }}
+                        onChange={(e) => handleInputChange(e)}
                         className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
                           errors.email ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                         }`}
@@ -966,7 +1015,11 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                       </label>
                       <input
                         type="tel"
+                        inputMode="numeric"
+                        pattern="\d*"
+                        maxLength={11}
                         name="phone"
+                        placeholder="09XXXXXXXXX"
                         value={formData.phone}
                         onChange={(e) => {
                           handleInputChange(e);
@@ -1156,14 +1209,16 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                             Age *
                           </label>
                           <input
-                            type="number"
+                            type="text"
+                            inputMode="numeric"
                             value={guest.age}
                             onChange={(e) => {
-                              handleAdditionalGuestChange(index, 'age', e.target.value);
+                              const digitsOnly = e.target.value.replace(/\D/g, "").replace(/^0+/, "").slice(0, 3);
+                              handleAdditionalGuestChange(index, 'age', digitsOnly);
                               setErrors(prev => ({...prev, [`guest${index}Age`]: ''}));
                             }}
-                            min="1"
-                            max="120"
+                            maxLength={3}
+                            placeholder="Enter age"
                             className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
                               errors[`guest${index}Age`] ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                             }`}

@@ -354,6 +354,8 @@ const UserManagementPage = () => {
                 <div className="flex items-center gap-2">
                   <label className="text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">Show</label>
                   <select
+                    aria-label="Entries per page"
+                    title="Entries per page"
                     value={entriesPerPage}
                     onChange={(e) => {
                       setEntriesPerPage(Number(e.target.value));
@@ -383,6 +385,8 @@ const UserManagementPage = () => {
               <div className="flex items-center gap-2 flex-wrap">
                 <Filter className="w-5 h-5 text-gray-600 dark:text-gray-300" />
                 <select
+                  aria-label="Filter by role"
+                  title="Filter by role"
                   value={filterRole}
                   onChange={(e) => setFilterRole(e.target.value)}
                   className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-orange-500 text-sm"
@@ -393,6 +397,8 @@ const UserManagementPage = () => {
                   <option value="owner">Owner</option>
                 </select>
                 <select
+                  aria-label="Filter by registration"
+                  title="Filter by registration"
                   value={filterRegistration}
                   onChange={(e) => setFilterRegistration(e.target.value)}
                   className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-orange-500 text-sm"
@@ -458,6 +464,7 @@ const UserManagementPage = () => {
                                   src={user.picture}
                                   alt={user.name || "User"}
                                   fill
+                                  sizes="40px"
                                   className="object-cover"
                                 />
                               </div>
@@ -639,6 +646,9 @@ const UserManagementPage = () => {
                 Edit User
               </h3>
               <button
+                type="button"
+                title="Close"
+                aria-label="Close"
                 onClick={handleCloseModal}
                 className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
               >
@@ -654,6 +664,7 @@ const UserManagementPage = () => {
                       src={editingUser.picture}
                       alt={editingUser.name || "User"}
                       fill
+                      sizes="64px"
                       className="object-cover"
                     />
                   </div>
@@ -710,6 +721,8 @@ const UserManagementPage = () => {
                   Role <span className="text-red-500">*</span>
                 </label>
                 <select
+                  aria-label="User role"
+                  title="User role"
                   value={formData.user_role}
                   onChange={(e) =>
                     setFormData({ ...formData, user_role: e.target.value })

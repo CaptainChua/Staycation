@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { Handshake, X } from "lucide-react";
+import { Handshake, X, Mail, Lock, User, MapPin, Building2, Percent } from "lucide-react";
 
 interface FormData {
   email: string;
@@ -22,12 +22,7 @@ interface Partner {
   address?: string;
   type: string;
   commission_rate: number;
-  payment_method?: string;
-  bank_name?: string;
-  account_number?: string;
-  status: 'active' | 'pending' | 'suspended';
-  created_at: string;
-  updated_at: string;
+  status: "active" | "pending" | "suspended" | "inactive";
 }
 
 interface AddPartnerModalProps {
@@ -35,10 +30,15 @@ interface AddPartnerModalProps {
   onClose: () => void;
   editingPartner: Partner | null;
   formData: FormData;
-  onFormChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
-  onSave: (e: React.FormEvent) => Promise<void>;
-  isCreating: boolean;
-  isUpdating: boolean;
+
+  onFormChange: (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => void;
+
+  onSave: (e: React.FormEvent<HTMLFormElement>) => Promise<void>;
+
+  isCreating?: boolean;
+  isUpdating?: boolean;
 }
 
 const AddPartnerModal = ({
@@ -51,25 +51,23 @@ const AddPartnerModal = ({
   isCreating,
   isUpdating,
 }: AddPartnerModalProps) => {
-  const [isMounted, setIsMounted] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setIsMounted(true);
-    return () => setIsMounted(false);
+    setMounted(true);
+    return () => setMounted(false);
   }, []);
 
-  if (!isMounted || !isOpen) return null;
+  if (!mounted || !isOpen) return null;
 
   const isLoading = isCreating || isUpdating;
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!isLoading) {
-      await onSave(e);
-    }
+    if (isLoading) return;
+    await onSave(e);
   };
 
-  // Intercept phone input to strip non-numeric characters before passing to parent handler
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const numericOnly = e.target.value.replace(/\D/g, "");
     const syntheticEvent = {
@@ -79,113 +77,139 @@ const AddPartnerModal = ({
     onFormChange(syntheticEvent);
   };
 
+  const inputBase =
+    "w-full pl-11 pr-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-xl focus:ring-2 focus:ring-brand-primary focus:border-brand-primary focus:outline-none transition disabled:opacity-50 disabled:cursor-not-allowed placeholder:text-gray-400 dark:placeholder:text-gray-500";
+
+  const labelBase =
+    "block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2";
+
   return createPortal(
     <>
+      {/* BACKDROP */}
       <div
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9998]"
-        onClick={() => {
-          if (!isLoading) onClose();
-        }}
-        role="button"
-        tabIndex={-1}
-        aria-label="Close modal"
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9998]"
+        onClick={onClose}
       />
-      <div className="fixed inset-0 flex items-center justify-center px-4 py-8 z-[9999] pointer-events-none">
+
+      {/* MODAL */}
+      <div className="fixed inset-0 flex items-center justify-center z-[9999] px-4 py-6 overflow-y-auto">
         <div
-          className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl dark:shadow-gray-900/50 w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden pointer-events-auto"
+          className="bg-white dark:bg-gray-900 w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden border border-gray-200 dark:border-gray-700 my-auto"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+          {/* HEADER */}
+          <div className="flex justify-between items-center px-6 py-5 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-brand-primary/10 to-transparent">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-brand-primary rounded-lg">
-                <Handshake className="w-5 h-5 text-white" />
+              <div className="p-2.5 bg-brand-primary/15 rounded-xl">
+                <Handshake className="w-5 h-5 text-brand-primary" />
               </div>
               <div>
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">
                   {editingPartner ? "Edit Partner" : "Add Partner"}
                 </h2>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                   {editingPartner
-                    ? "Update partner information and settings"
+                    ? "Update partner details and commission"
                     : "Create a new partner account"}
                 </p>
               </div>
             </div>
+
             <button
+              type="button"
               onClick={onClose}
-              disabled={isLoading}
-              className="p-2 rounded-full hover:bg-white/70 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Close"
+              aria-label="Close"
+              className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition"
             >
-              <X className="w-6 h-6 text-gray-600 dark:text-gray-300" />
+              <X className="w-5 h-5" />
             </button>
           </div>
 
-          {/* Form - Scrollable */}
-          <form
-            id="add-partner-form"
-            onSubmit={handleSubmit}
-            className="flex-1 overflow-y-auto px-8 py-6 space-y-6"
-          >
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Email */}
-              <div className="md:col-span-2">
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                  Email Address *
-                </label>
+          {/* GUIDE BOX */}
+          <div className="px-6 pt-5">
+            <div className="flex items-start gap-3 p-4 bg-brand-primary/5 dark:bg-brand-primary/10 border border-brand-primary/20 rounded-2xl">
+              <span className="mt-0.5 inline-flex items-center justify-center w-6 h-6 rounded-full bg-brand-primary/15 text-brand-primary text-xs font-bold flex-shrink-0">
+                ?
+              </span>
+              <div>
+                <p className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-0.5">
+                  What is a Partner?
+                </p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+                  Partners are hotels or properties that list with us. Set their
+                  commission rate and login details so they can manage their
+                  listings.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* FORM */}
+          <form onSubmit={handleSubmit} className="p-6 space-y-5">
+            {/* EMAIL */}
+            <div>
+              <label className={labelBase}>Email Address</label>
+              <div className="relative">
+                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
                   type="email"
                   name="email"
                   value={formData.email}
                   onChange={onFormChange}
-                  disabled={!!editingPartner || isLoading}
-                  placeholder="partner@example.com"
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-xl focus:ring-2 focus:ring-brand-primary focus:border-brand-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                  placeholder="partner@email.com"
+                  className={inputBase}
                   required
+                  disabled={!!editingPartner || isLoading}
                 />
               </div>
+            </div>
 
-              {/* Password - Only for create */}
-              {!editingPartner && (
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                    Password *
-                  </label>
+            {/* PASSWORD */}
+            {!editingPartner && (
+              <div>
+                <label className={labelBase}>Password</label>
+                <div className="relative">
+                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <input
                     type="password"
                     name="password"
                     value={formData.password}
                     onChange={onFormChange}
-                    disabled={isLoading}
-                    placeholder="Enter password (min 8 characters)"
-                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-xl focus:ring-2 focus:ring-brand-primary focus:border-brand-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                    placeholder="Set a secure password"
+                    className={inputBase}
                     required
+                    disabled={isLoading}
                   />
                 </div>
-              )}
+              </div>
+            )}
 
-              {/* Full Name */}
-              <div className="md:col-span-2">
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                  Full Name *
-                </label>
+            {/* FULLNAME */}
+            <div>
+              <label className={labelBase}>Full Name / Business Name</label>
+              <div className="relative">
+                <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
                   type="text"
                   name="fullname"
                   value={formData.fullname}
                   onChange={onFormChange}
-                  disabled={isLoading}
-                  placeholder="e.g. John Doe"
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-xl focus:ring-2 focus:ring-brand-primary focus:border-brand-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                  placeholder="e.g. Sunset Hotel Tagaytay"
+                  className={inputBase}
                   required
+                  disabled={isLoading}
                 />
               </div>
+            </div>
 
-              {/* FIXED: Phone — numeric only via synthetic event */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                  Phone Number
-                </label>
+            {/* PHONE */}
+            <div>
+              <label className={labelBase}>Phone Number</label>
+              <div className="relative">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-gray-400">
+                  📞
+                </span>
                 <input
                   type="tel"
                   name="phone"
@@ -193,91 +217,98 @@ const AddPartnerModal = ({
                   onChange={handlePhoneChange}
                   disabled={isLoading}
                   placeholder="+63 912 345 6789"
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-xl focus:ring-2 focus:ring-brand-primary focus:border-brand-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                  className={inputBase}
                 />
               </div>
+            </div>
 
-              {/* Address */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                  Address
-                </label>
+            {/* ADDRESS */}
+            <div>
+              <label className={labelBase}>Address</label>
+              <div className="relative">
+                <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
                   type="text"
                   name="address"
                   value={formData.address}
                   onChange={onFormChange}
+                  placeholder="Complete address"
+                  className={inputBase}
                   disabled={isLoading}
-                  placeholder="123 Main Street"
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-xl focus:ring-2 focus:ring-brand-primary focus:border-brand-primary disabled:opacity-50 disabled:cursor-not-allowed"
-                />
-              </div>
-
-              {/* Partner Type */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                  Partner Type *
-                </label>
-                <select
-                  name="type"
-                  value={formData.type}
-                  onChange={onFormChange}
-                  disabled={isLoading}
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-xl focus:ring-2 focus:ring-brand-primary focus:border-brand-primary disabled:opacity-50 disabled:cursor-not-allowed"
-                  required
-                >
-                  <option value="hotel">Hotel</option>
-                </select>
-              </div>
-
-              {/* Commission Rate */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                  Commission Rate (%) *
-                </label>
-                <input
-                  type="number"
-                  name="commission_rate"
-                  value={formData.commission_rate}
-                  onChange={onFormChange}
-                  disabled={isLoading}
-                  placeholder="10.00"
-                  min="0"
-                  max="100"
-                  step="0.01"
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-xl focus:ring-2 focus:ring-brand-primary focus:border-brand-primary disabled:opacity-50 disabled:cursor-not-allowed"
-                  required
                 />
               </div>
             </div>
-          </form>
 
-          {/* Footer */}
-          <div className="sticky bottom-0 bg-gray-50 dark:bg-gray-800 px-4 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isLoading}
-              className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              form="add-partner-form"
-              disabled={isLoading}
-              className="px-4 py-2 bg-brand-primary text-white rounded-lg hover:bg-opacity-90 transition-all font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
-            >
-              {isLoading && (
-                <span className="inline-block w-4 h-4 rounded-full border-2 border-white/60 border-t-white animate-spin" />
-              )}
-              {isLoading ? "Saving..." : editingPartner ? "Update Partner" : "Add Partner"}
-            </button>
-          </div>
+            {/* TYPE + COMMISSION (grid) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className={labelBase}>Partner Type</label>
+                <div className="relative">
+                  <Building2 className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  <select
+                    name="type"
+                    value={formData.type}
+                    onChange={onFormChange}
+                    aria-label="Partner type"
+                    title="Partner type"
+                    disabled={isLoading}
+                    className={`${inputBase} appearance-none cursor-pointer`}
+                  >
+                    <option value="hotel">Hotel</option>
+                    <option value="resort">Resort</option>
+                    <option value="villa">Villa</option>
+                    <option value="apartment">Apartment</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className={labelBase}>Commission %</label>
+                <div className="relative">
+                  <Percent className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="number"
+                    name="commission_rate"
+                    value={formData.commission_rate}
+                    onChange={onFormChange}
+                    className={inputBase}
+                    placeholder="10"
+                    min={0}
+                    max={100}
+                    disabled={isLoading}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* BUTTONS */}
+            <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={isLoading}
+                className="px-6 py-3 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition disabled:opacity-50"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="px-6 py-3 rounded-xl bg-brand-primary hover:bg-[#b57603] text-white font-semibold shadow-md transition active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {isLoading
+                  ? "Saving..."
+                  : editingPartner
+                  ? "Update Partner"
+                  : "Create Partner"}
+              </button>
+            </div>
+          </form>
         </div>
       </div>
     </>,
-    document.body,
+    document.body
   );
 };
 

@@ -29,6 +29,7 @@ import {
 import { useState, useMemo } from "react";
 import { useGetEmployeesQuery, useDeleteEmployeeMutation } from "@/redux/api/employeeApi";
 import { useGetActivityLogsQuery, useGetActivityStatsQuery, useCreateActivityLogMutation } from "@/redux/api/activityLogApi";
+import { useGetPartnersQuery, useDeletePartnerMutation, Partner } from "@/redux/api/partnersApi";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
 import Image from "next/image";
@@ -42,6 +43,7 @@ interface Employee {
   phone?: string;
   status?: string;
   profile_image_url?: string;
+  source?: "employee" | "partner";
   [key: string]: unknown;
 }
 
@@ -81,6 +83,10 @@ const StaffActivityPage = ({ onCreateClick, onEditClick }: StaffActivityPageProp
   const [deleteEmployee, { isLoading: isDeleting }] = useDeleteEmployeeMutation();
   const [createActivityLog] = useCreateActivityLogMutation();
 
+  // Fetch partners and merge into staff list
+  const { data: partnersData } = useGetPartnersQuery();
+  const [deletePartner] = useDeletePartnerMutation();
+
   // Fetch activity logs with server-side filtering and pagination
   const { data: activityLogsData, isLoading: isLoadingLogs } = useGetActivityLogsQuery({
     action_type: filterType !== "all" ? filterType : undefined,
@@ -92,7 +98,29 @@ const StaffActivityPage = ({ onCreateClick, onEditClick }: StaffActivityPageProp
   
   const { data: statsData, isLoading: isLoadingStats } = useGetActivityStatsQuery({});
 
-  const employees = employeesData?.data || [];
+  const employees: Employee[] = useMemo(() => {
+    const staff: Employee[] = (employeesData?.data || []).map((e: Employee) => ({
+      ...e,
+      source: "employee" as const,
+    }));
+
+    const partners: Employee[] = (partnersData?.data || []).map((p: Partner) => {
+      const parts = (p.fullname || "").trim().split(/\s+/);
+      return {
+        id: p.id,
+        first_name: parts[0] || p.fullname || "Partner",
+        last_name: parts.slice(1).join(" ") || "",
+        email: p.email,
+        phone: p.phone,
+        role: "Partner",
+        status: p.status,
+        source: "partner" as const,
+      };
+    });
+
+    return [...staff, ...partners];
+  }, [employeesData, partnersData]);
+
   const filteredEmployees = useMemo(() => {
     return employees.filter((user: Employee) => {
       const query = searchQuery.toLowerCase();
@@ -188,13 +216,18 @@ const StaffActivityPage = ({ onCreateClick, onEditClick }: StaffActivityPageProp
 
   const handleDelete = async (id: string) => {
     const employee = employees.find((e: Employee) => e.id === id);
-    const empName = employee ? `${employee.first_name} ${employee.last_name}` : id;
-    
-    if (window.confirm(`Are you sure you want to delete ${empName}?`)) {
-      try {
+    const empName = employee ? `${employee.first_name} ${employee.last_name}`.trim() : id;
+    const isPartner = employee?.source === "partner";
+
+    if (!window.confirm(`Are you sure you want to delete ${empName}?`)) return;
+
+    try {
+      if (isPartner) {
+        await deletePartner(id).unwrap();
+        toast.success("Partner deleted successfully");
+      } else {
         await deleteEmployee(id).unwrap();
-        
-        // Create activity log
+
         try {
           await createActivityLog({
             employee_id: (session?.user as any)?.id,
@@ -209,9 +242,9 @@ const StaffActivityPage = ({ onCreateClick, onEditClick }: StaffActivityPageProp
         }
 
         toast.success("Employee deleted successfully");
-      } catch (err) {
-        toast.error("Failed to delete employee");
       }
+    } catch (err) {
+      toast.error(isPartner ? "Failed to delete partner" : "Failed to delete employee");
     }
   };
 
@@ -314,6 +347,7 @@ const StaffActivityPage = ({ onCreateClick, onEditClick }: StaffActivityPageProp
                                   src={user.profile_image_url}
                                   alt={user.first_name}
                                   fill
+                                  sizes="40px"
                                   className="object-cover"
                                 />
                               ) : (
@@ -329,7 +363,11 @@ const StaffActivityPage = ({ onCreateClick, onEditClick }: StaffActivityPageProp
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <span className="px-2 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-semibold text-[11px] uppercase tracking-wide">
+                          <span className={`px-2 py-1 rounded-md font-semibold text-[11px] uppercase tracking-wide ${
+                            user.source === "partner"
+                              ? "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300"
+                              : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+                          }`}>
                             {user.role}
                           </span>
                         </td>
@@ -351,17 +389,27 @@ const StaffActivityPage = ({ onCreateClick, onEditClick }: StaffActivityPageProp
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex justify-center gap-2">
-                            <button 
-                              onClick={() => onEditClick(user)} 
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (user.source === "partner") {
+                                  toast("Edit partners in Partner Management page", { icon: "ℹ️" });
+                                } else {
+                                  onEditClick(user);
+                                }
+                              }}
                               className="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
-                              title="Edit"
+                              title={user.source === "partner" ? "Manage in Partner Management" : "Edit"}
+                              aria-label="Edit"
                             >
                               <Edit size={18} />
                             </button>
-                            <button 
-                              onClick={() => handleDelete(user.id)} 
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(user.id)}
                               className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors"
                               title="Delete"
+                              aria-label="Delete"
                             >
                               <Trash2 size={18} />
                             </button>
@@ -391,6 +439,8 @@ const StaffActivityPage = ({ onCreateClick, onEditClick }: StaffActivityPageProp
                 <select
                   value={filterType}
                   onChange={(e) => { setFilterType(e.target.value); setCurrentPage(1); }}
+                  aria-label="Filter by action type"
+                  title="Filter by action type"
                   className="pl-10 pr-8 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-semibold dark:text-slate-200 focus:ring-2 focus:ring-orange-500 appearance-none cursor-pointer"
                 >
                   <option value="all">All Actions</option>
@@ -409,6 +459,8 @@ const StaffActivityPage = ({ onCreateClick, onEditClick }: StaffActivityPageProp
                 <select
                   value={dateRange}
                   onChange={(e) => { setDateRange(e.target.value); setCurrentPage(1); }}
+                  aria-label="Filter by date range"
+                  title="Filter by date range"
                   className="pl-10 pr-8 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-semibold dark:text-slate-200 focus:ring-2 focus:ring-orange-500 appearance-none cursor-pointer"
                 >
                   <option value="all">All Time</option>
@@ -444,10 +496,22 @@ const StaffActivityPage = ({ onCreateClick, onEditClick }: StaffActivityPageProp
                   const staffName = `${log.first_name || ''} ${log.last_name || ''}`.trim() || "System";
                   
                   return (
-                    <div 
-                      key={log.id} 
-                      className="group relative pl-12 pb-8 last:pb-2 animate-in slide-in-from-left-4 duration-500"
-                      style={{ animationDelay: `${index * 100}ms` }}
+                    <div
+                      key={log.id}
+                      className={`group relative pl-12 pb-8 last:pb-2 animate-in slide-in-from-left-4 duration-500 ${
+                        [
+                          "[animation-delay:0ms]",
+                          "[animation-delay:100ms]",
+                          "[animation-delay:200ms]",
+                          "[animation-delay:300ms]",
+                          "[animation-delay:400ms]",
+                          "[animation-delay:500ms]",
+                          "[animation-delay:600ms]",
+                          "[animation-delay:700ms]",
+                          "[animation-delay:800ms]",
+                          "[animation-delay:900ms]",
+                        ][index] || "[animation-delay:900ms]"
+                      }`}
                     >
                       {/* Timeline Line */}
                       {index !== activityLogs.length - 1 && (
@@ -562,7 +626,10 @@ const StaffActivityPage = ({ onCreateClick, onEditClick }: StaffActivityPageProp
                 </p>
                 
                 <div className="flex items-center gap-1">
-                  <button 
+                  <button
+                    type="button"
+                    title="Previous page"
+                    aria-label="Previous page"
                     onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                     disabled={currentPage === 1}
                     className="p-2 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
@@ -600,7 +667,10 @@ const StaffActivityPage = ({ onCreateClick, onEditClick }: StaffActivityPageProp
                     return null;
                   })}
 
-                  <button 
+                  <button
+                    type="button"
+                    title="Next page"
+                    aria-label="Next page"
                     onClick={() => setCurrentPage(p => Math.min(Math.ceil(totalLogsCount / itemsPerPage), p + 1))}
                     disabled={currentPage === Math.ceil(totalLogsCount / itemsPerPage)}
                     className="p-2 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"

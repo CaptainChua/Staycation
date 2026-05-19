@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { PoolClient } from "pg";
 import pool from "@/backend/config/db";
 
 interface RouteContext {
@@ -11,7 +12,7 @@ interface BookingTypeRow {
   last_check_in: string;
 }
 
-async function ensureColumn(client: Awaited<ReturnType<typeof pool.connect>>) {
+async function ensureColumn(client: PoolClient) {
   await client.query(`
     ALTER TABLE havens
     ADD COLUMN IF NOT EXISTS booking_windows JSONB

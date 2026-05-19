@@ -18,6 +18,7 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://www.staycationhavenph.com'),
   title: {
     default: "Staycation Haven PH | Premium Short-Term Stays & Vacation Rentals",
     template: "Staycation Haven PH | %s"
@@ -165,25 +166,23 @@ export default function RootLayout({
         <link rel="icon" href="/android-chrome-196x196v2.png" sizes="196x196" type="image/png" />
         <link rel="icon" href="/android-chrome-512x512v2.png" sizes="512x512" type="image/png" />
         <link rel="icon" href="/favicon.ico" sizes="any" />
-        <link rel="apple-touch-icon" href="/apple-touch-iconv2.png" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-iconv2.png" />
         <link rel="manifest" href="/site.webmanifest" />
-        <Script
-          id="schema-travel-agency"
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(travelAgencySchema) }}
-          strategy="beforeInteractive"
-        />
-        <Script
-          id="schema-website"
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
-          strategy="beforeInteractive"
-        />
       </head>
       <body className={`${inter.variable} ${poppins.variable} font-sans antialiased`} suppressHydrationWarning>
         <Providers>
           {children}
         </Providers>
+        <Script
+          id="travel-agency-schema"
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(travelAgencySchema) }}
+        />
+        <Script
+          id="website-schema"
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
+        />
         <Script
           src="https://challenges.cloudflare.com/turnstile/v0/api.js"
           strategy="lazyOnload"

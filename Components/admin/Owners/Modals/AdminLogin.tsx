@@ -45,6 +45,7 @@ const AdminLogin = () => {
   const router = useRouter();
   const turnstileRef = useRef<HTMLDivElement>(null);
   const turnstileInitializedRef = useRef(false);
+  const turnstileWidgetIdRef = useRef<string | null>(null);
   const [showOtpVerification, setShowOtpVerification] = useState(false);
   const [otpEmail, setOtpEmail] = useState("");
   const [otpPassword, setOtpPassword] = useState("");
@@ -59,88 +60,66 @@ const AdminLogin = () => {
   });
 
   useEffect(() => {
-    // Prevent multiple initializations
-    if (turnstileInitializedRef.current) {
-      return;
-    }
+    if (turnstileInitializedRef.current) return;
 
-    // Check if site key is available
     const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
-    
     if (!siteKey) {
-      console.error("Turnstile site key is missing. Please set NEXT_PUBLIC_TURNSTILE_SITE_KEY in your environment variables.");
-      setFormData(prev => ({ 
-        ...prev, 
-        error: "Security configuration missing. Please contact administrator." 
+      setFormData(prev => ({
+        ...prev,
+        error: "Security configuration missing. Please contact administrator.",
       }));
       return;
     }
 
-    // Function to initialize the widget
     const initializeTurnstile = () => {
-      if (turnstileInitializedRef.current) {
-        return;
-      }
-
-      if (turnstileRef.current && window.turnstile) {
-        try {
-          turnstileInitializedRef.current = true;
-          const widgetId = window.turnstile.render(turnstileRef.current, {
-            sitekey: siteKey,
-            callback: (token: string) => {
-              setFormData(prev => ({ ...prev, turnstileToken: token }));
-            },
-            'expired-callback': () => {
-              setFormData(prev => ({ ...prev, turnstileToken: null }));
-            },
-            'error-callback': () => {
-              setFormData(prev => ({ ...prev, turnstileToken: null }));
-            }
-          });
-
-          console.log("✅ Turnstile widget initialized");
-
-          return () => {
-            if (widgetId && window.turnstile) {
-              window.turnstile.remove(widgetId);
-            }
-          };
-        } catch (error) {
-          console.error("❌ Failed to initialize Turnstile widget:", error);
-          turnstileInitializedRef.current = false;
-        }
+      if (turnstileInitializedRef.current || !turnstileRef.current || !window.turnstile) return;
+      try {
+        turnstileInitializedRef.current = true;
+        turnstileWidgetIdRef.current = window.turnstile.render(turnstileRef.current, {
+          sitekey: siteKey,
+          callback: (token: string) => setFormData(prev => ({ ...prev, turnstileToken: token })),
+          'expired-callback': () => setFormData(prev => ({ ...prev, turnstileToken: null })),
+          'error-callback': () => setFormData(prev => ({ ...prev, turnstileToken: null })),
+        });
+      } catch (error) {
+        console.error("❌ Failed to initialize Turnstile widget:", error);
+        turnstileInitializedRef.current = false;
       }
     };
 
-    // Check if Turnstile script is already loaded
+    let checkInterval: ReturnType<typeof setInterval> | null = null;
+    let timeout: ReturnType<typeof setTimeout> | null = null;
+
     if (window.turnstile) {
       initializeTurnstile();
     } else {
-      // Wait for the Turnstile script to load
-      const checkInterval = setInterval(() => {
+      checkInterval = setInterval(() => {
         if (window.turnstile) {
-          clearInterval(checkInterval);
+          clearInterval(checkInterval!);
           initializeTurnstile();
         }
       }, 100);
 
-      // Cleanup interval after 10 seconds to avoid infinite polling
-      const timeout = setTimeout(() => {
-        clearInterval(checkInterval);
+      timeout = setTimeout(() => {
+        clearInterval(checkInterval!);
         if (!turnstileInitializedRef.current) {
-          console.error("❌ Turnstile script failed to load within 10 seconds");
-          setFormData(prev => ({ 
-            ...prev, 
-            error: "Security widget failed to load. Please refresh the page." 
+          setFormData(prev => ({
+            ...prev,
+            error: "Security widget failed to load. Please refresh the page.",
           }));
         }
       }, 10000);
-
-      return () => {
-        clearInterval(checkInterval);
-        clearTimeout(timeout);
-      };
     }
+
+    return () => {
+      if (checkInterval) clearInterval(checkInterval);
+      if (timeout) clearTimeout(timeout);
+      if (turnstileWidgetIdRef.current && window.turnstile) {
+        window.turnstile.remove(turnstileWidgetIdRef.current);
+        turnstileWidgetIdRef.current = null;
+        turnstileInitializedRef.current = false;
+      }
+    };
   }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
