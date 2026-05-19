@@ -1,43 +1,49 @@
 "use client";
 
-import Skeleton from "@/Components/common/Skeleton";
+import React, { useEffect, useState, useCallback } from "react";
+import toast from "react-hot-toast";
 import {
+  Camera,
+  ImagePlus,
+  Trash2,
   CheckCircle2,
-  Circle,
+  AlertCircle,
   BedDouble,
   Bath,
   ChefHat,
   Sofa,
   Sparkles,
-  CalendarCheck,
-  User,
   Home,
-  AlertCircle,
+  User,
+  CalendarCheck,
+  Loader2,
+  ZoomIn,
+  X,
 } from "lucide-react";
-import React, { useEffect, useState, useCallback } from "react";
-import toast from "react-hot-toast";
+import Skeleton from "@/Components/common/Skeleton";
 
-type Task = {
+/* ---------- Types ---------- */
+
+type Photo = {
   id: string;
-  task: string;
-  completed: boolean;
+  url: string;
+  category: string;
+  created_at?: string;
 };
 
-type Category = {
+type RoomState = {
   category: string;
-  tasks: Task[];
-  icon?: React.ComponentType<{ className?: string }>;
+  photos: Photo[];
+  isUploading: boolean;
 };
 
 type Haven = {
   id: string;
   name: string;
   address?: string;
-  status?: string;
   bookingId?: string;
   guestName?: string;
   checkOutDate?: string;
-  cleaningStatus?: string;
   isUpcoming?: boolean;
 };
 
@@ -46,209 +52,242 @@ interface Props {
   initialHavenId?: string | null;
 }
 
-export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
-  const [havens, setHavens] = useState<Haven[]>([]);
-  const [selectedHavenId, setSelectedHavenId] = useState<string | null>(null);
-  const [isHavensLoading, setIsHavensLoading] = useState<boolean>(false);
-  const [selectedHaven, setSelectedHaven] = useState<Haven | null>(null);
+/* ---------- Constants ---------- */
 
-  const [checklist, setChecklist] = useState<Category[]>([]);
-  const [checklistId, setChecklistId] = useState<string | null>(null);
+const CATEGORIES = ["Bedroom", "Bathroom", "Kitchen", "Living Room", "General"];
 
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  Bedroom: BedDouble,
+  Bathroom: Bath,
+  Kitchen: ChefHat,
+  "Living Room": Sofa,
+  General: Sparkles,
+};
 
-  const iconMap = {
-    Bedroom: BedDouble,
-    Bathroom: Bath,
-    Kitchen: ChefHat,
-    "Living Room": Sofa,
-    General: Sparkles,
-  };
+/* ==============================
+ * Main Component
+ * ============================== */
+export default function CleaningPhotoPage({ initialHavenId }: Props = {}) {
+  const [haven, setHaven] = useState<Haven | null>(null);
+  const [rooms, setRooms] = useState<RoomState[]>(
+    CATEGORIES.map((cat) => ({ category: cat, photos: [], isUploading: false }))
+  );
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [isPageLoading, setIsPageLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  /** URL of photo open in lightbox (null = closed) */
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
-  // Fetch havens on mount (only checked-out ones that need cleaning)
+  /* ---- Fetch haven info ---- */
   useEffect(() => {
-    let mounted = true;
-
-    const fetchHavens = async () => {
-      setIsHavensLoading(true);
-      try {
-        const url = initialHavenId
-          ? `/api/admin/cleaners/havens?include_id=${encodeURIComponent(initialHavenId)}`
-          : "/api/admin/cleaners/havens";
-        const res = await fetch(url, { cache: "no-store" });
-        const data = await res.json();
-        if (!mounted) return;
-        if (Array.isArray(data)) {
-          setHavens(data);
-          if (data.length > 0) {
-            // Priority: initialHavenId prop → currently selected → first in list
-            const preferred =
-              initialHavenId
-                ? data.find((h: Haven) => String(h.id) === String(initialHavenId))
-                : null;
-
-            const stillExists = !preferred && selectedHavenId
-              ? data.find((h: Haven) => h.id === selectedHavenId)
-              : null;
-
-            const target = preferred ?? stillExists ?? data[0];
-            setSelectedHavenId(target.id);
-            setSelectedHaven(target);
-          } else {
-            setSelectedHavenId(null);
-            setSelectedHaven(null);
-          }
-        } else {
-          toast.error("Failed to load havens");
-        }
-      } catch (err) {
-        console.error("Failed to fetch havens", err);
-        toast.error("Failed to load havens");
-      } finally {
-        setIsHavensLoading(false);
-      }
-    };
-
-    fetchHavens();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  // Fetch checklist for a haven
-  const fetchChecklist = useCallback(
-    async (havenId: string) => {
-      setIsLoading(true);
+    if (!initialHavenId) return;
+    (async () => {
       try {
         const res = await fetch(
-          `/api/admin/cleaners?haven_id=${encodeURIComponent(havenId)}`,
-          {
-            cache: "no-store",
-          },
+          `/api/admin/cleaners/havens?include_id=${encodeURIComponent(initialHavenId)}`,
+          { cache: "no-store" }
         );
-        const payload = await res.json();
-        if (res.ok && payload.success && payload.data?.checklist) {
-          const { checklist } = payload.data;
-          setChecklistId(checklist.id);
-          setChecklist(checklist.categories || []);
-          // Use haven info if the API returns it alongside the checklist
-          if (payload.data.haven) {
-            setSelectedHaven(payload.data.haven);
-          } else {
-            const found = havens.find((h) => h.id === checklist.haven_id);
-            if (found) setSelectedHaven(found);
-          }
-        } else {
-          throw new Error(payload.error || "Failed to load checklist");
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          const found = data.find(
+            (h: Haven) => String(h.id) === String(initialHavenId)
+          );
+          if (found) setHaven(found);
         }
       } catch (err) {
-        console.error("Failed to fetch checklist", err);
-        setChecklist([]);
-        setChecklistId(null);
-        const message = err instanceof Error ? err.message : String(err);
-        toast.error(message || "Failed to load checklist");
-      } finally {
-        setIsLoading(false);
+        console.error("Failed to fetch haven info", err);
       }
-    },
-    [havens]
-  );
+    })();
+  }, [initialHavenId]);
 
-  // Separately fetch haven info for the booking card (in case checklist endpoint doesn't return it)
-  const fetchHavenInfo = useCallback(async (havenId: string) => {
+  /* ---- Fetch existing photos ---- */
+  const fetchPhotos = useCallback(async (havenId: string) => {
+    setIsPageLoading(true);
     try {
-      const res = await fetch(`/api/admin/cleaners/havens`, { cache: "no-store" });
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        const found = data.find((h: Haven) => String(h.id) === String(havenId));
-        if (found) setSelectedHaven(found);
+      const res = await fetch(
+        `/api/admin/cleaners?haven_id=${encodeURIComponent(havenId)}`,
+        { cache: "no-store" }
+      );
+      const payload = await res.json();
+
+      if (res.ok && payload.success && payload.data) {
+        const { session, photos } = payload.data as {
+          session?: { id: string };
+          photos?: Photo[];
+        };
+
+        if (session?.id) setSessionId(session.id);
+
+        // Group photos by category
+        const byCategory: Record<string, Photo[]> = {};
+        (photos ?? []).forEach((p) => {
+          if (!byCategory[p.category]) byCategory[p.category] = [];
+          byCategory[p.category].push(p);
+        });
+
+        setRooms(
+          CATEGORIES.map((cat) => ({
+            category: cat,
+            photos: byCategory[cat] ?? [],
+            isUploading: false,
+          }))
+        );
+      } else {
+        throw new Error(payload.error ?? "Failed to load photos");
       }
-    } catch {
-      // non-fatal — booking info card just won't show
+    } catch (err) {
+      console.error("fetchPhotos error:", err);
+      toast.error("Failed to load existing photos");
+    } finally {
+      setIsPageLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    if (selectedHavenId) {
-      fetchChecklist(selectedHavenId);
-      fetchHavenInfo(selectedHavenId);
-    } else {
-      setChecklist([]);
-      setChecklistId(null);
-      setSelectedHaven(null);
-    }
-  }, [selectedHavenId, fetchChecklist, fetchHavenInfo]);
+    if (initialHavenId) fetchPhotos(initialHavenId);
+  }, [initialHavenId, fetchPhotos]);
 
-  const toggleTask = async (taskId: string) => {
-    let newCompleted = false;
+  /* ---- Upload handler ---- */
+  const handleFileChange = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    category: string
+  ) => {
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length || !initialHavenId) return;
 
-    setChecklist((prev) =>
-      prev.map((category: Category) => ({
-        ...category,
-        tasks: category.tasks.map((task: Task) => {
-          if (task.id === taskId) {
-            newCompleted = !task.completed;
-            return { ...task, completed: newCompleted };
-          }
-          return task;
-        }),
-      })),
+    // Reset input so the same file can be picked again if needed
+    e.target.value = "";
+
+    setRooms((prev) =>
+      prev.map((r) =>
+        r.category === category ? { ...r, isUploading: true } : r
+      )
     );
 
     try {
-      const res = await fetch("/api/admin/cleaners", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ task_id: taskId, completed: newCompleted }),
-      });
-      const payload = await res.json();
-      if (!res.ok) {
-        throw new Error(payload?.error || "Failed to update task");
-      }
+      const uploaded: Photo[] = [];
 
-      const returnedTask = payload?.data?.task;
-      if (
-        returnedTask &&
-        returnedTask.checklist_id &&
-        returnedTask.checklist_id !== checklistId
-      ) {
-        if (initialHavenId) {
-          await fetchChecklist(initialHavenId);
-          toast.success("Task updated; checklist refreshed (task moved to latest)");
-        } else {
-          toast.success("Task updated");
+      for (const file of files) {
+        const formData = new FormData();
+        formData.append("haven_id", initialHavenId);
+        formData.append("category", category);
+        formData.append("photo", file);
+        if (sessionId) formData.append("session_id", sessionId);
+
+        const res = await fetch("/api/admin/cleaners/photos", {
+          method: "POST",
+          body: formData,
+        });
+        const payload = await res.json();
+
+        if (!res.ok || !payload.success) {
+          throw new Error(payload.error ?? "Upload failed");
         }
-        return;
+
+        // Capture newly created session id if first upload
+        if (payload.data?.session_id && !sessionId) {
+          setSessionId(payload.data.session_id);
+        }
+
+        uploaded.push(payload.data.photo as Photo);
       }
 
-      toast.success("Task updated");
+      setRooms((prev) =>
+        prev.map((r) =>
+          r.category === category
+            ? { ...r, photos: [...r.photos, ...uploaded], isUploading: false }
+            : r
+        )
+      );
+
+      toast.success(
+        uploaded.length === 1 ? "Photo uploaded" : `${uploaded.length} photos uploaded`
+      );
     } catch (err) {
-      console.error("Failed to update task:", err);
-      const message = err instanceof Error ? err.message : String(err);
-      toast.error(message || "Failed to update task");
-      if (initialHavenId) fetchChecklist(initialHavenId);
+      console.error("Upload error:", err);
+      toast.error(
+        err instanceof Error ? err.message : "Failed to upload photo"
+      );
+      setRooms((prev) =>
+        prev.map((r) =>
+          r.category === category ? { ...r, isUploading: false } : r
+        )
+      );
     }
   };
 
-  const totalTasks = checklist.reduce((acc, cat) => acc + cat.tasks.length, 0);
-  const completedTasks = checklist.reduce(
-    (acc, cat: Category) => acc + cat.tasks.filter((t: Task) => t.completed).length,
-    0,
-  );
-  const progress = totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
-  const canComplete = progress === 100;
+  /* ---- Delete photo ---- */
+  const deletePhoto = async (photoId: string, category: string) => {
+    try {
+      const res = await fetch(
+        `/api/admin/cleaners/photos?photo_id=${encodeURIComponent(photoId)}`,
+        { method: "DELETE" }
+      );
+      const payload = await res.json();
 
-  // Empty / no task selected — shown when navigating directly to the tab without clicking Start Cleaning
-  if (!initialHavenId && !isLoading) {
+      if (!res.ok || !payload.success) {
+        throw new Error(payload.error ?? "Failed to delete photo");
+      }
+
+      setRooms((prev) =>
+        prev.map((r) =>
+          r.category === category
+            ? { ...r, photos: r.photos.filter((p) => p.id !== photoId) }
+            : r
+        )
+      );
+      toast.success("Photo removed");
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to remove photo"
+      );
+    }
+  };
+
+  /* ---- Submit cleaning session ---- */
+  const handleSubmit = async () => {
+    if (!sessionId) return;
+    setIsSubmitting(true);
+    try {
+      const res = await fetch("/api/admin/cleaners/photos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "submit", session_id: sessionId }),
+      });
+      const payload = await res.json();
+
+      if (!res.ok || !payload.success) {
+        throw new Error(payload.error ?? "Failed to submit");
+      }
+      toast.success("Cleaning submitted successfully!");
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to submit"
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  /* ---- Derived stats ---- */
+  const roomsWithPhotos = rooms.filter((r) => r.photos.length > 0).length;
+  const totalRooms = rooms.length;
+  const progress =
+    totalRooms === 0 ? 0 : Math.round((roomsWithPhotos / totalRooms) * 100);
+  const canSubmit = roomsWithPhotos === totalRooms;
+
+  /* ==============================
+   * "No task selected" empty state
+   * ============================== */
+  if (!initialHavenId && !isPageLoading) {
     return (
       <div className="space-y-6 animate-in fade-in duration-700">
         <div>
           <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
-            Cleaning Checklist
+            Cleaning Photos
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Complete cleaning tasks for your assigned haven
+            Capture a photo of each room after cleaning
           </p>
         </div>
 
@@ -261,246 +300,352 @@ export default function CleaningChecklistPage({ initialHavenId }: Props = {}) {
           </h2>
           <p className="text-gray-500 dark:text-gray-400 max-w-md">
             Go to{" "}
-            <span className="font-semibold text-gray-700 dark:text-gray-200">My Schedule</span> and
-            tap{" "}
-            <span className="font-semibold text-brand-primary">Start Cleaning</span> on your
-            assigned haven to begin the checklist.
+            <span className="font-semibold text-gray-700 dark:text-gray-200">
+              My Schedule
+            </span>{" "}
+            and tap{" "}
+            <span className="font-semibold text-brand-primary">
+              Start Cleaning
+            </span>{" "}
+            on your assigned haven to begin.
           </p>
         </div>
       </div>
     );
   }
 
+  /* ==============================
+   * Main render
+   * ============================== */
   return (
-    <div className="space-y-6 animate-in fade-in duration-700">
-      {/* Header */}
-      <div>
-        <h1 className="text-xl sm:text-2xl font-bold text-gray-800 dark:text-gray-100">
-          Cleaning Checklist
-        </h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Complete cleaning tasks for your assigned haven
-        </p>
-      </div>
+    <>
+      <div className="space-y-6 animate-in fade-in duration-700">
+        {/* ---- Page header ---- */}
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-800 dark:text-gray-100">
+            Cleaning Photos
+          </h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            Take or upload a photo for every room
+          </p>
+        </div>
 
-      {/* Booking Info Card */}
-      {selectedHaven && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-4 border-l-4 border-brand-primary">
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
-            <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
-              <Home className="w-4 h-4 text-brand-primary" />
-              <span className="font-medium">{selectedHaven.name}</span>
-              {selectedHaven.address && (
-                <span className="text-gray-400 dark:text-gray-500">({selectedHaven.address})</span>
+        {/* ---- Booking info card ---- */}
+        {haven && (
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-4 border-l-4 border-brand-primary">
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+              <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
+                <Home className="w-4 h-4 text-brand-primary" />
+                <span className="font-medium">{haven.name}</span>
+                {haven.address && (
+                  <span className="text-gray-400 dark:text-gray-500">
+                    ({haven.address})
+                  </span>
+                )}
+              </div>
+              {haven.guestName && (
+                <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                  <User className="w-4 h-4" />
+                  <span>Guest: {haven.guestName}</span>
+                </div>
+              )}
+              {haven.checkOutDate && (
+                <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                  <CalendarCheck className="w-4 h-4" />
+                  <span>Checked out: {haven.checkOutDate}</span>
+                </div>
+              )}
+              {haven.bookingId && (
+                <div className="text-xs text-gray-400 dark:text-gray-500">
+                  Booking #{haven.bookingId}
+                </div>
               )}
             </div>
-            {selectedHaven.guestName && (
-              <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-                <User className="w-4 h-4" />
-                <span>Guest: {selectedHaven.guestName}</span>
-              </div>
-            )}
-            {selectedHaven.checkOutDate && (
-              <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-                <CalendarCheck className="w-4 h-4" />
-                <span>Checked out: {selectedHaven.checkOutDate}</span>
-              </div>
-            )}
-            {selectedHaven.bookingId && (
-              <div className="text-xs text-gray-400 dark:text-gray-500">
-                Booking #{selectedHaven.bookingId}
-              </div>
-            )}
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Upcoming notice */}
-      {selectedHaven?.isUpcoming && (
-        <div className="flex items-start gap-3 bg-sky-50 dark:bg-sky-900/20 border border-sky-300 dark:border-sky-700 rounded-lg p-4">
-          <AlertCircle className="w-5 h-5 text-sky-500 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm font-semibold text-sky-700 dark:text-sky-300">Guest has not checked out yet</p>
-            <p className="text-xs text-sky-600 dark:text-sky-400 mt-0.5">
-              You can preview the checklist to prepare, but cleaning tasks will be unlocked after the guest checks out on{" "}
-              <span className="font-semibold">{selectedHaven.checkOutDate}</span>.
-            </p>
+        {/* ---- Upcoming notice ---- */}
+        {haven?.isUpcoming && (
+          <div className="flex items-start gap-3 bg-sky-50 dark:bg-sky-900/20 border border-sky-300 dark:border-sky-700 rounded-lg p-4">
+            <AlertCircle className="w-5 h-5 text-sky-500 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-sky-700 dark:text-sky-300">
+                Guest has not checked out yet
+              </p>
+              <p className="text-xs text-sky-600 dark:text-sky-400 mt-0.5">
+                You can preview the rooms, but photo uploads will be unlocked
+                after the guest checks out on{" "}
+                <span className="font-semibold">{haven.checkOutDate}</span>.
+              </p>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Progress Overview */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-4 sm:p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">Overall Progress</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              <span className="font-semibold text-brand-primary text-base">
-                {completedTasks}/{totalTasks}
-              </span>{" "}
-              tasks completed
-            </p>
-          </div>
-          <div className="text-right">
+        {/* ---- Progress overview ---- */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-4 sm:p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">
+                Overall Progress
+              </h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                <span className="font-semibold text-brand-primary text-base">
+                  {roomsWithPhotos}/{totalRooms}
+                </span>{" "}
+                rooms photographed
+              </p>
+            </div>
             <p className="text-3xl font-bold text-brand-primary">{progress}%</p>
           </div>
-        </div>
-        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
-          <div
-            className={`h-3 rounded-full transition-all duration-500 ${
-              progress === 100 ? "bg-green-500" : "bg-brand-primary"
-            }`}
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-      </div>
-
-
-      {/* Checklist by Category */}
-      <div className="space-y-4">
-        {isLoading && (
-          <div aria-busy="true" aria-live="polite" className="space-y-4">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <Skeleton className="h-5 w-40 rounded mb-2" label="Loading progress title" />
-                  <Skeleton className="h-3 w-28 rounded" label="Loading progress detail" />
-                </div>
-                <Skeleton className="h-10 w-14 rounded" label="Loading progress number" />
-              </div>
-              <Skeleton className="h-3 w-3/5 rounded-full" label="Loading progress bar" />
-            </div>
-
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <Skeleton className="w-10 h-10 rounded-lg" label="Loading category icon" />
-                    <div>
-                      <Skeleton className="h-4 w-32 rounded mb-1" label="Loading category name" />
-                      <Skeleton className="h-3 w-20 rounded" label="Loading category meta" />
-                    </div>
-                  </div>
-                  <Skeleton className="h-6 w-12 rounded" label="Loading category stat" />
-                </div>
-                <div className="space-y-2">
-                  {[1, 2, 3, 4].map((t) => (
-                    <div key={t} className="flex items-center gap-3 p-3 rounded-lg">
-                      <Skeleton className="w-5 h-5 rounded-full" label="Loading task icon" />
-                      <Skeleton className="h-4 w-full rounded" label="Loading task" />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
+          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
+            <div
+              className={`h-3 rounded-full transition-all duration-500 ${
+                progress === 100 ? "bg-green-500" : "bg-brand-primary"
+              }`}
+              style={{ width: `${progress}%` }}
+            />
           </div>
-        )}
+        </div>
 
-        {!isLoading &&
-          checklist.map((category: Category) => {
-            const CategoryIcon =
-              (iconMap as Record<string, typeof Sparkles>)[category.category] ?? Sparkles;
-            const categoryCompleted = category.tasks.filter((t) => t.completed).length;
-            const categoryTotal = category.tasks.length;
-            const categoryProgress = Math.round(
-              (categoryCompleted / Math.max(1, categoryTotal)) * 100,
-            );
-
-            return (
-              <div
-                key={category.category}
-                className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-6"
-              >
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="bg-brand-primary text-white p-3 rounded-lg">
-                      <CategoryIcon className="w-6 h-6" />
-                    </div>
+        {/* ---- Room cards ---- */}
+        <div className="space-y-4">
+          {isPageLoading
+            ? /* Skeleton */
+              CATEGORIES.map((cat) => (
+                <div
+                  key={cat}
+                  className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-5"
+                >
+                  <div className="flex items-center gap-3 mb-4">
+                    <Skeleton
+                      className="w-11 h-11 rounded-lg"
+                      label="Loading room icon"
+                    />
                     <div>
-                      <h3 className="font-bold text-gray-800 dark:text-gray-100">{category.category}</h3>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {categoryCompleted} of {categoryTotal} completed
-                      </p>
+                      <Skeleton
+                        className="h-4 w-28 rounded mb-1"
+                        label="Loading room name"
+                      />
+                      <Skeleton
+                        className="h-3 w-20 rounded"
+                        label="Loading room status"
+                      />
                     </div>
                   </div>
-                  <span className="text-sm font-bold text-brand-primary">{categoryProgress}%</span>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[1, 2, 3].map((j) => (
+                      <Skeleton
+                        key={j}
+                        className="aspect-square rounded-lg"
+                        label="Loading photo"
+                      />
+                    ))}
+                  </div>
                 </div>
+              ))
+            : /* Actual rooms */
+              rooms.map((room) => {
+                const RoomIcon = ICON_MAP[room.category] ?? Sparkles;
+                const isDone = room.photos.length > 0;
+                const isLocked = !!haven?.isUpcoming;
 
-                <div className="space-y-2">
-                  {category.tasks.map((task: Task) => (
-                    <div
-                      key={task.id}
-                      onClick={() => { if (!selectedHaven?.isUpcoming) toggleTask(task.id); }}
-                      className={`flex items-center gap-3 p-3 rounded-lg transition-all ${selectedHaven?.isUpcoming ? "cursor-not-allowed opacity-60" : "cursor-pointer"} ${
-                        task.completed
-                          ? "bg-green-50 dark:bg-green-900/20"
-                          : "bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600"
-                      }`}
-                    >
-                      {task.completed ? (
-                        <CheckCircle2 className="w-5 h-5 text-green-600" />
-                      ) : (
-                        <Circle className="w-5 h-5 text-gray-400" />
+                return (
+                  <div
+                    key={room.category}
+                    className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-5"
+                  >
+                    {/* Room header */}
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`p-2.5 rounded-lg text-white transition-colors ${
+                            isDone ? "bg-green-500" : "bg-brand-primary"
+                          }`}
+                        >
+                          {isDone ? (
+                            <CheckCircle2 className="w-5 h-5" />
+                          ) : (
+                            <RoomIcon className="w-5 h-5" />
+                          )}
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-gray-800 dark:text-gray-100">
+                            {room.category}
+                          </h3>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {isDone
+                              ? `${room.photos.length} photo${room.photos.length !== 1 ? "s" : ""} uploaded`
+                              : "No photos yet"}
+                          </p>
+                        </div>
+                      </div>
+
+                      {isDone && (
+                        <span className="text-xs font-semibold text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-2.5 py-1 rounded-full">
+                          Done
+                        </span>
                       )}
-                      <span
-                        className={`flex-1 text-sm ${
-                          task.completed
-                            ? "text-green-700 dark:text-green-400 line-through"
-                            : "text-gray-800 dark:text-gray-100"
-                        }`}
-                      >
-                        {task.task}
-                      </span>
                     </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-      </div>
 
-      {/* Action / Status */}
-      {!selectedHaven?.isUpcoming && <div className="flex flex-col sm:flex-row gap-3 items-center">
-        <p className="text-sm text-gray-500 flex-1 text-center sm:text-left">Changes are saved automatically</p>
-        {canComplete && progress === 100 && (
-          <div className="flex items-center gap-2 text-green-600 dark:text-green-400 font-semibold text-sm">
-            <CheckCircle2 className="w-5 h-5" />
-            All tasks complete!
+                    {/* Photo grid */}
+                    {room.photos.length > 0 && (
+                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 mb-4">
+                        {room.photos.map((photo) => (
+                          <div
+                            key={photo.id}
+                            className="relative group aspect-square"
+                          >
+                            <img
+                              src={photo.url}
+                              alt={`${room.category} photo`}
+                              className="w-full h-full object-cover rounded-lg cursor-pointer"
+                              onClick={() => setLightboxUrl(photo.url)}
+                            />
+                            {/* Hover overlay */}
+                            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
+                              <button
+                                type="button"
+                                aria-label="View photo"
+                                onClick={() => setLightboxUrl(photo.url)}
+                                className="p-1.5 bg-white/90 rounded-full"
+                              >
+                                <ZoomIn className="w-3.5 h-3.5 text-gray-800" />
+                              </button>
+                              {!isLocked && (
+                                <button
+                                  type="button"
+                                  aria-label="Delete photo"
+                                  onClick={() =>
+                                    deletePhoto(photo.id, room.category)
+                                  }
+                                  className="p-1.5 bg-red-500 rounded-full"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5 text-white" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Upload / camera buttons */}
+                    {!isLocked && (
+                      <div className="flex gap-2">
+                        {/* ---- Take Photo (opens camera directly on mobile) ---- */}
+                        <label
+                          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg border-2 border-dashed
+                            transition-colors text-sm font-medium select-none
+                            ${
+                              room.isUploading
+                                ? "border-gray-200 dark:border-gray-700 text-gray-400 cursor-not-allowed"
+                                : "border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 cursor-pointer hover:border-brand-primary hover:bg-brand-primary/5 hover:text-brand-primary"
+                            }`}
+                        >
+                          {room.isUploading ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Camera className="w-4 h-4" />
+                          )}
+                          <span>Camera</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            capture="environment"
+                            className="hidden"
+                            disabled={room.isUploading}
+                            onChange={(e) =>
+                              handleFileChange(e, room.category)
+                            }
+                          />
+                        </label>
+
+                        {/* ---- Choose from Gallery ---- */}
+                        <label
+                          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg border-2 border-dashed
+                            transition-colors text-sm font-medium select-none
+                            ${
+                              room.isUploading
+                                ? "border-gray-200 dark:border-gray-700 text-gray-400 cursor-not-allowed"
+                                : "border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 cursor-pointer hover:border-brand-primary hover:bg-brand-primary/5 hover:text-brand-primary"
+                            }`}
+                        >
+                          {room.isUploading ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <ImagePlus className="w-4 h-4" />
+                          )}
+                          <span>Gallery</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            className="hidden"
+                            disabled={room.isUploading}
+                            onChange={(e) =>
+                              handleFileChange(e, room.category)
+                            }
+                          />
+                        </label>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+        </div>
+
+        {/* ---- Action / status bar ---- */}
+        {!haven?.isUpcoming && (
+          <div className="flex flex-col sm:flex-row gap-3 items-center">
+            <p className="text-sm text-gray-500 flex-1 text-center sm:text-left">
+              Photos are saved automatically
+            </p>
+
+            {canSubmit && (
+              <div className="flex items-center gap-2 text-green-600 dark:text-green-400 font-semibold text-sm">
+                <CheckCircle2 className="w-5 h-5" />
+                All rooms photographed!
+              </div>
+            )}
+
+            {canSubmit && sessionId && (
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={handleSubmit}
+                className="flex-1 sm:flex-none w-full sm:w-auto bg-brand-primary text-white font-semibold rounded-lg px-5 py-2.5 hover:bg-brand-primary/90 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+              >
+                {isSubmitting && (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                )}
+                Confirm & Finish
+              </button>
+            )}
           </div>
         )}
+      </div>
 
-        {/* Finalize checklist: mark checklist as completed in backend */}
-        {canComplete && progress === 100 && checklistId && (
+      {/* ---- Lightbox ---- */}
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <img
+            src={lightboxUrl}
+            alt="Full-size preview"
+            className="max-w-full max-h-full object-contain rounded-lg"
+          />
           <button
             type="button"
-            onClick={async () => {
-              try {
-                const res = await fetch("/api/admin/cleaners", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    action: "submit",
-                    checklist_id: checklistId,
-                  }),
-                });
-                const payload = await res.json();
-                if (!res.ok || !payload?.success) {
-                  throw new Error(payload?.error || "Failed to submit checklist");
-                }
-
-                toast.success("Checklist submitted successfully");
-              } catch (err) {
-                console.error("Submit checklist error:", err);
-                const message = err instanceof Error ? err.message : String(err);
-                toast.error(message || "Failed to submit checklist");
-              }
-            }}
-            className="flex-1 sm:flex-none w-full sm:w-auto bg-brand-primary text-white font-semibold rounded-lg px-4 py-2.5 hover:bg-brand-primary/90 transition-colors"
+            aria-label="Close preview"
+            className="absolute top-4 right-4 bg-black/60 hover:bg-black/80 text-white rounded-full p-2 transition-colors"
+            onClick={() => setLightboxUrl(null)}
           >
-            Confirm & Finish
+            <X className="w-5 h-5" />
           </button>
-        )}
-      </div>}
-    </div>
+        </div>
+      )}
+    </>
   );
 }

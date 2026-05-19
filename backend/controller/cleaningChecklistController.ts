@@ -1,115 +1,138 @@
 import { NextRequest, NextResponse } from "next/server";
+import { writeFile, mkdir } from "fs/promises";
+import { existsSync } from "fs";
+import { join, extname } from "path";
 import pool from "../config/db";
 
 /**
- * Cleaning Checklist Controller
+ * Cleaning Photos Controller
  *
- * Provides endpoints for:
- *  - GET  /api/admin/cleaners/checklist?haven_id=...
- *  - PATCH /api/admin/cleaners/checklist/tasks/[taskId]
- *  - POST  /api/admin/cleaners/checklist/save
- *  - POST  /api/admin/cleaners/checklist/submit
+ * Endpoints handled:
+ *
+ *  GET  /api/admin/cleaners?haven_id=...
+ *       Returns the active cleaning session + all photos grouped by category.
+ *       Creates a new session automatically if none exists.
+ *
+ *  POST /api/admin/cleaners/photos          (multipart/form-data)
+ *       Uploads a photo for one room category.
+ *       Body fields: haven_id, category, photo (File), session_id? (optional)
+ *
+ *  POST /api/admin/cleaners/photos          (application/json)
+ *       Submits (finalises) a cleaning session.
+ *       Body: { action: "submit", session_id: string }
+ *
+ *  DELETE /api/admin/cleaners/photos?photo_id=...
+ *       Removes a single photo record (and its file from disk).
+ *
+ * DB tables assumed:
+ *
+ *   cleaning_checklists (id, haven_id, status, completed_at, created_at, updated_at)
+ *   — reused as the "cleaning session" tracker; no tasks column needed.
+ *
+ *   cleaning_photos (
+ *     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+ *     session_id  UUID REFERENCES cleaning_checklists(id) ON DELETE CASCADE,
+ *     haven_id    UUID REFERENCES havens(uuid_id),
+ *     category    VARCHAR(100) NOT NULL,
+ *     photo_url   TEXT NOT NULL,
+ *     file_name   TEXT,
+ *     created_at  TIMESTAMPTZ DEFAULT timezone('Asia/Manila', NOW()),
+ *     updated_at  TIMESTAMPTZ DEFAULT timezone('Asia/Manila', NOW())
+ *   )
+ *
+ * File storage:
+ *   Photos are written to  <project_root>/public/uploads/cleaning/<haven_id>/<category>/
+ *   and served at           /uploads/cleaning/<haven_id>/<category>/<filename>
+ *
+ *   For production on serverless platforms (Vercel, etc.) swap saveFileToDisk()
+ *   for a cloud-storage upload (S3, Cloudinary, Supabase Storage, etc.).
  */
 
-/* ---------------------------
- * Default checklist template
- * --------------------------- */
-const DEFAULT_CHECKLIST_TEMPLATE: { category: string; tasks: string[] }[] = [
-  {
-    category: "Bedroom",
-    tasks: [
-      "Make bed and change linens",
-      "Dust furniture and surfaces",
-      "Vacuum floor and rugs",
-      "Clean mirrors and windows",
-      "Empty trash bin",
-    ],
-  },
-  {
-    category: "Bathroom",
-    tasks: [
-      "Clean toilet, sink, and shower",
-      "Replace towels and toiletries",
-      "Mop floor",
-      "Clean mirror",
-      "Restock supplies",
-    ],
-  },
-  {
-    category: "Kitchen",
-    tasks: [
-      "Clean countertops and sink",
-      "Wipe down appliances",
-      "Clean microwave inside and out",
-      "Mop floor",
-      "Take out trash and recycling",
-    ],
-  },
-  {
-    category: "Living Room",
-    tasks: [
-      "Vacuum sofa and cushions",
-      "Dust all surfaces",
-      "Clean TV and entertainment center",
-      "Vacuum or mop floor",
-      "Arrange furniture and decor",
-    ],
-  },
-  {
-    category: "General",
-    tasks: [
-      "Check all light bulbs",
-      "Wipe down door handles",
-      "Check smoke detector",
-      "Air out the unit",
-      "Final walkthrough inspection",
-    ],
-  },
-];
+/* ------------------------------------------------------------------ */
+/*  Helpers                                                            */
+/* ------------------------------------------------------------------ */
 
-/* ---------------------------
- * Helper: group tasks by category
- * --------------------------- */
+/** Saves an uploaded File to the local public/uploads directory. */
+async function saveFileToDisk(
+  file: File,
+  havenId: string,
+  category: string
+): Promise<string> {
+  const bytes = await file.arrayBuffer();
+  const buffer = Buffer.from(bytes);
 
-type TaskRow = {
-  id: string;
-  checklist_id: string;
-  category: string;
-  task_description: string;
-  completed: boolean;
-  display_order?: number;
-};
+  // Sanitise category for use as a folder name
+  const safeCategory = category.replace(/[^a-zA-Z0-9_-]/g, "_");
 
-function groupTasksByCategory(rows: TaskRow[]) {
-  const categoriesMap: Record<
-    string,
-    {
-      category: string;
-      tasks: { id: string; task: string; completed: boolean }[];
-    }
-  > = {};
+  const uploadDir = join(
+    process.cwd(),
+    "public",
+    "uploads",
+    "cleaning",
+    havenId,
+    safeCategory
+  );
 
-  rows.forEach((row: TaskRow) => {
-    if (!categoriesMap[row.category]) {
-      categoriesMap[row.category] = { category: row.category, tasks: [] };
-    }
-    categoriesMap[row.category].tasks.push({
-      id: String(row.id),
-      task: String(row.task_description),
-      completed: !!row.completed,
-    });
-  });
+  if (!existsSync(uploadDir)) {
+    await mkdir(uploadDir, { recursive: true });
+  }
 
-  // Preserve insertion order of categories as they appeared
-  return Object.values(categoriesMap);
+  const ext = extname(file.name) || ".jpg";
+  const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
+  const filepath = join(uploadDir, filename);
+
+  await writeFile(filepath, buffer);
+
+  return `/uploads/cleaning/${havenId}/${safeCategory}/${filename}`;
 }
 
-/* ---------------------------
- * GET: Get or create checklist for a haven
- * Endpoint: GET /api/admin/cleaners/checklist?haven_id=...
- * --------------------------- */
-export const getChecklistByHaven = async (
-  req: NextRequest,
+/** Returns (or creates) an active cleaning session for the given haven. */
+async function getOrCreateSession(havenId: string): Promise<string> {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    // Serialise creation with an advisory lock
+    await client.query(
+      `SELECT pg_advisory_xact_lock(hashtext($1)::bigint)`,
+      [havenId]
+    );
+
+    const existing = await client.query(
+      `SELECT id FROM cleaning_checklists
+       WHERE haven_id = $1 AND status != 'completed'
+       ORDER BY created_at DESC LIMIT 1`,
+      [havenId]
+    );
+
+    if (existing.rows.length > 0) {
+      await client.query("COMMIT");
+      return existing.rows[0].id as string;
+    }
+
+    const created = await client.query(
+      `INSERT INTO cleaning_checklists (haven_id, status, created_at, updated_at)
+       VALUES ($1, 'pending', timezone('Asia/Manila', NOW()), timezone('Asia/Manila', NOW()))
+       RETURNING id`,
+      [havenId]
+    );
+
+    await client.query("COMMIT");
+    return created.rows[0].id as string;
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  GET — fetch session + photos for a haven                           */
+/* ------------------------------------------------------------------ */
+
+export const getPhotosByHaven = async (
+  req: NextRequest
 ): Promise<NextResponse> => {
   try {
     const { searchParams } = new URL(req.url);
@@ -118,720 +141,258 @@ export const getChecklistByHaven = async (
     if (!havenId) {
       return NextResponse.json(
         { success: false, error: "haven_id is required" },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
-    // Ensure the haven exists
+    // Verify haven exists
     const havenCheck = await pool.query(
       `SELECT uuid_id FROM havens WHERE uuid_id = $1`,
-      [havenId],
+      [havenId]
     );
     if (havenCheck.rowCount === 0) {
       return NextResponse.json(
         { success: false, error: "Haven not found" },
-        { status: 404 },
+        { status: 404 }
       );
     }
 
-    // Try to get the most recent checklist for this haven that is not yet completed.
-    // Completed checklists belong to past bookings — a new cleaning job gets a fresh one.
-    const checklistResult = await pool.query(
+    // Get or create active session
+    const sessionId = await getOrCreateSession(havenId);
+
+    // Fetch session info
+    const sessionRes = await pool.query(
       `SELECT id, haven_id, status, completed_at, created_at, updated_at
-       FROM cleaning_checklists
-       WHERE haven_id = $1
-         AND status != 'completed'
-       ORDER BY created_at DESC
-       LIMIT 1`,
-      [havenId],
+       FROM cleaning_checklists WHERE id = $1`,
+      [sessionId]
     );
 
-    // If checklist exists, fetch tasks and return grouped result
-    if (checklistResult.rows.length > 0) {
-      const checklist = checklistResult.rows[0];
-      const tasksResult = await pool.query(
-        `SELECT id, checklist_id, category, task_description, completed, display_order
-         FROM cleaning_tasks
-         WHERE checklist_id = $1
-         ORDER BY display_order ASC, created_at ASC`,
-        [checklist.id],
-      );
-
-      const categories = groupTasksByCategory(tasksResult.rows);
-
-      return NextResponse.json({
-        success: true,
-        data: {
-          checklist: {
-            id: checklist.id,
-            haven_id: checklist.haven_id,
-            status: checklist.status,
-            completed_at: checklist.completed_at,
-            categories,
-          },
-        },
-      });
-    }
-
-    // No checklist found -> create a new one using default template
-    // We serialize creation using an advisory lock on the haven to avoid races
-    const client = await pool.connect();
-    try {
-      await client.query("BEGIN");
-
-      // Acquire an advisory lock derived from the haven_id hash to serialize
-      // checklist creation for the same haven. Using an xact lock ensures the
-      // lock is released at transaction end.
-      await client.query(`SELECT pg_advisory_xact_lock(hashtext($1)::bigint)`, [
-        havenId,
-      ]);
-
-      // Re-check if a non-completed checklist was created while we waited for the lock
-      const recheckRes = await client.query(
-        `SELECT id, haven_id, status, completed_at, created_at, updated_at
-         FROM cleaning_checklists
-         WHERE haven_id = $1
-           AND status != 'completed'
-         ORDER BY created_at DESC
-         LIMIT 1`,
-        [havenId],
-      );
-
-      if (recheckRes.rows.length > 0) {
-        // Another request created it while we were waiting for the lock -
-        // return that existing checklist.
-        await client.query("COMMIT");
-
-        const existing = recheckRes.rows[0];
-        const tasksRes = await pool.query(
-          `SELECT id, checklist_id, category, task_description, completed, display_order
-           FROM cleaning_tasks
-           WHERE checklist_id = $1
-           ORDER BY display_order ASC, created_at ASC`,
-          [existing.id],
-        );
-
-        const categories = groupTasksByCategory(tasksRes.rows as TaskRow[]);
-
-        return NextResponse.json({
-          success: true,
-          data: {
-            checklist: {
-              id: existing.id,
-              haven_id: existing.haven_id,
-              status: existing.status,
-              completed_at: existing.completed_at,
-              categories,
-            },
-          },
-        });
-      }
-
-      // Insert a new checklist (we hold the lock so this should not conflict)
-      const createChecklistRes = await client.query(
-        `INSERT INTO cleaning_checklists (haven_id, status, created_at, updated_at)
-         VALUES ($1, 'pending', timezone('Asia/Manila', NOW()), timezone('Asia/Manila', NOW()))
-         RETURNING *`,
-        [havenId],
-      );
-
-      const checklistId = createChecklistRes.rows[0].id;
-
-      // Insert tasks using display_order to preserve ordering
-      let order = 1;
-      for (const group of DEFAULT_CHECKLIST_TEMPLATE) {
-        for (const taskText of group.tasks) {
-          await client.query(
-            `INSERT INTO cleaning_tasks (checklist_id, category, task_description, completed, display_order, created_at, updated_at)
-             VALUES ($1, $2, $3, false, $4, timezone('Asia/Manila', NOW()), timezone('Asia/Manila', NOW()))`,
-            [checklistId, group.category, taskText, order],
-          );
-          order++;
-        }
-      }
-
-      await client.query("COMMIT");
-
-      // Fetch inserted tasks to return
-      const tasksResult = await pool.query(
-        `SELECT id, checklist_id, category, task_description, completed, display_order
-         FROM cleaning_tasks
-         WHERE checklist_id = $1
-         ORDER BY display_order ASC, created_at ASC`,
-        [checklistId],
-      );
-
-      const categories = groupTasksByCategory(tasksResult.rows);
-
-      return NextResponse.json({
-        success: true,
-        data: {
-          checklist: {
-            id: checklistId,
-            haven_id: havenId,
-            status: "pending",
-            categories,
-          },
-        },
-      });
-    } catch (err) {
-      // If something unexpected still caused a unique-violation, attempt to
-      // recover by returning the existing checklist instead of failing hard.
-      await client.query("ROLLBACK");
-
-      type PgError = { code?: string | number; constraint?: string };
-      const pgErr = err as PgError;
-
-      if (
-        pgErr &&
-        (String(pgErr.code) === "23505" ||
-          pgErr.constraint === "uniq_active_checklist_per_haven")
-      ) {
-        try {
-          const existingRes = await pool.query(
-            `SELECT id, haven_id, status, completed_at, created_at, updated_at
-             FROM cleaning_checklists
-             WHERE haven_id = $1
-               AND status != 'completed'
-             ORDER BY created_at DESC
-             LIMIT 1`,
-            [havenId],
-          );
-
-          if (existingRes.rows.length > 0) {
-            const existing = existingRes.rows[0];
-
-            const tasksRes = await pool.query(
-              `SELECT id, checklist_id, category, task_description, completed, display_order
-               FROM cleaning_tasks
-               WHERE checklist_id = $1
-               ORDER BY display_order ASC, created_at ASC`,
-              [existing.id],
-            );
-
-            const categories = groupTasksByCategory(tasksRes.rows as TaskRow[]);
-
-            return NextResponse.json({
-              success: true,
-              data: {
-                checklist: {
-                  id: existing.id,
-                  haven_id: existing.haven_id,
-                  status: existing.status,
-                  completed_at: existing.completed_at,
-                  categories,
-                },
-              },
-            });
-          }
-        } catch (innerErr) {
-          const innerMessage =
-            innerErr instanceof Error ? innerErr.message : String(innerErr);
-          console.error(
-            "Error while resolving unique-violation race:",
-            innerMessage,
-          );
-          // fall through to generic error below
-        }
-      }
-
-      const message = err instanceof Error ? err.message : String(err);
-      console.error("Error creating default checklist:", message);
-      return NextResponse.json(
-        { success: false, error: message || "Failed to create checklist" },
-        { status: 500 },
-      );
-    } finally {
-      client.release();
-    }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error("Error getting checklist:", message);
-    return NextResponse.json(
-      { success: false, error: message || "Failed to get checklist" },
-      { status: 500 },
+    // Fetch photos
+    const photosRes = await pool.query(
+      `SELECT id, session_id, haven_id, category, photo_url AS url, file_name, created_at
+       FROM cleaning_photos
+       WHERE session_id = $1
+       ORDER BY created_at ASC`,
+      [sessionId]
     );
-  }
-};
-
-/* ---------------------------
- * PATCH: Update a single task (toggle completion)
- * Endpoint: PATCH /api/admin/cleaners/checklist/tasks/[taskId]
- * --------------------------- */
-export const updateTask = async (
-  req: NextRequest,
-  { params }: { params: Promise<{ taskId: string }> },
-): Promise<NextResponse> => {
-  try {
-    const { taskId } = await params;
-    if (!taskId) {
-      return NextResponse.json(
-        { success: false, error: "Task ID is required" },
-        { status: 400 },
-      );
-    }
-
-    const body = await req.json();
-    if (typeof body.completed !== "boolean") {
-      return NextResponse.json(
-        { success: false, error: "Field 'completed' (boolean) is required" },
-        { status: 400 },
-      );
-    }
-
-    // Update task
-    const updateRes = await pool.query(
-      `UPDATE cleaning_tasks
-       SET completed = $1, updated_at = timezone('Asia/Manila', NOW())
-       WHERE id = $2
-       RETURNING id, checklist_id, category, task_description, completed`,
-      [body.completed, taskId],
-    );
-
-    if (updateRes.rows.length === 0) {
-      return NextResponse.json(
-        { success: false, error: "Task not found" },
-        { status: 404 },
-      );
-    }
-
-    const updatedTask = updateRes.rows[0];
-
-    // Update checklist status accordingly:
-    // - If no incomplete tasks remain -> completed (and set completed_at)
-    // - Otherwise -> in_progress
-    const incompleteCountRes = await pool.query(
-      `SELECT COUNT(*)::int AS incomplete_count
-       FROM cleaning_tasks
-       WHERE checklist_id = $1
-       AND completed = false`,
-      [updatedTask.checklist_id],
-    );
-
-    let incompleteCount = parseInt(
-      incompleteCountRes.rows[0]?.incomplete_count || "0",
-      10,
-    );
-
-    // Helper: set checklist status safely and attempt recovery if a unique
-    // constraint race is encountered (duplicate active checklists).
-    async function setChecklistStatusSafely(
-      checklistId: string,
-      desiredStatus: "completed" | "in_progress",
-    ) {
-      try {
-        if (desiredStatus === "completed") {
-          await pool.query(
-            `UPDATE cleaning_checklists
-             SET status = 'completed', completed_at = timezone('Asia/Manila', NOW()), updated_at = timezone('Asia/Manila', NOW())
-             WHERE id = $1`,
-            [checklistId],
-          );
-        } else {
-          await pool.query(
-            `UPDATE cleaning_checklists
-             SET status = 'in_progress', updated_at = timezone('Asia/Manila', NOW())
-             WHERE id = $1`,
-            [checklistId],
-          );
-        }
-      } catch (err) {
-        const pgErr = err as { code?: string | number; constraint?: string };
-        const isUniqueViolation =
-          String(pgErr?.code) === "23505" ||
-          pgErr?.constraint === "uniq_active_checklist_per_haven";
-
-        if (!isUniqueViolation) {
-          // Not the unique-violation we're handling here - surface the error
-          throw err;
-        }
-
-        // Attempt to resolve the duplicate-active-checklist situation:
-        // 1) Find haven for the checklist
-        // 2) Find the latest active checklist for that haven
-        // 3) Move the task to the latest active checklist (if different)
-        // 4) Delete older duplicate active checklists
-        // 5) Recompute incomplete count and set checklist status accordingly
-        try {
-          const havenRes = await pool.query(
-            `SELECT haven_id FROM cleaning_checklists WHERE id = $1`,
-            [checklistId],
-          );
-          const havenId = havenRes.rows[0]?.haven_id;
-          if (!havenId) {
-            // Can't resolve without haven context - rethrow original
-            throw err;
-          }
-
-          const latestRes = await pool.query(
-            `SELECT id FROM cleaning_checklists
-             WHERE haven_id = $1
-             AND status != 'completed'
-             ORDER BY created_at DESC
-             LIMIT 1`,
-            [havenId],
-          );
-          const latestChecklistId = latestRes.rows[0]?.id;
-
-          if (latestChecklistId && latestChecklistId !== checklistId) {
-            // Move this task to the latest active checklist so the update
-            // applies to the current active checklist.
-            await pool.query(
-              `UPDATE cleaning_tasks SET checklist_id = $1, updated_at = timezone('Asia/Manila', NOW()) WHERE id = $2`,
-              [latestChecklistId, updatedTask.id],
-            );
-            updatedTask.checklist_id = latestChecklistId;
-          }
-
-          // Remove older duplicates, keeping only the most recent active checklist
-          await pool.query(
-            `WITH duplicates AS (
-               SELECT id, ROW_NUMBER() OVER (PARTITION BY haven_id ORDER BY created_at DESC) rn
-               FROM cleaning_checklists
-               WHERE haven_id = $1 AND status != 'completed'
-             )
-             DELETE FROM cleaning_checklists WHERE id IN (SELECT id FROM duplicates WHERE rn > 1)`,
-            [havenId],
-          );
-
-          // Recompute incomplete count for the (possibly moved) checklist
-          const recomputeRes = await pool.query(
-            `SELECT COUNT(*)::int AS incomplete_count
-             FROM cleaning_tasks
-             WHERE checklist_id = $1
-             AND completed = false`,
-            [updatedTask.checklist_id],
-          );
-
-          incompleteCount = parseInt(
-            recomputeRes.rows[0]?.incomplete_count || "0",
-            10,
-          );
-
-          // Finally, set the checklist status according to the recomputed count
-          if (incompleteCount === 0) {
-            await pool.query(
-              `UPDATE cleaning_checklists
-               SET status = 'completed', completed_at = timezone('Asia/Manila', NOW()), updated_at = timezone('Asia/Manila', NOW())
-               WHERE id = $1`,
-              [updatedTask.checklist_id],
-            );
-          } else {
-            await pool.query(
-              `UPDATE cleaning_checklists
-               SET status = 'in_progress', updated_at = timezone('Asia/Manila', NOW())
-               WHERE id = $1`,
-              [updatedTask.checklist_id],
-            );
-          }
-        } catch (innerErr) {
-          const innerMessage =
-            innerErr instanceof Error ? innerErr.message : String(innerErr);
-          console.error(
-            "Error resolving unique-violation when updating checklist status:",
-            innerMessage,
-          );
-          // Re-throw original (or inner) so outer handler returns a 500
-          throw err;
-        }
-      }
-    }
-
-    if (incompleteCount === 0) {
-      await setChecklistStatusSafely(updatedTask.checklist_id, "completed");
-    } else {
-      await setChecklistStatusSafely(updatedTask.checklist_id, "in_progress");
-    }
 
     return NextResponse.json({
       success: true,
-      data: { task: updatedTask, incompleteCount },
+      data: {
+        session: sessionRes.rows[0] ?? null,
+        photos: photosRes.rows,
+      },
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error("Error updating task:", message);
+    console.error("getPhotosByHaven error:", message);
     return NextResponse.json(
-      { success: false, error: message || "Failed to update task" },
-      { status: 500 },
+      { success: false, error: message || "Failed to load photos" },
+      { status: 500 }
     );
   }
 };
 
-/* ---------------------------
- * POST: Save checklist progress (bulk update)
- * Endpoint: POST /api/admin/cleaners/checklist/save
- * Body: { checklist_id: string, tasks: [{ id: string, completed: boolean }] }
- * --------------------------- */
-export const saveChecklistProgress = async (
-  req: NextRequest,
+/* ------------------------------------------------------------------ */
+/*  POST — upload a photo  (multipart/form-data)                       */
+/*       — submit session  (application/json, action: "submit")        */
+/* ------------------------------------------------------------------ */
+
+export const handlePhotoPost = async (
+  req: NextRequest
 ): Promise<NextResponse> => {
-  try {
-    const body = await req.json();
-    const { checklist_id, tasks } = body || {};
+  const contentType = req.headers.get("content-type") ?? "";
 
-    if (!checklist_id || !Array.isArray(tasks)) {
-      return NextResponse.json(
-        { success: false, error: "checklist_id and tasks array are required" },
-        { status: 400 },
-      );
-    }
-
-    const client = await pool.connect();
+  /* ---- Submit action ---- */
+  if (contentType.includes("application/json")) {
     try {
-      await client.query("BEGIN");
+      const body = await req.json();
 
-      for (const t of tasks) {
-        if (!t || !t.id || typeof t.completed !== "boolean") continue;
-        await client.query(
-          `UPDATE cleaning_tasks
-           SET completed = $1, updated_at = timezone('Asia/Manila', NOW())
-           WHERE id = $2`,
-          [t.completed, t.id],
+      if (body?.action !== "submit") {
+        return NextResponse.json(
+          { success: false, error: "Unknown action" },
+          { status: 400 }
         );
       }
 
-      // Recompute checklist status
-      const incompleteCountRes = await client.query(
-        `SELECT COUNT(*)::int AS incomplete_count
-         FROM cleaning_tasks
-         WHERE checklist_id = $1
-         AND completed = false`,
-        [checklist_id],
+      const { session_id } = body;
+      if (!session_id) {
+        return NextResponse.json(
+          { success: false, error: "session_id is required" },
+          { status: 400 }
+        );
+      }
+
+      // Check at least one photo exists
+      const photoCount = await pool.query(
+        `SELECT COUNT(*)::int AS cnt FROM cleaning_photos WHERE session_id = $1`,
+        [session_id]
+      );
+      if ((photoCount.rows[0]?.cnt ?? 0) === 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Cannot submit: no photos have been uploaded yet",
+          },
+          { status: 400 }
+        );
+      }
+
+      const updated = await pool.query(
+        `UPDATE cleaning_checklists
+         SET status = 'completed',
+             completed_at = timezone('Asia/Manila', NOW()),
+             updated_at   = timezone('Asia/Manila', NOW())
+         WHERE id = $1
+         RETURNING id, haven_id, status, completed_at`,
+        [session_id]
       );
 
-      let incompleteCount = parseInt(
-        incompleteCountRes.rows[0]?.incomplete_count || "0",
-        10,
-      );
-
-      // Attempt status update, with dedupe & migration fallback for unique-violation races.
-      // If a unique constraint on active checklists is triggered (possible when
-      // pre-existing duplicates exist), we try to recover by:
-      //  - finding the haven for the checklist,
-      //  - moving tasks from the current checklist into the latest active checklist (if different),
-      //  - removing older duplicate active checklists,
-      //  - recomputing the incomplete count and finally setting status on the
-      //    appropriate checklist.
-      const attemptStatusUpdate = async (id: string) => {
-        // Helper to apply a status to a given checklist id inside the transaction.
-        const applyStatus = async (
-          status: "completed" | "in_progress",
-          targetId: string,
-        ) => {
-          if (status === "completed") {
-            await client.query(
-              `UPDATE cleaning_checklists
-               SET status = 'completed', completed_at = timezone('Asia/Manila', NOW()), updated_at = timezone('Asia/Manila', NOW())
-               WHERE id = $1`,
-              [targetId],
-            );
-          } else {
-            await client.query(
-              `UPDATE cleaning_checklists
-               SET status = 'in_progress', updated_at = timezone('Asia/Manila', NOW())
-               WHERE id = $1`,
-              [targetId],
-            );
-          }
-        };
-
-        try {
-          // Normal path: try to set status on the given checklist id.
-          if (incompleteCount === 0) {
-            await applyStatus("completed", id);
-          } else {
-            await applyStatus("in_progress", id);
-          }
-        } catch (err) {
-          // Detect Postgres unique-violation (duplicate active checklist)
-          const pgErr = err as { code?: string | number; constraint?: string };
-          const isUniqueViolation =
-            String(pgErr?.code) === "23505" ||
-            pgErr?.constraint === "uniq_active_checklist_per_haven";
-
-          if (!isUniqueViolation) throw err;
-
-          // Recovery path: attempt to dedupe & merge changes into the latest active checklist.
-          try {
-            const havenRes = await client.query(
-              `SELECT haven_id FROM cleaning_checklists WHERE id = $1 LIMIT 1`,
-              [id],
-            );
-            const havenId = havenRes.rows[0]?.haven_id;
-            if (!havenId) throw err;
-
-            // Find the latest active (non-completed) checklist for the haven
-            const latestRes = await client.query(
-              `SELECT id FROM cleaning_checklists
-               WHERE haven_id = $1 AND status != 'completed'
-               ORDER BY created_at DESC
-               LIMIT 1`,
-              [havenId],
-            );
-            const latestId = latestRes.rows[0]?.id;
-
-            let targetId = id;
-
-            if (latestId && latestId !== id) {
-              // Move all tasks from the current checklist to the latest active checklist
-              await client.query(
-                `UPDATE cleaning_tasks
-                 SET checklist_id = $1, updated_at = timezone('Asia/Manila', NOW())
-                 WHERE checklist_id = $2`,
-                [latestId, id],
-              );
-              targetId = latestId;
-            }
-
-            // Remove older active duplicates, keeping only the most recent per haven
-            await client.query(
-              `WITH duplicates AS (
-                 SELECT id, ROW_NUMBER() OVER (PARTITION BY haven_id ORDER BY created_at DESC) rn
-                 FROM cleaning_checklists
-                 WHERE haven_id = $1 AND status != 'completed'
-               )
-               DELETE FROM cleaning_checklists
-               WHERE id IN (SELECT id FROM duplicates WHERE rn > 1)`,
-              [havenId],
-            );
-
-            // Recompute incomplete count for the (possibly moved) checklist
-            const recompute = await client.query(
-              `SELECT COUNT(*)::int AS incomplete_count
-               FROM cleaning_tasks
-               WHERE checklist_id = $1
-               AND completed = false`,
-              [targetId],
-            );
-
-            incompleteCount = parseInt(
-              recompute.rows[0]?.incomplete_count || "0",
-              10,
-            );
-
-            // Finally, set status on the resolved checklist (targetId)
-            if (incompleteCount === 0) {
-              await applyStatus("completed", targetId);
-            } else {
-              await applyStatus("in_progress", targetId);
-            }
-          } catch (innerErr) {
-            console.error(
-              "Error while resolving unique-violation in saveChecklistProgress:",
-              innerErr,
-            );
-            // Re-throw the original to let the outer handler rollback and notify the client
-            throw err;
-          }
-        }
-      };
-
-      await attemptStatusUpdate(checklist_id);
-
-      await client.query("COMMIT");
+      if (updated.rows.length === 0) {
+        return NextResponse.json(
+          { success: false, error: "Session not found" },
+          { status: 404 }
+        );
+      }
 
       return NextResponse.json({
         success: true,
-        message: "Checklist progress saved",
-        data: { incompleteCount },
+        message: "Cleaning submitted successfully",
+        data: { session: updated.rows[0] },
       });
-    } catch (err) {
-      await client.query("ROLLBACK");
-      const message = err instanceof Error ? err.message : String(err);
-      console.error("Error saving checklist progress:", message);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("submitSession error:", message);
       return NextResponse.json(
-        {
-          success: false,
-          error: message || "Failed to save checklist progress",
-        },
-        { status: 500 },
+        { success: false, error: message || "Failed to submit session" },
+        { status: 500 }
       );
-    } finally {
-      client.release();
     }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error("Error in saveChecklistProgress:", message);
-    return NextResponse.json(
-      { success: false, error: message || "Failed to save checklist progress" },
-      { status: 500 },
-    );
   }
-};
 
-/* ---------------------------
- * POST: Submit checklist (finalize)
- * Endpoint: POST /api/admin/cleaners/checklist/submit
- * Body: { checklist_id: string }
- *
- * Submission is only allowed when all tasks are completed.
- * --------------------------- */
-export const submitChecklist = async (
-  req: NextRequest,
-): Promise<NextResponse> => {
+  /* ---- Photo upload (multipart) ---- */
   try {
-    const body = await req.json();
-    const { checklist_id } = body || {};
+    const formData = await req.formData();
 
-    if (!checklist_id) {
-      return NextResponse.json(
-        { success: false, error: "checklist_id is required" },
-        { status: 400 },
-      );
-    }
+    const havenId = formData.get("haven_id") as string | null;
+    const category = formData.get("category") as string | null;
+    const photoFile = formData.get("photo") as File | null;
+    const providedSessionId = formData.get("session_id") as string | null;
 
-    // Check for incomplete tasks
-    const incompleteCountRes = await pool.query(
-      `SELECT COUNT(*)::int AS incomplete_count
-       FROM cleaning_tasks
-       WHERE checklist_id = $1
-       AND completed = false`,
-      [checklist_id],
-    );
-
-    const incompleteCount = parseInt(
-      incompleteCountRes.rows[0]?.incomplete_count || "0",
-      10,
-    );
-
-    if (incompleteCount > 0) {
+    if (!havenId || !category || !photoFile) {
       return NextResponse.json(
         {
           success: false,
-          error: "Cannot submit: there are incomplete tasks",
-          incompleteCount,
+          error: "haven_id, category, and photo are required",
         },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
-    // Mark checklist as completed
-    const updateRes = await pool.query(
+    if (!photoFile.type.startsWith("image/")) {
+      return NextResponse.json(
+        { success: false, error: "Only image files are accepted" },
+        { status: 400 }
+      );
+    }
+
+    // Resolve or create session
+    const sessionId =
+      providedSessionId ?? (await getOrCreateSession(havenId));
+
+    // Save file to disk (swap for cloud storage in production)
+    const photoUrl = await saveFileToDisk(photoFile, havenId, category);
+
+    // Insert photo record
+    const insertRes = await pool.query(
+      `INSERT INTO cleaning_photos
+         (session_id, haven_id, category, photo_url, file_name, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5,
+               timezone('Asia/Manila', NOW()),
+               timezone('Asia/Manila', NOW()))
+       RETURNING id, session_id, haven_id, category, photo_url AS url, file_name, created_at`,
+      [sessionId, havenId, category, photoUrl, photoFile.name]
+    );
+
+    // Bump session status to in_progress if still pending
+    await pool.query(
       `UPDATE cleaning_checklists
-       SET status = 'completed', completed_at = timezone('Asia/Manila', NOW()), updated_at = timezone('Asia/Manila', NOW())
-       WHERE id = $1
-       RETURNING id, haven_id, status, completed_at, created_at, updated_at`,
-      [checklist_id],
+       SET status = CASE WHEN status = 'pending' THEN 'in_progress' ELSE status END,
+           updated_at = timezone('Asia/Manila', NOW())
+       WHERE id = $1`,
+      [sessionId]
     );
 
-    if (updateRes.rows.length === 0) {
+    return NextResponse.json({
+      success: true,
+      data: {
+        photo: insertRes.rows[0],
+        session_id: sessionId,
+      },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("uploadPhoto error:", message);
+    return NextResponse.json(
+      { success: false, error: message || "Failed to upload photo" },
+      { status: 500 }
+    );
+  }
+};
+
+/* ------------------------------------------------------------------ */
+/*  DELETE — remove a photo                                            */
+/* ------------------------------------------------------------------ */
+
+export const deletePhoto = async (
+  req: NextRequest
+): Promise<NextResponse> => {
+  try {
+    const { searchParams } = new URL(req.url);
+    const photoId = searchParams.get("photo_id");
+
+    if (!photoId) {
       return NextResponse.json(
-        { success: false, error: "Checklist not found" },
-        { status: 404 },
+        { success: false, error: "photo_id is required" },
+        { status: 400 }
       );
+    }
+
+    // Fetch the record first so we can delete the file from disk
+    const photoRes = await pool.query(
+      `SELECT id, photo_url FROM cleaning_photos WHERE id = $1`,
+      [photoId]
+    );
+
+    if (photoRes.rows.length === 0) {
+      return NextResponse.json(
+        { success: false, error: "Photo not found" },
+        { status: 404 }
+      );
+    }
+
+    await pool.query(`DELETE FROM cleaning_photos WHERE id = $1`, [photoId]);
+
+    // Best-effort: delete the file from disk (non-fatal if it fails)
+    try {
+      const { unlink } = await import("fs/promises");
+      const relativeUrl: string = photoRes.rows[0].photo_url;
+      const absolutePath = join(process.cwd(), "public", relativeUrl);
+      await unlink(absolutePath);
+    } catch {
+      // File may already be gone or on cloud storage — ignore
     }
 
     return NextResponse.json({
       success: true,
-      message: "Checklist submitted successfully",
-      data: { checklist: updateRes.rows[0] },
+      message: "Photo deleted",
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error("Error submitting checklist:", message);
+    console.error("deletePhoto error:", message);
     return NextResponse.json(
-      { success: false, error: message || "Failed to submit checklist" },
-      { status: 500 },
+      { success: false, error: message || "Failed to delete photo" },
+      { status: 500 }
     );
   }
 };
