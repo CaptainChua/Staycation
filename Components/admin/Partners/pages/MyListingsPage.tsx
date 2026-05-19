@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { Search, Download, Plus, Edit, Eye, Info, Home, Map, Star, Loader2, X, Users, Bed, Ruler, Calendar, AlertCircle, CheckCircle2 } from "lucide-react";
 import Image from "next/image";
 import toast from "react-hot-toast";
@@ -491,6 +492,15 @@ function ViewDetailsModal({ room, onClose }: ViewDetailsModalProps) {
   const reviewerNotes = raw.reviewer_notes as string | undefined;
   const badge = STATUS_BADGES[room.status];
 
+  // Lock background scroll while modal is open
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
   const statusIcon =
     room.status === "approved" ? (
       <CheckCircle2 className="w-4 h-4" />
@@ -500,7 +510,9 @@ function ViewDetailsModal({ room, onClose }: ViewDetailsModalProps) {
       <Info className="w-4 h-4" />
     );
 
-  return (
+  if (typeof window === "undefined") return null;
+
+  return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-200">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <div className="relative w-full max-w-3xl bg-white rounded-2xl shadow-2xl border border-[#e5e7eb] overflow-hidden max-h-[90vh] flex flex-col">
@@ -637,7 +649,8 @@ function ViewDetailsModal({ room, onClose }: ViewDetailsModalProps) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
