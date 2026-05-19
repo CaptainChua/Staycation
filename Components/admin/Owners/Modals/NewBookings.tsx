@@ -461,16 +461,9 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
 
   const handleAdditionalGuestChange = (index: number, field: keyof GuestInfo, value: string) => {
     const updatedGuests = [...additionalGuests];
-    let newValue = value;
-    if (field === 'firstName' || field === 'lastName') {
-      newValue = value.replace(/[^a-zA-Z\s'-]/g, '');
-    }
-    if (field === 'age') {
-      newValue = value.replace(/\D/g, '').replace(/^0+/, '').slice(0, 3);
-    }
     updatedGuests[index] = {
       ...updatedGuests[index],
-      [field]: newValue,
+      [field]: value,
     };
     setAdditionalGuests(updatedGuests);
   };
@@ -1019,8 +1012,8 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                         pattern="\d*"
                         maxLength={11}
                         name="phone"
-                        placeholder="09XXXXXXXXX"
                         value={formData.phone}
+                        placeholder="09XXXXXXXXX"
                         onChange={(e) => {
                           handleInputChange(e);
                           setErrors(prev => ({...prev, phone: ''}));
