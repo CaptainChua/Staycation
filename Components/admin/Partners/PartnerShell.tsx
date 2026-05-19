@@ -16,12 +16,12 @@ import {
   MessageSquare,
 } from "lucide-react";
 import PartnersDashboard from "./PartnersDashboard";
-import PartnerStubPage from "./pages/PartnerStubPage";
 import MyListingsPage from "./pages/MyListingsPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
 import CostBreakdownPage from "./pages/CostBreakdownPage";
 import AddRoomPage from "./pages/AddRoomPage";
 import HelpPage from "./pages/HelpPage";
+import SettingsPage from "./pages/SettingsPage";
 
 const NAV_TOP = [
   { id: "dashboard", icon: Home, label: "Dashboard" },
@@ -65,13 +65,7 @@ export default function PartnerShell(_props: { children?: React.ReactNode }) {
       case "cost":
         return <CostBreakdownPage onNavigate={setActivePage} />;
       case "settings":
-        return (
-          <PartnerStubPage
-            title="Settings"
-            description="Profile, payout method, notification preferences, and account security live here."
-            icon={Settings}
-          />
-        );
+        return <SettingsPage />;
       case "help":
         return <HelpPage />;
       default:

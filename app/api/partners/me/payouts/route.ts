@@ -55,6 +55,20 @@ export async function GET() {
       },
     });
   } catch (err: unknown) {
+    const code = (err as { code?: string })?.code;
+    if (code === "42P01") {
+      return NextResponse.json({
+        success: true,
+        data: {
+          commission_rate: 12,
+          total_earnings: 0,
+          total_paid: 0,
+          pending_amount: 0,
+          next_payout_date: null,
+          payouts: [],
+        },
+      });
+    }
     const msg = err instanceof Error ? err.message : "Failed to load payouts";
     console.error("[partners/me/payouts] error:", err);
     return NextResponse.json({ success: false, error: msg }, { status: 500 });

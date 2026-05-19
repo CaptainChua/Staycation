@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
         h.weekday_rate,
         h.weekend_rate,
         COALESCE(
-          (SELECT SUM(bp.amount) FROM booking_payments bp WHERE bp.booking_id = b.id),
+          (SELECT SUM(bp.total_amount) FROM booking_payments bp WHERE bp.booking_id = b.id),
           0
         )::numeric(12,2) AS gross,
         COALESCE(pi.commission_rate, 12)::numeric AS commission_rate

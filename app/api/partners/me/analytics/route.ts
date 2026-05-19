@@ -12,13 +12,13 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const days = Math.min(Number(searchParams.get("days") || 90), 365);
 
-    // Top-line KPIs
+    // Top-line KPIs (active = haven has approval status approved, or no approval row yet)
     const kpiQuery = `
       SELECT
-        COUNT(DISTINCT h.uuid_id) FILTER (WHERE h.status = 'active' OR h.status IS NULL) AS active_listings,
+        COUNT(DISTINCT h.uuid_id) AS active_listings,
         COUNT(b.id) AS total_bookings,
         COALESCE(SUM(
-          (SELECT SUM(bp.amount) FROM booking_payments bp WHERE bp.booking_id = b.id)
+          (SELECT SUM(bp.total_amount) FROM booking_payments bp WHERE bp.booking_id = b.id)
         ), 0)::numeric(12,2) AS gross_total
       FROM havens h
       LEFT JOIN booking b
@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
         h.haven_name AS room,
         COUNT(b.id)::int AS bookings,
         COALESCE(SUM(
-          (SELECT SUM(bp.amount) FROM booking_payments bp WHERE bp.booking_id = b.id)
+          (SELECT SUM(bp.total_amount) FROM booking_payments bp WHERE bp.booking_id = b.id)
         ), 0)::numeric(12,2) AS gross
       FROM havens h
       LEFT JOIN booking b
@@ -80,7 +80,7 @@ export async function GET(req: NextRequest) {
       SELECT
         TO_CHAR(date_trunc('week', b.created_at), 'YYYY-"W"WW') AS label,
         COALESCE(SUM(
-          (SELECT SUM(bp.amount) FROM booking_payments bp WHERE bp.booking_id = b.id)
+          (SELECT SUM(bp.total_amount) FROM booking_payments bp WHERE bp.booking_id = b.id)
         ), 0)::numeric(12,2) AS gross
       FROM booking b
       JOIN havens h ON h.haven_name = b.room_name

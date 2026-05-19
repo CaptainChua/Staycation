@@ -48,6 +48,10 @@ export async function GET() {
 
     return NextResponse.json({ success: true, data: threadsResult.rows });
   } catch (err: unknown) {
+    const code = (err as { code?: string })?.code;
+    if (code === "42P01") {
+      return NextResponse.json({ success: true, data: [] });
+    }
     const msg = err instanceof Error ? err.message : "Failed to load messages";
     console.error("[partners/me/messages GET] error:", err);
     return NextResponse.json({ success: false, error: msg }, { status: 500 });

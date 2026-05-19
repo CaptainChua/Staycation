@@ -15,6 +15,8 @@ export interface PartnerListing {
   ten_hour_rate?: number;
   six_hour_rate?: number;
   status?: string;
+  rejection_reason?: string | null;
+  reviewer_notes?: string | null;
   created_at?: string;
   updated_at?: string;
   bookings_count?: number;
@@ -116,6 +118,41 @@ export interface PartnerNotification {
   created_at: string;
 }
 
+export interface PartnerProfile {
+  id: string;
+  email: string;
+  status: string;
+  last_login: string | null;
+  joined_at: string;
+  fullname: string | null;
+  phone: string | null;
+  address: string | null;
+  city: string | null;
+  province: string | null;
+  postal_code: string | null;
+  type: string | null;
+  commission_rate: number | null;
+  total_earnings: number | null;
+  total_paid: number | null;
+  profile_image_url: string | null;
+  availability_status: string | null;
+}
+
+export interface UpdateProfilePayload {
+  fullname?: string;
+  phone?: string;
+  address?: string;
+  city?: string;
+  province?: string;
+  postal_code?: string;
+  profile_image_url?: string;
+}
+
+export interface ChangePasswordPayload {
+  current_password: string;
+  new_password: string;
+}
+
 interface ApiOk<T> {
   success: true;
   data: T;
@@ -124,7 +161,7 @@ interface ApiOk<T> {
 export const partnerSelfApi = createApi({
   reducerPath: "partnerSelfApi",
   baseQuery: fetchBaseQuery({ baseUrl: "/api/partners/me" }),
-  tagTypes: ["Listings", "Bookings", "Analytics", "Payouts", "Messages", "Notifications"],
+  tagTypes: ["Listings", "Bookings", "Analytics", "Payouts", "Messages", "Notifications", "Profile"],
   endpoints: (builder) => ({
     getMyListings: builder.query<PartnerListing[], void>({
       query: () => "/listings",
@@ -168,6 +205,18 @@ export const partnerSelfApi = createApi({
       query: (body) => ({ url: "/notifications", method: "PATCH", body }),
       invalidatesTags: ["Notifications"],
     }),
+    getMyProfile: builder.query<PartnerProfile, void>({
+      query: () => "/profile",
+      transformResponse: (res: ApiOk<PartnerProfile>) => res.data,
+      providesTags: ["Profile"],
+    }),
+    updateMyProfile: builder.mutation<void, UpdateProfilePayload>({
+      query: (body) => ({ url: "/profile", method: "PATCH", body }),
+      invalidatesTags: ["Profile"],
+    }),
+    changeMyPassword: builder.mutation<void, ChangePasswordPayload>({
+      query: (body) => ({ url: "/password", method: "POST", body }),
+    }),
   }),
 });
 
@@ -180,4 +229,7 @@ export const {
   useSendPartnerMessageMutation,
   useGetMyNotificationsQuery,
   useMarkNotificationReadMutation,
+  useGetMyProfileQuery,
+  useUpdateMyProfileMutation,
+  useChangeMyPasswordMutation,
 } = partnerSelfApi;

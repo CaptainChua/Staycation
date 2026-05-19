@@ -854,6 +854,8 @@ export default function PaymentPage() {
                   setEntriesPerPage(Number(e.target.value));
                   setCurrentPage(1);
                 }}
+                aria-label="Entries per page"
+                title="Entries per page"
                 className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-orange-500 text-sm"
               >
                 <option value="5">5</option>
@@ -873,6 +875,7 @@ export default function PaymentPage() {
                 placeholder="Search by booking ID or guest name..."
                 value={searchTerm}
                 onChange={(e) => onSearchChange(e.target.value)}
+                aria-label="Search payments"
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-orange-500"
               />
             </div>
@@ -898,6 +901,8 @@ export default function PaymentPage() {
                 }
                 setCurrentPage(1);
               }}
+              aria-label="Filter by payment status"
+              title="Filter by payment status"
               className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-orange-500"
             >
               <option value="all">All Status</option>
@@ -925,6 +930,8 @@ export default function PaymentPage() {
                         selectedPayments.length === visiblePaymentIds.length
                       }
                       onChange={(e) => handleSelectAll(e.target.checked)}
+                      aria-label="Select all payments on this page"
+                      title="Select all payments on this page"
                       className="w-4 h-4 text-brand-primary border-gray-300 rounded focus:ring-brand-primary"
                     />
                     <span>Select</span>
@@ -986,6 +993,8 @@ export default function PaymentPage() {
                           payment.id &&
                           handleSelectPayment(payment.id, e.target.checked)
                         }
+                        aria-label={`Select payment ${payment.booking_id}`}
+                        title={`Select payment ${payment.booking_id}`}
                         className="w-4 h-4 text-brand-primary border-gray-300 rounded focus:ring-brand-primary"
                       />
                     </td>
@@ -1229,6 +1238,8 @@ export default function PaymentPage() {
                       payment.id &&
                       handleSelectPayment(payment.id, e.target.checked)
                     }
+                    aria-label={`Select payment ${payment.booking_id}`}
+                    title={`Select payment ${payment.booking_id}`}
                     className="w-4 h-4 text-brand-primary border-gray-300 rounded focus:ring-brand-primary"
                   />
                   <div>
@@ -1449,6 +1460,8 @@ export default function PaymentPage() {
                 onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                 disabled={currentPage === 1 || totalPages === 0}
                 className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Previous page"
+                aria-label="Previous page"
                 type="button"
               >
                 <ChevronLeft className="w-4 h-4" />
@@ -1489,6 +1502,8 @@ export default function PaymentPage() {
                 }
                 disabled={currentPage === totalPages || totalPages === 0}
                 className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Next page"
+                aria-label="Next page"
                 type="button"
               >
                 <ChevronRight className="w-4 h-4" />

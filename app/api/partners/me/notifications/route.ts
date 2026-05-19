@@ -26,6 +26,10 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ success: true, data: result.rows });
   } catch (err: unknown) {
+    const code = (err as { code?: string })?.code;
+    if (code === "42P01") {
+      return NextResponse.json({ success: true, data: [] });
+    }
     const msg = err instanceof Error ? err.message : "Failed to load notifications";
     console.error("[partners/me/notifications] error:", err);
     return NextResponse.json({ success: false, error: msg }, { status: 500 });
