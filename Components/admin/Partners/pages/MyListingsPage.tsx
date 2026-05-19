@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Search, Download, Plus, Edit, Eye, Info, Home, Map, Star, Loader2 } from "lucide-react";
+import { Search, Download, Plus, Edit, Eye, Info, Home, Map, Star, Loader2, X, Users, Bed, Ruler, Calendar, AlertCircle, CheckCircle2 } from "lucide-react";
 import Image from "next/image";
 import toast from "react-hot-toast";
 import HavenFormModal from "@/Components/admin/Owners/Modals/HavenFormModal";
@@ -109,6 +109,7 @@ export default function MyListingsPage({ onNavigate }: MyListingsPageProps) {
   const [search, setSearch] = useState("");
   const [expanded, setExpanded] = useState<string | null>(null);
   const [editing, setEditing] = useState<Record<string, unknown> | null>(null);
+  const [viewingRoom, setViewingRoom] = useState<Room | null>(null);
 
   // Force light mode for the wizard while editing (matches partner area)
   useEffect(() => {
@@ -218,7 +219,7 @@ export default function MyListingsPage({ onNavigate }: MyListingsPageProps) {
   };
 
   const handleViewDetails = (room: Room) => {
-    toast(`Viewing ${room.name}`, { icon: "👁️" });
+    setViewingRoom(room);
   };
 
   return (
@@ -463,6 +464,200 @@ export default function MyListingsPage({ onNavigate }: MyListingsPageProps) {
         onClose={() => setEditing(null)}
         initialData={editing}
       />
+
+      {/* VIEW DETAILS MODAL */}
+      {viewingRoom && (
+        <ViewDetailsModal room={viewingRoom} onClose={() => setViewingRoom(null)} />
+      )}
     </div>
   );
 }
+
+interface ViewDetailsModalProps {
+  room: Room;
+  onClose: () => void;
+}
+
+function ViewDetailsModal({ room, onClose }: ViewDetailsModalProps) {
+  const raw = (room.raw || {}) as Record<string, unknown>;
+  const weekdayRate = Number(raw.weekday_rate) || 0;
+  const weekendRate = Number(raw.weekend_rate) || 0;
+  const tenHourRate = Number(raw.ten_hour_rate) || 0;
+  const sixHourRate = Number(raw.six_hour_rate) || 0;
+  const description = (raw.description as string) || "";
+  const beds = (raw.beds as string) || "—";
+  const roomSize = raw.room_size ? `${raw.room_size} sqm` : "—";
+  const rejectionReason = raw.rejection_reason as string | undefined;
+  const reviewerNotes = raw.reviewer_notes as string | undefined;
+  const badge = STATUS_BADGES[room.status];
+
+  const statusIcon =
+    room.status === "approved" ? (
+      <CheckCircle2 className="w-4 h-4" />
+    ) : room.status === "rejected" ? (
+      <AlertCircle className="w-4 h-4" />
+    ) : (
+      <Info className="w-4 h-4" />
+    );
+
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-200">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-3xl bg-white rounded-2xl shadow-2xl border border-[#e5e7eb] overflow-hidden max-h-[90vh] flex flex-col">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-4 px-7 pt-6 pb-5 border-b border-[#e5e7eb] bg-white flex-shrink-0">
+          <div className="min-w-0 flex-1">
+            <div className="text-[11px] text-[#6B7280] uppercase tracking-[0.1em] font-semibold mb-1.5">
+              Listing details
+            </div>
+            <div className="flex items-center gap-2.5 mb-1 flex-wrap">
+              <h2 className={`text-[22px] leading-[1.2] text-[#111827] font-medium ${fontFraunces}`}>
+                {room.name}
+              </h2>
+              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold ${badge.bg} ${badge.text}`}>
+                {statusIcon}
+                {badge.label}
+              </span>
+            </div>
+            <p className="text-[12.5px] text-[#6B7280]">Submitted {room.submitted}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            title="Close"
+            aria-label="Close"
+            className="p-2 rounded-lg hover:bg-[#f3f4f6] text-[#6B7280] hover:text-[#111827] transition flex-shrink-0 -mr-1"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Scrollable body */}
+        <div className="flex-1 overflow-y-auto p-5 space-y-5">
+          {/* Cover image */}
+          {room.imageUrl ? (
+            <div className="relative h-64 rounded-2xl overflow-hidden bg-[#f9fafb] border border-[#e5e7eb]">
+              <Image
+                src={room.imageUrl}
+                alt={room.name}
+                fill
+                sizes="800px"
+                className="object-cover"
+              />
+            </div>
+          ) : (
+            <div className="h-64 rounded-2xl bg-[#f9fafb] border border-[#e5e7eb] grid place-items-center text-[#6B7280]">
+              <Home className="w-16 h-16" />
+            </div>
+          )}
+
+          {/* Reason banner for rejected/review */}
+          {(room.status === "rejected" && rejectionReason) && (
+            <div className="p-4 rounded-xl bg-[#fee2e2] border border-[#dc2626]/30 flex gap-3">
+              <AlertCircle className="w-5 h-5 text-[#dc2626] flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-[#dc2626] mb-1">Why this needs revision</p>
+                <p className="text-sm text-[#374151]">{rejectionReason}</p>
+                {reviewerNotes && (
+                  <p className="text-xs text-[#6B7280] mt-2"><strong>Reviewer notes:</strong> {reviewerNotes}</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {room.status === "pending" && (
+            <div className="p-4 rounded-xl bg-[#fef3c7] border border-[#92400e]/20 flex gap-3">
+              <Info className="w-5 h-5 text-[#92400e] flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-[#92400e] mb-1">Awaiting admin review</p>
+                <p className="text-sm text-[#374151]">
+                  Your listing has been submitted and is waiting for admin approval. You&apos;ll be notified once it goes live.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Stats grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <DetailStat icon={Home} label="Type" value={room.type} />
+            <DetailStat icon={Users} label="Sleeps" value={String(room.capacity)} />
+            <DetailStat icon={Map} label="Location" value={room.location} />
+            <DetailStat icon={Ruler} label="Room size" value={roomSize} />
+          </div>
+
+          {/* Rates */}
+          <div className="bg-[#f9fafb] border border-[#e5e7eb] rounded-2xl p-4">
+            <h3 className={`text-[15px] mb-3 text-[#111827] font-medium ${fontFraunces}`}>
+              Rates
+            </h3>
+            <div className="grid grid-cols-2 gap-3">
+              <RateRow label="Weekday" value={weekdayRate} />
+              <RateRow label="Weekend" value={weekendRate} />
+              <RateRow label="10-hour stay" value={tenHourRate} />
+              <RateRow label="6-hour stay" value={sixHourRate} />
+            </div>
+          </div>
+
+          {/* Beds */}
+          <div className="bg-[#f9fafb] border border-[#e5e7eb] rounded-2xl p-4 flex items-start gap-3">
+            <Bed className="w-5 h-5 text-brand-primary flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-xs uppercase tracking-wide font-semibold text-[#6B7280] mb-1">Beds</p>
+              <p className="text-sm text-[#374151]">{beds}</p>
+            </div>
+          </div>
+
+          {/* Description */}
+          {description && (
+            <div className="bg-[#f9fafb] border border-[#e5e7eb] rounded-2xl p-4">
+              <h3 className={`text-[15px] mb-2 text-[#111827] font-medium ${fontFraunces}`}>
+                Description
+              </h3>
+              <p className="text-sm text-[#374151] leading-relaxed whitespace-pre-wrap">
+                {description}
+              </p>
+            </div>
+          )}
+
+          {/* Performance */}
+          <div className="grid grid-cols-2 gap-3">
+            <DetailStat icon={Calendar} label="Bookings" value={String(room.bookings)} />
+            <DetailStat icon={Star} label="Rating" value={room.rating ? `${room.rating} ★` : "Not rated yet"} />
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="border-t border-[#e5e7eb] p-4 flex justify-end gap-3 bg-white flex-shrink-0">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 rounded-xl border border-[#d1d5db] text-[#374151] hover:bg-[#f9fafb] font-semibold text-sm transition"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const DetailStat = ({ icon: IconCmp, label, value }: { icon: React.ElementType; label: string; value: string }) => (
+  <div className="bg-white border border-[#e5e7eb] rounded-xl p-3 flex items-start gap-2.5">
+    <span className="w-8 h-8 rounded-lg bg-brand-primary/10 text-brand-primary grid place-items-center flex-shrink-0">
+      <IconCmp className="w-4 h-4" />
+    </span>
+    <div className="min-w-0">
+      <p className="text-[10.5px] uppercase tracking-wide font-bold text-[#6B7280]">{label}</p>
+      <p className="text-sm font-semibold text-[#111827] truncate">{value}</p>
+    </div>
+  </div>
+);
+
+const RateRow = ({ label, value }: { label: string; value: number }) => (
+  <div className="bg-white border border-[#e5e7eb] rounded-xl p-3">
+    <p className="text-[10.5px] uppercase tracking-wide font-bold text-[#6B7280] mb-0.5">{label}</p>
+    <p className={`text-base font-semibold text-[#111827] ${fontFraunces}`}>
+      {value > 0 ? `₱${value.toLocaleString("en-PH")}` : "—"}
+    </p>
+  </div>
+);

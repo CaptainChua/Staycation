@@ -235,9 +235,13 @@ export const getAllHavens = async (req: NextRequest): Promise<NextResponse> => {
       FROM havens h
       LEFT JOIN haven_images hi ON h.uuid_id = hi.haven_id
       LEFT JOIN photo_tour_images pti ON h.uuid_id = pti.haven_id
+      LEFT JOIN property_approval pa ON pa.haven_id = h.uuid_id
     `;
 
-    const conditions: string[] = [];
+    // Hide partner havens that haven't been approved yet (owner havens have NULL partner_id and are always visible)
+    const conditions: string[] = [
+      "(h.partner_id IS NULL OR COALESCE(pa.status, 'pending') = 'approved')",
+    ];
     const values: any[] = [];
     let paramCount = 1;
 
@@ -259,9 +263,7 @@ export const getAllHavens = async (req: NextRequest): Promise<NextResponse> => {
       paramCount++;
     }
 
-    if (conditions.length > 0) {
-      query += " WHERE " + conditions.join(" AND ");
-    }
+    query += " WHERE " + conditions.join(" AND ");
 
     query += " GROUP BY h.uuid_id ORDER BY h.created_at DESC";
 

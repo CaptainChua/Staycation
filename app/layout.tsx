@@ -166,7 +166,7 @@ export default function RootLayout({
         <link rel="icon" href="/android-chrome-196x196v2.png" sizes="196x196" type="image/png" />
         <link rel="icon" href="/android-chrome-512x512v2.png" sizes="512x512" type="image/png" />
         <link rel="icon" href="/favicon.ico" sizes="any" />
-        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-iconv2.png" />
+        <link rel="apple-touch-icon" type="image/png" sizes="180x180" href="/apple-touch-iconv2.png" />
         <link rel="manifest" href="/site.webmanifest" />
       </head>
       <body className={`${inter.variable} ${poppins.variable} font-sans antialiased`} suppressHydrationWarning>

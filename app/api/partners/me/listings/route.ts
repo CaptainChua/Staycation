@@ -24,7 +24,10 @@ export async function GET() {
         h.weekend_rate,
         h.ten_hour_rate,
         h.six_hour_rate,
-        h.status,
+        -- Real status from property_approval (pending until owner approves)
+        COALESCE(pa.status, 'pending') AS status,
+        pa.reason AS rejection_reason,
+        pa.reviewer_notes,
         h.created_at,
         h.updated_at,
         COALESCE(
@@ -33,9 +36,9 @@ export async function GET() {
               json_build_object(
                 'id', i.id,
                 'image_url', i.image_url,
-                'is_main', i.is_main
+                'is_main', (i.display_order = 0)
               )
-              ORDER BY i.is_main DESC NULLS LAST, i.created_at ASC
+              ORDER BY i.display_order ASC, i.uploaded_at ASC
             )
             FROM haven_images i
             WHERE i.haven_id = h.uuid_id
@@ -48,6 +51,7 @@ export async function GET() {
           WHERE b.room_name = h.haven_name
         ) AS bookings_count
       FROM havens h
+      LEFT JOIN property_approval pa ON pa.haven_id = h.uuid_id
       WHERE h.partner_id = $1
       ORDER BY h.created_at DESC;
     `;
