@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCreateHavenMutation, useUpdateHavenMutation } from "@/redux/api/roomApi";
+import { useSession } from "next-auth/react";
 import toast from 'react-hot-toast';
 import { setCookie } from "@/lib/cookieUtils";
 import BasicInformationModal from "./BasicInformationModal";
@@ -157,6 +158,10 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
   
   // mutations
   const [createHaven, { isLoading: isCreating }] = useCreateHavenMutation();
+  const { data: session } = useSession();
+  const sessionUser = session?.user as { id?: string; role?: string } | undefined;
+  const isPartnerSession = sessionUser?.role === "Partner";
+  const sessionPartnerId = isPartnerSession ? sessionUser?.id : undefined;
   const [updateHaven, { isLoading: isUpdating }] = useUpdateHavenMutation();
   
   const isLoading = isCreating || isUpdating;
@@ -534,7 +539,8 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
         amenities: formData.amenities,
         haven_images: havenImagesBase64,
         photo_tour_images: photoTourBase64,
-        blocked_dates: []
+        blocked_dates: [],
+        ...(sessionPartnerId ? { partner_id: sessionPartnerId } : {}),
       };
 
       console.log("📦 [HavenFormModal] Request Payload:", { ...payload, haven_images: `${payload.haven_images.length} images`, photo_tour_images: "..." });

@@ -337,16 +337,22 @@ const paginatedMessages = messages.slice(
           ...form,
         }).unwrap();
 
-        toast.success("Updated");
+        toast.success("Partner updated successfully");
       } else {
         await createPartner(form).unwrap();
-        toast.success("Created");
+        toast.success("Partner created successfully");
       }
 
       setModalOpen(false);
       setEditing(null);
-    } catch {
-      toast.error("Error saving");
+    } catch (err: unknown) {
+      const apiError = err as { data?: { error?: string }; status?: number };
+      const message =
+        apiError?.data?.error ||
+        (apiError?.status === 409
+          ? "This email is already in use"
+          : "Failed to save partner");
+      toast.error(message);
     }
   };
 
@@ -587,6 +593,9 @@ const paginatedMessages = messages.slice(
       </div>
 
       <button
+        type="button"
+        title="Add Partner"
+        aria-label="Add Partner"
         onClick={() => setModalOpen(true)}
         className="
           bg-indigo-600 hover:bg-indigo-700
@@ -599,6 +608,9 @@ const paginatedMessages = messages.slice(
       </button>
 
       <button
+        type="button"
+        title="Refresh"
+        aria-label="Refresh"
         onClick={() => window.location.reload()}
         className="
           px-4 rounded-xl
@@ -1562,11 +1574,9 @@ const paginatedMessages = messages.slice(
                 focus:ring-2
                 focus:ring-indigo-500
                 leading-[22px]
+                min-h-[52px]
+                max-h-[140px]
               "
-              style={{
-                minHeight: "52px",
-                maxHeight: "140px",
-              }}
               onInput={(e) => {
                 const el = e.currentTarget;
                 el.style.height = "52px";
@@ -1802,21 +1812,21 @@ const paginatedMessages = messages.slice(
               {
                 label: "Search",
                 value: "72%",
-                width: "72%",
+                widthClass: "w-[72%]",
                 color: "bg-emerald-500",
               },
 
               {
                 label: "Homepage",
                 value: "18%",
-                width: "18%",
+                widthClass: "w-[18%]",
                 color: "bg-blue-500",
               },
 
               {
                 label: "Referral",
                 value: "10%",
-                width: "10%",
+                widthClass: "w-[10%]",
                 color: "bg-amber-500",
               },
             ].map((item, index) => (
@@ -1838,8 +1848,7 @@ const paginatedMessages = messages.slice(
                 <div className="h-2 rounded-full bg-gray-200 dark:bg-white/10 overflow-hidden">
 
                   <div
-                    className={`h-full rounded-full ${item.color}`}
-                    style={{ width: item.width }}
+                    className={`h-full rounded-full ${item.color} ${item.widthClass}`}
                   />
 
                 </div>
@@ -1989,6 +1998,8 @@ const paginatedMessages = messages.slice(
                 recipient: e.target.value,
               }))
             }
+            aria-label="Recipient"
+            title="Recipient"
             className="
               w-full
               px-4 py-3
