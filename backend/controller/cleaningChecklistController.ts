@@ -114,6 +114,7 @@ export const getChecklistByHaven = async (
   try {
     const { searchParams } = new URL(req.url);
     const havenId = searchParams.get("haven_id");
+    const bookingId = searchParams.get("booking_id");
 
     if (!havenId) {
       return NextResponse.json(
@@ -134,16 +135,21 @@ export const getChecklistByHaven = async (
       );
     }
 
-    // Try to get the most recent checklist for this haven that is not yet completed.
-    // Completed checklists belong to past bookings — a new cleaning job gets a fresh one.
+    // Build query scoped to this booking when booking_id is provided,
+    // otherwise fall back to the old haven-only lookup for direct tab navigation.
+    const checklistWhere = bookingId
+      ? `WHERE haven_id = $1 AND booking_id = $2::uuid AND status != 'completed'`
+      : `WHERE haven_id = $1 AND status != 'completed'`;
+    const checklistQueryParams: string[] = bookingId ? [havenId, bookingId] : [havenId];
+
+    // Try to get the most recent checklist for this haven/booking that is not yet completed.
     const checklistResult = await pool.query(
-      `SELECT id, haven_id, status, completed_at, created_at, updated_at
+      `SELECT id, haven_id, booking_id, status, completed_at, created_at, updated_at
        FROM cleaning_checklists
-       WHERE haven_id = $1
-         AND status != 'completed'
+       ${checklistWhere}
        ORDER BY created_at DESC
        LIMIT 1`,
-      [havenId],
+      checklistQueryParams,
     );
 
     // If checklist exists, fetch tasks and return grouped result
@@ -188,13 +194,12 @@ export const getChecklistByHaven = async (
 
       // Re-check if a non-completed checklist was created while we waited for the lock
       const recheckRes = await client.query(
-        `SELECT id, haven_id, status, completed_at, created_at, updated_at
+        `SELECT id, haven_id, booking_id, status, completed_at, created_at, updated_at
          FROM cleaning_checklists
-         WHERE haven_id = $1
-           AND status != 'completed'
+         ${checklistWhere}
          ORDER BY created_at DESC
          LIMIT 1`,
-        [havenId],
+        checklistQueryParams,
       );
 
       if (recheckRes.rows.length > 0) {
@@ -229,10 +234,10 @@ export const getChecklistByHaven = async (
 
       // Insert a new checklist (we hold the lock so this should not conflict)
       const createChecklistRes = await client.query(
-        `INSERT INTO cleaning_checklists (haven_id, status, created_at, updated_at)
-         VALUES ($1, 'pending', timezone('Asia/Manila', NOW()), timezone('Asia/Manila', NOW()))
+        `INSERT INTO cleaning_checklists (haven_id, booking_id, status, created_at, updated_at)
+         VALUES ($1, $2::uuid, 'pending', timezone('Asia/Manila', NOW()), timezone('Asia/Manila', NOW()))
          RETURNING *`,
-        [havenId],
+        [havenId, bookingId ?? null],
       );
 
       const checklistId = createChecklistRes.rows[0].id;
@@ -285,17 +290,18 @@ export const getChecklistByHaven = async (
       if (
         pgErr &&
         (String(pgErr.code) === "23505" ||
-          pgErr.constraint === "uniq_active_checklist_per_haven")
+          pgErr.constraint === "uniq_active_checklist_per_haven" ||
+          pgErr.constraint === "uniq_active_checklist_per_haven_booking" ||
+          pgErr.constraint === "uniq_active_checklist_per_haven_legacy")
       ) {
         try {
           const existingRes = await pool.query(
-            `SELECT id, haven_id, status, completed_at, created_at, updated_at
+            `SELECT id, haven_id, booking_id, status, completed_at, created_at, updated_at
              FROM cleaning_checklists
-             WHERE haven_id = $1
-               AND status != 'completed'
+             ${checklistWhere}
              ORDER BY created_at DESC
              LIMIT 1`,
-            [havenId],
+            checklistQueryParams,
           );
 
           if (existingRes.rows.length > 0) {
@@ -439,7 +445,9 @@ export const updateTask = async (
         const pgErr = err as { code?: string | number; constraint?: string };
         const isUniqueViolation =
           String(pgErr?.code) === "23505" ||
-          pgErr?.constraint === "uniq_active_checklist_per_haven";
+          pgErr?.constraint === "uniq_active_checklist_per_haven" ||
+          pgErr?.constraint === "uniq_active_checklist_per_haven_booking" ||
+          pgErr?.constraint === "uniq_active_checklist_per_haven_legacy";
 
         if (!isUniqueViolation) {
           // Not the unique-violation we're handling here - surface the error
@@ -647,7 +655,9 @@ export const saveChecklistProgress = async (
           const pgErr = err as { code?: string | number; constraint?: string };
           const isUniqueViolation =
             String(pgErr?.code) === "23505" ||
-            pgErr?.constraint === "uniq_active_checklist_per_haven";
+            pgErr?.constraint === "uniq_active_checklist_per_haven" ||
+          pgErr?.constraint === "uniq_active_checklist_per_haven_booking" ||
+          pgErr?.constraint === "uniq_active_checklist_per_haven_legacy";
 
           if (!isUniqueViolation) throw err;
 

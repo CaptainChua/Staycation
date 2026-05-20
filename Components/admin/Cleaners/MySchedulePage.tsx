@@ -34,7 +34,7 @@ import { useTranslations, type Lang } from "./translations";
 
 interface Props {
   onNavigate?: (page: string) => void;
-  onStartCleaning?: (havenId: string) => void;
+  onStartCleaning?: (havenId: string, bookingId?: string) => void;
   lang?: Lang;
 }
 
@@ -89,7 +89,10 @@ function endOfMonth(d: Date) {
 
 function formatTime(t: string | null | undefined): string {
   if (!t) return "—";
-  return t.substring(0, 5);
+  const [h, m] = t.substring(0, 5).split(":").map(Number);
+  const period = h >= 12 ? "PM" : "AM";
+  const hour = h % 12 || 12;
+  return `${hour}:${String(m).padStart(2, "0")} ${period}`;
 }
 
 function formatDate(s: string): string {
@@ -886,9 +889,9 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning,
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            const havenId = a.haven_id ?? a.id;
+                            const havenId = a.haven_id ?? a.booking_uuid;
                             if (onStartCleaning && havenId) {
-                              onStartCleaning(String(havenId));
+                              onStartCleaning(String(havenId), a.booking_uuid ? String(a.booking_uuid) : undefined);
                             } else {
                               onNavigate("cleaning-checklist");
                             }
@@ -904,9 +907,9 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning,
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            const havenId = a.haven_id ?? a.id;
+                            const havenId = a.haven_id ?? a.booking_uuid;
                             if (onStartCleaning && havenId) {
-                              onStartCleaning(String(havenId));
+                              onStartCleaning(String(havenId), a.booking_uuid ? String(a.booking_uuid) : undefined);
                             } else {
                               onNavigate("cleaning-checklist");
                             }
