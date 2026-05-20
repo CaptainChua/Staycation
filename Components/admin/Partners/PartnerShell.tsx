@@ -14,6 +14,8 @@ import {
   Search,
   Bell,
   MessageSquare,
+  Menu,
+  X,
 } from "lucide-react";
 import PartnersDashboard from "./PartnersDashboard";
 import MyListingsPage from "./pages/MyListingsPage";
@@ -51,19 +53,25 @@ const fontFraunces = "font-[var(--font-fraunces),Georgia,serif]";
 export default function PartnerShell(_props: { children?: React.ReactNode }) {
   const { data: session } = useSession();
   const [activePage, setActivePage] = useState("dashboard");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const navigate = (page: string) => {
+    setActivePage(page);
+    setSidebarOpen(false);
+  };
 
   const renderPage = () => {
     switch (activePage) {
       case "dashboard":
-        return <PartnersDashboard onNavigate={setActivePage} />;
+        return <PartnersDashboard onNavigate={navigate} />;
       case "add":
-        return <AddRoomPage onNavigate={setActivePage} />;
+        return <AddRoomPage onNavigate={navigate} />;
       case "listings":
-        return <MyListingsPage onNavigate={setActivePage} />;
+        return <MyListingsPage onNavigate={navigate} />;
       case "analytics":
-        return <AnalyticsPage onNavigate={setActivePage} />;
+        return <AnalyticsPage onNavigate={navigate} />;
       case "cost":
-        return <CostBreakdownPage onNavigate={setActivePage} />;
+        return <CostBreakdownPage onNavigate={navigate} />;
       case "settings":
         return <SettingsPage />;
       case "help":
@@ -83,24 +91,50 @@ export default function PartnerShell(_props: { children?: React.ReactNode }) {
       .toUpperCase() || "P";
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-[248px_1fr] min-h-screen bg-[#f9fafb] text-[#111827]">
-      {/* SIDEBAR */}
-      <aside className="bg-white border-r border-[#e5e7eb] flex flex-col md:sticky md:top-0 md:h-screen">
+    <div className="flex min-h-screen bg-[#f9fafb] text-[#111827]">
+
+      {/* Mobile backdrop */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/40 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* SIDEBAR — fixed drawer on mobile, sticky column on md+ */}
+      <aside
+        className={`
+          fixed inset-y-0 left-0 z-50 flex w-[248px] flex-col bg-white border-r border-[#e5e7eb]
+          transition-transform duration-300 ease-in-out
+          ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
+          md:relative md:translate-x-0 md:sticky md:top-0 md:h-screen md:flex-shrink-0
+        `}
+      >
         {/* Brand */}
-        <div className="flex items-center gap-2.5 px-5 py-5 border-b border-[#e5e7eb]">
-          <div
-            className={`w-9 h-9 rounded-[10px] grid place-items-center text-white font-semibold text-lg shadow-sm bg-gradient-to-br from-[#B8860B] to-[#1f2937] ${fontFraunces}`}
+        <div className="flex items-center justify-between gap-2.5 px-5 py-5 border-b border-[#e5e7eb]">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div
+              className={`w-9 h-9 rounded-[10px] flex-shrink-0 grid place-items-center text-white font-semibold text-lg shadow-sm bg-gradient-to-br from-[#B8860B] to-[#1f2937] ${fontFraunces}`}
+            >
+              S
+            </div>
+            <div className="min-w-0">
+              <div className={`text-[15px] leading-tight text-[#111827] font-medium truncate ${fontFraunces}`}>
+                Staycation Haven
+              </div>
+              <div className="text-[10.5px] text-[#6B7280] uppercase tracking-[0.06em] mt-0.5">
+                Partner · PH
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            aria-label="Close menu"
+            onClick={() => setSidebarOpen(false)}
+            className="md:hidden flex-shrink-0 w-7 h-7 grid place-items-center rounded-[7px] text-[#6B7280] hover:bg-[#f3f4f6] transition"
           >
-            S
-          </div>
-          <div>
-            <div className={`text-[15px] leading-tight text-[#111827] font-medium ${fontFraunces}`}>
-              Staycation Haven
-            </div>
-            <div className="text-[10.5px] text-[#6B7280] uppercase tracking-[0.06em] mt-0.5">
-              Partner · PH
-            </div>
-          </div>
+            <X className="w-4 h-4" />
+          </button>
         </div>
 
         {/* Nav */}
@@ -115,7 +149,7 @@ export default function PartnerShell(_props: { children?: React.ReactNode }) {
               <button
                 key={item.id}
                 type="button"
-                onClick={() => setActivePage(item.id)}
+                onClick={() => navigate(item.id)}
                 className={`w-full flex items-center gap-3 px-2.5 py-2.5 rounded-[9px] text-[13.5px] transition text-left mb-0.5 ${
                   isActive
                     ? "bg-[#FEF3C7] text-[#B8860B] font-semibold"
@@ -138,7 +172,7 @@ export default function PartnerShell(_props: { children?: React.ReactNode }) {
               <button
                 key={item.id}
                 type="button"
-                onClick={() => setActivePage(item.id)}
+                onClick={() => navigate(item.id)}
                 className={`w-full flex items-center gap-3 px-2.5 py-2.5 rounded-[9px] text-[13.5px] transition text-left mb-0.5 ${
                   isActive
                     ? "bg-[#FEF3C7] text-[#B8860B] font-semibold"
@@ -179,10 +213,19 @@ export default function PartnerShell(_props: { children?: React.ReactNode }) {
       </aside>
 
       {/* MAIN */}
-      <div className="flex flex-col min-w-0">
+      <div className="flex flex-1 flex-col min-w-0">
         {/* TOPBAR */}
         <header className="sticky top-0 z-10 bg-[#f9fafb]/80 backdrop-blur border-b border-[#e5e7eb] px-4 md:px-8 py-3.5 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5 min-w-0">
+          <div className="flex items-center gap-2 sm:gap-3.5 min-w-0">
+            {/* Hamburger — mobile only */}
+            <button
+              type="button"
+              aria-label="Open menu"
+              onClick={() => setSidebarOpen(true)}
+              className="md:hidden flex-shrink-0 w-9 h-9 grid place-items-center rounded-[9px] bg-white border border-[#e5e7eb] text-[#374151] hover:bg-[#f3f4f6] transition"
+            >
+              <Menu className="w-4 h-4" />
+            </button>
             <span className="text-[11px] uppercase tracking-[0.1em] text-[#6B7280] font-semibold whitespace-nowrap">
               Partner Portal
             </span>
@@ -227,7 +270,7 @@ export default function PartnerShell(_props: { children?: React.ReactNode }) {
         </header>
 
         {/* CONTENT */}
-        <main className="max-w-[1400px] w-full px-4 md:px-8 pt-7 pb-14">{renderPage()}</main>
+        <main className="max-w-[1400px] w-full min-w-0 mx-auto px-4 md:px-8 pt-7 pb-14 overflow-x-hidden">{renderPage()}</main>
       </div>
     </div>
   );

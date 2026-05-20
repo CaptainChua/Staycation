@@ -65,30 +65,30 @@ interface StatProps {
 const fontFraunces = "font-[var(--font-fraunces),Georgia,serif]";
 
 const Stat = ({ label, value, delta, deltaKind = "up", sub, icon: IconCmp }: StatProps) => (
-  <div className="bg-white border border-[#e5e7eb] rounded-[14px] p-[22px] shadow-[0_1px_2px_rgba(15,42,46,0.04)] flex flex-col gap-1.5">
+  <div className="bg-white border border-[#e5e7eb] rounded-[10px] sm:rounded-[14px] p-3 sm:p-4 lg:p-[22px] shadow-[0_1px_2px_rgba(15,42,46,0.04)] flex flex-col gap-1 sm:gap-1.5 min-w-0">
     <div className="flex justify-between items-center text-[#6B7280]">
-      <span className="text-[11px] uppercase tracking-[0.08em] font-semibold">{label}</span>
-      <span className="text-[#B8860B]/70">
-        <IconCmp className="w-4 h-4" />
+      <span className="text-[10px] sm:text-[11px] uppercase tracking-[0.08em] font-semibold leading-tight">{label}</span>
+      <span className="text-[#B8860B]/70 flex-shrink-0">
+        <IconCmp className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
       </span>
     </div>
     <div
-      className={`text-[30px] font-medium tracking-[-0.02em] leading-[1.1] mt-1 text-[#111827] ${fontFraunces}`}
+      className={`text-[18px] sm:text-[22px] lg:text-[30px] font-medium tracking-[-0.02em] leading-[1.1] mt-0.5 sm:mt-1 text-[#111827] truncate ${fontFraunces}`}
     >
       {value}
     </div>
-    <div className="flex items-center gap-2 mt-0.5">
+    <div className="flex items-center gap-1.5 sm:gap-2 mt-0.5 flex-wrap">
       {delta && (
         <span
-          className={`text-[11.5px] inline-flex items-center gap-1 font-semibold ${
+          className={`text-[10px] sm:text-[11.5px] inline-flex items-center gap-1 font-semibold ${
             deltaKind === "up" ? "text-[#16a34a]" : "text-[#dc2626]"
           }`}
         >
-          <TrendingUp className="w-3 h-3" />
+          <TrendingUp className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
           {delta}
         </span>
       )}
-      {sub && <span className="text-[11.5px] text-[#6B7280]">{sub}</span>}
+      {sub && <span className="text-[10px] sm:text-[11.5px] text-[#6B7280]">{sub}</span>}
     </div>
   </div>
 );
@@ -165,20 +165,20 @@ const PartnersDashboard = ({ onNavigate }: PartnersDashboardProps = {}) => {
   const tierProgressClass = TIER_WIDTHS[Math.round(tierPct / 5) * 5] || "w-0";
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <div className="space-y-3 sm:space-y-6 animate-in fade-in duration-500 min-w-0 overflow-x-hidden">
       {/* WELCOME BANNER */}
-      <div className="relative rounded-[14px] overflow-hidden p-7 md:p-9 bg-white border border-[#e5e7eb] shadow-[0_1px_2px_rgba(15,42,46,0.04)]">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 flex-wrap">
+      <div className="relative rounded-[14px] overflow-hidden p-4 sm:p-6 lg:p-9 bg-white border border-[#e5e7eb] shadow-[0_1px_2px_rgba(15,42,46,0.04)]">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 md:gap-6">
           <div className="flex-1 min-w-0">
-            <div className="text-[12px] uppercase tracking-[0.12em] text-[#6B7280] font-semibold mb-2">
+            <div className="text-[11px] uppercase tracking-[0.12em] text-[#6B7280] font-semibold mb-1.5 truncate">
               {today}
             </div>
             <h1
-              className={`text-[#111827] text-[34px] leading-[1.15] tracking-[-0.02em] mb-1.5 font-medium ${fontFraunces}`}
+              className={`text-[#111827] text-[22px] sm:text-[26px] lg:text-[32px] leading-[1.15] tracking-[-0.02em] mb-1.5 font-medium ${fontFraunces}`}
             >
               Welcome back, {firstName}.
             </h1>
-            <p className="text-[#374151] text-[15px] max-w-[520px] leading-relaxed">
+            <p className="text-[#374151] text-[13px] sm:text-[14px] lg:text-[15px] leading-relaxed">
               Here&apos;s how{" "}
               <strong className="font-semibold text-[#B8860B]">
                 Casa Verde Tagaytay
@@ -188,27 +188,27 @@ const PartnersDashboard = ({ onNavigate }: PartnersDashboardProps = {}) => {
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-2.5">
+          <div className="flex flex-wrap gap-2 flex-shrink-0">
             <button
               type="button"
               onClick={() => go("add")}
-              className="px-4 py-2 rounded-[9px] text-[13.5px] font-semibold flex items-center gap-2 transition active:translate-y-[0.5px] bg-[#B8860B] hover:bg-[#8B6508] text-white"
+              className="px-3 sm:px-4 py-2 rounded-[9px] text-[12.5px] sm:text-[13.5px] font-semibold flex items-center gap-2 transition active:translate-y-[0.5px] bg-[#B8860B] hover:bg-[#8B6508] text-white"
             >
-              <Plus className="w-4 h-4" /> Add new room
+              <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> Add new room
             </button>
             <button
               type="button"
               onClick={() => go("analytics")}
-              className="px-4 py-2 rounded-[9px] text-[13.5px] font-semibold flex items-center gap-2 bg-white border border-[#d1d5db] text-[#374151] hover:bg-[#f9fafb] transition active:translate-y-[0.5px]"
+              className="px-3 sm:px-4 py-2 rounded-[9px] text-[12.5px] sm:text-[13.5px] font-semibold flex items-center gap-2 bg-white border border-[#d1d5db] text-[#374151] hover:bg-[#f9fafb] transition active:translate-y-[0.5px]"
             >
-              <BarChart3 className="w-4 h-4" /> See analytics
+              <BarChart3 className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> See analytics
             </button>
           </div>
         </div>
       </div>
 
       {/* STAT GRID */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-[18px]">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-[18px]">
         <Stat label="Active listings" value={active} sub={`of ${totalListings} total`} icon={Home} />
         <Stat
           label="Total bookings"
@@ -228,16 +228,16 @@ const PartnersDashboard = ({ onNavigate }: PartnersDashboardProps = {}) => {
       </div>
 
       {/* ALERTS + QUICK ACTIONS */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-[18px]">
+      <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-3 sm:gap-[18px]">
         {/* LEFT — Needs attention + Recent activity */}
-        <div className="bg-white border border-[#e5e7eb] rounded-[14px] p-[22px] shadow-[0_1px_2px_rgba(15,42,46,0.04)]">
-          <div className="flex justify-between items-baseline mb-4">
+        <div className="bg-white border border-[#e5e7eb] rounded-[14px] p-4 sm:p-[22px] shadow-[0_1px_2px_rgba(15,42,46,0.04)] min-w-0">
+          <div className="flex justify-between items-baseline mb-4 gap-2">
             <h3
-              className={`text-[17px] leading-[1.3] font-medium text-[#111827] ${fontFraunces}`}
+              className={`text-[15px] sm:text-[17px] leading-[1.3] font-medium text-[#111827] ${fontFraunces}`}
             >
               Needs your attention
             </h3>
-            <span className="text-[11.5px] text-[#6B7280]">
+            <span className="text-[11.5px] text-[#6B7280] flex-shrink-0">
               {notifications.length > 0 ? `${notifications.length} items` : "all caught up"}
             </span>
           </div>
@@ -253,37 +253,37 @@ const PartnersDashboard = ({ onNavigate }: PartnersDashboardProps = {}) => {
               return (
                 <div
                   key={i}
-                  className={`flex gap-3.5 p-3.5 rounded-[11px] border ${
+                  className={`flex flex-wrap gap-3 p-3 sm:p-3.5 rounded-[11px] border ${
                     isRejected
                       ? "bg-[#fee2e2] border-[#dc2626]/30"
                       : "bg-[#dbeafe] border-[#2563eb]/30"
                   }`}
                 >
                   <div
-                    className={`w-9 h-9 rounded-[9px] flex-shrink-0 text-white grid place-items-center ${
+                    className={`w-8 h-8 sm:w-9 sm:h-9 rounded-[9px] flex-shrink-0 text-white grid place-items-center ${
                       isRejected ? "bg-[#dc2626]" : "bg-[#2563eb]"
                     }`}
                   >
                     {isRejected ? (
-                      <AlertCircle className="w-[18px] h-[18px]" />
+                      <AlertCircle className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
                     ) : (
-                      <Eye className="w-[18px] h-[18px]" />
+                      <Eye className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
                     )}
                   </div>
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-[120px]">
                     <div
-                      className={`font-semibold mb-0.5 ${
+                      className={`text-[13px] font-semibold mb-0.5 ${
                         isRejected ? "text-[#dc2626]" : "text-[#2563eb]"
                       }`}
                     >
                       {n.title}
                     </div>
-                    <div className="text-[12.5px] text-[#374151]">{n.body}</div>
+                    <div className="text-[12px] sm:text-[12.5px] text-[#374151]">{n.body}</div>
                   </div>
                   <button
                     type="button"
                     onClick={() => go("listings")}
-                    className="self-center px-2.5 py-1.5 rounded-[7px] text-[12.5px] text-[#374151] hover:bg-white/60 transition whitespace-nowrap font-medium"
+                    className="self-center flex-shrink-0 px-2.5 py-1.5 rounded-[7px] text-[12px] sm:text-[12.5px] text-[#374151] hover:bg-white/60 transition whitespace-nowrap font-medium"
                   >
                     Review
                   </button>
@@ -300,10 +300,10 @@ const PartnersDashboard = ({ onNavigate }: PartnersDashboardProps = {}) => {
             </div>
             <div className="flex flex-col gap-2.5">
               {RECENT_ACTIVITY.map((a, i) => (
-                <div key={i} className="flex gap-3 items-center">
+                <div key={i} className="flex gap-3 items-center min-w-0">
                   <span className={`w-[7px] h-[7px] rounded-full flex-shrink-0 ${a.dotClass}`} />
-                  <span className="text-[12.5px] flex-1 text-[#374151]">{a.text}</span>
-                  <span className="text-[11.5px] text-[#6B7280]">{a.t}</span>
+                  <span className="text-[12.5px] flex-1 text-[#374151] min-w-0 truncate">{a.text}</span>
+                  <span className="text-[11.5px] text-[#6B7280] flex-shrink-0 whitespace-nowrap">{a.t}</span>
                 </div>
               ))}
             </div>
@@ -311,9 +311,9 @@ const PartnersDashboard = ({ onNavigate }: PartnersDashboardProps = {}) => {
         </div>
 
         {/* RIGHT — Quick actions + Tier progress */}
-        <div className="bg-white border border-[#e5e7eb] rounded-[14px] p-[22px] shadow-[0_1px_2px_rgba(15,42,46,0.04)]">
+        <div className="bg-white border border-[#e5e7eb] rounded-[14px] p-4 sm:p-[22px] shadow-[0_1px_2px_rgba(15,42,46,0.04)] min-w-0">
           <h3
-            className={`text-[17px] leading-[1.3] font-medium text-[#111827] mb-4 ${fontFraunces}`}
+            className={`text-[15px] sm:text-[17px] leading-[1.3] font-medium text-[#111827] mb-4 ${fontFraunces}`}
           >
             Quick actions
           </h3>
@@ -350,7 +350,7 @@ const PartnersDashboard = ({ onNavigate }: PartnersDashboardProps = {}) => {
             <div className="text-[11.5px] font-semibold uppercase tracking-[0.08em] flex items-center gap-1.5 text-[#92400e]">
               <Sparkles className="w-3 h-3" /> {isPremium ? "Premium Partner" : "Tier progress"}
             </div>
-            <div className={`text-[17px] mt-1.5 mb-1.5 font-medium text-[#111827] ${fontFraunces}`}>
+            <div className={`text-[14px] sm:text-[17px] mt-1.5 mb-1.5 font-medium text-[#111827] ${fontFraunces}`}>
               {isPremium
                 ? "You're a Premium Partner"
                 : lifetimeBookings === 0
