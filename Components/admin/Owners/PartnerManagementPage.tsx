@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import OwnerPageHeader from "./OwnerPageHeader";
 import React, { useState, useMemo } from "react";
@@ -17,14 +17,10 @@ import {
 import {
   useGetPartnersOverviewQuery,
   useGetPartnerListingsQuery,
-  useGetPartnerThreadsQuery,
-  useGetPartnerThreadMessagesQuery,
-  useSendStaffReplyMutation,
   PartnerListingRow,
-  AdminPartnerThread,
 } from "@/redux/api/partnersAdminApi";
 import Image from "next/image";
-import { Check, X as XIcon, AlertCircle, Loader2, Building, Send, Edit } from "lucide-react";
+import { Check, X as XIcon, AlertCircle, Loader2, Building, Edit } from "lucide-react";
 import HavenFormModal from "./Modals/HavenFormModal";
 
 import {
@@ -89,17 +85,7 @@ const [page, setPage] = useState(1);
 const perPage = 10;
 
 const [editPage, setEditPage] = useState(1);
-const [messagePage, setMessagePage] = useState(1);
 const [docsPage, setDocsPage] = useState(1);
-
-/* COMPOSE MESSAGE */
-const [composeOpen, setComposeOpen] = useState(false);
-
-const [composeForm, setComposeForm] = useState({
-  recipient: "",
-  subject: "",
-  message: "",
-});
 
 const [form, setForm] = useState({
   email: "",
@@ -111,27 +97,6 @@ const [form, setForm] = useState({
   commission_rate: 10,
 });
 
-
-const [selectedMessage, setSelectedMessage] = useState<any>(null);
-
-const [replyText, setReplyText] = useState("");
-
-const handleSendMessage = () => {
-  if (!replyText.trim() || !selectedMessage) return;
-
-  const newMsg = {
-    id: Date.now(),
-    sender: "Platform Admin",
-    recipient: selectedMessage.recipient,
-    subject: "",
-    message: replyText,
-    date: new Date().toLocaleDateString(),
-    read: true,
-  };
-
-  setMessages((prev) => [...prev, newMsg]);
-  setReplyText("");
-};
 
   /* =========================
      REVENUE
@@ -179,8 +144,8 @@ const handleSendMessage = () => {
       id: 1,
       partner: "Sunset Hotel",
       type: "price",
-      oldValue: "₱3,000",
-      newValue: "₱3,500",
+      oldValue: "â‚±3,000",
+      newValue: "â‚±3,500",
       status: "pending",
     },
     {
@@ -203,8 +168,8 @@ const handleSendMessage = () => {
       id: 4,
       partner: "Palm Resort",
       type: "price",
-      oldValue: "₱5,000",
-      newValue: "₱5,500",
+      oldValue: "â‚±5,000",
+      newValue: "â‚±5,500",
       status: "pending",
     },
     {
@@ -219,8 +184,8 @@ const handleSendMessage = () => {
       id: 6,
       partner: "City Lights Hotel",
       type: "price",
-      oldValue: "₱2,500",
-      newValue: "₱2,900",
+      oldValue: "â‚±2,500",
+      newValue: "â‚±2,900",
       status: "pending",
     },
     {
@@ -243,8 +208,8 @@ const handleSendMessage = () => {
       id: 9,
       partner: "Golden Bay",
       type: "price",
-      oldValue: "₱4,200",
-      newValue: "₱4,800",
+      oldValue: "â‚±4,200",
+      newValue: "â‚±4,800",
       status: "approved",
     },
     {
@@ -259,8 +224,8 @@ const handleSendMessage = () => {
       id: 11,
       partner: "Skyline Hotel",
       type: "price",
-      oldValue: "₱6,000",
-      newValue: "₱6,300",
+      oldValue: "â‚±6,000",
+      newValue: "â‚±6,300",
       status: "approved",
     },
     {
@@ -279,55 +244,6 @@ const handleSendMessage = () => {
   );
 
   
-/* =========================
-   MESSAGES DATA
-========================= */
-const [messages, setMessages] = useState<
-  {
-    id: number;
-    sender: string;
-    recipient: string;
-    subject: string;
-    message: string;
-    date: string;
-    read: boolean;
-  }[]
->([
-  {
-    id: 1,
-    sender: "Platform Admin",
-    recipient: "Sunset Hotel",
-    subject: "Listing Update",
-    message: "Your listing update request has been reviewed and approved.",
-    date: "Apr 29",
-    read: false,
-  },
-  {
-    id: 2,
-    sender: "Platform Admin",
-    recipient: "Ocean View Resort",
-    subject: "Policy Update",
-    message: "Please review the new booking policy updates.",
-    date: "Apr 25",
-    read: true,
-  },
-
-  {
-    id: 3,
-    sender: "Customer",
-    recipient: "Ocean View Resort",
-    subject: "Water Pipe Issue",
-    message: "Please check my water pipe. I think it's leaking.",
-    date: "Apr 25",
-    read: true,
-  },
-]);
-
-const paginatedMessages = messages.slice(
-  (messagePage - 1) * perPage,
-  messagePage * perPage
-);
-
   /* =========================
      DOCS DATA
   ========================= */
@@ -396,7 +312,6 @@ const paginatedMessages = messages.slice(
           { id: 1, label: "Overview", icon: BarChart3 },
           { id: 2, label: "Listings", icon: Eye },
           { id: 3, label: "Pending Requests", icon: FileText },
-          { id: 4, label: "Messages", icon: MessageCircle },
           { id: 5, label: "Docs & Analytics", icon: FileText },
         ].map((t) => (
           <button
@@ -456,7 +371,7 @@ const paginatedMessages = messages.slice(
                 </h2>
 
                 <p className="text-indigo-200 text-sm mt-3 font-medium">
-                  ▲ +18% this month
+                  â–² +18% this month
                 </p>
               </div>
 
@@ -504,7 +419,7 @@ const paginatedMessages = messages.slice(
               <div className="relative overflow-hidden bg-gradient-to-br from-yellow-400 to-orange-500 rounded-2xl p-5 shadow-lg hover:scale-[1.02] transition-all duration-300">
 
                 <div className="absolute top-4 right-4 opacity-20 text-6xl">
-                  ⭐
+                  â­
                 </div>
 
                 <p className="text-yellow-100 text-sm font-medium">
@@ -782,7 +697,7 @@ const paginatedMessages = messages.slice(
                 </p>
 
                 <p className="text-xs font-semibold text-indigo-600 whitespace-nowrap">
-                  ₱{p.nightly_rate.toLocaleString()}
+                  â‚±{p.nightly_rate.toLocaleString()}
                 </p>
 
               </div>
@@ -899,7 +814,7 @@ const paginatedMessages = messages.slice(
                         </p>
 
                         <p className="font-semibold mt-1 text-indigo-600">
-                          ₱
+                          â‚±
                           {selectedListing.nightly_rate.toLocaleString()} /
                           night
                         </p>
@@ -1100,334 +1015,6 @@ const paginatedMessages = messages.slice(
       {tab === 3 && <PendingRequestsTab />}
 
 
-    {/* MESSAGES - MODERN CHAT UI */}
-{tab === 4 && <MessagesTab />}
-{false && (
-  <div className="h-[82vh] bg-white dark:bg-[#18191A] rounded-3xl border border-gray-200 dark:border-[#2A2D31] overflow-hidden flex">
-
-    {/* =========================
-        LEFT SIDEBAR
-    ========================= */}
-    <div className="w-[340px] border-r border-gray-200 dark:border-[#2A2D31] flex flex-col bg-[#F8F8F8] dark:bg-[#1E1F22]">
-
-      {/* TOP */}
-      <div className="px-5 py-5 flex items-center justify-between border-b border-gray-200 dark:border-[#2A2D31]">
-
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-          Chats
-        </h2>
-
-        <div className="flex items-center gap-4 text-gray-500">
-          <button className="hover:text-indigo-500 transition text-2xl">
-            +
-          </button>
-
-          <button className="hover:text-red-500 transition text-2xl">
-            ×
-          </button>
-        </div>
-
-      </div>
-
-      {/* SEARCH */}
-      <div className="p-4">
-
-        <div className="relative">
-
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-
-          <input
-            type="text"
-            placeholder="Search Messenger"
-            className="
-              w-full pl-12 pr-4 py-3
-              rounded-full
-              bg-gray-100 dark:bg-[#2A2D31]
-              text-sm
-              border border-transparent
-              focus:outline-none
-              focus:ring-2
-              focus:ring-indigo-500
-            "
-          />
-
-        </div>
-
-      </div>
-
-      {/* CONTACTS */}
-      <div className="flex-1 overflow-y-auto">
-
-        {Array.from(
-          new Map(messages.map((m) => [m.recipient, m])).values()
-        ).map((msg) => (
-
-          <button
-            key={msg.recipient}
-            onClick={() => setSelectedMessage(msg)}
-            className={`
-              w-full px-4 py-4
-              flex items-center gap-3
-              text-left
-              transition
-              border-b border-black/5 dark:border-white/5
-              hover:bg-[#ECECEC] dark:hover:bg-[#2A2D31]
-              ${
-                selectedMessage?.recipient === msg.recipient
-                  ? "bg-[#F0E68C] dark:bg-[#3A3D45]"
-                  : ""
-              }
-            `}
-          >
-
-            {/* AVATAR */}
-            <img
-              src={`https://ui-avatars.com/api/?name=${msg.recipient}`}
-              alt={msg.recipient}
-              className="w-14 h-14 rounded-full object-cover"
-            />
-
-            {/* INFO */}
-            <div className="flex-1 min-w-0">
-
-              <div className="flex items-center gap-2">
-
-                <h3 className="font-semibold text-[17px] text-gray-900 dark:text-white truncate">
-                  {msg.recipient}
-                </h3>
-
-                <span className="text-xs text-gray-400">
-                  • 3h
-                </span>
-
-              </div>
-
-              <p className="text-sm text-gray-500 truncate">
-                {msg.message}
-              </p>
-
-            </div>
-
-          </button>
-        ))}
-
-      </div>
-
-    </div>
-
-    {/* =========================
-        RIGHT CHAT WINDOW
-    ========================= */}
-    <div className="flex-1 flex flex-col bg-white dark:bg-[#18191A]">
-
-      {/* CHAT HEADER */}
-      {selectedMessage && (
-        <div className="h-[80px] px-6 border-b border-gray-200 dark:border-[#2A2D31] flex items-center justify-between">
-
-          <div className="flex items-center gap-4">
-
-            <img
-              src={`https://ui-avatars.com/api/?name=${selectedMessage.recipient}`}
-              alt=""
-              className="w-14 h-14 rounded-full"
-            />
-
-            <div>
-
-              <h2 className="font-bold text-lg text-gray-900 dark:text-white">
-                {selectedMessage.recipient}
-              </h2>
-
-              <p className="text-sm text-gray-500">
-                Offline
-              </p>
-
-            </div>
-
-          </div>
-
-          {/* ACTIONS */}
-          <div className="flex items-center gap-5 text-[#C08A00]">
-
-            <button className="hover:scale-110 transition">
-              📞
-            </button>
-
-            <button className="hover:scale-110 transition">
-              🎥
-            </button>
-
-            <button className="hover:scale-110 transition">
-              ⓘ
-            </button>
-
-          </div>
-
-        </div>
-      )}
-
-      {/* CHAT BODY */}
-      <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5 bg-[#FAFAFA] dark:bg-[#18191A]">
-
-        {!selectedMessage ? (
-          <div className="h-full flex items-center justify-center text-gray-400">
-            Select a conversation
-          </div>
-        ) : (
-          messages
-            .filter(
-              (m) => m.recipient === selectedMessage.recipient
-            )
-            .map((msg) => (
-
-              <div
-                key={msg.id}
-                className={`flex ${
-                  msg.sender === "Platform Admin"
-                    ? "justify-end"
-                    : "justify-start"
-                }`}
-              >
-
-                <div className="max-w-[70%]">
-
-                  {/* BUBBLE */}
-                  <div
-                    className={`
-                      px-5 py-3
-                      rounded-[22px]
-                      text-sm
-                      shadow-sm
-                      break-words
-                      ${
-                        msg.sender === "Platform Admin"
-                          ? "bg-[#C08A00] text-white rounded-br-md"
-                          : "bg-white dark:bg-[#2A2D31] text-gray-800 dark:text-white border border-gray-200 dark:border-white/10 rounded-bl-md"
-                      }
-                    `}
-                  >
-                    {msg.message}
-                  </div>
-
-                  {/* TIME */}
-                  <div
-                    className={`
-                      text-xs mt-1 text-gray-400
-                      ${
-                        msg.sender === "Platform Admin"
-                          ? "text-right"
-                          : "text-left"
-                      }
-                    `}
-                  >
-                    {msg.date}
-                  </div>
-
-                </div>
-
-              </div>
-            ))
-        )}
-
-      </div>
-
-      {/* INPUT */}
-    {selectedMessage && (
-      <div className="px-5 py-4 border-t border-gray-200 dark:border-[#2A2D31] bg-white dark:bg-[#1E1F22]">
-
-        <div className="flex items-center gap-3">
-
-          {/* LEFT ICONS */}
-          <div className="flex items-center gap-3 pb-1">
-
-            <button className="text-[#C08A00] text-2xl hover:scale-110 transition leading-none">
-              +
-            </button>
-
-            <button className="text-[#C08A00] text-xl hover:scale-110 transition leading-none">
-              🖼️
-            </button>
-
-          </div>
-
-          {/* TEXTAREA */}
-          <div className="flex-1 relative">
-
-            <textarea
-              value={replyText}
-              onChange={(e) => setReplyText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSendMessage();
-                }
-              }}
-              rows={1}
-              placeholder="Aa"
-              className="
-                w-full
-                resize-none
-                rounded-full
-                bg-gray-100 dark:bg-[#2A2D31]
-                px-5
-                py-[13px]
-                pr-14
-                text-sm
-                overflow-hidden
-                focus:outline-none
-                focus:ring-2
-                focus:ring-indigo-500
-                leading-[22px]
-                min-h-[52px]
-                max-h-[140px]
-              "
-              onInput={(e) => {
-                const el = e.currentTarget;
-                el.style.height = "52px";
-                el.style.height = el.scrollHeight + "px";
-              }}
-            />
-
-            {/* EMOJI */}
-            <button
-              className="
-                absolute
-                right-4
-                top-1/2
-                -translate-y-1/2
-                text-xl
-                text-[#C08A00]
-                leading-none
-              "
-            >
-              😊
-            </button>
-
-          </div>
-
-          {/* SEND */}
-          <button
-            onClick={handleSendMessage}
-            className="
-              text-[#C08A00]
-              text-2xl
-              hover:scale-110
-              transition
-              leading-none
-              pb-1
-            "
-          >
-            ➤
-          </button>
-
-        </div>
-
-      </div>
-)}
-    </div>
-
-  </div>
-)}
 
       {/* DOCS & ANALYTICS */}
 {tab === 5 && <DocsAnalyticsTab />}
@@ -1487,7 +1074,7 @@ const paginatedMessages = messages.slice(
             {[
               {
                 title: "Partnership agreement",
-                desc: "Signed Mar 10, 2025 • Expires Jun 30, 2025",
+                desc: "Signed Mar 10, 2025 â€¢ Expires Jun 30, 2025",
                 badge: "Active",
                 color:
                   "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-300",
@@ -1503,7 +1090,7 @@ const paginatedMessages = messages.slice(
 
               {
                 title: "Commission & payout structure",
-                desc: "15% platform fee • Payout every 15th",
+                desc: "15% platform fee â€¢ Payout every 15th",
                 badge: "PDF",
                 color:
                   "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300",
@@ -1720,277 +1307,6 @@ const paginatedMessages = messages.slice(
 
   </div>
 )}
-      {/* COMPOSE MODAL */}
-        {composeOpen && (
-          <div
-            className="
-              fixed inset-0 z-50
-              flex items-center justify-center
-              bg-black/50
-              backdrop-blur-sm
-              p-6
-            "
-          >
-
-        {/* MODAL */}
-        <div
-          className="
-            w-full max-w-2xl
-            rounded-3xl
-            bg-white dark:bg-gray-900
-            border border-gray-200 dark:border-gray-700
-            shadow-2xl
-            overflow-hidden
-          "
-        >
-
-        {/* HEADER */}
-        <div
-          className="
-            flex items-center justify-between
-            px-6 py-5
-            border-b
-            border-gray-200 dark:border-gray-800
-          "
-        >
-
-        <div>
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-            Compose Message
-          </h2>
-
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Send updates and announcements to partners
-          </p>
-        </div>
-
-        <button
-          onClick={() => setComposeOpen(false)}
-          className="
-            w-10 h-10
-            rounded-xl
-            flex items-center justify-center
-            transition
-            hover:bg-gray-100
-            dark:hover:bg-gray-800
-          "
-        >
-          ✕
-        </button>
-
-      </div>
-
-      {/* BODY */}
-      <div className="p-6 space-y-5">
-
-        {/* RECIPIENT */}
-        <div className="space-y-2">
-
-          <label
-            className="
-              text-sm font-medium
-              text-gray-700 dark:text-gray-300
-            "
-          >
-            Recipient
-          </label>
-
-          <select
-            value={composeForm.recipient}
-            onChange={(e) =>
-              setComposeForm((prev) => ({
-                ...prev,
-                recipient: e.target.value,
-              }))
-            }
-            aria-label="Recipient"
-            title="Recipient"
-            className="
-              w-full
-              px-4 py-3
-              rounded-2xl
-              border
-              border-gray-200 dark:border-gray-700
-              bg-white dark:bg-gray-800
-              text-gray-900 dark:text-white
-              focus:outline-none
-              focus:ring-2
-              focus:ring-indigo-500
-            "
-          >
-            <option value="">Select recipient</option>
-            <option value="all">All Partners</option>
-            <option value="sunset-hotel">Sunset Hotel</option>
-            <option value="ocean-view">Ocean View Resort</option>
-            <option value="mountain-escape">Mountain Escape</option>
-          </select>
-
-        </div>
-
-        {/* SUBJECT */}
-        <div className="space-y-2">
-
-          <label
-            className="
-              text-sm font-medium
-              text-gray-700 dark:text-gray-300
-            "
-          >
-            Subject
-          </label>
-
-          <input
-            type="text"
-            placeholder="Enter subject..."
-            value={composeForm.subject}
-            onChange={(e) =>
-              setComposeForm((prev) => ({
-                ...prev,
-                subject: e.target.value,
-              }))
-            }
-            className="
-              w-full
-              px-4 py-3
-              rounded-2xl
-              border
-              border-gray-200 dark:border-gray-700
-              bg-white dark:bg-gray-800
-              text-gray-900 dark:text-white
-              placeholder:text-gray-400
-              focus:outline-none
-              focus:ring-2
-              focus:ring-indigo-500
-            "
-          />
-
-        </div>
-
-        {/* MESSAGE */}
-        <div className="space-y-2">
-
-          <label
-            className="
-              text-sm font-medium
-              text-gray-700 dark:text-gray-300
-            "
-          >
-            Message
-          </label>
-
-          <textarea
-            rows={8}
-            placeholder="Write your message..."
-            value={composeForm.message}
-            onChange={(e) =>
-              setComposeForm((prev) => ({
-                ...prev,
-                message: e.target.value,
-              }))
-            }
-            className="
-              w-full
-              px-4 py-3
-              rounded-2xl
-              border
-              border-gray-200 dark:border-gray-700
-              bg-white dark:bg-gray-800
-              text-gray-900 dark:text-white
-              placeholder:text-gray-400
-              resize-none
-              focus:outline-none
-              focus:ring-2
-              focus:ring-indigo-500
-            "
-          />
-
-        </div>
-
-      </div>
-
-      {/* FOOTER */}
-      <div
-        className="
-          flex flex-col sm:flex-row
-          items-stretch sm:items-center
-          justify-end
-          gap-3
-          px-6 py-5
-          border-t
-          border-gray-200 dark:border-gray-700
-          bg-gray-50 dark:bg-gray-950/40
-        "
-      >
-
-        <button
-          onClick={() => setComposeOpen(false)}
-          className="
-            px-5 py-3
-            rounded-2xl
-            border
-            border-gray-200 dark:border-gray-700
-            text-gray-700 dark:text-gray-300
-            hover:bg-gray-100
-            dark:hover:bg-gray-800
-            transition
-          "
-        >
-          Cancel
-        </button>
-
-        <button
-          onClick={() => {
-  if (!composeForm.recipient || !composeForm.subject || !composeForm.message) {
-    toast.error("Please complete all fields");
-    return;
-  }
-
-  const handleSendMessage = () => {
-  if (!replyText.trim() || !selectedMessage) return;
-
-  const newMsg = {
-    id: Date.now(),
-    sender: "Platform Admin",
-    recipient: selectedMessage.recipient,
-    subject: "",
-    message: replyText,
-    date: new Date().toLocaleDateString(),
-    read: true,
-  };
-
-   setMessages((prev) => [...prev, newMsg]);
-  setReplyText("");
-};
-
-  setComposeForm({
-    recipient: "",
-    subject: "",
-    message: "",
-  });
-
-  setComposeOpen(false);
-
-  toast.success("Message sent");
-}}
-          className="
-            px-5 py-3
-            rounded-2xl
-            bg-indigo-600
-            hover:bg-indigo-700
-            text-white
-            font-medium
-            transition
-          "
-        >
-          Send Message
-        </button>
-
-      </div>
-
-    </div>
-
-  </div>
-)}
 
       {/* MODAL */}
       <AddPartnerModal
@@ -2111,7 +1427,7 @@ function PendingRequestsTab() {
       {isLoading ? (
         <div className="bg-white dark:bg-[#181818] border border-gray-200 dark:border-white/10 rounded-2xl p-14 text-center">
           <Loader2 className="w-7 h-7 text-indigo-500 animate-spin mx-auto mb-3" />
-          <p className="text-gray-500 dark:text-gray-400">Loading submissions…</p>
+          <p className="text-gray-500 dark:text-gray-400">Loading submissionsâ€¦</p>
         </div>
       ) : submissions.length === 0 ? (
         <div className="bg-white dark:bg-[#181818] border border-gray-200 dark:border-white/10 rounded-2xl p-14 text-center">
@@ -2160,9 +1476,9 @@ function PendingRequestsTab() {
                   Submitted by <strong className="text-gray-700 dark:text-gray-300">{s.partner_name || s.partner_email}</strong>
                 </p>
                 <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
-                  <div><strong>Type:</strong> {s.view_type || "—"} · sleeps {s.capacity || "—"}</div>
-                  <div><strong>Location:</strong> {[s.tower, s.floor].filter(Boolean).join(" · ") || "—"}</div>
-                  <div><strong>Weekday:</strong> ₱{Number(s.weekday_rate || 0).toLocaleString("en-PH")} / night</div>
+                  <div><strong>Type:</strong> {s.view_type || "â€”"} Â· sleeps {s.capacity || "â€”"}</div>
+                  <div><strong>Location:</strong> {[s.tower, s.floor].filter(Boolean).join(" Â· ") || "â€”"}</div>
+                  <div><strong>Weekday:</strong> â‚±{Number(s.weekday_rate || 0).toLocaleString("en-PH")} / night</div>
                 </div>
                 {s.reason && (
                   <div className="mt-2 p-2 rounded-lg bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs">
@@ -2249,9 +1565,9 @@ function PendingRequestsTab() {
               </button>
             </div>
 
-            {/* BODY — 2 column on desktop */}
+            {/* BODY â€” 2 column on desktop */}
             <div className="flex-1 overflow-y-auto p-5 grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-5">
-              {/* LEFT COLUMN — Listing details */}
+              {/* LEFT COLUMN â€” Listing details */}
               <div className="space-y-4">
                 {/* Hero photo */}
                 {selected.images && selected.images.length > 0 ? (
@@ -2289,30 +1605,30 @@ function PendingRequestsTab() {
                   </div>
                 )}
 
-                {/* Quick facts — single grouped card */}
+                {/* Quick facts â€” single grouped card */}
                 <div className="rounded-2xl border border-gray-200 dark:border-slate-700 overflow-hidden">
                   <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-gray-100 dark:divide-slate-700">
-                    <FactCell label="Type" value={selected.view_type || "—"} />
-                    <FactCell label="Sleeps" value={String(selected.capacity || "—")} />
-                    <FactCell label="Beds" value={selected.beds || "—"} />
-                    <FactCell label="Room size" value={selected.room_size ? `${selected.room_size} sqm` : "—"} />
+                    <FactCell label="Type" value={selected.view_type || "â€”"} />
+                    <FactCell label="Sleeps" value={String(selected.capacity || "â€”")} />
+                    <FactCell label="Beds" value={selected.beds || "â€”"} />
+                    <FactCell label="Room size" value={selected.room_size ? `${selected.room_size} sqm` : "â€”"} />
                   </div>
                 </div>
 
-                {/* Pricing — single row */}
+                {/* Pricing â€” single row */}
                 <div className="rounded-2xl border border-gray-200 dark:border-slate-700 overflow-hidden">
                   <div className="px-4 py-2 bg-gray-50 dark:bg-slate-800/50 border-b border-gray-100 dark:border-slate-700">
                     <p className="text-[10px] uppercase tracking-wider font-bold text-gray-500 dark:text-gray-400">Pricing</p>
                   </div>
                   <div className="grid grid-cols-4 divide-x divide-gray-100 dark:divide-slate-700">
-                    <FactCell label="6h" value={`₱${Number(selected.six_hour_rate || 0).toLocaleString("en-PH")}`} />
-                    <FactCell label="10h" value={`₱${Number(selected.ten_hour_rate || 0).toLocaleString("en-PH")}`} />
-                    <FactCell label="Weekday" value={`₱${Number(selected.weekday_rate || 0).toLocaleString("en-PH")}`} />
-                    <FactCell label="Weekend" value={`₱${Number(selected.weekend_rate || 0).toLocaleString("en-PH")}`} />
+                    <FactCell label="6h" value={`â‚±${Number(selected.six_hour_rate || 0).toLocaleString("en-PH")}`} />
+                    <FactCell label="10h" value={`â‚±${Number(selected.ten_hour_rate || 0).toLocaleString("en-PH")}`} />
+                    <FactCell label="Weekday" value={`â‚±${Number(selected.weekday_rate || 0).toLocaleString("en-PH")}`} />
+                    <FactCell label="Weekend" value={`â‚±${Number(selected.weekend_rate || 0).toLocaleString("en-PH")}`} />
                   </div>
                 </div>
 
-                {/* Check-in / out — single row */}
+                {/* Check-in / out â€” single row */}
                 <div className="rounded-2xl border border-gray-200 dark:border-slate-700 overflow-hidden">
                   <div className="px-4 py-2 bg-gray-50 dark:bg-slate-800/50 border-b border-gray-100 dark:border-slate-700">
                     <p className="text-[10px] uppercase tracking-wider font-bold text-gray-500 dark:text-gray-400">Check-in / out</p>
@@ -2324,11 +1640,11 @@ function PendingRequestsTab() {
                   </div>
                 </div>
 
-                {/* Amenities — compact chips */}
+                {/* Amenities â€” compact chips */}
                 {selected.amenities && Object.keys(selected.amenities).filter((k) => selected.amenities![k]).length > 0 && (
                   <div>
                     <p className="text-[10px] uppercase tracking-wider font-bold text-gray-500 dark:text-gray-400 mb-2">
-                      Amenities · {Object.keys(selected.amenities).filter((k) => selected.amenities![k]).length}
+                      Amenities Â· {Object.keys(selected.amenities).filter((k) => selected.amenities![k]).length}
                     </p>
                     <div className="flex flex-wrap gap-1">
                       {Object.keys(selected.amenities)
@@ -2342,7 +1658,7 @@ function PendingRequestsTab() {
                   </div>
                 )}
 
-                {/* Description + tour meta + YouTube — combined */}
+                {/* Description + tour meta + YouTube â€” combined */}
                 {(selected.description || (selected.photo_tour && selected.photo_tour.length > 0) || selected.youtube_url) && (
                   <div className="space-y-3">
                     {selected.description && (
@@ -2354,7 +1670,7 @@ function PendingRequestsTab() {
                     <div className="flex flex-wrap items-center gap-3 text-[11px] text-gray-500">
                       {selected.photo_tour && selected.photo_tour.length > 0 && (
                         <span>
-                          {selected.photo_tour.length} photo tour ·{" "}
+                          {selected.photo_tour.length} photo tour Â·{" "}
                           {new Set(selected.photo_tour.map(p => p.category)).size} categories
                         </span>
                       )}
@@ -2365,7 +1681,7 @@ function PendingRequestsTab() {
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1 text-red-600 hover:text-red-700 font-semibold"
                         >
-                          ▶ Watch video tour
+                          â–¶ Watch video tour
                         </a>
                       )}
                     </div>
@@ -2373,7 +1689,7 @@ function PendingRequestsTab() {
                 )}
               </div>
 
-              {/* RIGHT COLUMN — Partner track record + Reject reason */}
+              {/* RIGHT COLUMN â€” Partner track record + Reject reason */}
               <div className="space-y-5">
                 {/* Partner track record card */}
                 <div className="p-5 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/30">
@@ -2382,7 +1698,7 @@ function PendingRequestsTab() {
                       {(selected.partner_name || selected.partner_email).split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase()}
                     </div>
                     <div className="min-w-0">
-                      <p className="font-bold text-gray-900 dark:text-white truncate">{selected.partner_name || "—"}</p>
+                      <p className="font-bold text-gray-900 dark:text-white truncate">{selected.partner_name || "â€”"}</p>
                       <p className="text-xs text-gray-600 dark:text-gray-400 truncate">{selected.partner_email}</p>
                     </div>
                   </div>
@@ -2403,7 +1719,7 @@ function PendingRequestsTab() {
                     <div className="flex justify-between text-xs">
                       <span className="text-gray-500 dark:text-gray-400">Account status</span>
                       <span className={`font-bold uppercase ${selected.partner_status === "active" ? "text-emerald-600" : "text-amber-600"}`}>
-                        {selected.partner_status || "—"}
+                        {selected.partner_status || "â€”"}
                       </span>
                     </div>
                     {selected.partner_joined_at && (
@@ -2456,11 +1772,11 @@ function PendingRequestsTab() {
                     <AlertCircle className="w-3.5 h-3.5" /> Reviewer Checklist
                   </p>
                   <ul className="text-xs text-gray-700 dark:text-gray-300 space-y-1.5">
-                    <li>• Photos clear and high-resolution?</li>
-                    <li>• Description matches the photos?</li>
-                    <li>• Pricing reasonable for the type?</li>
-                    <li>• Required amenities listed?</li>
-                    <li>• Check-in / check-out times valid?</li>
+                    <li>â€¢ Photos clear and high-resolution?</li>
+                    <li>â€¢ Description matches the photos?</li>
+                    <li>â€¢ Pricing reasonable for the type?</li>
+                    <li>â€¢ Required amenities listed?</li>
+                    <li>â€¢ Check-in / check-out times valid?</li>
                   </ul>
                 </div>
 
@@ -2473,7 +1789,7 @@ function PendingRequestsTab() {
                       value={rejectReason}
                       onChange={(e) => setRejectReason(e.target.value)}
                       rows={5}
-                      placeholder="e.g. Photos are too dark — please resubmit with brighter lighting and at least 3 angles of each room."
+                      placeholder="e.g. Photos are too dark â€” please resubmit with brighter lighting and at least 3 angles of each room."
                       className="w-full px-3 py-2 rounded-lg border border-rose-300 dark:border-rose-700 bg-white dark:bg-slate-900 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-rose-400 outline-none"
                     />
                   </div>
@@ -2534,9 +1850,9 @@ const DrawerInfo = ({ label, value }: { label: string; value: string }) => (
   </div>
 );
 
-// Format DB time string "HH:MM:SS" → "9:00 AM"
+// Format DB time string "HH:MM:SS" â†’ "9:00 AM"
 const formatTime = (t?: string | null): string => {
-  if (!t) return "—";
+  if (!t) return "â€”";
   const [hStr, mStr] = t.split(":");
   const h = parseInt(hStr, 10);
   const m = mStr || "00";
@@ -2551,7 +1867,7 @@ const TimeRangeBox = ({ label, start, end }: { label: string; start?: string | n
     <p className="text-[10px] uppercase tracking-wide font-bold text-gray-500 dark:text-gray-400 mb-1.5">{label}</p>
     <div className="flex items-center gap-1.5 text-[12px] font-semibold text-gray-800 dark:text-gray-200">
       <span>{formatTime(start)}</span>
-      <span className="text-gray-400">→</span>
+      <span className="text-gray-400">â†’</span>
       <span>{formatTime(end)}</span>
     </div>
   </div>
@@ -2569,14 +1885,14 @@ const TimeCell = ({ label, start, end }: { label: string; start?: string | null;
   <div className="px-3 py-2.5 min-w-0">
     <p className="text-[10px] uppercase tracking-wide font-bold text-gray-400 dark:text-gray-500 truncate">{label}</p>
     <p className="text-[12px] font-semibold text-gray-900 dark:text-white mt-0.5">
-      {formatTime(start)} <span className="text-gray-400">→</span> {formatTime(end)}
+      {formatTime(start)} <span className="text-gray-400">â†’</span> {formatTime(end)}
     </p>
   </div>
 );
 
 
 /* =========================================
-   OVERVIEW TAB — real partner-wide stats
+   OVERVIEW TAB â€” real partner-wide stats
 ========================================= */
 function OverviewTab() {
   const { data, isLoading } = useGetPartnersOverviewQuery();
@@ -2585,7 +1901,7 @@ function OverviewTab() {
     return (
       <div className="bg-white dark:bg-[#181818] border border-gray-200 dark:border-white/10 rounded-2xl p-14 text-center">
         <Loader2 className="w-7 h-7 text-indigo-500 animate-spin mx-auto mb-3" />
-        <p className="text-gray-500 dark:text-gray-400">Loading overview…</p>
+        <p className="text-gray-500 dark:text-gray-400">Loading overviewâ€¦</p>
       </div>
     );
   }
@@ -2598,7 +1914,7 @@ function OverviewTab() {
     recent_activity: [] as Array<{ kind: string; title: string; partner: string | null; at: string }>,
   };
 
-  const peso = (n: number) => "₱" + (n || 0).toLocaleString("en-PH");
+  const peso = (n: number) => "â‚±" + (n || 0).toLocaleString("en-PH");
   const relTime = (iso: string) => {
     const d = new Date(iso);
     const diff = (Date.now() - d.getTime()) / 1000;
@@ -2650,7 +1966,7 @@ function OverviewTab() {
           icon={<FileText className="w-14 h-14 text-white" />}
           label="Bookings (30d)"
           value={String(ov.bookings.last_30_days)}
-          sub={`${ov.bookings.total} total · ${ov.bookings.completed} completed`}
+          sub={`${ov.bookings.total} total Â· ${ov.bookings.completed} completed`}
           gradient="from-emerald-500 to-green-700"
           fg="text-green-100"
           fgSub="text-green-200"
@@ -2689,7 +2005,7 @@ function OverviewTab() {
                   <div className="flex items-center gap-3 min-w-0">
                     <div className={`w-3 h-3 rounded-full ${color} flex-shrink-0`} />
                     <p className="text-gray-700 dark:text-gray-200 font-medium truncate">
-                      {a.title} {a.partner ? <span className="text-gray-500 font-normal">— {a.partner}</span> : null}
+                      {a.title} {a.partner ? <span className="text-gray-500 font-normal">â€” {a.partner}</span> : null}
                     </p>
                   </div>
                   <span className="text-gray-500 dark:text-gray-400 text-sm whitespace-nowrap flex-shrink-0 ml-3">
@@ -2719,7 +2035,7 @@ const StatCard = ({ icon, label, value, sub, gradient, fg, fgSub }: {
 
 
 /* =========================================
-   LISTINGS TAB — master-detail layout
+   LISTINGS TAB â€” master-detail layout
    Left: scrollable list of partners
    Right: selected partner's rooms with hero
 ========================================= */
@@ -2774,7 +2090,7 @@ function ListingsTab() {
   }, [filtered, selectedPartnerId]);
 
   const selectedPartner = filtered.find((p) => p.partner_id === selectedPartnerId) || filtered[0] || null;
-  const peso = (n: number) => "₱" + (n || 0).toLocaleString("en-PH");
+  const peso = (n: number) => "â‚±" + (n || 0).toLocaleString("en-PH");
 
   return (
     <div className="space-y-5">
@@ -2783,7 +2099,7 @@ function ListingsTab() {
         <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
         <input
           type="text"
-          placeholder="Search by partner name, email, or room name…"
+          placeholder="Search by partner name, email, or room nameâ€¦"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           aria-label="Search partners"
@@ -2795,7 +2111,7 @@ function ListingsTab() {
       {isLoading ? (
         <div className="bg-white dark:bg-[#181818] border border-gray-200 dark:border-white/10 rounded-2xl p-14 text-center">
           <Loader2 className="w-7 h-7 text-brand-primary animate-spin mx-auto mb-3" />
-          <p className="text-gray-500 dark:text-gray-400">Loading partners…</p>
+          <p className="text-gray-500 dark:text-gray-400">Loading partnersâ€¦</p>
         </div>
       ) : filtered.length === 0 ? (
         <div className="bg-white dark:bg-[#181818] border border-gray-200 dark:border-white/10 rounded-2xl p-14 text-center">
@@ -2809,12 +2125,12 @@ function ListingsTab() {
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-5 min-h-[640px]">
-          {/* LEFT — partner list */}
+          {/* LEFT â€” partner list */}
           <div className="bg-white dark:bg-[#181818] border border-gray-200 dark:border-white/10 rounded-2xl overflow-hidden flex flex-col max-h-[760px]">
             <div className="p-4 border-b border-gray-100 dark:border-white/5 flex-shrink-0">
               <h3 className="font-bold text-gray-900 dark:text-white text-sm">Partners</h3>
               <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
-                {filtered.length} active · select to view details
+                {filtered.length} active Â· select to view details
               </p>
             </div>
             <div className="flex-1 overflow-y-auto">
@@ -2846,8 +2162,8 @@ function ListingsTab() {
                       </div>
                       <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate">
                         {p.rooms.length} room{p.rooms.length === 1 ? "" : "s"}
-                        {liveCount > 0 && <> · <span className="text-emerald-600 dark:text-emerald-400">{liveCount} live</span></>}
-                        {pendingCount > 0 && <> · <span className="text-amber-600 dark:text-amber-400">{pendingCount} pending</span></>}
+                        {liveCount > 0 && <> Â· <span className="text-emerald-600 dark:text-emerald-400">{liveCount} live</span></>}
+                        {pendingCount > 0 && <> Â· <span className="text-amber-600 dark:text-amber-400">{pendingCount} pending</span></>}
                       </div>
                     </div>
                   </button>
@@ -2856,7 +2172,7 @@ function ListingsTab() {
             </div>
           </div>
 
-          {/* RIGHT — selected partner detail */}
+          {/* RIGHT â€” selected partner detail */}
           <div className="bg-white dark:bg-[#181818] border border-gray-200 dark:border-white/10 rounded-2xl overflow-hidden flex flex-col max-h-[760px]">
             {!selectedPartner ? (
               <div className="flex-1 grid place-items-center text-gray-400 text-sm">
@@ -2949,7 +2265,7 @@ function PartnerDetailPane({ partner, peso }: PartnerDetailPaneProps) {
             <div>
               <h3 className="text-2xl font-bold text-white drop-shadow">{selectedRoom.haven_name}</h3>
               <p className="text-sm text-white/90 mt-1">
-                {[selectedRoom.tower, selectedRoom.floor].filter(Boolean).join(" · ") || "—"}
+                {[selectedRoom.tower, selectedRoom.floor].filter(Boolean).join(" Â· ") || "â€”"}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -3105,7 +2421,7 @@ function RoomDetailsModal({ room, peso, onClose }: RoomDetailsModalProps) {
             <div>
               <h2 className="text-2xl font-bold text-white drop-shadow">{room.haven_name}</h2>
               <p className="text-sm text-white/90 mt-0.5">
-                {[room.tower, room.floor].filter(Boolean).join(" · ") || "—"}
+                {[room.tower, room.floor].filter(Boolean).join(" Â· ") || "â€”"}
               </p>
             </div>
             <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold ${statusConfig.bg} ${statusConfig.text}`}>
@@ -3115,9 +2431,9 @@ function RoomDetailsModal({ room, peso, onClose }: RoomDetailsModalProps) {
           </div>
         </div>
 
-        {/* Body — 2 column layout */}
+        {/* Body â€” 2 column layout */}
         <div className="flex-1 overflow-y-auto p-6 grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-5">
-          {/* LEFT — Listing details */}
+          {/* LEFT â€” Listing details */}
           <div className="space-y-4">
             {/* Gallery (compact thumbnails) */}
             {room.images && room.images.length > 1 && (
@@ -3135,17 +2451,17 @@ function RoomDetailsModal({ room, peso, onClose }: RoomDetailsModalProps) {
               </div>
             )}
 
-            {/* Quick facts — single grouped card */}
+            {/* Quick facts â€” single grouped card */}
             <div className="rounded-2xl border border-gray-200 dark:border-white/10 overflow-hidden">
               <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-gray-100 dark:divide-white/5">
-                <FactCell label="Type" value={room.view_type || "—"} />
-                <FactCell label="Sleeps" value={String(room.capacity || "—")} />
-                <FactCell label="Beds" value={room.beds || "—"} />
-                <FactCell label="Room size" value={room.room_size ? `${room.room_size} sqm` : "—"} />
+                <FactCell label="Type" value={room.view_type || "â€”"} />
+                <FactCell label="Sleeps" value={String(room.capacity || "â€”")} />
+                <FactCell label="Beds" value={room.beds || "â€”"} />
+                <FactCell label="Room size" value={room.room_size ? `${room.room_size} sqm` : "â€”"} />
               </div>
             </div>
 
-            {/* Pricing — single row */}
+            {/* Pricing â€” single row */}
             <div className="rounded-2xl border border-gray-200 dark:border-white/10 overflow-hidden">
               <div className="px-4 py-2 bg-gray-50 dark:bg-white/5 border-b border-gray-100 dark:border-white/5">
                 <p className="text-[10px] uppercase tracking-wider font-bold text-gray-500 dark:text-gray-400">Pricing</p>
@@ -3158,7 +2474,7 @@ function RoomDetailsModal({ room, peso, onClose }: RoomDetailsModalProps) {
               </div>
             </div>
 
-            {/* Check-in / out — single row */}
+            {/* Check-in / out â€” single row */}
             <div className="rounded-2xl border border-gray-200 dark:border-white/10 overflow-hidden">
               <div className="px-4 py-2 bg-gray-50 dark:bg-white/5 border-b border-gray-100 dark:border-white/5">
                 <p className="text-[10px] uppercase tracking-wider font-bold text-gray-500 dark:text-gray-400">Check-in / out</p>
@@ -3170,11 +2486,11 @@ function RoomDetailsModal({ room, peso, onClose }: RoomDetailsModalProps) {
               </div>
             </div>
 
-            {/* Amenities — compact chips */}
+            {/* Amenities â€” compact chips */}
             {room.amenities && Object.keys(room.amenities).filter((k) => room.amenities![k]).length > 0 && (
               <div>
                 <p className="text-[10px] uppercase tracking-wider font-bold text-gray-500 dark:text-gray-400 mb-2">
-                  Amenities · {Object.keys(room.amenities).filter((k) => room.amenities![k]).length}
+                  Amenities Â· {Object.keys(room.amenities).filter((k) => room.amenities![k]).length}
                 </p>
                 <div className="flex flex-wrap gap-1">
                   {Object.keys(room.amenities)
@@ -3188,7 +2504,7 @@ function RoomDetailsModal({ room, peso, onClose }: RoomDetailsModalProps) {
               </div>
             )}
 
-            {/* Description + Photo tour + YouTube — combined extras row */}
+            {/* Description + Photo tour + YouTube â€” combined extras row */}
             {(room.description || (room.photo_tour && room.photo_tour.length > 0) || room.youtube_url) && (
               <div className="space-y-3">
                 {room.description && (
@@ -3200,7 +2516,7 @@ function RoomDetailsModal({ room, peso, onClose }: RoomDetailsModalProps) {
                 <div className="flex flex-wrap items-center gap-3 text-[11px] text-gray-500">
                   {room.photo_tour && room.photo_tour.length > 0 && (
                     <span>
-                      {room.photo_tour.length} photo tour ·{" "}
+                      {room.photo_tour.length} photo tour Â·{" "}
                       {Array.from(new Set(room.photo_tour.map((p) => p.category))).length} categories
                     </span>
                   )}
@@ -3211,7 +2527,7 @@ function RoomDetailsModal({ room, peso, onClose }: RoomDetailsModalProps) {
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1 text-red-600 hover:text-red-700 font-semibold"
                     >
-                      ▶ Watch video tour
+                      â–¶ Watch video tour
                     </a>
                   )}
                 </div>
@@ -3219,7 +2535,7 @@ function RoomDetailsModal({ room, peso, onClose }: RoomDetailsModalProps) {
             )}
           </div>
 
-          {/* RIGHT — Partner info + rejection reason */}
+          {/* RIGHT â€” Partner info + rejection reason */}
           <div className="space-y-5">
             <div className="p-5 rounded-2xl bg-brand-primary/5 dark:bg-brand-primary/10 border border-brand-primary/20">
               <div className="flex items-center gap-3 mb-4">
@@ -3227,7 +2543,7 @@ function RoomDetailsModal({ room, peso, onClose }: RoomDetailsModalProps) {
                   {(room.partner_name || room.partner_email).split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase()}
                 </div>
                 <div className="min-w-0">
-                  <p className="font-bold text-gray-900 dark:text-white truncate">{room.partner_name || "—"}</p>
+                  <p className="font-bold text-gray-900 dark:text-white truncate">{room.partner_name || "â€”"}</p>
                   <p className="text-xs text-gray-600 dark:text-gray-400 truncate">{room.partner_email}</p>
                 </div>
               </div>
@@ -3247,7 +2563,7 @@ function RoomDetailsModal({ room, peso, onClose }: RoomDetailsModalProps) {
                 <div className="flex justify-between text-xs">
                   <span className="text-gray-500 dark:text-gray-400">Account status</span>
                   <span className={`font-bold uppercase ${room.partner_status === "active" ? "text-emerald-600" : "text-amber-600"}`}>
-                    {room.partner_status || "—"}
+                    {room.partner_status || "â€”"}
                   </span>
                 </div>
                 {room.partner_joined_at && (
@@ -3345,191 +2661,7 @@ const NumStat = ({ value, label }: { value: number | string; label: string }) =>
 
 
 /* =========================================
-   MESSAGES TAB — real partner threads, reply as staff
-========================================= */
-function MessagesTab() {
-  const { data: threads = [], isLoading } = useGetPartnerThreadsQuery();
-  const [activeThread, setActiveThread] = useState<AdminPartnerThread | null>(null);
-  const [replyText, setReplyText] = useState("");
-  const [sendReply, { isLoading: isSending }] = useSendStaffReplyMutation();
-
-  // Auto-select first thread
-  React.useEffect(() => {
-    if (!activeThread && threads.length > 0) setActiveThread(threads[0]);
-  }, [threads, activeThread]);
-
-  const { data: threadMessages = [] } = useGetPartnerThreadMessagesQuery(activeThread?.id ?? "", {
-    skip: !activeThread,
-  });
-
-  const handleSend = async () => {
-    if (!activeThread || !replyText.trim()) return;
-    try {
-      await sendReply({ thread_id: activeThread.id, body: replyText.trim() }).unwrap();
-      setReplyText("");
-      toast.success("Reply sent");
-    } catch {
-      toast.error("Failed to send reply");
-    }
-  };
-
-  const formatTime = (iso: string) =>
-    new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-
-  return (
-    <div className="h-[78vh] bg-white dark:bg-[#18191A] rounded-3xl border border-gray-200 dark:border-[#2A2D31] overflow-hidden flex">
-      {/* LEFT — thread list */}
-      <aside className="w-[320px] border-r border-gray-200 dark:border-[#2A2D31] flex flex-col bg-[#F8F8F8] dark:bg-[#1E1F22]">
-        <div className="px-5 py-4 border-b border-gray-200 dark:border-[#2A2D31]">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">Partner Inbox</h2>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-            {threads.length} conversation{threads.length === 1 ? "" : "s"}
-          </p>
-        </div>
-        <div className="flex-1 overflow-y-auto">
-          {isLoading ? (
-            <div className="p-6 text-center">
-              <Loader2 className="w-5 h-5 text-indigo-500 animate-spin mx-auto" />
-            </div>
-          ) : threads.length === 0 ? (
-            <p className="px-5 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
-              No partner conversations yet.
-            </p>
-          ) : (
-            threads.map((t: AdminPartnerThread) => {
-              const isActive = activeThread?.id === t.id;
-              const initials = (t.partner_name || t.partner_email || "P")
-                .split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase();
-              return (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => setActiveThread(t)}
-                  className={`w-full px-4 py-3 flex items-start gap-3 text-left border-b border-black/5 dark:border-white/5 transition ${
-                    isActive
-                      ? "bg-white dark:bg-[#2A2D31]"
-                      : "hover:bg-[#ECECEC] dark:hover:bg-[#2A2D31]"
-                  }`}
-                >
-                  <div className="w-11 h-11 rounded-full bg-indigo-500 text-white grid place-items-center font-bold text-sm flex-shrink-0">
-                    {initials}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-semibold text-sm text-gray-900 dark:text-white truncate">
-                        {t.partner_name || t.partner_email}
-                      </span>
-                      {t.unread_count > 0 && (
-                        <span className="text-[10px] bg-indigo-500 text-white rounded-full px-2 py-0.5 font-bold">
-                          {t.unread_count}
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-[11px] text-gray-500 dark:text-gray-400 mb-0.5">
-                      {t.role_label || t.thread_key}
-                    </div>
-                    <p className="text-xs text-gray-600 dark:text-gray-300 truncate">
-                      {t.last_message_preview || "—"}
-                    </p>
-                  </div>
-                </button>
-              );
-            })
-          )}
-        </div>
-      </aside>
-
-      {/* RIGHT — conversation */}
-      <div className="flex-1 flex flex-col bg-white dark:bg-[#18191A] min-w-0">
-        {!activeThread ? (
-          <div className="flex-1 grid place-items-center text-gray-400 text-sm">
-            Select a conversation
-          </div>
-        ) : (
-          <>
-            <header className="h-[72px] px-5 border-b border-gray-200 dark:border-[#2A2D31] flex items-center gap-3">
-              <div className="w-11 h-11 rounded-full bg-indigo-500 text-white grid place-items-center font-bold">
-                {(activeThread.partner_name || activeThread.partner_email)?.[0]?.toUpperCase()}
-              </div>
-              <div className="min-w-0">
-                <h3 className="font-bold text-gray-900 dark:text-white truncate">
-                  {activeThread.partner_name || activeThread.partner_email}
-                </h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                  {activeThread.partner_email} · {activeThread.role_label || activeThread.thread_key}
-                </p>
-              </div>
-            </header>
-
-            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3 bg-[#FAFAFA] dark:bg-[#18191A]">
-              {threadMessages.length === 0 ? (
-                <p className="text-center text-sm text-gray-400 py-8">No messages yet.</p>
-              ) : (
-                threadMessages.map((m) => {
-                  const fromStaff = m.sender === "staff";
-                  return (
-                    <div key={m.id} className={`flex ${fromStaff ? "justify-end" : "justify-start"}`}>
-                      <div className="max-w-[70%]">
-                        {!fromStaff && m.sender_name && (
-                          <span className="text-[10px] text-gray-500 dark:text-gray-400 px-1 mb-0.5 block">
-                            {m.sender_name}
-                          </span>
-                        )}
-                        <div
-                          className={`px-4 py-2.5 rounded-2xl text-sm break-words shadow-sm ${
-                            fromStaff
-                              ? "bg-indigo-500 text-white rounded-br-md"
-                              : "bg-white dark:bg-[#2A2D31] text-gray-800 dark:text-white border border-gray-200 dark:border-white/10 rounded-bl-md"
-                          }`}
-                        >
-                          {m.body}
-                        </div>
-                        <div className={`text-[10px] text-gray-400 mt-1 ${fromStaff ? "text-right" : "text-left"}`}>
-                          {formatTime(m.created_at)}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-
-            <div className="px-5 py-4 border-t border-gray-200 dark:border-[#2A2D31] bg-white dark:bg-[#1E1F22] flex items-center gap-3">
-              <textarea
-                value={replyText}
-                onChange={(e) => setReplyText(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSend();
-                  }
-                }}
-                rows={1}
-                placeholder="Reply to partner…"
-                aria-label="Reply message"
-                className="flex-1 resize-none rounded-full bg-gray-100 dark:bg-[#2A2D31] px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[44px] max-h-[140px]"
-              />
-              <button
-                type="button"
-                onClick={handleSend}
-                disabled={isSending || !replyText.trim()}
-                title="Send"
-                aria-label="Send"
-                className="w-11 h-11 rounded-full bg-indigo-500 hover:bg-indigo-600 text-white grid place-items-center transition active:scale-95 disabled:opacity-50"
-              >
-                {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-
-/* =========================================
-   DOCS & ANALYTICS TAB — real aggregated metrics
+   DOCS & ANALYTICS TAB â€” real aggregated metrics
 ========================================= */
 function DocsAnalyticsTab() {
   const { data: ov, isLoading } = useGetPartnersOverviewQuery();
@@ -3538,12 +2670,12 @@ function DocsAnalyticsTab() {
     return (
       <div className="bg-white dark:bg-[#181818] border border-gray-200 dark:border-white/10 rounded-2xl p-14 text-center">
         <Loader2 className="w-7 h-7 text-indigo-500 animate-spin mx-auto mb-3" />
-        <p className="text-gray-500 dark:text-gray-400">Loading analytics…</p>
+        <p className="text-gray-500 dark:text-gray-400">Loading analyticsâ€¦</p>
       </div>
     );
   }
 
-  const peso = (n: number) => "₱" + (n || 0).toLocaleString("en-PH");
+  const peso = (n: number) => "â‚±" + (n || 0).toLocaleString("en-PH");
   const totalRevenue = ov?.bookings.gross_revenue || 0;
   const partnerEarnings = ov?.financials.partner_earnings || 0;
   const platformShare = ov?.financials.platform_commission || 0;
@@ -3641,7 +2773,7 @@ function DocsAnalyticsTab() {
           {[
             { title: "Partnership agreement template", desc: "Reusable contract template for new partner onboarding", badge: "PDF" },
             { title: "Platform guidelines & policies", desc: "Standards partners must follow", badge: "PDF" },
-            { title: "Commission & payout structure", desc: `${ov?.financials.avg_commission_rate.toFixed(1)}% platform fee · payout 15th & 30th`, badge: "Policy" },
+            { title: "Commission & payout structure", desc: `${ov?.financials.avg_commission_rate.toFixed(1)}% platform fee Â· payout 15th & 30th`, badge: "Policy" },
           ].map((doc, i) => (
             <div key={i} className="w-full flex items-center justify-between gap-4 px-5 py-4">
               <div className="flex items-center gap-4 min-w-0">
@@ -3678,7 +2810,7 @@ const AllocationBar = ({ label, value, pct, color }: { label: string; value: str
       <div className="flex items-center justify-between mb-2">
         <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</span>
         <span className="text-sm font-semibold text-gray-900 dark:text-white">
-          {value} <span className="text-gray-500 font-normal">· {pct}%</span>
+          {value} <span className="text-gray-500 font-normal">Â· {pct}%</span>
         </span>
       </div>
       <div className="h-2 rounded-full bg-gray-200 dark:bg-white/10 overflow-hidden">

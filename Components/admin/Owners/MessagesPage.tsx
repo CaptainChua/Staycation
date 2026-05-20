@@ -26,6 +26,7 @@ interface Employee {
   last_name?: string;
   email?: string;
   employment_id?: string;
+  role?: string;
   profile_image_url?: string;
 }
 
@@ -117,7 +118,10 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
   const userId = (session?.user as { id?: string })?.id;
 
   const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState("all");
   const [draft, setDraft] = useState("");
+
+  const userRole = ((session?.user as { id?: string; role?: string })?.role ?? "").toLowerCase();
   const [isNewMessageModalOpen, setIsNewMessageModalOpen] = useState(false);
   const [showMobileChat, setShowMobileChat] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -205,6 +209,14 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
     return map;
   }, [employees]);
 
+  const employeeRoleById = useMemo(() => {
+    const map: Record<string, string> = {};
+    employees.forEach((emp: Employee) => {
+      if (emp?.id) map[emp.id] = (emp.role ?? "").toLowerCase();
+    });
+    return map;
+  }, [employees]);
+
   useEffect(() => {
     if (activeId && userId) {
       markAsRead({ conversation_id: activeId, user_id: userId });
@@ -259,17 +271,39 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
   const showSkeletonConversations = isLoadingConversations && conversations.length === 0;
   const showSkeletonMessages = isLoadingMessages && messages.length === 0;
 
+  const roleFilterOptions = [
+    { label: "All", value: "all" },
+    { label: "User", value: "user" },
+    { label: "CSR", value: "csr" },
+    ...(userRole !== "owner" ? [{ label: "Admin", value: "owner" }] : []),
+    { label: "Cleaners", value: "cleaner" },
+    { label: "Partner", value: "partner" },
+    { label: "Walk-in Staff", value: "walkinstaff" },
+  ];
+
+  const getConversationRole = useCallback(
+    (c: Conversation): string => {
+      if (c.type === "guest") return "user";
+      const otherIds = (c.participant_ids || []).filter((id) => id !== userId);
+      const roles = otherIds.map((id) => employeeRoleById[id]).filter(Boolean);
+      return roles[0] ?? "internal";
+    },
+    [userId, employeeRoleById]
+  );
+
   const filteredConversations = useMemo(() => {
     const term = search.trim().toLowerCase();
-    if (!term) return conversations;
     return conversations.filter((c: Conversation) => {
-      return (
+      const matchesSearch =
+        !term ||
         c.name?.toLowerCase().includes(term) ||
         (c.last_message && c.last_message.toLowerCase().includes(term)) ||
-        c.type.toLowerCase().includes(term)
-      );
+        c.type.toLowerCase().includes(term);
+      const matchesRole =
+        roleFilter === "all" || getConversationRole(c) === roleFilter;
+      return matchesSearch && matchesRole;
     });
-  }, [search, conversations]);
+  }, [search, roleFilter, conversations, getConversationRole]);
 
   const handleSendMessage = async () => {
     const text = draft.trim();
@@ -392,7 +426,7 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
               </div>
             </div>
 
-            <div className="p-4">
+            <div className="p-4 space-y-2">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
@@ -401,6 +435,22 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                   placeholder="Search Messenger"
                   className="w-full pl-10 pr-3 py-2.5 rounded-full bg-gray-100 dark:bg-gray-800 border border-gray-100 dark:border-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:bg-white dark:focus:bg-gray-900 focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary/30"
                 />
+              </div>
+              <div className="flex gap-1.5 overflow-x-auto pb-0.5 scrollbar-hide">
+                {roleFilterOptions.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setRoleFilter(opt.value)}
+                    className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                      roleFilter === opt.value
+                        ? "bg-brand-primary text-white"
+                        : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
               </div>
             </div>
 
