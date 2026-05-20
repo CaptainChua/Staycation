@@ -13,6 +13,8 @@ import {
   User,
   Home,
   AlertCircle,
+  Camera,
+  Upload,
 } from "lucide-react";
 import React, { useEffect, useState, useCallback } from "react";
 import toast from "react-hot-toast";
@@ -45,20 +47,25 @@ type Haven = {
 interface Props {
   /** Passed from MySchedulePage when "Start Cleaning" is clicked */
   initialHavenId?: string | null;
+  /** booking_uuid from CleaningTask — scopes the checklist to this specific booking */
+  initialBookingId?: string | null;
   lang?: Lang;
 }
 
-export default function CleaningChecklistPage({ initialHavenId, lang = "en" }: Props = {}) {
+export default function CleaningChecklistPage({ initialHavenId, initialBookingId, lang = "en" }: Props = {}) {
   const t = useTranslations(lang);
   const [havens, setHavens] = useState<Haven[]>([]);
   const [selectedHavenId, setSelectedHavenId] = useState<string | null>(null);
-  const [isHavensLoading, setIsHavensLoading] = useState<boolean>(false);
+  const [, setIsHavensLoading] = useState<boolean>(false);
   const [selectedHaven, setSelectedHaven] = useState<Haven | null>(null);
 
   const [checklist, setChecklist] = useState<Category[]>([]);
   const [checklistId, setChecklistId] = useState<string | null>(null);
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [categoryPhotos, setCategoryPhotos] = useState<Record<string, string>>({});
+  const [uploadingCategory, setUploadingCategory] = useState<string | null>(null);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
   const iconMap = {
     Bedroom: BedDouble,
@@ -84,19 +91,27 @@ export default function CleaningChecklistPage({ initialHavenId, lang = "en" }: P
         if (Array.isArray(data)) {
           setHavens(data);
           if (data.length > 0) {
-            // Priority: initialHavenId prop → currently selected → first in list
-            const preferred =
-              initialHavenId
-                ? data.find((h: Haven) => String(h.id) === String(initialHavenId))
+            if (initialHavenId) {
+              // Always trust the haven UUID passed from My Schedule.
+              // Haven 5 may be the only "checked-out needing cleaning" haven in the
+              // main list, but the clicked haven (via include_id) is prepended at
+              // position 0 by the API.  Use initialHavenId directly so the checklist
+              // is always fetched for the correct haven regardless of the list order.
+              const exactMatch = data.find((h: Haven) => String(h.id) === String(initialHavenId));
+              // data[0] is the include_id-matched haven (unshifted to front by API)
+              const havenData = exactMatch ?? data[0];
+              setSelectedHavenId(initialHavenId);
+              setSelectedHaven(havenData);
+            } else {
+              // Direct tab navigation (no specific haven selected) — use currently
+              // selected haven if still in list, otherwise the first available one.
+              const stillExists = selectedHavenId
+                ? data.find((h: Haven) => h.id === selectedHavenId)
                 : null;
-
-            const stillExists = !preferred && selectedHavenId
-              ? data.find((h: Haven) => h.id === selectedHavenId)
-              : null;
-
-            const target = preferred ?? stillExists ?? data[0];
-            setSelectedHavenId(target.id);
-            setSelectedHaven(target);
+              const target = stillExists ?? data[0];
+              setSelectedHavenId(target.id);
+              setSelectedHaven(target);
+            }
           } else {
             setSelectedHavenId(null);
             setSelectedHaven(null);
@@ -117,28 +132,29 @@ export default function CleaningChecklistPage({ initialHavenId, lang = "en" }: P
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [initialHavenId]);
 
-  // Fetch checklist for a haven
+  // Fetch checklist for a haven (optionally scoped to a specific booking)
   const fetchChecklist = useCallback(
-    async (havenId: string) => {
+    async (havenId: string, bookingId?: string | null) => {
       setIsLoading(true);
       try {
-        const res = await fetch(
-          `/api/admin/cleaners?haven_id=${encodeURIComponent(havenId)}`,
-          {
+        let apiUrl = `/api/admin/cleaners?haven_id=${encodeURIComponent(havenId)}`;
+        if (bookingId) apiUrl += `&booking_id=${encodeURIComponent(bookingId)}`;
+        const res = await fetch(apiUrl, {
             cache: "no-store",
-          },
-        );
+          });
         const payload = await res.json();
         if (res.ok && payload.success && payload.data?.checklist) {
           const { checklist } = payload.data;
           setChecklistId(checklist.id);
           setChecklist(checklist.categories || []);
-          // Use haven info if the API returns it alongside the checklist
+          // Update haven info only when not already set from include_id response
           if (payload.data.haven) {
             setSelectedHaven(payload.data.haven);
-          } else {
+          } else if (!initialHavenId) {
+            // Only fall back to the havens list when no specific haven was passed in;
+            // otherwise the correct haven data is already in selectedHaven.
             const found = havens.find((h) => h.id === checklist.haven_id);
             if (found) setSelectedHaven(found);
           }
@@ -158,8 +174,60 @@ export default function CleaningChecklistPage({ initialHavenId, lang = "en" }: P
     [havens]
   );
 
-  // Separately fetch haven info for the booking card (in case checklist endpoint doesn't return it)
+  const fetchPhotos = useCallback(async (checklistId: string) => {
+    try {
+      const res = await fetch(
+        `/api/admin/cleaners/checklist-photos?checklist_id=${encodeURIComponent(checklistId)}`,
+        { cache: "no-store" },
+      );
+      const payload = await res.json();
+      if (res.ok && payload.success) {
+        setCategoryPhotos(payload.data || {});
+      }
+    } catch {
+      // non-fatal — photos just won't preload
+    }
+  }, []);
+
+  const handlePhotoChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>, categoryName: string) => {
+      const file = e.target.files?.[0];
+      e.target.value = "";
+      if (!file || !checklistId) return;
+
+      setUploadingCategory(categoryName);
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("checklist_id", checklistId);
+        formData.append("category", categoryName);
+
+        const res = await fetch("/api/admin/cleaners/checklist-photos", {
+          method: "POST",
+          body: formData,
+        });
+        const payload = await res.json();
+        if (!res.ok || !payload.success) {
+          throw new Error(payload.error || "Upload failed");
+        }
+        setCategoryPhotos((prev) => ({ ...prev, [categoryName]: payload.url }));
+        toast.success(t.photoSaved);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        toast.error(message || "Upload failed");
+      } finally {
+        setUploadingCategory(null);
+      }
+    },
+    [checklistId, t.photoSaved],
+  );
+
+  // Separately fetch haven info for the booking card (only used when no initialHavenId
+  // was provided, i.e., direct tab navigation).  When initialHavenId IS provided, the
+  // haven data is already set from the include_id response and we must NOT overwrite it
+  // with the main havens list which may not contain the upcoming haven.
   const fetchHavenInfo = useCallback(async (havenId: string) => {
+    if (initialHavenId) return; // haven info already set from include_id response
     try {
       const res = await fetch(`/api/admin/cleaners/havens`, { cache: "no-store" });
       const data = await res.json();
@@ -170,18 +238,27 @@ export default function CleaningChecklistPage({ initialHavenId, lang = "en" }: P
     } catch {
       // non-fatal — booking info card just won't show
     }
-  }, []);
+  }, [initialHavenId]);
 
   useEffect(() => {
     if (selectedHavenId) {
-      fetchChecklist(selectedHavenId);
+      fetchChecklist(selectedHavenId, initialBookingId);
       fetchHavenInfo(selectedHavenId);
     } else {
       setChecklist([]);
       setChecklistId(null);
       setSelectedHaven(null);
     }
-  }, [selectedHavenId, fetchChecklist, fetchHavenInfo]);
+  }, [selectedHavenId, initialBookingId, fetchChecklist, fetchHavenInfo]);
+
+  useEffect(() => {
+    if (checklistId) {
+      fetchPhotos(checklistId);
+    } else {
+      setCategoryPhotos({});
+    }
+  }, [checklistId, fetchPhotos]);
+
 
   const handleHavenChange = (havenId: string | null) => {
     setSelectedHavenId(havenId);
@@ -242,7 +319,6 @@ export default function CleaningChecklistPage({ initialHavenId, lang = "en" }: P
 
   const toggleTask = async (taskId: string) => {
     let newCompleted = false;
-
     setChecklist((prev) =>
       prev.map((category: Category) => ({
         ...category,
@@ -255,7 +331,6 @@ export default function CleaningChecklistPage({ initialHavenId, lang = "en" }: P
         }),
       })),
     );
-
     try {
       const res = await fetch("/api/admin/cleaners", {
         method: "PATCH",
@@ -263,41 +338,15 @@ export default function CleaningChecklistPage({ initialHavenId, lang = "en" }: P
         body: JSON.stringify({ task_id: taskId, completed: newCompleted }),
       });
       const payload = await res.json();
-      if (!res.ok) {
-        throw new Error(payload?.error || "Failed to update task");
-      }
-
-      const returnedTask = payload?.data?.task;
-      if (
-        returnedTask &&
-        returnedTask.checklist_id &&
-        returnedTask.checklist_id !== checklistId
-      ) {
-        if (initialHavenId) {
-          await fetchChecklist(initialHavenId);
-          toast.success("Task updated; checklist refreshed (task moved to latest)");
-        } else {
-          toast.success("Task updated");
-        }
-        return;
-      }
-
+      if (!res.ok) throw new Error(payload?.error || "Failed to update task");
       toast.success("Task updated");
     } catch (err) {
       console.error("Failed to update task:", err);
       const message = err instanceof Error ? err.message : String(err);
       toast.error(message || "Failed to update task");
-      if (initialHavenId) fetchChecklist(initialHavenId);
+      if (selectedHavenId) fetchChecklist(selectedHavenId, initialBookingId);
     }
   };
-
-  const totalTasks = checklist.reduce((acc, cat) => acc + cat.tasks.length, 0);
-  const completedTasks = checklist.reduce(
-    (acc, cat: Category) => acc + cat.tasks.filter((t: Task) => t.completed).length,
-    0,
-  );
-  const progress = totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
-  const canComplete = progress === 100;
 
   // Empty / no task selected — shown when navigating directly to the tab without clicking Start Cleaning
   if (!initialHavenId && !isLoading) {
@@ -390,34 +439,6 @@ export default function CleaningChecklistPage({ initialHavenId, lang = "en" }: P
         </div>
       )}
 
-      {/* Progress Overview */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-4 sm:p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">
-              {t.overallProgress}
-            </h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              <span className="font-semibold text-brand-primary text-base">
-                {completedTasks}/{totalTasks}
-              </span>{" "}
-              {t.tasksCompleted}
-            </p>
-          </div>
-          <div className="text-right">
-            <p className="text-3xl font-bold text-brand-primary">{progress}%</p>
-          </div>
-        </div>
-        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
-          <div
-            className={`h-3 rounded-full transition-all duration-500 ${
-              progress === 100 ? "bg-green-500" : "bg-brand-primary"
-            }`}
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-      </div>
-
 
       {/* Checklist by Category */}
       <div className="space-y-4">
@@ -463,64 +484,121 @@ export default function CleaningChecklistPage({ initialHavenId, lang = "en" }: P
           checklist.map((category: Category) => {
             const CategoryIcon =
               (iconMap as Record<string, typeof Sparkles>)[category.category] ?? Sparkles;
-            const categoryCompleted = category.tasks.filter((t) => t.completed).length;
-            const categoryTotal = category.tasks.length;
-            const categoryProgress = Math.round(
-              (categoryCompleted / Math.max(1, categoryTotal)) * 100,
-            );
-
             return (
               <div
                 key={category.category}
                 className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-6"
               >
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="bg-brand-primary text-white p-3 rounded-lg">
-                      <CategoryIcon className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-gray-800 dark:text-gray-100">
-                        {category.category}
-                      </h3>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {t.ofCompleted(categoryCompleted, categoryTotal)}
-                      </p>
-                    </div>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="bg-brand-primary text-white p-3 rounded-lg">
+                    <CategoryIcon className="w-6 h-6" />
                   </div>
-                  <span className="text-sm font-bold text-brand-primary">
-                    {categoryProgress}%
-                  </span>
+                  <h3 className="font-bold text-gray-800 dark:text-gray-100">
+                    {category.category}
+                  </h3>
                 </div>
 
-                <div className="space-y-2">
-                  {category.tasks.map((task: Task) => (
-                    <div
-                      key={task.id}
-                      onClick={() => { if (!selectedHaven?.isUpcoming) toggleTask(task.id); }}
-                      className={`flex items-center gap-3 p-3 rounded-lg transition-all ${selectedHaven?.isUpcoming ? "cursor-not-allowed opacity-60" : "cursor-pointer"} ${
-                        task.completed
-                          ? "bg-green-50 dark:bg-green-900/20"
-                          : "bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600"
-                      }`}
-                    >
-                      {task.completed ? (
-                        <CheckCircle2 className="w-5 h-5 text-green-600" />
-                      ) : (
-                        <Circle className="w-5 h-5 text-gray-400" />
-                      )}
-                      <span
-                        className={`flex-1 text-sm ${
+                {/* Tasks — General only */}
+                {category.category === "General" && (
+                  <div className="space-y-2">
+                    {category.tasks.map((task: Task) => (
+                      <div
+                        key={task.id}
+                        onClick={() => { if (!selectedHaven?.isUpcoming) toggleTask(task.id); }}
+                        className={`flex items-center gap-3 p-3 rounded-lg transition-all ${selectedHaven?.isUpcoming ? "cursor-not-allowed opacity-60" : "cursor-pointer"} ${
                           task.completed
-                            ? "text-green-700 dark:text-green-400 line-through"
-                            : "text-gray-800 dark:text-gray-100"
+                            ? "bg-green-50 dark:bg-green-900/20"
+                            : "bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600"
                         }`}
                       >
-                        {task.task}
+                        {task.completed ? (
+                          <CheckCircle2 className="w-5 h-5 text-green-600" />
+                        ) : (
+                          <Circle className="w-5 h-5 text-gray-400" />
+                        )}
+                        <span
+                          className={`flex-1 text-sm ${
+                            task.completed
+                              ? "text-green-700 dark:text-green-400 line-through"
+                              : "text-gray-800 dark:text-gray-100"
+                          }`}
+                        >
+                          {task.task}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Photo proof — Bedroom, Bathroom, Kitchen, Living Room */}
+                {category.category !== "General" && (
+                  <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Camera className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                      <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                        {t.photoProof}
                       </span>
                     </div>
-                  ))}
-                </div>
+
+                    {categoryPhotos[category.category] && (
+                      <button
+                        type="button"
+                        onClick={() => setLightboxUrl(categoryPhotos[category.category])}
+                        className="mb-3 relative block group focus:outline-none"
+                        aria-label={`View ${category.category} photo`}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={categoryPhotos[category.category]}
+                          alt={`${category.category} proof`}
+                          className="w-32 h-32 object-cover rounded-lg border border-gray-200 dark:border-gray-600 group-hover:opacity-90 transition-opacity"
+                        />
+                        <span className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/30 rounded-lg">
+                          <span className="text-white text-xs font-semibold px-2 py-1 bg-black/50 rounded-md">
+                            {t.photoTapChange}
+                          </span>
+                        </span>
+                      </button>
+                    )}
+
+                    <input
+                      type="file"
+                      id={`upload-${category.category}`}
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => handlePhotoChange(e, category.category)}
+                    />
+                    <input
+                      type="file"
+                      id={`camera-${category.category}`}
+                      accept="image/*"
+                      capture="environment"
+                      className="hidden"
+                      onChange={(e) => handlePhotoChange(e, category.category)}
+                    />
+
+                    <div className="flex gap-2 flex-wrap">
+                      <button
+                        type="button"
+                        disabled={uploadingCategory === category.category || !!selectedHaven?.isUpcoming}
+                        onClick={() => document.getElementById(`camera-${category.category}`)?.click()}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <Camera className="w-3.5 h-3.5" />
+                        {uploadingCategory === category.category ? t.photoUploading : t.takePic}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={uploadingCategory === category.category || !!selectedHaven?.isUpcoming}
+                        onClick={() => document.getElementById(`upload-${category.category}`)?.click()}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <Upload className="w-3.5 h-3.5" />
+                        {uploadingCategory === category.category ? t.photoUploading : t.uploadPhoto}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -530,24 +608,12 @@ export default function CleaningChecklistPage({ initialHavenId, lang = "en" }: P
       {!selectedHaven?.isUpcoming && !isLoading && checklist.length > 0 && (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-4 flex flex-col sm:flex-row gap-3 items-center">
           <div className="flex-1 text-center sm:text-left">
-            {canComplete ? (
-              <div className="flex items-center gap-2 text-green-600 dark:text-green-400 font-semibold text-sm">
-                <CheckCircle2 className="w-5 h-5" />
-                {t.allDone}
-              </div>
-            ) : (
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                {t.autoSave} &nbsp;·&nbsp;{" "}
-                <span className="font-semibold text-brand-primary">
-                  {totalTasks - completedTasks} task{totalTasks - completedTasks !== 1 ? "s" : ""} remaining
-                </span>
-              </p>
-            )}
+            <p className="text-sm text-gray-500 dark:text-gray-400">{t.autoSave}</p>
           </div>
 
           <button
             type="button"
-            disabled={!canComplete || !checklistId}
+            disabled={!checklistId}
             onClick={async () => {
               try {
                 const res = await fetch("/api/admin/cleaners", {
@@ -569,15 +635,27 @@ export default function CleaningChecklistPage({ initialHavenId, lang = "en" }: P
                 toast.error(message || "Failed to submit checklist");
               }
             }}
-            className={`w-full sm:w-auto font-semibold rounded-lg px-6 py-2.5 transition-colors flex items-center justify-center gap-2 ${
-              canComplete
-                ? "bg-brand-primary text-white hover:bg-brand-primary/90"
-                : "bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed"
-            }`}
+            className="w-full sm:w-auto font-semibold rounded-lg px-6 py-2.5 transition-colors flex items-center justify-center gap-2 bg-brand-primary text-white hover:bg-brand-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <CheckCircle2 className="w-4 h-4" />
             {t.confirmFinish}
           </button>
+        </div>
+      )}
+
+      {/* Lightbox */}
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setLightboxUrl(null)}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={lightboxUrl}
+            alt="Photo proof"
+            className="max-w-full max-h-full rounded-lg shadow-2xl object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
         </div>
       )}
     </div>

@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(git mv:*)",
-      "Bash(git pull *)"
+      "Bash(git pull *)",
+      "Bash(node -e ' *)"
     ]
   }
 }

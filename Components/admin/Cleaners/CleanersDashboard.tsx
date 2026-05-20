@@ -304,6 +304,7 @@ useEffect(() => {
   }, [profileDropdownOpen]);
 
   const [checklistHavenId, setChecklistHavenId] = useState<string | null>(null);
+  const [checklistBookingId, setChecklistBookingId] = useState<string | null>(null);
 
   const navItems = [
     { id: "my-schedule", icon: Calendar, label: t.mySchedule, color: "text-indigo-500" },
@@ -325,21 +326,42 @@ useEffect(() => {
       case "my-schedule":
         return (
           <MySchedulePage
-            onNavigate={setPage}
-            onStartCleaning={(havenId) => {
+            onNavigate={(pg) => {
+              if (pg === "cleaning-checklist") {
+                setChecklistHavenId(null);
+                setChecklistBookingId(null);
+              }
+              setPage(pg);
+            }}
+            onStartCleaning={(havenId, bookingId) => {
               setChecklistHavenId(havenId);
+              setChecklistBookingId(bookingId ?? null);
               setPage("cleaning-checklist");
             }}
           />
         );
       case "cleaning-checklist":
-        return <CleaningChecklistPage initialHavenId={checklistHavenId} />;
+        return (
+          <CleaningChecklistPage
+            key={`${checklistHavenId ?? "no-haven"}-${checklistBookingId ?? "no-booking"}`}
+            initialHavenId={checklistHavenId}
+            initialBookingId={checklistBookingId}
+            lang={lang}
+          />
+        );
       default:
         return (
           <MySchedulePage
-            onNavigate={setPage}
-            onStartCleaning={(havenId) => {
+            onNavigate={(pg) => {
+              if (pg === "cleaning-checklist") {
+                setChecklistHavenId(null);
+                setChecklistBookingId(null);
+              }
+              setPage(pg);
+            }}
+            onStartCleaning={(havenId, bookingId) => {
               setChecklistHavenId(havenId);
+              setChecklistBookingId(bookingId ?? null);
               setPage("cleaning-checklist");
             }}
           />
