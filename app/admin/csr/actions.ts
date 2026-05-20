@@ -320,13 +320,16 @@ export async function updateDepositStatusByBookingId(
   bookingId: string,
   newStatus: string,
   employeeId?: string,
-  notes?: string
+  notes?: string,
+  amountReceived?: number,
+  paymentMethod?: string,
+  source?: string
 ): Promise<void> {
   const client = await pool.connect();
   try {
     const statusMap: Record<string, string> = {
       'Pending': 'pending',
-      'Paid': 'held',
+      'Paid': source === 'cleaner' ? 'pending_verification' : 'held',
       'Returned': 'returned',
       'Partial': 'partial',
       'Forfeited': 'forfeited'
@@ -334,20 +337,23 @@ export async function updateDepositStatusByBookingId(
 
     const dbStatus = statusMap[newStatus] || newStatus.toLowerCase();
     const now = new Date();
+    const finalAmount = (amountReceived && amountReceived > 0) ? amountReceived : DEFAULT_SECURITY_DEPOSIT_AMOUNT;
 
-    if (dbStatus === 'held') {
+    if (dbStatus === 'held' || dbStatus === 'pending_verification') {
       await client.query(
-        `UPDATE booking_security_deposits 
-         SET deposit_status = $2, held_at = $3, processed_by = $4, notes = COALESCE($5, notes), amount = COALESCE(amount, $6)
+        `UPDATE booking_security_deposits
+         SET deposit_status = $2, held_at = $3, processed_by = $4, notes = COALESCE($5, notes),
+             amount = $6, payment_method = COALESCE($7, payment_method)
          WHERE booking_id = $1`,
-        [bookingId, dbStatus, now, employeeId, notes, DEFAULT_SECURITY_DEPOSIT_AMOUNT]
+        [bookingId, dbStatus, now, employeeId, notes, finalAmount, paymentMethod ?? null]
       );
     } else {
       await client.query(
-        `UPDATE booking_security_deposits 
-         SET deposit_status = $2, processed_by = $3, notes = COALESCE($4, notes)
+        `UPDATE booking_security_deposits
+         SET deposit_status = $2, processed_by = $3, notes = COALESCE($4, notes),
+             payment_method = COALESCE($5, payment_method)
          WHERE booking_id = $1`,
-        [bookingId, dbStatus, employeeId, notes]
+        [bookingId, dbStatus, employeeId, notes, paymentMethod ?? null]
       );
     }
 
@@ -375,9 +381,160 @@ export async function updateDepositStatusByBookingId(
       console.error('Failed to log deposit status update:', logError);
     }
 
+    // Notify Owner and CSR when a cleaner submits a collection for verification
+    try {
+      const guestResult = await client.query(
+        `SELECT b.booking_id, bg.first_name, bg.last_name
+         FROM booking b
+         LEFT JOIN booking_guests bg ON b.id = bg.booking_id
+         WHERE b.id = $1
+         LIMIT 1`,
+        [bookingId]
+      );
+      const guest = guestResult.rows[0];
+      const guestName = guest ? `${guest.first_name || ''} ${guest.last_name || ''}`.trim() || 'Unknown Guest' : 'Unknown Guest';
+      const shortBookingId = guest?.booking_id || bookingId;
+      const formattedAmount = new Intl.NumberFormat('en-PH', {
+        style: 'currency',
+        currency: 'PHP',
+        minimumFractionDigits: 0
+      }).format(finalAmount);
+      const methodPart = paymentMethod ? ` via ${paymentMethod}` : '';
+
+      if (source === 'cleaner') {
+        await createNotificationsForRoles(['Owner', 'CSR'], {
+          title: 'Payment Collection Needs Verification',
+          message: `Cleaner collected ${formattedAmount} from ${guestName} (Booking: ${shortBookingId})${methodPart}. Please verify in Guest Bookings.`,
+          notificationType: 'Payment'
+        });
+      } else {
+        await createNotificationsForRoles(['Owner', 'CSR'], {
+          title: 'Balance & Deposit Collected',
+          message: `${formattedAmount} collected from ${guestName} (Booking: ${shortBookingId})${methodPart}. Balance and security deposit have been received at check-in.`,
+          notificationType: 'Payment'
+        });
+      }
+    } catch (notifError) {
+      console.error('Failed to create payment collection notification:', notifError);
+    }
+
   } catch (error) {
     console.error("Error updating deposit status by booking ID:", error);
     throw new Error("Failed to update deposit status");
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Verify or reject a cleaner's payment collection submission.
+ * confirm → sets deposit_status to 'held' (Paid)
+ * reject  → sets deposit_status back to 'pending'
+ */
+export async function verifyCleanerCollection(
+  bookingId: string,
+  action: 'confirm' | 'reject',
+  employeeId?: string
+): Promise<void> {
+  const client = await pool.connect();
+  try {
+    const newDbStatus = action === 'confirm' ? 'held' : 'pending';
+    const now = new Date();
+
+    if (action === 'confirm') {
+      await client.query(
+        `UPDATE booking_security_deposits
+         SET deposit_status = $2, held_at = $3, processed_by = $4
+         WHERE booking_id = $1`,
+        [bookingId, newDbStatus, now, employeeId]
+      );
+    } else {
+      await client.query(
+        `UPDATE booking_security_deposits
+         SET deposit_status = $2, processed_by = $3, held_at = NULL
+         WHERE booking_id = $1`,
+        [bookingId, newDbStatus, employeeId]
+      );
+    }
+
+    // Log activity
+    try {
+      const requestHeaders = await headers();
+      const ipAddress = requestHeaders.get('x-forwarded-for') || requestHeaders.get('x-real-ip') || 'unknown';
+      const userAgent = requestHeaders.get('user-agent') || 'unknown';
+      if (employeeId) {
+        await client.query(
+          `SELECT log_employee_activity($1, $2, $3, $4, $5, $6, $7)`,
+          [
+            employeeId,
+            action === 'confirm' ? 'VERIFY_COLLECTION_CONFIRM' : 'VERIFY_COLLECTION_REJECT',
+            `${action === 'confirm' ? 'Confirmed' : 'Rejected'} cleaner collection for booking ${bookingId}`,
+            'deposit',
+            bookingId,
+            ipAddress,
+            userAgent
+          ]
+        );
+      }
+    } catch (logError) {
+      console.error('Failed to log verify collection activity:', logError);
+    }
+
+    // Notify cleaners of the outcome
+    try {
+      const guestResult = await client.query(
+        `SELECT b.booking_id, bg.first_name, bg.last_name
+         FROM booking b
+         LEFT JOIN booking_guests bg ON b.id = bg.booking_id
+         WHERE b.id = $1 LIMIT 1`,
+        [bookingId]
+      );
+      const guest = guestResult.rows[0];
+      const guestName = guest ? `${guest.first_name || ''} ${guest.last_name || ''}`.trim() || 'Unknown Guest' : 'Unknown Guest';
+      const shortBookingId = guest?.booking_id || bookingId;
+
+      await createNotificationsForRoles(['Cleaner'], {
+        title: action === 'confirm' ? 'Collection Verified' : 'Collection Rejected',
+        message: action === 'confirm'
+          ? `Your payment collection for ${guestName} (Booking: ${shortBookingId}) has been verified and confirmed.`
+          : `Your payment collection for ${guestName} (Booking: ${shortBookingId}) was rejected. Please follow up with the guest.`,
+        notificationType: 'Payment'
+      });
+    } catch (notifError) {
+      console.error('Failed to notify cleaners of collection outcome:', notifError);
+    }
+
+  } catch (error) {
+    console.error("Error verifying cleaner collection:", error);
+    throw new Error("Failed to verify collection");
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Approve down payment for a booking by its UUID
+ * Used in Step 1 of the booking approval wizard
+ */
+export async function approveDownPaymentByBookingId(bookingId: string): Promise<void> {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      `UPDATE booking_payments
+       SET payment_status = 'approved_down_payment', reviewed_at = NOW()
+       WHERE booking_id = $1 AND payment_status = 'pending_down_payment'`,
+      [bookingId]
+    );
+    await client.query(
+      `UPDATE booking SET status = 'on-going', updated_at = NOW() WHERE id = $1`,
+      [bookingId]
+    );
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error("Error approving down payment:", error);
+    throw new Error("Failed to approve down payment");
   } finally {
     client.release();
   }

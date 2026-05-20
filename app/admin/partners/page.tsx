@@ -1,11 +1,7 @@
 'use client';
 
-import PartnersDashboard from "@/Components/admin/Partners/PartnersDashboard";
+// Content is handled by app/admin/partners/layout.tsx → PartnerShell.
+// Returning null lets the shell render the active page itself.
+const PartnersPage = () => null;
 
-const PartnersPage = () => {
-  return (
-    <div><PartnersDashboard /></div>
-  )
-}
-
-export default PartnersPage
+export default PartnersPage;

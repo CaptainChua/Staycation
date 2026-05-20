@@ -377,6 +377,10 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
     });
   }
 
+  const isEmailValid = (email: string) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
 
@@ -386,8 +390,8 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
       const currentChildren = name === "children" ? newValue : formData.children;
       const newTotal = currentAdults + currentChildren;
 
-      if (newTotal > 6) {
-        toast.error("Maximum 6 guests allowed (adults + children). Infants are not counted.");
+      if (newTotal > 4) {
+        toast.error("Maximum 4 guests allowed (adults + children). Infants are not counted.");
         return;
       }
 
@@ -400,6 +404,29 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
       const haven = havens.find(h => h.haven_name === value);
       setSelectedHaven(haven || null);
       setFormData(prev => ({ ...prev, [name]: value }));
+    } else if (name === "age") {
+      const digitsOnly = value.replace(/\D/g, "").replace(/^0+/, "").slice(0, 3);
+      const ageVal = parseInt(digitsOnly);
+      if (digitsOnly && ageVal < 18) {
+        setErrors(prev => ({ ...prev, age: "Main guest must be at least 18 years old to book" }));
+      } else {
+        setErrors(prev => ({ ...prev, age: "" }));
+      }
+      setFormData(prev => ({ ...prev, age: digitsOnly }));
+    } else if (name === "firstName" || name === "lastName") {
+      const lettersOnly = value.replace(/[^a-zA-Z\s'-]/g, "");
+      setFormData(prev => ({ ...prev, [name]: lettersOnly }));
+    } else if (name === "email") {
+      const v = value.trim();
+      setFormData(prev => ({ ...prev, email: v }));
+      if (!v.includes('@') || !v.includes('.com')) {
+        setErrors(prev => ({ ...prev, email: "Please include '@'" }));
+      } else {
+        setErrors(prev => ({ ...prev, email: "" }));
+      }
+    } else if (name === "phone") {
+      const digitsOnly = value.replace(/\D/g, "").slice(0, 11);
+      setFormData(prev => ({ ...prev, phone: digitsOnly }));
     } else {
       setFormData(prev => ({
         ...prev,
@@ -434,9 +461,16 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
 
   const handleAdditionalGuestChange = (index: number, field: keyof GuestInfo, value: string) => {
     const updatedGuests = [...additionalGuests];
+    let newValue = value;
+    if (field === 'firstName' || field === 'lastName') {
+      newValue = value.replace(/[^a-zA-Z\s'-]/g, '');
+    }
+    if (field === 'age') {
+      newValue = value.replace(/\D/g, '').replace(/^0+/, '').slice(0, 3);
+    }
     updatedGuests[index] = {
       ...updatedGuests[index],
-      [field]: value,
+      [field]: newValue,
     };
     setAdditionalGuests(updatedGuests);
   };
@@ -526,13 +560,32 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
 
   const validateStep1 = (): boolean => {
     const newErrors: Record<string, string> = {};
-    if (!formData.firstName) newErrors.firstName = "First name is required";
-    if (!formData.lastName) newErrors.lastName = "Last name is required";
-    if (!isEditMode && !formData.age) newErrors.age = "Age is required";
+    if (!formData.firstName) {
+      newErrors.firstName = "First name is required";
+    } else if (!/^[a-zA-Z\s'-]+$/.test(formData.firstName)) {
+      newErrors.firstName = "First name must contain only letters";
+    }
+    if (!formData.lastName) {
+      newErrors.lastName = "Last name is required";
+    } else if (!/^[a-zA-Z\s'-]+$/.test(formData.lastName)) {
+      newErrors.lastName = "Last name must contain only letters";
+    }
+    if (!isEditMode && !formData.age) {
+      newErrors.age = "Age is required";
+    } else if (!isEditMode && parseInt(formData.age) < 18) {
+      newErrors.age = "Main guest must be at least 18 years old to book";
+    }
     if (!isEditMode && !formData.gender) newErrors.gender = "Please select a gender";
-    if (!formData.email) newErrors.email = "Email is required";
-    if (!formData.phone) newErrors.phone = "Phone number is required";
-    else if (formData.phone.length !== 11) newErrors.phone = "Phone number must be exactly 11 digits";
+    if (!formData.email) {
+      newErrors.email = "Email is required";
+    } else if (!isEmailValid(formData.email)) {
+      newErrors.email = "Please enter a valid email address";
+    }
+    if (!formData.phone) {
+      newErrors.phone = "Phone number is required";
+    } else if (!/^\d{11}$/.test(formData.phone)) {
+      newErrors.phone = "Phone number must be 11 digits";
+    }
     if (formData.age && parseInt(formData.age) >= 10 && !formData.validId && !formData.validIdPreview) {
       newErrors.validId = "Valid ID is required for guests 10+ years old";
     }
@@ -888,20 +941,13 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                         Age *
                       </label>
                       <input
-                        type="number"
+                        type="text"
+                        inputMode="numeric"
                         name="age"
                         value={formData.age}
-                        onChange={(e) => {
-                          const val = e.target.value.replace(/\D/g, '').slice(0, 3);
-                          handleInputChange({ ...e, target: { ...e.target, name: 'age', value: val } });
-                          setErrors(prev => ({...prev, age: ''}));
-                        }}
-                        onKeyDown={(e) => {
-                          if (!/^\d$/.test(e.key) && !['Backspace','Delete','Tab','ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)) e.preventDefault();
-                          if (formData.age.length >= 3 && /^\d$/.test(e.key)) e.preventDefault();
-                        }}
-                        min="1"
-                        max="999"
+                        onChange={(e) => handleInputChange(e)}
+                        maxLength={3}
+                        placeholder="Enter age"
                         className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
                           errors.age ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                         }`}
@@ -950,10 +996,7 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                         type="email"
                         name="email"
                         value={formData.email}
-                        onChange={(e) => {
-                          handleInputChange(e);
-                          setErrors(prev => ({...prev, email: ''}));
-                        }}
+                        onChange={(e) => handleInputChange(e)}
                         className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
                           errors.email ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                         }`}
@@ -972,12 +1015,14 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                       </label>
                       <input
                         type="tel"
-                        name="phone"
-                        value={formData.phone}
+                        inputMode="numeric"
+                        pattern="\d*"
                         maxLength={11}
+                        name="phone"
+                        placeholder="09XXXXXXXXX"
+                        value={formData.phone}
                         onChange={(e) => {
-                          const digitsOnly = e.target.value.replace(/\D/g, '').slice(0, 11);
-                          handleInputChange({ ...e, target: { ...e.target, name: 'phone', value: digitsOnly } });
+                          handleInputChange(e);
                           setErrors(prev => ({...prev, phone: ''}));
                         }}
                         className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
@@ -1059,94 +1104,45 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Adults (18+ years) *
+                        Adults (10+ years) *
                       </label>
-                      <div className="flex items-center border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-700">
-                        <button type="button" onClick={() => {
-                          const newAdults = Math.max(1, formData.adults - 1);
-                          setFormData(prev => ({ ...prev, adults: newAdults }));
-                          updateAdditionalGuests(newAdults, formData.children);
-                        }} className="px-3 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 text-lg font-bold select-none">−</button>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          value={formData.adults}
-                          onFocus={(e) => setTimeout(() => e.target.select(), 0)}
-                          onChange={(e) => {
-                            const raw = e.target.value.replace(/\D/g, '');
-                            const newAdults = Math.max(1, parseInt(raw) || 1);
-                            if (newAdults + formData.children > 6) { toast.error("Maximum 6 guests allowed (adults + children). Infants are not counted.", { id: 'max-guests' }); return; }
-                            setFormData(prev => ({ ...prev, adults: newAdults }));
-                            updateAdditionalGuests(newAdults, formData.children);
-                          }}
-                          className="flex-1 text-center text-gray-900 dark:text-white font-medium bg-transparent border-none outline-none"
-                        />
-                        <button type="button" onClick={() => {
-                          const newAdults = formData.adults + 1;
-                          if (newAdults + formData.children > 6) { toast.error("Maximum 6 guests allowed (adults + children). Infants are not counted.", { id: 'max-guests' }); return; }
-                          setFormData(prev => ({ ...prev, adults: newAdults }));
-                          updateAdditionalGuests(newAdults, formData.children);
-                        }} className="px-3 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 text-lg font-bold select-none">+</button>
-                      </div>
+                      <input
+                        type="number"
+                        name="adults"
+                        value={formData.adults}
+                        onChange={handleInputChange}
+                        min="1"
+                        max="4"
+                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Children (4-17 years)
+                        Children (4-9 years)
                       </label>
-                      <div className="flex items-center border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-700">
-                        <button type="button" onClick={() => {
-                          const newChildren = Math.max(0, formData.children - 1);
-                          setFormData(prev => ({ ...prev, children: newChildren }));
-                          updateAdditionalGuests(formData.adults, newChildren);
-                        }} className="px-3 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 text-lg font-bold select-none">−</button>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          value={formData.children}
-                          onFocus={(e) => setTimeout(() => e.target.select(), 0)}
-                          onChange={(e) => {
-                            const raw = e.target.value.replace(/\D/g, '');
-                            const newChildren = Math.max(0, parseInt(raw) || 0);
-                            if (formData.adults + newChildren > 6) { toast.error("Maximum 6 guests allowed (adults + children). Infants are not counted.", { id: 'max-guests' }); return; }
-                            setFormData(prev => ({ ...prev, children: newChildren }));
-                            updateAdditionalGuests(formData.adults, newChildren);
-                          }}
-                          className="flex-1 text-center text-gray-900 dark:text-white font-medium bg-transparent border-none outline-none"
-                        />
-                        <button type="button" onClick={() => {
-                          const newChildren = formData.children + 1;
-                          if (formData.adults + newChildren > 6) { toast.error("Maximum 6 guests allowed (adults + children). Infants are not counted.", { id: 'max-guests' }); return; }
-                          setFormData(prev => ({ ...prev, children: newChildren }));
-                          updateAdditionalGuests(formData.adults, newChildren);
-                        }} className="px-3 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 text-lg font-bold select-none">+</button>
-                      </div>
+                      <input
+                        type="number"
+                        name="children"
+                        value={formData.children}
+                        onChange={handleInputChange}
+                        min="0"
+                        max="4"
+                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Infants (0-3 years)
                       </label>
-                      <div className="flex items-center border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-700">
-                        <button type="button" onClick={() => {
-                          const newInfants = Math.max(0, formData.infants - 1);
-                          setFormData(prev => ({ ...prev, infants: newInfants }));
-                        }} className="px-3 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 text-lg font-bold select-none">−</button>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          value={formData.infants}
-                          onFocus={(e) => setTimeout(() => e.target.select(), 0)}
-                          onChange={(e) => {
-                            const raw = e.target.value.replace(/\D/g, '');
-                            const newInfants = Math.min(4, Math.max(0, parseInt(raw) || 0));
-                            setFormData(prev => ({ ...prev, infants: newInfants }));
-                          }}
-                          className="flex-1 text-center text-gray-900 dark:text-white font-medium bg-transparent border-none outline-none"
-                        />
-                        <button type="button" onClick={() => {
-                          const newInfants = Math.min(4, formData.infants + 1);
-                          setFormData(prev => ({ ...prev, infants: newInfants }));
-                        }} className="px-3 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 text-lg font-bold select-none">+</button>
-                      </div>
+                      <input
+                        type="number"
+                        name="infants"
+                        value={formData.infants}
+                        onChange={handleInputChange}
+                        min="0"
+                        max="2"
+                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      />
                     </div>
                   </div>
                 </div>
@@ -1213,19 +1209,16 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                             Age *
                           </label>
                           <input
-                            type="number"
+                            type="text"
+                            inputMode="numeric"
                             value={guest.age}
                             onChange={(e) => {
-                              const val = e.target.value.replace(/\D/g, '').slice(0, 3);
-                              handleAdditionalGuestChange(index, 'age', val);
+                              const digitsOnly = e.target.value.replace(/\D/g, "").replace(/^0+/, "").slice(0, 3);
+                              handleAdditionalGuestChange(index, 'age', digitsOnly);
                               setErrors(prev => ({...prev, [`guest${index}Age`]: ''}));
                             }}
-                            onKeyDown={(e) => {
-                              if (!/^\d$/.test(e.key) && !['Backspace','Delete','Tab','ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)) e.preventDefault();
-                              if (guest.age.length >= 3 && /^\d$/.test(e.key)) e.preventDefault();
-                            }}
-                            min="1"
-                            max="999"
+                            maxLength={3}
+                            placeholder="Enter age"
                             className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
                               errors[`guest${index}Age`] ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                             }`}

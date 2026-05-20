@@ -3,17 +3,17 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { 
-  X, Home, DollarSign, Clock, Calendar, FileText, Star, 
+  X, Home, DollarSign, Clock, FileText, Star,
   Image as ImageIcon, Images, Youtube, CheckCircle2, AlertCircle, Circle 
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCreateHavenMutation, useUpdateHavenMutation } from "@/redux/api/roomApi";
+import { useSession } from "next-auth/react";
 import toast from 'react-hot-toast';
 import { setCookie } from "@/lib/cookieUtils";
 import BasicInformationModal from "./BasicInformationModal";
 import PricingManagementModal from "./PricingManagementModal";
 import CheckInTimeSettingsModal from "./CheckInTimeSettingsModal";
-import AvailabilityManagementModal from "./AvailabilityManagementModal";
 import HavenDetailsModal from "./HavenDetailsModal";
 import AmenitiesModal from "./AmenitiesModal";
 import HavenImagesModal from "./HavenImagesModal";
@@ -107,7 +107,9 @@ interface HavenFormModalProps {
 const basicInfoSchema = z.object({
   havenName: z.string().min(1, "Haven Name is required"),
   tower: z.string().min(1, "Tower is required"),
-  floor: z.string().min(1, "Floor is required"),
+  floor: z.string()
+    .min(1, "Floor is required")
+    .regex(/^\d+$/, "Floor must be a number"),
   view: z.string().min(1, "View Type is required"),
 });
 
@@ -144,7 +146,6 @@ const STEPS: Step[] = [
   { id: 'basic', label: 'Basic Info', description: 'Name, tower, floor, view', icon: Home, component: BasicInformationModal, validationSchema: basicInfoSchema },
   { id: 'pricing', label: 'Pricing', description: 'Rates & fees', icon: DollarSign, component: PricingManagementModal, validationSchema: pricingSchema },
   { id: 'checkin', label: 'Check-in', description: 'Time settings', icon: Clock, component: CheckInTimeSettingsModal, validationSchema: checkInSchema },
-  { id: 'availability', label: 'Availability', description: 'Blocked dates', icon: Calendar, component: AvailabilityManagementModal }, // Validation handled internally or separately
   { id: 'details', label: 'Details', description: 'Capacity, beds, size', icon: FileText, component: HavenDetailsModal, validationSchema: detailsSchema },
   { id: 'amenities', label: 'Amenities', description: 'Features list', icon: Star, component: AmenitiesModal }, // Validation handled internally
   { id: 'images', label: 'Images', description: 'Gallery photos', icon: ImageIcon, component: HavenImagesModal, validationSchema: imagesSchema },
@@ -157,6 +158,10 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
   
   // mutations
   const [createHaven, { isLoading: isCreating }] = useCreateHavenMutation();
+  const { data: session } = useSession();
+  const sessionUser = session?.user as { id?: string; role?: string } | undefined;
+  const isPartnerSession = sessionUser?.role === "Partner";
+  const sessionPartnerId = isPartnerSession ? sessionUser?.id : undefined;
   const [updateHaven, { isLoading: isUpdating }] = useUpdateHavenMutation();
   
   const isLoading = isCreating || isUpdating;
@@ -203,7 +208,6 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
     },
   });
 
-  const [blockedDates, setBlockedDates] = useState<BlockedDate[]>([]);
   const [havenImages, setHavenImages] = useState<File[]>([]);
   const [existingImages, setExistingImages] = useState<ImageData[]>([]);
   
@@ -226,7 +230,7 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
       setFormData({
         havenName: initialData.haven_name || "",
         tower: initialData.tower || "",
-        floor: initialData.floor || "",
+        floor: (initialData.floor || "").replace(/[^0-9]/g, ""),
         view: initialData.view_type || "",
         capacity: initialData.capacity?.toString() || "",
         roomSize: initialData.room_size?.toString() || "",
@@ -262,17 +266,6 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
       setExistingImages(initialData.images || []);
       setExistingPhotoTours(initialData.photo_tours || []);
 
-      if (initialData.blocked_dates) {
-        setBlockedDates(
-          initialData.blocked_dates.map((date, index) => ({
-            id: index,
-            fromDate: date.from_date,
-            toDate: date.to_date,
-            reason: date.reason || "",
-          }))
-        );
-      }
-
       // In edit mode, mark all steps as completed for initial load
       setStepStatuses(Array(STEPS.length).fill(StepStatus.Completed));
       setIsInitialized(true);
@@ -307,8 +300,6 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
         twentyOneHourCheckIn: data.twenty_one_hour_check_in || "14:00",
         twentyOneHourCheckOut: data.twenty_one_hour_check_out || "11:00",
       }));
-    } else if (stepId === 'availability') {
-      setBlockedDates(data);
     } else if (stepId === 'details') {
       setFormData(prev => ({
         ...prev,
@@ -434,7 +425,6 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
       additional: [],
     });
     setExistingPhotoTours([]);
-    setBlockedDates([]);
     setStepStatuses(Array(STEPS.length).fill(StepStatus.NotStarted));
     setCurrentStepIndex(0); // Reset current step index
   };
@@ -549,11 +539,8 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
         amenities: formData.amenities,
         haven_images: havenImagesBase64,
         photo_tour_images: photoTourBase64,
-        blocked_dates: blockedDates.map(date => ({
-          from_date: date.fromDate,
-          to_date: date.toDate,
-          reason: date.reason
-        }))
+        blocked_dates: [],
+        ...(sessionPartnerId ? { partner_id: sessionPartnerId } : {}),
       };
 
       console.log("📦 [HavenFormModal] Request Payload:", { ...payload, haven_images: `${payload.haven_images.length} images`, photo_tour_images: "..." });
@@ -645,12 +632,6 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
     twenty_one_hour_check_out: formData.twentyOneHourCheckOut,
   }), [formData.sixHourCheckIn, formData.sixHourCheckOut, formData.tenHourCheckIn, formData.tenHourCheckOut, formData.twentyOneHourCheckIn, formData.twentyOneHourCheckOut]);
 
-  const availabilityInitialData = useMemo(() => blockedDates.map(date => ({
-    from_date: date.fromDate,
-    to_date: date.toDate,
-    reason: date.reason,
-  })), [blockedDates]);
-
   const detailsInitialData = useMemo(() => ({
     capacity: formData.capacity ? parseInt(formData.capacity) : undefined,
     room_size: formData.roomSize ? parseFloat(formData.roomSize) : undefined,
@@ -686,7 +667,7 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
                   {isEditMode ? "Update haven information and settings" : "Complete all sections to publish your property"}
                 </p>
               </div>
-              <button type="button" onClick={handleClose} className="p-2 hover:bg-white/20 rounded-full transition-colors">
+              <button type="button" onClick={handleClose} title="Close" aria-label="Close" className="p-2 hover:bg-white/20 rounded-full transition-colors">
                 <X className="w-6 h-6 text-white" />
               </button>
             </div>
@@ -776,7 +757,6 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
                             step.id === 'basic' ? basicInfoInitialData :
                             step.id === 'pricing' ? pricingInitialData :
                             step.id === 'checkin' ? checkInInitialData :
-                            step.id === 'availability' ? availabilityInitialData :
                             step.id === 'details' ? detailsInitialData :
                             step.id === 'amenities' ? amenitiesInitialData :
                             step.id === 'images' ? imagesInitialData :

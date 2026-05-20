@@ -4,7 +4,9 @@ import pool from "@/backend/config/db";
 export interface CleaningTask {
   cleaning_id: string;
   booking_id: string;
+  booking_uuid: string;
   haven: string;
+  haven_id: string | null;
   guest_first_name: string;
   guest_last_name: string;
   guest_email: string;
@@ -22,8 +24,12 @@ export interface CleaningTask {
   cleaning_time_out: string | null;
   cleaned_at: string | null;
   inspected_at: string | null;
-  checklist_completed: number;
-  checklist_total: number;
+  deposit_status: string | null;
+  security_deposit: number | null;
+  total_amount: number | null;
+  amount_paid: number | null;
+  down_payment: number | null;
+  remaining_balance: number | null;
 }
 
 // GET All Cleaning Tasks
@@ -92,7 +98,9 @@ export const getAllCleaningTasks = async (
         SELECT DISTINCT ON (bc.id)
           bc.id::text as cleaning_id,
           b.booking_id,
+          b.id::text as booking_uuid,
           b.room_name as haven,
+          h.uuid_id::text as haven_id,
           bg.first_name as guest_first_name,
           bg.last_name as guest_last_name,
           bg.email as guest_email,
@@ -110,27 +118,25 @@ export const getAllCleaningTasks = async (
           bc.cleaning_time_out,
           bc.cleaned_at,
           bc.inspected_at,
-          COALESCE(cp.checklist_completed, 0)::int as checklist_completed,
-          COALESCE(cp.checklist_total, 0)::int as checklist_total
+          sd.deposit_status,
+          sd.amount as security_deposit,
+          bp.total_amount,
+          bp.amount_paid,
+          bp.down_payment,
+          GREATEST(COALESCE(bp.total_amount, 0) - COALESCE(bp.amount_paid, 0), 0) AS remaining_balance
         FROM booking_cleaning bc
         INNER JOIN booking b ON bc.booking_id = b.id
+        LEFT JOIN havens h ON h.haven_name = b.room_name
         LEFT JOIN booking_guests bg ON bg.booking_id = b.id
         LEFT JOIN employees e ON bc.assigned_to::text = e.id::text
-        LEFT JOIN havens h ON h.haven_name = b.room_name
-        LEFT JOIN (
-          SELECT
-            cl.haven_id,
-            COUNT(ct.id)::int AS checklist_total,
-            COUNT(CASE WHEN ct.completed = true THEN 1 END)::int AS checklist_completed
-          FROM cleaning_checklists cl
-          LEFT JOIN cleaning_tasks ct ON ct.checklist_id = cl.id
-          GROUP BY cl.haven_id
-        ) cp ON cp.haven_id = h.uuid_id
+        LEFT JOIN booking_security_deposits sd ON sd.booking_id = b.id
+        LEFT JOIN booking_payments bp ON bp.booking_id = b.id
+        WHERE b.status NOT IN ('rejected', 'cancelled')
     `;
     const values: string[] = [];
 
     if (status) {
-      query += ` WHERE bc.cleaning_status = $1`;
+      query += ` AND bc.cleaning_status = $1`;
       values.push(status);
     }
 
@@ -188,6 +194,7 @@ export const getCleaningTaskById = async (
         bc.id::text as cleaning_id,
         b.booking_id,
         b.room_name as haven,
+        h.uuid_id::text as haven_id,
         bg.first_name as guest_first_name,
         bg.last_name as guest_last_name,
         bg.email as guest_email,
@@ -207,6 +214,7 @@ export const getCleaningTaskById = async (
         bc.inspected_at
       FROM booking_cleaning bc
       INNER JOIN booking b ON bc.booking_id = b.id
+      LEFT JOIN havens h ON h.haven_name = b.room_name
       LEFT JOIN booking_guests bg ON bg.booking_id = b.id
       LEFT JOIN employees e ON bc.assigned_to::text = e.id::text
       WHERE bc.id = $1::uuid

@@ -46,6 +46,7 @@ interface Booking {
   deposit_status?: string;
   security_deposit_payment_method?: string;
   security_deposit_payment_proof_url?: string;
+  security_deposit_notes?: string;
   add_ons_total: number;
   total_amount: number;
   down_payment: number;
@@ -64,9 +65,19 @@ interface ViewBookingDetailsProps {
   onClose: () => void;
 }
 
+interface AdditionalGuestRow {
+  firstName: string;
+  lastName: string;
+  email?: string;
+  phone?: string;
+  facebook_link?: string;
+  validIdUrl?: string;
+}
+
 export default function ViewBookingDetails({ booking, onClose }: ViewBookingDetailsProps) {
   const modalRef = useRef<HTMLDivElement>(null);
   const [isMounted, setIsMounted] = useState(false);
+  const [additionalGuests, setAdditionalGuests] = useState<AdditionalGuestRow[]>([]);
 
   useEffect(() => {
     const rafId = requestAnimationFrame(() => {
@@ -77,6 +88,27 @@ export default function ViewBookingDetails({ booking, onClose }: ViewBookingDeta
       setIsMounted(false);
     };
   }, []);
+
+  useEffect(() => {
+    if (!booking.id) return;
+    fetch(`/api/bookings/${booking.id}`)
+      .then(r => r.json())
+      .then(result => {
+        if (result.success && Array.isArray(result.data?.additional_guests)) {
+          setAdditionalGuests(
+            result.data.additional_guests.map((g: any) => ({
+              firstName: g.first_name || g.firstName || '',
+              lastName: g.last_name || g.lastName || '',
+              email: g.email,
+              phone: g.phone,
+              facebook_link: g.facebook_link,
+              validIdUrl: g.valid_id_url || g.validIdUrl || '',
+            }))
+          );
+        }
+      })
+      .catch(() => {});
+  }, [booking.id]);
 
   const handleClickOutside = (event: MouseEvent) => {
     const target = event.target as Node;
@@ -303,6 +335,73 @@ export default function ViewBookingDetails({ booking, onClose }: ViewBookingDeta
             </div>
           </div>
 
+          {/* Additional Guests */}
+          {additionalGuests.length > 0 && (
+            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-3">
+              <div className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                <UsersIcon className="w-4 h-4" />
+                Additional Guests ({additionalGuests.length})
+              </div>
+              <div className="space-y-3">
+                {additionalGuests.map((guest, index) => (
+                  <div key={index} className="border border-gray-200 dark:border-gray-600 rounded-lg p-3 space-y-2">
+                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">Guest {index + 2}</p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Name:</span>
+                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                        {`${guest.firstName} ${guest.lastName}`.trim() || 'N/A'}
+                      </span>
+                    </div>
+                    {guest.email && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Email:</span>
+                        <a href={`mailto:${guest.email}`} className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 underline">
+                          {guest.email}
+                        </a>
+                      </div>
+                    )}
+                    {guest.phone && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Phone:</span>
+                        <a href={`tel:${guest.phone}`} className="text-sm text-green-600 hover:text-green-800 dark:text-green-400 underline">
+                          {guest.phone}
+                        </a>
+                      </div>
+                    )}
+                    {guest.facebook_link && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Facebook:</span>
+                        <a
+                          href={guest.facebook_link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 underline"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          View Profile
+                        </a>
+                      </div>
+                    )}
+                    {guest.validIdUrl && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Valid ID:</span>
+                        <a
+                          href={guest.validIdUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-sm text-purple-600 hover:text-purple-800 dark:text-purple-400 underline"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          View ID
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Payment Information */}
           <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-3">
             <div className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
@@ -382,6 +481,18 @@ export default function ViewBookingDetails({ booking, onClose }: ViewBookingDeta
                       </span>
                     )}
                   </div>
+
+                  {(() => {
+                    const refMatch = booking.security_deposit_notes?.match(/Ref:\s*([^|]+)/);
+                    const ref = refMatch?.[1]?.trim();
+                    if (!ref) return null;
+                    return (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Reference No.:</span>
+                        <span className="text-sm font-mono font-semibold text-gray-900 dark:text-gray-100">{ref}</span>
+                      </div>
+                    );
+                  })()}
 
                   {booking.security_deposit_payment_proof_url && (
                     <div className="flex items-center gap-2">

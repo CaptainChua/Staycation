@@ -1,0 +1,560 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import {
+  Download,
+  Receipt,
+  Calendar,
+  BarChart3,
+  TrendingUp,
+  ChevronRight,
+  Sparkles,
+  Loader2,
+} from "lucide-react";
+import {
+  useGetMyAnalyticsQuery,
+  useGetMyBookingsQuery,
+} from "@/redux/api/partnerSelfApi";
+
+const fontFraunces = "font-[var(--font-fraunces),Georgia,serif]";
+const peso = (n: number) => "₱" + (n || 0).toLocaleString("en-PH");
+
+const REVENUE_SERIES = [
+  { label: "W1", gross: 38400, net: 33792 },
+  { label: "W2", gross: 42600, net: 37488 },
+  { label: "W3", gross: 51200, net: 45056 },
+  { label: "W4", gross: 46800, net: 41184 },
+  { label: "W5", gross: 58100, net: 51128 },
+  { label: "W6", gross: 62400, net: 54912 },
+  { label: "W7", gross: 71800, net: 63184 },
+  { label: "W8", gross: 68200, net: 60016 },
+  { label: "W9", gross: 79600, net: 70048 },
+  { label: "W10", gross: 84300, net: 74184 },
+  { label: "W11", gross: 91200, net: 80256 },
+  { label: "W12", gross: 96400, net: 84832 },
+];
+
+const BOOKINGS_BY_ROOM = [
+  { room: "Hilltop Deluxe Suite", bookings: 28, net: 124800 },
+  { room: "Garden Casita", bookings: 19, net: 48400 },
+  { room: "Bamboo Cottage", bookings: 12, net: 56700 },
+];
+
+const RECENT_BOOKINGS = [
+  { id: "BK-21048", guest: "J**** R****", room: "Hilltop Deluxe Suite", checkIn: "May 14, 2026", checkOut: "May 16, 2026", nights: 2, gross: 9600, commission: 1152, fee: 192, net: 8256, status: "Completed" },
+  { id: "BK-21042", guest: "C**** D**", room: "Garden Casita", checkIn: "May 12, 2026", checkOut: "May 15, 2026", nights: 3, gross: 7800, commission: 936, fee: 156, net: 6708, status: "Completed" },
+  { id: "BK-21039", guest: "A**** L**", room: "Bamboo Cottage", checkIn: "May 18, 2026", checkOut: "May 22, 2026", nights: 4, gross: 21600, commission: 2592, fee: 432, net: 18576, status: "Confirmed" },
+  { id: "BK-21031", guest: "M****** S**", room: "Hilltop Deluxe Suite", checkIn: "May 09, 2026", checkOut: "May 11, 2026", nights: 2, gross: 9600, commission: 1152, fee: 192, net: 8256, status: "Completed" },
+  { id: "BK-21027", guest: "R**** T*****", room: "Garden Casita", checkIn: "May 06, 2026", checkOut: "May 07, 2026", nights: 1, gross: 2600, commission: 312, fee: 52, net: 2236, status: "Cancelled" },
+  { id: "BK-21019", guest: "P**** B****", room: "Bamboo Cottage", checkIn: "May 20, 2026", checkOut: "May 23, 2026", nights: 3, gross: 16200, commission: 1944, fee: 324, net: 13932, status: "Confirmed" },
+  { id: "BK-21015", guest: "L*** F*****", room: "Hilltop Deluxe Suite", checkIn: "May 02, 2026", checkOut: "May 04, 2026", nights: 2, gross: 9600, commission: 1152, fee: 192, net: 8256, status: "Completed" },
+  { id: "BK-21008", guest: "N***** R***", room: "Garden Casita", checkIn: "Apr 28, 2026", checkOut: "Apr 30, 2026", nights: 2, gross: 5200, commission: 624, fee: 104, net: 4472, status: "Completed" },
+  { id: "BK-21002", guest: "K**** M*****", room: "Bamboo Cottage", checkIn: "Apr 25, 2026", checkOut: "Apr 27, 2026", nights: 2, gross: 10800, commission: 1296, fee: 216, net: 9288, status: "Completed" },
+  { id: "BK-20996", guest: "D*** A*****", room: "Hilltop Deluxe Suite", checkIn: "Apr 22, 2026", checkOut: "Apr 24, 2026", nights: 2, gross: 9600, commission: 1152, fee: 192, net: 8256, status: "Completed" },
+  { id: "BK-20988", guest: "S***** G****", room: "Garden Casita", checkIn: "Apr 18, 2026", checkOut: "Apr 21, 2026", nights: 3, gross: 7800, commission: 936, fee: 156, net: 6708, status: "Completed" },
+  { id: "BK-20982", guest: "B**** Y***", room: "Bamboo Cottage", checkIn: "Apr 15, 2026", checkOut: "Apr 16, 2026", nights: 1, gross: 5400, commission: 648, fee: 108, net: 4644, status: "Cancelled" },
+];
+
+const STATUS_MAP: Record<string, string> = {
+  Completed: "bg-[#dcfce7] text-[#16a34a]",
+  Confirmed: "bg-[#dbeafe] text-[#2563eb]",
+  Cancelled: "bg-[#fee2e2] text-[#dc2626]",
+};
+
+interface AnalyticsPageProps {
+  onNavigate: (page: string) => void;
+}
+
+export default function AnalyticsPage({ onNavigate }: AnalyticsPageProps) {
+  const [range, setRange] = useState("3mo");
+  const [view, setView] = useState<"revenue" | "bookings">("revenue");
+  const [showAll, setShowAll] = useState(false);
+
+  const daysForRange = range === "wk" ? 7 : range === "mo" ? 30 : 90;
+  const { data: analytics, isLoading: analyticsLoading } = useGetMyAnalyticsQuery({ days: daysForRange });
+  const { data: bookings = [] } = useGetMyBookingsQuery({ limit: 50 });
+
+  const recentBookings = useMemo(() => {
+    return bookings.map((b) => ({
+      id: b.booking_id,
+      guest: "—",
+      room: b.room_name,
+      checkIn: new Date(b.check_in_date).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" }),
+      checkOut: new Date(b.check_out_date).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" }),
+      nights: b.nights,
+      gross: Number(b.gross),
+      commission: Number(b.commission),
+      fee: Number(b.fee),
+      net: Number(b.net),
+      status: b.status === "completed" ? "Completed" : b.status === "approved" || b.status === "confirmed" || b.status === "checked-in" ? "Confirmed" : b.status === "cancelled" || b.status === "rejected" ? "Cancelled" : "Confirmed",
+    }));
+  }, [bookings]);
+
+  const visibleBookings = showAll ? recentBookings : recentBookings.slice(0, 5);
+
+  const ranges = [
+    { id: "wk", label: "This week" },
+    { id: "mo", label: "This month" },
+    { id: "3mo", label: "Last 3 months" },
+    { id: "custom", label: "Custom" },
+  ];
+
+  const revenueSeries = analytics?.revenue_series?.length ? analytics.revenue_series : REVENUE_SERIES;
+  const bookingsByRoom = analytics?.bookings_by_room?.length ? analytics.bookings_by_room : BOOKINGS_BY_ROOM;
+  const totalGross = analytics?.gross_total ?? revenueSeries.reduce((s, d) => s + d.gross, 0);
+  const totalNet = analytics?.net_total ?? revenueSeries.reduce((s, d) => s + d.net, 0);
+  const totalBookings = analytics?.total_bookings ?? 0;
+  const occupancy = analytics?.occupancy ?? 0;
+  const maxNet = Math.max(...bookingsByRoom.map((x) => x.net), 1);
+
+  return (
+    <div className="animate-in fade-in duration-500">
+      {/* PAGE HEADER */}
+      <div className="flex items-end justify-between gap-6 mb-6 flex-wrap">
+        <div>
+          <div className="text-[11.5px] text-[#6B7280] uppercase tracking-[0.1em] mb-2 font-semibold">
+            Revenue analytics
+          </div>
+          <h1 className={`text-[32px] leading-[1.15] tracking-[-0.02em] text-[#111827] mb-1.5 font-medium ${fontFraunces}`}>
+            Your performance
+          </h1>
+          <p className="text-[14.5px] text-[#6B7280] max-w-[560px]">
+            The numbers behind your listings — gross earnings, what&apos;s deducted, and what lands in your account.
+          </p>
+        </div>
+        <div className="flex gap-2.5 flex-shrink-0">
+          <button
+            type="button"
+            className="px-4 py-2 rounded-[9px] text-[13.5px] font-semibold flex items-center gap-2 bg-white border border-[#d1d5db] text-[#111827] hover:bg-[#f3f4f6] transition"
+          >
+            <Download className="w-3.5 h-3.5" /> Export CSV
+          </button>
+          <button
+            type="button"
+            onClick={() => onNavigate("cost")}
+            className="px-4 py-2 rounded-[9px] text-[13.5px] font-semibold flex items-center gap-2 bg-[#B8860B] hover:bg-[#8B6508] text-white border border-[#B8860B] transition"
+          >
+            <Receipt className="w-3.5 h-3.5" /> Cost breakdown
+          </button>
+        </div>
+      </div>
+
+      {/* DATE RANGE */}
+      <div className="bg-white border border-[#e5e7eb] rounded-[14px] shadow-[0_1px_2px_rgba(15,42,46,0.04)] mb-6 px-4 py-3.5 flex items-center gap-4 flex-wrap">
+        <Calendar className="w-4 h-4 text-[#6B7280]" />
+        <div className="flex gap-1.5">
+          {ranges.map((r) => {
+            const isActive = range === r.id;
+            return (
+              <button
+                key={r.id}
+                type="button"
+                onClick={() => setRange(r.id)}
+                className={`px-3 py-1.5 rounded-[7px] border text-[12.5px] font-semibold transition ${
+                  isActive
+                    ? "border-[#B8860B] bg-[#FEF3C7] text-[#B8860B]"
+                    : "border-[#e5e7eb] bg-transparent text-[#374151] hover:bg-[#f9fafb]"
+                }`}
+              >
+                {r.label}
+              </button>
+            );
+          })}
+        </div>
+        <div className="ml-auto text-[12.5px] text-[#6B7280]">
+          Feb 19 — May 19, 2026 ·{" "}
+          <span className="text-[#111827] font-semibold">92 days</span>
+        </div>
+      </div>
+
+      {/* TOP KPIs */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-[18px] mb-6">
+        <Kpi label="Gross earnings" value={peso(totalGross)} sub="before deductions" icon={BarChart3} />
+        <Kpi label="Net payout" value={peso(totalNet)} sub="after commission" icon={Receipt} />
+        <Kpi label="Total bookings" value={String(totalBookings)} sub={`last ${daysForRange} days`} icon={Calendar} />
+        <OccupancyGauge value={occupancy} bookedNights={analytics?.booked_nights ?? 0} availableNights={analytics?.available_nights ?? 0} />
+      </div>
+
+      {/* REVENUE CHART */}
+      <div className="bg-white border border-[#e5e7eb] rounded-[14px] shadow-[0_1px_2px_rgba(15,42,46,0.04)] p-[22px] mb-6">
+        <div className="flex justify-between items-start mb-4 flex-wrap gap-3">
+          <div>
+            <h3 className={`text-[17px] leading-[1.3] font-medium text-[#111827] mb-1 ${fontFraunces}`}>
+              Revenue over time
+            </h3>
+            <p className="text-[12.5px] text-[#6B7280]">
+              Gross booking amount vs. your net payout after platform fees.
+            </p>
+          </div>
+          <div className="flex items-center gap-3.5 text-[12.5px]">
+            <LegendDot color="bg-[#B8860B]" label="Gross" />
+            <LegendDot color="bg-[#DAA520]" label="Net payout" />
+            <div className="w-px h-[18px] bg-[#e5e7eb]" />
+            <button
+              type="button"
+              onClick={() => setView("revenue")}
+              className={`px-2.5 py-1 rounded-md border text-[12px] font-semibold transition ${
+                view === "revenue"
+                  ? "border-[#B8860B] bg-[#FEF3C7] text-[#B8860B]"
+                  : "border-[#e5e7eb] bg-transparent text-[#6B7280] hover:bg-[#f9fafb]"
+              }`}
+            >
+              Revenue
+            </button>
+            <button
+              type="button"
+              onClick={() => setView("bookings")}
+              className={`px-2.5 py-1 rounded-md border text-[12px] font-semibold transition ${
+                view === "bookings"
+                  ? "border-[#B8860B] bg-[#FEF3C7] text-[#B8860B]"
+                  : "border-[#e5e7eb] bg-transparent text-[#6B7280] hover:bg-[#f9fafb]"
+              }`}
+            >
+              Bookings
+            </button>
+          </div>
+        </div>
+        {analyticsLoading ? (
+          <div className="py-10 text-center">
+            <Loader2 className="w-6 h-6 text-[#B8860B] animate-spin mx-auto" />
+          </div>
+        ) : view === "revenue" ? (
+          <RevenueChart data={revenueSeries} />
+        ) : (
+          <BookingsChart data={revenueSeries} />
+        )}
+      </div>
+
+      {/* TOP PERFORMER + BOOKINGS BY ROOM */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.2fr] gap-[18px] mb-6">
+        {/* Top Performer */}
+        <div className="bg-white border border-[#e5e7eb] rounded-[14px] shadow-[0_1px_2px_rgba(15,42,46,0.04)] overflow-hidden flex flex-col">
+          <div className="relative h-[160px] bg-[#f9fafb] border-b border-[#e5e7eb] grid place-items-center text-[#6B7280] font-mono text-[11px] overflow-hidden">
+            <div className="absolute inset-0 bg-[repeating-linear-gradient(-45deg,transparent_0,transparent_9px,#f3f4f6_9px,#f3f4f6_18px)] opacity-90" />
+            <span className="relative bg-white border border-[#e5e7eb] rounded-md px-2 py-1">
+              Hilltop Deluxe Suite · hero
+            </span>
+            <div className="absolute top-3 left-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#DAA520] text-[#1f2937] text-[11.5px] font-semibold uppercase tracking-widest">
+              <Sparkles className="w-3 h-3" /> Top performer
+            </div>
+          </div>
+          <div className="p-5">
+            <h3 className={`text-[17px] leading-[1.3] font-medium text-[#111827] mb-1 ${fontFraunces}`}>
+              Hilltop Deluxe Suite
+            </h3>
+            <div className="text-[12.5px] text-[#6B7280] mb-4">
+              Your highest-earning room this period.
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <MiniStat label="Net earned" value={peso(124800)} accent />
+              <MiniStat label="Bookings" value="28" />
+              <MiniStat label="Avg rating" value="4.9 ★" />
+            </div>
+          </div>
+        </div>
+
+        {/* Bookings by room */}
+        <div className="bg-white border border-[#e5e7eb] rounded-[14px] shadow-[0_1px_2px_rgba(15,42,46,0.04)] p-[22px]">
+          <div className="mb-4">
+            <h3 className={`text-[17px] leading-[1.3] font-medium text-[#111827] mb-1 ${fontFraunces}`}>
+              Bookings by room
+            </h3>
+            <p className="text-[12.5px] text-[#6B7280]">
+              Where your earnings come from this period.
+            </p>
+          </div>
+          <div className="flex flex-col gap-3.5">
+            {bookingsByRoom.map((b, i) => {
+              const pct = (b.net / maxNet) * 100;
+              const widthClass =
+                pct >= 95
+                  ? "w-full"
+                  : pct >= 75
+                  ? "w-3/4"
+                  : pct >= 50
+                  ? "w-1/2"
+                  : pct >= 25
+                  ? "w-1/4"
+                  : "w-[15%]";
+              return (
+                <div key={i}>
+                  <div className="flex justify-between mb-1.5">
+                    <span className="text-[13.5px] font-semibold text-[#111827]">{b.room}</span>
+                    <span className="text-[12.5px] font-mono text-[#374151]">
+                      {peso(b.net)}{" "}
+                      <span className="text-[#6B7280]">· {b.bookings} bookings</span>
+                    </span>
+                  </div>
+                  <div className="h-2 bg-[#f3f4f6] rounded-full overflow-hidden">
+                    <div className={`h-full bg-gradient-to-r from-[#B8860B] to-[#DAA520] rounded-full ${widthClass}`} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* RECENT BOOKINGS */}
+      <div className="bg-white border border-[#e5e7eb] rounded-[14px] shadow-[0_1px_2px_rgba(15,42,46,0.04)] overflow-hidden">
+        <div className="px-[22px] pt-5 pb-3 flex justify-between items-baseline flex-wrap gap-2">
+          <div>
+            <h3 className={`text-[17px] leading-[1.3] font-medium text-[#111827] mb-1 ${fontFraunces}`}>
+              Recent bookings
+            </h3>
+            <p className="text-[12.5px] text-[#6B7280]">
+              Guest names are masked for privacy.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowAll((s) => !s)}
+            className="text-[12.5px] font-semibold text-[#374151] hover:bg-[#f9fafb] px-2.5 py-1 rounded-md inline-flex items-center gap-1 transition"
+          >
+            {showAll ? "Show less" : `View all (${RECENT_BOOKINGS.length})`}
+            <ChevronRight className={`w-3 h-3 transition-transform ${showAll ? "rotate-90" : ""}`} />
+          </button>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-[13px] border-collapse">
+            <thead>
+              <tr>
+                {["Booking", "Guest", "Room", "Stay", "Gross", "Commission", "Fee", "Net", "Status"].map((h, i) => (
+                  <th
+                    key={h}
+                    className={`text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6B7280] px-3.5 py-3 border-b border-[#e5e7eb] bg-[#f9fafb] ${
+                      [4, 5, 6, 7].includes(i) ? "text-right" : ""
+                    }`}
+                  >
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {visibleBookings.map((b) => (
+                <tr key={b.id} className="hover:bg-[#f9fafb]">
+                  <td className="px-3.5 py-3.5 border-b border-[#e5e7eb] text-[#6B7280] font-mono text-[11.5px]">
+                    {b.id}
+                  </td>
+                  <td className="px-3.5 py-3.5 border-b border-[#e5e7eb] text-[#374151]">
+                    {b.guest}
+                  </td>
+                  <td className="px-3.5 py-3.5 border-b border-[#e5e7eb] text-[#374151]">
+                    {b.room}
+                  </td>
+                  <td className="px-3.5 py-3.5 border-b border-[#e5e7eb] text-[#374151]">
+                    <div className="text-[12.5px]">
+                      {b.checkIn} → {b.checkOut}
+                    </div>
+                    <div className="text-[11.5px] text-[#6B7280]">
+                      {b.nights} night{b.nights > 1 ? "s" : ""}
+                    </div>
+                  </td>
+                  <td className="px-3.5 py-3.5 border-b border-[#e5e7eb] text-right font-mono text-[#111827]">
+                    {peso(b.gross)}
+                  </td>
+                  <td className="px-3.5 py-3.5 border-b border-[#e5e7eb] text-right font-mono text-[#dc2626]">
+                    −{peso(b.commission)}
+                  </td>
+                  <td className="px-3.5 py-3.5 border-b border-[#e5e7eb] text-right font-mono text-[#dc2626]">
+                    −{peso(b.fee)}
+                  </td>
+                  <td className="px-3.5 py-3.5 border-b border-[#e5e7eb] text-right font-mono font-semibold text-[#111827]">
+                    {peso(b.net)}
+                  </td>
+                  <td className="px-3.5 py-3.5 border-b border-[#e5e7eb]">
+                    <span
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11.5px] font-semibold ${STATUS_MAP[b.status]}`}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-current opacity-90" />
+                      {b.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface KpiProps {
+  label: string;
+  value: string;
+  delta?: string;
+  sub: string;
+  icon: React.ElementType;
+}
+
+const Kpi = ({ label, value, delta, sub, icon: IconCmp }: KpiProps) => (
+  <div className="bg-white border border-[#e5e7eb] rounded-[14px] p-[22px] shadow-[0_1px_2px_rgba(15,42,46,0.04)] flex flex-col gap-1.5">
+    <div className="flex justify-between items-center text-[#6B7280]">
+      <span className="text-[11px] uppercase tracking-[0.08em] font-semibold">{label}</span>
+      <span className="text-[#B8860B]/70">
+        <IconCmp className="w-4 h-4" />
+      </span>
+    </div>
+    <div className={`text-[30px] font-medium tracking-[-0.02em] leading-[1.1] mt-1 text-[#111827] ${fontFraunces}`}>
+      {value}
+    </div>
+    <div className="flex items-center gap-2 mt-0.5">
+      {delta && (
+        <span className="text-[11.5px] inline-flex items-center gap-1 font-semibold text-[#16a34a]">
+          <TrendingUp className="w-3 h-3" />
+          {delta}
+        </span>
+      )}
+      <span className="text-[11.5px] text-[#6B7280]">{sub}</span>
+    </div>
+  </div>
+);
+
+const LegendDot = ({ color, label }: { color: string; label: string }) => (
+  <span className="inline-flex items-center gap-1.5 text-[#374151]">
+    <span className={`w-2.5 h-2.5 rounded-[3px] ${color}`} />
+    {label}
+  </span>
+);
+
+const MiniStat = ({ label, value, accent }: { label: string; value: string; accent?: boolean }) => (
+  <div className="px-3 py-2.5 rounded-[9px] bg-[#f9fafb] border border-[#e5e7eb]">
+    <div className="text-[11px] text-[#6B7280] uppercase tracking-[0.06em] font-semibold">
+      {label}
+    </div>
+    <div className={`text-[18px] mt-1 ${fontFraunces} ${accent ? "text-[#B8860B]" : "text-[#111827]"}`}>
+      {value}
+    </div>
+  </div>
+);
+
+function OccupancyGauge({ value, bookedNights, availableNights }: { value: number; bookedNights?: number; availableNights?: number }) {
+  const radius = 44;
+  const circ = Math.PI * radius;
+  const dash = (value / 100) * circ;
+  return (
+    <div className="bg-white border border-[#e5e7eb] rounded-[14px] p-[22px] shadow-[0_1px_2px_rgba(15,42,46,0.04)] flex items-center gap-4">
+      <div className="relative w-[110px] h-[70px]">
+        <svg viewBox="0 0 110 60" width="110" height="60">
+          <path
+            d={`M 10 55 A ${radius} ${radius} 0 0 1 100 55`}
+            fill="none"
+            stroke="#f3f4f6"
+            strokeWidth="10"
+            strokeLinecap="round"
+          />
+          <path
+            d={`M 10 55 A ${radius} ${radius} 0 0 1 100 55`}
+            fill="none"
+            stroke="#B8860B"
+            strokeWidth="10"
+            strokeLinecap="round"
+            strokeDasharray={`${dash} ${circ}`}
+          />
+        </svg>
+        <div className={`absolute top-7 left-0 right-0 text-center text-[24px] font-medium text-[#111827] ${fontFraunces}`}>
+          {value}%
+        </div>
+      </div>
+      <div>
+        <div className="text-[11px] uppercase tracking-[0.08em] text-[#6B7280] font-semibold">
+          Occupancy
+        </div>
+        <div className="text-[12.5px] mt-0.5 text-[#111827]">
+          {bookedNights ?? 0} of {availableNights ?? 0} nights booked
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RevenueChart({ data }: { data: typeof REVENUE_SERIES }) {
+  const W = 880,
+    H = 240,
+    PADX = 30,
+    PADY = 20;
+  const innerW = W - PADX * 2;
+  const innerH = H - PADY * 2;
+  const max = Math.max(...data.map((d) => d.gross));
+  const stepX = innerW / data.length;
+  const barW = stepX * 0.32;
+  const ticks = [0, 25, 50, 75, 100].map((p) => Math.round(((max * p) / 100) / 1000) * 1000);
+
+  return (
+    <div className="w-full overflow-x-auto">
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" className="min-w-[700px]">
+        {ticks.map((t, i) => {
+          const y = PADY + innerH - (t / max) * innerH;
+          return (
+            <g key={i}>
+              <line x1={PADX} y1={y} x2={W - PADX} y2={y} stroke="#e5e7eb" strokeDasharray="3 3" />
+              <text x={PADX - 8} y={y + 4} textAnchor="end" fontSize="10" fill="#6B7280" fontFamily="ui-monospace,monospace">
+                ₱{(t / 1000).toFixed(0)}k
+              </text>
+            </g>
+          );
+        })}
+        {data.map((d, i) => {
+          const cx = PADX + stepX * i + stepX / 2;
+          const gH = (d.gross / max) * innerH;
+          const nH = (d.net / max) * innerH;
+          return (
+            <g key={i}>
+              <rect x={cx - barW - 2} y={PADY + innerH - gH} width={barW} height={gH} rx="3" fill="#B8860B" opacity="0.85" />
+              <rect x={cx + 2} y={PADY + innerH - nH} width={barW} height={nH} rx="3" fill="#DAA520" />
+              <text x={cx} y={H - 4} textAnchor="middle" fontSize="10.5" fill="#6B7280">
+                {d.label}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
+function BookingsChart({ data }: { data: typeof REVENUE_SERIES }) {
+  const W = 880,
+    H = 240,
+    PADX = 30,
+    PADY = 20;
+  const innerW = W - PADX * 2;
+  const innerH = H - PADY * 2;
+  const counts = data.map((d) => Math.round(d.gross / 3400));
+  const max = Math.max(...counts);
+  const stepX = innerW / (counts.length - 1);
+  const pts = counts.map((c, i) => [PADX + stepX * i, PADY + innerH - (c / max) * innerH] as const);
+  const path = "M " + pts.map((p) => p.join(",")).join(" L ");
+  const fill = `${path} L ${pts[pts.length - 1][0]},${PADY + innerH} L ${PADX},${PADY + innerH} Z`;
+
+  return (
+    <div className="w-full overflow-x-auto">
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" className="min-w-[700px]">
+        {[0, 25, 50, 75, 100].map((p, i) => {
+          const v = Math.round((max * p) / 100);
+          const y = PADY + innerH - (v / max) * innerH;
+          return (
+            <g key={i}>
+              <line x1={PADX} y1={y} x2={W - PADX} y2={y} stroke="#e5e7eb" strokeDasharray="3 3" />
+              <text x={PADX - 8} y={y + 4} textAnchor="end" fontSize="10" fill="#6B7280" fontFamily="ui-monospace,monospace">
+                {v}
+              </text>
+            </g>
+          );
+        })}
+        <path d={fill} fill="#B8860B" opacity="0.12" />
+        <path d={path} fill="none" stroke="#B8860B" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+        {pts.map(([x, y], i) => (
+          <g key={i}>
+            <circle cx={x} cy={y} r="4" fill="#FFFFFF" stroke="#B8860B" strokeWidth="2" />
+            <text x={x} y={H - 4} textAnchor="middle" fontSize="10.5" fill="#6B7280">
+              {data[i].label}
+            </text>
+          </g>
+        ))}
+      </svg>
+    </div>
+  );
+}

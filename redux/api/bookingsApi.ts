@@ -138,5 +138,4 @@ export const {
   useGetRoomBookingsQuery,
   useUpdateCleaningStatusMutation,
   useSyncCalendarBookingsMutation,
-  useSyncCalendarColorsMutation,
 } = bookingsApi;

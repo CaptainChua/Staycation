@@ -656,7 +656,7 @@ const Checkout = () => {
 
       updateAdditionalGuests(Number(currentAdults), Number(currentChildren));
     } else if (name === "age") {
-      const digitsOnly = value.replace(/\D/g, "").slice(0, 3);
+      const digitsOnly = value.replace(/\D/g, "").replace(/^0+/, "").slice(0, 3);
       if (digitsOnly === "") {
         setErrors(prev => ({...prev, age: ''}));
         setFormData((prev) => ({
@@ -890,9 +890,20 @@ const Checkout = () => {
   const validateStep1 = (): boolean => {
     const newErrors: Record<string, string> = {};
 
+    // Allows letters (including accented/Unicode), spaces, hyphens, apostrophes
+    const nameRegex = /^[a-zA-ZÀ-ÖØ-öø-ÿ\s'\-]+$/;
+
     // Validate Step 1 - Main Guest
-    if (!formData.firstName) newErrors.firstName = "First name is required";
-    if (!formData.lastName) newErrors.lastName = "Last name is required";
+    if (!formData.firstName) {
+      newErrors.firstName = "First name is required";
+    } else if (!nameRegex.test(formData.firstName)) {
+      newErrors.firstName = "First name may only contain letters, hyphens, apostrophes, and accents";
+    }
+    if (!formData.lastName) {
+      newErrors.lastName = "Last name is required";
+    } else if (!nameRegex.test(formData.lastName)) {
+      newErrors.lastName = "Last name may only contain letters, hyphens, apostrophes, and accents";
+    }
     if (!formData.age) {
       newErrors.age = "Age is required";
     } else if (Number(formData.age) < 18) {
@@ -920,9 +931,25 @@ const Checkout = () => {
       const guest = additionalGuests[i];
       const guestNumber = i + 2;
 
-      if (!guest.firstName) newErrors[`guest${i}FirstName`] = `Guest ${guestNumber} first name is required`;
-      if (!guest.lastName) newErrors[`guest${i}LastName`] = `Guest ${guestNumber} last name is required`;
-      if (!guest.age) newErrors[`guest${i}Age`] = `Guest ${guestNumber} age is required`;
+      const nameRegex = /^[a-zA-ZÀ-ÖØ-öø-ÿ\s'\-]+$/;
+      const isGuestAdult = i < formData.adults - 1;
+      if (!guest.firstName) {
+        newErrors[`guest${i}FirstName`] = `Guest ${guestNumber} first name is required`;
+      } else if (!nameRegex.test(guest.firstName)) {
+        newErrors[`guest${i}FirstName`] = `Guest ${guestNumber} first name may only contain letters, hyphens, apostrophes, and accents`;
+      }
+      if (!guest.lastName) {
+        newErrors[`guest${i}LastName`] = `Guest ${guestNumber} last name is required`;
+      } else if (!nameRegex.test(guest.lastName)) {
+        newErrors[`guest${i}LastName`] = `Guest ${guestNumber} last name may only contain letters, hyphens, apostrophes, and accents`;
+      }
+      if (!guest.age) {
+        newErrors[`guest${i}Age`] = `Guest ${guestNumber} age is required`;
+      } else if (isGuestAdult && Number(guest.age) < 18) {
+        newErrors[`guest${i}Age`] = `Adult guest must be at least 18 years old`;
+      } else if (!isGuestAdult && (Number(guest.age) < 4 || Number(guest.age) > 17)) {
+        newErrors[`guest${i}Age`] = `Child guest age must be between 4 and 17`;
+      }
       if (!guest.gender) newErrors[`guest${i}Gender`] = `Guest ${guestNumber} gender is required`;
 
       // Validate ID for guests 10+ years old
@@ -1567,8 +1594,6 @@ const Checkout = () => {
                             onChange={(e) => handleInputChange(e)}
                             maxLength={3}
                             required
-                            min="1"
-                            max="120"
                             className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary transition-colors bg-white dark:bg-gray-700 ${
                               errors.age ? 'border-red-500 focus:ring-red-500 text-red-600 dark:text-red-500' : 'border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white'
                             }`}
@@ -1630,6 +1655,12 @@ const Checkout = () => {
                             <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
                               <AlertCircle className="w-4 h-4" />
                               {errors.email}
+                            </p>
+                          )}
+                          {!errors.email && (
+                            <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-md px-3 py-1.5">
+                              <Mail className="w-3.5 h-3.5 flex-shrink-0" />
+                              Your booking confirmation will be sent to this email.
                             </p>
                           )}
                         </div>
@@ -1881,7 +1912,17 @@ const Checkout = () => {
                                 onChange={(e) => {
                                   const digitsOnly = e.target.value.replace(/\D/g, "").slice(0, 3);
                                   handleAdditionalGuestChange(index, 'age', digitsOnly);
-                                  setErrors(prev => ({...prev, [`guest${index}Age`]: ''}));
+                                  const isGuestAdult = index < formData.adults - 1;
+                                  const ageVal = parseInt(digitsOnly);
+                                  if (!digitsOnly) {
+                                    setErrors(prev => ({...prev, [`guest${index}Age`]: ''}));
+                                  } else if (isGuestAdult && ageVal < 18) {
+                                    setErrors(prev => ({...prev, [`guest${index}Age`]: 'Adult guest must be at least 18 years old'}));
+                                  } else if (!isGuestAdult && (ageVal < 4 || ageVal > 17)) {
+                                    setErrors(prev => ({...prev, [`guest${index}Age`]: 'Child guest age must be between 4 and 17'}));
+                                  } else {
+                                    setErrors(prev => ({...prev, [`guest${index}Age`]: ''}));
+                                  }
                                 }}
                                 maxLength={3}
                                 required
@@ -2428,6 +2469,12 @@ const Checkout = () => {
                             {bookingData.selectedRoom?.name || bookingData.location?.name || 'Standard Room'}
                           </p>
                         </div>
+                      </div>
+
+                      {/* Email confirmation reminder */}
+                      <div className="flex items-center gap-2 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-md px-3 py-2 mb-4">
+                        <Mail className="w-3.5 h-3.5 flex-shrink-0" />
+                        Your booking confirmation will be sent to <span className="font-bold">{formData.email}</span>
                       </div>
 
                       {/* Price Breakdown */}

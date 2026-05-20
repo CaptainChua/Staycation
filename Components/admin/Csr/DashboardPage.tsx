@@ -1,6 +1,6 @@
 "use client";
 
-import { Calendar, DollarSign, Users, Package, CreditCard, Sparkles, XCircle, TrendingUp, TrendingDown, Home, Clock, AlertTriangle, CheckCircle, RefreshCw } from "lucide-react";
+import { Calendar, DollarSign, Users, CreditCard, Sparkles, XCircle, TrendingUp, TrendingDown, Home, Clock, AlertTriangle, CheckCircle, RefreshCw, Package } from "lucide-react";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -18,19 +18,33 @@ interface KPICard {
   loading?: boolean;
 }
 
-interface ActivityItem {
-  id: string;
-  time: string;
-  action: string;
-  customer: string;
-  details: string;
-  status: string;
-  statusColor: string;
-  Icon: any;
-  iconColor: string;
+interface DashboardPageProps {
+  onViewAllBookings?: () => void;
 }
 
-export default function DashboardPage() {
+const getBookingStatusColor = (status: string) => {
+  switch ((status || '').toLowerCase()) {
+    case 'approved': return 'bg-emerald-100 text-emerald-700';
+    case 'confirmed': return 'bg-green-100 text-green-700';
+    case 'checked-in':
+    case 'checked_in': return 'bg-blue-100 text-blue-700';
+    case 'checked-out':
+    case 'checked_out': return 'bg-indigo-100 text-indigo-700';
+    case 'completed': return 'bg-purple-100 text-purple-700';
+    case 'pending': return 'bg-yellow-100 text-yellow-700';
+    case 'cancelled': return 'bg-orange-100 text-orange-700';
+    case 'rejected':
+    case 'declined': return 'bg-red-100 text-red-700';
+    default: return 'bg-gray-100 text-gray-700';
+  }
+};
+
+const formatBookingStatus = (status: string) => {
+  if (!status) return 'Unknown';
+  return status.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('-');
+};
+
+export default function DashboardPage({ onViewAllBookings }: DashboardPageProps) {
   const { data: session } = useSession();
   const userId = (session?.user as any)?.id;
   const [refreshing, setRefreshing] = useState(false);
@@ -38,7 +52,7 @@ export default function DashboardPage() {
   // Fetch real data from APIs
   const { data: analyticsData, isLoading: analyticsLoading, refetch: refetchAnalytics } = useGetAnalyticsSummaryQuery({ period: '30' });
   const { data: bookingsData, isLoading: bookingsLoading, refetch: refetchBookings } = useGetBookingsQuery();
-  const { data: activityData, isLoading: activityLoading, refetch: refetchActivity } = useGetActivityLogsQuery({ limit: 10, employee_id: userId });
+  const { refetch: refetchActivity } = useGetActivityLogsQuery({ limit: 10, employee_id: userId });
   const { data: paymentsData, isLoading: paymentsLoading, refetch: refetchPayments } = useGetBookingPaymentsQuery();
 
   const handleRefresh = async () => {
@@ -61,21 +75,21 @@ export default function DashboardPage() {
 
   // Calculate payment totals (amounts) from all payments data
   const paymentTotals = {
-    pending:  paymentsData?.filter((p: any) => isPending(p.payment_status)).reduce((sum: number, p: any) => sum + (Number(p.total_amount) || 0), 0) || 0,
-    approved: paymentsData?.filter((p: any) => isApproved(p.payment_status)).reduce((sum: number, p: any) => sum + (Number(p.amount_paid) || Number(p.down_payment) || 0), 0) || 0,
-    rejected: paymentsData?.filter((p: any) => isRejected(p.payment_status)).reduce((sum: number, p: any) => sum + (Number(p.total_amount) || 0), 0) || 0,
-    refunded: paymentsData?.filter((p: any) => p.payment_status === 'refunded').reduce((sum: number, p: any) => sum + (Number(p.total_amount) || 0), 0) || 0,
+    pending: paymentsData?.filter((payment: any) => payment.payment_status === 'pending').reduce((sum: number, payment: any) => sum + (Number(payment.total_amount) || 0), 0) || 0,
+    approved: paymentsData?.filter((payment: any) => payment.payment_status === 'approved').reduce((sum: number, payment: any) => sum + (Number(payment.total_amount) || 0), 0) || 0,
+    rejected: paymentsData?.filter((payment: any) => payment.payment_status === 'rejected').reduce((sum: number, payment: any) => sum + (Number(payment.total_amount) || 0), 0) || 0,
+    refunded: paymentsData?.filter((payment: any) => payment.payment_status === 'refunded').reduce((sum: number, payment: any) => sum + (Number(payment.total_amount) || 0), 0) || 0,
   };
 
   // Calculate payment counts from all payments data
   const paymentCounts = {
-    pending:  paymentsData?.filter((p: any) => isPending(p.payment_status)).length || 0,
-    approved: paymentsData?.filter((p: any) => isApproved(p.payment_status)).length || 0,
-    rejected: paymentsData?.filter((p: any) => isRejected(p.payment_status)).length || 0,
-    refunded: paymentsData?.filter((p: any) => p.payment_status === 'refunded').length || 0,
+    pending: paymentsData?.filter((payment: any) => payment.payment_status === 'pending').length || 0,
+    approved: paymentsData?.filter((payment: any) => payment.payment_status === 'approved').length || 0,
+    rejected: paymentsData?.filter((payment: any) => payment.payment_status === 'rejected').length || 0,
+    refunded: paymentsData?.filter((payment: any) => payment.payment_status === 'refunded').length || 0,
   };
 
-  // Total revenue = sum of amount_paid for all approved payments
+  // Calculate total revenue from approved payments only (booking_payments where status = approved)
   const totalRevenue = paymentTotals.approved;
 
   // Calculate KPI data from real API responses
@@ -113,75 +127,32 @@ export default function DashboardPage() {
     }
   ];
 
-  // Transform activity data for display
-  const activityItems: ActivityItem[] = activityData?.data?.logs?.slice(0, 5).map((log: any, index: number) => {
-    const actionIcons: { [key: string]: any } = {
-      'LOGIN': Users,
-      'LOGOUT': Users,
-      'BOOKING': Calendar,
-      'PAYMENT': DollarSign,
-      'CLEANING': Sparkles,
-      'INVENTORY': Package,
-      'CANCEL': XCircle,
-    };
-
-    const statusColors: { [key: string]: string } = {
-      'completed': 'bg-green-100 text-green-700',
-      'pending': 'bg-yellow-100 text-yellow-700',
-      'failed': 'bg-red-100 text-red-700',
-      'processing': 'bg-blue-100 text-blue-700',
-    };
-
-    const iconColors: { [key: string]: string } = {
-      'LOGIN': 'text-blue-600',
-      'LOGOUT': 'text-gray-600',
-      'BOOKING': 'text-green-600',
-      'PAYMENT': 'text-purple-600',
-      'CLEANING': 'text-orange-600',
-      'INVENTORY': 'text-indigo-600',
-      'CANCEL': 'text-red-600',
-    };
-
-    return {
-      id: log.id || `activity-${index}`,
-      time: new Date(log.created_at).toLocaleTimeString('en-US', { 
-        hour: '2-digit', 
-        minute: '2-digit' 
-      }),
-      action: log.activity_type || 'System Activity',
-      customer: `${log.first_name || 'System'} ${log.last_name || ''}`.trim() || 'System',
-      details: log.description || 'Activity logged',
-      status: 'Completed',
-      statusColor: statusColors.completed,
-      Icon: actionIcons[log.activity_type] || Users,
-      iconColor: iconColors[log.activity_type] || iconColors.LOGIN
-    };
-  }) || [];
 
   // Calculate today's tasks from bookings data
-  const today = new Date().toLocaleDateString('en-CA'); // "YYYY-MM-DD" in local timezone
-  const activeStatuses = ['approved', 'on-going', 'confirmed', 'checked-in'];
   const todayTasks = {
-    checkins: bookingsData?.filter((booking: any) =>
-      String(booking.check_in_date).slice(0, 10) === today &&
-      activeStatuses.includes(booking.status)
-    ).length || 0,
-    checkouts: bookingsData?.filter((booking: any) =>
-      String(booking.check_out_date).slice(0, 10) === today &&
-      activeStatuses.includes(booking.status)
-    ).length || 0,
-    cleanings: bookingsData?.filter((booking: any) =>
-      String(booking.check_out_date).slice(0, 10) === today &&
-      activeStatuses.includes(booking.status)
-    ).length || 0,
+    checkins: bookingsData?.filter((booking: any) => {
+      const today = new Date().toDateString();
+      const checkinDate = new Date(booking.check_in_date).toDateString();
+      return checkinDate === today;
+    }).length || 0,
+    checkouts: bookingsData?.filter((booking: any) => {
+      const today = new Date().toDateString();
+      const checkoutDate = new Date(booking.check_out_date).toDateString();
+      return checkoutDate === today;
+    }).length || 0,
+    cleanings: bookingsData?.filter((booking: any) => {
+      const today = new Date().toDateString();
+      const checkoutDate = new Date(booking.check_out_date).toDateString();
+      return checkoutDate === today; // Assuming cleaning needed after checkout
+    }).length || 0
   };
 
   // Calculate payment status from payments data
   const paymentStatus = {
-    paid: paymentCounts.approved,
-    pending: paymentCounts.pending,
-    approved: paymentCounts.approved,
-    rejected: paymentCounts.rejected,
+    paid: paymentsData?.filter((payment: any) => payment.payment_status === 'approved').length || 0,
+    pending: paymentsData?.filter((payment: any) => payment.payment_status === 'pending').length || 0,
+    approved: paymentsData?.filter((payment: any) => payment.payment_status === 'approved').length || 0,
+    rejected: paymentsData?.filter((payment: any) => payment.payment_status === 'rejected').length || 0
   };
 
   return (
@@ -389,7 +360,7 @@ export default function DashboardPage() {
                 {bookingsLoading ? (
                   <div className="w-8 h-6 bg-indigo-200 dark:bg-indigo-800 rounded animate-pulse" />
                 ) : (
-                  bookingsData?.filter((b: any) => ['approved', 'on-going', 'confirmed', 'checked-in'].includes(b.status)).length || 0
+                  bookingsData?.filter((b: any) => b.status === 'confirmed').length || 0
                 )}
               </span>
             </div>
@@ -421,11 +392,11 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Recent Activity Table */}
+      {/* Recent Bookings Table */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-6 flex-1 flex flex-col min-h-0 border border-gray-200 dark:border-gray-700">
         <div className="flex justify-between items-center mb-4 flex-shrink-0">
-          <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">Recent Activity</h3>
-          {activityLoading && (
+          <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">Recent Bookings</h3>
+          {bookingsLoading && (
             <div className="w-6 h-6 border-2 border-brand-primary border-t-transparent rounded-full animate-spin" />
           )}
         </div>
@@ -434,16 +405,16 @@ export default function DashboardPage() {
             <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 border-b-2 border-gray-200 dark:border-gray-600">
               <tr>
                 <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                  Time
+                  Date
                 </th>
                 <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                  Action
+                  Booking ID
                 </th>
                 <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                  Customer
+                  Guest
                 </th>
                 <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                  Details
+                  Haven
                 </th>
                 <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
                   Status
@@ -451,72 +422,58 @@ export default function DashboardPage() {
               </tr>
             </thead>
             <tbody>
-              {activityLoading ? (
-                // Loading skeleton
+              {bookingsLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i} className="border-b border-gray-100 dark:border-gray-700">
+                    <td className="py-4 px-4"><div className="w-16 h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" /></td>
+                    <td className="py-4 px-4"><div className="w-24 h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" /></td>
+                    <td className="py-4 px-4"><div className="w-32 h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" /></td>
+                    <td className="py-4 px-4"><div className="w-28 h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" /></td>
+                    <td className="py-4 px-4 text-center"><div className="w-16 h-6 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse mx-auto" /></td>
+                  </tr>
+                ))
+              ) : (bookingsData || []).length > 0 ? (
+                (bookingsData || []).slice(0, 5).map((booking: any) => (
+                  <tr
+                    key={booking.id}
+                    className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  >
                     <td className="py-4 px-4">
-                      <div className="w-16 h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                      <span className="text-sm text-gray-600 dark:text-gray-300">
+                        {booking.created_at
+                          ? new Date(booking.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                          : 'N/A'}
+                      </span>
                     </td>
                     <td className="py-4 px-4">
-                      <div className="w-24 h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                      <span className="text-sm font-mono font-semibold text-gray-800 dark:text-gray-100">
+                        {booking.booking_id}
+                      </span>
                     </td>
                     <td className="py-4 px-4">
-                      <div className="w-20 h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                      <p className="text-sm font-medium text-gray-800 dark:text-gray-100">
+                        {`${booking.guest_first_name || ''} ${booking.guest_last_name || ''}`.trim() || 'Guest'}
+                      </p>
+                      {booking.guest_email && (
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{booking.guest_email}</p>
+                      )}
                     </td>
                     <td className="py-4 px-4">
-                      <div className="w-32 h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                        {booking.room_name || 'N/A'}
+                      </span>
                     </td>
                     <td className="py-4 px-4 text-center">
-                      <div className="w-16 h-6 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse mx-auto" />
+                      <span className={`inline-block text-xs font-bold px-3 py-1.5 rounded-full ${getBookingStatusColor(booking.status)}`}>
+                        {formatBookingStatus(booking.status || '')}
+                      </span>
                     </td>
                   </tr>
                 ))
-              ) : activityItems.length > 0 ? (
-                activityItems.map((item) => {
-                  const ActivityIcon = item.Icon;
-                  return (
-                    <tr
-                      key={item.id}
-                      className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors animate-in fade-in duration-500"
-                    >
-                      <td className="py-4 px-4">
-                        <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                          {item.time}
-                        </span>
-                      </td>
-                      <td className="py-4 px-4">
-                        <div className="flex items-center gap-2">
-                          <ActivityIcon className={`w-5 h-5 ${item.iconColor}`} />
-                          <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">
-                            {item.action}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="py-4 px-4">
-                        <p className="text-sm font-medium text-gray-800 dark:text-gray-100">
-                          {item.customer}
-                        </p>
-                      </td>
-                      <td className="py-4 px-4">
-                        <span className="text-sm text-gray-600 dark:text-gray-300">
-                          {item.details}
-                        </span>
-                      </td>
-                      <td className="py-4 px-4 text-center">
-                        <span
-                          className={`inline-block text-xs font-bold px-3 py-1.5 rounded-full ${item.statusColor}`}
-                        >
-                          {item.status}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })
               ) : (
                 <tr>
                   <td colSpan={5} className="py-8 text-center text-gray-500 dark:text-gray-400">
-                    No recent activity found
+                    No recent bookings found
                   </td>
                 </tr>
               )}
@@ -524,18 +481,28 @@ export default function DashboardPage() {
           </table>
         </div>
 
-        {/* Pagination */}
+        {/* Footer */}
         <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600 flex justify-between items-center">
           <p className="text-sm text-gray-600 dark:text-gray-300">
-            Showing {activityItems.length} of {activityData?.data?.length || 0} activities
+            Showing {Math.min(5, (bookingsData || []).length)} of {(bookingsData || []).length} bookings
           </p>
-          <Link
-            href="/admin/csr/activity-logs"
-            className="text-sm font-semibold bg-gradient-to-r from-brand-primary to-brand-primaryDark bg-clip-text text-transparent hover:opacity-80 transition-opacity"
-          >
-            View All Activity
-          </Link>
-          
+          <div className="flex items-center gap-4">
+            {onViewAllBookings ? (
+              <button
+                onClick={onViewAllBookings}
+                className="text-sm font-semibold bg-gradient-to-r from-brand-primary to-brand-primaryDark bg-clip-text text-transparent hover:opacity-80 transition-opacity"
+              >
+                View All Bookings
+              </button>
+            ) : (
+              <Link
+                href="/admin/csr/activity-logs"
+                className="text-sm font-semibold text-gray-500 dark:text-gray-400 hover:opacity-80 transition-opacity"
+              >
+                View Activity Logs
+              </Link>
+            )}
+          </div>
         </div>
       </div>
 

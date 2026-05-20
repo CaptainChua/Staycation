@@ -4,10 +4,13 @@ import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import {
   Search,
+  Phone,
+  Video,
   Info,
   Send,
   Plus,
   Image as ImageIcon,
+  Smile,
   X,
   Loader2,
 } from "lucide-react";
@@ -43,7 +46,6 @@ interface Message {
   sender_id: string;
   sender_name?: string;
   message_text: string;
-  image_url?: string | null;
   created_at: string;
 }
 
@@ -144,11 +146,8 @@ export default function MessagePage({
     return guestName || "";
   }, [session?.user, userEmail, guestName]);
   const [draft, setDraft] = useState("");
-  const [pendingImage, setPendingImage] = useState<string | null>(null);
-  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isNewMessageModalOpen, setIsNewMessageModalOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const imageInputRef = useRef<HTMLInputElement>(null);
   const hasInitializedActiveId = useRef(false);
   const hasProcessedInitialConversationId = useRef(false);
 
@@ -394,21 +393,17 @@ export default function MessagePage({
 
   const handleSendMessage = async () => {
     const text = draft.trim();
-    if ((!text && !pendingImage) || !activeId || !userId) return;
+    if (!text || !activeId || !userId) return;
 
     try {
-      setIsUploadingImage(!!pendingImage);
       await sendMessage({
         conversation_id: activeId,
         sender_id: userId,
         sender_name: currentUserName || "CSR",
         message_text: text,
-        ...(pendingImage ? { image: pendingImage } : {}),
       }).unwrap();
 
       setDraft("");
-      setPendingImage(null);
-      if (imageInputRef.current) imageInputRef.current.value = "";
       refetchMessages();
       refetchConversations();
     } catch (error: unknown) {
@@ -418,17 +413,7 @@ export default function MessagePage({
           ? (error as { data?: { error?: string } }).data?.error
           : "Failed to send message";
       toast.error(errorMessage || "Failed to send message");
-    } finally {
-      setIsUploadingImage(false);
     }
-  };
-
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setPendingImage(reader.result as string);
-    reader.readAsDataURL(file);
   };
 
   // Use useCallback for memoized functions - MOVED OUTSIDE CONDITIONAL RENDER
@@ -720,6 +705,29 @@ export default function MessagePage({
                       </p>
                     </div>
                   </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      className="p-2 rounded-full hover:bg-brand-primaryLighter transition-colors"
+                      title="Call"
+                    >
+                      <Phone className="w-5 h-5 text-brand-primary" />
+                    </button>
+                    <button
+                      type="button"
+                      className="p-2 rounded-full hover:bg-brand-primaryLighter transition-colors"
+                      title="Video"
+                    >
+                      <Video className="w-5 h-5 text-brand-primary" />
+                    </button>
+                    <button
+                      type="button"
+                      className="p-2 rounded-full hover:bg-brand-primaryLighter transition-colors"
+                      title="Info"
+                    >
+                      <Info className="w-5 h-5 text-brand-primary" />
+                    </button>
+                  </div>
                 </div>
 
                 <div className="flex-1 overflow-y-auto bg-gradient-to-b from-gray-50 to-white dark:from-gray-950 dark:to-gray-900 px-4 py-4 space-y-3">
@@ -767,24 +775,13 @@ export default function MessagePage({
                               </span>
                             )}
                             <div
-                              className={`rounded-2xl text-sm leading-relaxed shadow-sm overflow-hidden ${
+                              className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed shadow-sm ${
                                 isMe
                                   ? "bg-gradient-to-r from-brand-primary to-brand-primaryDark text-white rounded-br-md"
                                   : "bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-800 rounded-bl-md"
                               }`}
                             >
-                              {m.image_url && (
-                                <a href={m.image_url} target="_blank" rel="noopener noreferrer">
-                                  <img
-                                    src={m.image_url}
-                                    alt="attachment"
-                                    className="max-w-[240px] max-h-[240px] w-auto h-auto object-cover block"
-                                  />
-                                </a>
-                              )}
-                              {m.message_text && (
-                                <div className="px-4 py-2.5">{m.message_text}</div>
-                              )}
+                              {m.message_text}
                             </div>
                             <span className="text-[11px] text-gray-400">
                               {memoizedFormatMessageTime(m.created_at)}
@@ -804,27 +801,7 @@ export default function MessagePage({
                 </div>
 
                 <div className="border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-3">
-                  {/* Image preview */}
-                  {pendingImage && (
-                    <div className="mb-2 relative inline-block">
-                      <img src={pendingImage} alt="preview" className="h-20 w-auto rounded-lg object-cover border border-gray-200 dark:border-gray-700" />
-                      <button
-                        type="button"
-                        onClick={() => { setPendingImage(null); if (imageInputRef.current) imageInputRef.current.value = ""; }}
-                        className="absolute -top-1.5 -right-1.5 bg-gray-800 text-white rounded-full w-5 h-5 flex items-center justify-center hover:bg-red-500 transition-colors"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </div>
-                  )}
                   <div className="flex items-end gap-2">
-                    <input
-                      ref={imageInputRef}
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleImageChange}
-                    />
                     <button
                       type="button"
                       onClick={() => setIsNewMessageModalOpen(true)}
@@ -835,9 +812,8 @@ export default function MessagePage({
                     </button>
                     <button
                       type="button"
-                      onClick={() => imageInputRef.current?.click()}
                       className="p-2 rounded-full hover:bg-brand-primaryLighter transition-colors"
-                      title="Attach image"
+                      title="Attach"
                     >
                       <ImageIcon className="w-5 h-5 text-brand-primary" />
                     </button>
@@ -846,25 +822,32 @@ export default function MessagePage({
                         value={draft}
                         onChange={(e) => setDraft(e.target.value)}
                         onKeyDown={(e) => {
-                          if (e.key === "Enter" && !isSending && !isUploadingImage) {
+                          if (e.key === "Enter" && !isSending) {
                             e.preventDefault();
                             handleSendMessage();
                           }
                         }}
                         placeholder="Aa"
-                        disabled={isSending || isUploadingImage}
+                        disabled={isSending}
                         className="flex-1 bg-transparent outline-none text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400"
                       />
+                      <button
+                        type="button"
+                        className="p-1.5 rounded-full hover:bg-brand-primaryLighter transition-colors"
+                        title="Emoji"
+                      >
+                        <Smile className="w-5 h-5 text-brand-primary" />
+                      </button>
                     </div>
 
                     <button
                       type="button"
                       onClick={handleSendMessage}
-                      disabled={isSending || isUploadingImage || (!draft.trim() && !pendingImage)}
+                      disabled={isSending || !draft.trim()}
                       className="p-2 rounded-full hover:bg-brand-primaryLighter transition-colors disabled:opacity-50"
                       title="Send"
                     >
-                      {isSending || isUploadingImage ? (
+                      {isSending ? (
                         <Loader2 className="w-5 h-5 text-brand-primary animate-spin" />
                       ) : (
                         <Send className="w-5 h-5 text-brand-primary" />

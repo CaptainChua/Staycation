@@ -229,11 +229,14 @@ export default function SettingsPage() {
                 </p>
               </div>
               <button
+                type="button"
                 onClick={() => toggleNotification(item.id)}
                 className={`${primaryBtn} ${
                   notificationPrefs[item.id] ? "bg-brand-primary" : "bg-gray-200"
                 }`}
                 aria-pressed={notificationPrefs[item.id]}
+                aria-label={`Toggle ${item.title}`}
+                title={`Toggle ${item.title}`}
               >
                 <span
                   className={`inline-block h-5 w-5 transform rounded-full bg-white transition ${
@@ -302,11 +305,14 @@ export default function SettingsPage() {
                   </div>
                 </div>
                 <button
+                  type="button"
                   onClick={() => toggleChannel(channel.id)}
                   className={`${primaryBtn} ${
                     channelPrefs[channel.id] ? "bg-brand-primary" : "bg-gray-200"
                   }`}
                   aria-pressed={channelPrefs[channel.id]}
+                  aria-label={`Toggle ${channel.title}`}
+                  title={`Toggle ${channel.title}`}
                 >
                   <span
                     className={`inline-block h-5 w-5 transform rounded-full bg-white transition ${
@@ -451,9 +457,11 @@ export default function SettingsPage() {
                       </p>
                     </div>
                     <button
+                      type="button"
                       onClick={handleLogoRemove}
                       className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-lg transition-colors"
-                      title="Remove"
+                      title="Remove logo"
+                      aria-label="Remove logo"
                     >
                       <X className="w-5 h-5" />
                     </button>
@@ -526,6 +534,8 @@ export default function SettingsPage() {
             <select
               value={appearance.theme}
               onChange={(e) => handleAppearanceChange("theme", e.target.value)}
+              aria-label="Theme mode"
+              title="Theme mode"
               className="w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-3 text-sm text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent"
             >
               <option value="light">Light mode</option>
@@ -541,6 +551,8 @@ export default function SettingsPage() {
             <select
               value={appearance.density}
               onChange={(e) => handleAppearanceChange("density", e.target.value)}
+              aria-label="Density"
+              title="Density"
               className="w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-3 text-sm text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent"
             >
               <option value="comfortable">Comfortable</option>
@@ -556,6 +568,8 @@ export default function SettingsPage() {
             <select
               value={appearance.language}
               onChange={(e) => handleAppearanceChange("language", e.target.value)}
+              aria-label="Language"
+              title="Language"
               className="w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-3 text-sm text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent"
             >
               <option value="en">English (Philippines)</option>
@@ -571,6 +585,8 @@ export default function SettingsPage() {
             <select
               value={appearance.timezone}
               onChange={(e) => handleAppearanceChange("timezone", e.target.value)}
+              aria-label="Time zone"
+              title="Time zone"
               className="w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-3 text-sm text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent"
             >
               <option value="GMT+08">

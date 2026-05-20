@@ -36,14 +36,16 @@ interface Room {
   discountPercentage?: number; // Discount percentage (e.g., 20 for 20% off)
 }
 interface RoomCardsProps {
-  room: Room & { uuid_id?: string }; // Add uuid_id for wishlist
-  mode?: "select" | "browse"; // 'select' for filtered search, 'browse' for homepage
-  compact?: boolean; // Optional compact mode for smaller card display
+  room: Room & { uuid_id?: string };
+  mode?: "select" | "browse";
+  compact?: boolean;
+  priority?: boolean;
 }
 const RoomCard = ({
   room,
   mode = "browse",
   compact: _compact = false,
+  priority = false,
 }: RoomCardsProps) => {
   const router = useRouter();
   void _compact;
@@ -313,6 +315,7 @@ const RoomCard = ({
               fill
               className="object-cover w-full h-full"
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              priority={priority}
             />
           ) : (
             <div className="w-full h-full bg-gradient-to-br from-gray-300 to-gray-400 dark:from-gray-600 dark:to-gray-700 flex items-center justify-center">

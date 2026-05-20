@@ -79,7 +79,6 @@ export async function GET(req: NextRequest) {
           status: "Checked Out",
           lastCleaned: new Date(row.updated_at).toLocaleDateString(),
           bookingId: row.booking_ref,
-          bookingUuid: row.booking_id,
           guestName,
           checkOutDate: checkOutDisplay,
           cleaningStatus: row.cleaning_status,
@@ -114,22 +113,32 @@ export async function GET(req: NextRequest) {
               .join(" ");
             const guestName = [row.guest_first_name, row.guest_last_name].filter(Boolean).join(" ") || "Guest";
             let checkOutDisplay = "";
+
+            // Determine if the checkout is truly in the future.
+            // Combine check_out_date + check_out_time for an accurate comparison.
+            let checkOutDateTime: Date | null = null;
             if (row.check_out_date) {
+              const datePart = new Date(row.check_out_date).toISOString().split("T")[0];
+              const timePart = row.check_out_time || "00:00:00";
+              checkOutDateTime = new Date(`${datePart}T${timePart}`);
               checkOutDisplay = new Date(row.check_out_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
               if (row.check_out_time) checkOutDisplay += ` ${row.check_out_time}`;
             }
+
+            const isUpcoming = checkOutDateTime ? checkOutDateTime > new Date() : true;
+
             havens.unshift({
               id: row.uuid_id,
               name,
               address: `${towerName}, Floor ${row.floor}`,
-              status: "Upcoming",
+              status: isUpcoming ? "Upcoming" : "Checked Out",
               lastCleaned: new Date(row.updated_at).toLocaleDateString(),
               bookingId: row.booking_ref,
               bookingUuid: row.booking_id,
               guestName,
               checkOutDate: checkOutDisplay,
               cleaningStatus: row.cleaning_status,
-              isUpcoming: true,
+              isUpcoming,
             } as any);
           }
         } catch {

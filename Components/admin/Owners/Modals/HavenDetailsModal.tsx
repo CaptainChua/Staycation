@@ -92,6 +92,14 @@ const HavenDetailsModal = ({
   return (
     <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-3xl p-8 shadow-sm transition-all duration-[250ms] [transition-timing-function:cubic-bezier(0.4,0,0.2,1)] hover:scale-[1.01] hover:shadow-md will-change-transform">
       <div className="space-y-6">
+        {/* Guide Box */}
+        <div className="flex items-start gap-3 p-4 bg-brand-primary/5 dark:bg-brand-primary/10 border border-brand-primary/20 rounded-2xl">
+          <span className="mt-0.5 inline-flex items-center justify-center w-6 h-6 rounded-full bg-brand-primary/15 text-brand-primary text-xs font-bold flex-shrink-0">?</span>
+          <div>
+            <p className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-0.5">What is this step?</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">Describe the physical details of your haven — how many guests it can hold, the room size in square meters, the bed setup, and a description that will appear on the listing. A clear and inviting description helps guests decide faster.</p>
+          </div>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input
             type="number"

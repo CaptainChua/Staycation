@@ -254,6 +254,52 @@ function EventDetailsModal({ isOpen, onClose, booking, duration }: EventModalPro
   );
 }
 
+const HAVEN_COLORS: Record<string, { bg: string; border: string }> = {
+  "Haven 1":  { bg: "#0EA5E9", border: "#0284C7" },
+  "Haven 2":  { bg: "#7C3AED", border: "#6D28D9" },
+  "Haven 3":  { bg: "#F43F5E", border: "#E11D48" },
+  "Haven 4":  { bg: "#0D9488", border: "#0F766E" },
+  "Haven 5":  { bg: "#D946EF", border: "#C026D3" },
+  "Haven 7":  { bg: "#B45309", border: "#92400E" },
+  "Haven 8":  { bg: "#64748B", border: "#475569" },
+  "Haven 10": { bg: "#65A30D", border: "#4D7C0F" },
+};
+
+const getRoomColor = (roomName: string) =>
+  HAVEN_COLORS[roomName] ?? { bg: "#6B7280", border: "#4B5563" };
+
+const getStatusBadgeStyle = (status: string) => {
+  switch (status?.toLowerCase() || "") {
+    case "pending":     return { color: "rgba(255,255,255,0.80)", bg: "rgba(202,138,4,0.80)",   border: "rgba(161,98,7,0.9)" };
+    case "approved":
+    case "confirmed":   return { color: "rgba(255,255,255,0.80)", bg: "rgba(22,163,74,0.80)",   border: "rgba(21,128,61,0.9)" };
+    case "checked-in":  return { color: "rgba(255,255,255,0.80)", bg: "rgba(37,99,235,0.80)",   border: "rgba(29,78,216,0.9)" };
+    case "checked-out": return { color: "rgba(255,255,255,0.80)", bg: "rgba(79,70,229,0.80)",   border: "rgba(67,56,202,0.9)" };
+    case "completed":   return { color: "rgba(255,255,255,0.80)", bg: "rgba(5,150,105,0.80)",   border: "rgba(4,120,87,0.9)" };
+    case "on-going":    return { color: "rgba(255,255,255,0.80)", bg: "rgba(20,184,166,0.80)",  border: "rgba(15,118,110,0.9)" };
+    case "declined":
+    case "rejected":    return { color: "rgba(255,255,255,0.80)", bg: "rgba(220,38,38,0.80)",   border: "rgba(185,28,28,0.9)" };
+    case "cancelled":   return { color: "rgba(255,255,255,0.80)", bg: "rgba(234,88,12,0.80)",   border: "rgba(194,65,12,0.9)" };
+    default:            return { color: "rgba(255,255,255,0.80)", bg: "rgba(107,114,128,0.80)", border: "rgba(75,85,99,0.9)" };
+  }
+};
+
+const getStatusLabel = (status: string) => {
+  switch (status?.toLowerCase() || "") {
+    case "pending":     return "Pending";
+    case "on-going":    return "On-going";
+    case "approved":
+    case "confirmed":   return "Approved";
+    case "checked-in":  return "Checked-in";
+    case "checked-out": return "Checked-out";
+    case "completed":   return "Completed";
+    case "declined":
+    case "rejected":    return "Declined";
+    case "cancelled":   return "Cancelled";
+    default:            return status;
+  }
+};
+
 export default function CalendarPage() {
   const { data: bookings = [], isLoading, error } = useGetBookingsQuery({});
 
@@ -264,52 +310,6 @@ export default function CalendarPage() {
   const [selectedEvent, setSelectedEvent] = useState<{ booking: Booking; duration: number } | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentMonthYear, setCurrentMonthYear] = useState<string>("");
-
-  const HAVEN_COLORS: Record<string, { bg: string; border: string }> = {
-    "Haven 1":  { bg: "#0EA5E9", border: "#0284C7" },
-    "Haven 2":  { bg: "#7C3AED", border: "#6D28D9" },
-    "Haven 3":  { bg: "#F43F5E", border: "#E11D48" },
-    "Haven 4":  { bg: "#0D9488", border: "#0F766E" },
-    "Haven 5":  { bg: "#D946EF", border: "#C026D3" },
-    "Haven 7":  { bg: "#B45309", border: "#92400E" },
-    "Haven 8":  { bg: "#64748B", border: "#475569" },
-    "Haven 10": { bg: "#65A30D", border: "#4D7C0F" },
-  };
-
-  const getRoomColor = (roomName: string) =>
-    HAVEN_COLORS[roomName] ?? { bg: "#6B7280", border: "#4B5563" };
-
-  const getStatusBadgeStyle = (status: string) => {
-    switch (status?.toLowerCase() || "") {
-      case "pending":     return { color: "rgba(255,255,255,0.80)", bg: "rgba(202,138,4,0.80)",   border: "rgba(161,98,7,0.9)" };
-      case "approved":
-      case "confirmed":   return { color: "rgba(255,255,255,0.80)", bg: "rgba(22,163,74,0.80)",   border: "rgba(21,128,61,0.9)" };
-      case "checked-in":  return { color: "rgba(255,255,255,0.80)", bg: "rgba(37,99,235,0.80)",   border: "rgba(29,78,216,0.9)" };
-      case "checked-out": return { color: "rgba(255,255,255,0.80)", bg: "rgba(79,70,229,0.80)",   border: "rgba(67,56,202,0.9)" };
-      case "completed":   return { color: "rgba(255,255,255,0.80)", bg: "rgba(5,150,105,0.80)",   border: "rgba(4,120,87,0.9)" };
-      case "on-going":    return { color: "rgba(255,255,255,0.80)", bg: "rgba(20,184,166,0.80)",  border: "rgba(15,118,110,0.9)" };
-      case "declined":
-      case "rejected":    return { color: "rgba(255,255,255,0.80)", bg: "rgba(220,38,38,0.80)",   border: "rgba(185,28,28,0.9)" };
-      case "cancelled":   return { color: "rgba(255,255,255,0.80)", bg: "rgba(234,88,12,0.80)",   border: "rgba(194,65,12,0.9)" };
-      default:            return { color: "rgba(255,255,255,0.80)", bg: "rgba(107,114,128,0.80)", border: "rgba(75,85,99,0.9)" };
-    }
-  };
-
-  const getStatusLabel = (status: string) => {
-    switch (status?.toLowerCase() || "") {
-      case "pending":     return "Pending";
-      case "on-going":    return "On-going";
-      case "approved":
-      case "confirmed":   return "Approved";
-      case "checked-in":  return "Checked-in";
-      case "checked-out": return "Checked-out";
-      case "completed":   return "Completed";
-      case "declined":
-      case "rejected":    return "Declined";
-      case "cancelled":   return "Cancelled";
-      default:            return status;
-    }
-  };
 
   // Calculate duration in nights
   const calculateDuration = (checkIn: string, checkOut: string): number => {
@@ -348,11 +348,12 @@ export default function CalendarPage() {
     // Strip time and normalize to local YYYY-MM-DD so FullCalendar treats every event as an all-day block.
     // Uses LOCAL timezone methods â€” dates from the API can arrive as "2026-04-27T16:00:00.000Z"
     // (UTC+8 midnight serialized as UTC), so splitting on "T" would give the wrong day.
-    const toDateOnly = (d: any): string => {
+    // Normalize to local YYYY-MM-DD so FullCalendar treats events as all-day blocks
+    const toDateOnly = (d: unknown): string => {
       if (!d) return "";
       const s = String(d);
-      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s; // already "YYYY-MM-DD", use as-is
-      const dt = new Date(d);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+      const dt = new Date(d as string);
       if (isNaN(dt.getTime())) return s;
       const yyyy = dt.getFullYear();
       const mm = String(dt.getMonth() + 1).padStart(2, "0");

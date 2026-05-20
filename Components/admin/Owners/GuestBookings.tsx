@@ -1,19 +1,21 @@
 "use client";
 
-import { Calendar, Search, Filter, Plus, XCircle, CheckSquare, Eye, Edit, Trash2, MapPin, User, Phone, Mail, CheckCircle, Clock, LogIn, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUpDown, Download, FileSpreadsheet, RefreshCw, Check, X, ExternalLink, CreditCard, Banknote, Shield } from "lucide-react";
+import { Calendar, Search, Filter, Plus, XCircle, CheckSquare, Eye, Edit, Trash2, MapPin, User, Phone, Mail, CheckCircle, Clock, LogIn, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUpDown, Download, FileSpreadsheet, RefreshCw, Check, X, ExternalLink, CreditCard, Banknote, Shield, ShieldAlert } from "lucide-react";
 import { useEffect, useMemo, useState, useRef } from "react";
 import { useSession } from "next-auth/react";
 import ViewBookingDetails from "../Csr/Modals/ViewBookingDetails";
 import ApproveBookingModal from "../Csr/Modals/ApproveBookingModal";
 import RejectBookingModal from "../Csr/Modals/RejectBookingModal";
 import NewBookings from "../Csr/Modals/NewBookings";
-import { useGetBookingsQuery, useDeleteBookingMutation } from "@/redux/api/bookingsApi";
+import { useGetBookingsQuery, useDeleteBookingMutation, useUpdateBookingStatusMutation } from "@/redux/api/bookingsApi";
 import toast from "react-hot-toast";
 import DeleteConfirmation from "../Csr/Modals/DeleteConfirmation";
 import ExportBookingsModal from "../Csr/Modals/ExportBookingsModal";
 import TotalBreakdown from "../Csr/TotalBreakdown";
 import { DateRangeWithDays } from "../Csr/Column";
 import MarkDepositPaidModal from "../Csr/Modals/MarkDepositPaidModal";
+import CheckInModal from "../Csr/Modals/CheckInModal";
+import VerifyCollectionModal from "../Csr/Modals/VerifyCollectionModal";
 
 interface BookingData {
   id: string;
@@ -40,6 +42,7 @@ interface BookingData {
   deposit_status?: string;
   security_deposit_payment_method?: string;
   security_deposit_payment_proof_url?: string;
+  security_deposit_notes?: string;
   add_ons_total: number;
   total_amount: number;
   down_payment: number;
@@ -59,6 +62,9 @@ export default function BookingsPage() {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [selectedHaven, setSelectedHaven] = useState("all");
+  const [checkInDateFrom, setCheckInDateFrom] = useState("");
+  const [checkInDateTo, setCheckInDateTo] = useState("");
   const [dateFilter, setDateFilter] = useState<"all" | "weekly" | "monthly" | "yearly">("all");
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1); // 1-12
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
@@ -86,6 +92,11 @@ export default function BookingsPage() {
   const [isBulkMode, setIsBulkMode] = useState(false);
   const [isMarkDepositPaidModalOpen, setIsMarkDepositPaidModalOpen] = useState(false);
   const [bookingForDepositUpdate, setBookingForDepositUpdate] = useState<BookingData | null>(null);
+  const [isCheckInModalOpen, setIsCheckInModalOpen] = useState(false);
+  const [bookingForCheckIn, setBookingForCheckIn] = useState<BookingData | null>(null);
+  const [isCheckInLoading, setIsCheckInLoading] = useState(false);
+  const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false);
+  const [bookingForVerify, setBookingForVerify] = useState<BookingData | null>(null);
 
   const logEmployeeActivity = async (action: string, details: string, bookingId?: string) => {
     if (!employeeId) return;
@@ -128,6 +139,7 @@ export default function BookingsPage() {
     }
   ) as { data: BookingData[]; isLoading: boolean; error: unknown };
   const [deleteBooking, { isLoading: isDeletingBooking }] = useDeleteBookingMutation();
+  const [updateBookingStatus] = useUpdateBookingStatusMutation();
 
   useEffect(() => {
     if (!liveSheetAutoSync) return;
@@ -162,7 +174,7 @@ export default function BookingsPage() {
       case "approved":
         return "bg-green-100 text-green-700";
       case "on-going":
-        return "bg-teal-500 text-white";
+        return "bg-teal-100 text-teal-700";
       case "pending":
         return "bg-yellow-100 text-yellow-700";
       case "declined":
@@ -298,6 +310,12 @@ export default function BookingsPage() {
     }
   };
 
+  const uniqueHavens = useMemo(() => {
+    if (!Array.isArray(bookings)) return [];
+    const names = bookings.map((b: BookingData) => b.room_name).filter(Boolean) as string[];
+    return [...new Set(names)].sort();
+  }, [bookings]);
+
   const filteredBookings = useMemo(() => {
     if (!Array.isArray(bookings)) return [];
 
@@ -331,9 +349,31 @@ export default function BookingsPage() {
         }
       }
 
-      return matchesSearch && matchesFilter && matchesDate;
+      // Haven filter
+      const matchesHaven = selectedHaven === "all" || (booking.room_name || "") === selectedHaven;
+
+      // Check-in date range filter
+      let matchesCheckIn = true;
+      if (checkInDateFrom || checkInDateTo) {
+        const checkIn = booking.check_in_date ? new Date(booking.check_in_date) : null;
+        if (checkIn) {
+          checkIn.setHours(0, 0, 0, 0);
+          if (checkInDateFrom) {
+            const from = new Date(checkInDateFrom);
+            from.setHours(0, 0, 0, 0);
+            if (checkIn < from) matchesCheckIn = false;
+          }
+          if (checkInDateTo) {
+            const to = new Date(checkInDateTo);
+            to.setHours(23, 59, 59, 999);
+            if (checkIn > to) matchesCheckIn = false;
+          }
+        }
+      }
+
+      return matchesSearch && matchesFilter && matchesDate && matchesHaven && matchesCheckIn;
     });
-  }, [bookings, searchTerm, filterStatus, dateFilter, selectedMonth, selectedYear]);
+  }, [bookings, searchTerm, filterStatus, dateFilter, selectedMonth, selectedYear, selectedHaven, checkInDateFrom, checkInDateTo]);
 
   // Sort bookings
   const sortedBookings = useMemo(() => {
@@ -430,12 +470,18 @@ export default function BookingsPage() {
     }
   };
 
-  const handleCheckIn = async (booking: BookingData) => {
+  const handleCheckIn = (booking: BookingData) => {
+    setBookingForCheckIn(booking);
+    setIsCheckInModalOpen(true);
+  };
+
+  const handleConfirmCheckIn = async (bookingId: string) => {
+    setIsCheckInLoading(true);
     try {
       const response = await fetch('/api/bookings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: booking.id, status: 'checked-in' }),
+        body: JSON.stringify({ id: bookingId, status: 'checked-in' }),
       });
 
       if (!response.ok) {
@@ -444,10 +490,14 @@ export default function BookingsPage() {
         return;
       }
 
-      toast.success(`${booking.guest_first_name} ${booking.guest_last_name} checked in successfully`);
-      logEmployeeActivity('CHECKIN_BOOKING', `Checked in booking ${booking.booking_id}`, booking.id);
+      toast.success(`${bookingForCheckIn?.guest_first_name} ${bookingForCheckIn?.guest_last_name} checked in successfully`);
+      logEmployeeActivity('CHECKIN_BOOKING', `Checked in booking ${bookingForCheckIn?.booking_id}`, bookingId);
+      setIsCheckInModalOpen(false);
+      setBookingForCheckIn(null);
     } catch {
       toast.error("Failed to check in booking");
+    } finally {
+      setIsCheckInLoading(false);
     }
   };
 
@@ -637,21 +687,10 @@ export default function BookingsPage() {
     }
 
     try {
-      const response = await fetch('/api/admin/bookings/bulk-delete', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ bookingIds: selectedBookings }),
-      });
-
-      if (response.ok) {
-        toast.success(`${selectedBookings.length} booking(s) deleted successfully`);
-        logEmployeeActivity('BULK_DELETE_BOOKINGS', `Bulk deleted ${selectedBookings.length} bookings`);
-        setSelectedBookings([]);
-      } else {
-        toast.error("Failed to delete bookings");
-      }
+      await Promise.all(selectedBookings.map(id => deleteBooking(id).unwrap()));
+      toast.success(`${selectedBookings.length} booking(s) deleted successfully`);
+      logEmployeeActivity('BULK_DELETE_BOOKINGS', `Bulk deleted ${selectedBookings.length} bookings`);
+      setSelectedBookings([]);
     } catch (error) {
       toast.error("Failed to delete bookings");
       console.error(error);
@@ -665,21 +704,10 @@ export default function BookingsPage() {
     }
 
     try {
-      const response = await fetch('/api/admin/bookings/bulk-checkin', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ bookingIds: selectedBookings }),
-      });
-
-      if (response.ok) {
-        toast.success(`${selectedBookings.length} booking(s) checked in successfully`);
-        logEmployeeActivity('BULK_CHECKIN_BOOKINGS', `Bulk checked in ${selectedBookings.length} bookings`);
-        setSelectedBookings([]);
-      } else {
-        toast.error("Failed to check in bookings");
-      }
+      await Promise.all(selectedBookings.map(id => updateBookingStatus({ id, status: 'checked-in' }).unwrap()));
+      toast.success(`${selectedBookings.length} booking(s) checked in successfully`);
+      logEmployeeActivity('BULK_CHECKIN_BOOKINGS', `Bulk checked in ${selectedBookings.length} bookings`);
+      setSelectedBookings([]);
     } catch (error) {
       toast.error("Failed to check in bookings");
       console.error(error);
@@ -691,8 +719,11 @@ export default function BookingsPage() {
       toast.error("No bookings selected");
       return;
     }
-    // TODO: Implement bulk view modal or navigation
-    toast(`Viewing ${selectedBookings.length} selected bookings`);
+    const first = bookings.find(b => b.id === selectedBookings[0]);
+    if (first) {
+      setSelectedBooking(first);
+      setIsViewModalOpen(true);
+    }
   };
 
   // Format currency
@@ -852,153 +883,53 @@ export default function BookingsPage() {
       )}
 
       {/* Search and Filter Bar */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-4 flex-shrink-0 border border-gray-200 dark:border-gray-700">
-        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-          <div className="flex flex-col sm:flex-row gap-4 flex-1 w-full">
-            {/* Entries Per Page */}
-            <div className="flex items-center gap-2">
-              <label className="text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">Show</label>
-              <select
-                value={entriesPerPage}
-                onChange={(e) => {
-                  setEntriesPerPage(Number(e.target.value));
-                  setCurrentPage(1);
-                }}
-                className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-brand-primary text-sm"
-              >
-                <option value="5">5</option>
-                <option value="10">10</option>
-                <option value="25">25</option>
-                <option value="50">50</option>
-              </select>
-              <label className="text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">entries</label>
-            </div>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-4 flex-shrink-0 border border-gray-200 dark:border-gray-700 space-y-3">
 
-            {/* Search */}
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search by booking ID, guest name, or haven..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-brand-primary"
-              />
-            </div>
+        {/* Row 1: Show entries + Search + Action buttons */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">Show</label>
+            <select
+              value={entriesPerPage}
+              onChange={(e) => { setEntriesPerPage(Number(e.target.value)); setCurrentPage(1); }}
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-brand-primary text-sm"
+            >
+              <option value="5">5</option>
+              <option value="10">10</option>
+              <option value="25">25</option>
+              <option value="50">50</option>
+            </select>
+            <label className="text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">entries</label>
           </div>
 
-          {/* Filters */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <Filter className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-            <select
-              value={dateFilter}
-              onChange={(e) => {
-                setDateFilter(e.target.value as "all" | "weekly" | "monthly" | "yearly");
-                setCurrentPage(1);
-              }}
-              className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-brand-primary text-sm"
-            >
-              <option value="all">All Time</option>
-              <option value="weekly">This Week</option>
-              <option value="monthly">Monthly</option>
-              <option value="yearly">Yearly</option>
-            </select>
+          <div className="flex-1 relative min-w-[200px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search by booking ID, guest name, or haven..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-brand-primary text-sm"
+            />
+          </div>
 
-            {/* Month selector - shown when monthly filter is selected */}
-            {dateFilter === "monthly" && (
-              <>
-                <select
-                  value={selectedMonth}
-                  onChange={(e) => {
-                    setSelectedMonth(Number(e.target.value));
-                    setCurrentPage(1);
-                  }}
-                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-brand-primary text-sm"
-                >
-                  {monthNames.map((month, index) => (
-                    <option key={index} value={index + 1}>
-                      {month}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={selectedYear}
-                  onChange={(e) => {
-                    setSelectedYear(Number(e.target.value));
-                    setCurrentPage(1);
-                  }}
-                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-brand-primary text-sm"
-                >
-                  {yearOptions.map((year) => (
-                    <option key={year} value={year}>
-                      {year}
-                    </option>
-                  ))}
-                </select>
-              </>
-            )}
-
-            {/* Year selector - shown when yearly filter is selected */}
-            {dateFilter === "yearly" && (
-              <select
-                value={selectedYear}
-                onChange={(e) => {
-                  setSelectedYear(Number(e.target.value));
-                  setCurrentPage(1);
-                }}
-                className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-brand-primary text-sm"
-              >
-                {yearOptions.map((year) => (
-                  <option key={year} value={year}>
-                    {year}
-                  </option>
-                ))}
-              </select>
-            )}
-
-            <select
-              value={filterStatus}
-              onChange={(e) => {
-                setFilterStatus(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-brand-primary text-sm"
-            >
-              <option value="all">All Status</option>
-              <option value="pending">Pending</option>
-              <option value="approved">Approved</option>
-              <option value="declined">Declined</option>
-              <option value="checked-in">Checked-In</option>
-              <option value="checked-out">Checked-Out</option>
-              <option value="cancelled">Cancelled</option>
-              <option value="completed">Completed</option>
-            </select>
+          <div className="flex items-center gap-2 ml-auto">
             <button
               onClick={openLiveSheet}
               disabled={isOpeningLiveSheet}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-400 disabled:cursor-not-allowed text-white rounded-lg transition-colors text-sm font-medium"
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-400 disabled:cursor-not-allowed text-white rounded-lg transition-colors text-sm font-medium whitespace-nowrap"
             >
               {isOpeningLiveSheet ? (
-                <>
-                  <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                  Opening...
-                </>
+                <><div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />Opening...</>
               ) : (
-                <>
-                  <FileSpreadsheet className="w-4 h-4" />
-                  View Live Sheet
-                </>
+                <><FileSpreadsheet className="w-4 h-4" />View Live Sheet</>
               )}
             </button>
             <button
-              onClick={() => {
-                setIsExportModalOpen(true);
-                logEmployeeActivity('OPEN_EXPORT_BOOKINGS', 'Opened export bookings modal');
-              }}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors text-sm font-medium"
+              onClick={() => { setIsExportModalOpen(true); logEmployeeActivity('OPEN_EXPORT_BOOKINGS', 'Opened export bookings modal'); }}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors text-sm font-medium whitespace-nowrap"
             >
-              <Download className="w-4 h-4" />
-              Export
+              <Download className="w-4 h-4" />Export
             </button>
             <button
               onClick={() => window.location.reload()}
@@ -1009,6 +940,93 @@ export default function BookingsPage() {
             </button>
           </div>
         </div>
+
+        {/* Row 2: Filters */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <Filter className="w-4 h-4 text-gray-500 dark:text-gray-400 flex-shrink-0" />
+
+          {/* Period filter */}
+          <select
+            value={dateFilter}
+            onChange={(e) => { setDateFilter(e.target.value as "all" | "weekly" | "monthly" | "yearly"); setCurrentPage(1); }}
+            className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg text-sm focus:ring-2 focus:ring-brand-primary"
+          >
+            <option value="all">All Time</option>
+            <option value="weekly">This Week</option>
+            <option value="monthly">Monthly</option>
+            <option value="yearly">Yearly</option>
+          </select>
+
+          {dateFilter === "monthly" && (
+            <>
+              <select value={selectedMonth} onChange={(e) => { setSelectedMonth(Number(e.target.value)); setCurrentPage(1); }} className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg text-sm focus:ring-2 focus:ring-brand-primary">
+                {monthNames.map((month, index) => <option key={index} value={index + 1}>{month}</option>)}
+              </select>
+              <select value={selectedYear} onChange={(e) => { setSelectedYear(Number(e.target.value)); setCurrentPage(1); }} className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg text-sm focus:ring-2 focus:ring-brand-primary">
+                {yearOptions.map((year) => <option key={year} value={year}>{year}</option>)}
+              </select>
+            </>
+          )}
+
+          {dateFilter === "yearly" && (
+            <select value={selectedYear} onChange={(e) => { setSelectedYear(Number(e.target.value)); setCurrentPage(1); }} className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg text-sm focus:ring-2 focus:ring-brand-primary">
+              {yearOptions.map((year) => <option key={year} value={year}>{year}</option>)}
+            </select>
+          )}
+
+          {/* Status filter */}
+          <select
+            value={filterStatus}
+            onChange={(e) => { setFilterStatus(e.target.value); setCurrentPage(1); }}
+            className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg text-sm focus:ring-2 focus:ring-brand-primary"
+          >
+            <option value="all">All Status</option>
+            <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
+            <option value="declined">Declined</option>
+            <option value="checked-in">Checked-In</option>
+            <option value="checked-out">Checked-Out</option>
+            <option value="cancelled">Cancelled</option>
+            <option value="completed">Completed</option>
+          </select>
+
+          {/* Haven filter */}
+          <select
+            value={selectedHaven}
+            onChange={(e) => { setSelectedHaven(e.target.value); setCurrentPage(1); }}
+            className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg text-sm focus:ring-2 focus:ring-brand-primary"
+          >
+            <option value="all">All Havens</option>
+            {uniqueHavens.map((name) => <option key={name} value={name}>{name}</option>)}
+          </select>
+
+          {/* Check-in date range */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">Check-in:</span>
+            <input
+              type="date"
+              value={checkInDateFrom}
+              onChange={(e) => { setCheckInDateFrom(e.target.value); setCurrentPage(1); }}
+              className="px-2 py-1.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg text-sm focus:ring-2 focus:ring-brand-primary"
+            />
+            <span className="text-gray-400 text-xs">–</span>
+            <input
+              type="date"
+              value={checkInDateTo}
+              min={checkInDateFrom}
+              onChange={(e) => { setCheckInDateTo(e.target.value); setCurrentPage(1); }}
+              className="px-2 py-1.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg text-sm focus:ring-2 focus:ring-brand-primary"
+            />
+            {(checkInDateFrom || checkInDateTo) && (
+              <button
+                onClick={() => { setCheckInDateFrom(""); setCheckInDateTo(""); setCurrentPage(1); }}
+                className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors text-xs"
+                title="Clear dates"
+              >✕</button>
+            )}
+          </div>
+        </div>
+
       </div>
 
       {/* Bookings Table - Desktop View */}
@@ -1293,15 +1311,32 @@ export default function BookingsPage() {
                         />
                       </td>
                       <td className="py-4 px-4 text-center">
-                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap capitalize ${getStatusColor(booking.status)}`}>
-                          {booking.status}
-                        </span>
+                        <div className="flex flex-col items-center gap-1">
+                          <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap capitalize ${getStatusColor(booking.status)}`}>
+                            {booking.status}
+                          </span>
+                          {booking.deposit_status?.toLowerCase() === 'pending_verification' && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 whitespace-nowrap">
+                              <ShieldAlert className="w-3 h-3" />
+                              Verify Payment
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="py-4 px-4">
                         <div className="flex items-center justify-center gap-1">
-                          {booking.status?.toLowerCase() === 'pending' && (
+                          {booking.deposit_status?.toLowerCase() === 'pending_verification' && (
+                            <button
+                              onClick={() => { setBookingForVerify(booking); setIsVerifyModalOpen(true); }}
+                              className="p-2 text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded-lg transition-colors"
+                              title="Verify Cleaner Collection"
+                            >
+                              <ShieldAlert className="w-4 h-4" />
+                            </button>
+                          )}
+                          {['pending', 'on-going'].includes(booking.status?.toLowerCase() ?? '') && (
                             <>
-                              {(() => {
+                              {booking.status?.toLowerCase() === 'pending' && (() => {
                                 const isDepositPaid = booking.deposit_status?.toLowerCase() === 'paid' || booking.deposit_status?.toLowerCase() === 'held';
                                 if (!isDepositPaid) {
                                   return (
@@ -1338,8 +1373,8 @@ export default function BookingsPage() {
                           {booking.status?.toLowerCase() === 'approved' && (
                             <button
                               onClick={() => handleCheckIn(booking)}
-                              className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
-                              title="Check-in Guest"
+                              className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                              title="Check In Guest"
                             >
                               <LogIn className="w-4 h-4" />
                             </button>
@@ -1567,9 +1602,18 @@ export default function BookingsPage() {
                     />
                   </div>
                   <div className="flex items-center gap-2">
-                    {booking.status?.toLowerCase() === 'pending' && (
+                    {booking.deposit_status?.toLowerCase() === 'pending_verification' && (
+                      <button
+                        onClick={() => { setBookingForVerify(booking); setIsVerifyModalOpen(true); }}
+                        className="p-2 text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded-lg transition-colors"
+                        title="Verify Cleaner Collection"
+                      >
+                        <ShieldAlert className="w-5 h-5" />
+                      </button>
+                    )}
+                    {['pending', 'on-going'].includes(booking.status?.toLowerCase() ?? '') && (
                       <>
-                        {(() => {
+                        {booking.status?.toLowerCase() === 'pending' && (() => {
                           const isDepositPaid = booking.deposit_status?.toLowerCase() === 'paid' || booking.deposit_status?.toLowerCase() === 'held';
                           if (!isDepositPaid) {
                             return (
@@ -1605,8 +1649,9 @@ export default function BookingsPage() {
                     )}
                     {booking.status?.toLowerCase() === 'approved' && (
                       <button
-                        className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
-                        title="Ready for Check-in"
+                        onClick={() => handleCheckIn(booking)}
+                        className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                        title="Check In Guest"
                       >
                         <LogIn className="w-5 h-5" />
                       </button>
@@ -1807,6 +1852,30 @@ export default function BookingsPage() {
             toast.success("Deposit status updated");
           }}
           employeeId={employeeId!}
+        />
+      )}
+
+      {/* Check In Modal */}
+      {isCheckInModalOpen && bookingForCheckIn && (
+        <CheckInModal
+          booking={bookingForCheckIn}
+          onClose={() => {
+            if (isCheckInLoading) return;
+            setIsCheckInModalOpen(false);
+            setBookingForCheckIn(null);
+          }}
+          onConfirm={handleConfirmCheckIn}
+          isLoading={isCheckInLoading}
+        />
+      )}
+
+      {/* Verify Collection Modal */}
+      {isVerifyModalOpen && bookingForVerify && (
+        <VerifyCollectionModal
+          booking={bookingForVerify}
+          employeeId={employeeId!}
+          onClose={() => { setIsVerifyModalOpen(false); setBookingForVerify(null); }}
+          onDone={() => { setIsVerifyModalOpen(false); setBookingForVerify(null); }}
         />
       )}
     </div>

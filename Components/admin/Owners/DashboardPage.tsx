@@ -268,21 +268,27 @@ const DashboardPage = ({
     }
   ];
 
+  const formatBookingStatus = (status?: string | null) => {
+    if (!status) return 'Unknown';
+    return status.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('-');
+  };
+
   // Recent bookings for activity
   const activityItems: ActivityItem[] = bookings.slice(0, 5).map((booking, index) => {
     const guest = booking.booking_guests?.[0];
     const guestName = guest ? `${guest.first_name} ${guest.last_name}` : 'Guest';
-    
+    const totalGuests = (booking.adults ?? 0) + (booking.children ?? 0) + (booking.infants ?? 0);
+
     return {
       id: booking.id || `booking-${index}`,
-      time: new Date(booking.created_at).toLocaleTimeString('en-US', { 
-        hour: '2-digit', 
-        minute: '2-digit' 
+      time: new Date(booking.created_at).toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit'
       }),
-      action: 'New Booking',
+      action: booking.room_name || 'N/A',
       customer: guestName,
-      details: `${booking.room_name} - ${(booking.adults ?? 0) + (booking.children ?? 0)} guests`,
-      status: booking.status || "",
+      details: `${totalGuests} guest${totalGuests !== 1 ? 's' : ''}`,
+      status: formatBookingStatus(booking.status),
       statusColor: getBookingStatusBadgeClasses(booking.status),
       Icon: Calendar,
       iconColor: 'text-blue-600'
@@ -505,7 +511,6 @@ const DashboardPage = ({
                 ))
               ) : activityItems.length > 0 ? (
                 activityItems.map((item) => {
-                  const ActivityIcon = item.Icon;
                   return (
                     <tr
                       key={item.id}
@@ -527,16 +532,13 @@ const DashboardPage = ({
                         </span>
                       </td>
                       <td className="py-4 px-4">
-                        <div className="flex items-center gap-2">
-                          <ActivityIcon className={`w-4 h-4 ${item.iconColor}`} />
-                          <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">
-                            {item.action}
-                          </span>
-                        </div>
+                        <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+                          {item.action}
+                        </span>
                       </td>
                       <td className="py-4 px-4 text-center">
                         <span
-                          className={`inline-block text-xs font-bold px-3 py-1.5 rounded-full capitalize ${item.statusColor}`}
+                          className={`inline-block text-xs font-bold px-3 py-1.5 rounded-full ${item.statusColor}`}
                         >
                           {item.status}
                         </span>

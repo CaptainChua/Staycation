@@ -2,23 +2,25 @@
 
 import OwnerPageHeader from "./OwnerPageHeader";
 import { useState, useMemo } from "react";
-import { 
-  Edit, 
-  Trash2, 
-  Search, 
-  Plus, 
-  Home, 
-  ArrowUpDown, 
-  Filter, 
-  ChevronsLeft, 
-  ChevronLeft, 
-  ChevronRight, 
+import {
+  Edit,
+  Trash2,
+  Search,
+  Plus,
+  Home,
+  ArrowUpDown,
+  Filter,
+  ChevronsLeft,
+  ChevronLeft,
+  ChevronRight,
   ChevronsRight,
-  Loader2
+  Loader2,
+  Settings2,
 } from "lucide-react";
 import { useGetAllAdminRoomsQuery, useDeleteHavenMutation } from "@/redux/api/roomApi";
 import EditHavenModal from "./Modals/EditHavenModal";
 import DeleteHavenModal from "./Modals/DeleteHavenModal";
+import BookingModalSetting from "./Modals/BookingModalSetting";
 import toast from 'react-hot-toast';
 
 interface HavenUnit {
@@ -53,6 +55,7 @@ const ViewAllUnits = ({ onAddUnitClick, hideHeader = false }: ViewAllUnitsProps)
   // State for Modals
   const [isEditHavnModal, setIsEditOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isBookingSettingsOpen, setIsBookingSettingsOpen] = useState(false);
   const [selectedHaven, setSelectedHaven] = useState<HavenUnit | null>(null);
 
   // RTK Query call
@@ -123,6 +126,11 @@ const ViewAllUnits = ({ onAddUnitClick, hideHeader = false }: ViewAllUnitsProps)
   const handleEdit = (unit: HavenUnit) => {
     setSelectedHaven(unit);
     setIsEditOpen(true);
+  };
+
+  const handleBookingSettings = (unit: HavenUnit) => {
+    setSelectedHaven(unit);
+    setIsBookingSettingsOpen(true);
   };
 
   const handleDeleteClick = (unit: HavenUnit) => {
@@ -210,6 +218,7 @@ const ViewAllUnits = ({ onAddUnitClick, hideHeader = false }: ViewAllUnitsProps)
             <div className="flex items-center gap-2">
               <label className="text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">Show</label>
               <select
+                aria-label="Entries per page"
                 value={entriesPerPage}
                 onChange={(e) => {
                   setEntriesPerPage(Number(e.target.value));
@@ -242,6 +251,7 @@ const ViewAllUnits = ({ onAddUnitClick, hideHeader = false }: ViewAllUnitsProps)
           <div className="flex items-center gap-2">
             <Filter className="w-5 h-5 text-gray-600 dark:text-gray-300" />
             <select
+              aria-label="Filter by status"
               value={filterStatus}
               onChange={(e) => {
                 setFilterStatus(e.target.value);
@@ -254,6 +264,31 @@ const ViewAllUnits = ({ onAddUnitClick, hideHeader = false }: ViewAllUnitsProps)
               <option value="Occupied">Occupied</option>
               <option value="Maintenance">Maintenance</option>
             </select>
+          </div>
+        </div>
+
+        {/* Actions Legend */}
+        <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 flex flex-wrap items-center gap-4">
+          <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Actions Guide:</span>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <div className="p-1.5 bg-brand-primary/10 dark:bg-brand-primary/20 rounded-md">
+                <Edit className="w-3.5 h-3.5 text-brand-primary" />
+              </div>
+              <span className="text-xs text-gray-500 dark:text-gray-400">Edit Haven</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="p-1.5 bg-orange-50 dark:bg-orange-900/20 rounded-md">
+                <Settings2 className="w-3.5 h-3.5 text-orange-500" />
+              </div>
+              <span className="text-xs text-gray-500 dark:text-gray-400">Booking Settings</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="p-1.5 bg-red-50 dark:bg-red-900/20 rounded-md">
+                <Trash2 className="w-3.5 h-3.5 text-red-500" />
+              </div>
+              <span className="text-xs text-gray-500 dark:text-gray-400">Delete Haven</span>
+            </div>
           </div>
         </div>
       </div>
@@ -335,6 +370,7 @@ const ViewAllUnits = ({ onAddUnitClick, hideHeader = false }: ViewAllUnitsProps)
                     <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
                       <div className="flex items-center justify-center gap-1">
                         <button
+                          type="button"
                           onClick={() => handleEdit(unit)}
                           className="p-2 text-brand-primary hover:bg-brand-primaryLighter rounded-lg transition-colors"
                           title="Edit"
@@ -342,6 +378,15 @@ const ViewAllUnits = ({ onAddUnitClick, hideHeader = false }: ViewAllUnitsProps)
                           <Edit className="w-4 h-4" />
                         </button>
                         <button
+                          type="button"
+                          onClick={() => handleBookingSettings(unit)}
+                          className="p-2 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/30 rounded-lg transition-colors"
+                          title="Booking Settings"
+                        >
+                          <Settings2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => handleDeleteClick(unit)}
                           className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
                           title="Delete"
@@ -367,6 +412,9 @@ const ViewAllUnits = ({ onAddUnitClick, hideHeader = false }: ViewAllUnitsProps)
               </p>
               <div className="flex gap-1">
                 <button
+                  type="button"
+                  title="First page"
+                  aria-label="First page"
                   onClick={() => setCurrentPage(1)}
                   disabled={currentPage === 1 || totalPages === 0}
                   className="p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -374,6 +422,9 @@ const ViewAllUnits = ({ onAddUnitClick, hideHeader = false }: ViewAllUnitsProps)
                   <ChevronsLeft className="w-4 h-4" />
                 </button>
                 <button
+                  type="button"
+                  title="Previous page"
+                  aria-label="Previous page"
                   onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                   disabled={currentPage === 1 || totalPages === 0}
                   className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
@@ -411,6 +462,9 @@ const ViewAllUnits = ({ onAddUnitClick, hideHeader = false }: ViewAllUnitsProps)
                 })}
 
                 <button
+                  type="button"
+                  title="Next page"
+                  aria-label="Next page"
                   onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                   disabled={currentPage === totalPages || totalPages === 0}
                   className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
@@ -418,6 +472,9 @@ const ViewAllUnits = ({ onAddUnitClick, hideHeader = false }: ViewAllUnitsProps)
                   <ChevronRight className="w-4 h-4" />
                 </button>
                 <button
+                  type="button"
+                  title="Last page"
+                  aria-label="Last page"
                   onClick={() => setCurrentPage(totalPages)}
                   disabled={currentPage === totalPages || totalPages === 0}
                   className="p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -443,6 +500,13 @@ const ViewAllUnits = ({ onAddUnitClick, hideHeader = false }: ViewAllUnitsProps)
         itemName={selectedHaven?.haven_name}
         isLoading={isDeleting}
       />
+      {isBookingSettingsOpen && selectedHaven && (
+        <BookingModalSetting
+          isOpen={true}
+          onClose={() => { setIsBookingSettingsOpen(false); setSelectedHaven(null); }}
+          initialHavenId={selectedHaven.uuid_id}
+        />
+      )}
     </div>
   );
 };

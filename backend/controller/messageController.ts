@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "../config/db";
-import { upload_file } from "../utils/cloudinary";
 
 export interface Conversation {
   id: string;
@@ -118,7 +117,6 @@ export const getMessages = async (
         m.sender_id,
         m.sender_name,
         m.message_text,
-        m.image_url,
         m.created_at,
         m.is_read
       FROM messages m
@@ -151,19 +149,14 @@ export const getMessages = async (
 export const sendMessage = async (req: NextRequest): Promise<NextResponse> => {
   try {
     const body = await req.json();
-    const { conversation_id, sender_id, sender_name, message_text, image } = body;
+    const { conversation_id, sender_id, sender_name, message_text } = body;
+    const safeMessageText = typeof message_text === "string" ? message_text : "";
 
-    if (!conversation_id || !sender_id || !sender_name || (!message_text && !image)) {
+    if (!conversation_id || !sender_id || !sender_name || !safeMessageText) {
       return NextResponse.json(
         { success: false, error: "Missing required fields" },
         { status: 400 },
       );
-    }
-
-    let image_url: string | null = null;
-    if (image) {
-      const uploadResult = await upload_file(image, "staycation-haven/messages");
-      image_url = uploadResult.url;
     }
 
     const result = await pool.query(
@@ -173,13 +166,12 @@ export const sendMessage = async (req: NextRequest): Promise<NextResponse> => {
         sender_id,
         sender_name,
         message_text,
-        image_url,
         is_read,
         created_at
-      ) VALUES ($1, $2, $3, $4, $5, false, timezone('Asia/Manila', NOW()))
+      ) VALUES ($1, $2, $3, $4, false, timezone('Asia/Manila', NOW()))
       RETURNING *
       `,
-      [conversation_id, sender_id, sender_name, message_text || "", image_url],
+      [conversation_id, sender_id, sender_name, safeMessageText],
     );
 
     // Update conversation's updated_at timestamp

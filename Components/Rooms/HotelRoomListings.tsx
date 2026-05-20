@@ -652,9 +652,9 @@ const HotelRoomListings = ({ initialHavens }: HotelRoomListingsProps) => {
                         </p>
                         <div className="overflow-x-auto pb-2 -mx-4 px-4">
                           <div className="flex gap-3" style={{ width: 'max-content' }}>
-                            {rowRooms.map((room) => (
+                            {rowRooms.map((room, idx) => (
                               <div key={room.id} className="flex-shrink-0 w-52 sm:w-56">
-                                <RoomCard room={room} mode="browse" compact={false} />
+                                <RoomCard room={room} mode="browse" compact={false} priority={idx === 0} />
                               </div>
                             ))}
                           </div>
@@ -666,9 +666,9 @@ const HotelRoomListings = ({ initialHavens }: HotelRoomListingsProps) => {
               ) : (
                 /* Desktop Layout */
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                  {displayedRooms.map((room) => (
+                  {displayedRooms.map((room, idx) => (
                     <div key={room.id}>
-                      <RoomCard room={room} mode="browse" compact={false} />
+                      <RoomCard room={room} mode="browse" compact={false} priority={idx === 0} />
                     </div>
                   ))}
                 </div>

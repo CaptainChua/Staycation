@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { X, Calendar, User, MapPin, AlertCircle, FileText, Camera, Clock, CheckCircle, UserPlus, Loader2 } from "lucide-react";
+import { X, Calendar, User, MapPin, AlertCircle, FileText, Camera, UserPlus, ZoomIn } from "lucide-react";
 import { useGetReportsQuery } from "@/redux/api/reportApi";
 import { useGetEmployeesQuery } from "@/redux/api/employeeApi";
+import ImageLightbox from "./ImageLightbox";
 
 interface Employee {
   id: string;
@@ -45,13 +46,13 @@ interface ViewReportDetailsProps {
 export default function ViewReportDetails({ isOpen, onClose, reportId, onAssign }: ViewReportDetailsProps) {
   const modalRef = useRef<HTMLDivElement>(null);
 
-  // Fetch specific report details
+  // Lightbox state
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+
   const { data: reportsData } = useGetReportsQuery({});
-  
-  // Fetch employees for name lookup
   const { data: employeesData } = useGetEmployeesQuery({});
-  
-  // Create user lookup map from all employees data
+
   const userMap = useMemo(() => {
     const map: Record<string, string> = {};
     if (employeesData?.success && employeesData?.data) {
@@ -63,31 +64,24 @@ export default function ViewReportDetails({ isOpen, onClose, reportId, onAssign 
     }
     return map;
   }, [employeesData]);
-  
+
   const selectedReport = reportsData?.data?.find((report: Report) => report.report_id === reportId);
-  
-  // Transform report data to include proper reported_by name
+
   const transformedReport = useMemo(() => {
     if (!selectedReport) return null;
-    
     return {
       ...selectedReport,
-      reported_by: userMap[selectedReport.user_id] || 'Unknown User'
+      reported_by: userMap[selectedReport.user_id] || "Unknown User",
     };
   }, [selectedReport, userMap]);
 
   const getStatusColor = (status?: string) => {
     switch (status) {
-      case "Open":
-        return "text-yellow-600 dark:text-yellow-400";
-      case "In Progress":
-        return "text-blue-600 dark:text-blue-400";
-      case "Resolved":
-        return "text-green-600 dark:text-green-400";
-      case "Closed":
-        return "text-gray-600 dark:text-gray-400";
-      default:
-        return "text-gray-600 dark:text-gray-400";
+      case "Open": return "text-yellow-600 dark:text-yellow-400";
+      case "In Progress": return "text-blue-600 dark:text-blue-400";
+      case "Resolved": return "text-green-600 dark:text-green-400";
+      case "Closed": return "text-gray-600 dark:text-gray-400";
+      default: return "text-gray-600 dark:text-gray-400";
     }
   };
 
@@ -101,7 +95,14 @@ export default function ViewReportDetails({ isOpen, onClose, reportId, onAssign 
     }
   };
 
+  const handleImageClick = (index: number) => {
+    setLightboxIndex(index);
+    setLightboxOpen(true);
+  };
+
   const handleClickOutside = (event: MouseEvent) => {
+    // Don't close the modal if the lightbox is open
+    if (lightboxOpen) return;
     const target = event.target as Node;
     if (modalRef.current && !modalRef.current.contains(target)) {
       onClose();
@@ -111,11 +112,14 @@ export default function ViewReportDetails({ isOpen, onClose, reportId, onAssign 
   useEffect(() => {
     if (isOpen) {
       document.addEventListener("mousedown", handleClickOutside);
-      return () => {
-        document.removeEventListener("mousedown", handleClickOutside);
-      };
+      return () => document.removeEventListener("mousedown", handleClickOutside);
     }
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, lightboxOpen]);
+
+  // Reset lightbox when modal closes
+  useEffect(() => {
+    if (!isOpen) setLightboxOpen(false);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -125,11 +129,7 @@ export default function ViewReportDetails({ isOpen, onClose, reportId, onAssign 
       <div
         ref={modalRef}
         className="fixed z-[9991] w-full max-w-2xl max-h-[90vh] bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden"
-        style={{
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)'
-        }}
+        style={{ top: "50%", left: "50%", transform: "translate(-50%, -50%)" }}
       >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
@@ -146,10 +146,7 @@ export default function ViewReportDetails({ isOpen, onClose, reportId, onAssign 
               </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
-          >
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">
             <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
           </button>
         </div>
@@ -173,24 +170,18 @@ export default function ViewReportDetails({ isOpen, onClose, reportId, onAssign 
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Haven:</span>
-                      <span className="text-sm text-gray-900 dark:text-gray-100">
-                        {transformedReport.haven_name}
-                      </span>
+                      <span className="text-sm text-gray-900 dark:text-gray-100">{transformedReport.haven_name}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Location:</span>
                       <div className="flex items-center gap-1">
                         <MapPin className="w-3 h-3 text-gray-400" />
-                        <span className="text-sm text-gray-900 dark:text-gray-100">
-                          {transformedReport.specific_location}
-                        </span>
+                        <span className="text-sm text-gray-900 dark:text-gray-100">{transformedReport.specific_location}</span>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Type:</span>
-                      <span className="text-sm text-gray-900 dark:text-gray-100">
-                        {transformedReport.issue_type}
-                      </span>
+                      <span className="text-sm text-gray-900 dark:text-gray-100">{transformedReport.issue_type}</span>
                     </div>
                   </div>
                   <div className="space-y-2">
@@ -203,16 +194,14 @@ export default function ViewReportDetails({ isOpen, onClose, reportId, onAssign 
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Status:</span>
                       <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(transformedReport.status)}`}>
-                        {transformedReport.status || 'Open'}
+                        {transformedReport.status || "Open"}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Reported by:</span>
                       <div className="flex items-center gap-1">
                         <User className="w-3 h-3 text-gray-400" />
-                        <span className="text-sm text-gray-900 dark:text-gray-100">
-                          {transformedReport.reported_by}
-                        </span>
+                        <span className="text-sm text-gray-900 dark:text-gray-100">{transformedReport.reported_by}</span>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -246,9 +235,7 @@ export default function ViewReportDetails({ isOpen, onClose, reportId, onAssign 
                     <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Assigned to:</span>
                     <div className="flex items-center gap-1">
                       <UserPlus className="w-3 h-3 text-gray-400" />
-                      <span className="text-sm text-gray-900 dark:text-gray-100">
-                        {transformedReport.assigned_to}
-                      </span>
+                      <span className="text-sm text-gray-900 dark:text-gray-100">{transformedReport.assigned_to}</span>
                     </div>
                   </div>
                 </div>
@@ -263,23 +250,32 @@ export default function ViewReportDetails({ isOpen, onClose, reportId, onAssign 
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                     {transformedReport.images.map((img: { image_url: string; cloudinary_public_id?: string }, index: number) => (
-                      <div key={index} className="relative group cursor-pointer">
+                      <div
+                        key={index}
+                        className="relative group cursor-zoom-in"
+                        onClick={() => handleImageClick(index)}
+                      >
                         <img
                           src={img.image_url}
                           alt={`Issue image ${index + 1}`}
-                          className="w-full h-32 object-cover rounded-lg border border-gray-200 dark:border-gray-600"
-                          onClick={() => window.open(img.image_url, '_blank')}
+                          className="w-full h-32 object-cover rounded-lg border border-gray-200 dark:border-gray-600 transition-transform duration-200 group-hover:scale-[1.02]"
                         />
-                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 rounded-lg flex items-center justify-center">
-                          <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                            <div className="bg-white rounded-lg p-1">
-                              <Camera className="w-4 h-4 text-gray-700" />
-                            </div>
+                        {/* Hover overlay */}
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all duration-200 rounded-lg flex items-center justify-center">
+                          <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-white/90 dark:bg-gray-800/90 rounded-full p-2 shadow-lg">
+                            <ZoomIn className="w-5 h-5 text-gray-700 dark:text-gray-200" />
                           </div>
+                        </div>
+                        {/* Image index badge */}
+                        <div className="absolute bottom-1.5 right-1.5 bg-black/60 text-white text-xs px-1.5 py-0.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity">
+                          {index + 1} / {transformedReport.images!.length}
                         </div>
                       </div>
                     ))}
                   </div>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
+                    Click any image to view full size
+                  </p>
                 </div>
               )}
             </>
@@ -305,6 +301,14 @@ export default function ViewReportDetails({ isOpen, onClose, reportId, onAssign 
           )}
         </div>
       </div>
+
+      {/* Lightbox — rendered inside the portal, above everything */}
+      <ImageLightbox
+        images={transformedReport?.images || []}
+        initialIndex={lightboxIndex}
+        isOpen={lightboxOpen}
+        onClose={() => setLightboxOpen(false)}
+      />
     </>,
     document.body
   );

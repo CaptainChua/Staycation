@@ -8,7 +8,9 @@ import { z } from "zod";
 const basicInfoSchema = z.object({
   haven_name: z.string().min(1, "Haven Name is required"),
   tower: z.string().min(1, "Tower is required"),
-  floor: z.string().min(1, "Floor is required"),
+  floor: z.string()
+    .min(1, "Floor is required")
+    .regex(/^\d+$/, "Floor must be a number"),
   view_type: z.string().min(1, "View Type is required"),
 });
 
@@ -59,7 +61,7 @@ const BasicInformationModal = ({
       setFormData({
         haven_name: initialData.haven_name || "",
         tower: initialData.tower || "",
-        floor: initialData.floor || "",
+        floor: (initialData.floor || "").replace(/[^0-9]/g, ""),
         view_type: initialData.view_type || "",
       });
     }
@@ -75,6 +77,19 @@ const BasicInformationModal = ({
     setFormData(newData);
     setTouched(prev => ({ ...prev, [field]: true }));
     onSave(newData);
+  };
+
+  const handleFloorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Strip anything that isn't a digit
+    const numericOnly = e.target.value.replace(/[^0-9]/g, "");
+    handleChange("floor", numericOnly);
+  };
+
+  const handleFloorKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Block decimal, minus, plus, and scientific notation keys
+    if ([".", "-", "+", "e", "E"].includes(e.key)) {
+      e.preventDefault();
+    }
   };
 
   const getInputClasses = (field: keyof BasicInformationData) => {
@@ -139,6 +154,14 @@ const BasicInformationModal = ({
   return (
     <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-3xl p-8 shadow-sm transition-all duration-[250ms] [transition-timing-function:cubic-bezier(0.4,0,0.2,1)] hover:scale-[1.01] hover:shadow-md will-change-transform">
       <div className="space-y-6">
+        {/* Guide Box */}
+        <div className="flex items-start gap-3 p-4 bg-brand-primary/5 dark:bg-brand-primary/10 border border-brand-primary/20 rounded-2xl">
+          <span className="mt-0.5 inline-flex items-center justify-center w-6 h-6 rounded-full bg-brand-primary/15 text-brand-primary text-xs font-bold flex-shrink-0">?</span>
+          <div>
+            <p className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-0.5">What is this step?</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">Fill in the basic identity of your haven — its name, which tower it belongs to, which floor it's on, and the type of view guests will see. This is the first information guests and admins will see on your listing.</p>
+          </div>
+        </div>
         <Input
           label="Haven Name"
           labelPlacement="outside"
@@ -168,17 +191,22 @@ const BasicInformationModal = ({
             <SelectItem key={tower.value} textValue={tower.label}>{tower.label}</SelectItem>
           ))}
         </Select>
+
+        {/* Floor — numbers only */}
         <Input
           label="Floor"
           labelPlacement="outside"
-          placeholder="e.g., 1"
+          placeholder="e.g., 5"
           value={formData.floor}
-          onChange={(e) => handleChange('floor', e.target.value)}
+          onChange={handleFloorChange}
+          onKeyDown={handleFloorKeyDown}
+          inputMode="numeric"
           classNames={getInputClasses('floor')}
           isInvalid={touched.floor && !!errors?.floor}
           errorMessage={touched.floor && errors?.floor?._errors[0]}
           isRequired
         />
+
         <Select
           label="View Type"
           labelPlacement="outside"
