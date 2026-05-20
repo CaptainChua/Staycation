@@ -915,6 +915,7 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                         First Name *
                       </label>
                       <input
+                        aria-label="First Name"
                         type="text"
                         name="firstName"
                         value={formData.firstName}
@@ -939,6 +940,7 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                         Last Name *
                       </label>
                       <input
+                        aria-label="Last Name"
                         type="text"
                         name="lastName"
                         value={formData.lastName}
@@ -987,6 +989,7 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                         Gender *
                       </label>
                       <select
+                        aria-label="Gender"
                         name="gender"
                         value={formData.gender}
                         onChange={(e) => {
@@ -1069,6 +1072,7 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                         Facebook Name or Link
                       </label>
                       <input
+                        aria-label="Facebook Name or Link"
                         type="text"
                         name="facebookLink"
                         value={formData.facebookLink}
@@ -1134,6 +1138,7 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                         Adults (10+ years) *
                       </label>
                       <input
+                        aria-label="Number of adults"
                         type="number"
                         name="adults"
                         value={formData.adults}
@@ -1148,6 +1153,7 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                         Children (4-9 years)
                       </label>
                       <input
+                        aria-label="Number of children"
                         type="number"
                         name="children"
                         value={formData.children}
@@ -1162,6 +1168,7 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                         Infants (0-3 years)
                       </label>
                       <input
+                        aria-label="Number of infants"
                         type="number"
                         name="infants"
                         value={formData.infants}
@@ -1192,6 +1199,7 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                             First Name *
                           </label>
                           <input
+                            aria-label="Guest first name"
                             type="text"
                             value={guest.firstName}
                             onChange={(e) => {
@@ -1214,6 +1222,7 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                             Last Name *
                           </label>
                           <input
+                            aria-label="Guest last name"
                             type="text"
                             value={guest.lastName}
                             onChange={(e) => {
@@ -1236,6 +1245,7 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                             Age *
                           </label>
                           <input
+                            aria-label="Guest age"
                             type="text"
                             inputMode="numeric"
                             value={guest.age}
@@ -1262,6 +1272,7 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                             Gender *
                           </label>
                           <select
+                            aria-label="Guest gender"
                             value={guest.gender}
                             onChange={(e) => {
                               handleAdditionalGuestChange(index, 'gender', e.target.value);
@@ -1352,6 +1363,7 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                       Select Haven/Room *
                     </label>
                     <select
+                      aria-label="Select Haven or Room"
                       name="roomName"
                       value={selectedHaven?.haven_name || ""}
                       onChange={handleInputChange}
@@ -1380,6 +1392,7 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                       Select Stay Type *
                     </label>
                     <select
+                      aria-label="Select Stay Type"
                       name="stayType"
                       value={formData.stayType}
                       onChange={handleStayTypeChange}
@@ -1407,6 +1420,7 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                         Check-in Date *
                       </label>
                       <input
+                        aria-label="Check-in Date"
                         type="date"
                         value={checkInDate}
                         onChange={(e) => {
@@ -1431,6 +1445,7 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                         Check-out Date *
                       </label>
                       <input
+                        aria-label="Check-out Date"
                         type="date"
                         value={checkOutDate}
                         onChange={(e) => {
@@ -1455,6 +1470,7 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                         Check-in Time *
                       </label>
                       <input
+                        aria-label="Check-in Time"
                         type="time"
                         name="checkInTime"
                         value={formData.checkInTime}
@@ -1479,6 +1495,7 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                         Check-out Time *
                       </label>
                       <input
+                        aria-label="Check-out Time"
                         type="time"
                         name="checkOutTime"
                         value={formData.checkOutTime}
@@ -1550,6 +1567,7 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                         </div>
                         <div className="flex items-center gap-3">
                           <button
+                            aria-label="Decrease quantity"
                             type="button"
                             onClick={() => handleAddOnChange(item.key as keyof AddOns, false)}
                             className="w-8 h-8 flex items-center justify-center bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-full"
@@ -1560,6 +1578,7 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                             {addOns[item.key as keyof AddOns]}
                           </span>
                           <button
+                            aria-label="Increase quantity"
                             type="button"
                             onClick={() => handleAddOnChange(item.key as keyof AddOns, true)}
                             className="w-8 h-8 flex items-center justify-center bg-brand-primary hover:bg-brand-primaryDark text-white rounded-full"
@@ -1860,6 +1879,7 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                     Booking Status
                   </label>
                   <select
+                    aria-label="Booking Status"
                     name="status"
                     value={formData.status}
                     onChange={handleInputChange}

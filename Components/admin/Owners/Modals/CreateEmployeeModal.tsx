@@ -346,6 +346,8 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
               <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">Fill in the employee information below</p>
             </div>
             <button
+              aria-label="Close"
+              type="button"
               onClick={onClose}
               disabled={isLoading}
               className="p-2 hover:bg-white/50 dark:hover:bg-slate-800/50 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
