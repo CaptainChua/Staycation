@@ -2752,10 +2752,16 @@ function ListingsTab() {
   const { data: listings = [], isLoading } = useGetPartnerListingsQuery();
   const [selectedPartnerId, setSelectedPartnerId] = useState<string | null>(null);
 
-  // Group listings by partner
+  // Group listings by partner — only approved rooms show here.
+  // Pending/Rejected rooms belong on the Pending Requests / Approvals tabs.
+  const approvedListings = useMemo(
+    () => listings.filter((l) => l.status === "approved"),
+    [listings]
+  );
+
   const groupedByPartner: PartnerGroup[] = useMemo(() => {
     const map = new Map<string, PartnerGroup>();
-    for (const l of listings) {
+    for (const l of approvedListings) {
       const existing = map.get(l.partner_id);
       if (existing) {
         existing.rooms.push(l);
@@ -2770,7 +2776,7 @@ function ListingsTab() {
       }
     }
     return Array.from(map.values());
-  }, [listings]);
+  }, [approvedListings]);
 
   const filtered = groupedByPartner.filter((p) => {
     const q = search.toLowerCase();

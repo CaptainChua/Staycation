@@ -2,8 +2,28 @@
 
 import { useState } from "react";
 import { BarChart3, Info, Sparkles, ChevronDown, ExternalLink, Receipt, Calendar, FileText, CheckCircle2, Clock, AlertCircle, XCircle } from "lucide-react";
-import { useGetMyPayoutsQuery, useGetMyEarningsQuery } from "@/redux/api/partnerSelfApi";
+import {
+  useGetMyPayoutsQuery,
+  useGetMyEarningsQuery,
+  useGetMyAnalyticsQuery,
+  useGetMyListingsQuery,
+} from "@/redux/api/partnerSelfApi";
 import type { PartnerPayout } from "@/redux/api/partnerSelfApi";
+
+// Tier threshold — matches the FAQ copy ("50 completed bookings").
+// Keep PREMIUM_THRESHOLD in sync with the FAQ answer in [FAQS].
+const PREMIUM_THRESHOLD = 50;
+
+// Progress-bar widths snapped to 5% buckets so Tailwind JIT can statically
+// resolve the class. Inline style={{ width }} would work but triggers the
+// "no inline styles" lint and breaks the convention used by [ALLOCATIONS].
+const PROGRESS_WIDTH_CLASSES: Record<number, string> = {
+  0: "w-[0%]",   5: "w-[5%]",   10: "w-[10%]",  15: "w-[15%]",  20: "w-[20%]",
+  25: "w-[25%]", 30: "w-[30%]", 35: "w-[35%]",  40: "w-[40%]",  45: "w-[45%]",
+  50: "w-[50%]", 55: "w-[55%]", 60: "w-[60%]",  65: "w-[65%]",  70: "w-[70%]",
+  75: "w-[75%]", 80: "w-[80%]", 85: "w-[85%]",  90: "w-[90%]",  95: "w-[95%]",
+  100: "w-[100%]",
+};
 
 const fontFraunces = "font-[var(--font-fraunces),Georgia,serif]";
 const peso = (n: number) => "₱" + (n || 0).toLocaleString("en-PH");
@@ -44,11 +64,32 @@ export default function CostBreakdownPage({ onNavigate }: CostBreakdownPageProps
   const [expandedPayout, setExpandedPayout] = useState<string | null>(null);
   const { data: payoutData } = useGetMyPayoutsQuery();
   const { data: earningsData, isLoading: earningsLoading } = useGetMyEarningsQuery();
+  const { data: analytics } = useGetMyAnalyticsQuery();
+  const { data: listings = [] } = useGetMyListingsQuery();
 
   const commissionRatePct = payoutData?.commission_rate ?? 12;
   const commissionRate = commissionRatePct / 100;
   const processingRate = 0.02;
-  const rate = 4800;
+
+  // Tier — derived from real lifetime completed bookings.
+  const completedBookings = analytics?.lifetime_completed_bookings ?? 0;
+  const isPremium = completedBookings >= PREMIUM_THRESHOLD;
+  const tierLabel = isPremium ? "Premium Partner" : "Standard Partner";
+  const bookingsToPremium = Math.max(0, PREMIUM_THRESHOLD - completedBookings);
+  const tierProgressPct = Math.min(100, Math.round((completedBookings / PREMIUM_THRESHOLD) * 100));
+  const tierProgressBucket = Math.round(tierProgressPct / 5) * 5;
+  const tierProgressWidth = PROGRESS_WIDTH_CLASSES[tierProgressBucket] || PROGRESS_WIDTH_CLASSES[0];
+
+  // Worked example — use the partner's first listing's weekday rate so the
+  // illustration matches what they actually earn. Fall back to a typical rate
+  // if the partner has no listings yet.
+  const firstListing = listings[0];
+  const exampleRoomName = firstListing?.haven_name || "Hilltop Deluxe Suite";
+  const rate =
+    Number(firstListing?.weekday_rate) ||
+    Number(firstListing?.weekend_rate) ||
+    Number(firstListing?.ten_hour_rate) ||
+    4800;
   const nights = 2;
   const gross = rate * nights;
   const commission = Math.round(gross * commissionRate);
@@ -111,26 +152,37 @@ export default function CostBreakdownPage({ onNavigate }: CostBreakdownPageProps
             </div>
             <div className="flex items-baseline gap-3 mt-3 mb-1 flex-wrap">
               <span className={`text-[32px] font-medium tracking-[-0.02em] text-[#111827] ${fontFraunces}`}>
-                Standard Partner
+                {tierLabel}
               </span>
               <span className={`text-[24px] text-[#B8860B] ${fontFraunces}`}>
                 · {commissionRatePct}% commission
               </span>
             </div>
             <p className="text-[#6B7280] text-[14px] max-w-[480px]">
-              You&apos;re 32 completed bookings away from{" "}
-              <strong className="text-[#111827]">Premium Partner</strong> (9% commission). Premium
-              also unlocks priority listing placement and a dedicated account manager.
+              {isPremium ? (
+                <>
+                  You&apos;ve unlocked <strong className="text-[#111827]">Premium Partner</strong>{" "}
+                  benefits — priority listing placement and a dedicated account manager.
+                </>
+              ) : (
+                <>
+                  You&apos;re {bookingsToPremium} completed booking{bookingsToPremium === 1 ? "" : "s"} away from{" "}
+                  <strong className="text-[#111827]">Premium Partner</strong> (9% commission). Premium
+                  also unlocks priority listing placement and a dedicated account manager.
+                </>
+              )}
             </p>
-            <div className="mt-4 p-3.5 rounded-[10px] bg-[#f9fafb] border border-[#e5e7eb]">
-              <div className="flex justify-between text-[11.5px] text-[#6B7280] mb-2">
-                <span>Progress to Premium</span>
-                <span>64 / 96 bookings · 6-mo rolling</span>
+            {!isPremium && (
+              <div className="mt-4 p-3.5 rounded-[10px] bg-[#f9fafb] border border-[#e5e7eb]">
+                <div className="flex justify-between text-[11.5px] text-[#6B7280] mb-2">
+                  <span>Progress to Premium</span>
+                  <span>{completedBookings} / {PREMIUM_THRESHOLD} completed bookings</span>
+                </div>
+                <div className="h-2 rounded-full bg-[#f3f4f6] overflow-hidden">
+                  <div className={`h-full bg-gradient-to-r from-[#B8860B] to-[#DAA520] transition-all ${tierProgressWidth}`} />
+                </div>
               </div>
-              <div className="h-2 rounded-full bg-[#f3f4f6] overflow-hidden">
-                <div className="h-full w-[64%] bg-gradient-to-r from-[#B8860B] to-[#DAA520]" />
-              </div>
-            </div>
+            )}
           </div>
         </div>
 
@@ -171,7 +223,7 @@ export default function CostBreakdownPage({ onNavigate }: CostBreakdownPageProps
           </h3>
           <p className="text-[12.5px] text-[#6B7280] mb-4">
             Worked example for a 2-night stay at{" "}
-            <strong className="text-[#111827]">Hilltop Deluxe Suite</strong>.
+            <strong className="text-[#111827]">{exampleRoomName}</strong>.
           </p>
 
           <div className="bg-[#f9fafb] p-1.5 rounded-[12px]">
@@ -180,7 +232,7 @@ export default function CostBreakdownPage({ onNavigate }: CostBreakdownPageProps
                 Booking BK-21048
               </div>
               <div className="text-[11px] text-[#6B7280] mb-4">
-                Hilltop Deluxe Suite · J**** R**** · May 14–16, 2026
+                {exampleRoomName} · J**** R**** · May 14–16, 2026
               </div>
 
               <ReceiptLine label="Room rate × nights" sub={`${peso(rate)} × ${nights}`} value={peso(gross)} />

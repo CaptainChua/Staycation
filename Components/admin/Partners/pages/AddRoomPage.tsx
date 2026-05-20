@@ -64,9 +64,9 @@ export default function AddRoomPage({ onNavigate }: AddRoomPageProps) {
               Ready to list a new room?
             </h2>
             <p className="text-[14.5px] text-[#374151] mb-6 max-w-[600px] leading-relaxed">
-              The wizard walks you through 8 quick steps — basic info, pricing, check-in,
+              We&apos;ll guide you through 8 quick steps — basic info, pricing, check-in,
               details, amenities, images, photo tour, and an optional YouTube video.
-              You can pause and come back anytime.
+              You can save and come back anytime.
             </p>
 
             {/* Steps preview */}
@@ -99,14 +99,14 @@ export default function AddRoomPage({ onNavigate }: AddRoomPageProps) {
                 onClick={() => setIsWizardOpen(true)}
                 className="px-5 py-2.5 rounded-[9px] text-[13.5px] font-semibold flex items-center gap-2 bg-brand-primary hover:bg-brand-primaryDark text-white transition active:translate-y-[0.5px] shadow-sm"
               >
-                <Plus className="w-4 h-4" /> Start wizard
+                <Plus className="w-4 h-4" /> Add a Room
               </button>
               <button
                 type="button"
                 onClick={() => onNavigate("listings")}
                 className="px-5 py-2.5 rounded-[9px] text-[13.5px] font-semibold flex items-center gap-2 bg-white border border-[#d1d5db] text-[#374151] hover:bg-[#f9fafb] transition"
               >
-                View existing listings
+                View my rooms
               </button>
             </div>
           </div>

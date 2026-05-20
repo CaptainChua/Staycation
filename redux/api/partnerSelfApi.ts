@@ -274,7 +274,12 @@ export const partnerSelfApi = createApi({
       transformResponse: (res: ApiOk<PartnerMessageThread[]>) => res.data,
       providesTags: ["Messages"],
     }),
-    sendPartnerMessage: builder.mutation<PartnerMessage, { thread_id: string; body: string }>({
+    // Either `thread_id` (existing conversation) or `thread_key` (new conversation,
+    // e.g. "support") is required.
+    sendPartnerMessage: builder.mutation<
+      PartnerMessage,
+      { thread_id?: string; thread_key?: string; body: string }
+    >({
       query: (body) => ({ url: "/messages", method: "POST", body }),
       transformResponse: (res: ApiOk<PartnerMessage>) => res.data,
       invalidatesTags: ["Messages"],

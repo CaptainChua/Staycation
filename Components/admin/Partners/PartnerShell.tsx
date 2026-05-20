@@ -324,14 +324,23 @@ function StatusBanner({
   onOpenOnboarding: () => void;
 }) {
   if (status === "pending") {
+    const missingLabels: Record<string, string> = {
+      valid_id: "Valid ID",
+      contract: "Signed contract",
+      payout: "Payout details",
+      profile: "Profile information",
+      bank_details: "Bank details",
+      tax_id: "Tax ID",
+    };
+    const friendlyMissing = missing.map((m) => missingLabels[m] ?? m.replace(/_/g, " "));
     return (
       <div className="mb-5 rounded-[14px] border border-[#92400e]/30 bg-[#fef3c7] p-4 flex items-start gap-3">
         <Clock className="w-5 h-5 text-[#92400e] flex-shrink-0 mt-0.5" />
         <div className="flex-1">
           <div className="text-[14px] font-semibold text-[#92400e]">Your account is awaiting approval</div>
           <p className="text-[12.5px] text-[#92400e]/90 mt-0.5">
-            {missing.length > 0
-              ? `Finish: ${missing.join(", ")}. You can browse the portal, but listings won't go public until approved.`
+            {friendlyMissing.length > 0
+              ? `Still needed: ${friendlyMissing.join(", ")}. You can explore the portal, but your rooms won't go public until we approve your account.`
               : "Everything is uploaded — our team is reviewing your application."}
           </p>
         </div>

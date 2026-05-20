@@ -214,7 +214,14 @@ function CalendarGrid({ havenId }: { havenId: string }) {
     setCursor(new Date(d.getFullYear(), d.getMonth(), 1));
   };
 
+  const todayYmd = toYmd(new Date());
+
   const handleCellClick = (ymd: string) => {
+    // Past dates are read-only — partners can't book/block yesterday.
+    if (ymd < todayYmd) {
+      toast("Past dates can't be changed.", { icon: "ℹ️" });
+      return;
+    }
     const status = cellStatus.get(ymd);
     if (status?.status === "booked" || status?.status === "blocked_admin" || status?.status === "imported") {
       const msg =
@@ -280,6 +287,59 @@ function CalendarGrid({ havenId }: { havenId: string }) {
 
   return (
     <div className="bg-white border border-[#e5e7eb] rounded-[14px] p-5">
+      {/* Block-form (visible only when partner selected available dates) — pinned at top so users notice it without scrolling */}
+      {selStart && selEnd && (
+        <div className="mb-5 p-4 bg-[#FEF3C7] border border-[#B8860B]/30 rounded-[12px] space-y-3 animate-in fade-in duration-200">
+          <div className="flex items-center justify-between">
+            <div className="text-[13px] font-semibold text-[#92400e]">
+              Block {selStart} → {selEnd}
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setSelStart(null);
+                setSelEnd(null);
+                setBlockReason("");
+              }}
+              aria-label="Clear selection"
+              title="Clear selection"
+              className="p-1 rounded hover:bg-white/40 text-[#92400e]"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-[140px_1fr] gap-2">
+            <select
+              value={blockType}
+              onChange={(e) => setBlockType(e.target.value as "manual_partner" | "maintenance")}
+              aria-label="Block type"
+              title="Block type"
+              className="px-3 py-2 border border-[#d1d5db] bg-white text-[#111827] rounded-md text-[12.5px] outline-none focus:border-[#B8860B]"
+            >
+              <option value="manual_partner">Blocked</option>
+              <option value="maintenance">Maintenance</option>
+            </select>
+            <input
+              type="text"
+              value={blockReason}
+              onChange={(e) => setBlockReason(e.target.value)}
+              placeholder="Reason (optional, e.g. 'family visit')"
+              aria-label="Reason"
+              className="px-3 py-2 border border-[#d1d5db] bg-white text-[#111827] rounded-md text-[12.5px] outline-none focus:border-[#B8860B] placeholder:text-[#9CA3AF]"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={submitBlock}
+            disabled={isBlocking}
+            className="w-full px-4 py-2 rounded-md bg-[#B8860B] hover:bg-[#8B6508] text-white font-semibold text-[13px] flex items-center justify-center gap-2 transition disabled:opacity-50"
+          >
+            {isBlocking ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+            Confirm block
+          </button>
+        </div>
+      )}
+
       {/* Month nav */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
@@ -333,23 +393,27 @@ function CalendarGrid({ havenId }: { havenId: string }) {
           const status = cellStatus.get(ymd);
           const selected = isInSelection(ymd);
           const style = status ? STATUS_STYLE[status.status] : STATUS_STYLE.available;
-          const isToday = ymd === toYmd(new Date());
+          const isToday = ymd === todayYmd;
+          const isPast = ymd < todayYmd;
           return (
             <button
               key={ymd}
               type="button"
               onClick={() => handleCellClick(ymd)}
+              disabled={isPast}
               className={`relative aspect-[1.2/1] rounded-md border transition text-left p-1.5 group ${
-                style.bg
-              } ${style.ring} ${selected ? "ring-2 ring-[#B8860B] border-[#B8860B]" : ""} ${
+                isToday ? "bg-[#B8860B]/15 border-[#B8860B]/40" : `${style.bg} ${style.ring}`
+              } ${selected ? "ring-2 ring-[#B8860B] border-[#B8860B]" : ""} ${
                 !isCurrentMonth ? "opacity-40" : ""
-              } hover:scale-[1.02] hover:shadow-sm`}
-              title={status?.reason || style.label}
+              } ${
+                isPast ? "opacity-50 bg-[#f3f4f6] cursor-not-allowed line-through" : "hover:scale-[1.02] hover:shadow-sm"
+              }`}
+              title={isPast ? "Past date" : isToday ? "Today" : (status?.reason || style.label)}
             >
-              <div className={`text-[11.5px] font-semibold ${style.text} ${isToday ? "underline underline-offset-2 decoration-[#B8860B]" : ""}`}>
+              <div className={`text-[11.5px] font-semibold ${isToday ? "text-[#8B6508] font-bold" : style.text}`}>
                 {d.getDate()}
               </div>
-              {status && (
+              {!isToday && status && (
                 <div className={`text-[9px] uppercase tracking-wide font-bold mt-0.5 ${style.text} truncate`}>
                   {style.label}
                 </div>
@@ -361,6 +425,10 @@ function CalendarGrid({ havenId }: { havenId: string }) {
 
       {/* Legend */}
       <div className="flex flex-wrap gap-3 mt-4 pt-4 border-t border-[#e5e7eb]">
+        <div className="flex items-center gap-1.5">
+          <span className="inline-block w-3 h-3 rounded-sm border bg-[#B8860B]/15 border-[#B8860B]/40" />
+          <span className="text-[11.5px] text-[#6B7280]">Today</span>
+        </div>
         {(Object.entries(STATUS_STYLE) as [CellStatus, typeof STATUS_STYLE[CellStatus]][]).map(([k, v]) => (
           <div key={k} className="flex items-center gap-1.5">
             <span className={`inline-block w-3 h-3 rounded-sm border ${v.bg} ${v.ring}`} />
@@ -369,58 +437,6 @@ function CalendarGrid({ havenId }: { havenId: string }) {
         ))}
       </div>
 
-      {/* Block-form (visible only when partner selected available dates) */}
-      {selStart && selEnd && (
-        <div className="mt-5 p-4 bg-[#FEF3C7] border border-[#B8860B]/30 rounded-[12px] space-y-3 animate-in fade-in duration-200">
-          <div className="flex items-center justify-between">
-            <div className="text-[13px] font-semibold text-[#92400e]">
-              Block {selStart} → {selEnd}
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                setSelStart(null);
-                setSelEnd(null);
-                setBlockReason("");
-              }}
-              aria-label="Clear selection"
-              title="Clear selection"
-              className="p-1 rounded hover:bg-white/40 text-[#92400e]"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-[140px_1fr] gap-2">
-            <select
-              value={blockType}
-              onChange={(e) => setBlockType(e.target.value as "manual_partner" | "maintenance")}
-              aria-label="Block type"
-              title="Block type"
-              className="px-3 py-2 border border-[#d1d5db] bg-white text-[#111827] rounded-md text-[12.5px] outline-none focus:border-[#B8860B]"
-            >
-              <option value="manual_partner">Blocked</option>
-              <option value="maintenance">Maintenance</option>
-            </select>
-            <input
-              type="text"
-              value={blockReason}
-              onChange={(e) => setBlockReason(e.target.value)}
-              placeholder="Reason (optional, e.g. 'family visit')"
-              aria-label="Reason"
-              className="px-3 py-2 border border-[#d1d5db] bg-white text-[#111827] rounded-md text-[12.5px] outline-none focus:border-[#B8860B] placeholder:text-[#9CA3AF]"
-            />
-          </div>
-          <button
-            type="button"
-            onClick={submitBlock}
-            disabled={isBlocking}
-            className="w-full px-4 py-2 rounded-md bg-[#B8860B] hover:bg-[#8B6508] text-white font-semibold text-[13px] flex items-center justify-center gap-2 transition disabled:opacity-50"
-          >
-            {isBlocking ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
-            Confirm block
-          </button>
-        </div>
-      )}
     </div>
   );
 }

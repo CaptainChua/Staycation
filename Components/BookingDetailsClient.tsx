@@ -246,6 +246,7 @@ const BookingDetailsClient = ({ booking, userId }: BookingDetailsClientProps) =>
                   src={firstImage}
                   alt={booking.room_name}
                   fill
+                  sizes="(max-width: 1024px) 100vw, 66vw"
                   className="object-cover"
                 />
               </div>

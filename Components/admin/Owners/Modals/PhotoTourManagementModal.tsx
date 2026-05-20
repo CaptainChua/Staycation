@@ -24,7 +24,7 @@ interface PhotoCategory {
 const PHOTO_CATEGORIES: PhotoCategory[] = [
   { key: "livingArea", label: "Living Area", description: "Sofa, entertainment, and general layout", required: true },
   { key: "bedroom", label: "Bedroom", description: "Bed, linens, and bedroom decor", required: true },
-  { key: "kitchenette", label: "Kitchenette", description: "Cooking area, fridge, and appliances", required: true },
+  { key: "kitchenette", label: "Kitchenette", description: "Cooking area, fridge, and appliances", required: false },
   { key: "fullBathroom", label: "Full Bathroom", description: "Shower, toilet, and vanity", required: true },
   { key: "diningArea", label: "Dining Area", description: "Table and seating arrangements", required: false },
   { key: "exterior", label: "Exterior / View", description: "Building outside and window views", required: false },
@@ -68,7 +68,7 @@ export const getDynamicRequiredPhotoCategories = (
 };
 
 // Categories that are ALWAYS required (regardless of selected amenities)
-export const ALWAYS_REQUIRED_PHOTO_CATEGORIES = ["livingArea", "bedroom", "kitchenette", "fullBathroom"];
+export const ALWAYS_REQUIRED_PHOTO_CATEGORIES = ["livingArea", "bedroom", "fullBathroom"];
 
 interface CustomAmenityMeta {
   id: string;
@@ -112,6 +112,22 @@ const PhotoTourManagementModal = ({
     const base = PHOTO_CATEGORIES.find((c) => c.key === key)?.required ?? false;
     return base || dynamicallyRequired.has(key);
   };
+
+  // Show required categories first so partners see what they need at a glance.
+  // Stable sort preserves the original PHOTO_CATEGORIES order within each group.
+  const sortedCategories = useMemo(() => {
+    const decorated = PHOTO_CATEGORIES.map((cat, idx) => ({
+      cat,
+      idx,
+      required: cat.required || dynamicallyRequired.has(cat.key),
+    }));
+    decorated.sort((a, b) => {
+      if (a.required !== b.required) return a.required ? -1 : 1;
+      return a.idx - b.idx;
+    });
+    return decorated.map((d) => d.cat);
+  }, [dynamicallyRequired]);
+
   const [activeCategory, setActiveCategory] = useState<string>("livingArea");
 
   const handleUpload = (category: string, e: React.ChangeEvent<HTMLInputElement>) => {
@@ -183,7 +199,7 @@ const PhotoTourManagementModal = ({
         <h3 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2 px-2">
           Room Categories
         </h3>
-        {PHOTO_CATEGORIES.map((cat) => {
+        {sortedCategories.map((cat) => {
           const isCompleted = getCategoryStatus(cat.key);
           const isActive = activeCategory === cat.key;
           
