@@ -416,6 +416,12 @@ const ReservationsPage = () => {
                     <p className="text-sm text-slate-500 dark:text-gray-400">Phone</p>
                     <p className="font-semibold text-slate-900 dark:text-gray-100">{selectedBooking.guest_phone}</p>
                   </div>
+                  {selectedBooking.guest_age && (
+                    <div>
+                      <p className="text-sm text-slate-500 dark:text-gray-400">Age</p>
+                      <p className="font-semibold text-slate-900 dark:text-gray-100">{selectedBooking.guest_age} years old</p>
+                    </div>
+                  )}
                   {selectedBooking.guest_gender && (
                     <div>
                       <p className="text-sm text-slate-500 dark:text-gray-400">Gender</p>

@@ -419,14 +419,21 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
     } else if (name === "email") {
       const v = value.trim();
       setFormData(prev => ({ ...prev, email: v }));
-      if (!v.includes('@') || !v.includes('.com')) {
-        setErrors(prev => ({ ...prev, email: "Please include '@'" }));
+      if (!v) {
+        setErrors(prev => ({ ...prev, email: "" }));
+      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) {
+        setErrors(prev => ({ ...prev, email: "Enter a valid email address (e.g. name@gmail.com)" }));
       } else {
         setErrors(prev => ({ ...prev, email: "" }));
       }
     } else if (name === "phone") {
       const digitsOnly = value.replace(/\D/g, "").slice(0, 11);
       setFormData(prev => ({ ...prev, phone: digitsOnly }));
+      if (digitsOnly && digitsOnly.length > 0 && !/^09/.test(digitsOnly)) {
+        setErrors(prev => ({ ...prev, phone: "PH number must start with 09 (e.g. 09XXXXXXXXX)" }));
+      } else {
+        setErrors(prev => ({ ...prev, phone: "" }));
+      }
     } else {
       setFormData(prev => ({
         ...prev,
@@ -578,17 +585,18 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
     if (!isEditMode && !formData.gender) newErrors.gender = "Please select a gender";
     if (!formData.email) {
       newErrors.email = "Email is required";
-    } else if (!isEmailValid(formData.email)) {
-      newErrors.email = "Please enter a valid email address";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+      newErrors.email = "Enter a valid email address (e.g. name@gmail.com)";
     }
     if (!formData.phone) {
       newErrors.phone = "Phone number is required";
-    } else if (!/^\d{11}$/.test(formData.phone)) {
-      newErrors.phone = "Phone number must be 11 digits";
+    } else if (!/^09\d{9}$/.test(formData.phone)) {
+      newErrors.phone = "Enter a valid PH mobile number (e.g. 09XXXXXXXXX)";
     }
     if (formData.age && parseInt(formData.age) >= 10 && !formData.validId && !formData.validIdPreview) {
       newErrors.validId = "Valid ID is required for guests 10+ years old";
     }
+    const mainFullName = `${formData.firstName} ${formData.lastName}`.trim().toLowerCase();
     for (let i = 0; i < additionalGuests.length; i++) {
       const guest = additionalGuests[i];
       const guestNumber = i + 2;
@@ -603,6 +611,20 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
       } else {
         if (guest.age && parseInt(guest.age) >= 10 && !guest.validId && !guest.validIdPreview) {
           newErrors[`guest${i}ValidId`] = `Valid ID is required for Guest ${guestNumber} (10+ years old)`;
+        }
+      }
+      // Duplicate name check against main guest
+      const guestFullName = `${guest.firstName} ${guest.lastName}`.trim().toLowerCase();
+      if (guestFullName && guestFullName === mainFullName) {
+        newErrors[`guest${i}FirstName`] = `Guest ${guestNumber} has the same name as the main guest`;
+      }
+      // Duplicate name check against other additional guests
+      for (let j = 0; j < i; j++) {
+        const other = additionalGuests[j];
+        const otherFullName = `${other.firstName} ${other.lastName}`.trim().toLowerCase();
+        if (guestFullName && guestFullName === otherFullName) {
+          newErrors[`guest${i}FirstName`] = `Guest ${guestNumber} has the same name as Guest ${j + 2}`;
+          break;
         }
       }
     }
@@ -996,15 +1018,21 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                         type="email"
                         name="email"
                         value={formData.email}
+                        placeholder="name@gmail.com"
                         onChange={(e) => handleInputChange(e)}
                         className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
                           errors.email ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                         }`}
                       />
-                      {errors.email && (
+                      {errors.email ? (
                         <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
                           <AlertCircle className="w-4 h-4" />
                           {errors.email}
+                        </p>
+                      ) : (
+                        <p className="mt-1 text-xs text-amber-600 flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3 flex-shrink-0" />
+                          Use a valid email address (e.g. a...@gmail.com)
                         </p>
                       )}
                     </div>
@@ -1021,19 +1049,18 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                         name="phone"
                         placeholder="09XXXXXXXXX"
                         value={formData.phone}
-                        onChange={(e) => {
-                          handleInputChange(e);
-                          setErrors(prev => ({...prev, phone: ''}));
-                        }}
+                        onChange={(e) => handleInputChange(e)}
                         className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
                           errors.phone ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                         }`}
                       />
-                      {errors.phone && (
+                      {errors.phone ? (
                         <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
                           <AlertCircle className="w-4 h-4" />
                           {errors.phone}
                         </p>
+                      ) : (
+                        <p className="mt-1 text-xs text-gray-400">PH mobile number starting with 09 (11 digits)</p>
                       )}
                     </div>
 

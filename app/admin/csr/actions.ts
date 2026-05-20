@@ -14,6 +14,8 @@ export interface DepositRecord {
   guest_phone: string | null;
   guest_facebook_link: string | null;
   guest_valid_id_url: string | null;
+  guest_age: number | null;
+  guest_gender: string | null;
   haven: string;
   tower: string;
   deposit_amount: number;
@@ -60,11 +62,13 @@ export async function getDeposits(): Promise<DepositRecord[]> {
         bg.phone,
         bg.facebook_link,
         bg.valid_id_url,
+        bg.age,
+        bg.gender,
         h.tower
       FROM booking_security_deposits sd
       INNER JOIN booking b ON sd.booking_id = b.id
       LEFT JOIN LATERAL (
-        SELECT first_name, last_name, email, phone, facebook_link, valid_id_url
+        SELECT first_name, last_name, email, phone, facebook_link, valid_id_url, age, gender
         FROM booking_guests
         WHERE booking_id = b.id
         LIMIT 1
@@ -133,6 +137,8 @@ export async function getDeposits(): Promise<DepositRecord[]> {
         guest_phone: row.phone,
         guest_facebook_link: row.facebook_link,
         guest_valid_id_url: row.valid_id_url,
+        guest_age: row.age != null ? parseInt(row.age) : null,
+        guest_gender: row.gender || null,
         haven: havenDisplay,
         tower: towerDisplay,
         deposit_amount: amount,

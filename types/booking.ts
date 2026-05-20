@@ -26,6 +26,7 @@ export interface BookingListItem {
   guest_last_name: string;
   guest_email?: string;
   guest_phone?: string;
+  guest_age?: number | null;
   guest_gender?: string | null;
   facebook_link?: string | null;
 

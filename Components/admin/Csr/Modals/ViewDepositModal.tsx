@@ -222,6 +222,18 @@ export default function ViewDepositModal({
                   </a>
                 </div>
               )}
+              {deposit.guest_age != null && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Age:</span>
+                  <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{deposit.guest_age} years old</span>
+                </div>
+              )}
+              {deposit.guest_gender && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Gender:</span>
+                  <span className="text-sm font-medium text-gray-900 dark:text-gray-100 capitalize">{deposit.guest_gender}</span>
+                </div>
+              )}
               <div className="flex gap-2 pt-2">
                 {deposit.guest_facebook_link && (
                   <a

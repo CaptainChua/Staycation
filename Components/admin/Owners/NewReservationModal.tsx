@@ -226,8 +226,13 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
 
   // ── Other input helpers ───────────────────────────────────────
   const handlePhoneChange = (value: string): string => {
-    const cleaned = value.replace(/[^0-9]/g, "");
-    return cleaned.slice(0, 11);
+    const cleaned = value.replace(/[^0-9]/g, "").slice(0, 11);
+    if (cleaned && !/^09/.test(cleaned)) {
+      setErrors(prev => ({ ...prev, phone: "PH number must start with 09 (e.g. 09XXXXXXXXX)" }));
+    } else {
+      setErrors(prev => ({ ...prev, phone: "" }));
+    }
+    return cleaned;
   };
 
   const handleAgeChange = (value: string): string => {
@@ -704,8 +709,12 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                       </div>
                       <div>
                         <label className={labelClass}>Phone *</label>
-                        <input type="tel" name="phone" value={formData.phone} onChange={handleInputChange} required inputMode="numeric" className={`${inputClass} ${errors.phone ? "border-red-500" : ""}`} placeholder="Enter Mobile Number" />
-                        {errors.phone && <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3 flex-shrink-0" /> {errors.phone}</p>}
+                        <input type="tel" name="phone" value={formData.phone} onChange={handleInputChange} required inputMode="numeric" maxLength={11} className={`${inputClass} ${errors.phone ? "border-red-500" : ""}`} placeholder="09XXXXXXXXX" />
+                        {errors.phone ? (
+                          <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3 flex-shrink-0" /> {errors.phone}</p>
+                        ) : (
+                          <p className="text-gray-400 text-xs mt-1">PH mobile number starting with 09 (11 digits)</p>
+                        )}
                       </div>
                     </div>
                   </div>
