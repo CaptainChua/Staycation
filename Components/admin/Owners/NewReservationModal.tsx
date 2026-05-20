@@ -33,30 +33,7 @@ const ADD_ON_PRICES = {
 interface NewReservationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (bookingData: {
-    firstName: string;
-    lastName: string;
-    age: string;
-    gender: string;
-    email: string;
-    phone: string;
-    facebookLink: string;
-    validId: File | null;
-    adults: number;
-    children: number;
-    infants: number;
-    stayType: string;
-    checkInDate: string;
-    checkOutDate: string;
-    checkInTime: string;
-    checkOutTime: string;
-    roomName: string;
-    paymentProof: File | null;
-    paymentMethod: string;
-    termsAccepted: boolean;
-    additionalGuests?: GuestInfo[];
-    addOns?: AddOns;
-  }) => Promise<void>;
+  onSubmit: (bookingData: any) => Promise<void>;
 }
 
 const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalProps) => {
@@ -219,7 +196,7 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
     }
   };
 
-  const handleAdditionalGuestChange = (index: number, field: keyof GuestInfo, value: string) => {
+  const handleAdditionalGuestChange = (index: number, field: "firstName" | "lastName" | "age" | "gender", value: string) => {
     const updatedGuests = [...additionalGuests];
     const sanitizedValue = field === "age" ? handleAgeChange(value) : value;
     updatedGuests[index] = { ...updatedGuests[index], [field]: sanitizedValue };
