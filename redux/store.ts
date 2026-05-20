@@ -30,6 +30,12 @@ import { partnersApi } from "./api/partnersApi";
 import { partnerSelfApi } from "./api/partnerSelfApi";
 import { partnerHavensReviewApi } from "./api/partnerHavensReviewApi";
 import { partnersAdminApi } from "./api/partnersAdminApi";
+import { amenityVerificationApi } from "./api/amenityVerificationApi";
+import { partnerCalendarApi } from "./api/partnerCalendarApi";
+import { adminPayoutsApi } from "./api/adminPayoutsApi";
+import { partnerRegistrationApi } from "./api/partnerRegistrationApi";
+import { systemAuditLogsApi } from "./api/systemAuditLogsApi";
+import { havenListingStatusApi } from "./api/havenListingStatusApi";
 
 const persistConfig = {
   key: "root",
@@ -61,6 +67,12 @@ export const store = configureStore({
     [partnerSelfApi.reducerPath]: partnerSelfApi.reducer,
     [partnerHavensReviewApi.reducerPath]: partnerHavensReviewApi.reducer,
     [partnersAdminApi.reducerPath]: partnersAdminApi.reducer,
+    [amenityVerificationApi.reducerPath]: amenityVerificationApi.reducer,
+    [partnerCalendarApi.reducerPath]: partnerCalendarApi.reducer,
+    [adminPayoutsApi.reducerPath]: adminPayoutsApi.reducer,
+    [partnerRegistrationApi.reducerPath]: partnerRegistrationApi.reducer,
+    [systemAuditLogsApi.reducerPath]: systemAuditLogsApi.reducer,
+    [havenListingStatusApi.reducerPath]: havenListingStatusApi.reducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
@@ -96,7 +108,13 @@ export const store = configureStore({
       .concat(partnersApi.middleware)
       .concat(partnerSelfApi.middleware)
       .concat(partnerHavensReviewApi.middleware)
-      .concat(partnersAdminApi.middleware),
+      .concat(partnersAdminApi.middleware)
+      .concat(amenityVerificationApi.middleware)
+      .concat(partnerCalendarApi.middleware)
+      .concat(adminPayoutsApi.middleware)
+      .concat(partnerRegistrationApi.middleware)
+      .concat(systemAuditLogsApi.middleware)
+      .concat(havenListingStatusApi.middleware),
 });
 
 export const persistor = persistStore(store);

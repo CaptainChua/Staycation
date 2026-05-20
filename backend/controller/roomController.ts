@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { upload_file, delete_file } from "../utils/cloudinary";
 import pool from "../config/db";
+import { syncAmenityVerifications } from "../utils/amenityVerifySync";
 
 //  /api/addHavenRoom/route.ts
 
@@ -42,7 +43,50 @@ export const createHaven = async (req: NextRequest): Promise<NextResponse> => {
       photo_tour_images,
       blocked_dates,
       partner_id,
+      rates,
+      bathrooms,
+      property_type,
+      cleaning_fee,
+      security_deposit,
+      extra_pax_fee,
+      house_rules,
+      smoking_policy,
+      pet_policy,
+      cancellation_policy,
+      google_map_address,
+      google_map_lat,
+      google_map_lng,
+      virtual_tour_url,
     } = body;
+
+    // Partner-status gate: only approved partners can submit havens
+    if (partner_id) {
+      const partnerCheck = await pool.query<{ status: string }>(
+        `SELECT status FROM partners_account WHERE id = $1`,
+        [partner_id]
+      );
+      if (partnerCheck.rowCount === 0) {
+        return NextResponse.json(
+          { success: false, error: "Partner not found", message: "Haven can't save: Partner account not found" },
+          { status: 404 }
+        );
+      }
+      const partnerStatus = partnerCheck.rows[0].status;
+      if (partnerStatus !== "active") {
+        const reason =
+          partnerStatus === "pending"
+            ? "Your account is still pending approval. Please finish uploading your ID, signed contract, and payout details, then wait for admin review before listing properties."
+            : partnerStatus === "suspended"
+            ? "Your partner account is suspended. Please contact support."
+            : partnerStatus === "rejected"
+            ? "Your partner application was rejected. Please contact support."
+            : "Your partner account is not active.";
+        return NextResponse.json(
+          { success: false, error: "Account not approved", message: reason },
+          { status: 403 }
+        );
+      }
+    }
 
     // Required fields validation
     if (!haven_name || !tower || !floor || !view_type || !capacity || !room_size || !beds || !description) {
@@ -56,12 +100,15 @@ export const createHaven = async (req: NextRequest): Promise<NextResponse> => {
       );
     }
 
-    if (!six_hour_rate || !ten_hour_rate || !weekday_rate || !weekend_rate) {
+    // Pricing validation: accept either the new rates array OR at least one legacy column
+    const hasRates = Array.isArray(rates) && rates.length > 0;
+    const hasLegacyRate = !!(six_hour_rate || ten_hour_rate || weekday_rate || weekend_rate);
+    if (!hasRates && !hasLegacyRate) {
       return NextResponse.json(
         {
           success: false,
           error: "Pricing information is required",
-          message: "Haven can't save: Please provide all rates"
+          message: "Haven can't save: Please add at least one rate",
         },
         { status: 400 }
       );
@@ -109,9 +156,17 @@ export const createHaven = async (req: NextRequest): Promise<NextResponse> => {
         haven_name, tower, floor, view_type, capacity, room_size, beds,
         description, youtube_url, six_hour_rate, ten_hour_rate, weekday_rate,
         weekend_rate, six_hour_check_in, six_hour_check_out, ten_hour_check_in, ten_hour_check_out, twenty_one_hour_check_in, twenty_one_hour_check_out,
-        amenities, partner_id, created_at, updated_at
+        amenities, partner_id, rates,
+        security_deposit, extra_pax_fee,
+        house_rules, smoking_policy, pet_policy, cancellation_policy,
+        google_map_address, google_map_lat, google_map_lng, virtual_tour_url,
+        bathrooms, property_type, cleaning_fee,
+        created_at, updated_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, NOW(), NOW())
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22::jsonb,
+                $23, $24, $25, $26, $27, $28, $29, $30, $31, $32,
+                $33, $34, $35,
+                NOW(), NOW())
       RETURNING *
     `;
 
@@ -125,10 +180,10 @@ export const createHaven = async (req: NextRequest): Promise<NextResponse> => {
       beds,
       description,
       youtube_url || null,
-      six_hour_rate,
-      ten_hour_rate,
-      weekday_rate,
-      weekend_rate,
+      six_hour_rate || 0,
+      ten_hour_rate || 0,
+      weekday_rate || 0,
+      weekend_rate || 0,
       six_hour_check_in || "09:00",
       six_hour_check_out || "15:00",
       ten_hour_check_in || "09:00",
@@ -137,6 +192,20 @@ export const createHaven = async (req: NextRequest): Promise<NextResponse> => {
       twenty_one_hour_check_out || "11:00",
       JSON.stringify(amenities || {}),
       partner_id || null,
+      JSON.stringify(Array.isArray(rates) ? rates : []),
+      security_deposit ? parseFloat(security_deposit) : 0,
+      extra_pax_fee ? parseFloat(extra_pax_fee) : 0,
+      house_rules || null,
+      smoking_policy || null,
+      pet_policy || null,
+      cancellation_policy || null,
+      google_map_address || null,
+      google_map_lat || null,
+      google_map_lng || null,
+      virtual_tour_url || null,
+      bathrooms ? parseInt(bathrooms) : null,
+      property_type || null,
+      cleaning_fee ? parseFloat(cleaning_fee) : 0,
     ];
 
     const havenResult = await pool.query(havenQuery, havenValues);
@@ -194,6 +263,14 @@ export const createHaven = async (req: NextRequest): Promise<NextResponse> => {
       }
     }
 
+    // Seed amenity verification rows (status='pending') for every toggled amenity
+    try {
+      await syncAmenityVerifications(havenId, amenities, { pruneToggledOff: false });
+    } catch (syncErr) {
+      console.error("⚠️ amenity verification sync (create) failed:", syncErr);
+      // Non-fatal: haven is created, partner can re-save to re-seed if this fails.
+    }
+
     console.log("✅ Haven Created:", havenResult.rows[0]);
 
     return NextResponse.json({
@@ -225,13 +302,33 @@ export const getAllHavens = async (req: NextRequest): Promise<NextResponse> => {
     const tower = searchParams.get("tower");
     const view_type = searchParams.get("view_type");
     const min_capacity = searchParams.get("min_capacity");
+    // Phase 5 — public marketplace filters
+    const min_price = searchParams.get("min_price");      // any rate >= min_price
+    const max_price = searchParams.get("max_price");      // any rate <= max_price
+    const amenities = searchParams.getAll("amenity");     // ?amenity=wifi&amenity=parking — require ALL to be VERIFIED
+    const location = searchParams.get("location");        // matches haven_name, tower, floor, view_type
 
     let query = `
       SELECT h.*,
         json_agg(DISTINCT jsonb_build_object('id', hi.id, 'image_url', hi.image_url, 'display_order', hi.display_order))
           FILTER (WHERE hi.id IS NOT NULL) as images,
         json_agg(DISTINCT jsonb_build_object('category', pti.category, 'image_url', pti.image_url, 'display_order', pti.display_order))
-          FILTER (WHERE pti.id IS NOT NULL) as photo_tours
+          FILTER (WHERE pti.id IS NOT NULL) as photo_tours,
+        -- Only VERIFIED amenities are exposed publicly. Pending/rejected/revision are hidden.
+        COALESCE(
+          (
+            SELECT jsonb_agg(jsonb_build_object(
+              'key', av.amenity_key,
+              'label', av.amenity_label,
+              'iconKey', av.amenity_icon_key,
+              'iconUrl', av.amenity_icon_url,
+              'category', av.category
+            ))
+            FROM haven_amenity_verifications av
+            WHERE av.haven_id = h.uuid_id AND av.status = 'verified'
+          ),
+          '[]'::jsonb
+        ) AS verified_amenities
       FROM havens h
       LEFT JOIN haven_images hi ON h.uuid_id = hi.haven_id
       LEFT JOIN photo_tour_images pti ON h.uuid_id = pti.haven_id
@@ -239,8 +336,10 @@ export const getAllHavens = async (req: NextRequest): Promise<NextResponse> => {
     `;
 
     // Hide partner havens that haven't been approved yet (owner havens have NULL partner_id and are always visible)
+    // Also hide havens that admin has disabled or suspended.
     const conditions: string[] = [
       "(h.partner_id IS NULL OR COALESCE(pa.status, 'pending') = 'approved')",
+      "COALESCE(h.listing_status, 'active') = 'active'",
     ];
     const values: any[] = [];
     let paramCount = 1;
@@ -260,6 +359,66 @@ export const getAllHavens = async (req: NextRequest): Promise<NextResponse> => {
     if (min_capacity) {
       conditions.push(`h.capacity >= $${paramCount}`);
       values.push(parseInt(min_capacity));
+      paramCount++;
+    }
+
+    // Free-text location search across haven_name / tower / floor / view_type / google_map_address
+    if (location) {
+      conditions.push(
+        `(h.haven_name ILIKE $${paramCount} OR h.tower ILIKE $${paramCount} OR h.floor ILIKE $${paramCount} OR h.view_type ILIKE $${paramCount} OR COALESCE(h.google_map_address, '') ILIKE $${paramCount})`
+      );
+      values.push(`%${location}%`);
+      paramCount++;
+    }
+
+    // Price range — match if ANY of the haven's rates fall in the range
+    if (min_price) {
+      conditions.push(`
+        (
+          (h.six_hour_rate >= $${paramCount}) OR
+          (h.ten_hour_rate >= $${paramCount}) OR
+          (h.weekday_rate >= $${paramCount}) OR
+          (h.weekend_rate >= $${paramCount}) OR
+          EXISTS (
+            SELECT 1 FROM jsonb_array_elements(COALESCE(h.rates, '[]'::jsonb)) AS r
+            WHERE (r->>'price')::numeric >= $${paramCount}
+          )
+        )
+      `);
+      values.push(parseFloat(min_price));
+      paramCount++;
+    }
+    if (max_price) {
+      conditions.push(`
+        (
+          (h.six_hour_rate > 0 AND h.six_hour_rate <= $${paramCount}) OR
+          (h.ten_hour_rate > 0 AND h.ten_hour_rate <= $${paramCount}) OR
+          (h.weekday_rate > 0 AND h.weekday_rate <= $${paramCount}) OR
+          (h.weekend_rate > 0 AND h.weekend_rate <= $${paramCount}) OR
+          EXISTS (
+            SELECT 1 FROM jsonb_array_elements(COALESCE(h.rates, '[]'::jsonb)) AS r
+            WHERE (r->>'price')::numeric <= $${paramCount} AND (r->>'price')::numeric > 0
+          )
+        )
+      `);
+      values.push(parseFloat(max_price));
+      paramCount++;
+    }
+
+    // Amenity filter — every requested amenity must have a VERIFIED row for this haven
+    if (amenities.length > 0) {
+      conditions.push(`
+        NOT EXISTS (
+          SELECT 1 FROM unnest($${paramCount}::text[]) AS req(amenity)
+          WHERE NOT EXISTS (
+            SELECT 1 FROM haven_amenity_verifications av
+            WHERE av.haven_id = h.uuid_id
+              AND av.status = 'verified'
+              AND av.amenity_key = req.amenity
+          )
+        )
+      `);
+      values.push(amenities);
       paramCount++;
     }
 
@@ -343,6 +502,20 @@ export const getHavenById = async (
         SELECT h.*,
           json_agg(DISTINCT jsonb_build_object('id', hi.id, 'image_url', hi.image_url, 'display_order', hi.display_order))
             FILTER (WHERE hi.id IS NOT NULL) as images,
+          COALESCE(
+            (
+              SELECT jsonb_agg(jsonb_build_object(
+                'key', av.amenity_key,
+                'label', av.amenity_label,
+                'iconKey', av.amenity_icon_key,
+                'iconUrl', av.amenity_icon_url,
+                'category', av.category
+              ))
+              FROM haven_amenity_verifications av
+              WHERE av.haven_id = h.uuid_id AND av.status = 'verified'
+            ),
+            '[]'::jsonb
+          ) AS verified_amenities,
           0 as rating,
           0 as review_count
         FROM havens h
@@ -432,7 +605,21 @@ export const updateHaven = async (req: NextRequest): Promise<NextResponse> => {
       existing_images,
       photo_tour_images,
       existing_photo_tours,
-      blocked_dates
+      blocked_dates,
+      rates,
+      bathrooms,
+      property_type,
+      cleaning_fee,
+      security_deposit,
+      extra_pax_fee,
+      house_rules,
+      smoking_policy,
+      pet_policy,
+      cancellation_policy,
+      google_map_address,
+      google_map_lat,
+      google_map_lng,
+      virtual_tour_url,
     } = body;
 
     // Required fields validation
@@ -447,7 +634,7 @@ export const updateHaven = async (req: NextRequest): Promise<NextResponse> => {
       );
     }
 
-    // Update haven basic info
+    // Update haven basic info + rates JSONB + Phase-5 fields
     const query = `
       UPDATE havens
       SET haven_name = $1,
@@ -470,8 +657,22 @@ export const updateHaven = async (req: NextRequest): Promise<NextResponse> => {
           twenty_one_hour_check_in = $18,
           twenty_one_hour_check_out = $19,
           amenities = $20,
+          rates = $21::jsonb,
+          security_deposit = $23,
+          extra_pax_fee = $24,
+          house_rules = $25,
+          smoking_policy = $26,
+          pet_policy = $27,
+          cancellation_policy = $28,
+          google_map_address = $29,
+          google_map_lat = $30,
+          google_map_lng = $31,
+          virtual_tour_url = $32,
+          bathrooms = $33,
+          property_type = $34,
+          cleaning_fee = $35,
           updated_at = NOW()
-      WHERE uuid_id = $21
+      WHERE uuid_id = $22
       RETURNING *
     `;
 
@@ -485,10 +686,10 @@ export const updateHaven = async (req: NextRequest): Promise<NextResponse> => {
       beds,
       description,
       youtube_url || null,
-      six_hour_rate,
-      ten_hour_rate,
-      weekday_rate,
-      weekend_rate,
+      six_hour_rate || 0,
+      ten_hour_rate || 0,
+      weekday_rate || 0,
+      weekend_rate || 0,
       six_hour_check_in || "09:00",
       six_hour_check_out || "15:00",
       ten_hour_check_in || "09:00",
@@ -496,7 +697,21 @@ export const updateHaven = async (req: NextRequest): Promise<NextResponse> => {
       twenty_one_hour_check_in || "14:00",
       twenty_one_hour_check_out || "11:00",
       JSON.stringify(amenities || {}),
-      id
+      JSON.stringify(Array.isArray(rates) ? rates : []),
+      id,
+      security_deposit ? parseFloat(security_deposit) : 0,
+      extra_pax_fee ? parseFloat(extra_pax_fee) : 0,
+      house_rules || null,
+      smoking_policy || null,
+      pet_policy || null,
+      cancellation_policy || null,
+      google_map_address || null,
+      google_map_lat || null,
+      google_map_lng || null,
+      virtual_tour_url || null,
+      bathrooms ? parseInt(bathrooms) : null,
+      property_type || null,
+      cleaning_fee ? parseFloat(cleaning_fee) : 0,
     ];
 
     const result = await pool.query(query, values);
@@ -621,6 +836,14 @@ export const updateHaven = async (req: NextRequest): Promise<NextResponse> => {
           );
         }
       }
+    }
+
+    // Reconcile amenity verification rows against the latest amenities JSONB
+    try {
+      // pruneToggledOff: true → if partner removed an amenity that wasn't yet verified, drop its pending row
+      await syncAmenityVerifications(id, amenities, { pruneToggledOff: true });
+    } catch (syncErr) {
+      console.error("⚠️ amenity verification sync (update) failed:", syncErr);
     }
 
     console.log("✅ Haven updated successfully:", result.rows[0]);

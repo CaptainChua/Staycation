@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import OwnerPageHeader from "./OwnerPageHeader";
 import React, { useState, useMemo } from "react";
@@ -17,14 +17,10 @@ import {
 import {
   useGetPartnersOverviewQuery,
   useGetPartnerListingsQuery,
-  useGetPartnerThreadsQuery,
-  useGetPartnerThreadMessagesQuery,
-  useSendStaffReplyMutation,
   PartnerListingRow,
-  AdminPartnerThread,
 } from "@/redux/api/partnersAdminApi";
 import Image from "next/image";
-import { Check, X as XIcon, AlertCircle, Loader2, Building, Send, Edit } from "lucide-react";
+import { Check, X as XIcon, AlertCircle, Loader2, Building, Edit } from "lucide-react";
 import HavenFormModal from "./Modals/HavenFormModal";
 
 import {
@@ -38,7 +34,16 @@ import {
   FileText,
   BarChart3,
   Users,
+  ShieldCheck,
+  Banknote,
+  UserCheck,
+  ScrollText,
 } from "lucide-react";
+import AmenityVerificationsTab from "./AmenityVerificationsTab";
+import PayoutsTab from "./PayoutsTab";
+import PartnerApprovalsTab from "./PartnerApprovalsTab";
+import SystemAuditLogsTab from "./SystemAuditLogsTab";
+import { useSetHavenListingStatusMutation } from "@/redux/api/havenListingStatusApi";
 
 import toast from "react-hot-toast";
 import AddPartnerModal from "./Modals/AddPartnerModal";
@@ -89,17 +94,7 @@ const [page, setPage] = useState(1);
 const perPage = 10;
 
 const [editPage, setEditPage] = useState(1);
-const [messagePage, setMessagePage] = useState(1);
 const [docsPage, setDocsPage] = useState(1);
-
-/* COMPOSE MESSAGE */
-const [composeOpen, setComposeOpen] = useState(false);
-
-const [composeForm, setComposeForm] = useState({
-  recipient: "",
-  subject: "",
-  message: "",
-});
 
 const [form, setForm] = useState({
   email: "",
@@ -111,27 +106,6 @@ const [form, setForm] = useState({
   commission_rate: 10,
 });
 
-
-const [selectedMessage, setSelectedMessage] = useState<any>(null);
-
-const [replyText, setReplyText] = useState("");
-
-const handleSendMessage = () => {
-  if (!replyText.trim() || !selectedMessage) return;
-
-  const newMsg = {
-    id: Date.now(),
-    sender: "Platform Admin",
-    recipient: selectedMessage.recipient,
-    subject: "",
-    message: replyText,
-    date: new Date().toLocaleDateString(),
-    read: true,
-  };
-
-  setMessages((prev) => [...prev, newMsg]);
-  setReplyText("");
-};
 
   /* =========================
      REVENUE
@@ -279,55 +253,6 @@ const handleSendMessage = () => {
   );
 
   
-/* =========================
-   MESSAGES DATA
-========================= */
-const [messages, setMessages] = useState<
-  {
-    id: number;
-    sender: string;
-    recipient: string;
-    subject: string;
-    message: string;
-    date: string;
-    read: boolean;
-  }[]
->([
-  {
-    id: 1,
-    sender: "Platform Admin",
-    recipient: "Sunset Hotel",
-    subject: "Listing Update",
-    message: "Your listing update request has been reviewed and approved.",
-    date: "Apr 29",
-    read: false,
-  },
-  {
-    id: 2,
-    sender: "Platform Admin",
-    recipient: "Ocean View Resort",
-    subject: "Policy Update",
-    message: "Please review the new booking policy updates.",
-    date: "Apr 25",
-    read: true,
-  },
-
-  {
-    id: 3,
-    sender: "Customer",
-    recipient: "Ocean View Resort",
-    subject: "Water Pipe Issue",
-    message: "Please check my water pipe. I think it's leaking.",
-    date: "Apr 25",
-    read: true,
-  },
-]);
-
-const paginatedMessages = messages.slice(
-  (messagePage - 1) * perPage,
-  messagePage * perPage
-);
-
   /* =========================
      DOCS DATA
   ========================= */
@@ -396,8 +321,11 @@ const paginatedMessages = messages.slice(
           { id: 1, label: "Overview", icon: BarChart3 },
           { id: 2, label: "Listings", icon: Eye },
           { id: 3, label: "Pending Requests", icon: FileText },
-          { id: 4, label: "Messages", icon: MessageCircle },
           { id: 5, label: "Docs & Analytics", icon: FileText },
+          { id: 6, label: "Verifications", icon: ShieldCheck },
+          { id: 7, label: "Payouts", icon: Banknote },
+          { id: 8, label: "Approvals", icon: UserCheck },
+          { id: 9, label: "Audit Logs", icon: ScrollText },
         ].map((t) => (
           <button
             key={t.id}
@@ -1100,337 +1028,21 @@ const paginatedMessages = messages.slice(
       {tab === 3 && <PendingRequestsTab />}
 
 
-    {/* MESSAGES - MODERN CHAT UI */}
-{tab === 4 && <MessagesTab />}
-{false && (
-  <div className="h-[82vh] bg-white dark:bg-[#18191A] rounded-3xl border border-gray-200 dark:border-[#2A2D31] overflow-hidden flex">
-
-    {/* =========================
-        LEFT SIDEBAR
-    ========================= */}
-    <div className="w-[340px] border-r border-gray-200 dark:border-[#2A2D31] flex flex-col bg-[#F8F8F8] dark:bg-[#1E1F22]">
-
-      {/* TOP */}
-      <div className="px-5 py-5 flex items-center justify-between border-b border-gray-200 dark:border-[#2A2D31]">
-
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-          Chats
-        </h2>
-
-        <div className="flex items-center gap-4 text-gray-500">
-          <button className="hover:text-indigo-500 transition text-2xl">
-            +
-          </button>
-
-          <button className="hover:text-red-500 transition text-2xl">
-            ×
-          </button>
-        </div>
-
-      </div>
-
-      {/* SEARCH */}
-      <div className="p-4">
-
-        <div className="relative">
-
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-
-          <input
-            type="text"
-            placeholder="Search Messenger"
-            className="
-              w-full pl-12 pr-4 py-3
-              rounded-full
-              bg-gray-100 dark:bg-[#2A2D31]
-              text-sm
-              border border-transparent
-              focus:outline-none
-              focus:ring-2
-              focus:ring-indigo-500
-            "
-          />
-
-        </div>
-
-      </div>
-
-      {/* CONTACTS */}
-      <div className="flex-1 overflow-y-auto">
-
-        {Array.from(
-          new Map(messages.map((m) => [m.recipient, m])).values()
-        ).map((msg) => (
-
-          <button
-            key={msg.recipient}
-            onClick={() => setSelectedMessage(msg)}
-            className={`
-              w-full px-4 py-4
-              flex items-center gap-3
-              text-left
-              transition
-              border-b border-black/5 dark:border-white/5
-              hover:bg-[#ECECEC] dark:hover:bg-[#2A2D31]
-              ${
-                selectedMessage?.recipient === msg.recipient
-                  ? "bg-[#F0E68C] dark:bg-[#3A3D45]"
-                  : ""
-              }
-            `}
-          >
-
-            {/* AVATAR */}
-            <img
-              src={`https://ui-avatars.com/api/?name=${msg.recipient}`}
-              alt={msg.recipient}
-              className="w-14 h-14 rounded-full object-cover"
-            />
-
-            {/* INFO */}
-            <div className="flex-1 min-w-0">
-
-              <div className="flex items-center gap-2">
-
-                <h3 className="font-semibold text-[17px] text-gray-900 dark:text-white truncate">
-                  {msg.recipient}
-                </h3>
-
-                <span className="text-xs text-gray-400">
-                  • 3h
-                </span>
-
-              </div>
-
-              <p className="text-sm text-gray-500 truncate">
-                {msg.message}
-              </p>
-
-            </div>
-
-          </button>
-        ))}
-
-      </div>
-
-    </div>
-
-    {/* =========================
-        RIGHT CHAT WINDOW
-    ========================= */}
-    <div className="flex-1 flex flex-col bg-white dark:bg-[#18191A]">
-
-      {/* CHAT HEADER */}
-      {selectedMessage && (
-        <div className="h-[80px] px-6 border-b border-gray-200 dark:border-[#2A2D31] flex items-center justify-between">
-
-          <div className="flex items-center gap-4">
-
-            <img
-              src={`https://ui-avatars.com/api/?name=${selectedMessage.recipient}`}
-              alt=""
-              className="w-14 h-14 rounded-full"
-            />
-
-            <div>
-
-              <h2 className="font-bold text-lg text-gray-900 dark:text-white">
-                {selectedMessage.recipient}
-              </h2>
-
-              <p className="text-sm text-gray-500">
-                Offline
-              </p>
-
-            </div>
-
-          </div>
-
-          {/* ACTIONS */}
-          <div className="flex items-center gap-5 text-[#C08A00]">
-
-            <button className="hover:scale-110 transition">
-              📞
-            </button>
-
-            <button className="hover:scale-110 transition">
-              🎥
-            </button>
-
-            <button className="hover:scale-110 transition">
-              ⓘ
-            </button>
-
-          </div>
-
-        </div>
-      )}
-
-      {/* CHAT BODY */}
-      <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5 bg-[#FAFAFA] dark:bg-[#18191A]">
-
-        {!selectedMessage ? (
-          <div className="h-full flex items-center justify-center text-gray-400">
-            Select a conversation
-          </div>
-        ) : (
-          messages
-            .filter(
-              (m) => m.recipient === selectedMessage.recipient
-            )
-            .map((msg) => (
-
-              <div
-                key={msg.id}
-                className={`flex ${
-                  msg.sender === "Platform Admin"
-                    ? "justify-end"
-                    : "justify-start"
-                }`}
-              >
-
-                <div className="max-w-[70%]">
-
-                  {/* BUBBLE */}
-                  <div
-                    className={`
-                      px-5 py-3
-                      rounded-[22px]
-                      text-sm
-                      shadow-sm
-                      break-words
-                      ${
-                        msg.sender === "Platform Admin"
-                          ? "bg-[#C08A00] text-white rounded-br-md"
-                          : "bg-white dark:bg-[#2A2D31] text-gray-800 dark:text-white border border-gray-200 dark:border-white/10 rounded-bl-md"
-                      }
-                    `}
-                  >
-                    {msg.message}
-                  </div>
-
-                  {/* TIME */}
-                  <div
-                    className={`
-                      text-xs mt-1 text-gray-400
-                      ${
-                        msg.sender === "Platform Admin"
-                          ? "text-right"
-                          : "text-left"
-                      }
-                    `}
-                  >
-                    {msg.date}
-                  </div>
-
-                </div>
-
-              </div>
-            ))
-        )}
-
-      </div>
-
-      {/* INPUT */}
-    {selectedMessage && (
-      <div className="px-5 py-4 border-t border-gray-200 dark:border-[#2A2D31] bg-white dark:bg-[#1E1F22]">
-
-        <div className="flex items-center gap-3">
-
-          {/* LEFT ICONS */}
-          <div className="flex items-center gap-3 pb-1">
-
-            <button className="text-[#C08A00] text-2xl hover:scale-110 transition leading-none">
-              +
-            </button>
-
-            <button className="text-[#C08A00] text-xl hover:scale-110 transition leading-none">
-              🖼️
-            </button>
-
-          </div>
-
-          {/* TEXTAREA */}
-          <div className="flex-1 relative">
-
-            <textarea
-              value={replyText}
-              onChange={(e) => setReplyText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSendMessage();
-                }
-              }}
-              rows={1}
-              placeholder="Aa"
-              className="
-                w-full
-                resize-none
-                rounded-full
-                bg-gray-100 dark:bg-[#2A2D31]
-                px-5
-                py-[13px]
-                pr-14
-                text-sm
-                overflow-hidden
-                focus:outline-none
-                focus:ring-2
-                focus:ring-indigo-500
-                leading-[22px]
-                min-h-[52px]
-                max-h-[140px]
-              "
-              onInput={(e) => {
-                const el = e.currentTarget;
-                el.style.height = "52px";
-                el.style.height = el.scrollHeight + "px";
-              }}
-            />
-
-            {/* EMOJI */}
-            <button
-              className="
-                absolute
-                right-4
-                top-1/2
-                -translate-y-1/2
-                text-xl
-                text-[#C08A00]
-                leading-none
-              "
-            >
-              😊
-            </button>
-
-          </div>
-
-          {/* SEND */}
-          <button
-            onClick={handleSendMessage}
-            className="
-              text-[#C08A00]
-              text-2xl
-              hover:scale-110
-              transition
-              leading-none
-              pb-1
-            "
-          >
-            ➤
-          </button>
-
-        </div>
-
-      </div>
-)}
-    </div>
-
-  </div>
-)}
 
       {/* DOCS & ANALYTICS */}
 {tab === 5 && <DocsAnalyticsTab />}
+
+{/* AMENITY VERIFICATIONS */}
+{tab === 6 && <AmenityVerificationsTab />}
+
+{/* PAYOUTS */}
+{tab === 7 && <PayoutsTab />}
+
+{/* PARTNER APPROVALS */}
+{tab === 8 && <PartnerApprovalsTab />}
+
+{/* SYSTEM AUDIT LOGS */}
+{tab === 9 && <SystemAuditLogsTab />}
 {false && (
   <div className="space-y-6">
 
@@ -1720,277 +1332,6 @@ const paginatedMessages = messages.slice(
 
   </div>
 )}
-      {/* COMPOSE MODAL */}
-        {composeOpen && (
-          <div
-            className="
-              fixed inset-0 z-50
-              flex items-center justify-center
-              bg-black/50
-              backdrop-blur-sm
-              p-6
-            "
-          >
-
-        {/* MODAL */}
-        <div
-          className="
-            w-full max-w-2xl
-            rounded-3xl
-            bg-white dark:bg-gray-900
-            border border-gray-200 dark:border-gray-700
-            shadow-2xl
-            overflow-hidden
-          "
-        >
-
-        {/* HEADER */}
-        <div
-          className="
-            flex items-center justify-between
-            px-6 py-5
-            border-b
-            border-gray-200 dark:border-gray-800
-          "
-        >
-
-        <div>
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-            Compose Message
-          </h2>
-
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Send updates and announcements to partners
-          </p>
-        </div>
-
-        <button
-          onClick={() => setComposeOpen(false)}
-          className="
-            w-10 h-10
-            rounded-xl
-            flex items-center justify-center
-            transition
-            hover:bg-gray-100
-            dark:hover:bg-gray-800
-          "
-        >
-          ✕
-        </button>
-
-      </div>
-
-      {/* BODY */}
-      <div className="p-6 space-y-5">
-
-        {/* RECIPIENT */}
-        <div className="space-y-2">
-
-          <label
-            className="
-              text-sm font-medium
-              text-gray-700 dark:text-gray-300
-            "
-          >
-            Recipient
-          </label>
-
-          <select
-            value={composeForm.recipient}
-            onChange={(e) =>
-              setComposeForm((prev) => ({
-                ...prev,
-                recipient: e.target.value,
-              }))
-            }
-            aria-label="Recipient"
-            title="Recipient"
-            className="
-              w-full
-              px-4 py-3
-              rounded-2xl
-              border
-              border-gray-200 dark:border-gray-700
-              bg-white dark:bg-gray-800
-              text-gray-900 dark:text-white
-              focus:outline-none
-              focus:ring-2
-              focus:ring-indigo-500
-            "
-          >
-            <option value="">Select recipient</option>
-            <option value="all">All Partners</option>
-            <option value="sunset-hotel">Sunset Hotel</option>
-            <option value="ocean-view">Ocean View Resort</option>
-            <option value="mountain-escape">Mountain Escape</option>
-          </select>
-
-        </div>
-
-        {/* SUBJECT */}
-        <div className="space-y-2">
-
-          <label
-            className="
-              text-sm font-medium
-              text-gray-700 dark:text-gray-300
-            "
-          >
-            Subject
-          </label>
-
-          <input
-            type="text"
-            placeholder="Enter subject..."
-            value={composeForm.subject}
-            onChange={(e) =>
-              setComposeForm((prev) => ({
-                ...prev,
-                subject: e.target.value,
-              }))
-            }
-            className="
-              w-full
-              px-4 py-3
-              rounded-2xl
-              border
-              border-gray-200 dark:border-gray-700
-              bg-white dark:bg-gray-800
-              text-gray-900 dark:text-white
-              placeholder:text-gray-400
-              focus:outline-none
-              focus:ring-2
-              focus:ring-indigo-500
-            "
-          />
-
-        </div>
-
-        {/* MESSAGE */}
-        <div className="space-y-2">
-
-          <label
-            className="
-              text-sm font-medium
-              text-gray-700 dark:text-gray-300
-            "
-          >
-            Message
-          </label>
-
-          <textarea
-            rows={8}
-            placeholder="Write your message..."
-            value={composeForm.message}
-            onChange={(e) =>
-              setComposeForm((prev) => ({
-                ...prev,
-                message: e.target.value,
-              }))
-            }
-            className="
-              w-full
-              px-4 py-3
-              rounded-2xl
-              border
-              border-gray-200 dark:border-gray-700
-              bg-white dark:bg-gray-800
-              text-gray-900 dark:text-white
-              placeholder:text-gray-400
-              resize-none
-              focus:outline-none
-              focus:ring-2
-              focus:ring-indigo-500
-            "
-          />
-
-        </div>
-
-      </div>
-
-      {/* FOOTER */}
-      <div
-        className="
-          flex flex-col sm:flex-row
-          items-stretch sm:items-center
-          justify-end
-          gap-3
-          px-6 py-5
-          border-t
-          border-gray-200 dark:border-gray-700
-          bg-gray-50 dark:bg-gray-950/40
-        "
-      >
-
-        <button
-          onClick={() => setComposeOpen(false)}
-          className="
-            px-5 py-3
-            rounded-2xl
-            border
-            border-gray-200 dark:border-gray-700
-            text-gray-700 dark:text-gray-300
-            hover:bg-gray-100
-            dark:hover:bg-gray-800
-            transition
-          "
-        >
-          Cancel
-        </button>
-
-        <button
-          onClick={() => {
-  if (!composeForm.recipient || !composeForm.subject || !composeForm.message) {
-    toast.error("Please complete all fields");
-    return;
-  }
-
-  const handleSendMessage = () => {
-  if (!replyText.trim() || !selectedMessage) return;
-
-  const newMsg = {
-    id: Date.now(),
-    sender: "Platform Admin",
-    recipient: selectedMessage.recipient,
-    subject: "",
-    message: replyText,
-    date: new Date().toLocaleDateString(),
-    read: true,
-  };
-
-   setMessages((prev) => [...prev, newMsg]);
-  setReplyText("");
-};
-
-  setComposeForm({
-    recipient: "",
-    subject: "",
-    message: "",
-  });
-
-  setComposeOpen(false);
-
-  toast.success("Message sent");
-}}
-          className="
-            px-5 py-3
-            rounded-2xl
-            bg-indigo-600
-            hover:bg-indigo-700
-            text-white
-            font-medium
-            transition
-          "
-        >
-          Send Message
-        </button>
-
-      </div>
-
-    </div>
-
-  </div>
-)}
 
       {/* MODAL */}
       <AddPartnerModal
@@ -2160,7 +1501,7 @@ function PendingRequestsTab() {
                   Submitted by <strong className="text-gray-700 dark:text-gray-300">{s.partner_name || s.partner_email}</strong>
                 </p>
                 <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
-                  <div><strong>Type:</strong> {s.view_type || "—"} · sleeps {s.capacity || "—"}</div>
+                  <div><strong>Nearby:</strong> {s.view_type || "—"} · sleeps {s.capacity || "—"}</div>
                   <div><strong>Location:</strong> {[s.tower, s.floor].filter(Boolean).join(" · ") || "—"}</div>
                   <div><strong>Weekday:</strong> ₱{Number(s.weekday_rate || 0).toLocaleString("en-PH")} / night</div>
                 </div>
@@ -2292,9 +1633,9 @@ function PendingRequestsTab() {
                 {/* Quick facts — single grouped card */}
                 <div className="rounded-2xl border border-gray-200 dark:border-slate-700 overflow-hidden">
                   <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-gray-100 dark:divide-slate-700">
-                    <FactCell label="Type" value={selected.view_type || "—"} />
+                    <FactCell label="Nearby" value={selected.view_type || "—"} />
                     <FactCell label="Sleeps" value={String(selected.capacity || "—")} />
-                    <FactCell label="Beds" value={selected.beds || "—"} />
+                    <FactCell label="Bedrooms" value={selected.beds || "—"} />
                     <FactCell label="Room size" value={selected.room_size ? `${selected.room_size} sqm` : "—"} />
                   </div>
                 </div>
@@ -2957,6 +2298,8 @@ function PartnerDetailPane({ partner, peso }: PartnerDetailPaneProps) {
                 <span className={`w-1.5 h-1.5 rounded-full ${statusConfig.dot}`} />
                 {statusConfig.label}
               </span>
+              {/* Admin "Take down" / "Re-enable" — fires the listing-status override */}
+              <ListingStatusToggle room={selectedRoom} />
               <button
                 type="button"
                 onClick={() => setShowRoomDetails(true)}
@@ -3138,9 +2481,9 @@ function RoomDetailsModal({ room, peso, onClose }: RoomDetailsModalProps) {
             {/* Quick facts — single grouped card */}
             <div className="rounded-2xl border border-gray-200 dark:border-white/10 overflow-hidden">
               <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-gray-100 dark:divide-white/5">
-                <FactCell label="Type" value={room.view_type || "—"} />
+                <FactCell label="Nearby" value={room.view_type || "—"} />
                 <FactCell label="Sleeps" value={String(room.capacity || "—")} />
-                <FactCell label="Beds" value={room.beds || "—"} />
+                <FactCell label="Bedrooms" value={room.beds || "—"} />
                 <FactCell label="Room size" value={room.room_size ? `${room.room_size} sqm` : "—"} />
               </div>
             </div>
@@ -3345,185 +2688,120 @@ const NumStat = ({ value, label }: { value: number | string; label: string }) =>
 
 
 /* =========================================
-   MESSAGES TAB — real partner threads, reply as staff
+   LISTING STATUS TOGGLE — admin disable / re-enable a haven
 ========================================= */
-function MessagesTab() {
-  const { data: threads = [], isLoading } = useGetPartnerThreadsQuery();
-  const [activeThread, setActiveThread] = useState<AdminPartnerThread | null>(null);
-  const [replyText, setReplyText] = useState("");
-  const [sendReply, { isLoading: isSending }] = useSendStaffReplyMutation();
+function ListingStatusToggle({ room }: { room: PartnerListingRow }) {
+  const [setStatus, { isLoading }] = useSetHavenListingStatusMutation();
+  const [showReason, setShowReason] = useState(false);
+  const [reason, setReason] = useState("");
+  const currentStatus = room.listing_status || "active";
+  const isActive = currentStatus === "active";
 
-  // Auto-select first thread
-  React.useEffect(() => {
-    if (!activeThread && threads.length > 0) setActiveThread(threads[0]);
-  }, [threads, activeThread]);
-
-  const { data: threadMessages = [] } = useGetPartnerThreadMessagesQuery(activeThread?.id ?? "", {
-    skip: !activeThread,
-  });
-
-  const handleSend = async () => {
-    if (!activeThread || !replyText.trim()) return;
+  const disable = async () => {
+    if (!reason.trim()) {
+      toast.error("Please provide a reason");
+      return;
+    }
     try {
-      await sendReply({ thread_id: activeThread.id, body: replyText.trim() }).unwrap();
-      setReplyText("");
-      toast.success("Reply sent");
-    } catch {
-      toast.error("Failed to send reply");
+      await setStatus({ havenId: room.uuid_id, listing_status: "disabled", reason: reason.trim() }).unwrap();
+      toast.success("Listing disabled — now hidden from the marketplace");
+      setShowReason(false);
+      setReason("");
+    } catch (err) {
+      const msg = (err as { data?: { error?: string } })?.data?.error || "Failed";
+      toast.error(msg);
     }
   };
 
-  const formatTime = (iso: string) =>
-    new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  const enable = async () => {
+    try {
+      await setStatus({ havenId: room.uuid_id, listing_status: "active" }).unwrap();
+      toast.success("Listing re-enabled");
+    } catch (err) {
+      const msg = (err as { data?: { error?: string } })?.data?.error || "Failed";
+      toast.error(msg);
+    }
+  };
 
   return (
-    <div className="h-[78vh] bg-white dark:bg-[#18191A] rounded-3xl border border-gray-200 dark:border-[#2A2D31] overflow-hidden flex">
-      {/* LEFT — thread list */}
-      <aside className="w-[320px] border-r border-gray-200 dark:border-[#2A2D31] flex flex-col bg-[#F8F8F8] dark:bg-[#1E1F22]">
-        <div className="px-5 py-4 border-b border-gray-200 dark:border-[#2A2D31]">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">Partner Inbox</h2>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-            {threads.length} conversation{threads.length === 1 ? "" : "s"}
-          </p>
-        </div>
-        <div className="flex-1 overflow-y-auto">
-          {isLoading ? (
-            <div className="p-6 text-center">
-              <Loader2 className="w-5 h-5 text-indigo-500 animate-spin mx-auto" />
-            </div>
-          ) : threads.length === 0 ? (
-            <p className="px-5 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
-              No partner conversations yet.
+    <>
+      {isActive ? (
+        <button
+          type="button"
+          onClick={() => setShowReason(true)}
+          disabled={isLoading}
+          title="Take this listing off the marketplace"
+          className="px-3 py-1.5 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold inline-flex items-center gap-1.5 transition active:scale-95 shadow-sm border border-rose-200 disabled:opacity-60"
+        >
+          <XIcon className="w-3.5 h-3.5" />
+          Disable
+        </button>
+      ) : (
+        <span className="inline-flex items-center gap-1.5">
+          <span className="px-2.5 py-1 rounded-full bg-rose-100 text-rose-700 text-[10px] font-bold uppercase tracking-wider">
+            {currentStatus}
+          </span>
+          <button
+            type="button"
+            onClick={enable}
+            disabled={isLoading}
+            title="Make this listing visible again"
+            className="px-3 py-1.5 rounded-full bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold inline-flex items-center gap-1.5 transition active:scale-95 shadow-sm border border-emerald-200 disabled:opacity-60"
+          >
+            <Check className="w-3.5 h-3.5" />
+            Re-enable
+          </button>
+        </span>
+      )}
+
+      {showReason && (
+        <div className="fixed inset-0 z-[9999] grid place-items-center p-4">
+          <button
+            type="button"
+            aria-label="Close"
+            onClick={() => setShowReason(false)}
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          />
+          <div className="relative bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl p-6 max-w-md w-full">
+            <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-2">
+              Disable this listing?
+            </h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+              Hide <strong className="text-gray-700 dark:text-gray-200">{room.haven_name}</strong> from the public marketplace. The partner&apos;s approval status is unchanged. You can re-enable any time.
             </p>
-          ) : (
-            threads.map((t: AdminPartnerThread) => {
-              const isActive = activeThread?.id === t.id;
-              const initials = (t.partner_name || t.partner_email || "P")
-                .split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase();
-              return (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => setActiveThread(t)}
-                  className={`w-full px-4 py-3 flex items-start gap-3 text-left border-b border-black/5 dark:border-white/5 transition ${
-                    isActive
-                      ? "bg-white dark:bg-[#2A2D31]"
-                      : "hover:bg-[#ECECEC] dark:hover:bg-[#2A2D31]"
-                  }`}
-                >
-                  <div className="w-11 h-11 rounded-full bg-indigo-500 text-white grid place-items-center font-bold text-sm flex-shrink-0">
-                    {initials}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-semibold text-sm text-gray-900 dark:text-white truncate">
-                        {t.partner_name || t.partner_email}
-                      </span>
-                      {t.unread_count > 0 && (
-                        <span className="text-[10px] bg-indigo-500 text-white rounded-full px-2 py-0.5 font-bold">
-                          {t.unread_count}
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-[11px] text-gray-500 dark:text-gray-400 mb-0.5">
-                      {t.role_label || t.thread_key}
-                    </div>
-                    <p className="text-xs text-gray-600 dark:text-gray-300 truncate">
-                      {t.last_message_preview || "—"}
-                    </p>
-                  </div>
-                </button>
-              );
-            })
-          )}
-        </div>
-      </aside>
-
-      {/* RIGHT — conversation */}
-      <div className="flex-1 flex flex-col bg-white dark:bg-[#18191A] min-w-0">
-        {!activeThread ? (
-          <div className="flex-1 grid place-items-center text-gray-400 text-sm">
-            Select a conversation
-          </div>
-        ) : (
-          <>
-            <header className="h-[72px] px-5 border-b border-gray-200 dark:border-[#2A2D31] flex items-center gap-3">
-              <div className="w-11 h-11 rounded-full bg-indigo-500 text-white grid place-items-center font-bold">
-                {(activeThread.partner_name || activeThread.partner_email)?.[0]?.toUpperCase()}
-              </div>
-              <div className="min-w-0">
-                <h3 className="font-bold text-gray-900 dark:text-white truncate">
-                  {activeThread.partner_name || activeThread.partner_email}
-                </h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                  {activeThread.partner_email} · {activeThread.role_label || activeThread.thread_key}
-                </p>
-              </div>
-            </header>
-
-            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3 bg-[#FAFAFA] dark:bg-[#18191A]">
-              {threadMessages.length === 0 ? (
-                <p className="text-center text-sm text-gray-400 py-8">No messages yet.</p>
-              ) : (
-                threadMessages.map((m) => {
-                  const fromStaff = m.sender === "staff";
-                  return (
-                    <div key={m.id} className={`flex ${fromStaff ? "justify-end" : "justify-start"}`}>
-                      <div className="max-w-[70%]">
-                        {!fromStaff && m.sender_name && (
-                          <span className="text-[10px] text-gray-500 dark:text-gray-400 px-1 mb-0.5 block">
-                            {m.sender_name}
-                          </span>
-                        )}
-                        <div
-                          className={`px-4 py-2.5 rounded-2xl text-sm break-words shadow-sm ${
-                            fromStaff
-                              ? "bg-indigo-500 text-white rounded-br-md"
-                              : "bg-white dark:bg-[#2A2D31] text-gray-800 dark:text-white border border-gray-200 dark:border-white/10 rounded-bl-md"
-                          }`}
-                        >
-                          {m.body}
-                        </div>
-                        <div className={`text-[10px] text-gray-400 mt-1 ${fromStaff ? "text-right" : "text-left"}`}>
-                          {formatTime(m.created_at)}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-
-            <div className="px-5 py-4 border-t border-gray-200 dark:border-[#2A2D31] bg-white dark:bg-[#1E1F22] flex items-center gap-3">
-              <textarea
-                value={replyText}
-                onChange={(e) => setReplyText(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSend();
-                  }
-                }}
-                rows={1}
-                placeholder="Reply to partner…"
-                aria-label="Reply message"
-                className="flex-1 resize-none rounded-full bg-gray-100 dark:bg-[#2A2D31] px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[44px] max-h-[140px]"
-              />
+            <label htmlFor="disable-reason" className="block text-xs uppercase font-semibold text-gray-500 dark:text-gray-400 mb-1.5">
+              Reason (shown in audit log)
+            </label>
+            <textarea
+              id="disable-reason"
+              rows={3}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="e.g. Photos look outdated — partner asked to refresh first"
+              className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-lg outline-none focus:border-brand-primary text-sm resize-none placeholder:text-gray-400"
+            />
+            <div className="mt-4 flex justify-end gap-2">
               <button
                 type="button"
-                onClick={handleSend}
-                disabled={isSending || !replyText.trim()}
-                title="Send"
-                aria-label="Send"
-                className="w-11 h-11 rounded-full bg-indigo-500 hover:bg-indigo-600 text-white grid place-items-center transition active:scale-95 disabled:opacity-50"
+                onClick={() => setShowReason(false)}
+                className="px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-semibold"
               >
-                {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={disable}
+                disabled={isLoading}
+                className="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold inline-flex items-center gap-1.5 disabled:opacity-50"
+              >
+                {isLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XIcon className="w-3.5 h-3.5" />}
+                Disable listing
               </button>
             </div>
-          </>
-        )}
-      </div>
-    </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
