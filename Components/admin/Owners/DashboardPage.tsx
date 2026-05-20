@@ -1,11 +1,10 @@
 "use client";
 
-import { Calendar, DollarSign, Users, Package, CreditCard, Sparkles, XCircle, TrendingUp, TrendingDown, Home, Clock, AlertTriangle, CheckCircle, RefreshCw, Building2, Star, BarChart3, Target, UserCheck } from "lucide-react";
+import { Calendar, DollarSign, Users, Home, Clock, AlertTriangle, RefreshCw, Building2, Star, Settings } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import OwnerPageHeader from "./OwnerPageHeader";
 import { useGetBookingsQuery } from "@/redux/api/bookingsApi";
-import { useGetHavensQuery } from "@/redux/api/roomApi";
 import { useGetReviewsQuery } from "@/redux/api/reviewsApi";
 
 // Export Haven type for use in other components
@@ -56,14 +55,12 @@ interface Booking {
   rejection_reason?: string;
   created_at: string;
   updated_at: string;
-  // Payment data from booking_payments
   booking_payments?: {
     total_amount: number;
     down_payment: number;
     remaining_balance: number;
     payment_method: string;
   }[];
-  // Guest data from booking_guests
   booking_guests?: {
     first_name: string;
     last_name: string;
@@ -92,14 +89,15 @@ interface DashboardPageProps {
   onAddUnitClick: () => void;
   onPaymentClick: () => void;
   onBookingClick: () => void;
+  onBookingSettingsClick: () => void;
   onPoliciesClick: () => void;
-  havens: Haven[];
+  havens?: Haven[];
 }
 
 interface KPICard {
   title: string;
   value: string | number;
-  change?: number;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   Icon: any;
   color: string;
   loading?: boolean;
@@ -114,51 +112,48 @@ interface ActivityItem {
   details: string;
   status: string;
   statusColor: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   Icon: any;
   iconColor: string;
 }
 
 const getBookingStatusBadgeClasses = (status?: string | null) => {
   switch ((status || "").toLowerCase()) {
-    case "approved":
-      return "bg-emerald-100 text-emerald-700";
-    case "confirmed":
-      return "bg-green-100 text-green-700";
+    case "approved":      return "bg-emerald-100 text-emerald-700";
+    case "confirmed":     return "bg-green-100 text-green-700";
     case "checked-in":
-    case "checked_in":
-      return "bg-blue-100 text-blue-700";
+    case "checked_in":    return "bg-blue-100 text-blue-700";
     case "checked-out":
-    case "checked_out":
-      return "bg-indigo-100 text-indigo-700";
-    case "completed":
-      return "bg-purple-100 text-purple-700";
-    case "pending":
-      return "bg-yellow-100 text-yellow-700";
-    case "cancelled":
-      return "bg-orange-100 text-orange-700";
+    case "checked_out":   return "bg-indigo-100 text-indigo-700";
+    case "completed":     return "bg-purple-100 text-purple-700";
+    case "pending":       return "bg-yellow-100 text-yellow-700";
+    case "cancelled":     return "bg-orange-100 text-orange-700";
     case "rejected":
-    case "declined":
-      return "bg-red-100 text-red-700";
-    default:
-      return "bg-gray-100 text-gray-700";
+    case "declined":      return "bg-red-100 text-red-700";
+    default:              return "bg-gray-100 text-gray-700";
   }
 };
-
 
 const DashboardPage = ({
   onAddUnitClick,
   onPaymentClick,
   onBookingClick,
+  onBookingSettingsClick,
   onPoliciesClick,
   havens,
 }: DashboardPageProps) => {
   const { data: session } = useSession();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const userId = (session?.user as any)?.id;
   const [refreshing, setRefreshing] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [analyticsData, setAnalyticsData] = useState<any>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
-  
-  // Fetch ALL bookings across all havens
+  const [showAllBookings, setShowAllBookings] = useState(false);
+
+  // Safe havens array — never undefined
+  const safeHavens = havens ?? [];
+
   const { data: bookingsData = [], isLoading: bookingsLoading, refetch: refetchBookings } = useGetBookingsQuery({}, {
     pollingInterval: 5000,
     skipPollingIfUnfocused: true,
@@ -167,15 +162,12 @@ const DashboardPage = ({
   });
   const { data: reviewsData, isLoading: reviewsLoading, refetch: refetchReviews } = useGetReviewsQuery();
 
-  // Fetch analytics data for real revenue
   const fetchAnalyticsData = async () => {
     try {
       setAnalyticsLoading(true);
       const res = await fetch('/api/admin/analytics/summary?period=30');
       const data = await res.json();
-      if (data.success) {
-        setAnalyticsData(data.data);
-      }
+      if (data.success) setAnalyticsData(data.data);
     } catch (error) {
       console.error('Error fetching analytics:', error);
     } finally {
@@ -183,58 +175,47 @@ const DashboardPage = ({
     }
   };
 
-  useEffect(() => {
-    fetchAnalyticsData();
-  }, []);
+  useEffect(() => { fetchAnalyticsData(); }, []);
 
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      await Promise.all([
-        refetchBookings(),
-        refetchReviews(),
-        fetchAnalyticsData()
-      ]);
+      await Promise.all([refetchBookings(), refetchReviews(), fetchAnalyticsData()]);
     } finally {
       setRefreshing(false);
     }
   };
 
-  // Calculate owner-specific metrics
   const bookings: Booking[] = (bookingsData || []) as unknown as Booking[];
   const reviews: Review[] = reviewsData?.data || [];
-
-  // Get real revenue from analytics
   const totalRevenue = Number(analyticsData?.total_revenue || 0);
 
-  // Calculate average rating - handle NaN and null values properly
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const validRatings = reviews
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .map((review: any) => review.overall_rating)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .filter((rating: any) => typeof rating === 'number' && !isNaN(rating));
-  
+
   const averageRating = validRatings.length > 0
     ? (validRatings.reduce((sum: number, rating: number) => sum + rating, 0) / validRatings.length).toFixed(1)
     : '0.0';
 
-  // Calculate today's tasks
   const today = new Date().toDateString();
   const todayTasks = {
-    checkins: bookings.filter((booking) =>
-      booking.check_in_date ? new Date(booking.check_in_date).toDateString() === today : false
-    ).length,
-    checkouts: bookings.filter((booking) =>
-      booking.check_out_date ? new Date(booking.check_out_date).toDateString() === today : false
-    ).length,
-    pending: bookings.filter((booking) => booking.status === 'pending').length
+    checkins: bookings.filter((b) => b.check_in_date ? new Date(b.check_in_date).toDateString() === today : false).length,
+    checkouts: bookings.filter((b) => b.check_out_date ? new Date(b.check_out_date).toDateString() === today : false).length,
+    pending: bookings.filter((b) => b.status === 'pending').length,
   };
 
-  // Calculate occupancy rate
-  const activeBookings = bookings.filter((booking) =>
-    ['approved', 'confirmed', 'checked-in'].includes(booking.status ?? "")
+  const activeBookings = bookings.filter((b) =>
+    ['approved', 'confirmed', 'checked-in'].includes(b.status ?? "")
   ).length;
-  const occupancyRate = havens.length > 0 ? Math.round((activeBookings / (havens.length * 30)) * 100) : 0;
 
-  // KPI data for owner
+  const occupancyRate = safeHavens.length > 0
+    ? Math.round((activeBookings / (safeHavens.length * 30)) * 100)
+    : 0;
+
   const kpiData: KPICard[] = [
     {
       title: "Total Revenue",
@@ -242,21 +223,21 @@ const DashboardPage = ({
       Icon: DollarSign,
       color: "bg-green-500",
       loading: analyticsLoading,
-      subtitle: "Last 30 days"
+      subtitle: "Last 30 days",
     },
     {
       title: "Active Bookings",
       value: activeBookings,
       Icon: Calendar,
       color: "bg-blue-500",
-      loading: bookingsLoading
+      loading: bookingsLoading,
     },
     {
       title: "Average Rating",
       value: `${averageRating} ⭐`,
       Icon: Star,
       color: "bg-yellow-500",
-      loading: reviewsLoading
+      loading: reviewsLoading,
     },
     {
       title: "Occupancy Rate",
@@ -264,8 +245,8 @@ const DashboardPage = ({
       Icon: Building2,
       color: "bg-purple-500",
       loading: bookingsLoading,
-      subtitle: "Last 30 days"
-    }
+      subtitle: "Last 30 days",
+    },
   ];
 
   const formatBookingStatus = (status?: string | null) => {
@@ -273,25 +254,20 @@ const DashboardPage = ({
     return status.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('-');
   };
 
-  // Recent bookings for activity
-  const activityItems: ActivityItem[] = bookings.slice(0, 5).map((booking, index) => {
+  const activityItems: ActivityItem[] = (showAllBookings ? bookings : bookings.slice(0, 5)).map((booking, index) => {
     const guest = booking.booking_guests?.[0];
     const guestName = guest ? `${guest.first_name} ${guest.last_name}` : 'Guest';
     const totalGuests = (booking.adults ?? 0) + (booking.children ?? 0) + (booking.infants ?? 0);
-
     return {
       id: booking.id || `booking-${index}`,
-      time: new Date(booking.created_at).toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit'
-      }),
+      time: new Date(booking.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
       action: booking.room_name || 'N/A',
       customer: guestName,
       details: `${totalGuests} guest${totalGuests !== 1 ? 's' : ''}`,
       status: formatBookingStatus(booking.status),
       statusColor: getBookingStatusBadgeClasses(booking.status),
       Icon: Calendar,
-      iconColor: 'text-blue-600'
+      iconColor: 'text-blue-600',
     };
   });
 
@@ -326,15 +302,9 @@ const DashboardPage = ({
                 <div className="flex-1">
                   <p className="text-sm opacity-90">{kpi.title}</p>
                   <div className="text-3xl font-bold mt-2">
-                    {kpi.loading ? (
-                      <div className="w-16 h-8 bg-white/20 rounded animate-pulse" />
-                    ) : (
-                      kpi.value
-                    )}
+                    {kpi.loading ? <div className="w-16 h-8 bg-white/20 rounded animate-pulse" /> : kpi.value}
                   </div>
-                  {kpi.subtitle && (
-                    <p className="text-xs opacity-70 mt-1">{kpi.subtitle}</p>
-                  )}
+                  {kpi.subtitle && <p className="text-xs opacity-70 mt-1">{kpi.subtitle}</p>}
                 </div>
                 <IconComponent className="w-12 h-12 opacity-50 flex-shrink-0" />
               </div>
@@ -345,6 +315,7 @@ const DashboardPage = ({
 
       {/* Quick Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 flex-shrink-0">
+        {/* Today's Overview */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-6 border border-gray-200 dark:border-gray-700">
           <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4 flex items-center gap-2">
             <Home className="w-5 h-5 text-brand-primary" />
@@ -357,11 +328,7 @@ const DashboardPage = ({
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Check-ins</span>
               </div>
               <span className="text-xl font-bold text-blue-600 dark:text-blue-400">
-                {bookingsLoading ? (
-                  <div className="w-8 h-6 bg-blue-200 dark:bg-blue-800 rounded animate-pulse" />
-                ) : (
-                  todayTasks.checkins
-                )}
+                {bookingsLoading ? <div className="w-8 h-6 bg-blue-200 dark:bg-blue-800 rounded animate-pulse" /> : todayTasks.checkins}
               </span>
             </div>
             <div className="flex items-center justify-between p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
@@ -370,11 +337,7 @@ const DashboardPage = ({
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Check-outs</span>
               </div>
               <span className="text-xl font-bold text-orange-600 dark:text-orange-400">
-                {bookingsLoading ? (
-                  <div className="w-8 h-6 bg-orange-200 dark:bg-orange-800 rounded animate-pulse" />
-                ) : (
-                  todayTasks.checkouts
-                )}
+                {bookingsLoading ? <div className="w-8 h-6 bg-orange-200 dark:bg-orange-800 rounded animate-pulse" /> : todayTasks.checkouts}
               </span>
             </div>
             <div className="flex items-center justify-between p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
@@ -383,16 +346,13 @@ const DashboardPage = ({
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Pending</span>
               </div>
               <span className="text-xl font-bold text-yellow-600 dark:text-yellow-400">
-                {bookingsLoading ? (
-                  <div className="w-8 h-6 bg-yellow-200 dark:bg-yellow-800 rounded animate-pulse" />
-                ) : (
-                  todayTasks.pending
-                )}
+                {bookingsLoading ? <div className="w-8 h-6 bg-yellow-200 dark:bg-yellow-800 rounded animate-pulse" /> : todayTasks.pending}
               </span>
             </div>
           </div>
         </div>
 
+        {/* Guest Satisfaction */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-6 border border-gray-200 dark:border-gray-700">
           <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4 flex items-center gap-2">
             <Star className="w-5 h-5 text-brand-primary" />
@@ -405,11 +365,7 @@ const DashboardPage = ({
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Average Rating</span>
               </div>
               <span className="text-xl font-bold text-green-600 dark:text-green-400">
-                {reviewsLoading ? (
-                  <div className="w-12 h-6 bg-green-200 dark:bg-green-800 rounded animate-pulse" />
-                ) : (
-                  `${averageRating} ⭐`
-                )}
+                {reviewsLoading ? <div className="w-12 h-6 bg-green-200 dark:bg-green-800 rounded animate-pulse" /> : `${averageRating} ⭐`}
               </span>
             </div>
             <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
@@ -418,16 +374,13 @@ const DashboardPage = ({
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Total Reviews</span>
               </div>
               <span className="text-xl font-bold text-blue-600 dark:text-blue-400">
-                {reviewsLoading ? (
-                  <div className="w-8 h-6 bg-blue-200 dark:bg-blue-800 rounded animate-pulse" />
-                ) : (
-                  reviews.length
-                )}
+                {reviewsLoading ? <div className="w-8 h-6 bg-blue-200 dark:bg-blue-800 rounded animate-pulse" /> : reviews.length}
               </span>
             </div>
           </div>
         </div>
 
+        {/* Property Stats */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-6 border border-gray-200 dark:border-gray-700">
           <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4 flex items-center gap-2">
             <Building2 className="w-5 h-5 text-brand-primary" />
@@ -435,117 +388,78 @@ const DashboardPage = ({
           </h4>
           <div className="space-y-3">
             <div className="flex items-center justify-between p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Total Havens</span>
-              </div>
-              <span className="text-xl font-bold text-purple-600 dark:text-purple-400">
-                {havens.length}
-              </span>
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Total Havens</span>
+              <span className="text-xl font-bold text-purple-600 dark:text-purple-400">{safeHavens.length}</span>
             </div>
             <div className="flex items-center justify-between p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Occupancy Rate</span>
-              </div>
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Occupancy Rate</span>
               <span className="text-xl font-bold text-indigo-600 dark:text-indigo-400">
-                {bookingsLoading ? (
-                  <div className="w-12 h-6 bg-indigo-200 dark:bg-indigo-800 rounded animate-pulse" />
-                ) : (
-                  `${occupancyRate}%`
-                )}
+                {bookingsLoading ? <div className="w-12 h-6 bg-indigo-200 dark:bg-indigo-800 rounded animate-pulse" /> : `${occupancyRate}%`}
               </span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Recent Activity Table */}
+      {/* Recent Bookings Table */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-6 flex-1 flex flex-col min-h-0 border border-gray-200 dark:border-gray-700">
         <div className="flex justify-between items-center mb-4 flex-shrink-0">
           <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">Recent Bookings</h3>
-          {bookingsLoading && (
-            <div className="w-6 h-6 border-2 border-brand-primary border-t-transparent rounded-full animate-spin" />
-          )}
+          <div className="flex items-center gap-2">
+            {bookingsLoading && (
+              <div className="w-6 h-6 border-2 border-brand-primary border-t-transparent rounded-full animate-spin" />
+            )}
+            <button
+              onClick={onBookingSettingsClick}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg transition-colors text-sm font-medium"
+              type="button"
+              title="Booking Settings"
+            >
+              <Settings className="w-4 h-4" />
+              <span>Booking Settings</span>
+            </button>
+          </div>
         </div>
+
         <div className="overflow-x-auto overflow-y-auto flex-1 min-h-0">
           <table className="w-full">
             <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 border-b-2 border-gray-200 dark:border-gray-600">
               <tr>
-                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                  Time
-                </th>
-                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                  Guest
-                </th>
-                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                  Details
-                </th>
-                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                  Haven
-                </th>
-                <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                  Status
-                </th>
+                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">Time</th>
+                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">Guest</th>
+                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">Details</th>
+                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">Haven</th>
+                <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">Status</th>
               </tr>
             </thead>
             <tbody>
               {bookingsLoading ? (
-                // Loading skeleton
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i} className="border-b border-gray-100 dark:border-gray-700">
-                    <td className="py-4 px-4">
-                      <div className="w-16 h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-                    </td>
-                    <td className="py-4 px-4">
-                      <div className="w-24 h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-                    </td>
-                    <td className="py-4 px-4">
-                      <div className="w-20 h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-                    </td>
-                    <td className="py-4 px-4">
-                      <div className="w-32 h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-                    </td>
-                    <td className="py-4 px-4 text-center">
-                      <div className="w-16 h-6 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse mx-auto" />
-                    </td>
+                    <td className="py-4 px-4"><div className="w-16 h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" /></td>
+                    <td className="py-4 px-4"><div className="w-24 h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" /></td>
+                    <td className="py-4 px-4"><div className="w-20 h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" /></td>
+                    <td className="py-4 px-4"><div className="w-32 h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" /></td>
+                    <td className="py-4 px-4 text-center"><div className="w-16 h-6 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse mx-auto" /></td>
                   </tr>
                 ))
               ) : activityItems.length > 0 ? (
-                activityItems.map((item) => {
-                  return (
-                    <tr
-                      key={item.id}
-                      className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors animate-in fade-in duration-500"
-                    >
-                      <td className="py-4 px-4">
-                        <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                          {item.time}
-                        </span>
-                      </td>
-                      <td className="py-4 px-4">
-                        <p className="text-sm font-medium text-gray-800 dark:text-gray-100">
-                          {item.customer}
-                        </p>
-                      </td>
-                      <td className="py-4 px-4">
-                        <span className="text-sm text-gray-600 dark:text-gray-300">
-                          {item.details}
-                        </span>
-                      </td>
-                      <td className="py-4 px-4">
-                        <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">
-                          {item.action}
-                        </span>
-                      </td>
-                      <td className="py-4 px-4 text-center">
-                        <span
-                          className={`inline-block text-xs font-bold px-3 py-1.5 rounded-full ${item.statusColor}`}
-                        >
-                          {item.status}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })
+                activityItems.map((item) => (
+                  <tr
+                    key={item.id}
+                    className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors animate-in fade-in duration-500"
+                  >
+                    <td className="py-4 px-4"><span className="text-sm font-medium text-gray-600 dark:text-gray-300">{item.time}</span></td>
+                    <td className="py-4 px-4"><p className="text-sm font-medium text-gray-800 dark:text-gray-100">{item.customer}</p></td>
+                    <td className="py-4 px-4"><span className="text-sm text-gray-600 dark:text-gray-300">{item.details}</span></td>
+                    <td className="py-4 px-4"><span className="text-sm font-semibold text-gray-800 dark:text-gray-100">{item.action}</span></td>
+                    <td className="py-4 px-4 text-center">
+                      <span className={`inline-block text-xs font-bold px-3 py-1.5 rounded-full ${item.statusColor}`}>
+                        {item.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))
               ) : (
                 <tr>
                   <td colSpan={5} className="py-8 text-center text-gray-500 dark:text-gray-400">
@@ -557,20 +471,21 @@ const DashboardPage = ({
           </table>
         </div>
 
-        {/* Pagination */}
+        {/* Footer */}
         <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600 flex justify-between items-center">
           <p className="text-sm text-gray-600 dark:text-gray-300">
             Showing {activityItems.length} of {bookings.length} bookings
           </p>
-          <button 
-            onClick={onBookingClick}
-            className="text-sm font-semibold bg-gradient-to-r from-brand-primary to-brand-primaryDark bg-clip-text text-transparent hover:opacity-80 transition-opacity"
-          >
-            View All Bookings
-          </button>
+          {bookings.length > 5 && (
+            <button
+              onClick={() => setShowAllBookings((prev) => !prev)}
+              className="text-sm font-semibold bg-gradient-to-r from-brand-primary to-brand-primaryDark bg-clip-text text-transparent hover:opacity-80 transition-opacity"
+            >
+              {showAllBookings ? "Show Less" : "View All Bookings"}
+            </button>
+          )}
         </div>
       </div>
-
     </div>
   );
 };

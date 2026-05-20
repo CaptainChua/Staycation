@@ -240,7 +240,8 @@ export default function OwnerDashboard() {
               <DashboardPage
                 onAddUnitClick={() => openModal("addUnit")}
                 onPaymentClick={() => openModal("payment")}
-                onBookingClick={() => openModal("booking")}
+                onBookingClick={() => setPage("reservations")}
+                onBookingSettingsClick={() => openModal("booking")}
                 onPoliciesClick={() => openModal("policies")}
                 havens={havens}
               />
