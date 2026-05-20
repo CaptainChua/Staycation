@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/backend/config/db";
 
+function formatTimeHHMM(time: string): string | null {
+  if (!time || time === "00:00:00" || time === "00:00") return null;
+  const [h, m] = time.substring(0, 5).split(":").map(Number);
+  const period = h >= 12 ? "PM" : "AM";
+  const hour = h % 12 || 12;
+  return `${hour}:${String(m).padStart(2, "0")} ${period}`;
+}
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const includeId = searchParams.get("include_id");
@@ -25,7 +33,7 @@ export async function GET(req: NextRequest) {
           bg.last_name as guest_last_name,
           bc.cleaning_status
         FROM havens h
-        INNER JOIN booking b ON b.room_name = h.haven_name
+        INNER JOIN booking b ON REPLACE(LOWER(b.room_name), 'room', 'haven') = REPLACE(LOWER(h.haven_name), 'room', 'haven')
         INNER JOIN booking_cleaning bc ON bc.booking_id = b.id
         LEFT JOIN booking_guests bg ON bg.booking_id = b.id
           AND bg.id = (
@@ -64,9 +72,8 @@ export async function GET(req: NextRequest) {
                 year: "numeric",
               },
             );
-            if (row.check_out_time) {
-              checkOutDisplay += ` ${row.check_out_time}`;
-            }
+            const t = formatTimeHHMM(row.check_out_time);
+            if (t) checkOutDisplay += ` · ${t}`;
           } catch {
             checkOutDisplay = "Unknown";
           }
@@ -85,23 +92,29 @@ export async function GET(req: NextRequest) {
         };
       });
 
-      // If include_id was requested but not in the results, fetch it as an upcoming haven
-      if (includeId && !havens.find((h) => h.id === includeId)) {
+      // When include_id is provided, always fetch that haven's closest booking and
+      // replace any existing entry (which may carry an old completed booking's dates).
+      if (includeId) {
+        const existingIdx = havens.findIndex((h) => h.id === includeId);
+        if (existingIdx !== -1) havens.splice(existingIdx, 1);
         try {
           const upcomingRes = await client.query(`
             SELECT DISTINCT ON (h.uuid_id)
               h.uuid_id, h.haven_name, h.tower, h.floor, h.updated_at,
               b.id as booking_id, b.booking_id as booking_ref,
+              b.status as booking_status,
               b.check_out_date, b.check_out_time,
               bg.first_name as guest_first_name, bg.last_name as guest_last_name,
               bc.cleaning_status
             FROM havens h
-            INNER JOIN booking b ON b.room_name = h.haven_name
+            INNER JOIN booking b ON REPLACE(LOWER(b.room_name), 'room', 'haven') = REPLACE(LOWER(h.haven_name), 'room', 'haven')
             INNER JOIN booking_cleaning bc ON bc.booking_id = b.id
             LEFT JOIN booking_guests bg ON bg.booking_id = b.id
               AND bg.id = (SELECT id FROM booking_guests WHERE booking_id = b.id ORDER BY id LIMIT 1)
-            WHERE h.uuid_id = $1
-            ORDER BY h.uuid_id, b.check_out_date DESC
+            WHERE (h.uuid_id = $1::uuid OR b.id = $1::uuid)
+              AND b.status NOT IN ('rejected', 'cancelled')
+            ORDER BY h.uuid_id,
+              ABS(b.check_out_date::date - CURRENT_DATE) ASC
           `, [includeId]);
 
           if (upcomingRes.rows.length > 0) {
@@ -114,18 +127,23 @@ export async function GET(req: NextRequest) {
             const guestName = [row.guest_first_name, row.guest_last_name].filter(Boolean).join(" ") || "Guest";
             let checkOutDisplay = "";
 
-            // Determine if the checkout is truly in the future.
-            // Combine check_out_date + check_out_time for an accurate comparison.
+            // Build the checkout display string and compare against now.
             let checkOutDateTime: Date | null = null;
             if (row.check_out_date) {
               const datePart = new Date(row.check_out_date).toISOString().split("T")[0];
               const timePart = row.check_out_time || "00:00:00";
               checkOutDateTime = new Date(`${datePart}T${timePart}`);
               checkOutDisplay = new Date(row.check_out_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-              if (row.check_out_time) checkOutDisplay += ` ${row.check_out_time}`;
+              const t2 = formatTimeHHMM(row.check_out_time);
+              if (t2) checkOutDisplay += ` · ${t2}`;
             }
 
-            const isUpcoming = checkOutDateTime ? checkOutDateTime > new Date() : true;
+            // Guest is considered "still in room" only when the booking is NOT yet
+            // completed AND the scheduled checkout datetime is still in the future.
+            // If the guest checks out early (status → 'completed'), this flag turns
+            // false on the next page load and cleaning is unlocked immediately.
+            const alreadyCheckedOut = row.booking_status === "completed";
+            const isUpcoming = !alreadyCheckedOut && (checkOutDateTime ? checkOutDateTime > new Date() : true);
 
             havens.unshift({
               id: row.uuid_id,

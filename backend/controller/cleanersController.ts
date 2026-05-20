@@ -126,7 +126,7 @@ export const getAllCleaningTasks = async (
           GREATEST(COALESCE(bp.total_amount, 0) - COALESCE(bp.amount_paid, 0), 0) AS remaining_balance
         FROM booking_cleaning bc
         INNER JOIN booking b ON bc.booking_id = b.id
-        LEFT JOIN havens h ON h.haven_name = b.room_name
+        LEFT JOIN havens h ON REPLACE(LOWER(h.haven_name), 'room', 'haven') = REPLACE(LOWER(b.room_name), 'room', 'haven')
         LEFT JOIN booking_guests bg ON bg.booking_id = b.id
         LEFT JOIN employees e ON bc.assigned_to::text = e.id::text
         LEFT JOIN booking_security_deposits sd ON sd.booking_id = b.id

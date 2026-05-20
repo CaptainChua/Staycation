@@ -74,7 +74,7 @@ const translations = {
     noTaskMsg2: "and tap",
     noTaskMsg3: "on your assigned haven to begin the checklist.",
     upcomingTitle: "Wait — Guest is still in the room",
-    upcomingMsg: (date: string) => `You cannot clean yet. Please come back on ${date} to start cleaning.`,
+    upcomingMsg: (date: string) => `You cannot clean yet. Please come back on ${date} to start cleaning. If the guest checks out earlier, you may start cleaning right away.`,
     overallProgress: "Overall Progress",
     tasksCompleted: "tasks completed",
     ofCompleted: (done: number, total: number) => `${done} of ${total} completed`,
@@ -84,6 +84,14 @@ const translations = {
     guest: "Guest:",
     checkedOut: "Checked out:",
     bookingHash: "Booking #",
+
+    // Checklist photo section
+    takePic: "Take Pic",
+    uploadPhoto: "Upload Photo",
+    photoProof: "Photo Proof",
+    photoUploading: "Uploading...",
+    photoSaved: "Photo saved",
+    photoTapChange: "Tap to change",
 
     // Deposit modal
     depositModalTitle: "Collect Guest Balance Payment",
@@ -179,7 +187,7 @@ const translations = {
     noTaskMsg2: "tapos pindutin ang",
     noTaskMsg3: "sa iyong haven para magsimula.",
     upcomingTitle: "Hintay — Nandoon Pa ang Bisita",
-    upcomingMsg: (date: string) => `Hindi ka pa pwedeng maglinis. Bumalik ka sa ${date} para maglinis.`,
+    upcomingMsg: (date: string) => `Hindi ka pa pwedeng maglinis. Bumalik ka sa ${date} para maglinis. Kung mag-check out ang bisita nang mas maaga, pwede ka nang maglinis.`,
     overallProgress: "Gaano Na Ka-tapos",
     tasksCompleted: "trabaho ang tapos",
     ofCompleted: (done: number, total: number) => `${done} sa ${total} ang tapos`,
@@ -189,6 +197,14 @@ const translations = {
     guest: "Bisita:",
     checkedOut: "Naka-check out:",
     bookingHash: "Booking #",
+
+    // Checklist photo section
+    takePic: "Kumuha ng Litrato",
+    uploadPhoto: "Mag-upload ng Litrato",
+    photoProof: "Litrato Bilang Patunay",
+    photoUploading: "Ina-upload...",
+    photoSaved: "Na-save ang litrato",
+    photoTapChange: "Pindutin para palitan",
 
     // Deposit modal
     depositModalTitle: "Kunin ang Bayad ng Bisita",
