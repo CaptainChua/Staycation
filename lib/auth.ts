@@ -263,8 +263,18 @@ export const authOptions: NextAuthOptions = {
             const partner = partnerResult.rows[0];
             console.log("✅ Partner found:", partner.partner_email, "- Status:", partner.status);
 
-            if (partner.status === "suspended" || partner.status === "inactive") {
-              throw new Error("Your partner account is not active. Please contact the administrator.");
+            // Status gating:
+            //   pending  → allowed (so the partner can log in and complete docs)
+            //   active   → allowed (full access)
+            //   suspended/inactive/rejected → blocked
+            if (partner.status === "suspended") {
+              throw new Error("Your partner account is suspended. Please contact the administrator.");
+            }
+            if (partner.status === "rejected") {
+              throw new Error("Your partner application was rejected. Please contact support if you believe this is a mistake.");
+            }
+            if (partner.status === "inactive") {
+              throw new Error("Your partner account is no longer active. Please contact the administrator.");
             }
 
             // Verify Turnstile for partners too (same security as employees)

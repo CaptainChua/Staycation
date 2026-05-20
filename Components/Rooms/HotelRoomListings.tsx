@@ -192,9 +192,14 @@ const HotelRoomListings = ({ initialHavens }: HotelRoomListingsProps) => {
       rating: haven.rating ?? 4.5,
       reviews: haven.review_count ?? 0,
       capacity: haven.capacity ?? 2,
-      amenities: Object.entries(haven.amenities || {})
-        .filter(([, value]) => value === true)
-        .map(([key]) => key),
+      // Phase 1: prefer verified_amenities from the API (status='verified' only) so the
+      // public filter chips only consider amenities the admin has actually verified.
+      // Falls back to the raw amenities map for backward compat with older API responses.
+      amenities: Array.isArray((haven as { verified_amenities?: Array<{ key: string }> }).verified_amenities)
+        ? ((haven as { verified_amenities?: Array<{ key: string }> }).verified_amenities as Array<{ key: string }>).map((a) => a.key)
+        : Object.entries(haven.amenities || {})
+            .filter(([k, value]) => value === true && k !== "_custom")
+            .map(([key]) => key),
       description: haven.description ?? "",
       fullDescription: haven.full_description,
       beds: haven.beds,

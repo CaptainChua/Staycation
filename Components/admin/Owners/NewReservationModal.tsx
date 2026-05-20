@@ -30,49 +30,10 @@ const ADD_ON_PRICES = {
   extraSlippers: 30,
 };
 
-interface AdditionalGuestPayload {
-  firstName: string;
-  lastName: string;
-  age: string;
-  gender: string;
-  validId: string;
-}
-
-interface BookingPayload {
-  booking_id: string;
-  user_id: string | null;
-  guest_first_name: string;
-  guest_last_name: string;
-  guest_age: string;
-  guest_gender: string;
-  guest_email: string;
-  guest_phone: string;
-  facebook_link: string;
-  valid_id: string;
-  additional_guests: AdditionalGuestPayload[];
-  room_name: string;
-  stay_type: string;
-  check_in_date: string;
-  check_out_date: string;
-  check_in_time: string;
-  check_out_time: string;
-  adults: number;
-  children: number;
-  infants: number;
-  payment_method: string;
-  payment_proof: string;
-  room_rate: number;
-  security_deposit: number;
-  add_ons_total: number;
-  total_amount: number;
-  down_payment: number;
-  addOns: AddOns;
-}
-
 interface NewReservationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (bookingData: BookingPayload) => Promise<void>;
+  onSubmit: (bookingData: any) => Promise<void>;
 }
 
 const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalProps) => {
@@ -244,7 +205,7 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
     }
   };
 
-  const handleAdditionalGuestChange = (index: number, field: keyof GuestInfo, value: string) => {
+  const handleAdditionalGuestChange = (index: number, field: "firstName" | "lastName" | "age" | "gender", value: string) => {
     const updatedGuests = [...additionalGuests];
     let sanitizedValue: string;
     if (field === "age") {
