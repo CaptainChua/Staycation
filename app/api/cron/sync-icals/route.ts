@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { syncAllActiveFeeds } from "@/backend/utils/icalSync";
 
+// node-ical + pg are Node-only and require live DB access; skip static analysis.
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 /**
  * GET /api/cron/sync-icals
  *
