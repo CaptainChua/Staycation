@@ -1,5 +1,19 @@
-import * as ical from "node-ical";
 import pool from "@/backend/config/db";
+
+// node-ical pulls in deps that use BigInt at module load and crash Next.js's
+// build-time module evaluation. Import it lazily inside the function instead.
+type IcalAsync = { fromURL: (url: string) => Promise<Record<string, unknown>> };
+type IcalModule = { async: IcalAsync; default?: { async: IcalAsync } };
+let _icalPromise: Promise<IcalAsync> | null = null;
+const getIcal = (): Promise<IcalAsync> => {
+  if (!_icalPromise) {
+    _icalPromise = import("node-ical").then((m) => {
+      const mod = m as unknown as IcalModule;
+      return mod.async ?? mod.default!.async;
+    });
+  }
+  return _icalPromise;
+};
 
 export interface ICalFeedRow {
   id: string;
@@ -42,8 +56,9 @@ export async function syncOneFeed(feed: ICalFeedRow): Promise<ICalSyncResult> {
   };
 
   try {
-    // Fetch + parse
-    const parsed = await ical.async.fromURL(feed.url);
+    // Fetch + parse (lazy-load node-ical to avoid build-time module evaluation crash)
+    const icalAsync = await getIcal();
+    const parsed = await icalAsync.fromURL(feed.url);
 
     // Collect just the VEVENT entries (node-ical returns a flat map of varying types)
     const events: Array<{
