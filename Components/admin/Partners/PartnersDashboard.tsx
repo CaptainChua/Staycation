@@ -6,7 +6,9 @@ import {
   useGetMyListingsQuery,
   useGetMyAnalyticsQuery,
   useGetMyNotificationsQuery,
+  useGetMyBookingsQuery,
 } from "@/redux/api/partnerSelfApi";
+import { useGetHavenCalendarQuery } from "@/redux/api/partnerCalendarApi";
 import {
   Home,
   Plus,
@@ -46,12 +48,32 @@ const NOTIFICATIONS = [
   },
 ];
 
-const RECENT_ACTIVITY = [
-  { t: "2h ago", text: "Booking BK-21048 completed at Hilltop Deluxe Suite.", dotClass: "bg-[#16a34a]" },
-  { t: "8h ago", text: "Payout of ₱42,180 sent to GCash ending in 4421.", dotClass: "bg-[#B8860B]" },
-  { t: "Yesterday", text: "New 5-star review on Garden Casita.", dotClass: "bg-[#DAA520]" },
-  { t: "May 17", text: "Bamboo Cottage edits resubmitted for review.", dotClass: "bg-[#2563eb]" },
-];
+// Relative-time formatter, e.g. "2h ago", "3d ago", "May 17"
+const formatRelativeTime = (iso: string): string => {
+  if (!iso) return "";
+  const then = new Date(iso).getTime();
+  const now = Date.now();
+  const diffMs = now - then;
+  const mins = Math.floor(diffMs / 60_000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days === 1) return "Yesterday";
+  if (days < 7) return `${days}d ago`;
+  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "2-digit" });
+};
+
+// Dot color per notification kind
+const DOT_BY_KIND: Record<string, string> = {
+  approved: "bg-[#16a34a]",
+  rejected: "bg-[#dc2626]",
+  review: "bg-[#2563eb]",
+  payout: "bg-[#B8860B]",
+  message: "bg-[#DAA520]",
+  info: "bg-[#6B7280]",
+};
 
 interface StatProps {
   label: string;
@@ -130,6 +152,57 @@ const PartnersDashboard = ({ onNavigate }: PartnersDashboardProps = {}) => {
   const { data: listings = [] } = useGetMyListingsQuery();
   const { data: analytics } = useGetMyAnalyticsQuery({ days: 30 });
   const { data: notifications = [] } = useGetMyNotificationsQuery({ unread: true });
+  // All notifications (read + unread) feed the recent-activity stream
+  const { data: allNotifications = [] } = useGetMyNotificationsQuery();
+  const { data: bookings = [] } = useGetMyBookingsQuery({ limit: 10 });
+
+  // Build recent activity from notifications + recent booking lifecycle events,
+  // sorted newest first, capped at 6 items
+  const recentActivity = useMemo(() => {
+    type Item = { id: string; time: string; text: string; dotClass: string; iso: string };
+    const items: Item[] = [];
+
+    allNotifications.forEach((n) => {
+      items.push({
+        id: `n-${n.id}`,
+        iso: n.created_at,
+        time: formatRelativeTime(n.created_at),
+        text: n.title,
+        dotClass: DOT_BY_KIND[n.kind] || "bg-[#6B7280]",
+      });
+    });
+
+    bookings.forEach((b) => {
+      const verb =
+        b.status === "completed"
+          ? "completed"
+          : b.status === "approved" || b.status === "confirmed"
+          ? "confirmed"
+          : b.status === "checked-in"
+          ? "checked-in"
+          : b.status === "rejected" || b.status === "cancelled"
+          ? "cancelled"
+          : null;
+      if (!verb) return;
+      const dot =
+        verb === "completed" || verb === "confirmed"
+          ? "bg-[#16a34a]"
+          : verb === "checked-in"
+          ? "bg-[#2563eb]"
+          : "bg-[#dc2626]";
+      items.push({
+        id: `b-${b.booking_uuid || b.booking_id}`,
+        iso: b.created_at,
+        time: formatRelativeTime(b.created_at),
+        text: `Booking ${b.booking_id} ${verb} at ${b.room_name}.`,
+        dotClass: dot,
+      });
+    });
+
+    return items
+      .sort((a, b) => new Date(b.iso).getTime() - new Date(a.iso).getTime())
+      .slice(0, 6);
+  }, [allNotifications, bookings]);
 
   const active = useMemo(
     () => listings.filter((r) => ["approved", "active", "live"].includes((r.status || "").toLowerCase())).length,
@@ -227,6 +300,15 @@ const PartnersDashboard = ({ onNavigate }: PartnersDashboardProps = {}) => {
         />
       </div>
 
+      {/* CALENDAR OVERVIEW — next 14 days for the first listing */}
+      {listings.length > 0 && (
+        <CalendarOverview
+          havenId={listings[0].uuid_id}
+          havenName={listings[0].haven_name}
+          onGoToCalendar={() => go("calendar")}
+        />
+      )}
+
       {/* ALERTS + QUICK ACTIONS */}
       <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-3 sm:gap-[18px]">
         {/* LEFT — Needs attention + Recent activity */}
@@ -298,15 +380,21 @@ const PartnersDashboard = ({ onNavigate }: PartnersDashboardProps = {}) => {
             <div className="text-[11.5px] text-[#6B7280] uppercase tracking-[0.08em] font-semibold mb-3">
               Recent activity
             </div>
-            <div className="flex flex-col gap-2.5">
-              {RECENT_ACTIVITY.map((a, i) => (
-                <div key={i} className="flex gap-3 items-center min-w-0">
-                  <span className={`w-[7px] h-[7px] rounded-full flex-shrink-0 ${a.dotClass}`} />
-                  <span className="text-[12.5px] flex-1 text-[#374151] min-w-0 truncate">{a.text}</span>
-                  <span className="text-[11.5px] text-[#6B7280] flex-shrink-0 whitespace-nowrap">{a.t}</span>
-                </div>
-              ))}
-            </div>
+            {recentActivity.length === 0 ? (
+              <div className="text-[12.5px] text-[#6B7280] py-3">
+                No activity yet. Your bookings, listing updates, and payouts will appear here.
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2.5">
+                {recentActivity.map((a) => (
+                  <div key={a.id} className="flex gap-3 items-center min-w-0">
+                    <span className={`w-[7px] h-[7px] rounded-full flex-shrink-0 ${a.dotClass}`} />
+                    <span className="text-[12.5px] flex-1 text-[#374151] min-w-0 truncate">{a.text}</span>
+                    <span className="text-[11.5px] text-[#6B7280] flex-shrink-0 whitespace-nowrap">{a.time}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -370,6 +458,145 @@ const PartnersDashboard = ({ onNavigate }: PartnersDashboardProps = {}) => {
       </div>
     </div>
   );
+};
+
+function CalendarOverview({
+  havenId,
+  havenName,
+  onGoToCalendar,
+}: {
+  havenId: string;
+  havenName: string;
+  onGoToCalendar: () => void;
+}) {
+  const today = new Date();
+  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const days: Date[] = Array.from({ length: 14 }, (_, i) => {
+    const d = new Date(start);
+    d.setDate(d.getDate() + i);
+    return d;
+  });
+
+  const fromYmd = ymd(start);
+  const toYmd = ymd(days[days.length - 1]);
+  const { data } = useGetHavenCalendarQuery({ havenId, from: fromYmd, to: toYmd });
+
+  // Build a map of YYYY-MM-DD → status for the next 14 days
+  const dayStatus = useMemo(() => {
+    const map = new Map<string, { status: string; label: string; bg: string; text: string }>();
+    const blocks = data?.blocks || [];
+    const bookings = data?.bookings || [];
+    blocks.forEach((b) => {
+      let d = new Date(b.from_date);
+      const end = new Date(b.to_date);
+      while (d.getTime() <= end.getTime()) {
+        const k = ymd(d);
+        if (b.block_type === "imported_external") {
+          map.set(k, { status: "external", label: "External", bg: "bg-[#dbeafe]", text: "text-[#1e3a8a]" });
+        } else if (b.block_type === "manual_admin") {
+          map.set(k, { status: "admin_block", label: "Admin block", bg: "bg-[#fee2e2]", text: "text-[#7f1d1d]" });
+        } else if (b.block_type === "maintenance") {
+          map.set(k, { status: "maintenance", label: "Maintenance", bg: "bg-[#e9d5ff]", text: "text-[#6b21a8]" });
+        } else {
+          map.set(k, { status: "blocked", label: "Blocked", bg: "bg-[#fef3c7]", text: "text-[#92400e]" });
+        }
+        d = new Date(d.getTime() + 86_400_000);
+      }
+    });
+    bookings.forEach((bk) => {
+      let d = new Date(bk.check_in_date);
+      const end = new Date(bk.check_out_date);
+      while (d.getTime() < end.getTime()) {
+        map.set(ymd(d), { status: "booked", label: "Booked", bg: "bg-[#dcfce7]", text: "text-[#14532d]" });
+        d = new Date(d.getTime() + 86_400_000);
+      }
+    });
+    return map;
+  }, [data]);
+
+  const summary = useMemo(() => {
+    let booked = 0, blocked = 0, available = 0;
+    for (const d of days) {
+      const s = dayStatus.get(ymd(d));
+      if (!s) available++;
+      else if (s.status === "booked") booked++;
+      else blocked++;
+    }
+    return { booked, blocked, available };
+  }, [days, dayStatus]);
+
+  return (
+    <div className="bg-white border border-[#e5e7eb] rounded-[14px] p-[22px] shadow-[0_1px_2px_rgba(15,42,46,0.04)]">
+      <div className="flex items-baseline justify-between flex-wrap gap-2 mb-4">
+        <div>
+          <h3 className={`text-[17px] leading-[1.3] font-medium text-[#111827] mb-0.5 ${fontFraunces}`}>
+            Calendar overview
+          </h3>
+          <p className="text-[12px] text-[#6B7280]">
+            Next 14 days · {havenName}
+          </p>
+        </div>
+        <div className="flex items-center gap-3 text-[11.5px] text-[#6B7280]">
+          <CalSummary label="Available" value={summary.available} color="text-[#16a34a]" />
+          <CalSummary label="Booked" value={summary.booked} color="text-[#14532d]" />
+          <CalSummary label="Blocked" value={summary.blocked} color="text-[#92400e]" />
+          <button
+            type="button"
+            onClick={onGoToCalendar}
+            className="ml-2 text-[12px] font-semibold text-[#B8860B] hover:underline inline-flex items-center gap-1"
+          >
+            Open full calendar →
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-7 lg:grid-cols-14 gap-1">
+        {days.map((d) => {
+          const k = ymd(d);
+          const s = dayStatus.get(k);
+          const style = s
+            ? `${s.bg} ${s.text} border-transparent`
+            : "bg-white text-[#111827] border-[#e5e7eb]";
+          const isToday = k === ymd(today);
+          return (
+            <div
+              key={k}
+              className={`relative aspect-[1.1/1] rounded-md border p-1.5 text-left ${style}`}
+              title={s?.label || "Available"}
+            >
+              <div className="text-[9.5px] uppercase tracking-wide font-semibold opacity-70">
+                {d.toLocaleDateString("en-US", { weekday: "short" })}
+              </div>
+              <div className={`text-[14px] font-semibold leading-tight ${isToday ? "underline underline-offset-2 decoration-[#B8860B]" : ""}`}>
+                {d.getDate()}
+              </div>
+              {s && (
+                <div className="text-[8.5px] uppercase tracking-wider font-bold opacity-90 mt-0.5 truncate">
+                  {s.label}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function CalSummary({ label, value, color }: { label: string; value: number; color: string }) {
+  return (
+    <span className="inline-flex items-baseline gap-1">
+      <span className={`font-bold ${color}`}>{value}</span>
+      <span className="text-[#6B7280]">{label}</span>
+    </span>
+  );
+}
+
+const ymd = (d: Date) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 };
 
 export default PartnersDashboard;

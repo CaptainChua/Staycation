@@ -34,7 +34,16 @@ import {
   FileText,
   BarChart3,
   Users,
+  ShieldCheck,
+  Banknote,
+  UserCheck,
+  ScrollText,
 } from "lucide-react";
+import AmenityVerificationsTab from "./AmenityVerificationsTab";
+import PayoutsTab from "./PayoutsTab";
+import PartnerApprovalsTab from "./PartnerApprovalsTab";
+import SystemAuditLogsTab from "./SystemAuditLogsTab";
+import { useSetHavenListingStatusMutation } from "@/redux/api/havenListingStatusApi";
 
 import toast from "react-hot-toast";
 import AddPartnerModal from "./Modals/AddPartnerModal";
@@ -144,8 +153,8 @@ const [form, setForm] = useState({
       id: 1,
       partner: "Sunset Hotel",
       type: "price",
-      oldValue: "â‚±3,000",
-      newValue: "â‚±3,500",
+      oldValue: "₱3,000",
+      newValue: "₱3,500",
       status: "pending",
     },
     {
@@ -168,8 +177,8 @@ const [form, setForm] = useState({
       id: 4,
       partner: "Palm Resort",
       type: "price",
-      oldValue: "â‚±5,000",
-      newValue: "â‚±5,500",
+      oldValue: "₱5,000",
+      newValue: "₱5,500",
       status: "pending",
     },
     {
@@ -184,8 +193,8 @@ const [form, setForm] = useState({
       id: 6,
       partner: "City Lights Hotel",
       type: "price",
-      oldValue: "â‚±2,500",
-      newValue: "â‚±2,900",
+      oldValue: "₱2,500",
+      newValue: "₱2,900",
       status: "pending",
     },
     {
@@ -208,8 +217,8 @@ const [form, setForm] = useState({
       id: 9,
       partner: "Golden Bay",
       type: "price",
-      oldValue: "â‚±4,200",
-      newValue: "â‚±4,800",
+      oldValue: "₱4,200",
+      newValue: "₱4,800",
       status: "approved",
     },
     {
@@ -224,8 +233,8 @@ const [form, setForm] = useState({
       id: 11,
       partner: "Skyline Hotel",
       type: "price",
-      oldValue: "â‚±6,000",
-      newValue: "â‚±6,300",
+      oldValue: "₱6,000",
+      newValue: "₱6,300",
       status: "approved",
     },
     {
@@ -313,6 +322,10 @@ const [form, setForm] = useState({
           { id: 2, label: "Listings", icon: Eye },
           { id: 3, label: "Pending Requests", icon: FileText },
           { id: 5, label: "Docs & Analytics", icon: FileText },
+          { id: 6, label: "Verifications", icon: ShieldCheck },
+          { id: 7, label: "Payouts", icon: Banknote },
+          { id: 8, label: "Approvals", icon: UserCheck },
+          { id: 9, label: "Audit Logs", icon: ScrollText },
         ].map((t) => (
           <button
             key={t.id}
@@ -371,7 +384,7 @@ const [form, setForm] = useState({
                 </h2>
 
                 <p className="text-indigo-200 text-sm mt-3 font-medium">
-                  â–² +18% this month
+                  ▲ +18% this month
                 </p>
               </div>
 
@@ -419,7 +432,7 @@ const [form, setForm] = useState({
               <div className="relative overflow-hidden bg-gradient-to-br from-yellow-400 to-orange-500 rounded-2xl p-5 shadow-lg hover:scale-[1.02] transition-all duration-300">
 
                 <div className="absolute top-4 right-4 opacity-20 text-6xl">
-                  â­
+                  ⭐
                 </div>
 
                 <p className="text-yellow-100 text-sm font-medium">
@@ -697,7 +710,7 @@ const [form, setForm] = useState({
                 </p>
 
                 <p className="text-xs font-semibold text-indigo-600 whitespace-nowrap">
-                  â‚±{p.nightly_rate.toLocaleString()}
+                  ₱{p.nightly_rate.toLocaleString()}
                 </p>
 
               </div>
@@ -814,7 +827,7 @@ const [form, setForm] = useState({
                         </p>
 
                         <p className="font-semibold mt-1 text-indigo-600">
-                          â‚±
+                          ₱
                           {selectedListing.nightly_rate.toLocaleString()} /
                           night
                         </p>
@@ -1018,6 +1031,18 @@ const [form, setForm] = useState({
 
       {/* DOCS & ANALYTICS */}
 {tab === 5 && <DocsAnalyticsTab />}
+
+{/* AMENITY VERIFICATIONS */}
+{tab === 6 && <AmenityVerificationsTab />}
+
+{/* PAYOUTS */}
+{tab === 7 && <PayoutsTab />}
+
+{/* PARTNER APPROVALS */}
+{tab === 8 && <PartnerApprovalsTab />}
+
+{/* SYSTEM AUDIT LOGS */}
+{tab === 9 && <SystemAuditLogsTab />}
 {false && (
   <div className="space-y-6">
 
@@ -1074,7 +1099,7 @@ const [form, setForm] = useState({
             {[
               {
                 title: "Partnership agreement",
-                desc: "Signed Mar 10, 2025 â€¢ Expires Jun 30, 2025",
+                desc: "Signed Mar 10, 2025 • Expires Jun 30, 2025",
                 badge: "Active",
                 color:
                   "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-300",
@@ -1090,7 +1115,7 @@ const [form, setForm] = useState({
 
               {
                 title: "Commission & payout structure",
-                desc: "15% platform fee â€¢ Payout every 15th",
+                desc: "15% platform fee • Payout every 15th",
                 badge: "PDF",
                 color:
                   "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300",
@@ -1427,7 +1452,7 @@ function PendingRequestsTab() {
       {isLoading ? (
         <div className="bg-white dark:bg-[#181818] border border-gray-200 dark:border-white/10 rounded-2xl p-14 text-center">
           <Loader2 className="w-7 h-7 text-indigo-500 animate-spin mx-auto mb-3" />
-          <p className="text-gray-500 dark:text-gray-400">Loading submissionsâ€¦</p>
+          <p className="text-gray-500 dark:text-gray-400">Loading submissions…</p>
         </div>
       ) : submissions.length === 0 ? (
         <div className="bg-white dark:bg-[#181818] border border-gray-200 dark:border-white/10 rounded-2xl p-14 text-center">
@@ -1476,9 +1501,9 @@ function PendingRequestsTab() {
                   Submitted by <strong className="text-gray-700 dark:text-gray-300">{s.partner_name || s.partner_email}</strong>
                 </p>
                 <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
-                  <div><strong>Type:</strong> {s.view_type || "â€”"} Â· sleeps {s.capacity || "â€”"}</div>
-                  <div><strong>Location:</strong> {[s.tower, s.floor].filter(Boolean).join(" Â· ") || "â€”"}</div>
-                  <div><strong>Weekday:</strong> â‚±{Number(s.weekday_rate || 0).toLocaleString("en-PH")} / night</div>
+                  <div><strong>Nearby:</strong> {s.view_type || "—"} · sleeps {s.capacity || "—"}</div>
+                  <div><strong>Location:</strong> {[s.tower, s.floor].filter(Boolean).join(" · ") || "—"}</div>
+                  <div><strong>Weekday:</strong> ₱{Number(s.weekday_rate || 0).toLocaleString("en-PH")} / night</div>
                 </div>
                 {s.reason && (
                   <div className="mt-2 p-2 rounded-lg bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs">
@@ -1565,9 +1590,9 @@ function PendingRequestsTab() {
               </button>
             </div>
 
-            {/* BODY â€” 2 column on desktop */}
+            {/* BODY — 2 column on desktop */}
             <div className="flex-1 overflow-y-auto p-5 grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-5">
-              {/* LEFT COLUMN â€” Listing details */}
+              {/* LEFT COLUMN — Listing details */}
               <div className="space-y-4">
                 {/* Hero photo */}
                 {selected.images && selected.images.length > 0 ? (
@@ -1605,30 +1630,30 @@ function PendingRequestsTab() {
                   </div>
                 )}
 
-                {/* Quick facts â€” single grouped card */}
+                {/* Quick facts — single grouped card */}
                 <div className="rounded-2xl border border-gray-200 dark:border-slate-700 overflow-hidden">
                   <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-gray-100 dark:divide-slate-700">
-                    <FactCell label="Type" value={selected.view_type || "â€”"} />
-                    <FactCell label="Sleeps" value={String(selected.capacity || "â€”")} />
-                    <FactCell label="Beds" value={selected.beds || "â€”"} />
-                    <FactCell label="Room size" value={selected.room_size ? `${selected.room_size} sqm` : "â€”"} />
+                    <FactCell label="Nearby" value={selected.view_type || "—"} />
+                    <FactCell label="Sleeps" value={String(selected.capacity || "—")} />
+                    <FactCell label="Bedrooms" value={selected.beds || "—"} />
+                    <FactCell label="Room size" value={selected.room_size ? `${selected.room_size} sqm` : "—"} />
                   </div>
                 </div>
 
-                {/* Pricing â€” single row */}
+                {/* Pricing — single row */}
                 <div className="rounded-2xl border border-gray-200 dark:border-slate-700 overflow-hidden">
                   <div className="px-4 py-2 bg-gray-50 dark:bg-slate-800/50 border-b border-gray-100 dark:border-slate-700">
                     <p className="text-[10px] uppercase tracking-wider font-bold text-gray-500 dark:text-gray-400">Pricing</p>
                   </div>
                   <div className="grid grid-cols-4 divide-x divide-gray-100 dark:divide-slate-700">
-                    <FactCell label="6h" value={`â‚±${Number(selected.six_hour_rate || 0).toLocaleString("en-PH")}`} />
-                    <FactCell label="10h" value={`â‚±${Number(selected.ten_hour_rate || 0).toLocaleString("en-PH")}`} />
-                    <FactCell label="Weekday" value={`â‚±${Number(selected.weekday_rate || 0).toLocaleString("en-PH")}`} />
-                    <FactCell label="Weekend" value={`â‚±${Number(selected.weekend_rate || 0).toLocaleString("en-PH")}`} />
+                    <FactCell label="6h" value={`₱${Number(selected.six_hour_rate || 0).toLocaleString("en-PH")}`} />
+                    <FactCell label="10h" value={`₱${Number(selected.ten_hour_rate || 0).toLocaleString("en-PH")}`} />
+                    <FactCell label="Weekday" value={`₱${Number(selected.weekday_rate || 0).toLocaleString("en-PH")}`} />
+                    <FactCell label="Weekend" value={`₱${Number(selected.weekend_rate || 0).toLocaleString("en-PH")}`} />
                   </div>
                 </div>
 
-                {/* Check-in / out â€” single row */}
+                {/* Check-in / out — single row */}
                 <div className="rounded-2xl border border-gray-200 dark:border-slate-700 overflow-hidden">
                   <div className="px-4 py-2 bg-gray-50 dark:bg-slate-800/50 border-b border-gray-100 dark:border-slate-700">
                     <p className="text-[10px] uppercase tracking-wider font-bold text-gray-500 dark:text-gray-400">Check-in / out</p>
@@ -1640,11 +1665,11 @@ function PendingRequestsTab() {
                   </div>
                 </div>
 
-                {/* Amenities â€” compact chips */}
+                {/* Amenities — compact chips */}
                 {selected.amenities && Object.keys(selected.amenities).filter((k) => selected.amenities![k]).length > 0 && (
                   <div>
                     <p className="text-[10px] uppercase tracking-wider font-bold text-gray-500 dark:text-gray-400 mb-2">
-                      Amenities Â· {Object.keys(selected.amenities).filter((k) => selected.amenities![k]).length}
+                      Amenities · {Object.keys(selected.amenities).filter((k) => selected.amenities![k]).length}
                     </p>
                     <div className="flex flex-wrap gap-1">
                       {Object.keys(selected.amenities)
@@ -1658,7 +1683,7 @@ function PendingRequestsTab() {
                   </div>
                 )}
 
-                {/* Description + tour meta + YouTube â€” combined */}
+                {/* Description + tour meta + YouTube — combined */}
                 {(selected.description || (selected.photo_tour && selected.photo_tour.length > 0) || selected.youtube_url) && (
                   <div className="space-y-3">
                     {selected.description && (
@@ -1670,7 +1695,7 @@ function PendingRequestsTab() {
                     <div className="flex flex-wrap items-center gap-3 text-[11px] text-gray-500">
                       {selected.photo_tour && selected.photo_tour.length > 0 && (
                         <span>
-                          {selected.photo_tour.length} photo tour Â·{" "}
+                          {selected.photo_tour.length} photo tour ·{" "}
                           {new Set(selected.photo_tour.map(p => p.category)).size} categories
                         </span>
                       )}
@@ -1681,7 +1706,7 @@ function PendingRequestsTab() {
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1 text-red-600 hover:text-red-700 font-semibold"
                         >
-                          â–¶ Watch video tour
+                          ▶ Watch video tour
                         </a>
                       )}
                     </div>
@@ -1689,7 +1714,7 @@ function PendingRequestsTab() {
                 )}
               </div>
 
-              {/* RIGHT COLUMN â€” Partner track record + Reject reason */}
+              {/* RIGHT COLUMN — Partner track record + Reject reason */}
               <div className="space-y-5">
                 {/* Partner track record card */}
                 <div className="p-5 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/30">
@@ -1698,7 +1723,7 @@ function PendingRequestsTab() {
                       {(selected.partner_name || selected.partner_email).split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase()}
                     </div>
                     <div className="min-w-0">
-                      <p className="font-bold text-gray-900 dark:text-white truncate">{selected.partner_name || "â€”"}</p>
+                      <p className="font-bold text-gray-900 dark:text-white truncate">{selected.partner_name || "—"}</p>
                       <p className="text-xs text-gray-600 dark:text-gray-400 truncate">{selected.partner_email}</p>
                     </div>
                   </div>
@@ -1719,7 +1744,7 @@ function PendingRequestsTab() {
                     <div className="flex justify-between text-xs">
                       <span className="text-gray-500 dark:text-gray-400">Account status</span>
                       <span className={`font-bold uppercase ${selected.partner_status === "active" ? "text-emerald-600" : "text-amber-600"}`}>
-                        {selected.partner_status || "â€”"}
+                        {selected.partner_status || "—"}
                       </span>
                     </div>
                     {selected.partner_joined_at && (
@@ -1772,11 +1797,11 @@ function PendingRequestsTab() {
                     <AlertCircle className="w-3.5 h-3.5" /> Reviewer Checklist
                   </p>
                   <ul className="text-xs text-gray-700 dark:text-gray-300 space-y-1.5">
-                    <li>â€¢ Photos clear and high-resolution?</li>
-                    <li>â€¢ Description matches the photos?</li>
-                    <li>â€¢ Pricing reasonable for the type?</li>
-                    <li>â€¢ Required amenities listed?</li>
-                    <li>â€¢ Check-in / check-out times valid?</li>
+                    <li>• Photos clear and high-resolution?</li>
+                    <li>• Description matches the photos?</li>
+                    <li>• Pricing reasonable for the type?</li>
+                    <li>• Required amenities listed?</li>
+                    <li>• Check-in / check-out times valid?</li>
                   </ul>
                 </div>
 
@@ -1789,7 +1814,7 @@ function PendingRequestsTab() {
                       value={rejectReason}
                       onChange={(e) => setRejectReason(e.target.value)}
                       rows={5}
-                      placeholder="e.g. Photos are too dark â€” please resubmit with brighter lighting and at least 3 angles of each room."
+                      placeholder="e.g. Photos are too dark — please resubmit with brighter lighting and at least 3 angles of each room."
                       className="w-full px-3 py-2 rounded-lg border border-rose-300 dark:border-rose-700 bg-white dark:bg-slate-900 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-rose-400 outline-none"
                     />
                   </div>
@@ -1850,9 +1875,9 @@ const DrawerInfo = ({ label, value }: { label: string; value: string }) => (
   </div>
 );
 
-// Format DB time string "HH:MM:SS" â†’ "9:00 AM"
+// Format DB time string "HH:MM:SS" → "9:00 AM"
 const formatTime = (t?: string | null): string => {
-  if (!t) return "â€”";
+  if (!t) return "—";
   const [hStr, mStr] = t.split(":");
   const h = parseInt(hStr, 10);
   const m = mStr || "00";
@@ -1867,7 +1892,7 @@ const TimeRangeBox = ({ label, start, end }: { label: string; start?: string | n
     <p className="text-[10px] uppercase tracking-wide font-bold text-gray-500 dark:text-gray-400 mb-1.5">{label}</p>
     <div className="flex items-center gap-1.5 text-[12px] font-semibold text-gray-800 dark:text-gray-200">
       <span>{formatTime(start)}</span>
-      <span className="text-gray-400">â†’</span>
+      <span className="text-gray-400">→</span>
       <span>{formatTime(end)}</span>
     </div>
   </div>
@@ -1885,14 +1910,14 @@ const TimeCell = ({ label, start, end }: { label: string; start?: string | null;
   <div className="px-3 py-2.5 min-w-0">
     <p className="text-[10px] uppercase tracking-wide font-bold text-gray-400 dark:text-gray-500 truncate">{label}</p>
     <p className="text-[12px] font-semibold text-gray-900 dark:text-white mt-0.5">
-      {formatTime(start)} <span className="text-gray-400">â†’</span> {formatTime(end)}
+      {formatTime(start)} <span className="text-gray-400">→</span> {formatTime(end)}
     </p>
   </div>
 );
 
 
 /* =========================================
-   OVERVIEW TAB â€” real partner-wide stats
+   OVERVIEW TAB — real partner-wide stats
 ========================================= */
 function OverviewTab() {
   const { data, isLoading } = useGetPartnersOverviewQuery();
@@ -1901,7 +1926,7 @@ function OverviewTab() {
     return (
       <div className="bg-white dark:bg-[#181818] border border-gray-200 dark:border-white/10 rounded-2xl p-14 text-center">
         <Loader2 className="w-7 h-7 text-indigo-500 animate-spin mx-auto mb-3" />
-        <p className="text-gray-500 dark:text-gray-400">Loading overviewâ€¦</p>
+        <p className="text-gray-500 dark:text-gray-400">Loading overview…</p>
       </div>
     );
   }
@@ -1914,7 +1939,7 @@ function OverviewTab() {
     recent_activity: [] as Array<{ kind: string; title: string; partner: string | null; at: string }>,
   };
 
-  const peso = (n: number) => "â‚±" + (n || 0).toLocaleString("en-PH");
+  const peso = (n: number) => "₱" + (n || 0).toLocaleString("en-PH");
   const relTime = (iso: string) => {
     const d = new Date(iso);
     const diff = (Date.now() - d.getTime()) / 1000;
@@ -1966,7 +1991,7 @@ function OverviewTab() {
           icon={<FileText className="w-14 h-14 text-white" />}
           label="Bookings (30d)"
           value={String(ov.bookings.last_30_days)}
-          sub={`${ov.bookings.total} total Â· ${ov.bookings.completed} completed`}
+          sub={`${ov.bookings.total} total · ${ov.bookings.completed} completed`}
           gradient="from-emerald-500 to-green-700"
           fg="text-green-100"
           fgSub="text-green-200"
@@ -2005,7 +2030,7 @@ function OverviewTab() {
                   <div className="flex items-center gap-3 min-w-0">
                     <div className={`w-3 h-3 rounded-full ${color} flex-shrink-0`} />
                     <p className="text-gray-700 dark:text-gray-200 font-medium truncate">
-                      {a.title} {a.partner ? <span className="text-gray-500 font-normal">â€” {a.partner}</span> : null}
+                      {a.title} {a.partner ? <span className="text-gray-500 font-normal">— {a.partner}</span> : null}
                     </p>
                   </div>
                   <span className="text-gray-500 dark:text-gray-400 text-sm whitespace-nowrap flex-shrink-0 ml-3">
@@ -2035,7 +2060,7 @@ const StatCard = ({ icon, label, value, sub, gradient, fg, fgSub }: {
 
 
 /* =========================================
-   LISTINGS TAB â€” master-detail layout
+   LISTINGS TAB — master-detail layout
    Left: scrollable list of partners
    Right: selected partner's rooms with hero
 ========================================= */
@@ -2090,7 +2115,7 @@ function ListingsTab() {
   }, [filtered, selectedPartnerId]);
 
   const selectedPartner = filtered.find((p) => p.partner_id === selectedPartnerId) || filtered[0] || null;
-  const peso = (n: number) => "â‚±" + (n || 0).toLocaleString("en-PH");
+  const peso = (n: number) => "₱" + (n || 0).toLocaleString("en-PH");
 
   return (
     <div className="space-y-5">
@@ -2099,7 +2124,7 @@ function ListingsTab() {
         <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
         <input
           type="text"
-          placeholder="Search by partner name, email, or room nameâ€¦"
+          placeholder="Search by partner name, email, or room name…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           aria-label="Search partners"
@@ -2111,7 +2136,7 @@ function ListingsTab() {
       {isLoading ? (
         <div className="bg-white dark:bg-[#181818] border border-gray-200 dark:border-white/10 rounded-2xl p-14 text-center">
           <Loader2 className="w-7 h-7 text-brand-primary animate-spin mx-auto mb-3" />
-          <p className="text-gray-500 dark:text-gray-400">Loading partnersâ€¦</p>
+          <p className="text-gray-500 dark:text-gray-400">Loading partners…</p>
         </div>
       ) : filtered.length === 0 ? (
         <div className="bg-white dark:bg-[#181818] border border-gray-200 dark:border-white/10 rounded-2xl p-14 text-center">
@@ -2125,12 +2150,12 @@ function ListingsTab() {
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-5 min-h-[640px]">
-          {/* LEFT â€” partner list */}
+          {/* LEFT — partner list */}
           <div className="bg-white dark:bg-[#181818] border border-gray-200 dark:border-white/10 rounded-2xl overflow-hidden flex flex-col max-h-[760px]">
             <div className="p-4 border-b border-gray-100 dark:border-white/5 flex-shrink-0">
               <h3 className="font-bold text-gray-900 dark:text-white text-sm">Partners</h3>
               <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
-                {filtered.length} active Â· select to view details
+                {filtered.length} active · select to view details
               </p>
             </div>
             <div className="flex-1 overflow-y-auto">
@@ -2162,8 +2187,8 @@ function ListingsTab() {
                       </div>
                       <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate">
                         {p.rooms.length} room{p.rooms.length === 1 ? "" : "s"}
-                        {liveCount > 0 && <> Â· <span className="text-emerald-600 dark:text-emerald-400">{liveCount} live</span></>}
-                        {pendingCount > 0 && <> Â· <span className="text-amber-600 dark:text-amber-400">{pendingCount} pending</span></>}
+                        {liveCount > 0 && <> · <span className="text-emerald-600 dark:text-emerald-400">{liveCount} live</span></>}
+                        {pendingCount > 0 && <> · <span className="text-amber-600 dark:text-amber-400">{pendingCount} pending</span></>}
                       </div>
                     </div>
                   </button>
@@ -2172,7 +2197,7 @@ function ListingsTab() {
             </div>
           </div>
 
-          {/* RIGHT â€” selected partner detail */}
+          {/* RIGHT — selected partner detail */}
           <div className="bg-white dark:bg-[#181818] border border-gray-200 dark:border-white/10 rounded-2xl overflow-hidden flex flex-col max-h-[760px]">
             {!selectedPartner ? (
               <div className="flex-1 grid place-items-center text-gray-400 text-sm">
@@ -2265,7 +2290,7 @@ function PartnerDetailPane({ partner, peso }: PartnerDetailPaneProps) {
             <div>
               <h3 className="text-2xl font-bold text-white drop-shadow">{selectedRoom.haven_name}</h3>
               <p className="text-sm text-white/90 mt-1">
-                {[selectedRoom.tower, selectedRoom.floor].filter(Boolean).join(" Â· ") || "â€”"}
+                {[selectedRoom.tower, selectedRoom.floor].filter(Boolean).join(" · ") || "—"}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -2273,6 +2298,8 @@ function PartnerDetailPane({ partner, peso }: PartnerDetailPaneProps) {
                 <span className={`w-1.5 h-1.5 rounded-full ${statusConfig.dot}`} />
                 {statusConfig.label}
               </span>
+              {/* Admin "Take down" / "Re-enable" — fires the listing-status override */}
+              <ListingStatusToggle room={selectedRoom} />
               <button
                 type="button"
                 onClick={() => setShowRoomDetails(true)}
@@ -2421,7 +2448,7 @@ function RoomDetailsModal({ room, peso, onClose }: RoomDetailsModalProps) {
             <div>
               <h2 className="text-2xl font-bold text-white drop-shadow">{room.haven_name}</h2>
               <p className="text-sm text-white/90 mt-0.5">
-                {[room.tower, room.floor].filter(Boolean).join(" Â· ") || "â€”"}
+                {[room.tower, room.floor].filter(Boolean).join(" · ") || "—"}
               </p>
             </div>
             <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold ${statusConfig.bg} ${statusConfig.text}`}>
@@ -2431,9 +2458,9 @@ function RoomDetailsModal({ room, peso, onClose }: RoomDetailsModalProps) {
           </div>
         </div>
 
-        {/* Body â€” 2 column layout */}
+        {/* Body — 2 column layout */}
         <div className="flex-1 overflow-y-auto p-6 grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-5">
-          {/* LEFT â€” Listing details */}
+          {/* LEFT — Listing details */}
           <div className="space-y-4">
             {/* Gallery (compact thumbnails) */}
             {room.images && room.images.length > 1 && (
@@ -2451,17 +2478,17 @@ function RoomDetailsModal({ room, peso, onClose }: RoomDetailsModalProps) {
               </div>
             )}
 
-            {/* Quick facts â€” single grouped card */}
+            {/* Quick facts — single grouped card */}
             <div className="rounded-2xl border border-gray-200 dark:border-white/10 overflow-hidden">
               <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-gray-100 dark:divide-white/5">
-                <FactCell label="Type" value={room.view_type || "â€”"} />
-                <FactCell label="Sleeps" value={String(room.capacity || "â€”")} />
-                <FactCell label="Beds" value={room.beds || "â€”"} />
-                <FactCell label="Room size" value={room.room_size ? `${room.room_size} sqm` : "â€”"} />
+                <FactCell label="Nearby" value={room.view_type || "—"} />
+                <FactCell label="Sleeps" value={String(room.capacity || "—")} />
+                <FactCell label="Bedrooms" value={room.beds || "—"} />
+                <FactCell label="Room size" value={room.room_size ? `${room.room_size} sqm` : "—"} />
               </div>
             </div>
 
-            {/* Pricing â€” single row */}
+            {/* Pricing — single row */}
             <div className="rounded-2xl border border-gray-200 dark:border-white/10 overflow-hidden">
               <div className="px-4 py-2 bg-gray-50 dark:bg-white/5 border-b border-gray-100 dark:border-white/5">
                 <p className="text-[10px] uppercase tracking-wider font-bold text-gray-500 dark:text-gray-400">Pricing</p>
@@ -2474,7 +2501,7 @@ function RoomDetailsModal({ room, peso, onClose }: RoomDetailsModalProps) {
               </div>
             </div>
 
-            {/* Check-in / out â€” single row */}
+            {/* Check-in / out — single row */}
             <div className="rounded-2xl border border-gray-200 dark:border-white/10 overflow-hidden">
               <div className="px-4 py-2 bg-gray-50 dark:bg-white/5 border-b border-gray-100 dark:border-white/5">
                 <p className="text-[10px] uppercase tracking-wider font-bold text-gray-500 dark:text-gray-400">Check-in / out</p>
@@ -2486,11 +2513,11 @@ function RoomDetailsModal({ room, peso, onClose }: RoomDetailsModalProps) {
               </div>
             </div>
 
-            {/* Amenities â€” compact chips */}
+            {/* Amenities — compact chips */}
             {room.amenities && Object.keys(room.amenities).filter((k) => room.amenities![k]).length > 0 && (
               <div>
                 <p className="text-[10px] uppercase tracking-wider font-bold text-gray-500 dark:text-gray-400 mb-2">
-                  Amenities Â· {Object.keys(room.amenities).filter((k) => room.amenities![k]).length}
+                  Amenities · {Object.keys(room.amenities).filter((k) => room.amenities![k]).length}
                 </p>
                 <div className="flex flex-wrap gap-1">
                   {Object.keys(room.amenities)
@@ -2504,7 +2531,7 @@ function RoomDetailsModal({ room, peso, onClose }: RoomDetailsModalProps) {
               </div>
             )}
 
-            {/* Description + Photo tour + YouTube â€” combined extras row */}
+            {/* Description + Photo tour + YouTube — combined extras row */}
             {(room.description || (room.photo_tour && room.photo_tour.length > 0) || room.youtube_url) && (
               <div className="space-y-3">
                 {room.description && (
@@ -2516,7 +2543,7 @@ function RoomDetailsModal({ room, peso, onClose }: RoomDetailsModalProps) {
                 <div className="flex flex-wrap items-center gap-3 text-[11px] text-gray-500">
                   {room.photo_tour && room.photo_tour.length > 0 && (
                     <span>
-                      {room.photo_tour.length} photo tour Â·{" "}
+                      {room.photo_tour.length} photo tour ·{" "}
                       {Array.from(new Set(room.photo_tour.map((p) => p.category))).length} categories
                     </span>
                   )}
@@ -2527,7 +2554,7 @@ function RoomDetailsModal({ room, peso, onClose }: RoomDetailsModalProps) {
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1 text-red-600 hover:text-red-700 font-semibold"
                     >
-                      â–¶ Watch video tour
+                      ▶ Watch video tour
                     </a>
                   )}
                 </div>
@@ -2535,7 +2562,7 @@ function RoomDetailsModal({ room, peso, onClose }: RoomDetailsModalProps) {
             )}
           </div>
 
-          {/* RIGHT â€” Partner info + rejection reason */}
+          {/* RIGHT — Partner info + rejection reason */}
           <div className="space-y-5">
             <div className="p-5 rounded-2xl bg-brand-primary/5 dark:bg-brand-primary/10 border border-brand-primary/20">
               <div className="flex items-center gap-3 mb-4">
@@ -2543,7 +2570,7 @@ function RoomDetailsModal({ room, peso, onClose }: RoomDetailsModalProps) {
                   {(room.partner_name || room.partner_email).split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase()}
                 </div>
                 <div className="min-w-0">
-                  <p className="font-bold text-gray-900 dark:text-white truncate">{room.partner_name || "â€”"}</p>
+                  <p className="font-bold text-gray-900 dark:text-white truncate">{room.partner_name || "—"}</p>
                   <p className="text-xs text-gray-600 dark:text-gray-400 truncate">{room.partner_email}</p>
                 </div>
               </div>
@@ -2563,7 +2590,7 @@ function RoomDetailsModal({ room, peso, onClose }: RoomDetailsModalProps) {
                 <div className="flex justify-between text-xs">
                   <span className="text-gray-500 dark:text-gray-400">Account status</span>
                   <span className={`font-bold uppercase ${room.partner_status === "active" ? "text-emerald-600" : "text-amber-600"}`}>
-                    {room.partner_status || "â€”"}
+                    {room.partner_status || "—"}
                   </span>
                 </div>
                 {room.partner_joined_at && (
@@ -2661,7 +2688,126 @@ const NumStat = ({ value, label }: { value: number | string; label: string }) =>
 
 
 /* =========================================
-   DOCS & ANALYTICS TAB â€” real aggregated metrics
+   LISTING STATUS TOGGLE — admin disable / re-enable a haven
+========================================= */
+function ListingStatusToggle({ room }: { room: PartnerListingRow }) {
+  const [setStatus, { isLoading }] = useSetHavenListingStatusMutation();
+  const [showReason, setShowReason] = useState(false);
+  const [reason, setReason] = useState("");
+  const currentStatus = room.listing_status || "active";
+  const isActive = currentStatus === "active";
+
+  const disable = async () => {
+    if (!reason.trim()) {
+      toast.error("Please provide a reason");
+      return;
+    }
+    try {
+      await setStatus({ havenId: room.uuid_id, listing_status: "disabled", reason: reason.trim() }).unwrap();
+      toast.success("Listing disabled — now hidden from the marketplace");
+      setShowReason(false);
+      setReason("");
+    } catch (err) {
+      const msg = (err as { data?: { error?: string } })?.data?.error || "Failed";
+      toast.error(msg);
+    }
+  };
+
+  const enable = async () => {
+    try {
+      await setStatus({ havenId: room.uuid_id, listing_status: "active" }).unwrap();
+      toast.success("Listing re-enabled");
+    } catch (err) {
+      const msg = (err as { data?: { error?: string } })?.data?.error || "Failed";
+      toast.error(msg);
+    }
+  };
+
+  return (
+    <>
+      {isActive ? (
+        <button
+          type="button"
+          onClick={() => setShowReason(true)}
+          disabled={isLoading}
+          title="Take this listing off the marketplace"
+          className="px-3 py-1.5 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold inline-flex items-center gap-1.5 transition active:scale-95 shadow-sm border border-rose-200 disabled:opacity-60"
+        >
+          <XIcon className="w-3.5 h-3.5" />
+          Disable
+        </button>
+      ) : (
+        <span className="inline-flex items-center gap-1.5">
+          <span className="px-2.5 py-1 rounded-full bg-rose-100 text-rose-700 text-[10px] font-bold uppercase tracking-wider">
+            {currentStatus}
+          </span>
+          <button
+            type="button"
+            onClick={enable}
+            disabled={isLoading}
+            title="Make this listing visible again"
+            className="px-3 py-1.5 rounded-full bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold inline-flex items-center gap-1.5 transition active:scale-95 shadow-sm border border-emerald-200 disabled:opacity-60"
+          >
+            <Check className="w-3.5 h-3.5" />
+            Re-enable
+          </button>
+        </span>
+      )}
+
+      {showReason && (
+        <div className="fixed inset-0 z-[9999] grid place-items-center p-4">
+          <button
+            type="button"
+            aria-label="Close"
+            onClick={() => setShowReason(false)}
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          />
+          <div className="relative bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl p-6 max-w-md w-full">
+            <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-2">
+              Disable this listing?
+            </h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+              Hide <strong className="text-gray-700 dark:text-gray-200">{room.haven_name}</strong> from the public marketplace. The partner&apos;s approval status is unchanged. You can re-enable any time.
+            </p>
+            <label htmlFor="disable-reason" className="block text-xs uppercase font-semibold text-gray-500 dark:text-gray-400 mb-1.5">
+              Reason (shown in audit log)
+            </label>
+            <textarea
+              id="disable-reason"
+              rows={3}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="e.g. Photos look outdated — partner asked to refresh first"
+              className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-lg outline-none focus:border-brand-primary text-sm resize-none placeholder:text-gray-400"
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowReason(false)}
+                className="px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-semibold"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={disable}
+                disabled={isLoading}
+                className="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold inline-flex items-center gap-1.5 disabled:opacity-50"
+              >
+                {isLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XIcon className="w-3.5 h-3.5" />}
+                Disable listing
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+
+/* =========================================
+   DOCS & ANALYTICS TAB — real aggregated metrics
 ========================================= */
 function DocsAnalyticsTab() {
   const { data: ov, isLoading } = useGetPartnersOverviewQuery();
@@ -2670,12 +2816,12 @@ function DocsAnalyticsTab() {
     return (
       <div className="bg-white dark:bg-[#181818] border border-gray-200 dark:border-white/10 rounded-2xl p-14 text-center">
         <Loader2 className="w-7 h-7 text-indigo-500 animate-spin mx-auto mb-3" />
-        <p className="text-gray-500 dark:text-gray-400">Loading analyticsâ€¦</p>
+        <p className="text-gray-500 dark:text-gray-400">Loading analytics…</p>
       </div>
     );
   }
 
-  const peso = (n: number) => "â‚±" + (n || 0).toLocaleString("en-PH");
+  const peso = (n: number) => "₱" + (n || 0).toLocaleString("en-PH");
   const totalRevenue = ov?.bookings.gross_revenue || 0;
   const partnerEarnings = ov?.financials.partner_earnings || 0;
   const platformShare = ov?.financials.platform_commission || 0;
@@ -2773,7 +2919,7 @@ function DocsAnalyticsTab() {
           {[
             { title: "Partnership agreement template", desc: "Reusable contract template for new partner onboarding", badge: "PDF" },
             { title: "Platform guidelines & policies", desc: "Standards partners must follow", badge: "PDF" },
-            { title: "Commission & payout structure", desc: `${ov?.financials.avg_commission_rate.toFixed(1)}% platform fee Â· payout 15th & 30th`, badge: "Policy" },
+            { title: "Commission & payout structure", desc: `${ov?.financials.avg_commission_rate.toFixed(1)}% platform fee · payout 15th & 30th`, badge: "Policy" },
           ].map((doc, i) => (
             <div key={i} className="w-full flex items-center justify-between gap-4 px-5 py-4">
               <div className="flex items-center gap-4 min-w-0">
@@ -2810,7 +2956,7 @@ const AllocationBar = ({ label, value, pct, color }: { label: string; value: str
       <div className="flex items-center justify-between mb-2">
         <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</span>
         <span className="text-sm font-semibold text-gray-900 dark:text-white">
-          {value} <span className="text-gray-500 font-normal">Â· {pct}%</span>
+          {value} <span className="text-gray-500 font-normal">· {pct}%</span>
         </span>
       </div>
       <div className="h-2 rounded-full bg-gray-200 dark:bg-white/10 overflow-hidden">

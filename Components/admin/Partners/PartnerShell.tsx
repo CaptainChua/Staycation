@@ -16,7 +16,13 @@ import {
   MessageSquare,
   Menu,
   X,
+  ShieldCheck,
+  Calendar as CalendarIcon,
+  UserCheck,
+  Clock,
+  AlertCircle,
 } from "lucide-react";
+import { useGetMyRegistrationQuery } from "@/redux/api/partnerRegistrationApi";
 import PartnersDashboard from "./PartnersDashboard";
 import MyListingsPage from "./pages/MyListingsPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
@@ -24,16 +30,22 @@ import CostBreakdownPage from "./pages/CostBreakdownPage";
 import AddRoomPage from "./pages/AddRoomPage";
 import HelpPage from "./pages/HelpPage";
 import SettingsPage from "./pages/SettingsPage";
+import VerifyAmenitiesPage from "./pages/VerifyAmenitiesPage";
+import PartnerCalendarPage from "./pages/PartnerCalendarPage";
+import PartnerOnboardingPage from "./pages/PartnerOnboardingPage";
 
 const NAV_TOP = [
   { id: "dashboard", icon: Home, label: "Dashboard" },
   { id: "add", icon: Plus, label: "Add room" },
   { id: "listings", icon: List, label: "My listings" },
+  { id: "calendar", icon: CalendarIcon, label: "Calendar" },
+  { id: "verify", icon: ShieldCheck, label: "Verify amenities" },
   { id: "analytics", icon: BarChart3, label: "Analytics" },
   { id: "cost", icon: Receipt, label: "Cost breakdown" },
 ];
 
 const NAV_BOTTOM = [
+  { id: "onboarding", icon: UserCheck, label: "Onboarding" },
   { id: "settings", icon: Settings, label: "Settings" },
   { id: "help", icon: MessageCircle, label: "Help & support" },
 ];
@@ -42,8 +54,11 @@ const PAGE_TITLES: Record<string, string> = {
   dashboard: "Dashboard",
   add: "Add room",
   listings: "My listings",
+  calendar: "Calendar",
+  verify: "Verify amenities",
   analytics: "Analytics",
   cost: "Cost breakdown",
+  onboarding: "Onboarding",
   settings: "Settings",
   help: "Help & support",
 };
@@ -54,6 +69,7 @@ export default function PartnerShell(_props: { children?: React.ReactNode }) {
   const { data: session } = useSession();
   const [activePage, setActivePage] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { data: registration } = useGetMyRegistrationQuery();
 
   const navigate = (page: string) => {
     setActivePage(page);
@@ -68,6 +84,12 @@ export default function PartnerShell(_props: { children?: React.ReactNode }) {
         return <AddRoomPage onNavigate={navigate} />;
       case "listings":
         return <MyListingsPage onNavigate={navigate} />;
+      case "calendar":
+        return <PartnerCalendarPage />;
+      case "onboarding":
+        return <PartnerOnboardingPage />;
+      case "verify":
+        return <VerifyAmenitiesPage />;
       case "analytics":
         return <AnalyticsPage onNavigate={navigate} />;
       case "cost":
@@ -270,8 +292,84 @@ export default function PartnerShell(_props: { children?: React.ReactNode }) {
         </header>
 
         {/* CONTENT */}
-        <main className="max-w-[1400px] w-full min-w-0 mx-auto px-4 md:px-8 pt-7 pb-14 overflow-x-hidden">{renderPage()}</main>
+        <main className="max-w-[1400px] w-full min-w-0 mx-auto px-4 md:px-8 pt-7 pb-14 overflow-x-hidden">
+          {/* Account-status banner — only show when partner needs to act */}
+          {registration && registration.status !== "active" && activePage !== "onboarding" && (
+            <StatusBanner
+              status={registration.status}
+              missing={registration.missing}
+              rejectionReason={registration.rejection_reason}
+              suspensionReason={registration.suspension_reason}
+              onOpenOnboarding={() => setActivePage("onboarding")}
+            />
+          )}
+          {renderPage()}
+        </main>
       </div>
     </div>
   );
+}
+
+function StatusBanner({
+  status,
+  missing,
+  rejectionReason,
+  suspensionReason,
+  onOpenOnboarding,
+}: {
+  status: string;
+  missing: string[];
+  rejectionReason: string | null;
+  suspensionReason: string | null;
+  onOpenOnboarding: () => void;
+}) {
+  if (status === "pending") {
+    return (
+      <div className="mb-5 rounded-[14px] border border-[#92400e]/30 bg-[#fef3c7] p-4 flex items-start gap-3">
+        <Clock className="w-5 h-5 text-[#92400e] flex-shrink-0 mt-0.5" />
+        <div className="flex-1">
+          <div className="text-[14px] font-semibold text-[#92400e]">Your account is awaiting approval</div>
+          <p className="text-[12.5px] text-[#92400e]/90 mt-0.5">
+            {missing.length > 0
+              ? `Finish: ${missing.join(", ")}. You can browse the portal, but listings won't go public until approved.`
+              : "Everything is uploaded — our team is reviewing your application."}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onOpenOnboarding}
+          className="px-3 py-1.5 rounded-lg bg-[#B8860B] hover:bg-[#8B6508] text-white text-[12px] font-semibold whitespace-nowrap"
+        >
+          Open onboarding
+        </button>
+      </div>
+    );
+  }
+  if (status === "rejected") {
+    return (
+      <div className="mb-5 rounded-[14px] border border-[#dc2626]/30 bg-[#fee2e2] p-4 flex items-start gap-3">
+        <AlertCircle className="w-5 h-5 text-[#dc2626] flex-shrink-0 mt-0.5" />
+        <div className="flex-1">
+          <div className="text-[14px] font-semibold text-[#dc2626]">Application rejected</div>
+          <p className="text-[12.5px] text-[#7f1d1d] mt-0.5">
+            {rejectionReason || "Your application was rejected. Contact support for details."}
+          </p>
+        </div>
+      </div>
+    );
+  }
+  if (status === "suspended") {
+    return (
+      <div className="mb-5 rounded-[14px] border border-[#dc2626]/30 bg-[#fee2e2] p-4 flex items-start gap-3">
+        <AlertCircle className="w-5 h-5 text-[#dc2626] flex-shrink-0 mt-0.5" />
+        <div className="flex-1">
+          <div className="text-[14px] font-semibold text-[#dc2626]">Account suspended</div>
+          <p className="text-[12.5px] text-[#7f1d1d] mt-0.5">
+            {suspensionReason || "Your account is suspended. Contact support to resolve this."}
+          </p>
+        </div>
+      </div>
+    );
+  }
+  return null;
 }
