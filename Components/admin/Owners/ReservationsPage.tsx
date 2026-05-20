@@ -357,7 +357,7 @@ const ReservationsPage = () => {
                     <p className="font-semibold text-slate-900 dark:text-gray-100">
                       {(selectedBooking.adults || 0) + (selectedBooking.children || 0) + (selectedBooking.infants || 0)}
                       <span className="text-xs text-slate-500 dark:text-gray-400 ml-1">
-                        (A:{selectedBooking.adults || 0} C:{selectedBooking.children || 0} I:{selectedBooking.infants || 0})
+                        (Adult:{selectedBooking.adults || 0} Children:{selectedBooking.children || 0} Infant:{selectedBooking.infants || 0})
                       </span>
                     </p>
                   </div>
@@ -598,7 +598,7 @@ const ReservationsPage = () => {
         />
 
         {/* Status Summary Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
           {[
             { key: "pending", label: "Pending", bg: "bg-yellow-400 text-white", icon: <AlertCircle className="w-10 h-10" /> },
             { key: "approved", label: "Approved", bg: "bg-green-500 text-white", icon: <Check className="w-10 h-10" /> },
@@ -717,7 +717,7 @@ const ReservationsPage = () => {
                 <thead className="sticky top-0 z-10 bg-gray-50 dark:bg-slate-800 border-b-2 border-gray-200 dark:border-slate-700">
                   <tr>
                     {["ID", "Guest", "Haven", "Check-In", "Check-Out", "Guests", "Status", "Amount", "Actions"].map((h) => (
-                      <th key={h} className={`px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-tight ${h === "Guests" || h === "Actions" ? "text-center" : "text-left"}`}>
+                      <th key={h} className={`px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-tight ${ h === "Guests" ? "text-center w-12" : h === "Actions" ? "text-center" : "text-left" }`}>
                         {h}
                       </th>
                     ))}
@@ -755,12 +755,17 @@ const ReservationsPage = () => {
                         <div className="text-xs font-medium text-gray-900 dark:text-gray-100">{formatShortDate(reservation.check_out_date)}</div>
                         <div className="text-[10px] text-gray-500 dark:text-gray-400">{formatTime(reservation.check_out_time)}</div>
                       </td>
-                      <td className="px-2 py-1.5 whitespace-nowrap text-center">
-                        <div className="text-base font-bold text-gray-900 dark:text-white">
-                          {(reservation.adults || 0) + (reservation.children || 0) + (reservation.infants || 0)}
-                        </div>
-                        <div className="text-[10px] text-gray-500 dark:text-gray-400">
-                          A:{reservation.adults || 0} C:{reservation.children || 0} I:{reservation.infants || 0}
+                      <td className="px-1.5 py-1.5 whitespace-nowrap text-center w-12">
+                        <div className="relative group inline-block">
+                          <div className="text-sm font-bold text-gray-900 dark:text-white cursor-default">
+                            {(reservation.adults || 0) + (reservation.children || 0) + (reservation.infants || 0)}
+                          </div>
+                          <div className="absolute z-10 hidden group-hover:block bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-gray-800 text-white text-[10px] rounded shadow-lg whitespace-nowrap">
+                            <div>Adult: {reservation.adults || 0}</div>
+                            <div>Children: {reservation.children || 0}</div>
+                            <div>Infant: {reservation.infants || 0}</div>
+                            <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-800" />
+                          </div>
                         </div>
                       </td>
                       <td className="px-2 py-1.5 whitespace-nowrap">
