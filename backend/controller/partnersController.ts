@@ -257,6 +257,20 @@ export async function createPartner(req: NextRequest): Promise<NextResponse> {
     }
   } catch (error: unknown) {
     console.error("Error creating partner:", error);
+
+    const pgError = error as { code?: string; constraint?: string; detail?: string };
+
+    if (pgError?.code === "23505") {
+      const friendly =
+        pgError.constraint?.includes("email") || pgError.detail?.includes("partner_email")
+          ? "This email is already registered to another partner."
+          : "This partner already exists.";
+      return NextResponse.json(
+        { success: false, error: friendly },
+        { status: 409 }
+      );
+    }
+
     const errorMessage = error instanceof Error ? error.message : "Failed to create partner";
     return NextResponse.json(
       { success: false, error: errorMessage },

@@ -1,4 +1,4 @@
-import { User, Users, ArrowLeft, Upload, Plus, Minus, CreditCard, CheckCircle, ChevronRight, X as XIcon } from "lucide-react";
+import { User, Users, ArrowLeft, Upload, Plus, Minus, CreditCard, CheckCircle, ChevronRight, X as XIcon, AlertCircle } from "lucide-react";
 import { useState } from "react";
 import Image from "next/image";
 import toast from "react-hot-toast";
@@ -146,8 +146,17 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
     return value.replace(/[^0-9]/g, "").slice(0, 3);
   };
 
+  // Letters (incl. accented), spaces, hyphens, apostrophes, periods only
+  const sanitizeName = (value: string) =>
+    value.replace(/[^a-zA-ZÀ-ÖØ-öø-ÿ\s'\-.]/g, "");
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
+
+    if (name === "firstName" || name === "lastName") {
+      setFormData((prev) => ({ ...prev, [name]: sanitizeName(value) }));
+      return;
+    }
 
     if (name === "phone") {
       setFormData((prev) => ({ ...prev, phone: handlePhoneChange(value) }));
@@ -165,7 +174,7 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
       const currentChildren = name === "children" ? newValue : formData.children;
 
       if (currentAdults + currentChildren > 4) {
-        alert("Maximum 4 guests allowed (adults + children).");
+        toast.error("Maximum 4 guests allowed (adults + children).");
         return;
       }
 
@@ -198,7 +207,14 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
 
   const handleAdditionalGuestChange = (index: number, field: "firstName" | "lastName" | "age" | "gender", value: string) => {
     const updatedGuests = [...additionalGuests];
-    const sanitizedValue = field === "age" ? handleAgeChange(value) : value;
+    let sanitizedValue: string;
+    if (field === "age") {
+      sanitizedValue = handleAgeChange(value);
+    } else if (field === "firstName" || field === "lastName") {
+      sanitizedValue = sanitizeName(value);
+    } else {
+      sanitizedValue = value;
+    }
     updatedGuests[index] = { ...updatedGuests[index], [field]: sanitizedValue };
     setAdditionalGuests(updatedGuests);
   };
@@ -235,8 +251,16 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
     if (!formData.lastName) newErrors.lastName = "Last name is required";
     if (!formData.age) newErrors.age = "Age is required";
     if (!formData.gender) newErrors.gender = "Please select a gender";
-    if (!formData.email) newErrors.email = "Email is required";
-    if (!formData.phone) newErrors.phone = "Phone number is required";
+    if (!formData.email) {
+      newErrors.email = "Email is required";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+      newErrors.email = "Please enter a valid email (e.g. name@example.com)";
+    }
+    if (!formData.phone) {
+      newErrors.phone = "Phone number is required";
+    } else if (formData.phone.replace(/\D/g, "").length < 10) {
+      newErrors.phone = "Phone number must be at least 10 digits";
+    }
     if (formData.age && parseInt(formData.age) >= 10 && !formData.validId) {
       newErrors.validId = "Valid ID is required for guests 10+ years old";
     }
@@ -252,9 +276,39 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
     }
     setErrors(newErrors);
     if (Object.keys(newErrors).length > 0) {
-      alert(`Please fill in all required fields:\n\n${Object.values(newErrors).join("\n")}`);
+      const firstError = Object.values(newErrors)[0];
+      const remaining = Object.keys(newErrors).length - 1;
+      toast.error(remaining > 0 ? `${firstError} (+${remaining} more)` : firstError);
+      scrollToFirstError(Object.keys(newErrors)[0]);
     }
     return Object.keys(newErrors).length === 0;
+  };
+
+  // Find the first errored field's input and scroll it into view + focus it
+  const scrollToFirstError = (fieldKey: string) => {
+    setTimeout(() => {
+      // Try by `name` first (covers firstName, age, gender, email, phone, etc.)
+      let target = document.querySelector<HTMLElement>(
+        `[name="${fieldKey}"]`
+      );
+      // For "guestNValidId" / "validId" — they don't have a name on file input, try the dropzone via id
+      if (!target) {
+        if (fieldKey === "validId") {
+          target = document.getElementById("valid-id");
+        } else if (fieldKey.startsWith("guest") && fieldKey.endsWith("ValidId")) {
+          const idx = fieldKey.replace("guest", "").replace("ValidId", "");
+          target = document.getElementById(`valid-id-guest-${idx}`);
+        } else if (fieldKey === "termsAccepted") {
+          target = document.querySelector<HTMLElement>(`[name="termsAccepted"]`);
+        }
+      }
+      if (target) {
+        target.scrollIntoView({ behavior: "smooth", block: "center" });
+        if (typeof (target as HTMLInputElement).focus === "function") {
+          setTimeout(() => (target as HTMLInputElement).focus({ preventScroll: true }), 250);
+        }
+      }
+    }, 50);
   };
 
   const validateStep2 = (): boolean => {
@@ -279,6 +333,12 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
       }
     }
     setErrors(newErrors);
+    if (Object.keys(newErrors).length > 0) {
+      const firstError = Object.values(newErrors)[0];
+      const remaining = Object.keys(newErrors).length - 1;
+      toast.error(remaining > 0 ? `${firstError} (+${remaining} more)` : firstError);
+      scrollToFirstError(Object.keys(newErrors)[0]);
+    }
     return Object.keys(newErrors).length === 0;
   };
 
@@ -287,6 +347,12 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
     if (!formData.paymentProof) newErrors.paymentProof = "Proof of payment is required";
     if (!formData.termsAccepted) newErrors.termsAccepted = "You must accept the terms";
     setErrors(newErrors);
+    if (Object.keys(newErrors).length > 0) {
+      const firstError = Object.values(newErrors)[0];
+      const remaining = Object.keys(newErrors).length - 1;
+      toast.error(remaining > 0 ? `${firstError} (+${remaining} more)` : firstError);
+      scrollToFirstError(Object.keys(newErrors)[0]);
+    }
     return Object.keys(newErrors).length === 0;
   };
 
@@ -384,21 +450,34 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
     ["Guest Information", "Booking Details", "Optional Add-ons", "Payment & Review"][currentStep - 1];
 
   const inputClass =
-    "w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-[#A1823D] focus:border-transparent";
-  const labelClass = "block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300";
-  const sectionClass = "border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-xl p-6";
+    "w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-xl focus:ring-2 focus:ring-brand-primary focus:border-brand-primary outline-none transition disabled:opacity-50 placeholder:text-gray-400";
+  const labelClass = "block text-sm font-semibold mb-2 text-gray-700 dark:text-gray-300";
+  const sectionClass = "border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm";
+
+  const stepDescriptions = [
+    "Tell us about the main guest and any additional guests staying with them.",
+    "Pick a haven, set the dates and times for the stay.",
+    "Add optional extras like pool passes, towels, or a guest kit.",
+    "Review the booking and confirm payment to finalize the reservation.",
+  ];
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-5xl w-full max-h-[95vh] flex flex-col">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl max-w-5xl w-full max-h-[95vh] flex flex-col overflow-hidden border border-gray-200 dark:border-gray-700">
         {/* Header */}
-        <div className="text-white p-6 rounded-t-2xl flex justify-between items-center flex-shrink-0" style={{ backgroundColor: "#A1823D" }}>
+        <div className="text-white px-6 py-5 flex justify-between items-center flex-shrink-0 bg-gradient-to-r from-brand-primary to-brand-primaryDark">
           <div>
-            <h2 className="text-2xl font-bold">{getStepTitle()}</h2>
-            <p className="text-sm opacity-90">Step {currentStep} of 4</p>
+            <h2 className="text-2xl font-bold tracking-tight">{getStepTitle()}</h2>
+            <p className="text-sm opacity-90 mt-0.5">Step {currentStep} of 4</p>
           </div>
-          <button onClick={handleClose} className="p-2 hover:bg-white/20 rounded-full transition-colors">
-            <XIcon className="w-6 h-6" />
+          <button
+            type="button"
+            title="Close"
+            aria-label="Close"
+            onClick={handleClose}
+            className="p-2 hover:bg-white/20 rounded-xl transition-colors"
+          >
+            <XIcon className="w-5 h-5" />
           </button>
         </div>
 
@@ -413,20 +492,18 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                       completedSteps.includes(step)
                         ? "bg-green-500 text-white"
                         : currentStep === step
-                        ? "text-white"
+                        ? "text-white bg-brand-primary"
                         : "bg-gray-200 dark:bg-gray-600 text-gray-500 dark:text-gray-400"
                     }`}
-                    style={currentStep === step && !completedSteps.includes(step) ? { backgroundColor: "#A1823D" } : {}}
                   >
                     {completedSteps.includes(step) ? <CheckCircle className="w-6 h-6" /> : step}
                   </div>
                   <span
                     className={`text-xs font-medium text-center whitespace-nowrap ${
                       completedSteps.includes(step) || currentStep === step
-                        ? "text-gray-900 dark:text-gray-100"
+                        ? "text-brand-primary"
                         : "text-gray-500 dark:text-gray-400"
                     }`}
-                    style={completedSteps.includes(step) || currentStep === step ? { color: "#A1823D" } : {}}
                   >
                     {["Guest", "Booking", "Add-ons", "Payment"][idx]}
                   </span>
@@ -446,50 +523,65 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto px-6 py-6">
           <div className="max-w-4xl mx-auto">
+            {/* Guide box */}
+            <div className="flex items-start gap-3 p-4 bg-brand-primary/5 dark:bg-brand-primary/10 border border-brand-primary/20 rounded-2xl mb-6">
+              <span className="mt-0.5 inline-flex items-center justify-center w-6 h-6 rounded-full bg-brand-primary/15 text-brand-primary text-xs font-bold flex-shrink-0">
+                ?
+              </span>
+              <div>
+                <p className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-0.5">
+                  What is this step?
+                </p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+                  {stepDescriptions[currentStep - 1]}
+                </p>
+              </div>
+            </div>
+
             <form onSubmit={handleSubmit}>
               {/* Step 1: Guest Information */}
               {currentStep === 1 && (
                 <div className="space-y-6">
                   <div className={sectionClass}>
                     <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-gray-900 dark:text-gray-100">
-                      <User className="w-5 h-5" style={{ color: "#A1823D" }} />
+                      <User className="w-5 h-5 text-brand-primary" />
                       Main Guest Information
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className={labelClass}>First Name *</label>
                         <input type="text" name="firstName" value={formData.firstName} onChange={handleInputChange} required className={`${inputClass} ${errors.firstName ? "border-red-500" : ""}`} placeholder="Enter first name" />
-                        {errors.firstName && <p className="text-red-500 text-xs mt-1">{errors.firstName}</p>}
+                        {errors.firstName && <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3 flex-shrink-0" /> {errors.firstName}</p>}
                       </div>
                       <div>
                         <label className={labelClass}>Last Name *</label>
                         <input type="text" name="lastName" value={formData.lastName} onChange={handleInputChange} required className={`${inputClass} ${errors.lastName ? "border-red-500" : ""}`} placeholder="Enter last name" />
-                        {errors.lastName && <p className="text-red-500 text-xs mt-1">{errors.lastName}</p>}
+                        {errors.lastName && <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3 flex-shrink-0" /> {errors.lastName}</p>}
                       </div>
                       <div>
                         <label className={labelClass}>Age *</label>
                         <input type="number" name="age" value={formData.age} onChange={handleInputChange} required min="1" max="999" inputMode="numeric" className={`${inputClass} ${errors.age ? "border-red-500" : ""}`} placeholder="Enter age" />
-                        {errors.age && <p className="text-red-500 text-xs mt-1">{errors.age}</p>}
+                        {errors.age && <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3 flex-shrink-0" /> {errors.age}</p>}
                       </div>
                       <div>
                         <label className={labelClass}>Gender *</label>
-                        <select name="gender" value={formData.gender} onChange={handleInputChange} required className={`${inputClass} ${errors.gender ? "border-red-500" : ""}`}>
+                        <select name="gender" aria-label="Gender" title="Gender" value={formData.gender} onChange={handleInputChange} required className={`${inputClass} ${errors.gender ? "border-red-500" : ""}`}>
                           <option value="">Select Gender</option>
                           <option value="male">Male</option>
                           <option value="female">Female</option>
                           <option value="other">Other</option>
                         </select>
-                        {errors.gender && <p className="text-red-500 text-xs mt-1">{errors.gender}</p>}
+                        {errors.gender && <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3 flex-shrink-0" /> {errors.gender}</p>}
                       </div>
                       <div>
                         <label className={labelClass}>Email *</label>
                         <input type="email" name="email" value={formData.email} onChange={handleInputChange} required className={`${inputClass} ${errors.email ? "border-red-500" : ""}`} placeholder="Enter email" />
-                        {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
+                        {errors.email && <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3 flex-shrink-0" /> {errors.email}</p>}
                       </div>
                       <div>
                         <label className={labelClass}>Phone *</label>
                         <input type="tel" name="phone" value={formData.phone} onChange={handleInputChange} required inputMode="numeric" className={`${inputClass} ${errors.phone ? "border-red-500" : ""}`} placeholder="Enter Mobile Number" />
-                        {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
+                        {errors.phone && <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3 flex-shrink-0" /> {errors.phone}</p>}
                       </div>
                     </div>
                   </div>
@@ -528,21 +620,21 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
 
                   <div className={sectionClass}>
                     <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-gray-900 dark:text-gray-100">
-                      <Users className="w-5 h-5" style={{ color: "#A1823D" }} />
+                      <Users className="w-5 h-5 text-brand-primary" />
                       Number of Guests
                     </h3>
                     <div className="grid grid-cols-3 gap-4">
                       <div>
                         <label className={labelClass}>Adults *</label>
-                        <input type="number" name="adults" value={formData.adults} onChange={handleInputChange} min="1" max="4" required className={inputClass} />
+                        <input type="number" name="adults" aria-label="Adults" title="Adults" placeholder="Adults" value={formData.adults} onChange={handleInputChange} min="1" max="4" required className={inputClass} />
                       </div>
                       <div>
                         <label className={labelClass}>Children</label>
-                        <input type="number" name="children" value={formData.children} onChange={handleInputChange} min="0" max="4" className={inputClass} />
+                        <input type="number" name="children" aria-label="Children" title="Children" placeholder="Children" value={formData.children} onChange={handleInputChange} min="0" max="4" className={inputClass} />
                       </div>
                       <div>
                         <label className={labelClass}>Infants</label>
-                        <input type="number" name="infants" value={formData.infants} onChange={handleInputChange} min="0" max="2" className={inputClass} />
+                        <input type="number" name="infants" aria-label="Infants" title="Infants" placeholder="Infants" value={formData.infants} onChange={handleInputChange} min="0" max="2" className={inputClass} />
                       </div>
                     </div>
                   </div>
@@ -550,30 +642,30 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                   {additionalGuests.map((guest, index) => (
                     <div key={index} className={sectionClass}>
                       <h3 className="font-bold mb-4 flex items-center gap-2 text-gray-900 dark:text-gray-100">
-                        <User className="w-5 h-5" style={{ color: "#A1823D" }} />
+                        <User className="w-5 h-5 text-brand-primary" />
                         {index < formData.adults - 1 ? `Adult ${index + 2}` : `Child ${index - (formData.adults - 1) + 1}`}
                       </h3>
                       <div className="grid grid-cols-2 gap-4 mb-4">
                         <div>
                           <input type="text" value={guest.firstName} onChange={(e) => handleAdditionalGuestChange(index, "firstName", e.target.value)} placeholder="First Name *" className={`${inputClass} ${errors[`guest${index}FirstName`] ? "border-red-500" : ""}`} />
-                          {errors[`guest${index}FirstName`] && <p className="text-red-500 text-xs mt-1">{errors[`guest${index}FirstName`]}</p>}
+                          {errors[`guest${index}FirstName`] && <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3 flex-shrink-0" /> {errors[`guest${index}FirstName`]}</p>}
                         </div>
                         <div>
                           <input type="text" value={guest.lastName} onChange={(e) => handleAdditionalGuestChange(index, "lastName", e.target.value)} placeholder="Last Name *" className={`${inputClass} ${errors[`guest${index}LastName`] ? "border-red-500" : ""}`} />
-                          {errors[`guest${index}LastName`] && <p className="text-red-500 text-xs mt-1">{errors[`guest${index}LastName`]}</p>}
+                          {errors[`guest${index}LastName`] && <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3 flex-shrink-0" /> {errors[`guest${index}LastName`]}</p>}
                         </div>
                         <div>
                           <input type="number" value={guest.age} onChange={(e) => handleAdditionalGuestChange(index, "age", e.target.value)} placeholder="Age *" min="1" max="999" inputMode="numeric" className={`${inputClass} ${errors[`guest${index}Age`] ? "border-red-500" : ""}`} />
-                          {errors[`guest${index}Age`] && <p className="text-red-500 text-xs mt-1">{errors[`guest${index}Age`]}</p>}
+                          {errors[`guest${index}Age`] && <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3 flex-shrink-0" /> {errors[`guest${index}Age`]}</p>}
                         </div>
                         <div>
-                          <select value={guest.gender} onChange={(e) => handleAdditionalGuestChange(index, "gender", e.target.value)} className={`${inputClass} ${errors[`guest${index}Gender`] ? "border-red-500" : ""}`}>
+                          <select aria-label="Guest gender" title="Guest gender" value={guest.gender} onChange={(e) => handleAdditionalGuestChange(index, "gender", e.target.value)} className={`${inputClass} ${errors[`guest${index}Gender`] ? "border-red-500" : ""}`}>
                             <option value="">Select Gender *</option>
                             <option value="male">Male</option>
                             <option value="female">Female</option>
                             <option value="other">Other</option>
                           </select>
-                          {errors[`guest${index}Gender`] && <p className="text-red-500 text-xs mt-1">{errors[`guest${index}Gender`]}</p>}
+                          {errors[`guest${index}Gender`] && <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3 flex-shrink-0" /> {errors[`guest${index}Gender`]}</p>}
                         </div>
                       </div>
 
@@ -626,24 +718,24 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                     <div className="space-y-4">
                       <div>
                         <label className={labelClass}>Room/Haven Name *</label>
-                        <select name="roomName" value={formData.roomName} onChange={handleInputChange} required className={`${inputClass} ${errors.roomName ? "border-red-500" : ""}`}>
+                        <select name="roomName" aria-label="Room or Haven Name" title="Room or Haven Name" value={formData.roomName} onChange={handleInputChange} required className={`${inputClass} ${errors.roomName ? "border-red-500" : ""}`}>
                           <option value="">Select Room/Haven</option>
                           {["Haven 1", "Haven 2", "Haven 3", "Haven 4", "Haven 5"].map((h) => (
                             <option key={h} value={h}>{h}</option>
                           ))}
                         </select>
-                        {errors.roomName && <p className="text-red-500 text-xs mt-1">{errors.roomName}</p>}
+                        {errors.roomName && <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3 flex-shrink-0" /> {errors.roomName}</p>}
                       </div>
                       <div>
                         <label className={labelClass}>Stay Type *</label>
-                        <select name="stayType" value={formData.stayType} onChange={handleStayTypeChange} required className={`${inputClass} ${errors.stayType ? "border-red-500" : ""}`}>
+                        <select name="stayType" aria-label="Stay Type" title="Stay Type" value={formData.stayType} onChange={handleStayTypeChange} required className={`${inputClass} ${errors.stayType ? "border-red-500" : ""}`}>
                           <option value="">Select Stay Type</option>
                           <option value="10 Hours - ₱1,599">10 Hours - ₱1,599</option>
                           <option value="21 Hours (Sun-Thu weekday) - ₱1,799">21 Hours (Weekday) - ₱1,799</option>
                           <option value="21 Hours (Fri-Sat) - ₱1,999">21 Hours (Weekend) - ₱1,999</option>
                           <option value="Multi-Day Stay">Multi-Day Stay</option>
                         </select>
-                        {errors.stayType && <p className="text-red-500 text-xs mt-1">{errors.stayType}</p>}
+                        {errors.stayType && <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3 flex-shrink-0" /> {errors.stayType}</p>}
                       </div>
                     </div>
                   </div>
@@ -653,23 +745,23 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className={labelClass}>Check-in Date *</label>
-                        <input type="date" name="checkInDate" value={formData.checkInDate} onChange={handleInputChange} onKeyDown={handleDateKeyDown} required className={`${inputClass} ${errors.checkInDate ? "border-red-500" : ""}`} min={new Date().toISOString().split("T")[0]} />
-                        {errors.checkInDate && <p className="text-red-500 text-xs mt-1">{errors.checkInDate}</p>}
+                        <input type="date" name="checkInDate" aria-label="Check-in Date" title="Check-in Date" value={formData.checkInDate} onChange={handleInputChange} onKeyDown={handleDateKeyDown} required className={`${inputClass} ${errors.checkInDate ? "border-red-500" : ""}`} min={new Date().toISOString().split("T")[0]} />
+                        {errors.checkInDate && <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3 flex-shrink-0" /> {errors.checkInDate}</p>}
                       </div>
                       <div>
                         <label className={labelClass}>Check-out Date *</label>
-                        <input type="date" name="checkOutDate" value={formData.checkOutDate} onChange={handleInputChange} onKeyDown={handleDateKeyDown} required className={`${inputClass} ${errors.checkOutDate ? "border-red-500" : ""}`} min={formData.checkInDate || new Date().toISOString().split("T")[0]} />
-                        {errors.checkOutDate && <p className="text-red-500 text-xs mt-1">{errors.checkOutDate}</p>}
+                        <input type="date" name="checkOutDate" aria-label="Check-out Date" title="Check-out Date" value={formData.checkOutDate} onChange={handleInputChange} onKeyDown={handleDateKeyDown} required className={`${inputClass} ${errors.checkOutDate ? "border-red-500" : ""}`} min={formData.checkInDate || new Date().toISOString().split("T")[0]} />
+                        {errors.checkOutDate && <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3 flex-shrink-0" /> {errors.checkOutDate}</p>}
                       </div>
                       <div>
                         <label className={labelClass}>Check-in Time *</label>
-                        <input type="time" name="checkInTime" value={formData.checkInTime} onChange={handleInputChange} required className={`${inputClass} ${errors.checkInTime ? "border-red-500" : ""}`} />
-                        {errors.checkInTime && <p className="text-red-500 text-xs mt-1">{errors.checkInTime}</p>}
+                        <input type="time" name="checkInTime" aria-label="Check-in Time" title="Check-in Time" value={formData.checkInTime} onChange={handleInputChange} required className={`${inputClass} ${errors.checkInTime ? "border-red-500" : ""}`} />
+                        {errors.checkInTime && <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3 flex-shrink-0" /> {errors.checkInTime}</p>}
                       </div>
                       <div>
                         <label className={labelClass}>Check-out Time *</label>
-                        <input type="time" name="checkOutTime" value={formData.checkOutTime} onChange={handleInputChange} required className={`${inputClass} ${errors.checkOutTime ? "border-red-500" : ""}`} />
-                        {errors.checkOutTime && <p className="text-red-500 text-xs mt-1">{errors.checkOutTime}</p>}
+                        <input type="time" name="checkOutTime" aria-label="Check-out Time" title="Check-out Time" value={formData.checkOutTime} onChange={handleInputChange} required className={`${inputClass} ${errors.checkOutTime ? "border-red-500" : ""}`} />
+                        {errors.checkOutTime && <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3 flex-shrink-0" /> {errors.checkOutTime}</p>}
                       </div>
                     </div>
                   </div>
@@ -698,11 +790,11 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                             <p className="text-sm text-gray-600 dark:text-gray-400">₱{item.price} each</p>
                           </div>
                           <div className="flex items-center gap-3">
-                            <button type="button" onClick={() => handleAddOnChange(item.key, false)} className="w-8 h-8 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 rounded-full flex items-center justify-center transition">
+                            <button type="button" title="Remove" aria-label="Remove" onClick={() => handleAddOnChange(item.key, false)} className="w-8 h-8 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 rounded-full flex items-center justify-center transition">
                               <Minus className="w-4 h-4" />
                             </button>
                             <span className="w-8 text-center font-semibold text-gray-900 dark:text-gray-100">{addOns[item.key]}</span>
-                            <button type="button" onClick={() => handleAddOnChange(item.key, true)} className="w-8 h-8 text-white rounded-full flex items-center justify-center transition" style={{ backgroundColor: "#A1823D" }}>
+                            <button type="button" title="Add" aria-label="Add" onClick={() => handleAddOnChange(item.key, true)} className="w-8 h-8 text-white rounded-full flex items-center justify-center transition bg-brand-primary">
                               <Plus className="w-4 h-4" />
                             </button>
                           </div>
@@ -740,7 +832,7 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                       {addOnsTotal > 0 && <div className="flex justify-between text-gray-700 dark:text-gray-300"><span>Add-ons</span><span>₱{addOnsTotal.toLocaleString()}</span></div>}
                       <div className="flex justify-between pt-2 border-t border-gray-200 dark:border-gray-600 font-bold text-lg">
                         <span className="text-gray-900 dark:text-gray-100">Total</span>
-                        <span style={{ color: "#A1823D" }}>₱{totalAmount.toLocaleString()}</span>
+                        <span className="text-brand-primary">₱{totalAmount.toLocaleString()}</span>
                       </div>
                       <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg mt-4 space-y-2 border border-green-200 dark:border-green-800">
                         <div className="flex justify-between text-sm text-gray-900 dark:text-gray-100"><span>Downpayment</span><strong>₱{downPayment.toLocaleString()}</strong></div>
@@ -758,10 +850,13 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                       ].map((method) => (
                         <label
                           key={method.value}
-                          className="flex items-center gap-3 p-4 border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg cursor-pointer transition"
-                          style={{ borderColor: formData.paymentMethod === method.value ? "#A1823D" : "" }}
+                          className={`flex items-center gap-3 p-4 border-2 bg-white dark:bg-gray-700 rounded-lg cursor-pointer transition ${
+                            formData.paymentMethod === method.value
+                              ? "border-brand-primary"
+                              : "border-gray-300 dark:border-gray-600"
+                          }`}
                         >
-                          <input type="radio" name="paymentMethod" value={method.value} checked={formData.paymentMethod === method.value} onChange={handleInputChange} className="w-4 h-4" style={{ accentColor: "#A1823D" }} />
+                          <input type="radio" name="paymentMethod" value={method.value} checked={formData.paymentMethod === method.value} onChange={handleInputChange} className="w-4 h-4 accent-brand-primary" />
                           <span className="text-gray-900 dark:text-gray-100 font-medium">{method.label}</span>
                         </label>
                       ))}
@@ -772,7 +867,7 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                       <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, "payment")} className="hidden" id="payment-proof" />
                       <label
                         htmlFor="payment-proof"
-                        className={`cursor-pointer flex flex-col items-center p-8 border-2 border-dashed bg-gray-50 dark:bg-gray-800 rounded-lg hover:border-[#A1823D] transition ${
+                        className={`cursor-pointer flex flex-col items-center p-8 border-2 border-dashed bg-gray-50 dark:bg-gray-800 rounded-lg hover:border-brand-primary transition ${
                           errors.paymentProof ? "border-red-500" : "border-gray-300 dark:border-gray-600"
                         }`}
                       >
@@ -799,7 +894,7 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
 
                   <div className={sectionClass}>
                     <label className={`flex items-start gap-3 cursor-pointer ${errors.termsAccepted ? "text-red-500" : ""}`}>
-                      <input type="checkbox" name="termsAccepted" checked={formData.termsAccepted} onChange={handleInputChange} className="w-5 h-5 mt-1 rounded" style={{ accentColor: "#A1823D" }} />
+                      <input type="checkbox" name="termsAccepted" checked={formData.termsAccepted} onChange={handleInputChange} className="w-5 h-5 mt-1 rounded accent-brand-primary" />
                       <span className="text-sm text-gray-900 dark:text-gray-100">I agree to the Terms and Conditions and Cancellation Policy</span>
                     </label>
                     {errors.termsAccepted && <p className="text-red-500 text-xs mt-2">{errors.termsAccepted}</p>}
@@ -808,12 +903,12 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
               )}
 
               {/* Footer Actions */}
-              <div className="border-t border-gray-200 dark:border-gray-700 pt-6 mt-6 flex gap-4">
+              <div className="border-t border-gray-200 dark:border-gray-700 pt-6 mt-6 flex flex-col-reverse sm:flex-row gap-3">
                 {currentStep > 1 && (
                   <button
                     type="button"
                     onClick={handleBack}
-                    className="flex-1 flex items-center justify-center gap-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-600 font-semibold py-3 px-6 rounded-lg transition"
+                    className="flex-1 flex items-center justify-center gap-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 font-semibold py-3 px-6 rounded-xl transition active:scale-95"
                   >
                     <ArrowLeft className="w-5 h-5" />
                     Back
@@ -823,8 +918,7 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                   <button
                     type="button"
                     onClick={handleNext}
-                    className="flex-1 flex items-center justify-center gap-2 text-white font-semibold py-3 px-6 rounded-lg transition hover:opacity-90"
-                    style={{ backgroundColor: "#A1823D" }}
+                    className="flex-1 flex items-center justify-center gap-2 bg-brand-primary hover:bg-brand-primaryDark text-white font-semibold py-3 px-6 rounded-xl shadow-md transition active:scale-95"
                   >
                     Next Step
                     <ChevronRight className="w-5 h-5" />
@@ -833,8 +927,10 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className={`flex-1 font-semibold py-3 px-6 rounded-lg transition ${
-                      isSubmitting ? "bg-gray-400 cursor-not-allowed" : "bg-green-500 hover:bg-green-600 text-white"
+                    className={`flex-1 font-semibold py-3 px-6 rounded-xl shadow-md transition active:scale-95 ${
+                      isSubmitting
+                        ? "bg-gray-400 cursor-not-allowed text-white"
+                        : "bg-green-500 hover:bg-green-600 text-white"
                     }`}
                   >
                     {isSubmitting ? "Creating Reservation..." : "Confirm Booking"}

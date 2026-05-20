@@ -416,6 +416,9 @@ useEffect(() => {
             {/* Mobile Close Button */}
             {mobileMenuOpen && (
               <button
+                type="button"
+                title="Close menu"
+                aria-label="Close menu"
                 onClick={() => setMobileMenuOpen(false)}
                 className="p-2 hover:bg-white/50 dark:hover:bg-gray-800 rounded-lg md:hidden transition-colors"
               >
@@ -545,6 +548,9 @@ useEffect(() => {
           <div className="flex items-center gap-4">
             {/* Mobile Menu Button */}
             <button
+              type="button"
+              title="Open menu"
+              aria-label="Open menu"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg md:hidden transition-colors"
             >

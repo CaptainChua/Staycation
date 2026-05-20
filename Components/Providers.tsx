@@ -42,6 +42,9 @@ export function Providers ({ children }: {children:React.ReactNode}) {
                             </ConditionalLayout>
                             <Toaster
                                 position="top-center"
+                                containerStyle={{
+                                    zIndex: 999999,
+                                }}
                                 toastOptions={{
                                     duration: 4000,
                                     style: {

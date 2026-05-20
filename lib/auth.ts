@@ -248,6 +248,68 @@ export const authOptions: NextAuthOptions = {
             };
           }
 
+          // If not found in employees, check partners_account (for Partner login)
+          console.log("📊 Querying partners_account table...");
+          const partnerResult = await pool.query(
+            `SELECT pa.id, pa.partner_email, pa.partner_password, pa.status,
+                    pi.partner_fullname
+             FROM partners_account pa
+             LEFT JOIN partners_information pi ON pa.id = pi.partner_id
+             WHERE pa.partner_email = $1`,
+            [credentials.email]
+          );
+
+          if (partnerResult.rows.length > 0) {
+            const partner = partnerResult.rows[0];
+            console.log("✅ Partner found:", partner.partner_email, "- Status:", partner.status);
+
+            if (partner.status === "suspended" || partner.status === "inactive") {
+              throw new Error("Your partner account is not active. Please contact the administrator.");
+            }
+
+            // Verify Turnstile for partners too (same security as employees)
+            if (!credentials?.isOtpLogin) {
+              if (!credentials?.turnstileToken) {
+                throw new Error("Email, password, and security verification are required");
+              }
+              const isValidTurnstile = await verifyTurnstileToken(credentials.turnstileToken || "");
+              if (!isValidTurnstile) {
+                throw new Error("Security verification failed. Please try again.");
+              }
+              console.log("✅ Turnstile verification passed for partner");
+            }
+
+            // Verify password
+            const isValidPartner = await bcrypt.compare(
+              credentials.password || "",
+              partner.partner_password
+            );
+
+            if (!isValidPartner) {
+              console.log("❌ Invalid password for partner:", partner.partner_email);
+              throw new Error("Invalid email or password");
+            }
+
+            console.log("✅ Partner login successful");
+
+            // Update last_login
+            try {
+              await pool.query(
+                `UPDATE partners_account SET last_login = NOW(), updated_at = NOW() WHERE id = $1`,
+                [partner.id]
+              );
+            } catch (updateError) {
+              console.error("❌ Failed to update partner last_login:", updateError);
+            }
+
+            return {
+              id: String(partner.id),
+              email: partner.partner_email,
+              name: partner.partner_fullname || partner.partner_email,
+              role: "Partner",
+            };
+          }
+
           // If not found in employees, check users table (for regular users)
           console.log("📊 Querying users table...");
           const userResult = await pool.query(

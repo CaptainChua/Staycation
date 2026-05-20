@@ -1231,6 +1231,8 @@ const handleMarkAllDelivered = async (bookingId: string) => {
                   setEntriesPerPage(Number(e.target.value));
                   setCurrentPage(1);
                 }}
+                aria-label="Entries per page"
+                title="Entries per page"
                 className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-amber-600 text-sm"
               >
                 <option value="5">5</option>
@@ -1248,6 +1250,7 @@ const handleMarkAllDelivered = async (bookingId: string) => {
                 placeholder="Search by ID, booking, guest, haven, or item name..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                aria-label="Search deliverables"
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-amber-600"
               />
             </div>
@@ -1261,6 +1264,8 @@ const handleMarkAllDelivered = async (bookingId: string) => {
                 setFilterStatus(e.target.value);
                 setCurrentPage(1);
               }}
+              aria-label="Filter by status"
+              title="Filter by status"
               className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-amber-600"
             >
               <option value="all">All Status</option>
@@ -1280,6 +1285,8 @@ const handleMarkAllDelivered = async (bookingId: string) => {
                 }
                 setCurrentPage(1);
               }}
+              aria-label="Filter by date range"
+              title="Filter by date range"
               className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-amber-600"
             >
               <option value="all">All Dates</option>
@@ -1296,6 +1303,8 @@ const handleMarkAllDelivered = async (bookingId: string) => {
                     setCustomStartDate(e.target.value);
                     setCurrentPage(1);
                   }}
+                  aria-label="Custom start date"
+                  title="Custom start date"
                   className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg text-sm"
                 />
                 <span className="text-gray-500 dark:text-gray-400">to</span>
@@ -1306,6 +1315,8 @@ const handleMarkAllDelivered = async (bookingId: string) => {
                     setCustomEndDate(e.target.value);
                     setCurrentPage(1);
                   }}
+                  aria-label="Custom end date"
+                  title="Custom end date"
                   className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg text-sm"
                 />
               </div>
@@ -1372,6 +1383,8 @@ const handleMarkAllDelivered = async (bookingId: string) => {
                     type="checkbox"
                     checked={selectedDeliverables.includes(row.id)}
                     onChange={(e) => handleSelectDeliverable(row.id, e.target.checked)}
+                    aria-label={`Select deliverable ${row.deliverable_id}`}
+                    title={`Select deliverable ${row.deliverable_id}`}
                     className="w-4 h-4 text-brand-primary border-gray-300 rounded focus:ring-brand-primary flex-shrink-0 mt-1"
                   />
                 </div>
@@ -1473,6 +1486,8 @@ const handleMarkAllDelivered = async (bookingId: string) => {
                       type="checkbox"
                       checked={selectedDeliverables.length === paginatedRows.length && paginatedRows.length > 0}
                       onChange={(e) => handleSelectAll(e.target.checked)}
+                      aria-label="Select all deliverables on this page"
+                      title="Select all deliverables on this page"
                       className="w-4 h-4 text-brand-primary border-gray-300 rounded focus:ring-brand-primary"
                     />
                     <span>Select</span>
@@ -1624,6 +1639,8 @@ const handleMarkAllDelivered = async (bookingId: string) => {
                         type="checkbox"
                         checked={selectedDeliverables.includes(row.id)}
                         onChange={(e) => handleSelectDeliverable(row.id, e.target.checked)}
+                        aria-label={`Select deliverable ${row.deliverable_id}`}
+                        title={`Select deliverable ${row.deliverable_id}`}
                         className="w-4 h-4 text-brand-primary border-gray-300 rounded focus:ring-brand-primary"
                       />
                     </td>
@@ -1911,6 +1928,8 @@ const handleMarkAllDelivered = async (bookingId: string) => {
                 onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                 disabled={currentPage === 1 || totalPages === 0}
                 className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Previous page"
+                aria-label="Previous page"
                 type="button"
               >
                 <ChevronLeft className="w-4 h-4" />
@@ -1949,6 +1968,8 @@ const handleMarkAllDelivered = async (bookingId: string) => {
                 onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                 disabled={currentPage === totalPages || totalPages === 0}
                 className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Next page"
+                aria-label="Next page"
                 type="button"
               >
                 <ChevronRight className="w-4 h-4" />

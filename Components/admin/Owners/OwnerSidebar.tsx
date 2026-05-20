@@ -208,6 +208,9 @@ export default function OwnerSidebar({ sidebar, setSidebar, mobileMenuOpen, setM
             {/* Mobile Close Button */}
             {mobileMenuOpen && (
               <button
+                type="button"
+                title="Close menu"
+                aria-label="Close menu"
                 onClick={() => setMobileMenuOpen(false)}
                 className="p-2 hover:bg-white/50 dark:hover:bg-gray-800 rounded-lg md:hidden transition-colors"
               >
