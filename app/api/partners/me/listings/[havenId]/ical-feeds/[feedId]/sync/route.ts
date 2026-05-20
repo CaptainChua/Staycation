@@ -3,6 +3,10 @@ import pool from "@/backend/config/db";
 import { getPartnerIdFromSession } from "@/backend/utils/partnerSession";
 import { syncOneFeed } from "@/backend/utils/icalSync";
 
+// node-ical + pg need Node runtime + live DB; skip build-time static analysis.
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 // POST /api/partners/me/listings/[havenId]/ical-feeds/[feedId]/sync
 // Manual sync trigger — partner clicks "Sync now" on a feed.
 export async function POST(

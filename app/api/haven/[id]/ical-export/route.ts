@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { buildHavenIcalExport } from "@/backend/utils/icalSync";
 
+// Pulls in node-ical + pg; both need Node runtime and live DB. Skip static analysis.
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 /**
  * GET /api/haven/[id]/ical-export
  *
