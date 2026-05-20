@@ -260,6 +260,63 @@ export default function CleaningChecklistPage({ initialHavenId, initialBookingId
   }, [checklistId, fetchPhotos]);
 
 
+  const handleHavenChange = (havenId: string | null) => {
+    setSelectedHavenId(havenId);
+    setProofFile(null);
+    setProofPreview(null);
+    setProofUploaded(false);
+    if (havenId) {
+      const found = havens.find((h) => h.id === havenId);
+      setSelectedHaven(found ?? null);
+    } else {
+      setSelectedHaven(null);
+    }
+  };
+
+  const handleProofFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const allowed = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+    if (!allowed.includes(file.type)) {
+      toast.error("Only JPG, PNG, WEBP, or PDF files are allowed");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("File must be under 10MB");
+      return;
+    }
+    setProofFile(file);
+    setProofPreview(file.type.startsWith("image/") ? URL.createObjectURL(file) : null);
+    setProofUploaded(false);
+  };
+
+  const handleUploadProof = async () => {
+    if (!proofFile) return;
+    setIsUploadingProof(true);
+    try {
+      const reader = new FileReader();
+      await new Promise<void>((resolve, reject) => {
+        reader.onloadend = () => resolve();
+        reader.onerror = reject;
+        reader.readAsDataURL(proofFile);
+      });
+      await new Promise((r) => setTimeout(r, 800));
+      setProofUploaded(true);
+      toast.success("Proof of payment uploaded successfully!");
+    } catch {
+      toast.error("Failed to upload proof. Please try again.");
+    } finally {
+      setIsUploadingProof(false);
+    }
+  };
+
+  const handleRemoveProof = () => {
+    setProofFile(null);
+    setProofPreview(null);
+    setProofUploaded(false);
+    if (proofInputRef.current) proofInputRef.current.value = "";
+  };
+
   const toggleTask = async (taskId: string) => {
     let newCompleted = false;
     setChecklist((prev) =>

@@ -93,9 +93,9 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
 
   // ── Numeric-only helpers ─────────────────────────────────────
 
-  const toPhoneNumeric = (value: string) => value.replace(/[^\d\s\-+]/g, "");
-
   const toDigitsOnly = (value: string) => value.replace(/\D/g, "");
+
+  const formatPhoneInput = (value: string) => toDigitsOnly(value).slice(0, 11);
 
   const blockNonNumericKeys = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (["e", "E", "+", "-", "."].includes(e.key)) {
@@ -128,6 +128,7 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
       case "lastName":
         if (!value.trim()) return "This field is required";
         if (value.trim().length < 2) return "Must be at least 2 characters";
+        if (!/^[A-Za-z]+$/.test(value.trim())) return "Letters only, no special characters";
         return "";
 
       case "email":
@@ -137,8 +138,7 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
 
       case "phone":
         if (!value.trim()) return "Phone number is required";
-        if (!/^(\+63|0)?9\d{9}$/.test(value.replace(/[\s-]/g, "")))
-          return "Invalid PH phone number (e.g., 09123456789)";
+        if (!/^\d{11}$/.test(value)) return "Phone number must be exactly 11 digits";
         return "";
 
       case "role":
@@ -151,6 +151,7 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
 
       case "hireDate":
         if (!value) return "Hire date is required";
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return "Please enter a valid hire date";
         return "";
 
       case "salary":
@@ -177,8 +178,7 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
 
       case "emergencyContactPhone":
         if (!value.trim()) return "Emergency contact phone is required";
-        if (!/^(\+63|0)?9\d{9}$/.test(value.replace(/[\s-]/g, "")))
-          return "Invalid PH phone number";
+        if (!/^\d{11}$/.test(value)) return "Contact phone must be exactly 11 digits";
         return "";
 
       case "emergencyContactRelation":
@@ -346,6 +346,8 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
               <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">Fill in the employee information below</p>
             </div>
             <button
+              aria-label="Close"
+              type="button"
               onClick={onClose}
               disabled={isLoading}
               className="p-2 hover:bg-white/50 dark:hover:bg-slate-800/50 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -419,9 +421,10 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       labelPlacement="outside"
                       value={formData.firstName}
                       onChange={(e) => {
-                        setFormData({ ...formData, firstName: e.target.value });
+                        const cleaned = e.target.value.replace(/[^A-Za-z]/g, "");
+                        setFormData({ ...formData, firstName: cleaned });
                         if (touchedFields.firstName) {
-                          setErrors((prev) => ({ ...prev, firstName: validateField("firstName", e.target.value) }));
+                          setErrors((prev) => ({ ...prev, firstName: validateField("firstName", cleaned) }));
                         }
                       }}
                       onBlur={() => handleBlur("firstName")}
@@ -441,9 +444,10 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       labelPlacement="outside"
                       value={formData.lastName}
                       onChange={(e) => {
-                        setFormData({ ...formData, lastName: e.target.value });
+                        const cleaned = e.target.value.replace(/[^A-Za-z]/g, "");
+                        setFormData({ ...formData, lastName: cleaned });
                         if (touchedFields.lastName) {
-                          setErrors((prev) => ({ ...prev, lastName: validateField("lastName", e.target.value) }));
+                          setErrors((prev) => ({ ...prev, lastName: validateField("lastName", cleaned) }));
                         }
                       }}
                       onBlur={() => handleBlur("lastName")}
@@ -487,17 +491,19 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                       type="tel"
                       name="phone"
                       label="Phone Number *"
-                      placeholder="09123456789"
+                      placeholder=""
                       labelPlacement="outside"
-                      inputMode="tel"
+                      inputMode="numeric"
+                      maxLength={11}
                       value={formData.phone}
                       onChange={(e) => {
-                        const cleaned = toPhoneNumeric(e.target.value);
+                        const cleaned = formatPhoneInput(e.target.value);
                         setFormData({ ...formData, phone: cleaned });
                         if (touchedFields.phone) {
                           setErrors((prev) => ({ ...prev, phone: validateField("phone", cleaned) }));
                         }
                       }}
+                      onKeyDown={blockNonNumericKeys}
                       onBlur={() => handleBlur("phone")}
                       isInvalid={touchedFields.phone && !!errors.phone}
                       errorMessage={touchedFields.phone && errors.phone}
@@ -580,25 +586,45 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                     }}
                   />
                   <DatePicker
-                    label="Hire Date *"
-                    labelPlacement="outside"
-                    value={formData.hireDate ? (parseDate(formData.hireDate) as any) : null}
-                    onChange={(date: DateValue | null) => {
-                      if (date) {
-                        const dateStr = `${date.year}-${String(date.month).padStart(2, "0")}-${String(date.day).padStart(2, "0")}`;
-                        setFormData({ ...formData, hireDate: dateStr });
-                      }
-                    }}
-                    isRequired
-                    isDisabled={isLoading}
-                    classNames={{
-                      base: "w-full",
-                      label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
-                      calendarContent: "dark:bg-slate-900",
-                      calendar: "dark:bg-slate-900 dark:text-white",
-                      inputWrapper: "cursor-pointer",
-                    }}
-                  />
+  name="hireDate"
+  label="Hire Date *"
+  labelPlacement="outside"
+  value={(() => {
+    try {
+      return formData.hireDate ? (parseDate(formData.hireDate) as any) : null;
+    } catch {
+      return null;
+    }
+  })()}
+  onChange={(date: DateValue | null) => {
+    if (date) {
+      const year = String(date.year).padStart(4, "0");
+      const month = String(date.month).padStart(2, "0");
+      const day = String(date.day).padStart(2, "0");
+      const dateStr = `${year}-${month}-${day}`;
+      setFormData((prev) => ({ ...prev, hireDate: dateStr }));
+      setErrors((prev) => ({ ...prev, hireDate: "" }));
+      setTouchedFields((prev) => ({ ...prev, hireDate: true }));
+    } else {
+      setFormData((prev) => ({ ...prev, hireDate: "" }));
+      setErrors((prev) => ({ ...prev, hireDate: "Hire date is required" }));
+    }
+  }}
+  onBlur={() => {
+    setTouchedFields((prev) => ({ ...prev, hireDate: true }));
+  }}
+  isRequired
+  isDisabled={isLoading}
+  isInvalid={touchedFields.hireDate && !!errors.hireDate}
+  errorMessage={touchedFields.hireDate && errors.hireDate}
+  classNames={{
+    base: "w-full",
+    label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
+    calendarContent: "dark:bg-slate-900",
+    calendar: "dark:bg-slate-900 dark:text-white",
+    inputWrapper: "cursor-pointer",
+  }}
+/>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -756,12 +782,13 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                     type="tel"
                     name="emergencyContactPhone"
                     label="Contact Phone *"
-                    placeholder="09123456789"
+                    placeholder=""
                     labelPlacement="outside"
-                    inputMode="tel"
+                    inputMode="numeric"
+                    maxLength={11}
                     value={formData.emergencyContactPhone}
                     onChange={(e) => {
-                      const cleaned = toPhoneNumeric(e.target.value);
+                      const cleaned = formatPhoneInput(e.target.value);
                       setFormData({ ...formData, emergencyContactPhone: cleaned });
                       if (touchedFields.emergencyContactPhone) {
                         setErrors((prev) => ({ ...prev, emergencyContactPhone: validateField("emergencyContactPhone", cleaned) }));

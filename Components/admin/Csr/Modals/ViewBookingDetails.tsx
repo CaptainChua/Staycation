@@ -13,7 +13,6 @@ import {
   Users as UsersIcon,
   CreditCard,
   Banknote,
-  Phone,
   Mail,
   Shield,
   PlusCircle,
@@ -28,6 +27,7 @@ interface Booking {
   guest_last_name: string;
   guest_email: string;
   guest_phone: string;
+  guest_age?: number;
   guest_gender?: string;
   room_name: string;
   check_in_date: string;
@@ -68,8 +68,8 @@ interface ViewBookingDetailsProps {
 interface AdditionalGuestRow {
   firstName: string;
   lastName: string;
-  email?: string;
-  phone?: string;
+  age?: number | string;
+  gender?: string;
   facebook_link?: string;
   validIdUrl?: string;
 }
@@ -99,8 +99,8 @@ export default function ViewBookingDetails({ booking, onClose }: ViewBookingDeta
             result.data.additional_guests.map((g: any) => ({
               firstName: g.first_name || g.firstName || '',
               lastName: g.last_name || g.lastName || '',
-              email: g.email,
-              phone: g.phone,
+              age: g.age ?? g.guest_age ?? undefined,
+              gender: g.gender || g.guest_gender || undefined,
               facebook_link: g.facebook_link,
               validIdUrl: g.valid_id_url || g.validIdUrl || '',
             }))
@@ -267,11 +267,11 @@ export default function ViewBookingDetails({ booking, onClose }: ViewBookingDeta
             </div>
           </div>
 
-          {/* Guest Information */}
+          {/* Main Guest Information */}
           <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-3">
             <div className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
               <User className="w-4 h-4" />
-              Guest Information
+              Main Guest Information
             </div>
             <div className="space-y-2">
               <div className="flex items-center gap-2">
@@ -294,6 +294,14 @@ export default function ViewBookingDetails({ booking, onClose }: ViewBookingDeta
                   <a href={`tel:${booking.guest_phone}`} className="text-sm text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 underline">
                     {booking.guest_phone}
                   </a>
+                </div>
+              )}
+              {booking.guest_age != null && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Age:</span>
+                  <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                    {booking.guest_age} years old
+                  </span>
                 </div>
               )}
               {booking.guest_gender && (
@@ -352,22 +360,18 @@ export default function ViewBookingDetails({ booking, onClose }: ViewBookingDeta
                         {`${guest.firstName} ${guest.lastName}`.trim() || 'N/A'}
                       </span>
                     </div>
-                    {guest.email && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Email:</span>
-                        <a href={`mailto:${guest.email}`} className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 underline">
-                          {guest.email}
-                        </a>
-                      </div>
-                    )}
-                    {guest.phone && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Phone:</span>
-                        <a href={`tel:${guest.phone}`} className="text-sm text-green-600 hover:text-green-800 dark:text-green-400 underline">
-                          {guest.phone}
-                        </a>
-                      </div>
-                    )}
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Age:</span>
+                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                        {guest.age ?? 'N/A'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Gender:</span>
+                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                        {guest.gender ?? 'N/A'}
+                      </span>
+                    </div>
                     {guest.facebook_link && (
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Facebook:</span>

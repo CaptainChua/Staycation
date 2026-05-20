@@ -61,7 +61,7 @@ export const messagesApi = createApi({
         conversation_id: string;
         sender_id: string;
         sender_name: string;
-        message_text: string;
+        message_text?: string;
         image?: string;
       }
     >({

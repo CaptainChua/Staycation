@@ -1,7 +1,7 @@
 "use client";
 
 import OwnerPageHeader from "./OwnerPageHeader";
-import { useMemo, useState, useEffect, useRef, useCallback } from "react";
+import { useMemo, useState, useEffect, useRef, useCallback, type ChangeEvent } from "react";
 import { useSession } from "next-auth/react";
 import { Search, Send, Image as ImageIcon, X, Loader2, ArrowLeft } from "lucide-react";
 import Image from "next/image";
@@ -26,7 +26,6 @@ interface Employee {
   last_name?: string;
   email?: string;
   employment_id?: string;
-  role?: string;
   profile_image_url?: string;
 }
 
@@ -35,6 +34,7 @@ interface Message {
   sender_id: string;
   sender_name?: string;
   message_text: string;
+  image_url?: string | null;
   created_at: string;
 }
 
@@ -118,13 +118,13 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
   const userId = (session?.user as { id?: string })?.id;
 
   const [search, setSearch] = useState("");
-  const [roleFilter, setRoleFilter] = useState("all");
   const [draft, setDraft] = useState("");
-
-  const userRole = ((session?.user as { id?: string; role?: string })?.role ?? "").toLowerCase();
+  const [attachedImage, setAttachedImage] = useState<string | null>(null);
   const [isNewMessageModalOpen, setIsNewMessageModalOpen] = useState(false);
   const [showMobileChat, setShowMobileChat] = useState(false);
+  const [zoomedImage, setZoomedImage] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const hasInitializedActiveId = useRef(false);
   const hasProcessedInitialConversationId = useRef(false);
 
@@ -209,14 +209,6 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
     return map;
   }, [employees]);
 
-  const employeeRoleById = useMemo(() => {
-    const map: Record<string, string> = {};
-    employees.forEach((emp: Employee) => {
-      if (emp?.id) map[emp.id] = (emp.role ?? "").toLowerCase();
-    });
-    return map;
-  }, [employees]);
-
   useEffect(() => {
     if (activeId && userId) {
       markAsRead({ conversation_id: activeId, user_id: userId });
@@ -230,6 +222,30 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  useEffect(() => {
+    document.body.style.overflow = zoomedImage ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [zoomedImage]);
+
+  const handleAttachClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleImageFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result as string;
+      setAttachedImage(base64);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
 
   const getConversationDisplayName = useCallback(
     (conversation: Conversation | undefined | null) => {
@@ -271,43 +287,21 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
   const showSkeletonConversations = isLoadingConversations && conversations.length === 0;
   const showSkeletonMessages = isLoadingMessages && messages.length === 0;
 
-  const roleFilterOptions = [
-    { label: "All", value: "all" },
-    { label: "User", value: "user" },
-    { label: "CSR", value: "csr" },
-    ...(userRole !== "owner" ? [{ label: "Admin", value: "owner" }] : []),
-    { label: "Cleaners", value: "cleaner" },
-    { label: "Partner", value: "partner" },
-    { label: "Walk-in Staff", value: "walkinstaff" },
-  ];
-
-  const getConversationRole = useCallback(
-    (c: Conversation): string => {
-      if (c.type === "guest") return "user";
-      const otherIds = (c.participant_ids || []).filter((id) => id !== userId);
-      const roles = otherIds.map((id) => employeeRoleById[id]).filter(Boolean);
-      return roles[0] ?? "internal";
-    },
-    [userId, employeeRoleById]
-  );
-
   const filteredConversations = useMemo(() => {
     const term = search.trim().toLowerCase();
+    if (!term) return conversations;
     return conversations.filter((c: Conversation) => {
-      const matchesSearch =
-        !term ||
+      return (
         c.name?.toLowerCase().includes(term) ||
         (c.last_message && c.last_message.toLowerCase().includes(term)) ||
-        c.type.toLowerCase().includes(term);
-      const matchesRole =
-        roleFilter === "all" || getConversationRole(c) === roleFilter;
-      return matchesSearch && matchesRole;
+        c.type.toLowerCase().includes(term)
+      );
     });
-  }, [search, roleFilter, conversations, getConversationRole]);
+  }, [search, conversations]);
 
   const handleSendMessage = async () => {
     const text = draft.trim();
-    if (!text || !activeId || !userId) return;
+    if (!activeId || !userId || (!text && !attachedImage)) return;
 
     try {
       await sendMessage({
@@ -315,9 +309,11 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
         sender_id: userId,
         sender_name: session?.user?.name || "Owner",
         message_text: text,
+        image: attachedImage || undefined,
       }).unwrap();
 
       setDraft("");
+      setAttachedImage(null);
       refetchMessages();
       refetchConversations();
     } catch (error: unknown) {
@@ -426,7 +422,7 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
               </div>
             </div>
 
-            <div className="p-4 space-y-2">
+            <div className="p-4">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
@@ -435,22 +431,6 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                   placeholder="Search Messenger"
                   className="w-full pl-10 pr-3 py-2.5 rounded-full bg-gray-100 dark:bg-gray-800 border border-gray-100 dark:border-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:bg-white dark:focus:bg-gray-900 focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary/30"
                 />
-              </div>
-              <div className="flex gap-1.5 overflow-x-auto pb-0.5 scrollbar-hide">
-                {roleFilterOptions.map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => setRoleFilter(opt.value)}
-                    className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                      roleFilter === opt.value
-                        ? "bg-brand-primary text-white"
-                        : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
               </div>
             </div>
 
@@ -607,6 +587,8 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                           m.sender_name ||
                           (activeConversation?.type === "guest" ? "Guest" : "Staff")
                         : undefined;
+                      const imageSrc = m.image_url || m.message_text;
+                      const renderImage = !!m.image_url || isImageMessage(m.message_text);
                       return (
                         <div key={m.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
                           <div className={`max-w-[85%] sm:max-w-[75%] ${isMe ? "items-end" : "items-start"} flex flex-col gap-0.5 sm:gap-1`}>
@@ -617,18 +599,17 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                             )}
                             <div
                               className={`rounded-2xl text-xs sm:text-sm leading-relaxed shadow-sm overflow-hidden ${
-                                isImageMessage(m.message_text)
+                                renderImage
                                   ? "p-0"
                                   : `px-3 sm:px-4 py-2 sm:py-2.5 ${isMe ? "bg-brand-primary text-white rounded-br-md" : "bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-800 rounded-bl-md"}`
                               }`}
                             >
-                              {isImageMessage(m.message_text) ? (
-                                <Image
-                                  src={m.message_text}
+                              {renderImage ? (
+                                <img
+                                  src={imageSrc}
                                   alt="sent image"
-                                  width={220}
-                                  height={220}
                                   className="max-w-[220px] rounded-2xl object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                                  onClick={() => setZoomedImage(imageSrc)}
                                 />
                               ) : (
                                 m.message_text
@@ -648,38 +629,70 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                 </div>
 
                 <div className="border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-2 sm:px-4 py-2 sm:py-3">
-                  <div className="flex items-center gap-1 sm:gap-2">
-                    <button type="button" className="p-1.5 sm:p-2 rounded-full hover:bg-brand-primaryLighter transition-colors" title="Attach">
-                      <ImageIcon className="w-4 h-4 sm:w-5 sm:h-5 text-brand-primary" />
-                    </button>
-                    <div className="flex-1 bg-gray-100 dark:bg-gray-800 rounded-full px-2 sm:px-3 py-1.5 sm:py-2 flex items-center gap-1 sm:gap-2 border border-gray-200 dark:border-gray-700 focus-within:bg-brand-primaryLighter dark:focus-within:bg-gray-800 focus-within:border-brand-primary dark:focus-within:border-brand-primary focus-within:ring-2 focus-within:ring-brand-primary/20">
+                  <div className="flex flex-col gap-2 w-full">
+                    {attachedImage && (
+                      <div className="relative rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-900 min-h-[180px]">
+                        <img
+                          src={attachedImage}
+                          alt="Attachment preview"
+                          className="w-full max-h-72 h-auto object-contain bg-black/5"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setAttachedImage(null)}
+                          className="absolute top-2 right-2 rounded-full bg-black/70 text-white p-1.5 hover:bg-black/90 transition-colors"
+                          title="Remove attachment"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-1 sm:gap-2">
                       <input
-                        value={draft}
-                        onChange={(e) => setDraft(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" && !isSending) {
-                            e.preventDefault();
-                            handleSendMessage();
-                          }
-                        }}
-                        placeholder="Aa"
-                        disabled={isSending}
-                        className="flex-1 bg-transparent outline-none text-xs sm:text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400"
+                        ref={fileInputRef}
+                        type="file"
+                        className="hidden"
+                        accept="image/*"
+                        onChange={handleImageFileChange}
                       />
+                      <button
+                        type="button"
+                        className="p-1.5 sm:p-2 rounded-full hover:bg-brand-primaryLighter transition-colors"
+                        title="Attach"
+                        onClick={handleAttachClick}
+                      >
+                        <ImageIcon className="w-4 h-4 sm:w-5 sm:h-5 text-brand-primary" />
+                      </button>
+                      <div className="flex-1 bg-gray-100 dark:bg-gray-800 rounded-full px-2 sm:px-3 py-1.5 sm:py-2 flex items-center gap-1 sm:gap-2 border border-gray-200 dark:border-gray-700 focus-within:bg-brand-primaryLighter dark:focus-within:bg-gray-800 focus-within:border-brand-primary dark:focus-within:border-brand-primary focus-within:ring-2 focus-within:ring-brand-primary/20">
+                        <input
+                          value={draft}
+                          onChange={(e) => setDraft(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && !isSending) {
+                              e.preventDefault();
+                              handleSendMessage();
+                            }
+                          }}
+                          placeholder="Aa"
+                          disabled={isSending}
+                          className="flex-1 bg-transparent outline-none text-xs sm:text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleSendMessage}
+                        disabled={isSending || (!draft.trim() && !attachedImage)}
+                        className="p-1.5 sm:p-2 rounded-full hover:bg-brand-primaryLighter transition-colors disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed flex items-center justify-center"
+                        title="Send"
+                      >
+                        {isSending ? (
+                          <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 text-brand-primary animate-spin" />
+                        ) : (
+                          <Send className="w-4 h-4 sm:w-5 sm:h-5 text-brand-primary" />
+                        )}
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={handleSendMessage}
-                      disabled={isSending || !draft.trim()}
-                      className="p-1.5 sm:p-2 rounded-full hover:bg-brand-primaryLighter transition-colors disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed flex items-center justify-center"
-                      title="Send"
-                    >
-                      {isSending ? (
-                        <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 text-brand-primary animate-spin" />
-                      ) : (
-                        <Send className="w-4 h-4 sm:w-5 sm:h-5 text-brand-primary" />
-                      )}
-                    </button>
                   </div>
                 </div>
               </>
@@ -692,6 +705,31 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
         </div>
       </div>
 
+      {zoomedImage && (
+        <div
+          className="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center p-4"
+          onClick={() => setZoomedImage(null)}
+        >
+          <div className="relative max-w-full max-h-full">
+            <button
+              type="button"
+              className="absolute top-4 right-4 z-10 text-white bg-black/50 rounded-full p-2 hover:bg-black/80 transition-colors"
+              onClick={(e) => {
+                e.stopPropagation();
+                setZoomedImage(null);
+              }}
+            >
+              <X className="w-6 h-6" />
+            </button>
+            <img
+              src={zoomedImage}
+              alt="zoomed"
+              className="max-w-full max-h-[90vh] rounded-xl object-contain shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+        </div>
+      )}
       <NewMessageModal
         isOpen={isNewMessageModalOpen}
         onClose={() => setIsNewMessageModalOpen(false)}
