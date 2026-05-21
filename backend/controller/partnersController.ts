@@ -34,6 +34,7 @@ export async function getAllPartners(req: NextRequest): Promise<NextResponse> {
         pi.partner_address as address,
         pi.partner_type as type,
         pi.commission_rate,
+        pi.show_guest_details,
         pi.total_earnings,
         pi.total_paid,
         pa.status,
@@ -105,6 +106,7 @@ export async function getPartnerById(
         pi.partner_address as address,
         pi.partner_type as type,
         pi.commission_rate,
+        pi.show_guest_details,
         pi.total_earnings,
         pi.total_paid,
         pa.status,
@@ -290,6 +292,7 @@ export async function updatePartner(req: NextRequest): Promise<NextResponse> {
       address,
       type,
       commission_rate,
+      show_guest_details,
     } = body;
 
     if (!id) {
@@ -308,6 +311,7 @@ export async function updatePartner(req: NextRequest): Promise<NextResponse> {
         partner_address = COALESCE($4, partner_address),
         partner_type = COALESCE($5, partner_type),
         commission_rate = COALESCE($6, commission_rate),
+        show_guest_details = COALESCE($7, show_guest_details),
         updated_at = CURRENT_TIMESTAMP
       WHERE partner_id = $1
     `;
@@ -319,6 +323,7 @@ export async function updatePartner(req: NextRequest): Promise<NextResponse> {
       address || null,
       type || null,
       commission_rate || null,
+      typeof show_guest_details === "boolean" ? show_guest_details : null,
     ]);
 
     // Update partners_account timestamp
@@ -337,6 +342,7 @@ export async function updatePartner(req: NextRequest): Promise<NextResponse> {
         pi.partner_address as address,
         pi.partner_type as type,
         pi.commission_rate,
+        pi.show_guest_details,
         pi.total_earnings,
         pi.total_paid,
         pa.status,

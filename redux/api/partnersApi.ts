@@ -9,6 +9,7 @@ export interface Partner {
   type: string;
   commission_rate: number;
   commission_total: number;
+  show_guest_details?: boolean;
   payment_method?: string;
   bank_name?: string;
   account_number?: string;
@@ -37,6 +38,7 @@ export interface CreatePartnerData {
   address?: string;
   type?: string;
   commission_rate?: number;
+  show_guest_details?: boolean;
   payment_method?: string;
   bank_name?: string;
   account_number?: string;

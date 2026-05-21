@@ -55,9 +55,9 @@ const EditHavenModal = ({ isOpen, onClose, havenData }: EditHavenModalProps) => 
   if (!isOpen || !havenData) return null;
 
   return (
-    <HavenFormModal 
-      isOpen={isOpen} 
-      onClose={onClose} 
+    <HavenFormModal
+      isOpen={isOpen}
+      onClose={onClose}
       initialData={havenData}
     />
   );

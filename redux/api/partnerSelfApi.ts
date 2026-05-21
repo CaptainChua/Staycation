@@ -20,6 +20,7 @@ export interface PartnerListing {
   cleaning_fee?: number;
   security_deposit?: number;
   extra_pax_fee?: number;
+  commission_rate?: number | null;
   house_rules?: string;
   smoking_policy?: string;
   pet_policy?: string;
@@ -53,6 +54,19 @@ export interface PartnerBooking {
   commission: number;
   fee: number;
   net: number;
+  // Null when the platform owner has disabled guest-detail visibility for this partner.
+  guest_first_name?: string | null;
+  guest_last_name?: string | null;
+  guest_details_visible?: boolean;
+  amenities?: Array<{
+    id: string;
+    name: string;
+    price: number;
+    quantity: number;
+    status: string;
+    total: number;
+  }>;
+  amenities_total?: number;
 }
 
 export interface PartnerAnalytics {

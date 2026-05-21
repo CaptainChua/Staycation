@@ -47,9 +47,9 @@ interface HavenDetailsModalProps {
   isAddMode?: boolean;
 }
 
-const HavenDetailsModal = ({ 
-  onSave, 
-  initialData, 
+const HavenDetailsModal = ({
+  onSave,
+  initialData,
   isAddMode = false,
 }: HavenDetailsModalProps) => {
   const [formData, setFormData] = useState<Record<string, string>>({
