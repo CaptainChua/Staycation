@@ -21,8 +21,38 @@ const peso = (n: number) => "₱" + (n || 0).toLocaleString("en-PH");
 
 const STATUS_MAP: Record<string, string> = {
   Completed: "bg-[#dcfce7] text-[#16a34a]",
+  Approved: "bg-[#dbeafe] text-[#2563eb]",
   Confirmed: "bg-[#dbeafe] text-[#2563eb]",
+  "Checked-in": "bg-[#e0e7ff] text-[#4338ca]",
+  "Checked-out": "bg-[#ede9fe] text-[#6d28d9]",
+  Pending: "bg-[#fef3c7] text-[#b45309]",
   Cancelled: "bg-[#fee2e2] text-[#dc2626]",
+  Rejected: "bg-[#fee2e2] text-[#dc2626]",
+  Declined: "bg-[#fee2e2] text-[#dc2626]",
+  "On-going": "bg-[#ccfbf1] text-[#0f766e]",
+};
+
+const STATUS_MEANING: Record<string, string> = {
+  Pending: "Guest submitted booking but down payment is not yet approved by CSR.",
+  Approved: "Down payment was approved by CSR. Guest is expected to check in.",
+  Confirmed: "Booking is confirmed and locked in.",
+  "On-going": "Guest's stay is currently in progress.",
+  "Checked-in": "Guest has arrived and checked in to the haven.",
+  "Checked-out": "Guest has finished the stay. Awaiting final payment / deposit return.",
+  Completed: "Booking is fully complete — all payments settled, deposit handled.",
+  Cancelled: "Booking was cancelled before check-in.",
+  Rejected: "CSR rejected the booking. Guest will be refunded if applicable.",
+  Declined: "CSR declined the booking request.",
+};
+
+const formatStatus = (raw?: string | null) => {
+  const s = (raw ?? "").toLowerCase().trim();
+  if (!s) return "Pending";
+  // Title-case each hyphen-separated word: "checked-in" -> "Checked-in"
+  return s
+    .split("-")
+    .map((part, i) => (i === 0 ? part.charAt(0).toUpperCase() + part.slice(1) : part))
+    .join("-");
 };
 
 interface AnalyticsPageProps {
@@ -50,7 +80,7 @@ export default function AnalyticsPage({ onNavigate }: AnalyticsPageProps) {
       commission: Number(b.commission),
       fee: Number(b.fee),
       net: Number(b.net),
-      status: b.status === "completed" ? "Completed" : b.status === "approved" || b.status === "confirmed" || b.status === "checked-in" ? "Confirmed" : b.status === "cancelled" || b.status === "rejected" ? "Cancelled" : "Confirmed",
+      status: formatStatus(b.status),
     }));
   }, [bookings]);
 
@@ -313,6 +343,27 @@ export default function AnalyticsPage({ onNavigate }: AnalyticsPageProps) {
             <ChevronRight className={`w-3 h-3 transition-transform ${showAll ? "rotate-90" : ""}`} />
           </button>
         </div>
+
+        {/* Status legend */}
+        <details className="px-[22px] pb-3 group">
+          <summary className="text-[12px] font-medium text-[#6B7280] cursor-pointer hover:text-[#374151] inline-flex items-center gap-1 select-none">
+            <ChevronRight className="w-3 h-3 transition-transform group-open:rotate-90" />
+            What do these statuses mean?
+          </summary>
+          <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            {Object.entries(STATUS_MEANING).map(([label, meaning]) => (
+              <div key={label} className="flex items-start gap-2 text-[11.5px]">
+                <span
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-semibold flex-shrink-0 mt-0.5 ${STATUS_MAP[label] ?? "bg-[#f1f5f9] text-[#475569]"}`}
+                >
+                  <span className="w-1 h-1 rounded-full bg-current opacity-90" />
+                  {label}
+                </span>
+                <span className="text-[#6B7280]">{meaning}</span>
+              </div>
+            ))}
+          </div>
+        </details>
         <div className="overflow-x-auto">
           <table className="w-full text-[13px] border-collapse">
             <thead>
@@ -373,7 +424,8 @@ export default function AnalyticsPage({ onNavigate }: AnalyticsPageProps) {
                   </td>
                   <td className="px-3.5 py-3.5 border-b border-[#e5e7eb]">
                     <span
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11.5px] font-semibold ${STATUS_MAP[b.status]}`}
+                      title={STATUS_MEANING[b.status] ?? "Status from CSR"}
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11.5px] font-semibold cursor-help ${STATUS_MAP[b.status] ?? "bg-[#f1f5f9] text-[#475569]"}`}
                     >
                       <span className="w-1.5 h-1.5 rounded-full bg-current opacity-90" />
                       {b.status}

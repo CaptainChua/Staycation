@@ -27,6 +27,16 @@ const PROGRESS_WIDTH_CLASSES: Record<number, string> = {
 
 const fontFraunces = "font-[var(--font-fraunces),Georgia,serif]";
 const peso = (n: number) => "₱" + (n || 0).toLocaleString("en-PH");
+// Variant that preserves decimals — used in the worked-example receipt so small
+// rates (e.g. ₱1) don't make every deduction round to ₱0.
+const pesoExact = (n: number) => {
+  const v = n || 0;
+  const hasDecimals = Math.abs(v - Math.round(v)) > 0.005;
+  return "₱" + v.toLocaleString("en-PH", {
+    minimumFractionDigits: hasDecimals ? 2 : 0,
+    maximumFractionDigits: 2,
+  });
+};
 
 const FAQS = [
   {
@@ -80,21 +90,21 @@ export default function CostBreakdownPage({ onNavigate }: CostBreakdownPageProps
   const tierProgressBucket = Math.round(tierProgressPct / 5) * 5;
   const tierProgressWidth = PROGRESS_WIDTH_CLASSES[tierProgressBucket] || PROGRESS_WIDTH_CLASSES[0];
 
-  // Worked example — use the partner's first listing's weekday rate so the
-  // illustration matches what they actually earn. Fall back to a typical rate
-  // if the partner has no listings yet.
+  // Worked example — uses the partner's real first listing. No fallback.
+  // Numbers reflect their actual rate, even if low — accurate over polished.
   const firstListing = listings[0];
-  const exampleRoomName = firstListing?.haven_name || "Hilltop Deluxe Suite";
   const rate =
     Number(firstListing?.weekday_rate) ||
     Number(firstListing?.weekend_rate) ||
     Number(firstListing?.ten_hour_rate) ||
-    4800;
+    0;
+  const exampleRoomName = firstListing?.haven_name || "—";
   const nights = 2;
   const gross = rate * nights;
-  const commission = Math.round(gross * commissionRate);
-  const processing = Math.round(gross * processingRate);
-  const net = gross - commission - processing;
+  // Keep two decimals so small rates (e.g. ₱1) don't show all-zero deductions.
+  const commission = +(gross * commissionRate).toFixed(2);
+  const processing = +(gross * processingRate).toFixed(2);
+  const net = +(gross - commission - processing).toFixed(2);
 
   const pendingAmount = Number(payoutData?.pending_amount) || 0;
   const nextPayoutDate = payoutData?.next_payout_date
@@ -235,13 +245,13 @@ export default function CostBreakdownPage({ onNavigate }: CostBreakdownPageProps
                 {exampleRoomName} · J**** R**** · May 14–16, 2026
               </div>
 
-              <ReceiptLine label="Room rate × nights" sub={`${peso(rate)} × ${nights}`} value={peso(gross)} />
-              <ReceiptLine label="Gross booking amount" value={peso(gross)} bold />
+              <ReceiptLine label="Room rate × nights" sub={`${pesoExact(rate)} × ${nights}`} value={pesoExact(gross)} />
+              <ReceiptLine label="Gross booking amount" value={pesoExact(gross)} bold />
               <Divider />
-              <ReceiptLine label="Platform service fee" sub={`${(commissionRate * 100).toFixed(0)}% commission`} value={`− ${peso(commission)}`} deduct />
-              <ReceiptLine label="Payment processing" sub={`${(processingRate * 100).toFixed(0)}% (cards / e-wallet)`} value={`− ${peso(processing)}`} deduct />
+              <ReceiptLine label="Platform service fee" sub={`${(commissionRate * 100).toFixed(0)}% commission`} value={`− ${pesoExact(commission)}`} deduct />
+              <ReceiptLine label="Payment processing" sub={`${(processingRate * 100).toFixed(0)}% (cards / e-wallet)`} value={`− ${pesoExact(processing)}`} deduct />
               <Divider />
-              <ReceiptLine label="Net payout to you" value={peso(net)} bold accent />
+              <ReceiptLine label="Net payout to you" value={pesoExact(net)} bold accent />
             </div>
           </div>
 
