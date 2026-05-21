@@ -813,6 +813,22 @@ export const createBooking = async (
     try {
       const booking = completeResult.rows[0];
 
+      // Fetch rentable items for this haven (by room name)
+      let rentableItems: { name: string; icon: string; price_per_night: number }[] = [];
+      try {
+        const rentableRes = await pool.query(
+          `SELECT ri.name, ri.icon, ri.price_per_night
+           FROM haven_rentable_items ri
+           INNER JOIN havens h ON h.uuid_id = ri.haven_id
+           WHERE h.haven_name = $1 AND ri.is_active = true
+           ORDER BY ri.id ASC`,
+          [booking.room_name],
+        );
+        rentableItems = rentableRes.rows;
+      } catch (rentErr) {
+        console.error("⚠️ Could not fetch rentable items for pamphlet:", rentErr);
+      }
+
       const emailData = {
         firstName: booking.first_name,
         lastName: booking.last_name,
@@ -828,6 +844,7 @@ export const createBooking = async (
         paymentMethod: booking.booking_payment?.payment_method,
         downPayment: booking.booking_payment?.down_payment,
         totalAmount: booking.booking_payment?.total_amount,
+        rentableItems,
       };
 
       const emailResponse = await fetch(
@@ -1296,7 +1313,22 @@ export const updateBookingStatus = async (
       try {
         const booking = bookingDetailsResult.rows[0];
 
-        // Prepare email data
+        // Fetch rentable items for the pamphlet
+        let rentableItems: { name: string; icon: string; price_per_night: number }[] = [];
+        try {
+          const rentableRes = await pool.query(
+            `SELECT ri.name, ri.icon, ri.price_per_night
+             FROM haven_rentable_items ri
+             INNER JOIN havens h ON h.uuid_id = ri.haven_id
+             WHERE h.haven_name = $1 AND ri.is_active = true
+             ORDER BY ri.id ASC`,
+            [booking.room_name],
+          );
+          rentableItems = rentableRes.rows;
+        } catch (rentErr) {
+          console.error("⚠️ Could not fetch rentable items for pamphlet:", rentErr);
+        }
+
         const emailData = {
           firstName: booking.first_name,
           lastName: booking.last_name,
@@ -1311,6 +1343,7 @@ export const updateBookingStatus = async (
           paymentMethod: booking.payment_method,
           downPayment: booking.down_payment,
           totalAmount: booking.total_amount,
+          rentableItems,
         };
 
         // Send email via API route

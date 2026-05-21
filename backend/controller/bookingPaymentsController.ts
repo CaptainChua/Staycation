@@ -702,6 +702,22 @@ export const updateBookingPayment = async (
         if (bookingDetailsResult.rows.length > 0) {
           const booking = bookingDetailsResult.rows[0];
 
+          // Fetch rentable items for the pamphlet
+          let rentableItems: { name: string; icon: string; price_per_night: number }[] = [];
+          try {
+            const rentableRes = await pool.query(
+              `SELECT ri.name, ri.icon, ri.price_per_night
+               FROM haven_rentable_items ri
+               INNER JOIN havens h ON h.uuid_id = ri.haven_id
+               WHERE h.haven_name = $1 AND ri.is_active = true
+               ORDER BY ri.id ASC`,
+              [booking.room_name],
+            );
+            rentableItems = rentableRes.rows;
+          } catch (rentErr) {
+            console.error("⚠️ Could not fetch rentable items for pamphlet:", rentErr);
+          }
+
           const emailData = {
             firstName: booking.first_name,
             lastName: booking.last_name,
@@ -721,6 +737,7 @@ export const updateBookingPayment = async (
               booking.payment_method || updatedPayment.payment_method,
             downPayment: booking.down_payment ?? updatedPayment.down_payment,
             totalAmount: booking.total_amount || updatedPayment.total_amount,
+            rentableItems,
           };
 
           // Fire-and-forget email
