@@ -213,11 +213,12 @@ export default function AddItem({ onClose, onAdd }: AddItemProps) {
                 <input
                   type="number"
                   min={0}
-                  value={form.current_stock}
+                  value={form.current_stock === 0 ? "" : form.current_stock}
+                  placeholder="0"
                   onChange={(e) =>
                     setForm((p) => ({
                       ...p,
-                      current_stock: Number(e.target.value),
+                      current_stock: e.target.value === "" ? 0 : Number(e.target.value),
                     }))
                   }
                   disabled={isSaving}
@@ -232,11 +233,12 @@ export default function AddItem({ onClose, onAdd }: AddItemProps) {
                 <input
                   type="number"
                   min={0}
-                  value={form.minimum_stock}
+                  value={form.minimum_stock === 0 ? "" : form.minimum_stock}
+                  placeholder="0"
                   onChange={(e) =>
                     setForm((p) => ({
                       ...p,
-                      minimum_stock: Number(e.target.value),
+                      minimum_stock: e.target.value === "" ? 0 : Number(e.target.value),
                     }))
                   }
                   disabled={isSaving}
@@ -267,11 +269,11 @@ export default function AddItem({ onClose, onAdd }: AddItemProps) {
                   type="number"
                   step={0.01}
                   min={0}
-                  value={form.price_per_unit}
+                  value={form.price_per_unit === 0 ? "" : form.price_per_unit}
                   onChange={(e) =>
                     setForm((p) => ({
                       ...p,
-                      price_per_unit: Number(e.target.value),
+                      price_per_unit: e.target.value === "" ? 0 : Number(e.target.value),
                     }))
                   }
                   disabled={isSaving}
@@ -283,16 +285,24 @@ export default function AddItem({ onClose, onAdd }: AddItemProps) {
               <div className="md:col-span-2">
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                   Status
+                  <span className="ml-2 text-[10px] font-normal uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                    auto
+                  </span>
                 </label>
                 <select
                   value={derivedStatus}
                   disabled
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                  aria-label="Status (auto-computed from current stock)"
+                  title="Auto-computed from Current Stock"
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-xl cursor-not-allowed opacity-90"
                 >
                   <option value="In Stock">In Stock</option>
                   <option value="Low Stock">Low Stock</option>
                   <option value="Out of Stock">Out of Stock</option>
                 </select>
+                <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                  Auto-set from Current Stock: 0 = Out of Stock · 1–10 = Low Stock · 11+ = In Stock.
+                </p>
               </div>
             </div>
           </form>

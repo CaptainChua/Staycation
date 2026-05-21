@@ -343,7 +343,40 @@ export async function updateDepositStatusByBookingId(
 
     const dbStatus = statusMap[newStatus] || newStatus.toLowerCase();
     const now = new Date();
-    const finalAmount = (amountReceived && amountReceived > 0) ? amountReceived : DEFAULT_SECURITY_DEPOSIT_AMOUNT;
+    const reportedAmount = (amountReceived && amountReceived > 0) ? amountReceived : DEFAULT_SECURITY_DEPOSIT_AMOUNT;
+
+    // When the cleaner / CSR collects, the reported amount is balance + deposit.
+    // Split it: deposit_portion goes to booking_security_deposits.amount,
+    //          balance_portion gets recorded on booking_payments so the
+    //          remaining balance is settled when the collection is approved.
+    let depositPortion = reportedAmount;
+    let balancePortion = 0;
+    if (dbStatus === 'held' || dbStatus === 'pending_verification') {
+      const ctxResult = await client.query(
+        `SELECT
+           COALESCE((SELECT amount FROM booking_security_deposits WHERE booking_id = $1 LIMIT 1), 0)::numeric AS existing_deposit_amount,
+           COALESCE((SELECT total_amount FROM booking_payments WHERE booking_id = $1 LIMIT 1), 0)::numeric AS total_amount,
+           COALESCE((SELECT amount_paid  FROM booking_payments WHERE booking_id = $1 LIMIT 1), 0)::numeric AS amount_paid
+         `,
+        [bookingId]
+      );
+      const ctx = ctxResult.rows[0] || {};
+      const existingDeposit = Number(ctx.existing_deposit_amount) || 0;
+      const totalAmt = Number(ctx.total_amount) || 0;
+      const amountPaid = Number(ctx.amount_paid) || 0;
+      const outstandingBalance = Math.max(0, totalAmt - amountPaid);
+
+      // The deposit row stores the expected deposit amount (room policy), not the
+      // combined collection. Prefer the existing amount if present, otherwise fall
+      // back to the default.
+      depositPortion = existingDeposit > 0 ? existingDeposit : DEFAULT_SECURITY_DEPOSIT_AMOUNT;
+      // Anything reported beyond the deposit covers the remaining balance,
+      // capped at the actual outstanding amount.
+      balancePortion = Math.min(
+        Math.max(0, reportedAmount - depositPortion),
+        outstandingBalance
+      );
+    }
 
     if (dbStatus === 'held' || dbStatus === 'pending_verification') {
       await client.query(
@@ -351,8 +384,26 @@ export async function updateDepositStatusByBookingId(
          SET deposit_status = $2, held_at = $3, processed_by = $4, notes = COALESCE($5, notes),
              amount = $6, payment_method = COALESCE($7, payment_method)
          WHERE booking_id = $1`,
-        [bookingId, dbStatus, now, employeeId, notes, finalAmount, paymentMethod ?? null]
+        [bookingId, dbStatus, now, employeeId, notes, depositPortion, paymentMethod ?? null]
       );
+
+      // Settle the remaining balance on booking_payments. For CSR direct collection
+      // ('held'), we mark it approved immediately. For cleaner submissions
+      // ('pending_verification'), we wait for CSR to confirm in verifyCleanerCollection.
+      if (balancePortion > 0 && dbStatus === 'held') {
+        await client.query(
+          `UPDATE booking_payments
+             SET amount_paid = LEAST(total_amount, amount_paid + $2::numeric),
+                 payment_status = CASE
+                   WHEN amount_paid + $2::numeric >= total_amount THEN 'approved_full_payment'
+                   ELSE payment_status
+                 END,
+                 reviewed_at = NOW(),
+                 reviewed_by = COALESCE($3, reviewed_by)
+           WHERE booking_id = $1`,
+          [bookingId, balancePortion, employeeId ?? null]
+        );
+      }
     } else {
       await client.query(
         `UPDATE booking_security_deposits
@@ -440,10 +491,12 @@ export async function updateDepositStatusByBookingId(
 export async function verifyCleanerCollection(
   bookingId: string,
   action: 'confirm' | 'reject',
-  employeeId?: string
+  employeeId?: string,
+  rejectionReason?: string
 ): Promise<void> {
   const client = await pool.connect();
   try {
+    await client.query('BEGIN');
     const newDbStatus = action === 'confirm' ? 'held' : 'pending';
     const now = new Date();
 
@@ -454,14 +507,33 @@ export async function verifyCleanerCollection(
          WHERE booking_id = $1`,
         [bookingId, newDbStatus, now, employeeId]
       );
+
+      // Settle the remaining balance: the cleaner already collected it from the
+      // guest. Mark amount_paid = total_amount so the booking is fully paid and
+      // payment_status flips to 'approved_full_payment'.
+      await client.query(
+        `UPDATE booking_payments
+           SET amount_paid = total_amount,
+               payment_status = 'approved_full_payment',
+               reviewed_at = NOW(),
+               reviewed_by = COALESCE($2, reviewed_by)
+         WHERE booking_id = $1`,
+        [bookingId, employeeId ?? null]
+      );
     } else {
+      // Reject — store rejection reason in notes so the cleaner can see why.
+      const reasonText = rejectionReason?.trim()
+        ? `Rejected by CSR: ${rejectionReason.trim()}`
+        : 'Rejected by CSR';
       await client.query(
         `UPDATE booking_security_deposits
-         SET deposit_status = $2, processed_by = $3, held_at = NULL
+         SET deposit_status = $2, processed_by = $3, held_at = NULL,
+             notes = $4
          WHERE booking_id = $1`,
-        [bookingId, newDbStatus, employeeId]
+        [bookingId, newDbStatus, employeeId, reasonText]
       );
     }
+    await client.query('COMMIT');
 
     // Log activity
     try {
@@ -503,7 +575,7 @@ export async function verifyCleanerCollection(
         title: action === 'confirm' ? 'Collection Verified' : 'Collection Rejected',
         message: action === 'confirm'
           ? `Your payment collection for ${guestName} (Booking: ${shortBookingId}) has been verified and confirmed.`
-          : `Your payment collection for ${guestName} (Booking: ${shortBookingId}) was rejected. Please follow up with the guest.`,
+          : `Your payment collection for ${guestName} (Booking: ${shortBookingId}) was rejected.${rejectionReason?.trim() ? ` Reason: ${rejectionReason.trim()}` : ''} Please follow up with the guest.`,
         notificationType: 'Payment'
       });
     } catch (notifError) {
@@ -511,6 +583,7 @@ export async function verifyCleanerCollection(
     }
 
   } catch (error) {
+    try { await client.query('ROLLBACK'); } catch {}
     console.error("Error verifying cleaner collection:", error);
     throw new Error("Failed to verify collection");
   } finally {

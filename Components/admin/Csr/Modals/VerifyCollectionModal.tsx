@@ -29,6 +29,9 @@ interface Props {
 export default function VerifyCollectionModal({ booking, employeeId, onClose, onDone }: Props) {
   const [isConfirming, setIsConfirming] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
+  const [showRejectForm, setShowRejectForm] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [rejectionError, setRejectionError] = useState("");
 
   const deposit = Number(booking.security_deposit) > 0 ? Number(booking.security_deposit) : 1000;
   const balance = Number(booking.remaining_balance) > 0 ? Number(booking.remaining_balance) : 0;
@@ -41,21 +44,39 @@ export default function VerifyCollectionModal({ booking, employeeId, onClose, on
   const proofUrl = booking.security_deposit_payment_proof_url;
   const notes = booking.security_deposit_notes;
 
-  const handle = async (action: "confirm" | "reject") => {
-    const setter = action === "confirm" ? setIsConfirming : setIsRejecting;
-    setter(true);
+  const handleConfirm = async () => {
+    setIsConfirming(true);
     try {
-      await verifyCleanerCollection(booking.id, action, employeeId);
-      toast.success(
-        action === "confirm"
-          ? "Collection confirmed — deposit marked as paid."
-          : "Collection rejected — deposit reset to pending."
-      );
+      await verifyCleanerCollection(booking.id, "confirm", employeeId);
+      toast.success("Collection confirmed — deposit marked as paid.");
       onDone();
     } catch {
       toast.error("Failed to process verification. Please try again.");
     } finally {
-      setter(false);
+      setIsConfirming(false);
+    }
+  };
+
+  const handleReject = async () => {
+    const reason = rejectionReason.trim();
+    if (!reason) {
+      setRejectionError("Please enter a reason for rejecting this collection.");
+      return;
+    }
+    if (reason.length < 5) {
+      setRejectionError("Please provide a more detailed reason (at least 5 characters).");
+      return;
+    }
+    setRejectionError("");
+    setIsRejecting(true);
+    try {
+      await verifyCleanerCollection(booking.id, "reject", employeeId, reason);
+      toast.success("Collection rejected — deposit reset to pending.");
+      onDone();
+    } catch {
+      toast.error("Failed to process verification. Please try again.");
+    } finally {
+      setIsRejecting(false);
     }
   };
 
@@ -171,25 +192,78 @@ export default function VerifyCollectionModal({ booking, employeeId, onClose, on
         </div>
 
         {/* Actions */}
-        <div className="flex gap-3 p-5 border-t border-gray-200 dark:border-gray-700 flex-shrink-0">
-          <button
-            type="button"
-            onClick={() => handle("reject")}
-            disabled={busy}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white rounded-xl font-semibold transition-colors"
-          >
-            {isRejecting ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldX className="w-4 h-4" />}
-            Reject
-          </button>
-          <button
-            type="button"
-            onClick={() => handle("confirm")}
-            disabled={busy}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white rounded-xl font-semibold transition-colors"
-          >
-            {isConfirming ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
-            Confirm
-          </button>
+        <div className="p-5 border-t border-gray-200 dark:border-gray-700 flex-shrink-0 space-y-3">
+          {showRejectForm && (
+            <div className="space-y-2 p-3 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/40 rounded-xl">
+              <label htmlFor="rejection-reason" className="text-xs font-semibold text-red-700 dark:text-red-300 block">
+                Reason for rejection <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                id="rejection-reason"
+                value={rejectionReason}
+                onChange={(e) => { setRejectionReason(e.target.value); if (rejectionError) setRejectionError(""); }}
+                rows={3}
+                disabled={busy}
+                placeholder="e.g. Amount doesn't match the proof, proof image unclear, payment method incorrect..."
+                aria-label="Reason for rejection"
+                className="w-full px-3 py-2 text-sm text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 border border-red-300 dark:border-red-700 rounded-lg outline-none focus:ring-2 focus:ring-red-400 resize-none disabled:opacity-50"
+              />
+              {rejectionError && (
+                <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
+                  <AlertTriangle className="w-3 h-3 flex-shrink-0" />
+                  {rejectionError}
+                </p>
+              )}
+              <p className="text-[11px] text-gray-500 dark:text-gray-400 italic">
+                The cleaner will see this reason and follow up with the guest.
+              </p>
+            </div>
+          )}
+
+          <div className="flex gap-3">
+            {showRejectForm ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => { setShowRejectForm(false); setRejectionError(""); }}
+                  disabled={busy}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 text-gray-800 dark:text-gray-100 rounded-xl font-semibold transition-colors"
+                >
+                  Back
+                </button>
+                <button
+                  type="button"
+                  onClick={handleReject}
+                  disabled={busy}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white rounded-xl font-semibold transition-colors"
+                >
+                  {isRejecting ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldX className="w-4 h-4" />}
+                  Confirm Rejection
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setShowRejectForm(true)}
+                  disabled={busy}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white rounded-xl font-semibold transition-colors"
+                >
+                  <ShieldX className="w-4 h-4" />
+                  Reject
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirm}
+                  disabled={busy}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white rounded-xl font-semibold transition-colors"
+                >
+                  {isConfirming ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+                  Confirm
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>,

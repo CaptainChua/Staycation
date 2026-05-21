@@ -171,7 +171,13 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning,
   const { data: session } = useSession();
   const userId = (session?.user as any)?.id;
 
-  const { data: allTasks = [], isLoading } = useGetCleaningTasksQuery(undefined);
+  const { data: allTasks = [], isLoading } = useGetCleaningTasksQuery(undefined, {
+    // Pick up newly assigned tasks without requiring a full page refresh.
+    pollingInterval: 30000,
+    skipPollingIfUnfocused: true,
+    refetchOnFocus: true,
+    refetchOnReconnect: true,
+  });
 
   const assignments = useMemo(() => {
     if (!userId) return [];
@@ -679,30 +685,26 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning,
                     {dayAbbr}
                   </div>
 
-                  {/* Task indicators */}
+                  {/* Task indicators — clean but visible: bright dot + readable label */}
                   {showTaskBadges && !isSelected && !isToday && (
-                    <div className="flex flex-col items-center gap-0.5 mt-0.5">
+                    <div className="flex flex-col items-center gap-1 mt-1.5">
                       {/* Mobile: small colored dots only */}
-                      <div className="flex items-center gap-0.5 sm:hidden">
-                        {depositCount > 0 && <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: "#4338ca" }} />}
-                        {cleanCount > 0 && <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: "#15803d" }} />}
+                      <div className="flex items-center gap-1 sm:hidden">
+                        {depositCount > 0 && <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: "#fbbf24" }} />}
+                        {cleanCount > 0 && <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: "#4ade80" }} />}
                       </div>
-                      {/* Desktop: full pill labels */}
-                      <div className="hidden sm:flex flex-col items-center gap-0.5">
+                      {/* Desktop: bright dot + bold readable label */}
+                      <div className="hidden sm:flex flex-col items-center gap-1">
                         {depositCount > 0 && (
-                          <div
-                            className="flex items-center gap-0.5 leading-none px-1 py-0.5 rounded-md shadow-sm whitespace-nowrap"
-                            style={{ backgroundColor: "#e0e7ff", color: "#4338ca" }}
-                          >
-                            <span className="text-[9px] font-black leading-none">💰 {t.calDepositLabel}</span>
+                          <div className="flex items-center gap-1 leading-none whitespace-nowrap">
+                            <span className="w-2 h-2 rounded-full flex-shrink-0 shadow-sm" style={{ backgroundColor: "#fbbf24" }} />
+                            <span className="text-[11px] font-bold tracking-tight" style={{ color: "#fcd34d" }}>{t.calDepositLabel}</span>
                           </div>
                         )}
                         {cleanCount > 0 && (
-                          <div
-                            className="flex items-center gap-0.5 leading-none px-1 py-0.5 rounded-md shadow-sm whitespace-nowrap"
-                            style={{ backgroundColor: "#dcfce7", color: "#15803d" }}
-                          >
-                            <span className="text-[9px] font-black leading-none">🧹 {t.calCleanLabel}</span>
+                          <div className="flex items-center gap-1 leading-none whitespace-nowrap">
+                            <span className="w-2 h-2 rounded-full flex-shrink-0 shadow-sm" style={{ backgroundColor: "#4ade80" }} />
+                            <span className="text-[11px] font-bold tracking-tight" style={{ color: "#86efac" }}>{t.calCleanLabel}</span>
                           </div>
                         )}
                       </div>
@@ -778,9 +780,13 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning,
 
                 // ── Check-in day: show deposit collection card ──────────────
                 if (isCheckinDay && !isCheckoutDay) {
+                  // 'pending_verification' = cleaner submitted, awaiting CSR review.
+                  // 'held' / 'paid' = CSR confirmed. All three mean "already collected"
+                  // from the cleaner's perspective, so the Collect button must hide.
                   const depositCollected =
                     a.deposit_status === "held" ||
                     a.deposit_status === "paid" ||
+                    a.deposit_status === "pending_verification" ||
                     collectedDeposits.has(a.cleaning_id);
                   const secDepAmt = Number(a.security_deposit) > 0 ? Number(a.security_deposit) : 1000;
                   const remBalAmt = Number(a.remaining_balance) > 0 ? Number(a.remaining_balance) : 0;
