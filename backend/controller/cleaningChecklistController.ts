@@ -137,17 +137,23 @@ export const getChecklistByHaven = async (
 
     // Build query scoped to this booking when booking_id is provided,
     // otherwise fall back to the old haven-only lookup for direct tab navigation.
+    // Include completed checklists so a completed checklist is returned rather
+    // than creating a blank new one when all tasks have been checked off.
+    // Prefer in-progress checklists over completed ones so active work is shown first.
     const checklistWhere = bookingId
-      ? `WHERE haven_id = $1 AND booking_id = $2::uuid AND status != 'completed'`
-      : `WHERE haven_id = $1 AND status != 'completed'`;
+      ? `WHERE haven_id = $1 AND booking_id = $2::uuid`
+      : `WHERE haven_id = $1`;
     const checklistQueryParams: string[] = bookingId ? [havenId, bookingId] : [havenId];
 
-    // Try to get the most recent checklist for this haven/booking that is not yet completed.
+    // Prefer an active (non-completed) checklist; fall back to the most recent
+    // completed one so the page shows the right state instead of creating a new blank checklist.
     const checklistResult = await pool.query(
       `SELECT id, haven_id, booking_id, status, completed_at, created_at, updated_at
        FROM cleaning_checklists
        ${checklistWhere}
-       ORDER BY created_at DESC
+       ORDER BY
+         CASE WHEN status != 'completed' THEN 0 ELSE 1 END ASC,
+         created_at DESC
        LIMIT 1`,
       checklistQueryParams,
     );
@@ -192,12 +198,14 @@ export const getChecklistByHaven = async (
         havenId,
       ]);
 
-      // Re-check if a non-completed checklist was created while we waited for the lock
+      // Re-check if a checklist was created while we waited for the lock
       const recheckRes = await client.query(
         `SELECT id, haven_id, booking_id, status, completed_at, created_at, updated_at
          FROM cleaning_checklists
          ${checklistWhere}
-         ORDER BY created_at DESC
+         ORDER BY
+           CASE WHEN status != 'completed' THEN 0 ELSE 1 END ASC,
+           created_at DESC
          LIMIT 1`,
         checklistQueryParams,
       );
@@ -299,7 +307,9 @@ export const getChecklistByHaven = async (
             `SELECT id, haven_id, booking_id, status, completed_at, created_at, updated_at
              FROM cleaning_checklists
              ${checklistWhere}
-             ORDER BY created_at DESC
+             ORDER BY
+               CASE WHEN status != 'completed' THEN 0 ELSE 1 END ASC,
+               created_at DESC
              LIMIT 1`,
             checklistQueryParams,
           );
@@ -781,7 +791,7 @@ export const submitChecklist = async (
 ): Promise<NextResponse> => {
   try {
     const body = await req.json();
-    const { checklist_id } = body || {};
+    const { checklist_id, role } = body || {};
 
     if (!checklist_id) {
       return NextResponse.json(
@@ -790,30 +800,47 @@ export const submitChecklist = async (
       );
     }
 
-    // Check for incomplete tasks
-    const incompleteCountRes = await pool.query(
-      `SELECT COUNT(*)::int AS incomplete_count
-       FROM cleaning_tasks
-       WHERE checklist_id = $1
-       AND completed = false`,
+    const isPrivilegedRole = role === "csr" || role === "admin";
+
+    if (!isPrivilegedRole) {
+      // For cleaners, only the General-category tasks count toward the submit
+      // gate. Non-General categories (Bedroom, Bathroom, etc.) use photo proof
+      // instead of individual task checkboxes, so those task rows may still be
+      // false in the DB. Only block if General tasks are incomplete.
+      const incompleteCountRes = await pool.query(
+        `SELECT COUNT(*)::int AS incomplete_count
+         FROM cleaning_tasks
+         WHERE checklist_id = $1
+         AND category = 'General'
+         AND completed = false`,
+        [checklist_id],
+      );
+
+      const incompleteCount = parseInt(
+        incompleteCountRes.rows[0]?.incomplete_count || "0",
+        10,
+      );
+
+      if (incompleteCount > 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Cannot submit: there are incomplete tasks",
+            incompleteCount,
+          },
+          { status: 400 },
+        );
+      }
+    }
+
+    // Force-complete all tasks before finalising so the DB is consistent
+    // regardless of whether non-General categories had task rows still false.
+    await pool.query(
+      `UPDATE cleaning_tasks
+       SET completed = true, updated_at = timezone('Asia/Manila', NOW())
+       WHERE checklist_id = $1 AND completed = false`,
       [checklist_id],
     );
-
-    const incompleteCount = parseInt(
-      incompleteCountRes.rows[0]?.incomplete_count || "0",
-      10,
-    );
-
-    if (incompleteCount > 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Cannot submit: there are incomplete tasks",
-          incompleteCount,
-        },
-        { status: 400 },
-      );
-    }
 
     // Mark checklist as completed
     const updateRes = await pool.query(
