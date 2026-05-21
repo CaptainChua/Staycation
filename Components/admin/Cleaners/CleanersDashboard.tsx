@@ -350,6 +350,11 @@ useEffect(() => {
             initialHavenId={checklistHavenId}
             initialBookingId={checklistBookingId}
             lang={lang}
+            onComplete={() => {
+              setChecklistHavenId(null);
+              setChecklistBookingId(null);
+              setPage("my-schedule");
+            }}
           />
         );
       default:
