@@ -1,9 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
+import { generatePamphletPDF, type RentableItem } from '@/backend/utils/pdfGenerators';
 
 export async function POST(request: NextRequest) {
   try {
     const bookingData = await request.json();
+    const rentableItems: RentableItem[] = bookingData.rentableItems || [];
+
+    // Generate pamphlet PDF with the room's rentable items
+    const pamphletBuffer = await generatePamphletPDF({
+      guestName: `${bookingData.firstName} ${bookingData.lastName || ''}`.trim(),
+      roomName: bookingData.roomName || '',
+      checkInDate: bookingData.checkInDate || '',
+      checkOutDate: bookingData.checkOutDate || '',
+      bookingId: bookingData.bookingId || '',
+      rentableItems,
+    });
 
     // Create transporter with your Gmail credentials
     const transporter = nodemailer.createTransport({
@@ -415,13 +427,26 @@ export async function POST(request: NextRequest) {
               </div>
             </div>
 
-            <!-- Important Information -->
+            <!-- Pamphlet notice -->
             <div class="alert-box">
               <div class="alert-title">
+                <i class="fas fa-file-pdf"></i>
+                <span>Pamphlet Attached</span>
+              </div>
+              <ul>
+                <li>A rentable items guide for your room is attached to this email</li>
+                <li>Browse optional add-ons you can request during your stay</li>
+                <li>Contact the front desk to arrange any items you'd like</li>
+              </ul>
+            </div>
+
+            <!-- Important Information -->
+            <div class="alert-box" style="background-color:#FFFFFF;border-color:#F2EBD9;border-left-color:#B8860B;">
+              <div class="alert-title" style="color:#8B6508;">
                 <i class="fas fa-exclamation-triangle"></i>
                 <span>Important Reminders</span>
               </div>
-              <ul>
+              <ul style="color:#5D4037;">
                 <li>Please bring a valid government-issued ID during check-in</li>
                 <li>Check-in time starts at ${bookingData.checkInTime}</li>
                 <li>Early check-in is subject to room availability</li>
@@ -472,12 +497,18 @@ export async function POST(request: NextRequest) {
       </html>
     `;
 
-    // Send email
     const mailOptions = {
       from: `"Staycation Haven" <${process.env.EMAIL_USER}>`,
       to: bookingData.email,
       subject: `Booking Confirmation - ${bookingData.bookingId}`,
       html: emailHtml,
+      attachments: [
+        {
+          filename: `Staycation-Pamphlet-${bookingData.bookingId}.pdf`,
+          content: pamphletBuffer,
+          contentType: 'application/pdf',
+        },
+      ],
     };
 
     await transporter.sendMail(mailOptions);

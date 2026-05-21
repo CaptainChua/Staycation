@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import toast from "react-hot-toast";
+import { useSession } from "next-auth/react";
 import { useTranslations, type Lang } from "./translations";
 
 type Task = {
@@ -50,10 +51,15 @@ interface Props {
   /** booking_uuid from CleaningTask — scopes the checklist to this specific booking */
   initialBookingId?: string | null;
   lang?: Lang;
+  /** Called after the checklist is successfully submitted */
+  onComplete?: () => void;
 }
 
-export default function CleaningChecklistPage({ initialHavenId, initialBookingId, lang = "en" }: Props = {}) {
+export default function CleaningChecklistPage({ initialHavenId, initialBookingId, lang = "en", onComplete }: Props = {}) {
   const t = useTranslations(lang);
+  const { data: session } = useSession();
+  const userRole = (session?.user as { role?: string })?.role ?? "";
+  const isPrivilegedRole = userRole === "csr" || userRole === "admin";
   const [havens, setHavens] = useState<Haven[]>([]);
   const [selectedHavenId, setSelectedHavenId] = useState<string | null>(null);
   const [, setIsHavensLoading] = useState<boolean>(false);
@@ -652,7 +658,7 @@ export default function CleaningChecklistPage({ initialHavenId, initialBookingId
 
           <button
             type="button"
-            disabled={!checklistId}
+            disabled={!checklistId || (!isPrivilegedRole && completedTasks < totalTasks)}
             onClick={async () => {
               try {
                 const res = await fetch("/api/admin/cleaners", {
@@ -667,7 +673,8 @@ export default function CleaningChecklistPage({ initialHavenId, initialBookingId
                 if (!res.ok || !payload?.success) {
                   throw new Error(payload?.error || "Failed to submit checklist");
                 }
-                toast.success("Checklist submitted successfully");
+                toast.success("Checklist submitted successfully!");
+                onComplete?.();
               } catch (err) {
                 console.error("Submit checklist error:", err);
                 const message = err instanceof Error ? err.message : String(err);

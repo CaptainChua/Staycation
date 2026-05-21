@@ -1427,24 +1427,6 @@ export default function BookingsPage() {
                           )}
                           {['pending', 'on-going'].includes(booking.status?.toLowerCase() ?? '') && (
                             <>
-                              {booking.status?.toLowerCase() === 'pending' && (() => {
-                                const isDepositPaid = booking.deposit_status?.toLowerCase() === 'paid' || booking.deposit_status?.toLowerCase() === 'held';
-                                if (!isDepositPaid) {
-                                  return (
-                                    <button
-                                      onClick={() => {
-                                        setBookingForDepositUpdate(booking);
-                                        setIsMarkDepositPaidModalOpen(true);
-                                      }}
-                                      className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                                      title="Mark Deposit as Paid"
-                                    >
-                                      <Shield className="w-4 h-4" />
-                                    </button>
-                                  );
-                                }
-                                return null;
-                              })()}
                               <button
                                 onClick={() => handleApproveBooking(booking)}
                                 className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
@@ -1705,24 +1687,6 @@ export default function BookingsPage() {
                     )}
                     {['pending', 'on-going'].includes(booking.status?.toLowerCase() ?? '') && (
                       <>
-                        {booking.status?.toLowerCase() === 'pending' && (() => {
-                          const isDepositPaid = booking.deposit_status?.toLowerCase() === 'paid' || booking.deposit_status?.toLowerCase() === 'held';
-                          if (!isDepositPaid) {
-                            return (
-                              <button
-                                onClick={() => {
-                                  setBookingForDepositUpdate(booking);
-                                  setIsMarkDepositPaidModalOpen(true);
-                                }}
-                                className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                                title="Mark Deposit as Paid"
-                              >
-                                <Shield className="w-5 h-5" />
-                              </button>
-                            );
-                          }
-                          return null;
-                        })()}
                         <button
                           onClick={() => handleApproveBooking(booking)}
                           className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"

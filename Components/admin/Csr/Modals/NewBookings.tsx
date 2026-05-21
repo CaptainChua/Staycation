@@ -37,6 +37,7 @@ import { useCreateBookingMutation, useGetRoomBookingsQuery, useUpdateBookingStat
 import { useGetHavensQuery } from "@/redux/api/roomApi";
 import toast from "react-hot-toast";
 import Image from "next/image";
+import BookingCalendar from "./BookingCalendar";
 
 interface NewBookingModalProps {
   onClose: () => void;
@@ -273,6 +274,35 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
     selectedHaven?.uuid_id || '',
     { skip: !selectedHaven?.uuid_id }
   );
+
+  // Expand booking date ranges into a flat list of YYYY-MM-DD strings the
+  // calendar can mark as unavailable. The room-bookings API may return either
+  // a raw array or { success, data }, so normalise before iterating.
+  const unavailableDates = useMemo(() => {
+    const raw = roomBookingsData as unknown;
+    let bookings: Array<{ id?: string; check_in_date: string; check_out_date: string }> = [];
+    if (Array.isArray(raw)) {
+      bookings = raw as typeof bookings;
+    } else if (raw && typeof raw === "object" && Array.isArray((raw as { data?: unknown }).data)) {
+      bookings = (raw as { data: typeof bookings }).data;
+    }
+
+    const set = new Set<string>();
+    const editingId = initialBooking?.id;
+    for (const b of bookings) {
+      if (editingId && b.id === editingId) continue;
+      const start = new Date(b.check_in_date);
+      const end = new Date(b.check_out_date);
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) continue;
+      for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, "0");
+        const day = String(d.getDate()).padStart(2, "0");
+        set.add(`${y}-${m}-${day}`);
+      }
+    }
+    return Array.from(set);
+  }, [roomBookingsData, initialBooking?.id]);
 
   useEffect(() => {
     const rafId = requestAnimationFrame(() => {
@@ -1420,57 +1450,40 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                     )}
                   </div>
 
+                  <div ref={(el) => { errorRefs.current.checkInDate = el; errorRefs.current.checkOutDate = el; }}>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Booking Dates *
+                    </label>
+                    {selectedHaven ? (
+                      <BookingCalendar
+                        checkInDate={checkInDate}
+                        checkOutDate={checkOutDate}
+                        unavailableDates={unavailableDates}
+                        minDate={new Date().toISOString().split('T')[0]}
+                        onSelectCheckIn={(d) => {
+                          setCheckInDate(d);
+                          setErrors(prev => ({ ...prev, checkInDate: '' }));
+                        }}
+                        onSelectCheckOut={(d) => {
+                          setCheckOutDate(d);
+                          setErrors(prev => ({ ...prev, checkOutDate: '' }));
+                        }}
+                      />
+                    ) : (
+                      <div className="rounded-xl border border-dashed border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 p-6 text-center">
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          Pick a haven first to see availability.
+                        </p>
+                      </div>
+                    )}
+                    {(errors.checkInDate || errors.checkOutDate) && (
+                      <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                        <AlertCircle className="w-4 h-4" />
+                        {errors.checkInDate || errors.checkOutDate}
+                      </p>
+                    )}
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div ref={(el) => { errorRefs.current.checkInDate = el; }}>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Check-in Date *
-                      </label>
-                      <input
-                        aria-label="Check-in Date"
-                        type="date"
-                        value={checkInDate}
-                        onChange={(e) => {
-                          setCheckInDate(e.target.value);
-                          setErrors(prev => ({...prev, checkInDate: ''}));
-                        }}
-                        min={new Date().toISOString().split('T')[0]}
-                        className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
-                          errors.checkInDate ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                        }`}
-                      />
-                      {errors.checkInDate && (
-                        <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
-                          <AlertCircle className="w-4 h-4" />
-                          {errors.checkInDate}
-                        </p>
-                      )}
-                    </div>
-
-                    <div ref={(el) => { errorRefs.current.checkOutDate = el; }}>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Check-out Date *
-                      </label>
-                      <input
-                        aria-label="Check-out Date"
-                        type="date"
-                        value={checkOutDate}
-                        onChange={(e) => {
-                          setCheckOutDate(e.target.value);
-                          setErrors(prev => ({...prev, checkOutDate: ''}));
-                        }}
-                        min={checkInDate || new Date().toISOString().split('T')[0]}
-                        className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
-                          errors.checkOutDate ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                        }`}
-                      />
-                      {errors.checkOutDate && (
-                        <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
-                          <AlertCircle className="w-4 h-4" />
-                          {errors.checkOutDate}
-                        </p>
-                      )}
-                    </div>
-
                     <div ref={(el) => { errorRefs.current.checkInTime = el; }}>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Check-in Time *

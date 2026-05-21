@@ -47,9 +47,67 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const task = taskDetails.rows[0];
     const cleanerName = `${task.cleaner_first_name || 'Unknown'} ${task.cleaner_last_name || ''}`.trim();
 
+    // --- TIME CONFLICT CHECK ---
+    // Block the assignment if the cleaner already has another active task
+    // whose check-in/check-out window overlaps with this booking. Treat
+    // '00:00' checkout as end-of-day midnight (start of next day).
+    const conflictResult = await pool.query(
+      `
+      SELECT
+        b2.booking_id AS conflicting_booking_id,
+        b2.room_name  AS conflicting_haven,
+        b2.check_in_date  AS c_in_date,
+        b2.check_in_time  AS c_in_time,
+        b2.check_out_date AS c_out_date,
+        b2.check_out_time AS c_out_time
+      FROM booking_cleaning bc_existing
+      JOIN booking b_target ON b_target.id = (
+        SELECT booking_id FROM booking_cleaning WHERE id = $1::uuid LIMIT 1
+      )
+      JOIN booking b2 ON b2.id = bc_existing.booking_id
+      WHERE bc_existing.assigned_to = $2::uuid
+        AND bc_existing.id <> $1::uuid
+        AND b2.status NOT IN ('rejected', 'cancelled', 'declined')
+        AND (b2.check_in_date::DATE + COALESCE(b2.check_in_time::TIME, '00:00'::TIME)) <
+            CASE WHEN b_target.check_out_time = '00:00'
+                 THEN (b_target.check_out_date::DATE + INTERVAL '1 day')::TIMESTAMP
+                 ELSE (b_target.check_out_date::DATE + b_target.check_out_time::TIME)::TIMESTAMP
+            END
+        AND (
+            CASE WHEN b2.check_out_time = '00:00'
+                 THEN (b2.check_out_date::DATE + INTERVAL '1 day')::TIMESTAMP
+                 ELSE (b2.check_out_date::DATE + b2.check_out_time::TIME)::TIMESTAMP
+            END
+        ) > (b_target.check_in_date::DATE + COALESCE(b_target.check_in_time::TIME, '00:00'::TIME))::TIMESTAMP
+      LIMIT 1
+      `,
+      [cleaningTaskId, assigned_to]
+    );
+
+    if (conflictResult.rows.length > 0) {
+      const c = conflictResult.rows[0];
+      const fmtDate = (d: Date | string) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+      const fmtTime = (t: string | null) => {
+        if (!t) return "";
+        const [h, m] = t.substring(0, 5).split(":").map(Number);
+        const period = h >= 12 ? "PM" : "AM";
+        const hr = h % 12 || 12;
+        return ` ${hr}:${String(m).padStart(2, "0")} ${period}`;
+      };
+      const windowStr = `${fmtDate(c.c_in_date)}${fmtTime(c.c_in_time)} → ${fmtDate(c.c_out_date)}${fmtTime(c.c_out_time)}`;
+      return NextResponse.json(
+        {
+          success: false,
+          error: `${cleanerName} is already assigned to ${c.conflicting_haven} (Booking: ${c.conflicting_booking_id}) during ${windowStr}. Please pick another cleaner or reschedule.`,
+        },
+        { status: 409 }
+      );
+    }
+    // --- END CONFLICT CHECK ---
+
     // Update only the assigned_to column
     const updateQuery = `
-      UPDATE booking_cleaning 
+      UPDATE booking_cleaning
       SET assigned_to = $1, cleaning_status = 'assigned'
       WHERE id = $2::uuid
       RETURNING *

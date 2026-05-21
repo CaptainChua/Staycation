@@ -5,6 +5,8 @@ import {
   submitChecklist,
   updateTask as controllerUpdateTask,
 } from "@/backend/controller/cleaningChecklistController";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
   // Delegate to controller which reads the query params (haven_id) from the request
@@ -32,9 +34,15 @@ export async function POST(req: NextRequest) {
       case "save":
         // Expect body: { checklist_id, tasks: [{ id, completed }, ...] }
         return saveChecklistProgress(reqWithParsedBody);
-      case "submit":
-        // Expect body: { checklist_id }
-        return submitChecklist(reqWithParsedBody);
+      case "submit": {
+        // Inject the caller's role so the controller can bypass the
+        // incomplete-task check for CSR and admin users.
+        const session = await getServerSession(authOptions);
+        const sessionRole = (session?.user as { role?: string })?.role ?? "";
+        const bodyWithRole = { ...body, role: sessionRole };
+        const reqWithRole = { ...req, json: async () => bodyWithRole } as NextRequest;
+        return submitChecklist(reqWithRole);
+      }
       default:
         return NextResponse.json(
           { success: false, error: "Unknown action" },
