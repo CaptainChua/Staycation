@@ -399,8 +399,8 @@ export const createBooking = async (
       add_ons_total,
       total_amount,
       down_payment,
-      // Add-ons
-      addOns = {},
+      // Add-ons (frontend sends snake_case `add_ons`)
+      add_ons: addOns = {},
     } = body;
 
     // --- GENERAL ROOM AVAILABILITY CHECK (time-aware) ---
@@ -703,9 +703,20 @@ export const createBooking = async (
     // Note: paymentProofUrl was already uploaded earlier for calendar event
 
     // Calculate payment amounts (security deposit is handled separately during checkout)
-    const paymentTotalAmount = total_amount; // Full amount during booking (security deposit handled at checkout)
-    const paymentAmountPaid = Number(down_payment ?? 0); // initial collected amount
+    const paymentTotalAmount = Number(total_amount) || 0; // Full amount during booking
+    const requestedDownPayment = Number(down_payment) || 0;
+    // amount_paid must not exceed total_amount (booking_payments_amount_paid_check)
+    const paymentAmountPaid = Math.min(requestedDownPayment, paymentTotalAmount);
+    const paymentDownPayment = Math.min(requestedDownPayment, paymentTotalAmount);
 
+    console.log("📋 [BOOKING] Payment computed:", {
+      total_amount: paymentTotalAmount,
+      down_payment: paymentDownPayment,
+      amount_paid: paymentAmountPaid,
+    });
+
+    // Note: remaining_balance is a GENERATED column in the live DB
+    // (computed as total_amount - amount_paid). Do not include it in INSERT.
     const paymentQuery = `
       INSERT INTO booking_payments (
         booking_id, payment_method, payment_proof_url, room_rate,
@@ -721,7 +732,7 @@ export const createBooking = async (
       room_rate,
       add_ons_total,
       paymentTotalAmount,
-      down_payment,
+      paymentDownPayment,
       paymentAmountPaid,
     ];
 

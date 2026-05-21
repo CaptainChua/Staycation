@@ -333,17 +333,23 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
   // Calculate room rate
   const getRoomRateFromStayType = (): number => {
     if (!formData.stayType || !selectedHaven) return 0;
+    // Postgres DECIMAL columns come back as strings via `pg`. Coerce to number
+    // so arithmetic doesn't accidentally do string concatenation.
+    const toNum = (v: unknown, fallback: number) => {
+      const n = Number(v);
+      return Number.isFinite(n) && n > 0 ? n : fallback;
+    };
     if (formData.stayType === "10 Hours - ₱1,599") {
-      return selectedHaven.six_hour_rate || 1599;
+      return toNum(selectedHaven.six_hour_rate, 1599);
     } else if (formData.stayType.includes("weekday")) {
-      return selectedHaven.weekday_rate || 1799;
+      return toNum(selectedHaven.weekday_rate, 1799);
     } else if (formData.stayType.includes("Fri-Sat")) {
-      return selectedHaven.weekend_rate || 1999;
+      return toNum(selectedHaven.weekend_rate, 1999);
     } else if (formData.stayType === "Multi-Day Stay") {
-      const baseRate = selectedHaven.weekday_rate || 1799;
+      const baseRate = toNum(selectedHaven.weekday_rate, 1799);
       return baseRate * calculateNumberOfDays();
     }
-    return selectedHaven.ten_hour_rate || 0;
+    return toNum(selectedHaven.ten_hour_rate, 0);
   };
 
   const roomRate = getRoomRateFromStayType();

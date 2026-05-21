@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { X, ShieldCheck, ShieldX, Banknote, CreditCard, ExternalLink, AlertTriangle, Loader2 } from "lucide-react";
 import { verifyCleanerCollection } from "@/app/admin/csr/actions";
 import toast from "react-hot-toast";
@@ -60,11 +61,17 @@ export default function VerifyCollectionModal({ booking, employeeId, onClose, on
 
   const busy = isConfirming || isRejecting;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md">
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  if (!mounted || typeof window === "undefined") return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between p-5 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded-xl">
               <AlertTriangle className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
@@ -75,15 +82,18 @@ export default function VerifyCollectionModal({ booking, employeeId, onClose, on
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
             disabled={busy}
+            aria-label="Close"
+            title="Close"
             className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50"
           >
             <X className="w-5 h-5 text-gray-500" />
           </button>
         </div>
 
-        <div className="p-5 space-y-4">
+        <div className="p-5 space-y-4 overflow-y-auto flex-1">
           {/* Booking info */}
           <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 space-y-1">
             <p className="text-xs text-gray-500 dark:text-gray-400">Booking</p>
@@ -161,8 +171,9 @@ export default function VerifyCollectionModal({ booking, employeeId, onClose, on
         </div>
 
         {/* Actions */}
-        <div className="flex gap-3 p-5 border-t border-gray-200 dark:border-gray-700">
+        <div className="flex gap-3 p-5 border-t border-gray-200 dark:border-gray-700 flex-shrink-0">
           <button
+            type="button"
             onClick={() => handle("reject")}
             disabled={busy}
             className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white rounded-xl font-semibold transition-colors"
@@ -171,6 +182,7 @@ export default function VerifyCollectionModal({ booking, employeeId, onClose, on
             Reject
           </button>
           <button
+            type="button"
             onClick={() => handle("confirm")}
             disabled={busy}
             className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white rounded-xl font-semibold transition-colors"
@@ -180,6 +192,7 @@ export default function VerifyCollectionModal({ booking, employeeId, onClose, on
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
