@@ -286,6 +286,9 @@ export default function DepositPage() {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | string>("all");
+  const [selectedHaven, setSelectedHaven] = useState("all");
+  const [checkInDateFrom, setCheckInDateFrom] = useState("");
+  const [checkInDateTo, setCheckInDateTo] = useState("");
   const [filterDate, setFilterDate] = useState<"all" | "today_checkin" | "today_checkout" | "custom_range">("all");
   const [customStartDate, setCustomStartDate] = useState<string>("");
   const [customEndDate, setCustomEndDate] = useState<string>("");
@@ -336,6 +339,11 @@ export default function DepositPage() {
     fetchData();
   }, []);
 
+  const uniqueHavens = useMemo(() => {
+    const names = rows.map((r) => r.haven).filter(Boolean);
+    return [...new Set(names)].sort();
+  }, [rows]);
+
   const filteredRows = useMemo(() => {
     const term = searchTerm.toLowerCase();
     const today = new Date();
@@ -351,6 +359,26 @@ export default function DepositPage() {
         row.haven.toLowerCase().includes(term);
 
       const matchesFilter = filterStatus === "all" || row.status === filterStatus;
+
+      const matchesHaven = selectedHaven === "all" || (row.haven || "") === selectedHaven;
+
+      let matchesCheckIn = true;
+      if (checkInDateFrom || checkInDateTo) {
+        const checkIn = row.checkin_date_raw ? new Date(row.checkin_date_raw) : null;
+        if (checkIn) {
+          checkIn.setHours(0, 0, 0, 0);
+          if (checkInDateFrom) {
+            const from = new Date(checkInDateFrom); from.setHours(0, 0, 0, 0);
+            if (checkIn < from) matchesCheckIn = false;
+          }
+          if (checkInDateTo) {
+            const to = new Date(checkInDateTo); to.setHours(23, 59, 59, 999);
+            if (checkIn > to) matchesCheckIn = false;
+          }
+        } else {
+          matchesCheckIn = false;
+        }
+      }
 
       let matchesDateFilter = false;
 
@@ -369,9 +397,9 @@ export default function DepositPage() {
           (row.checkout_date_raw >= startDate && row.checkout_date_raw <= endDate);
       }
 
-      return matchesSearch && matchesFilter && matchesDateFilter;
+      return matchesSearch && matchesFilter && matchesHaven && matchesCheckIn && matchesDateFilter;
     });
-  }, [filterStatus, filterDate, customStartDate, customEndDate, rows, searchTerm]);
+  }, [filterStatus, filterDate, customStartDate, customEndDate, rows, searchTerm, selectedHaven, checkInDateFrom, checkInDateTo]);
 
   const sortedRows = useMemo(() => {
     const copy = [...filteredRows];
@@ -1211,41 +1239,66 @@ export default function DepositPage() {
       )}
 
       {/* Filters */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-4 flex-shrink-0 border border-gray-200 dark:border-gray-700">
-        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-          <div className="flex flex-col sm:flex-row gap-4 flex-1 w-full">
-            <div className="flex items-center gap-2">
-              <label className="text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">Show</label>
-              <select
-                value={entriesPerPage}
-                onChange={(e) => {
-                  setEntriesPerPage(Number(e.target.value));
-                  setCurrentPage(1);
-                }}
-                className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-amber-600 text-sm"
-              >
-                <option value="5">5</option>
-                <option value="10">10</option>
-                <option value="25">25</option>
-                <option value="50">50</option>
-              </select>
-              <label className="text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">entries</label>
-            </div>
-
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500" />
-              <input
-                type="text"
-                placeholder="Search by deposit ID, booking ID, guest, or haven..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-amber-600"
-              />
-            </div>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-4 flex-shrink-0 border border-gray-200 dark:border-gray-700 space-y-3">
+        {/* Top row: Show + Search + actions */}
+        <div className="flex flex-col md:flex-row gap-3 items-start md:items-center">
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">Show</label>
+            <select
+              value={entriesPerPage}
+              onChange={(e) => {
+                setEntriesPerPage(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              aria-label="Entries per page"
+              title="Entries per page"
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-amber-600 text-sm"
+            >
+              <option value="5">5</option>
+              <option value="10">10</option>
+              <option value="25">25</option>
+              <option value="50">50</option>
+            </select>
+            <label className="text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">entries</label>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Filter className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+          <div className="flex-1 relative w-full">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500" />
+            <input
+              type="text"
+              placeholder="Search by deposit ID, booking ID, guest, or haven..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              aria-label="Search deposits"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-amber-600"
+            />
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={exportToPDF}
+              className="px-4 py-2 bg-white dark:bg-gray-700 border-2 border-red-500 text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors font-medium text-sm flex items-center gap-2"
+              title="Export to PDF"
+              type="button"
+            >
+              <Download className="w-4 h-4" />
+              Export PDF
+            </button>
+            <button
+              onClick={fetchData}
+              className="p-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+              title="Refresh Data"
+              aria-label="Refresh data"
+              type="button"
+            >
+              <RefreshCw className={`w-4 h-4 text-gray-600 dark:text-gray-300 ${isLoading ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
+        </div>
+
+        {/* Bottom row: Filters */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <Filter className="w-5 h-5 text-gray-600 dark:text-gray-300" />
             <select
               value={filterStatus}
               onChange={(e) => {
@@ -1253,6 +1306,8 @@ export default function DepositPage() {
                 setFilterStatus(value);
                 setCurrentPage(1);
               }}
+              aria-label="Filter by deposit status"
+              title="Filter by deposit status"
               className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-amber-600"
             >
               <option value="all">All Status</option>
@@ -1262,6 +1317,70 @@ export default function DepositPage() {
               <option value="Partial">Partial</option>
               <option value="Forfeited">Forfeited</option>
             </select>
+
+            {/* Haven filter */}
+            <select
+              value={selectedHaven}
+              onChange={(e) => {
+                setSelectedHaven(e.target.value);
+                setCurrentPage(1);
+              }}
+              aria-label="Filter by haven"
+              title="Filter by haven"
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-amber-600"
+            >
+              <option value="all">All Havens</option>
+              {uniqueHavens.map((name) => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
+
+            {/* Check-in date range */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                Check-in:
+              </span>
+              <input
+                type="date"
+                value={checkInDateFrom}
+                onChange={(e) => {
+                  setCheckInDateFrom(e.target.value);
+                  setCurrentPage(1);
+                }}
+                aria-label="Check-in date from"
+                title="Check-in date from"
+                className="px-2 py-1.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-amber-600 text-sm"
+              />
+              <span className="text-gray-400 text-xs">–</span>
+              <input
+                type="date"
+                value={checkInDateTo}
+                min={checkInDateFrom}
+                onChange={(e) => {
+                  setCheckInDateTo(e.target.value);
+                  setCurrentPage(1);
+                }}
+                aria-label="Check-in date to"
+                title="Check-in date to"
+                className="px-2 py-1.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-amber-600 text-sm"
+              />
+              {(checkInDateFrom || checkInDateTo) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCheckInDateFrom("");
+                    setCheckInDateTo("");
+                    setCurrentPage(1);
+                  }}
+                  aria-label="Clear check-in dates"
+                  title="Clear dates"
+                  className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600 transition-colors text-xs"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
             <select
               value={filterDate}
               onChange={(e) => {
@@ -1273,6 +1392,8 @@ export default function DepositPage() {
                 }
                 setCurrentPage(1);
               }}
+              aria-label="Filter by date"
+              title="Filter by date"
               className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-amber-600"
             >
               <option value="all">All Dates</option>
@@ -1305,22 +1426,6 @@ export default function DepositPage() {
                 />
               </div>
             )}
-            <button
-              onClick={exportToPDF}
-              className="px-4 py-2 bg-white dark:bg-gray-700 border-2 border-red-500 text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors font-medium text-sm flex items-center gap-2"
-              title="Export to PDF"
-            >
-              <Download className="w-4 h-4" />
-              Export PDF
-            </button>
-            <button
-              onClick={fetchData}
-              className="p-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
-              title="Refresh Data"
-            >
-              <RefreshCw className={`w-4 h-4 text-gray-600 dark:text-gray-300 ${isLoading ? 'animate-spin' : ''}`} />
-            </button>
-          </div>
         </div>
       </div>
 
@@ -1401,6 +1506,8 @@ export default function DepositPage() {
                     type="checkbox"
                     checked={selectedDeposits.includes(row.id)}
                     onChange={(e) => handleSelectDeposit(row.id, e.target.checked)}
+                    aria-label={`Select deposit ${row.deposit_id}`}
+                    title={`Select deposit ${row.deposit_id}`}
                     className="w-4 h-4 text-brand-primary border-gray-300 rounded focus:ring-brand-primary flex-shrink-0 mt-1"
                   />
                 </div>
@@ -1518,6 +1625,8 @@ export default function DepositPage() {
                       type="checkbox"
                       checked={selectedDeposits.length === paginatedRows.length && paginatedRows.length > 0}
                       onChange={(e) => handleSelectAll(e.target.checked)}
+                      aria-label="Select all deposits on this page"
+                      title="Select all deposits on this page"
                       className="w-4 h-4 text-brand-primary border-gray-300 rounded focus:ring-brand-primary"
                     />
                     <span>Select</span>
@@ -1655,6 +1764,8 @@ export default function DepositPage() {
                         type="checkbox"
                         checked={selectedDeposits.includes(row.id)}
                         onChange={(e) => handleSelectDeposit(row.id, e.target.checked)}
+                        aria-label={`Select deposit ${row.deposit_id}`}
+                        title={`Select deposit ${row.deposit_id}`}
                         className="w-4 h-4 text-brand-primary border-gray-300 rounded focus:ring-brand-primary"
                       />
                     </td>
@@ -1906,6 +2017,8 @@ export default function DepositPage() {
               <button
                 onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                 disabled={currentPage === 1 || totalPages === 0}
+                aria-label="Previous page"
+                title="Previous page"
                 className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 type="button"
               >
@@ -1943,6 +2056,8 @@ export default function DepositPage() {
               <button
                 onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                 disabled={currentPage === totalPages || totalPages === 0}
+                aria-label="Next page"
+                title="Next page"
                 className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 type="button"
               >

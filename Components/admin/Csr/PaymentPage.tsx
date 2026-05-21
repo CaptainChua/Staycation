@@ -134,6 +134,9 @@ export default function PaymentPage() {
   const [filterStatus, setFilterStatus] = useState<"all" | PaymentStatus>(
     "all",
   );
+  const [selectedHaven, setSelectedHaven] = useState("all");
+  const [checkInDateFrom, setCheckInDateFrom] = useState("");
+  const [checkInDateTo, setCheckInDateTo] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [entriesPerPage, setEntriesPerPage] = useState(5);
   const [sortField, setSortField] = useState<keyof PaymentRow | null>(null);
@@ -537,6 +540,13 @@ export default function PaymentPage() {
     setSelectedPayment(null);
   }, [logEmployeeActivity, selectedPayment]);
 
+  const uniqueHavens = useMemo(() => {
+    const names = payments
+      .map((p) => p.room_name)
+      .filter((n): n is string => Boolean(n));
+    return [...new Set(names)].sort();
+  }, [payments]);
+
   const filteredPayments = useMemo(() => {
     const q = (searchTerm || "").toLowerCase();
     return payments.filter((payment) => {
@@ -547,9 +557,34 @@ export default function PaymentPage() {
       const matchesFilter =
         filterStatus === "all" || payment.status === filterStatus;
 
-      return matchesSearch && matchesFilter;
+      const matchesHaven =
+        selectedHaven === "all" || (payment.room_name || "") === selectedHaven;
+
+      let matchesCheckIn = true;
+      if (checkInDateFrom || checkInDateTo) {
+        const checkIn = payment.check_in_date
+          ? new Date(payment.check_in_date)
+          : null;
+        if (checkIn) {
+          checkIn.setHours(0, 0, 0, 0);
+          if (checkInDateFrom) {
+            const from = new Date(checkInDateFrom);
+            from.setHours(0, 0, 0, 0);
+            if (checkIn < from) matchesCheckIn = false;
+          }
+          if (checkInDateTo) {
+            const to = new Date(checkInDateTo);
+            to.setHours(23, 59, 59, 999);
+            if (checkIn > to) matchesCheckIn = false;
+          }
+        } else {
+          matchesCheckIn = false;
+        }
+      }
+
+      return matchesSearch && matchesFilter && matchesHaven && matchesCheckIn;
     });
-  }, [filterStatus, payments, searchTerm]);
+  }, [filterStatus, payments, searchTerm, selectedHaven, checkInDateFrom, checkInDateTo]);
 
   const sortedPayments = useMemo(() => {
     const copy = [...filteredPayments];
@@ -881,7 +916,7 @@ export default function PaymentPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Filter className="w-5 h-5 text-gray-600 dark:text-gray-300" />
             <select
               value={filterStatus}
@@ -912,6 +947,69 @@ export default function PaymentPage() {
               <option value="Full payment approved">Full payment approved</option>
               <option value="Rejected">Rejected</option>
             </select>
+
+            {/* Haven filter */}
+            <select
+              value={selectedHaven}
+              onChange={(e) => {
+                setSelectedHaven(e.target.value);
+                setCurrentPage(1);
+              }}
+              aria-label="Filter by haven"
+              title="Filter by haven"
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-orange-500"
+            >
+              <option value="all">All Havens</option>
+              {uniqueHavens.map((name) => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
+
+            {/* Check-in date range */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                Check-in:
+              </span>
+              <input
+                type="date"
+                value={checkInDateFrom}
+                onChange={(e) => {
+                  setCheckInDateFrom(e.target.value);
+                  setCurrentPage(1);
+                }}
+                aria-label="Check-in date from"
+                title="Check-in date from"
+                className="px-2 py-1.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-orange-500 text-sm"
+              />
+              <span className="text-gray-400 text-xs">–</span>
+              <input
+                type="date"
+                value={checkInDateTo}
+                min={checkInDateFrom}
+                onChange={(e) => {
+                  setCheckInDateTo(e.target.value);
+                  setCurrentPage(1);
+                }}
+                aria-label="Check-in date to"
+                title="Check-in date to"
+                className="px-2 py-1.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-orange-500 text-sm"
+              />
+              {(checkInDateFrom || checkInDateTo) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCheckInDateFrom("");
+                    setCheckInDateTo("");
+                    setCurrentPage(1);
+                  }}
+                  aria-label="Clear check-in dates"
+                  title="Clear dates"
+                  className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600 transition-colors text-xs"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>

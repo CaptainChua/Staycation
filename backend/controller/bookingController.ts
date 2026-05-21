@@ -405,11 +405,12 @@ export const createBooking = async (
 
     // --- GENERAL ROOM AVAILABILITY CHECK (time-aware) ---
     // '00:00' checkout means end-of-day midnight, so treat it as the start of the next day.
+    // Only active bookings block a new one — completed, checked-out, rejected, cancelled, declined do not.
     const availabilityCheckQuery = `
       SELECT b.id, b.booking_id
       FROM booking b
       WHERE b.room_name = $1
-        AND b.status NOT IN ('rejected', 'cancelled')
+        AND b.status IN ('pending', 'approved', 'confirmed', 'checked-in', 'on-going')
         AND (b.check_in_date::DATE + b.check_in_time::TIME) <
             CASE WHEN $5 = '00:00'
                  THEN ($4::DATE + INTERVAL '1 day')::TIMESTAMP
@@ -495,12 +496,13 @@ export const createBooking = async (
     // --- END BOOKING WINDOW VALIDATION ---
 
     // --- IDENTITY-BASED OVERLAP CHECK ---
+    // Only active bookings block a new one — completed, checked-out, rejected, cancelled, declined do not.
     const overlapCheckQuery = `
       SELECT b.id, b.booking_id, b.status, b.check_in_date, b.check_out_date
       FROM booking b
       JOIN booking_guests bg ON b.id = bg.booking_id
       WHERE b.room_name = $1
-        AND b.status NOT IN ('rejected', 'cancelled')
+        AND b.status IN ('pending', 'approved', 'confirmed', 'checked-in', 'on-going')
         AND bg.first_name = $2
         AND bg.last_name = $3
         AND bg.email = $4

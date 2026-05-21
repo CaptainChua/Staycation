@@ -297,7 +297,8 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning,
       toast.success(`Security deposit of ₱${amountReceived.toLocaleString()} collected from ${depositModalTask.guest_first_name}`);
       setDepositModalTask(null);
       setDepositReferenceNumber("");
-    } catch {
+    } catch (err) {
+      console.error("Failed to record security deposit:", err);
       toast.error("Failed to record security deposit");
     } finally {
       setIsConfirmingDeposit(false);
