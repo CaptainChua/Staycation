@@ -100,6 +100,7 @@ CREATE TABLE booking_security_deposits (
     CHECK (deposit_status IN (
       'pending',
       'held',
+      'pending_verification',
       'returned',
       'partial',
       'forfeited'
