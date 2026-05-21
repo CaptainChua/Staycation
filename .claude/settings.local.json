@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(git mv:*)",
-      "PowerShell(Remove-Item -Path \"c:\\\\Users\\\\Kyen Mangandi\\\\Downloads\\\\Staycation\\\\Pamphlet\" -Recurse -Force -Confirm:$false)"
+      "Bash(git pull *)",
+      "Bash(node -e ' *)"
     ]
   }
 }

@@ -30,6 +30,7 @@ interface Message {
   sender_id: string;
   sender_name?: string;
   message_text: string;
+  image_url?: string | null;
   created_at: string;
   is_image?: boolean;
 }
@@ -165,6 +166,7 @@ useEffect(() => {
   return () => { document.body.style.overflow = ""; };
 }, [zoomedImage]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const hasInitializedActiveId = useRef(false);
 
@@ -764,19 +766,19 @@ useEffect(() => {
                                ? "p-0": `px-3 sm:px-4 py-2 sm:py-2.5 ${isMe ? "bg-brand-primary text-white rounded-br-md" : "bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-800 rounded-bl-md"}`
                            }`}
                          >
-                              {m.message_text.startsWith("data:image") ? (
-<img
-  src={m.message_text}
-  alt="sent image"
-  className="max-w-[220px] rounded-2xl object-cover cursor-pointer hover:opacity-90 transition-opacity"
-  onClick={(e) => {
-    e.stopPropagation();
-    setZoomedImage(m.message_text);
-  }}
-/>
-) : (
-  m.message_text
-)}
+                              {m.image_url || m.message_text.startsWith("data:image") ? (
+                          <img
+                            src={m.image_url ?? m.message_text}
+                            alt="sent image"
+                            className="max-w-[220px] rounded-2xl object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setZoomedImage(m.image_url ?? m.message_text);
+                            }}
+                          />
+                        ) : (
+                          m.message_text
+                        )}
                      </div>
                                 <span className="text-[10px] sm:text-[11px] text-gray-400">
                                   {formatMessageTime(m.created_at)}
@@ -794,40 +796,41 @@ useEffect(() => {
                   <div className="border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-2 sm:px-4 py-2 sm:py-3">
                     <div className="flex items-center gap-1 sm:gap-2">
                       <input
+  ref={fileInputRef}
   type="file"
   id="file-attach"
   className="hidden"
   accept="image/*"
-onChange={async (e) => {
-  const file = e.target.files?.[0];
-  if (!file || !activeId || !currentUserId) return;
+  onChange={async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !activeId || !currentUserId) return;
 
-  const reader = new FileReader();
-  reader.onload = async () => {
-    const base64 = reader.result as string;
-    console.log("base64 preview:", base64.substring(0, 50));
-    try {
-      await sendMessage({
-        conversation_id: activeId,
-        sender_id: currentUserId,
-        sender_name: session?.user?.name || guestName || "Guest",
-        message_text: base64,
-      }).unwrap();
-      refetchMessages();
-      refetchConversations();
-    } catch {
-      toast.error("Failed to send image");
-    }
-  };
-  reader.readAsDataURL(file);
-  e.target.value = "";
-}}
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const base64 = reader.result as string;
+      try {
+        await sendMessage({
+          conversation_id: activeId,
+          sender_id: currentUserId,
+          sender_name: session?.user?.name || guestName || "Guest",
+          message_text: "",
+          image: base64,
+        }).unwrap();
+        refetchMessages();
+        refetchConversations();
+      } catch {
+        toast.error("Failed to send image");
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  }}
 />
 <button
   type="button"
   className="p-2 rounded-full hover:bg-brand-primaryLighter transition-colors"
   title="Attach"
-  onClick={() => document.getElementById("file-attach")?.click()}
+  onClick={() => fileInputRef.current?.click()}
 >
   <ImageIcon className="w-5 h-5 text-brand-primary" />
 </button>

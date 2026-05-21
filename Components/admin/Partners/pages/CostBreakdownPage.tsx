@@ -1,11 +1,42 @@
 "use client";
 
 import { useState } from "react";
-import { BarChart3, Info, Sparkles, ChevronDown } from "lucide-react";
-import { useGetMyPayoutsQuery } from "@/redux/api/partnerSelfApi";
+import { BarChart3, Info, Sparkles, ChevronDown, ExternalLink, Receipt, Calendar, FileText, CheckCircle2, Clock, AlertCircle, XCircle } from "lucide-react";
+import {
+  useGetMyPayoutsQuery,
+  useGetMyEarningsQuery,
+  useGetMyAnalyticsQuery,
+  useGetMyListingsQuery,
+} from "@/redux/api/partnerSelfApi";
+import type { PartnerPayout } from "@/redux/api/partnerSelfApi";
+
+// Tier threshold — matches the FAQ copy ("50 completed bookings").
+// Keep PREMIUM_THRESHOLD in sync with the FAQ answer in [FAQS].
+const PREMIUM_THRESHOLD = 50;
+
+// Progress-bar widths snapped to 5% buckets so Tailwind JIT can statically
+// resolve the class. Inline style={{ width }} would work but triggers the
+// "no inline styles" lint and breaks the convention used by [ALLOCATIONS].
+const PROGRESS_WIDTH_CLASSES: Record<number, string> = {
+  0: "w-[0%]",   5: "w-[5%]",   10: "w-[10%]",  15: "w-[15%]",  20: "w-[20%]",
+  25: "w-[25%]", 30: "w-[30%]", 35: "w-[35%]",  40: "w-[40%]",  45: "w-[45%]",
+  50: "w-[50%]", 55: "w-[55%]", 60: "w-[60%]",  65: "w-[65%]",  70: "w-[70%]",
+  75: "w-[75%]", 80: "w-[80%]", 85: "w-[85%]",  90: "w-[90%]",  95: "w-[95%]",
+  100: "w-[100%]",
+};
 
 const fontFraunces = "font-[var(--font-fraunces),Georgia,serif]";
 const peso = (n: number) => "₱" + (n || 0).toLocaleString("en-PH");
+// Variant that preserves decimals — used in the worked-example receipt so small
+// rates (e.g. ₱1) don't make every deduction round to ₱0.
+const pesoExact = (n: number) => {
+  const v = n || 0;
+  const hasDecimals = Math.abs(v - Math.round(v)) > 0.005;
+  return "₱" + v.toLocaleString("en-PH", {
+    minimumFractionDigits: hasDecimals ? 2 : 0,
+    maximumFractionDigits: 2,
+  });
+};
 
 const FAQS = [
   {
@@ -40,17 +71,40 @@ interface CostBreakdownPageProps {
 
 export default function CostBreakdownPage({ onNavigate }: CostBreakdownPageProps) {
   const [openFaq, setOpenFaq] = useState<number>(0);
+  const [expandedPayout, setExpandedPayout] = useState<string | null>(null);
   const { data: payoutData } = useGetMyPayoutsQuery();
+  const { data: earningsData, isLoading: earningsLoading } = useGetMyEarningsQuery();
+  const { data: analytics } = useGetMyAnalyticsQuery();
+  const { data: listings = [] } = useGetMyListingsQuery();
 
   const commissionRatePct = payoutData?.commission_rate ?? 12;
   const commissionRate = commissionRatePct / 100;
   const processingRate = 0.02;
-  const rate = 4800;
+
+  // Tier — derived from real lifetime completed bookings.
+  const completedBookings = analytics?.lifetime_completed_bookings ?? 0;
+  const isPremium = completedBookings >= PREMIUM_THRESHOLD;
+  const tierLabel = isPremium ? "Premium Partner" : "Standard Partner";
+  const bookingsToPremium = Math.max(0, PREMIUM_THRESHOLD - completedBookings);
+  const tierProgressPct = Math.min(100, Math.round((completedBookings / PREMIUM_THRESHOLD) * 100));
+  const tierProgressBucket = Math.round(tierProgressPct / 5) * 5;
+  const tierProgressWidth = PROGRESS_WIDTH_CLASSES[tierProgressBucket] || PROGRESS_WIDTH_CLASSES[0];
+
+  // Worked example — uses the partner's real first listing. No fallback.
+  // Numbers reflect their actual rate, even if low — accurate over polished.
+  const firstListing = listings[0];
+  const rate =
+    Number(firstListing?.weekday_rate) ||
+    Number(firstListing?.weekend_rate) ||
+    Number(firstListing?.ten_hour_rate) ||
+    0;
+  const exampleRoomName = firstListing?.haven_name || "—";
   const nights = 2;
   const gross = rate * nights;
-  const commission = Math.round(gross * commissionRate);
-  const processing = Math.round(gross * processingRate);
-  const net = gross - commission - processing;
+  // Keep two decimals so small rates (e.g. ₱1) don't show all-zero deductions.
+  const commission = +(gross * commissionRate).toFixed(2);
+  const processing = +(gross * processingRate).toFixed(2);
+  const net = +(gross - commission - processing).toFixed(2);
 
   const pendingAmount = Number(payoutData?.pending_amount) || 0;
   const nextPayoutDate = payoutData?.next_payout_date
@@ -60,6 +114,18 @@ export default function CostBreakdownPage({ onNavigate }: CostBreakdownPageProps
         year: "numeric",
       })
     : "—";
+
+  const payoutMethodLabel = (() => {
+    const cfg = payoutData?.default_config;
+    if (!cfg) return "—";
+    const method = (cfg.payout_method || "gcash").toString();
+    const dest = cfg.payout_destination ? ` · ${maskDestination(cfg.payout_destination)}` : "";
+    return `${method.toUpperCase()}${dest}`;
+  })();
+
+  const payouts = payoutData?.payouts || [];
+  const earnings = earningsData?.items || [];
+  const totals = earningsData?.totals;
 
   return (
     <div className="animate-in fade-in duration-500">
@@ -96,26 +162,37 @@ export default function CostBreakdownPage({ onNavigate }: CostBreakdownPageProps
             </div>
             <div className="flex items-baseline gap-3 mt-3 mb-1 flex-wrap">
               <span className={`text-[32px] font-medium tracking-[-0.02em] text-[#111827] ${fontFraunces}`}>
-                Standard Partner
+                {tierLabel}
               </span>
               <span className={`text-[24px] text-[#B8860B] ${fontFraunces}`}>
                 · {commissionRatePct}% commission
               </span>
             </div>
             <p className="text-[#6B7280] text-[14px] max-w-[480px]">
-              You&apos;re 32 completed bookings away from{" "}
-              <strong className="text-[#111827]">Premium Partner</strong> (9% commission). Premium
-              also unlocks priority listing placement and a dedicated account manager.
+              {isPremium ? (
+                <>
+                  You&apos;ve unlocked <strong className="text-[#111827]">Premium Partner</strong>{" "}
+                  benefits — priority listing placement and a dedicated account manager.
+                </>
+              ) : (
+                <>
+                  You&apos;re {bookingsToPremium} completed booking{bookingsToPremium === 1 ? "" : "s"} away from{" "}
+                  <strong className="text-[#111827]">Premium Partner</strong> (9% commission). Premium
+                  also unlocks priority listing placement and a dedicated account manager.
+                </>
+              )}
             </p>
-            <div className="mt-4 p-3.5 rounded-[10px] bg-[#f9fafb] border border-[#e5e7eb]">
-              <div className="flex justify-between text-[11.5px] text-[#6B7280] mb-2">
-                <span>Progress to Premium</span>
-                <span>64 / 96 bookings · 6-mo rolling</span>
+            {!isPremium && (
+              <div className="mt-4 p-3.5 rounded-[10px] bg-[#f9fafb] border border-[#e5e7eb]">
+                <div className="flex justify-between text-[11.5px] text-[#6B7280] mb-2">
+                  <span>Progress to Premium</span>
+                  <span>{completedBookings} / {PREMIUM_THRESHOLD} completed bookings</span>
+                </div>
+                <div className="h-2 rounded-full bg-[#f3f4f6] overflow-hidden">
+                  <div className={`h-full bg-gradient-to-r from-[#B8860B] to-[#DAA520] transition-all ${tierProgressWidth}`} />
+                </div>
               </div>
-              <div className="h-2 rounded-full bg-[#f3f4f6] overflow-hidden">
-                <div className="h-full w-[64%] bg-gradient-to-r from-[#B8860B] to-[#DAA520]" />
-              </div>
-            </div>
+            )}
           </div>
         </div>
 
@@ -142,7 +219,7 @@ export default function CostBreakdownPage({ onNavigate }: CostBreakdownPageProps
           </div>
           <div className="flex justify-between">
             <span className="text-[12.5px] text-[#6B7280]">Payout method</span>
-            <span className="text-[12.5px] text-[#111827]">GCash · ●●●● 4421</span>
+            <span className="text-[12.5px] text-[#111827]">{payoutMethodLabel}</span>
           </div>
         </div>
       </div>
@@ -156,7 +233,7 @@ export default function CostBreakdownPage({ onNavigate }: CostBreakdownPageProps
           </h3>
           <p className="text-[12.5px] text-[#6B7280] mb-4">
             Worked example for a 2-night stay at{" "}
-            <strong className="text-[#111827]">Hilltop Deluxe Suite</strong>.
+            <strong className="text-[#111827]">{exampleRoomName}</strong>.
           </p>
 
           <div className="bg-[#f9fafb] p-1.5 rounded-[12px]">
@@ -165,16 +242,16 @@ export default function CostBreakdownPage({ onNavigate }: CostBreakdownPageProps
                 Booking BK-21048
               </div>
               <div className="text-[11px] text-[#6B7280] mb-4">
-                Hilltop Deluxe Suite · J**** R**** · May 14–16, 2026
+                {exampleRoomName} · J**** R**** · May 14–16, 2026
               </div>
 
-              <ReceiptLine label="Room rate × nights" sub={`${peso(rate)} × ${nights}`} value={peso(gross)} />
-              <ReceiptLine label="Gross booking amount" value={peso(gross)} bold />
+              <ReceiptLine label="Room rate × nights" sub={`${pesoExact(rate)} × ${nights}`} value={pesoExact(gross)} />
+              <ReceiptLine label="Gross booking amount" value={pesoExact(gross)} bold />
               <Divider />
-              <ReceiptLine label="Platform service fee" sub={`${(commissionRate * 100).toFixed(0)}% commission`} value={`− ${peso(commission)}`} deduct />
-              <ReceiptLine label="Payment processing" sub={`${(processingRate * 100).toFixed(0)}% (cards / e-wallet)`} value={`− ${peso(processing)}`} deduct />
+              <ReceiptLine label="Platform service fee" sub={`${(commissionRate * 100).toFixed(0)}% commission`} value={`− ${pesoExact(commission)}`} deduct />
+              <ReceiptLine label="Payment processing" sub={`${(processingRate * 100).toFixed(0)}% (cards / e-wallet)`} value={`− ${pesoExact(processing)}`} deduct />
               <Divider />
-              <ReceiptLine label="Net payout to you" value={peso(net)} bold accent />
+              <ReceiptLine label="Net payout to you" value={pesoExact(net)} bold accent />
             </div>
           </div>
 
@@ -224,6 +301,133 @@ export default function CostBreakdownPage({ onNavigate }: CostBreakdownPageProps
             </p>
           </div>
         </div>
+      </div>
+
+      {/* YOUR EARNINGS — real per-booking breakdown */}
+      <div className="bg-white border border-[#e5e7eb] rounded-[14px] shadow-[0_1px_2px_rgba(15,42,46,0.04)] p-[22px] mb-6">
+        <div className="flex items-baseline justify-between mb-4 flex-wrap gap-2">
+          <div>
+            <h3 className={`text-[17px] leading-[1.3] font-medium text-[#111827] mb-1 ${fontFraunces}`}>
+              Your earnings
+            </h3>
+            <p className="text-[12.5px] text-[#6B7280]">
+              Live breakdown per booking. Numbers here use the commission set on each room
+              (with your partner default as fallback).
+            </p>
+          </div>
+          {totals && (
+            <div className="flex gap-4 text-right">
+              <Stat label="Total gross" value={peso(totals.gross)} />
+              <Stat label="Your share" value={peso(totals.partner_share)} accent />
+              <Stat label="Pending payout" value={peso(totals.pending_payout)} />
+            </div>
+          )}
+        </div>
+        {earningsLoading ? (
+          <div className="py-10 text-center text-[13px] text-[#6B7280]">Loading earnings…</div>
+        ) : earnings.length === 0 ? (
+          <div className="py-10 text-center text-[#6B7280]">
+            <Receipt className="w-8 h-8 mx-auto mb-2 text-[#9CA3AF]" />
+            <p className="text-[14px] font-semibold text-[#374151] mb-0.5">No earnings yet</p>
+            <p className="text-[12.5px]">Once you receive your first booking, the breakdown will appear here.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-[12.5px] border-collapse">
+              <thead>
+                <tr>
+                  {["Booking", "Room", "Stay", "Gross", "Platform", "Your share", "Net", "Settled"].map((h, i) => (
+                    <th
+                      key={h}
+                      className={`text-left text-[10.5px] font-semibold uppercase tracking-wider text-[#6B7280] px-3 py-2 border-b border-[#e5e7eb] bg-[#f9fafb] ${
+                        [3, 4, 5, 6].includes(i) ? "text-right" : ""
+                      }`}
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {earnings.slice(0, 15).map((r) => (
+                  <tr key={r.booking_uuid} className="hover:bg-[#f9fafb]">
+                    <td className="px-3 py-2.5 border-b border-[#e5e7eb] font-mono text-[11px] text-[#6B7280]">
+                      {r.booking_id}
+                    </td>
+                    <td className="px-3 py-2.5 border-b border-[#e5e7eb] text-[#374151] truncate max-w-[180px]">
+                      {r.haven_name}
+                    </td>
+                    <td className="px-3 py-2.5 border-b border-[#e5e7eb] text-[#374151]">
+                      <div className="text-[12px]">
+                        {fmtDate(r.check_in_date)} → {fmtDate(r.check_out_date)}
+                      </div>
+                      <div className="text-[10.5px] text-[#6B7280]">
+                        {r.nights} night{r.nights > 1 ? "s" : ""} · {r.commission_type}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2.5 border-b border-[#e5e7eb] text-right font-mono text-[#111827]">
+                      {peso(r.gross)}
+                    </td>
+                    <td className="px-3 py-2.5 border-b border-[#e5e7eb] text-right font-mono text-[#dc2626]">
+                      − {peso(r.platform_share)}
+                    </td>
+                    <td className="px-3 py-2.5 border-b border-[#e5e7eb] text-right font-mono font-semibold text-[#111827]">
+                      {peso(r.partner_share)}
+                    </td>
+                    <td className="px-3 py-2.5 border-b border-[#e5e7eb] text-right font-mono font-semibold text-[#16a34a]">
+                      {peso(r.net_payable)}
+                    </td>
+                    <td className="px-3 py-2.5 border-b border-[#e5e7eb]">
+                      {r.payout_id ? (
+                        <span className="inline-flex items-center gap-1 text-[11px] text-[#16a34a] font-semibold">
+                          <CheckCircle2 className="w-3 h-3" /> Paid out
+                        </span>
+                      ) : r.status === "completed" || r.status === "checked-in" ? (
+                        <span className="inline-flex items-center gap-1 text-[11px] text-[#92400e] font-semibold">
+                          <Clock className="w-3 h-3" /> Pending
+                        </span>
+                      ) : (
+                        <span className="text-[11px] text-[#6B7280] capitalize">{r.status}</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* PAYOUTS — real, with line items */}
+      <div className="bg-white border border-[#e5e7eb] rounded-[14px] shadow-[0_1px_2px_rgba(15,42,46,0.04)] p-[22px] mb-6">
+        <div className="flex items-baseline justify-between mb-4">
+          <div>
+            <h3 className={`text-[17px] leading-[1.3] font-medium text-[#111827] mb-1 ${fontFraunces}`}>
+              Payout history
+            </h3>
+            <p className="text-[12.5px] text-[#6B7280]">
+              Every payout we&apos;ve generated for you. Click any row to see the bookings it covers.
+            </p>
+          </div>
+        </div>
+        {payouts.length === 0 ? (
+          <div className="py-10 text-center text-[#6B7280]">
+            <FileText className="w-8 h-8 mx-auto mb-2 text-[#9CA3AF]" />
+            <p className="text-[14px] font-semibold text-[#374151] mb-0.5">No payouts yet</p>
+            <p className="text-[12.5px]">Payouts appear here once admin generates them from your completed bookings.</p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {payouts.map((p) => (
+              <PayoutRow
+                key={p.id}
+                payout={p}
+                expanded={expandedPayout === p.id}
+                onToggle={() => setExpandedPayout(expandedPayout === p.id ? null : p.id)}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       {/* FAQ */}
@@ -293,3 +497,183 @@ const ReceiptLine = ({ label, sub, value, bold, accent, deduct }: ReceiptLinePro
 const Divider = () => (
   <div className="h-px bg-[#e5e7eb] my-1 border-t border-dashed border-[#d1d5db]" />
 );
+
+// ─── Helpers for the new Earnings + Payouts sections ───────────────────────
+const fmtDate = (iso: string) =>
+  iso
+    ? new Date(iso).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })
+    : "—";
+
+const maskDestination = (v: string) => {
+  const trimmed = v.trim();
+  if (trimmed.length <= 4) return trimmed;
+  return `●●●● ${trimmed.slice(-4)}`;
+};
+
+const PAYOUT_STATUS_META: Record<string, { label: string; bg: string; text: string; Icon: typeof Clock }> = {
+  pending:    { label: "Pending",    bg: "bg-[#fef3c7]", text: "text-[#92400e]", Icon: Clock },
+  processing: { label: "Processing", bg: "bg-[#dbeafe]", text: "text-[#2563eb]", Icon: Clock },
+  paid:       { label: "Paid",       bg: "bg-[#dcfce7]", text: "text-[#16a34a]", Icon: CheckCircle2 },
+  failed:     { label: "Failed",     bg: "bg-[#fee2e2]", text: "text-[#dc2626]", Icon: AlertCircle },
+  cancelled:  { label: "Cancelled",  bg: "bg-[#f3f4f6]", text: "text-[#6B7280]", Icon: XCircle },
+};
+
+const Stat = ({ label, value, accent }: { label: string; value: string; accent?: boolean }) => (
+  <div>
+    <div className="text-[10.5px] uppercase tracking-wide font-semibold text-[#6B7280]">{label}</div>
+    <div
+      className={`text-[15px] font-semibold ${
+        accent ? "text-[#B8860B]" : "text-[#111827]"
+      }`}
+    >
+      {value}
+    </div>
+  </div>
+);
+
+function PayoutRow({
+  payout,
+  expanded,
+  onToggle,
+}: {
+  payout: PartnerPayout;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const meta = PAYOUT_STATUS_META[payout.status] || PAYOUT_STATUS_META.pending;
+  const items = payout.items || [];
+
+  return (
+    <div className="border border-[#e5e7eb] rounded-[12px] overflow-hidden">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full text-left p-4 flex items-center gap-3 hover:bg-[#f9fafb] transition"
+      >
+        <div className="w-10 h-10 rounded-lg bg-[#FEF3C7] text-[#B8860B] grid place-items-center flex-shrink-0">
+          <Receipt className="w-5 h-5" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-[13.5px] font-semibold text-[#111827]">
+            Cycle {fmtDate(payout.cycle_start)} → {fmtDate(payout.cycle_end)}
+          </div>
+          <div className="text-[11.5px] text-[#6B7280] flex items-center gap-2 flex-wrap">
+            <span className="inline-flex items-center gap-1">
+              <Calendar className="w-3 h-3" />
+              {payout.paid_at
+                ? `Paid ${fmtDate(payout.paid_at)}`
+                : payout.scheduled_date
+                ? `Scheduled ${fmtDate(payout.scheduled_date)}`
+                : "Not yet scheduled"}
+            </span>
+            {payout.payment_method && (
+              <span>· {payout.payment_method.toUpperCase()}</span>
+            )}
+            {payout.reference_number && <span>· Ref {payout.reference_number}</span>}
+          </div>
+        </div>
+        <div className="hidden sm:block text-right">
+          <div className="text-[10.5px] uppercase tracking-wide font-semibold text-[#6B7280]">Net</div>
+          <div className="text-[15px] font-mono font-semibold text-[#111827]">
+            {peso(Number(payout.net_amount))}
+          </div>
+        </div>
+        <span
+          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap ${meta.bg} ${meta.text}`}
+        >
+          <meta.Icon className="w-3 h-3" /> {meta.label}
+        </span>
+        <ChevronDown
+          className={`w-4 h-4 text-[#6B7280] transition-transform ${expanded ? "rotate-180" : ""}`}
+        />
+      </button>
+
+      {expanded && (
+        <div className="border-t border-[#e5e7eb] bg-[#f9fafb]/40 p-4 space-y-3">
+          {/* Totals strip */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-right">
+            <Stat label="Gross" value={peso(Number(payout.gross_amount))} />
+            <Stat label="Commission" value={`− ${peso(Number(payout.commission_amount))}`} />
+            <Stat
+              label="Deductions"
+              value={`− ${peso(Number(payout.deductions_total || 0))}`}
+            />
+            <Stat label="Net to you" value={peso(Number(payout.net_amount))} accent />
+          </div>
+
+          {/* Deductions detail */}
+          {Array.isArray(payout.deductions) && payout.deductions.length > 0 && (
+            <div className="p-3 bg-[#fef3c7] rounded-lg">
+              <div className="text-[11px] font-semibold text-[#92400e] uppercase tracking-wide mb-1.5">
+                Deductions
+              </div>
+              <ul className="space-y-0.5">
+                {payout.deductions.map((d, i) => (
+                  <li key={i} className="text-[12.5px] text-[#374151] flex justify-between">
+                    <span>{d.label}</span>
+                    <span className="font-mono">− {peso(Number(d.amount))}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Notes */}
+          {payout.notes && (
+            <div className="p-3 bg-white border border-[#e5e7eb] rounded-lg text-[12.5px] text-[#374151]">
+              <div className="text-[10.5px] uppercase font-semibold text-[#6B7280] mb-0.5">Notes</div>
+              {payout.notes}
+            </div>
+          )}
+
+          {/* Proof link */}
+          {payout.proof_of_payment_url && (
+            <a
+              href={payout.proof_of_payment_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-[#B8860B] hover:underline"
+            >
+              <ExternalLink className="w-3.5 h-3.5" /> View proof of payment
+            </a>
+          )}
+
+          {/* Line items */}
+          {items.length > 0 && (
+            <div className="bg-white border border-[#e5e7eb] rounded-lg overflow-hidden">
+              <div className="px-3 py-2 bg-[#f9fafb] border-b border-[#e5e7eb] text-[10.5px] uppercase tracking-wide font-semibold text-[#6B7280]">
+                Bookings in this payout ({items.length})
+              </div>
+              <table className="w-full text-[11.5px]">
+                <tbody>
+                  {items.map((it) => (
+                    <tr key={it.id} className="border-b border-[#e5e7eb] last:border-0">
+                      <td className="px-3 py-2 font-mono text-[10.5px] text-[#6B7280]">
+                        {it.booking_id}
+                      </td>
+                      <td className="px-3 py-2 text-[#374151] truncate max-w-[200px]">
+                        {it.haven_name}
+                      </td>
+                      <td className="px-3 py-2 text-[#374151]">
+                        {fmtDate(it.check_in_date)} → {fmtDate(it.check_out_date)}
+                      </td>
+                      <td className="px-3 py-2 text-right font-mono text-[#111827]">
+                        {peso(Number(it.gross))}
+                      </td>
+                      <td className="px-3 py-2 text-right font-mono text-[#dc2626]">
+                        − {peso(Number(it.platform_share))}
+                      </td>
+                      <td className="px-3 py-2 text-right font-mono font-semibold text-[#16a34a]">
+                        {peso(Number(it.partner_share) - Number(it.processing_fee))}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

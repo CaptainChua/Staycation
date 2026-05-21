@@ -250,7 +250,6 @@ const ReservationsPage = () => {
     }
 
     if (!searchQuery?.trim()) return matchesStatus && matchesHaven && matchesCheckIn;
-
     const q = searchQuery.trim().toLowerCase();
     const bookingId = String(r.booking_id || r.id || "").toLowerCase();
     const guestFirst = String(r.guest_first_name || "").toLowerCase();
@@ -417,6 +416,12 @@ const ReservationsPage = () => {
                     <p className="text-sm text-slate-500 dark:text-gray-400">Phone</p>
                     <p className="font-semibold text-slate-900 dark:text-gray-100">{selectedBooking.guest_phone}</p>
                   </div>
+                  {selectedBooking.guest_age && (
+                    <div>
+                      <p className="text-sm text-slate-500 dark:text-gray-400">Age</p>
+                      <p className="font-semibold text-slate-900 dark:text-gray-100">{selectedBooking.guest_age} years old</p>
+                    </div>
+                  )}
                   {selectedBooking.guest_gender && (
                     <div>
                       <p className="text-sm text-slate-500 dark:text-gray-400">Gender</p>
@@ -536,14 +541,12 @@ const ReservationsPage = () => {
                 {selectedBooking.status === "pending" && (
                   <>
                     <button
-                      type="button"
                       onClick={() => { handleApprove(selectedBooking.id); closeModal(); }}
                       className="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2"
                     >
                       <Check className="w-5 h-5" /> Approve
                     </button>
                     <button
-                      type="button"
                       onClick={() => { openRejectModal(selectedBooking.id); closeModal(); }}
                       className="px-6 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2"
                     >
@@ -553,7 +556,6 @@ const ReservationsPage = () => {
                 )}
                 {selectedBooking.status === "approved" && (
                   <button
-                    type="button"
                     onClick={() => { handleCheckIn(selectedBooking.id); closeModal(); }}
                     className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
                   >
@@ -562,7 +564,6 @@ const ReservationsPage = () => {
                 )}
                 {selectedBooking.status === "checked-in" && (
                   <button
-                    type="button"
                     onClick={() => { handleCheckOut(selectedBooking.id); closeModal(); }}
                     className="px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
                   >
@@ -570,7 +571,6 @@ const ReservationsPage = () => {
                   </button>
                 )}
                 <button
-                  type="button"
                   onClick={closeModal}
                   className="px-6 py-3 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-gray-300 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                 >
@@ -648,7 +648,7 @@ const ReservationsPage = () => {
                 onChange={(e) => { setFilter(e.target.value); setCurrentPage(1); }}
                 className="border rounded-lg px-3 py-2 text-sm w-full dark:bg-slate-800 dark:border-slate-700 dark:text-gray-200"
               >
-                {["all", "pending", "approved", "confirmed", "checked-in", "completed", "rejected", "cancelled"].map((s) => (
+                {["all","pending","approved","confirmed","checked-in","completed","rejected","cancelled"].map((s) => (
                   <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1).replace("-", " ")}</option>
                 ))}
               </select>
@@ -688,7 +688,6 @@ const ReservationsPage = () => {
               />
               {(checkInDateFrom || checkInDateTo) && (
                 <button
-                  type="button"
                   onClick={() => { setCheckInDateFrom(""); setCheckInDateTo(""); setCurrentPage(1); }}
                   className="p-1 rounded hover:bg-gray-200 dark:hover:bg-slate-700 text-gray-400 hover:text-gray-600 transition-colors text-xs"
                   title="Clear dates"
@@ -781,25 +780,25 @@ const ReservationsPage = () => {
                         <div className="flex items-center justify-center gap-2 flex-wrap">
                           {reservation.status === "pending" && (
                             <>
-                              <button type="button" onClick={() => handleApprove(reservation.id)} className="p-1.5 bg-green-500 text-white rounded hover:bg-green-600" title="Approve">
+                              <button onClick={() => handleApprove(reservation.id)} className="p-1.5 bg-green-500 text-white rounded hover:bg-green-600" title="Approve">
                                 <Check className="w-4 h-4" />
                               </button>
-                              <button type="button" onClick={() => openRejectModal(reservation.id)} className="p-1.5 bg-red-500 text-white rounded hover:bg-red-600" title="Reject">
+                              <button onClick={() => openRejectModal(reservation.id)} className="p-1.5 bg-red-500 text-white rounded hover:bg-red-600" title="Reject">
                                 <X className="w-4 h-4" />
                               </button>
                             </>
                           )}
                           {reservation.status === "approved" && (
-                            <button type="button" onClick={() => handleCheckIn(reservation.id)} className="px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600">
+                            <button onClick={() => handleCheckIn(reservation.id)} className="px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600">
                               Check In
                             </button>
                           )}
                           {reservation.status === "checked-in" && (
-                            <button type="button" onClick={() => handleCheckOut(reservation.id)} className="px-3 py-1 text-xs bg-orange-500 text-white rounded hover:bg-orange-600">
+                            <button onClick={() => handleCheckOut(reservation.id)} className="px-3 py-1 text-xs bg-orange-500 text-white rounded hover:bg-orange-600">
                               Check Out
                             </button>
                           )}
-                          <button type="button" onClick={() => handleViewDetails(reservation)} className="p-1.5 border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-50 dark:hover:bg-slate-800" title="View Details">
+                          <button onClick={() => handleViewDetails(reservation)} className="p-1.5 border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-50 dark:hover:bg-slate-800" title="View Details">
                             <Eye className="w-4 h-4" />
                           </button>
                         </div>
@@ -847,7 +846,6 @@ const ReservationsPage = () => {
                 else pageNum = currentPage - 2 + i;
                 return (
                   <button
-                    type="button"
                     key={pageNum}
                     onClick={() => setCurrentPage(pageNum)}
                     className={`px-3 py-1.5 rounded text-sm transition-colors ${currentPage === pageNum ? "bg-orange-500 text-white" : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-800"}`}
@@ -892,7 +890,7 @@ const ReservationsPage = () => {
                 <h3 className="text-lg font-bold text-gray-900 dark:text-white">Rejection Reason</h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">This will be sent to the guest.</p>
               </div>
-              <button type="button" onClick={closeRejectModal} disabled={isRejecting} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-700 dark:text-gray-300 disabled:opacity-50" aria-label="Close">
+              <button onClick={closeRejectModal} disabled={isRejecting} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-700 dark:text-gray-300 disabled:opacity-50" aria-label="Close">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -914,16 +912,15 @@ const ReservationsPage = () => {
               </div>
             )}
             <div className="mt-5 flex items-center justify-end gap-3">
-              <button type="button" onClick={closeRejectModal} disabled={isRejecting} className="px-4 py-2 rounded-lg border border-gray-300 dark:border-slate-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-800 disabled:opacity-50">
+              <button onClick={closeRejectModal} disabled={isRejecting} className="px-4 py-2 rounded-lg border border-gray-300 dark:border-slate-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-800 disabled:opacity-50">
                 Cancel
               </button>
               {isRejectConfirmStep && (
-                <button type="button" onClick={() => setIsRejectConfirmStep(false)} disabled={isRejecting} className="px-4 py-2 rounded-lg border border-gray-300 dark:border-slate-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-800 disabled:opacity-50">
+                <button onClick={() => setIsRejectConfirmStep(false)} disabled={isRejecting} className="px-4 py-2 rounded-lg border border-gray-300 dark:border-slate-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-800 disabled:opacity-50">
                   Back
                 </button>
               )}
               <button
-                type="button"
                 onClick={() => {
                   if (!isRejectConfirmStep) {
                     if (!rejectionReasonDraft.trim()) { toast.error("Rejection reason is required"); return; }

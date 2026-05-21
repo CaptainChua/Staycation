@@ -333,17 +333,23 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
   // Calculate room rate
   const getRoomRateFromStayType = (): number => {
     if (!formData.stayType || !selectedHaven) return 0;
+    // Postgres DECIMAL columns come back as strings via `pg`. Coerce to number
+    // so arithmetic doesn't accidentally do string concatenation.
+    const toNum = (v: unknown, fallback: number) => {
+      const n = Number(v);
+      return Number.isFinite(n) && n > 0 ? n : fallback;
+    };
     if (formData.stayType === "10 Hours - ₱1,599") {
-      return selectedHaven.six_hour_rate || 1599;
+      return toNum(selectedHaven.six_hour_rate, 1599);
     } else if (formData.stayType.includes("weekday")) {
-      return selectedHaven.weekday_rate || 1799;
+      return toNum(selectedHaven.weekday_rate, 1799);
     } else if (formData.stayType.includes("Fri-Sat")) {
-      return selectedHaven.weekend_rate || 1999;
+      return toNum(selectedHaven.weekend_rate, 1999);
     } else if (formData.stayType === "Multi-Day Stay") {
-      const baseRate = selectedHaven.weekday_rate || 1799;
+      const baseRate = toNum(selectedHaven.weekday_rate, 1799);
       return baseRate * calculateNumberOfDays();
     }
-    return selectedHaven.ten_hour_rate || 0;
+    return toNum(selectedHaven.ten_hour_rate, 0);
   };
 
   const roomRate = getRoomRateFromStayType();
@@ -419,14 +425,21 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
     } else if (name === "email") {
       const v = value.trim();
       setFormData(prev => ({ ...prev, email: v }));
-      if (!v.includes('@') || !v.includes('.com')) {
-        setErrors(prev => ({ ...prev, email: "Please include '@'" }));
+      if (!v) {
+        setErrors(prev => ({ ...prev, email: "" }));
+      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) {
+        setErrors(prev => ({ ...prev, email: "Enter a valid email address (e.g. name@gmail.com)" }));
       } else {
         setErrors(prev => ({ ...prev, email: "" }));
       }
     } else if (name === "phone") {
       const digitsOnly = value.replace(/\D/g, "").slice(0, 11);
       setFormData(prev => ({ ...prev, phone: digitsOnly }));
+      if (digitsOnly && digitsOnly.length > 0 && !/^09/.test(digitsOnly)) {
+        setErrors(prev => ({ ...prev, phone: "PH number must start with 09 (e.g. 09XXXXXXXXX)" }));
+      } else {
+        setErrors(prev => ({ ...prev, phone: "" }));
+      }
     } else {
       setFormData(prev => ({
         ...prev,
@@ -578,17 +591,18 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
     if (!isEditMode && !formData.gender) newErrors.gender = "Please select a gender";
     if (!formData.email) {
       newErrors.email = "Email is required";
-    } else if (!isEmailValid(formData.email)) {
-      newErrors.email = "Please enter a valid email address";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+      newErrors.email = "Enter a valid email address (e.g. name@gmail.com)";
     }
     if (!formData.phone) {
       newErrors.phone = "Phone number is required";
-    } else if (!/^\d{11}$/.test(formData.phone)) {
-      newErrors.phone = "Phone number must be 11 digits";
+    } else if (!/^09\d{9}$/.test(formData.phone)) {
+      newErrors.phone = "Enter a valid PH mobile number (e.g. 09XXXXXXXXX)";
     }
     if (formData.age && parseInt(formData.age) >= 10 && !formData.validId && !formData.validIdPreview) {
       newErrors.validId = "Valid ID is required for guests 10+ years old";
     }
+    const mainFullName = `${formData.firstName} ${formData.lastName}`.trim().toLowerCase();
     for (let i = 0; i < additionalGuests.length; i++) {
       const guest = additionalGuests[i];
       const guestNumber = i + 2;
@@ -603,6 +617,20 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
       } else {
         if (guest.age && parseInt(guest.age) >= 10 && !guest.validId && !guest.validIdPreview) {
           newErrors[`guest${i}ValidId`] = `Valid ID is required for Guest ${guestNumber} (10+ years old)`;
+        }
+      }
+      // Duplicate name check against main guest
+      const guestFullName = `${guest.firstName} ${guest.lastName}`.trim().toLowerCase();
+      if (guestFullName && guestFullName === mainFullName) {
+        newErrors[`guest${i}FirstName`] = `Guest ${guestNumber} has the same name as the main guest`;
+      }
+      // Duplicate name check against other additional guests
+      for (let j = 0; j < i; j++) {
+        const other = additionalGuests[j];
+        const otherFullName = `${other.firstName} ${other.lastName}`.trim().toLowerCase();
+        if (guestFullName && guestFullName === otherFullName) {
+          newErrors[`guest${i}FirstName`] = `Guest ${guestNumber} has the same name as Guest ${j + 2}`;
+          break;
         }
       }
     }
@@ -893,6 +921,7 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                         First Name *
                       </label>
                       <input
+                        aria-label="First Name"
                         type="text"
                         name="firstName"
                         value={formData.firstName}
@@ -917,6 +946,7 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                         Last Name *
                       </label>
                       <input
+                        aria-label="Last Name"
                         type="text"
                         name="lastName"
                         value={formData.lastName}
@@ -965,6 +995,7 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                         Gender *
                       </label>
                       <select
+                        aria-label="Gender"
                         name="gender"
                         value={formData.gender}
                         onChange={(e) => {
@@ -996,15 +1027,21 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                         type="email"
                         name="email"
                         value={formData.email}
+                        placeholder="name@gmail.com"
                         onChange={(e) => handleInputChange(e)}
                         className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
                           errors.email ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                         }`}
                       />
-                      {errors.email && (
+                      {errors.email ? (
                         <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
                           <AlertCircle className="w-4 h-4" />
                           {errors.email}
+                        </p>
+                      ) : (
+                        <p className="mt-1 text-xs text-amber-600 flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3 flex-shrink-0" />
+                          Use a valid email address (e.g. a...@gmail.com)
                         </p>
                       )}
                     </div>
@@ -1021,19 +1058,18 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                         name="phone"
                         placeholder="09XXXXXXXXX"
                         value={formData.phone}
-                        onChange={(e) => {
-                          handleInputChange(e);
-                          setErrors(prev => ({...prev, phone: ''}));
-                        }}
+                        onChange={(e) => handleInputChange(e)}
                         className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
                           errors.phone ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                         }`}
                       />
-                      {errors.phone && (
+                      {errors.phone ? (
                         <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
                           <AlertCircle className="w-4 h-4" />
                           {errors.phone}
                         </p>
+                      ) : (
+                        <p className="mt-1 text-xs text-gray-400">PH mobile number starting with 09 (11 digits)</p>
                       )}
                     </div>
 
@@ -1042,6 +1078,7 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                         Facebook Name or Link
                       </label>
                       <input
+                        aria-label="Facebook Name or Link"
                         type="text"
                         name="facebookLink"
                         value={formData.facebookLink}
@@ -1107,6 +1144,7 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                         Adults (10+ years) *
                       </label>
                       <input
+                        aria-label="Number of adults"
                         type="number"
                         name="adults"
                         value={formData.adults}
@@ -1121,6 +1159,7 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                         Children (4-9 years)
                       </label>
                       <input
+                        aria-label="Number of children"
                         type="number"
                         name="children"
                         value={formData.children}
@@ -1135,6 +1174,7 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                         Infants (0-3 years)
                       </label>
                       <input
+                        aria-label="Number of infants"
                         type="number"
                         name="infants"
                         value={formData.infants}
@@ -1165,6 +1205,7 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                             First Name *
                           </label>
                           <input
+                            aria-label="Guest first name"
                             type="text"
                             value={guest.firstName}
                             onChange={(e) => {
@@ -1187,6 +1228,7 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                             Last Name *
                           </label>
                           <input
+                            aria-label="Guest last name"
                             type="text"
                             value={guest.lastName}
                             onChange={(e) => {
@@ -1209,6 +1251,7 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                             Age *
                           </label>
                           <input
+                            aria-label="Guest age"
                             type="text"
                             inputMode="numeric"
                             value={guest.age}
@@ -1235,6 +1278,7 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                             Gender *
                           </label>
                           <select
+                            aria-label="Guest gender"
                             value={guest.gender}
                             onChange={(e) => {
                               handleAdditionalGuestChange(index, 'gender', e.target.value);
@@ -1325,6 +1369,7 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                       Select Haven/Room *
                     </label>
                     <select
+                      aria-label="Select Haven or Room"
                       name="roomName"
                       value={selectedHaven?.haven_name || ""}
                       onChange={handleInputChange}
@@ -1353,6 +1398,7 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                       Select Stay Type *
                     </label>
                     <select
+                      aria-label="Select Stay Type"
                       name="stayType"
                       value={formData.stayType}
                       onChange={handleStayTypeChange}
@@ -1380,6 +1426,7 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                         Check-in Date *
                       </label>
                       <input
+                        aria-label="Check-in Date"
                         type="date"
                         value={checkInDate}
                         onChange={(e) => {
@@ -1404,6 +1451,7 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                         Check-out Date *
                       </label>
                       <input
+                        aria-label="Check-out Date"
                         type="date"
                         value={checkOutDate}
                         onChange={(e) => {
@@ -1428,6 +1476,7 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                         Check-in Time *
                       </label>
                       <input
+                        aria-label="Check-in Time"
                         type="time"
                         name="checkInTime"
                         value={formData.checkInTime}
@@ -1452,6 +1501,7 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                         Check-out Time *
                       </label>
                       <input
+                        aria-label="Check-out Time"
                         type="time"
                         name="checkOutTime"
                         value={formData.checkOutTime}
@@ -1523,6 +1573,7 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                         </div>
                         <div className="flex items-center gap-3">
                           <button
+                            aria-label="Decrease quantity"
                             type="button"
                             onClick={() => handleAddOnChange(item.key as keyof AddOns, false)}
                             className="w-8 h-8 flex items-center justify-center bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-full"
@@ -1533,6 +1584,7 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                             {addOns[item.key as keyof AddOns]}
                           </span>
                           <button
+                            aria-label="Increase quantity"
                             type="button"
                             onClick={() => handleAddOnChange(item.key as keyof AddOns, true)}
                             className="w-8 h-8 flex items-center justify-center bg-brand-primary hover:bg-brand-primaryDark text-white rounded-full"
@@ -1833,6 +1885,7 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                     Booking Status
                   </label>
                   <select
+                    aria-label="Booking Status"
                     name="status"
                     value={formData.status}
                     onChange={handleInputChange}

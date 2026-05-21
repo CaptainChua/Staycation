@@ -96,10 +96,12 @@ CREATE TABLE booking_security_deposits (
 
   amount DECIMAL(10,2) NOT NULL,
 
-  deposit_status VARCHAR(20) NOT NULL DEFAULT 'pending'
+  deposit_status VARCHAR(30) NOT NULL DEFAULT 'pending'
     CHECK (deposit_status IN (
       'pending',
+      'pending_verification',
       'held',
+      'pending_verification',
       'returned',
       'partial',
       'forfeited'

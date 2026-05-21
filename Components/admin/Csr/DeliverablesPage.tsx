@@ -255,6 +255,9 @@ export default function DeliverablesPage() {
   console.log('🔑 Session and EmployeeId:', { session, employeeId });
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | string>("all");
+  const [selectedHaven, setSelectedHaven] = useState("all");
+  const [checkInDateFrom, setCheckInDateFrom] = useState("");
+  const [checkInDateTo, setCheckInDateTo] = useState("");
   const [filterDate, setFilterDate] = useState<"all" | "today_checkin" | "today_checkout" | "custom_range">("all");
   const [customStartDate, setCustomStartDate] = useState<string>("");
   const [customEndDate, setCustomEndDate] = useState<string>("");
@@ -378,6 +381,11 @@ export default function DeliverablesPage() {
     fetchData();
   }, []);
 
+  const uniqueHavens = useMemo(() => {
+    const names = rows.map((r) => r.haven).filter((n): n is string => Boolean(n));
+    return [...new Set(names)].sort();
+  }, [rows]);
+
   const filteredRows = useMemo(() => {
     const term = searchTerm.toLowerCase();
     const today = new Date();
@@ -406,6 +414,26 @@ export default function DeliverablesPage() {
         row.overall_status === filterStatus ||
         items.some(item => item.status === filterStatus);
 
+      const matchesHaven = selectedHaven === "all" || (row.haven || "") === selectedHaven;
+
+      let matchesCheckIn = true;
+      if (checkInDateFrom || checkInDateTo) {
+        const checkIn = row.checkin_date_raw ? new Date(row.checkin_date_raw) : null;
+        if (checkIn) {
+          checkIn.setHours(0, 0, 0, 0);
+          if (checkInDateFrom) {
+            const from = new Date(checkInDateFrom); from.setHours(0, 0, 0, 0);
+            if (checkIn < from) matchesCheckIn = false;
+          }
+          if (checkInDateTo) {
+            const to = new Date(checkInDateTo); to.setHours(23, 59, 59, 999);
+            if (checkIn > to) matchesCheckIn = false;
+          }
+        } else {
+          matchesCheckIn = false;
+        }
+      }
+
       let matchesDateFilter = true;
       if (filterDate === "today_checkin" && row.checkin_date_raw) {
         const checkinDate = new Date(row.checkin_date_raw);
@@ -424,9 +452,9 @@ export default function DeliverablesPage() {
           (checkoutDate && checkoutDate >= startDate && checkoutDate <= endDate) || false;
       }
 
-      return matchesSearch && matchesFilter && matchesDateFilter;
+      return matchesSearch && matchesFilter && matchesHaven && matchesCheckIn && matchesDateFilter;
     });
-  }, [filterStatus, filterDate, customStartDate, customEndDate, rows, searchTerm]);
+  }, [filterStatus, filterDate, customStartDate, customEndDate, rows, searchTerm, selectedHaven, checkInDateFrom, checkInDateTo]);
 
   const sortedRows = useMemo(() => {
     const copy = [...filteredRows];
@@ -1220,115 +1248,170 @@ const handleMarkAllDelivered = async (bookingId: string) => {
       )}
 
       {/* Filters */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-4 flex-shrink-0 border border-gray-200 dark:border-gray-700">
-        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-          <div className="flex flex-col sm:flex-row gap-4 flex-1 w-full">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-4 flex-shrink-0 border border-gray-200 dark:border-gray-700 space-y-3">
+        {/* Top row: Show + Search + Refresh */}
+        <div className="flex flex-col md:flex-row gap-3 items-start md:items-center">
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">Show</label>
+            <select
+              value={entriesPerPage}
+              onChange={(e) => {
+                setEntriesPerPage(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              aria-label="Entries per page"
+              title="Entries per page"
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-amber-600 text-sm"
+            >
+              <option value="5">5</option>
+              <option value="10">10</option>
+              <option value="25">25</option>
+              <option value="50">50</option>
+            </select>
+            <label className="text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">entries</label>
+          </div>
+
+          <div className="flex-1 relative w-full">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500" />
+            <input
+              type="text"
+              placeholder="Search by ID, booking, guest, haven, or item name..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              aria-label="Search deliverables"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-amber-600"
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={fetchData}
+            className="p-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+            title="Refresh Data"
+            aria-label="Refresh data"
+          >
+            <RefreshCw className={`w-4 h-4 text-gray-600 dark:text-gray-300 ${isLoading ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
+
+        {/* Bottom row: Filters */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <Filter className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+          <select
+            value={filterStatus}
+            onChange={(e) => {
+              setFilterStatus(e.target.value);
+              setCurrentPage(1);
+            }}
+            aria-label="Filter by status"
+            title="Filter by status"
+            className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-amber-600"
+          >
+            <option value="all">All Status</option>
+            <option value="Pending">Pending</option>
+            <option value="Preparing">Preparing</option>
+            <option value="Delivered">Delivered</option>
+            <option value="Cancelled">Cancelled</option>
+            <option value="Refunded">Refunded</option>
+          </select>
+
+          {/* Haven filter */}
+          <select
+            value={selectedHaven}
+            onChange={(e) => {
+              setSelectedHaven(e.target.value);
+              setCurrentPage(1);
+            }}
+            aria-label="Filter by haven"
+            title="Filter by haven"
+            className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-amber-600"
+          >
+            <option value="all">All Havens</option>
+            {uniqueHavens.map((name) => (
+              <option key={name} value={name}>{name}</option>
+            ))}
+          </select>
+
+          {/* Check-in date range */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">Check-in:</span>
+            <input
+              type="date"
+              value={checkInDateFrom}
+              onChange={(e) => { setCheckInDateFrom(e.target.value); setCurrentPage(1); }}
+              aria-label="Check-in date from"
+              title="Check-in date from"
+              className="px-2 py-1.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-amber-600 text-sm"
+            />
+            <span className="text-gray-400 text-xs">–</span>
+            <input
+              type="date"
+              value={checkInDateTo}
+              min={checkInDateFrom}
+              onChange={(e) => { setCheckInDateTo(e.target.value); setCurrentPage(1); }}
+              aria-label="Check-in date to"
+              title="Check-in date to"
+              className="px-2 py-1.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-amber-600 text-sm"
+            />
+            {(checkInDateFrom || checkInDateTo) && (
+              <button
+                type="button"
+                onClick={() => { setCheckInDateFrom(""); setCheckInDateTo(""); setCurrentPage(1); }}
+                aria-label="Clear check-in dates"
+                title="Clear dates"
+                className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600 transition-colors text-xs"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
+          <select
+            value={filterDate}
+            onChange={(e) => {
+              setFilterDate(e.target.value as typeof filterDate);
+              if (e.target.value !== "custom_range") {
+                setCustomStartDate("");
+                setCustomEndDate("");
+              }
+              setCurrentPage(1);
+            }}
+            aria-label="Filter by date range"
+            title="Filter by date range"
+            className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-amber-600"
+          >
+            <option value="all">All Dates</option>
+            <option value="today_checkin">Today&apos;s Check-ins</option>
+            <option value="today_checkout">Today&apos;s Check-outs</option>
+            <option value="custom_range">Custom Range</option>
+          </select>
+          {filterDate === "custom_range" && (
             <div className="flex items-center gap-2">
-              <label className="text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">Show</label>
-              <select
-                value={entriesPerPage}
+              <input
+                type="date"
+                value={customStartDate}
                 onChange={(e) => {
-                  setEntriesPerPage(Number(e.target.value));
+                  setCustomStartDate(e.target.value);
                   setCurrentPage(1);
                 }}
-                aria-label="Entries per page"
-                title="Entries per page"
-                className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-amber-600 text-sm"
-              >
-                <option value="5">5</option>
-                <option value="10">10</option>
-                <option value="25">25</option>
-                <option value="50">50</option>
-              </select>
-              <label className="text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">entries</label>
-            </div>
-
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500" />
+                aria-label="Custom start date"
+                title="Custom start date"
+                className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg text-sm"
+              />
+              <span className="text-gray-500 dark:text-gray-400">to</span>
               <input
-                type="text"
-                placeholder="Search by ID, booking, guest, haven, or item name..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                aria-label="Search deliverables"
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-amber-600"
+                type="date"
+                value={customEndDate}
+                onChange={(e) => {
+                  setCustomEndDate(e.target.value);
+                  setCurrentPage(1);
+                }}
+                aria-label="Custom end date"
+                title="Custom end date"
+                className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg text-sm"
               />
             </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Filter className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-            <select
-              value={filterStatus}
-              onChange={(e) => {
-                setFilterStatus(e.target.value);
-                setCurrentPage(1);
-              }}
-              aria-label="Filter by status"
-              title="Filter by status"
-              className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-amber-600"
-            >
-              <option value="all">All Status</option>
-              <option value="Pending">Pending</option>
-              <option value="Preparing">Preparing</option>
-              <option value="Delivered">Delivered</option>
-              <option value="Cancelled">Cancelled</option>
-              <option value="Refunded">Refunded</option>
-            </select>
-            <select
-              value={filterDate}
-              onChange={(e) => {
-                setFilterDate(e.target.value as typeof filterDate);
-                if (e.target.value !== "custom_range") {
-                  setCustomStartDate("");
-                  setCustomEndDate("");
-                }
-                setCurrentPage(1);
-              }}
-              aria-label="Filter by date range"
-              title="Filter by date range"
-              className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-amber-600"
-            >
-              <option value="all">All Dates</option>
-              <option value="today_checkin">Today&apos;s Check-ins</option>
-              <option value="today_checkout">Today&apos;s Check-outs</option>
-              <option value="custom_range">Custom Range</option>
-            </select>
-            {filterDate === "custom_range" && (
-              <div className="flex items-center gap-2">
-                <input
-                  type="date"
-                  value={customStartDate}
-                  onChange={(e) => {
-                    setCustomStartDate(e.target.value);
-                    setCurrentPage(1);
-                  }}
-                  aria-label="Custom start date"
-                  title="Custom start date"
-                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg text-sm"
-                />
-                <span className="text-gray-500 dark:text-gray-400">to</span>
-                <input
-                  type="date"
-                  value={customEndDate}
-                  onChange={(e) => {
-                    setCustomEndDate(e.target.value);
-                    setCurrentPage(1);
-                  }}
-                  aria-label="Custom end date"
-                  title="Custom end date"
-                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg text-sm"
-                />
-              </div>
-            )}
-            <button
-              onClick={fetchData}
-              className="p-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
-              title="Refresh Data"
-            >
-              <RefreshCw className={`w-4 h-4 text-gray-600 dark:text-gray-300 ${isLoading ? 'animate-spin' : ''}`} />
-            </button>
-          </div>
+          )}
         </div>
       </div>
 

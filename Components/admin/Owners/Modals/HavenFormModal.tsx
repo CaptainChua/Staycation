@@ -12,12 +12,12 @@ import { useSession } from "next-auth/react";
 import toast from 'react-hot-toast';
 import { setCookie } from "@/lib/cookieUtils";
 import BasicInformationModal from "./BasicInformationModal";
-import PricingManagementModal from "./PricingManagementModal";
+import PricingManagementModal, { type RateEntry } from "./PricingManagementModal";
 import CheckInTimeSettingsModal from "./CheckInTimeSettingsModal";
 import HavenDetailsModal from "./HavenDetailsModal";
 import AmenitiesModal from "./AmenitiesModal";
 import HavenImagesModal from "./HavenImagesModal";
-import PhotoTourManagementModal from "./PhotoTourManagementModal";
+import PhotoTourManagementModal, { getDynamicRequiredPhotoCategories, ALWAYS_REQUIRED_PHOTO_CATEGORIES } from "./PhotoTourManagementModal";
 import YouTubeVideoModal from "./YouTubeVideoModal";
 
 import { z } from 'zod';
@@ -104,32 +104,47 @@ interface HavenFormModalProps {
 }
 
 // Define Zod Schemas for each step's validation
+// Field semantics: tower → Location name, floor → Specific details, view → Nearby areas.
+// Underlying DB columns keep the old names for backward compatibility.
 const basicInfoSchema = z.object({
   havenName: z.string().min(1, "Haven Name is required"),
-  tower: z.string().min(1, "Tower is required"),
-  floor: z.string()
-    .min(1, "Floor is required")
-    .regex(/^\d+$/, "Floor must be a number"),
-  view: z.string().min(1, "View Type is required"),
+  tower: z.string().min(1, "Location name is required"),
+  floor: z.string().min(1, "Specific details are required"),
+  view: z.string().min(1, "Please list at least one nearby area"),
 });
 
+// Partner-defined rates: array of { label, hours, price }
 const pricingSchema = z.object({
-  sixHourRate: z.string().refine(val => !isNaN(parseFloat(val)) && parseFloat(val) > 0, "6-hour rate must be a positive number"),
-  tenHourRate: z.string().refine(val => !isNaN(parseFloat(val)) && parseFloat(val) > 0, "10-hour rate must be a positive number"),
-  weekdayRate: z.string().refine(val => !isNaN(parseFloat(val)) && parseFloat(val) > 0, "Weekday rate must be a positive number"),
-  weekendRate: z.string().refine(val => !isNaN(parseFloat(val)) && parseFloat(val) > 0, "Weekend rate must be a positive number"),
+  rates: z
+    .array(
+      z.object({
+        label: z.string().min(1, "Label is required"),
+        hours: z.number().positive("Hours must be > 0").max(24, "Hours cannot exceed 24"),
+        price: z.number().positive("Price must be > 0"),
+      })
+    )
+    .min(1, "Add at least one rate"),
 });
 
+// Check-in step now validates that EVERY rate has check_in + check_out set
 const checkInSchema = z.object({
-  sixHourCheckIn: z.string().min(1, "6-hour check-in time is required"),
-  tenHourCheckIn: z.string().min(1, "10-hour check-in time is required"),
-  twentyOneHourCheckIn: z.string().min(1, "21-hour check-in time is required"),
+  rates: z
+    .array(
+      z.object({
+        label: z.string().min(1),
+        hours: z.number().positive().max(24),
+        price: z.number().positive(),
+        check_in: z.string().min(1, "Check-in time required"),
+        check_out: z.string().min(1, "Check-out time required"),
+      })
+    )
+    .min(1, "Add at least one rate in the Pricing step first"),
 });
 
 const detailsSchema = z.object({
   capacity: z.string().refine(val => !isNaN(parseInt(val)) && parseInt(val) > 0, "Capacity must be a positive number"),
   roomSize: z.string().refine(val => !isNaN(parseFloat(val)) && parseFloat(val) > 0, "Room size must be a positive number"),
-  beds: z.string().min(1, "Number of beds is required"),
+  beds: z.string().min(1, "Number of bedrooms is required"),
   description: z.string().min(1, "Description is required"),
 });
 
@@ -143,7 +158,7 @@ const imagesSchema = z.object({
 
 // The STEPS array
 const STEPS: Step[] = [
-  { id: 'basic', label: 'Basic Info', description: 'Name, tower, floor, view', icon: Home, component: BasicInformationModal, validationSchema: basicInfoSchema },
+  { id: 'basic', label: 'Basic Info', description: 'Name, location, details, nearby', icon: Home, component: BasicInformationModal, validationSchema: basicInfoSchema },
   { id: 'pricing', label: 'Pricing', description: 'Rates & fees', icon: DollarSign, component: PricingManagementModal, validationSchema: pricingSchema },
   { id: 'checkin', label: 'Check-in', description: 'Time settings', icon: Clock, component: CheckInTimeSettingsModal, validationSchema: checkInSchema },
   { id: 'details', label: 'Details', description: 'Capacity, beds, size', icon: FileText, component: HavenDetailsModal, validationSchema: detailsSchema },
@@ -172,7 +187,39 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
   const [isInitialized, setIsInitialized] = useState(false);
 
   // Form State
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    havenName: string;
+    tower: string;
+    floor: string;
+    view: string;
+    capacity: string;
+    roomSize: string;
+    beds: string;
+    rates: RateEntry[];
+    sixHourCheckIn: string;
+    sixHourCheckOut: string;
+    tenHourCheckIn: string;
+    tenHourCheckOut: string;
+    twentyOneHourCheckIn: string;
+    twentyOneHourCheckOut: string;
+    description: string;
+    youtubeUrl: string;
+    // Policy / finance / location fields (all optional, captured in the Details step)
+    bathrooms: string;
+    propertyType: string;
+    cleaningFee: string;
+    securityDeposit: string;
+    extraPaxFee: string;
+    houseRules: string;
+    smokingPolicy: string;
+    petPolicy: string;
+    cancellationPolicy: string;
+    googleMapAddress: string;
+    virtualTourUrl: string;
+    // boolean toggles for each amenity id, plus a reserved `_custom` array
+    // holding metadata (id, label, iconKey) for partner-defined amenities.
+    amenities: Record<string, boolean | Array<{ id: string; label: string; iconKey: string }> | undefined>;
+  }>({
     havenName: "",
     tower: "",
     floor: "",
@@ -180,10 +227,7 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
     capacity: "",
     roomSize: "",
     beds: "",
-    sixHourRate: "",
-    tenHourRate: "",
-    weekdayRate: "",
-    weekendRate: "",
+    rates: [],
     sixHourCheckIn: "09:00",
     sixHourCheckOut: "15:00",
     tenHourCheckIn: "09:00",
@@ -192,6 +236,17 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
     twentyOneHourCheckOut: "11:00",
     description: "",
     youtubeUrl: "",
+    bathrooms: "",
+    propertyType: "",
+    cleaningFee: "",
+    securityDeposit: "",
+    extraPaxFee: "",
+    houseRules: "",
+    smokingPolicy: "",
+    petPolicy: "",
+    cancellationPolicy: "",
+    googleMapAddress: "",
+    virtualTourUrl: "",
     amenities: {
       wifi: true,
       airConditioning: true,
@@ -227,20 +282,72 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
   // Initialization Effect (Edit Mode)
   useEffect(() => {
     if (isEditMode && initialData && isOpen && !isInitialized) {
+      // Build rates from initialData: prefer the rates JSONB array; otherwise backfill
+      // from the legacy fixed columns. Also backfill per-rate check_in/check_out from the
+      // legacy hour-bucket columns (six_hour_check_in etc.) by matching the rate's hours.
+      const legacyTimes = (hours: number): { check_in?: string; check_out?: string } => {
+        if (hours === 6)
+          return {
+            check_in: initialData.six_hour_check_in || undefined,
+            check_out: initialData.six_hour_check_out || undefined,
+          };
+        if (hours === 10)
+          return {
+            check_in: initialData.ten_hour_check_in || undefined,
+            check_out: initialData.ten_hour_check_out || undefined,
+          };
+        if (hours === 21)
+          return {
+            check_in: initialData.twenty_one_hour_check_in || undefined,
+            check_out: initialData.twenty_one_hour_check_out || undefined,
+          };
+        return {};
+      };
+      const rawRates: RateEntry[] = Array.isArray((initialData as { rates?: RateEntry[] }).rates) && ((initialData as { rates?: RateEntry[] }).rates as RateEntry[]).length > 0
+        ? ((initialData as { rates?: RateEntry[] }).rates as RateEntry[]).map((r) => ({
+            label: String(r.label || ""),
+            hours: Number(r.hours) || 0,
+            price: Number(r.price) || 0,
+            check_in: r.check_in,
+            check_out: r.check_out,
+          }))
+        : [
+            { label: "6 Hours", hours: 6, price: Number(initialData.six_hour_rate) || 0 },
+            { label: "10 Hours", hours: 10, price: Number(initialData.ten_hour_rate) || 0 },
+            { label: "Weekday (21 Hours)", hours: 21, price: Number(initialData.weekday_rate) || 0 },
+            { label: "Weekend (21 Hours)", hours: 21, price: Number(initialData.weekend_rate) || 0 },
+          ].filter((r) => r.price > 0);
+      const initialRates: RateEntry[] = rawRates.map((r) => {
+        const lt = legacyTimes(r.hours);
+        return {
+          ...r,
+          check_in: r.check_in || lt.check_in,
+          check_out: r.check_out || lt.check_out,
+        };
+      });
+
       setFormData({
         havenName: initialData.haven_name || "",
         tower: initialData.tower || "",
-        floor: (initialData.floor || "").replace(/[^0-9]/g, ""),
+        floor: initialData.floor || "",
         view: initialData.view_type || "",
         capacity: initialData.capacity?.toString() || "",
         roomSize: initialData.room_size?.toString() || "",
         beds: initialData.beds || "",
         description: initialData.description || "",
         youtubeUrl: initialData.youtube_url || "",
-        sixHourRate: initialData.six_hour_rate?.toString() || "",
-        tenHourRate: initialData.ten_hour_rate?.toString() || "",
-        weekdayRate: initialData.weekday_rate?.toString() || "",
-        weekendRate: initialData.weekend_rate?.toString() || "",
+        bathrooms: (initialData as { bathrooms?: number })?.bathrooms?.toString() || "",
+        propertyType: (initialData as { property_type?: string })?.property_type || "",
+        cleaningFee: (initialData as { cleaning_fee?: number })?.cleaning_fee?.toString() || "",
+        securityDeposit: (initialData as { security_deposit?: number })?.security_deposit?.toString() || "",
+        extraPaxFee: (initialData as { extra_pax_fee?: number })?.extra_pax_fee?.toString() || "",
+        houseRules: (initialData as { house_rules?: string })?.house_rules || "",
+        smokingPolicy: (initialData as { smoking_policy?: string })?.smoking_policy || "",
+        petPolicy: (initialData as { pet_policy?: string })?.pet_policy || "",
+        cancellationPolicy: (initialData as { cancellation_policy?: string })?.cancellation_policy || "",
+        googleMapAddress: (initialData as { google_map_address?: string })?.google_map_address || "",
+        virtualTourUrl: (initialData as { virtual_tour_url?: string })?.virtual_tour_url || "",
+        rates: initialRates,
         sixHourCheckIn: initialData.six_hour_check_in || "09:00",
         sixHourCheckOut: initialData.six_hour_check_out || "15:00",
         tenHourCheckIn: initialData.ten_hour_check_in || "09:00",
@@ -285,28 +392,31 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
     } else if (stepId === 'pricing') {
       setFormData(prev => ({
         ...prev,
-        sixHourRate: data.six_hour_rate?.toString() || "",
-        tenHourRate: data.ten_hour_rate?.toString() || "",
-        weekdayRate: data.weekday_rate?.toString() || "",
-        weekendRate: data.weekend_rate?.toString() || "",
+        rates: Array.isArray(data?.rates) ? (data.rates as RateEntry[]) : [],
       }));
     } else if (stepId === 'checkin') {
-      setFormData(prev => ({
-        ...prev,
-        sixHourCheckIn: data.six_hour_check_in || "09:00",
-        sixHourCheckOut: data.six_hour_check_out || "15:00",
-        tenHourCheckIn: data.ten_hour_check_in || "09:00",
-        tenHourCheckOut: data.ten_hour_check_out || "19:00",
-        twentyOneHourCheckIn: data.twenty_one_hour_check_in || "14:00",
-        twentyOneHourCheckOut: data.twenty_one_hour_check_out || "11:00",
-      }));
+      // Check-in step now updates per-rate check_in/check_out on the rates array
+      if (Array.isArray(data?.rates)) {
+        setFormData(prev => ({ ...prev, rates: data.rates as RateEntry[] }));
+      }
     } else if (stepId === 'details') {
       setFormData(prev => ({
         ...prev,
         capacity: data.capacity?.toString() || "",
         roomSize: data.room_size?.toString() || "",
         beds: data.beds || "",
+        bathrooms: data.bathrooms?.toString() || "",
         description: data.description || "",
+        propertyType: data.property_type || "",
+        cleaningFee: data.cleaning_fee?.toString() || "",
+        securityDeposit: data.security_deposit?.toString() || "",
+        extraPaxFee: data.extra_pax_fee?.toString() || "",
+        houseRules: data.house_rules || "",
+        smokingPolicy: data.smoking_policy || "",
+        petPolicy: data.pet_policy || "",
+        cancellationPolicy: data.cancellation_policy || "",
+        googleMapAddress: data.google_map_address || "",
+        virtualTourUrl: data.virtual_tour_url || "",
       }));
     } else if (stepId === 'amenities') {
       setFormData(prev => ({ ...prev, amenities: { ...data } }));
@@ -327,9 +437,26 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
     }
   }, []);
 
+  // Custom validation for the photo-tour step:
+  // Every always-required category PLUS every amenity-driven required category must have at least one photo.
+  const validatePhotoTour = useCallback((): boolean => {
+    const dynReq = getDynamicRequiredPhotoCategories(formData.amenities as Record<string, unknown>);
+    const allRequired = new Set<string>([...ALWAYS_REQUIRED_PHOTO_CATEGORIES, ...dynReq]);
+    const hasPhotoForCategory = (cat: string) => {
+      const normalized = cat.toLowerCase();
+      const hasExisting = existingPhotoTours.some(
+        (p) => p.category?.toLowerCase().replace(/\s+/g, "") === normalized
+      );
+      const hasNew = (photoTourImages[cat]?.length || 0) > 0;
+      return hasExisting || hasNew;
+    };
+    return Array.from(allRequired).every(hasPhotoForCategory);
+  }, [formData.amenities, photoTourImages, existingPhotoTours]);
+
   // Validation Logic
   const validateStep = useCallback((stepIndex: number): boolean => {
     const step = STEPS[stepIndex];
+    if (step?.id === 'phototour') return validatePhotoTour();
     if (!step || !step.validationSchema) {
       return true;
     }
@@ -353,7 +480,7 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
     } catch (error) {
       return false;
     }
-  }, [formData, havenImages, existingImages, photoTourImages, existingPhotoTours]);
+  }, [formData, havenImages, existingImages, photoTourImages, existingPhotoTours, validatePhotoTour]);
 
   const isCurrentStepValid = useMemo(() => validateStep(currentStepIndex), [validateStep, currentStepIndex]);
   
@@ -386,10 +513,7 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
       capacity: "",
       roomSize: "",
       beds: "",
-      sixHourRate: "",
-      tenHourRate: "",
-      weekdayRate: "",
-      weekendRate: "",
+      rates: [],
       sixHourCheckIn: "09:00",
       sixHourCheckOut: "15:00",
       tenHourCheckIn: "09:00",
@@ -398,20 +522,32 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
       twentyOneHourCheckOut: "11:00",
       description: "",
       youtubeUrl: "",
-                amenities: {
-                  wifi: true,
-                  airConditioning: true,
-                  poolAccess: true,
-                  netflix: true,
-                  kitchen: true,
-                  parking: true,
-                  ps4: true,
-                  balcony: true,
-                  washerDryer: true,
-                  glowBed: true,
-                  tv: true,
-                  towels: true,
-                },        });    setHavenImages([]);
+      bathrooms: "",
+      propertyType: "",
+      cleaningFee: "",
+      securityDeposit: "",
+      extraPaxFee: "",
+      houseRules: "",
+      smokingPolicy: "",
+      petPolicy: "",
+      cancellationPolicy: "",
+      googleMapAddress: "",
+      virtualTourUrl: "",
+      amenities: {
+        wifi: true,
+        airConditioning: true,
+        poolAccess: true,
+        netflix: true,
+        kitchen: true,
+        parking: true,
+        ps4: true,
+        balcony: true,
+        washerDryer: true,
+        glowBed: true,
+        tv: true,
+        towels: true,
+      },
+    });    setHavenImages([]);
     setExistingImages([]);
     setPhotoTourImages({
       livingArea: [],
@@ -515,6 +651,40 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
         }
       }
 
+      // Best-effort legacy column backfill so downstream booking code keeps working
+      // until it's migrated to read from havens.rates JSONB.
+      const legacy = {
+        six_hour_rate: 0,
+        ten_hour_rate: 0,
+        weekday_rate: 0,
+        weekend_rate: 0,
+        six_hour_check_in: "09:00",
+        six_hour_check_out: "15:00",
+        ten_hour_check_in: "09:00",
+        ten_hour_check_out: "19:00",
+        twenty_one_hour_check_in: "14:00",
+        twenty_one_hour_check_out: "11:00",
+      };
+      formData.rates.forEach((r) => {
+        if (r.hours === 6) {
+          legacy.six_hour_rate = r.price;
+          if (r.check_in) legacy.six_hour_check_in = r.check_in;
+          if (r.check_out) legacy.six_hour_check_out = r.check_out;
+        } else if (r.hours === 10) {
+          legacy.ten_hour_rate = r.price;
+          if (r.check_in) legacy.ten_hour_check_in = r.check_in;
+          if (r.check_out) legacy.ten_hour_check_out = r.check_out;
+        } else if (r.hours === 21 && /weekend/i.test(r.label)) {
+          legacy.weekend_rate = r.price;
+          if (r.check_in) legacy.twenty_one_hour_check_in = r.check_in;
+          if (r.check_out) legacy.twenty_one_hour_check_out = r.check_out;
+        } else if (r.hours === 21) {
+          legacy.weekday_rate = r.price;
+          if (r.check_in) legacy.twenty_one_hour_check_in = r.check_in;
+          if (r.check_out) legacy.twenty_one_hour_check_out = r.check_out;
+        }
+      });
+
       // 2. Prepare Payload
       const payload = {
         haven_name: formData.havenName,
@@ -526,16 +696,20 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
         beds: formData.beds,
         description: formData.description,
         youtube_url: formData.youtubeUrl,
-        six_hour_rate: parseFloat(formData.sixHourRate),
-        ten_hour_rate: parseFloat(formData.tenHourRate),
-        weekday_rate: parseFloat(formData.weekdayRate),
-        weekend_rate: parseFloat(formData.weekendRate),
-        six_hour_check_in: formData.sixHourCheckIn,
-        six_hour_check_out: formData.sixHourCheckOut,
-        ten_hour_check_in: formData.tenHourCheckIn,
-        ten_hour_check_out: formData.tenHourCheckOut,
-        twenty_one_hour_check_in: formData.twentyOneHourCheckIn,
-        twenty_one_hour_check_out: formData.twentyOneHourCheckOut,
+        // Phase 5 + critical-MVP-gap fields
+        bathrooms: formData.bathrooms ? parseInt(formData.bathrooms) : null,
+        property_type: formData.propertyType || null,
+        cleaning_fee: formData.cleaningFee ? parseFloat(formData.cleaningFee) : 0,
+        security_deposit: formData.securityDeposit ? parseFloat(formData.securityDeposit) : 0,
+        extra_pax_fee: formData.extraPaxFee ? parseFloat(formData.extraPaxFee) : 0,
+        house_rules: formData.houseRules || null,
+        smoking_policy: formData.smokingPolicy || null,
+        pet_policy: formData.petPolicy || null,
+        cancellation_policy: formData.cancellationPolicy || null,
+        google_map_address: formData.googleMapAddress || null,
+        virtual_tour_url: formData.virtualTourUrl || null,
+        rates: formData.rates,
+        ...legacy,
         amenities: formData.amenities,
         haven_images: havenImagesBase64,
         photo_tour_images: photoTourBase64,
@@ -617,27 +791,37 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
   }), [formData.havenName, formData.tower, formData.floor, formData.view]);
 
   const pricingInitialData = useMemo(() => ({
-    six_hour_rate: formData.sixHourRate ? parseFloat(formData.sixHourRate) : undefined,
-    ten_hour_rate: formData.tenHourRate ? parseFloat(formData.tenHourRate) : undefined,
-    weekday_rate: formData.weekdayRate ? parseFloat(formData.weekdayRate) : undefined,
-    weekend_rate: formData.weekendRate ? parseFloat(formData.weekendRate) : undefined,
-  }), [formData.sixHourRate, formData.tenHourRate, formData.weekdayRate, formData.weekendRate]);
+    rates: formData.rates,
+  }), [formData.rates]);
 
+  // Check-in step is now driven by the rates array — each rate carries its own check_in/check_out
   const checkInInitialData = useMemo(() => ({
-    six_hour_check_in: formData.sixHourCheckIn,
-    six_hour_check_out: formData.sixHourCheckOut,
-    ten_hour_check_in: formData.tenHourCheckIn,
-    ten_hour_check_out: formData.tenHourCheckOut,
-    twenty_one_hour_check_in: formData.twentyOneHourCheckIn,
-    twenty_one_hour_check_out: formData.twentyOneHourCheckOut,
-  }), [formData.sixHourCheckIn, formData.sixHourCheckOut, formData.tenHourCheckIn, formData.tenHourCheckOut, formData.twentyOneHourCheckIn, formData.twentyOneHourCheckOut]);
+    rates: formData.rates,
+  }), [formData.rates]);
 
   const detailsInitialData = useMemo(() => ({
     capacity: formData.capacity ? parseInt(formData.capacity) : undefined,
     room_size: formData.roomSize ? parseFloat(formData.roomSize) : undefined,
     beds: formData.beds,
+    bathrooms: formData.bathrooms,
     description: formData.description,
-  }), [formData.capacity, formData.roomSize, formData.beds, formData.description]);
+    property_type: formData.propertyType,
+    cleaning_fee: formData.cleaningFee,
+    security_deposit: formData.securityDeposit,
+    extra_pax_fee: formData.extraPaxFee,
+    house_rules: formData.houseRules,
+    smoking_policy: formData.smokingPolicy,
+    pet_policy: formData.petPolicy,
+    cancellation_policy: formData.cancellationPolicy,
+    google_map_address: formData.googleMapAddress,
+    virtual_tour_url: formData.virtualTourUrl,
+  }), [
+    formData.capacity, formData.roomSize, formData.beds, formData.bathrooms, formData.description,
+    formData.propertyType, formData.cleaningFee,
+    formData.securityDeposit, formData.extraPaxFee, formData.houseRules,
+    formData.smokingPolicy, formData.petPolicy, formData.cancellationPolicy,
+    formData.googleMapAddress, formData.virtualTourUrl,
+  ]);
 
   const amenitiesInitialData = useMemo(() => formData.amenities, [formData.amenities]);
   const imagesInitialData = useMemo(() => existingImages, [existingImages]);
@@ -765,7 +949,7 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
                             null
                           }
                           {...(step.id === 'images' ? { initialImages: imagesInitialData } : {})}
-                          {...(step.id === 'phototour' ? { initialPhotoTours: photoTourInitialData } : {})}
+                          {...(step.id === 'phototour' ? { initialPhotoTours: photoTourInitialData, selectedAmenities: formData.amenities } : {})}
                           {...(step.id === 'youtube' ? { initialUrl: formData.youtubeUrl } : {})}
                           isAddMode={!isEditMode}
                           mode="step"

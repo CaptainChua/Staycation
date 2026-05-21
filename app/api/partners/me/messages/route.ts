@@ -58,7 +58,46 @@ export async function GET() {
   }
 }
 
-// POST: partner sends a message to a thread
+// Default display metadata for each thread_key, used when the partner starts
+// a brand-new conversation (no thread exists yet).
+const THREAD_DEFAULTS: Record<
+  string,
+  { display_name: string; role_label: string; avatar_initials: string; avatar_color: string; is_online: boolean }
+> = {
+  support: {
+    display_name: "Staycation Haven Support",
+    role_label: "Customer service · 24/7",
+    avatar_initials: "S",
+    avatar_color: "primary",
+    is_online: true,
+  },
+  manager: {
+    display_name: "Account Manager",
+    role_label: "Your account manager",
+    avatar_initials: "AM",
+    avatar_color: "gold",
+    is_online: true,
+  },
+  billing: {
+    display_name: "Payouts & Billing",
+    role_label: "Finance team",
+    avatar_initials: "₱",
+    avatar_color: "green",
+    is_online: false,
+  },
+  verify: {
+    display_name: "Listing Review Team",
+    role_label: "Approvals · Mon–Sat",
+    avatar_initials: "LR",
+    avatar_color: "blue",
+    is_online: false,
+  },
+};
+
+// POST: partner sends a message.
+//   - Pass `thread_id` to append to an existing conversation.
+//   - Pass `thread_key` (e.g. "support") to start a new conversation; the
+//     thread is upserted on (partner_id, thread_key).
 export async function POST(req: NextRequest) {
   try {
     const partnerId = await getPartnerIdFromSession();
@@ -66,21 +105,55 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
 
-    const { thread_id, body } = await req.json();
-    if (!thread_id || !body?.trim()) {
+    const { thread_id, thread_key, body } = await req.json();
+    if (!body?.trim()) {
+      return NextResponse.json({ success: false, error: "body is required" }, { status: 400 });
+    }
+    if (!thread_id && !thread_key) {
       return NextResponse.json(
-        { success: false, error: "thread_id and body are required" },
+        { success: false, error: "Either thread_id or thread_key is required" },
         { status: 400 }
       );
     }
 
-    // Confirm thread belongs to this partner
-    const ownership = await pool.query(
-      `SELECT id FROM partner_message_threads WHERE id = $1 AND partner_id = $2`,
-      [thread_id, partnerId]
-    );
-    if (ownership.rowCount === 0) {
-      return NextResponse.json({ success: false, error: "Thread not found" }, { status: 404 });
+    let resolvedThreadId = thread_id as string | undefined;
+
+    // Upsert path — partner is starting a new conversation by thread_key.
+    if (!resolvedThreadId && thread_key) {
+      const defaults = THREAD_DEFAULTS[thread_key];
+      if (!defaults) {
+        return NextResponse.json(
+          { success: false, error: `Unknown thread_key: ${thread_key}` },
+          { status: 400 }
+        );
+      }
+      const upsert = await pool.query(
+        `INSERT INTO partner_message_threads
+           (partner_id, thread_key, display_name, role_label, avatar_initials, avatar_color, is_online)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         ON CONFLICT (partner_id, thread_key) DO UPDATE
+           SET updated_at = NOW()
+         RETURNING id::text`,
+        [
+          partnerId,
+          thread_key,
+          defaults.display_name,
+          defaults.role_label,
+          defaults.avatar_initials,
+          defaults.avatar_color,
+          defaults.is_online,
+        ]
+      );
+      resolvedThreadId = upsert.rows[0].id;
+    } else {
+      // Existing thread path — confirm ownership.
+      const ownership = await pool.query(
+        `SELECT id FROM partner_message_threads WHERE id = $1 AND partner_id = $2`,
+        [resolvedThreadId, partnerId]
+      );
+      if (ownership.rowCount === 0) {
+        return NextResponse.json({ success: false, error: "Thread not found" }, { status: 404 });
+      }
     }
 
     const client = await pool.connect();
@@ -91,7 +164,7 @@ export async function POST(req: NextRequest) {
         `INSERT INTO partner_messages (thread_id, sender, body, is_read)
          VALUES ($1, 'partner', $2, true)
          RETURNING *`,
-        [thread_id, body.trim()]
+        [resolvedThreadId, body.trim()]
       );
 
       const preview = body.trim().slice(0, 140);
@@ -101,11 +174,14 @@ export async function POST(req: NextRequest) {
              last_message_at = NOW(),
              updated_at = NOW()
          WHERE id = $1`,
-        [thread_id, preview]
+        [resolvedThreadId, preview]
       );
 
       await client.query("COMMIT");
-      return NextResponse.json({ success: true, data: insertResult.rows[0] });
+      return NextResponse.json({
+        success: true,
+        data: { ...insertResult.rows[0], thread_id: resolvedThreadId },
+      });
     } catch (e) {
       await client.query("ROLLBACK");
       throw e;

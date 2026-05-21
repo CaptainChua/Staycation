@@ -4,11 +4,7 @@ import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import {
   Search,
-  Phone,
-  Video,
-  Info,
   Send,
-  Plus,
   Image as ImageIcon,
   Smile,
   X,
@@ -25,7 +21,6 @@ import { useGetEmployeesQuery } from "@/redux/api/employeeApi";
 import { useGetUserProfilesQuery } from "@/redux/api/usersApi";
 import { getGuestName } from "@/lib/guest";
 import toast from "react-hot-toast";
-import NewMessageModal from "./Modals/NewMessageModal";
 
 interface MessagePageProps {
   onClose?: () => void;
@@ -146,8 +141,10 @@ export default function MessagePage({
     return guestName || "";
   }, [session?.user, userEmail, guestName]);
   const [draft, setDraft] = useState("");
-  const [isNewMessageModalOpen, setIsNewMessageModalOpen] = useState(false);
+  const [pendingImage, setPendingImage] = useState<string | null>(null);
+  const [zoomedImage, setZoomedImage] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const hasInitializedActiveId = useRef(false);
   const hasProcessedInitialConversationId = useRef(false);
 
@@ -393,7 +390,8 @@ export default function MessagePage({
 
   const handleSendMessage = async () => {
     const text = draft.trim();
-    if (!text || !activeId || !userId) return;
+    if (!text && !pendingImage) return;
+    if (!activeId || !userId) return;
 
     try {
       await sendMessage({
@@ -401,9 +399,11 @@ export default function MessagePage({
         sender_id: userId,
         sender_name: currentUserName || "CSR",
         message_text: text,
+        image: pendingImage || undefined,
       }).unwrap();
 
       setDraft("");
+      setPendingImage(null);
       refetchMessages();
       refetchConversations();
     } catch (error: unknown) {
@@ -525,14 +525,6 @@ export default function MessagePage({
                 Chats
               </p>
               <div className="ml-auto flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsNewMessageModalOpen(true)}
-                  className="p-2 rounded-full hover:bg-brand-primaryLighter transition-colors"
-                  title="New message"
-                >
-                  <Plus className="w-5 h-5 text-gray-600" />
-                </button>
                 {onClose && (
                   <button
                     onClick={onClose}
@@ -705,29 +697,6 @@ export default function MessagePage({
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      className="p-2 rounded-full hover:bg-brand-primaryLighter transition-colors"
-                      title="Call"
-                    >
-                      <Phone className="w-5 h-5 text-brand-primary" />
-                    </button>
-                    <button
-                      type="button"
-                      className="p-2 rounded-full hover:bg-brand-primaryLighter transition-colors"
-                      title="Video"
-                    >
-                      <Video className="w-5 h-5 text-brand-primary" />
-                    </button>
-                    <button
-                      type="button"
-                      className="p-2 rounded-full hover:bg-brand-primaryLighter transition-colors"
-                      title="Info"
-                    >
-                      <Info className="w-5 h-5 text-brand-primary" />
-                    </button>
-                  </div>
                 </div>
 
                 <div className="flex-1 overflow-y-auto bg-gradient-to-b from-gray-50 to-white dark:from-gray-950 dark:to-gray-900 px-4 py-4 space-y-3">
@@ -775,13 +744,29 @@ export default function MessagePage({
                               </span>
                             )}
                             <div
-                              className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed shadow-sm ${
-                                isMe
-                                  ? "bg-gradient-to-r from-brand-primary to-brand-primaryDark text-white rounded-br-md"
-                                  : "bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-800 rounded-bl-md"
+                              className={`rounded-2xl text-sm leading-relaxed shadow-sm overflow-hidden ${
+                                m.image_url || m.message_text?.startsWith("data:image")
+                                  ? `border ${isMe ? "border-brand-primary/30" : "border-gray-200 dark:border-gray-800"}`
+                                  : `px-4 py-2.5 ${isMe ? "bg-gradient-to-r from-brand-primary to-brand-primaryDark text-white rounded-br-md" : "bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-800 rounded-bl-md"}`
                               }`}
                             >
-                              {m.message_text}
+                              {m.image_url || m.message_text?.startsWith("data:image") ? (
+                                <>
+                                  <img
+                                    src={m.image_url ?? m.message_text}
+                                    alt="sent image"
+                                    className="max-w-[220px] rounded-t-2xl object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                                    onClick={() => setZoomedImage(m.image_url ?? m.message_text)}
+                                  />
+                                  {m.message_text && !m.message_text.startsWith("data:image") && (
+                                    <p className={`px-3 py-2 text-sm ${isMe ? "bg-gradient-to-r from-brand-primary to-brand-primaryDark text-white" : "bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"}`}>
+                                      {m.message_text}
+                                    </p>
+                                  )}
+                                </>
+                              ) : (
+                                m.message_text
+                              )}
                             </div>
                             <span className="text-[11px] text-gray-400">
                               {memoizedFormatMessageTime(m.created_at)}
@@ -801,19 +786,44 @@ export default function MessagePage({
                 </div>
 
                 <div className="border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-3">
+                  {pendingImage && (
+                    <div className="relative inline-block mb-2">
+                      <img
+                        src={pendingImage}
+                        alt="preview"
+                        className="h-20 rounded-lg object-cover border border-gray-200 dark:border-gray-700"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setPendingImage(null)}
+                        className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
                   <div className="flex items-end gap-2">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      className="hidden"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                          setPendingImage(reader.result as string);
+                        };
+                        reader.readAsDataURL(file);
+                        e.target.value = "";
+                      }}
+                    />
                     <button
                       type="button"
-                      onClick={() => setIsNewMessageModalOpen(true)}
+                      onClick={() => fileInputRef.current?.click()}
                       className="p-2 rounded-full hover:bg-brand-primaryLighter transition-colors"
-                      title="New message"
-                    >
-                      <Plus className="w-5 h-5 text-brand-primary" />
-                    </button>
-                    <button
-                      type="button"
-                      className="p-2 rounded-full hover:bg-brand-primaryLighter transition-colors"
-                      title="Attach"
+                      title="Attach image"
                     >
                       <ImageIcon className="w-5 h-5 text-brand-primary" />
                     </button>
@@ -843,7 +853,7 @@ export default function MessagePage({
                     <button
                       type="button"
                       onClick={handleSendMessage}
-                      disabled={isSending || !draft.trim()}
+                      disabled={isSending || (!draft.trim() && !pendingImage)}
                       className="p-2 rounded-full hover:bg-brand-primaryLighter transition-colors disabled:opacity-50"
                       title="Send"
                     >
@@ -867,15 +877,26 @@ export default function MessagePage({
         </div>
       </div>
 
-      <NewMessageModal
-        isOpen={isNewMessageModalOpen}
-        onClose={() => setIsNewMessageModalOpen(false)}
-        currentUserId={userId || ""}
-        onConversationCreated={(conversationId) => {
-          setActiveId(conversationId);
-          refetchConversations();
-        }}
-      />
+      {zoomedImage && (
+        <div
+          className="fixed inset-0 z-[9999] bg-black/90 flex items-center justify-center"
+          onClick={() => setZoomedImage(null)}
+        >
+          <button
+            type="button"
+            onClick={() => setZoomedImage(null)}
+            className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+          >
+            <X className="w-6 h-6 text-white" />
+          </button>
+          <img
+            src={zoomedImage}
+            alt="zoomed"
+            className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   );
 }

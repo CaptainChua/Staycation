@@ -38,7 +38,15 @@ import {
   FileText,
   BarChart3,
   Users,
+  ShieldCheck,
+  Banknote,
+  UserCheck,
+  ScrollText,
 } from "lucide-react";
+import AmenityVerificationsTab from "./AmenityVerificationsTab";
+import PayoutsTab from "./PayoutsTab";
+import PartnerApprovalsTab from "./PartnerApprovalsTab";
+import SystemAuditLogsTab from "./SystemAuditLogsTab";
 
 import toast from "react-hot-toast";
 import AddPartnerModal from "./Modals/AddPartnerModal";
@@ -398,6 +406,10 @@ const paginatedMessages = messages.slice(
           { id: 3, label: "Pending Requests", icon: FileText },
           { id: 4, label: "Messages", icon: MessageCircle },
           { id: 5, label: "Docs & Analytics", icon: FileText },
+          { id: 6, label: "Verifications", icon: ShieldCheck },
+          { id: 7, label: "Payouts", icon: Banknote },
+          { id: 8, label: "Approvals", icon: UserCheck },
+          { id: 9, label: "Audit Logs", icon: ScrollText },
         ].map((t) => (
           <button
             key={t.id}
@@ -1431,6 +1443,10 @@ const paginatedMessages = messages.slice(
 
       {/* DOCS & ANALYTICS */}
 {tab === 5 && <DocsAnalyticsTab />}
+{tab === 6 && <AmenityVerificationsTab />}
+{tab === 7 && <PayoutsTab />}
+{tab === 8 && <PartnerApprovalsTab />}
+{tab === 9 && <SystemAuditLogsTab />}
 {false && (
   <div className="space-y-6">
 
@@ -2736,10 +2752,16 @@ function ListingsTab() {
   const { data: listings = [], isLoading } = useGetPartnerListingsQuery();
   const [selectedPartnerId, setSelectedPartnerId] = useState<string | null>(null);
 
-  // Group listings by partner
+  // Group listings by partner — only approved rooms show here.
+  // Pending/Rejected rooms belong on the Pending Requests / Approvals tabs.
+  const approvedListings = useMemo(
+    () => listings.filter((l) => l.status === "approved"),
+    [listings]
+  );
+
   const groupedByPartner: PartnerGroup[] = useMemo(() => {
     const map = new Map<string, PartnerGroup>();
-    for (const l of listings) {
+    for (const l of approvedListings) {
       const existing = map.get(l.partner_id);
       if (existing) {
         existing.rooms.push(l);
@@ -2754,7 +2776,7 @@ function ListingsTab() {
       }
     }
     return Array.from(map.values());
-  }, [listings]);
+  }, [approvedListings]);
 
   const filtered = groupedByPartner.filter((p) => {
     const q = search.toLowerCase();

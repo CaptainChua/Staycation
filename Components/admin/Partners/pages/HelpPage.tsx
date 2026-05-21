@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Send, Plus, ImageIcon, Smile, Search, Loader2 } from "lucide-react";
+import { Send, Plus, ImageIcon, Smile, Search, Loader2, MessageCircle } from "lucide-react";
+import toast from "react-hot-toast";
 import {
   useGetMyMessageThreadsQuery,
   useSendPartnerMessageMutation,
@@ -9,133 +10,12 @@ import {
 
 const fontFraunces = "font-[var(--font-fraunces),Georgia,serif]";
 
-interface Conversation {
-  id: string;
-  name: string;
-  role: string;
-  avatar: string;
-  avatarBg: string;
-  avatarFg?: string;
-  online: boolean;
-  unread: number;
-  preview: string;
-  time: string;
-}
-
-const CONVERSATIONS: Conversation[] = [
-  {
-    id: "support",
-    name: "Staycation Haven Support",
-    role: "Customer service · 24/7",
-    avatar: "S",
-    avatarBg: "bg-[#B8860B]",
-    online: true,
-    unread: 1,
-    preview: "Got it — we'll have an answer for you within the hour.",
-    time: "2m",
-  },
-  {
-    id: "manager",
-    name: "Aileen Ramos",
-    role: "Your account manager",
-    avatar: "AR",
-    avatarBg: "bg-[#DAA520]",
-    avatarFg: "text-[#1f2937]",
-    online: true,
-    unread: 0,
-    preview: "Let me know once you've resubmitted the Bamboo Cottage edits.",
-    time: "3h",
-  },
-  {
-    id: "billing",
-    name: "Payouts & Billing",
-    role: "Finance team",
-    avatar: "₱",
-    avatarBg: "bg-[#16a34a]",
-    online: false,
-    unread: 0,
-    preview: "Your May 15 payout of ₱42,180 was sent to GCash ending 4421.",
-    time: "Yesterday",
-  },
-  {
-    id: "verify",
-    name: "Listing Review Team",
-    role: "Approvals · Mon–Sat",
-    avatar: "LR",
-    avatarBg: "bg-[#2563eb]",
-    online: false,
-    unread: 0,
-    preview: "Sunrise Studio needs revision — see notes in the listing.",
-    time: "2d",
-  },
-];
-
 interface Message {
   from: "me" | "them";
   name?: string;
   text: string;
   time: string;
 }
-
-const THREADS: Record<string, Message[]> = {
-  support: [
-    {
-      from: "them",
-      name: "Maya · Support",
-      text: "Hi Maria! Thanks for reaching out — how can we help with Casa Verde Tagaytay today?",
-      time: "1:14 PM",
-    },
-    {
-      from: "me",
-      text: "Hi! A guest at Hilltop Deluxe Suite asked about late check-out. Can I offer it case-by-case, or do I need to update my house rules?",
-      time: "1:18 PM",
-    },
-    {
-      from: "them",
-      name: "Maya · Support",
-      text: "Totally fine to offer it case-by-case 👍 We don't require changes to house rules unless you're making it a standing offer. If it's standing, I'd recommend updating so guests see it before booking.",
-      time: "1:22 PM",
-    },
-    { from: "me", text: "Got it. One more — is there a fee for offering early check-in?", time: "1:24 PM" },
-    {
-      from: "them",
-      name: "Maya · Support",
-      text: "Got it — we'll have an answer for you within the hour. Pulling up the policy now.",
-      time: "1:31 PM",
-    },
-  ],
-  manager: [
-    {
-      from: "them",
-      name: "Aileen Ramos",
-      text: "Hey Maria — just a heads up, Bamboo Cottage is doing really well this month. Have you thought about adding a weekend premium?",
-      time: "Tue 11:02 AM",
-    },
-    { from: "me", text: "I've been thinking about it — what's a reasonable bump?", time: "Tue 4:18 PM" },
-    {
-      from: "them",
-      name: "Aileen Ramos",
-      text: "For your area, 15–20% Fri/Sat is the sweet spot. Most of our top hosts in Tagaytay are doing 18%. Let me know once you've resubmitted the Bamboo Cottage edits.",
-      time: "Tue 4:24 PM",
-    },
-  ],
-  billing: [
-    {
-      from: "them",
-      name: "Payouts · Auto",
-      text: "Your May 15 payout of ₱42,180 was sent to GCash ending 4421. It should arrive within 1 business day.",
-      time: "May 15",
-    },
-  ],
-  verify: [
-    {
-      from: "them",
-      name: "Review Team",
-      text: "Sunrise Studio needs revision — please re-upload sharper photos (min 1600px wide) and confirm WiFi, AC, and parking before resubmitting.",
-      time: "May 17",
-    },
-  ],
-};
 
 const COLOR_MAP: Record<string, { bg: string; fg?: string }> = {
   primary: { bg: "bg-[#B8860B]" },
@@ -165,35 +45,39 @@ const relTime = (iso: string) => {
 
 export default function HelpPage() {
   const { data: apiThreads = [], isLoading } = useGetMyMessageThreadsQuery();
-  const [sendMessage] = useSendPartnerMessageMutation();
+  const [sendMessage, { isLoading: isSending }] = useSendPartnerMessageMutation();
 
-  const threads = apiThreads.length > 0
-    ? apiThreads.map((t) => {
-        const color = COLOR_MAP[t.avatar_color || "primary"] || COLOR_MAP.primary;
-        return {
-          id: t.id,
-          name: t.display_name,
-          role: t.role_label || "",
-          avatar: t.avatar_initials || "?",
-          avatarBg: color.bg,
-          avatarFg: color.fg,
-          online: t.is_online,
-          unread: t.unread_count,
-          preview: t.last_message_preview || "",
-          time: t.last_message_at ? relTime(t.last_message_at) : "",
-          messages: (t.messages || []).map((m) => ({
-            from: m.sender === "partner" ? "me" : "them",
-            name: m.sender_name || undefined,
-            text: m.body,
-            time: formatTime(m.created_at),
-          })) as Message[],
-        };
-      })
-    : CONVERSATIONS.map((c) => ({ ...c, messages: THREADS[c.id] || [] }));
+  // Only real DB threads — no demo fallback.
+  const threads = apiThreads.map((t) => {
+    const color = COLOR_MAP[t.avatar_color || "primary"] || COLOR_MAP.primary;
+    return {
+      id: t.id,
+      name: t.display_name,
+      role: t.role_label || "",
+      avatar: t.avatar_initials || "?",
+      avatarBg: color.bg,
+      avatarFg: color.fg,
+      online: t.is_online,
+      unread: t.unread_count,
+      preview: t.last_message_preview || "",
+      time: t.last_message_at ? relTime(t.last_message_at) : "",
+      messages: (t.messages || []).map((m) => ({
+        from: m.sender === "partner" ? "me" : "them",
+        name: m.sender_name || undefined,
+        text: m.body,
+        time: formatTime(m.created_at),
+      })) as Message[],
+    };
+  });
 
   const [activeId, setActiveId] = useState<string>("");
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement | null>(null);
+
+  // Empty-state composer (shown when partner has no threads yet).
+  // Lets them start a conversation with a chosen team.
+  const [emptyStateTarget, setEmptyStateTarget] = useState<string | null>(null);
+  const [emptyStateBody, setEmptyStateBody] = useState("");
 
   useEffect(() => {
     if (!activeId && threads.length > 0) setActiveId(threads[0].id);
@@ -212,14 +96,25 @@ export default function HelpPage() {
     const text = input.trim();
     if (!text || !active) return;
     setInput("");
+    try {
+      await sendMessage({ thread_id: active.id, body: text }).unwrap();
+    } catch (err) {
+      const msg = (err as { data?: { error?: string } })?.data?.error || "Failed to send message";
+      toast.error(msg);
+    }
+  };
 
-    // If real thread (UUID), call API; else just optimistic local update
-    if (apiThreads.length > 0) {
-      try {
-        await sendMessage({ thread_id: active.id, body: text }).unwrap();
-      } catch {
-        // ignore — toast handled at app level
-      }
+  const sendFirstMessage = async () => {
+    const text = emptyStateBody.trim();
+    if (!text || !emptyStateTarget) return;
+    try {
+      await sendMessage({ thread_key: emptyStateTarget, body: text }).unwrap();
+      setEmptyStateBody("");
+      setEmptyStateTarget(null);
+      // RTK Query invalidates the Messages tag, so threads refetch automatically.
+    } catch (err) {
+      const msg = (err as { data?: { error?: string } })?.data?.error || "Failed to start conversation";
+      toast.error(msg);
     }
   };
 
@@ -238,7 +133,105 @@ export default function HelpPage() {
         </p>
       </div>
 
-      {/* CHAT */}
+      {/* EMPTY STATE — partner has no conversations yet */}
+      {!isLoading && threads.length === 0 && (
+        <div className="bg-white border border-[#e5e7eb] rounded-[14px] shadow-[0_1px_2px_rgba(15,42,46,0.04)] p-10 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-brand-primary/10 text-brand-primary grid place-items-center mx-auto mb-4">
+            <MessageCircle className="w-7 h-7" />
+          </div>
+          <h2 className={`text-[22px] leading-[1.2] mb-2 text-[#111827] font-medium ${fontFraunces}`}>
+            No conversations yet
+          </h2>
+          <p className="text-[14px] text-[#6B7280] mb-6 max-w-[480px] mx-auto">
+            Start a chat with the team that fits your question. We&apos;ll reply as soon as we can — Support is available 24/7.
+          </p>
+          {!emptyStateTarget ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-[560px] mx-auto">
+              <button
+                type="button"
+                onClick={() => setEmptyStateTarget("support")}
+                className="px-4 py-3 rounded-[10px] border border-[#e5e7eb] hover:border-[#B8860B] hover:bg-[#FEF3C7]/40 transition text-left"
+              >
+                <div className="text-[13.5px] font-semibold text-[#111827]">Staycation Haven Support</div>
+                <div className="text-[11.5px] text-[#6B7280]">Customer service · 24/7</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setEmptyStateTarget("manager")}
+                className="px-4 py-3 rounded-[10px] border border-[#e5e7eb] hover:border-[#B8860B] hover:bg-[#FEF3C7]/40 transition text-left"
+              >
+                <div className="text-[13.5px] font-semibold text-[#111827]">Account Manager</div>
+                <div className="text-[11.5px] text-[#6B7280]">Your account manager</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setEmptyStateTarget("billing")}
+                className="px-4 py-3 rounded-[10px] border border-[#e5e7eb] hover:border-[#B8860B] hover:bg-[#FEF3C7]/40 transition text-left"
+              >
+                <div className="text-[13.5px] font-semibold text-[#111827]">Payouts &amp; Billing</div>
+                <div className="text-[11.5px] text-[#6B7280]">Finance team</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setEmptyStateTarget("verify")}
+                className="px-4 py-3 rounded-[10px] border border-[#e5e7eb] hover:border-[#B8860B] hover:bg-[#FEF3C7]/40 transition text-left"
+              >
+                <div className="text-[13.5px] font-semibold text-[#111827]">Listing Review Team</div>
+                <div className="text-[11.5px] text-[#6B7280]">Approvals · Mon–Sat</div>
+              </button>
+            </div>
+          ) : (
+            <div className="max-w-[560px] mx-auto text-left">
+              <div className="text-[12.5px] text-[#6B7280] mb-2">
+                Starting a new conversation with{" "}
+                <strong className="text-[#111827]">
+                  {emptyStateTarget === "support" && "Staycation Haven Support"}
+                  {emptyStateTarget === "manager" && "Account Manager"}
+                  {emptyStateTarget === "billing" && "Payouts & Billing"}
+                  {emptyStateTarget === "verify" && "Listing Review Team"}
+                </strong>
+              </div>
+              <textarea
+                value={emptyStateBody}
+                onChange={(e) => setEmptyStateBody(e.target.value)}
+                placeholder="What can we help you with?"
+                aria-label="Your message"
+                rows={4}
+                className="w-full bg-white border border-[#e5e7eb] rounded-[10px] px-4 py-3 text-[13.5px] text-[#111827] outline-none focus:border-[#B8860B] focus:ring-[3px] focus:ring-[#B8860B]/15 resize-none placeholder:text-[#9CA3AF]"
+              />
+              <div className="flex justify-end gap-2 mt-3">
+                <button
+                  type="button"
+                  onClick={() => { setEmptyStateTarget(null); setEmptyStateBody(""); }}
+                  disabled={isSending}
+                  className="px-4 py-2 rounded-[9px] border border-[#e5e7eb] text-[12.5px] font-semibold text-[#374151] hover:bg-[#f9fafb] transition disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={sendFirstMessage}
+                  disabled={isSending || !emptyStateBody.trim()}
+                  className="px-4 py-2 rounded-[9px] bg-[#B8860B] hover:bg-[#8B6508] text-white text-[12.5px] font-semibold inline-flex items-center gap-2 transition disabled:opacity-50"
+                >
+                  {isSending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                  Send message
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* LOADING STATE */}
+      {isLoading && (
+        <div className="bg-white border border-[#e5e7eb] rounded-[14px] shadow-[0_1px_2px_rgba(15,42,46,0.04)] p-14 text-center">
+          <Loader2 className="w-6 h-6 text-[#B8860B] animate-spin mx-auto" />
+        </div>
+      )}
+
+      {/* CHAT — only when partner has at least one real thread */}
+      {!isLoading && threads.length > 0 && (
       <div className="bg-white border border-[#e5e7eb] rounded-[14px] shadow-[0_1px_2px_rgba(15,42,46,0.04)] overflow-hidden grid grid-cols-1 md:grid-cols-[300px_1fr] h-[640px]">
         {/* LEFT SIDEBAR */}
         <aside className="border-r border-[#e5e7eb] bg-[#f9fafb] flex flex-col">
@@ -403,6 +396,7 @@ export default function HelpPage() {
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }

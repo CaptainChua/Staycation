@@ -19,6 +19,7 @@ export interface Message {
   sender_id: string;
   sender_name: string;
   message_text: string;
+  image_url?: string | null;
   created_at: string;
   is_read: boolean;
 }
@@ -117,6 +118,7 @@ export const getMessages = async (
         m.sender_id,
         m.sender_name,
         m.message_text,
+        m.image_url,
         m.created_at,
         m.is_read
       FROM messages m
@@ -152,7 +154,19 @@ export const sendMessage = async (req: NextRequest): Promise<NextResponse> => {
     const { conversation_id, sender_id, sender_name, message_text } = body;
     const safeMessageText = typeof message_text === "string" ? message_text : "";
 
-    if (!conversation_id || !sender_id || !sender_name || !safeMessageText) {
+    const imageUrl =
+      typeof body.image === "string" && body.image.trim()
+        ? body.image
+        : null;
+
+    if (!conversation_id || !sender_id || !sender_name) {
+      return NextResponse.json(
+        { success: false, error: "Missing required fields" },
+        { status: 400 },
+      );
+    }
+
+    if (!safeMessageText && !imageUrl) {
       return NextResponse.json(
         { success: false, error: "Missing required fields" },
         { status: 400 },
@@ -166,12 +180,13 @@ export const sendMessage = async (req: NextRequest): Promise<NextResponse> => {
         sender_id,
         sender_name,
         message_text,
+        image_url,
         is_read,
         created_at
-      ) VALUES ($1, $2, $3, $4, false, timezone('Asia/Manila', NOW()))
+      ) VALUES ($1, $2, $3, $4, $5, false, timezone('Asia/Manila', NOW()))
       RETURNING *
       `,
-      [conversation_id, sender_id, sender_name, safeMessageText],
+      [conversation_id, sender_id, sender_name, safeMessageText, imageUrl],
     );
 
     // Update conversation's updated_at timestamp

@@ -30,10 +30,83 @@ const ADD_ON_PRICES = {
   extraSlippers: 30,
 };
 
+interface AdditionalGuestPayload {
+  firstName: string;
+  lastName: string;
+  age: string;
+  gender: string;
+  validId: string;
+}
+
+interface BookingPayload {
+  booking_id: string;
+  user_id: string | null;
+  guest_first_name: string;
+  guest_last_name: string;
+  guest_age: string;
+  guest_gender: string;
+  guest_email: string;
+  guest_phone: string;
+  facebook_link: string;
+  valid_id: string;
+  additional_guests: AdditionalGuestPayload[];
+  room_name: string;
+  stay_type: string;
+  check_in_date: string;
+  check_out_date: string;
+  check_in_time: string;
+  check_out_time: string;
+  adults: number;
+  children: number;
+  infants: number;
+  payment_method: string;
+  payment_proof: string;
+  room_rate: number;
+  security_deposit: number;
+  add_ons_total: number;
+  total_amount: number;
+  down_payment: number;
+  addOns: AddOns;
+}
+
 interface NewReservationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (bookingData: any) => Promise<void>;
+  onSubmit: (bookingData: {
+    firstName: string;
+    lastName: string;
+    age: string;
+    gender: string;
+    email: string;
+    phone: string;
+    facebookLink: string;
+    validId: string;
+    adults: number;
+    children: number;
+    infants: number;
+    stayType: string;
+    checkInDate: string;
+    checkOutDate: string;
+    checkInTime: string;
+    checkOutTime: string;
+    roomName: string;
+    paymentProof: string;
+    paymentMethod: string;
+    termsAccepted: boolean;
+    additionalGuests?: {
+      firstName: string;
+      lastName: string;
+      age: string;
+      gender: string;
+      validId: string;
+    }[];
+    roomRate: number;
+    securityDeposit: number;
+    addOnsTotal: number;
+    totalAmount: number;
+    downPayment: number;
+    addOns: AddOns;
+  }) => Promise<void>;
 }
 
 const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalProps) => {
@@ -137,9 +210,29 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
     e.preventDefault();
   };
 
+  // ── Name helpers ──────────────────────────────────────────────
+  const toNameOnly = (value: string): string =>
+    value.replace(/[^a-zA-ZÀ-ÿ\s'-]/g, "");
+
+  const blockNonNameKeys = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (/[0-9!@#$%^&*()_+=\[\]{};:"\\|,.<>?/`~]/.test(e.key)) {
+      e.preventDefault();
+    }
+  };
+
+  // ── Email helper ──────────────────────────────────────────────
+  const isValidEmail = (value: string): boolean =>
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+
+  // ── Other input helpers ───────────────────────────────────────
   const handlePhoneChange = (value: string): string => {
-    const cleaned = value.replace(/[^0-9]/g, "");
-    return cleaned.slice(0, 11);
+    const cleaned = value.replace(/[^0-9]/g, "").slice(0, 11);
+    if (cleaned && !/^09/.test(cleaned)) {
+      setErrors(prev => ({ ...prev, phone: "PH number must start with 09 (e.g. 09XXXXXXXXX)" }));
+    } else {
+      setErrors(prev => ({ ...prev, phone: "" }));
+    }
+    return cleaned;
   };
 
   const handleAgeChange = (value: string): string => {
@@ -153,8 +246,20 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
 
+    // ── Name fields: letters only ─────────────────────────────
     if (name === "firstName" || name === "lastName") {
-      setFormData((prev) => ({ ...prev, [name]: sanitizeName(value) }));
+      setFormData((prev) => ({ ...prev, [name]: toNameOnly(value) }));
+      return;
+    }
+
+    // ── Email: real-time format validation ────────────────────
+    if (name === "email") {
+      setFormData((prev) => ({ ...prev, email: value }));
+      if (value && !isValidEmail(value)) {
+        setErrors((prev) => ({ ...prev, email: "Invalid email format (e.g. name@example.com)" }));
+      } else {
+        setErrors((prev) => ({ ...prev, email: "" }));
+      }
       return;
     }
 
@@ -205,16 +310,14 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
     }
   };
 
-  const handleAdditionalGuestChange = (index: number, field: "firstName" | "lastName" | "age" | "gender", value: string) => {
+  const handleAdditionalGuestChange = (index: number, field: keyof GuestInfo, value: string) => {
     const updatedGuests = [...additionalGuests];
-    let sanitizedValue: string;
-    if (field === "age") {
-      sanitizedValue = handleAgeChange(value);
-    } else if (field === "firstName" || field === "lastName") {
-      sanitizedValue = sanitizeName(value);
-    } else {
-      sanitizedValue = value;
-    }
+    const sanitizedValue =
+      field === "age"
+        ? handleAgeChange(value)
+        : field === "firstName" || field === "lastName"
+        ? toNameOnly(value)
+        : value;
     updatedGuests[index] = { ...updatedGuests[index], [field]: sanitizedValue };
     setAdditionalGuests(updatedGuests);
   };
@@ -253,14 +356,10 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
     if (!formData.gender) newErrors.gender = "Please select a gender";
     if (!formData.email) {
       newErrors.email = "Email is required";
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
-      newErrors.email = "Please enter a valid email (e.g. name@example.com)";
+    } else if (!isValidEmail(formData.email)) {
+      newErrors.email = "Invalid email format (e.g. name@example.com)";
     }
-    if (!formData.phone) {
-      newErrors.phone = "Phone number is required";
-    } else if (formData.phone.replace(/\D/g, "").length < 10) {
-      newErrors.phone = "Phone number must be at least 10 digits";
-    }
+    if (!formData.phone) newErrors.phone = "Phone number is required";
     if (formData.age && parseInt(formData.age) >= 10 && !formData.validId) {
       newErrors.validId = "Valid ID is required for guests 10+ years old";
     }
@@ -403,34 +502,33 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
       }
 
       const bookingData = {
-        booking_id: `BK${Date.now()}`,
-        user_id: null,
-        guest_first_name: formData.firstName,
-        guest_last_name: formData.lastName,
-        guest_age: formData.age,
-        guest_gender: formData.gender,
-        guest_email: formData.email,
-        guest_phone: formData.phone,
-        facebook_link: formData.facebookLink,
-        valid_id: validIdBase64,
-        additional_guests: additionalGuestsData,
-        room_name: formData.roomName,
-        stay_type: formData.stayType,
-        check_in_date: formData.checkInDate,
-        check_out_date: formData.checkOutDate,
-        check_in_time: formData.checkInTime,
-        check_out_time: formData.checkOutTime,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        age: formData.age,
+        gender: formData.gender,
+        email: formData.email,
+        phone: formData.phone,
+        facebookLink: formData.facebookLink,
+        validId: validIdBase64,
+        additionalGuests: additionalGuestsData,
+        roomName: formData.roomName,
+        stayType: formData.stayType,
+        checkInDate: formData.checkInDate,
+        checkOutDate: formData.checkOutDate,
+        checkInTime: formData.checkInTime,
+        checkOutTime: formData.checkOutTime,
         adults: formData.adults,
         children: formData.children,
         infants: formData.infants,
-        payment_method: formData.paymentMethod,
-        payment_proof: paymentProofBase64,
-        room_rate: roomRate,
-        security_deposit: securityDeposit,
-        add_ons_total: addOnsTotal,
-        total_amount: totalAmount,
-        down_payment: downPayment,
+        paymentMethod: formData.paymentMethod,
+        paymentProof: paymentProofBase64,
+        roomRate: roomRate,
+        securityDeposit: securityDeposit,
+        addOnsTotal: addOnsTotal,
+        totalAmount: totalAmount,
+        downPayment: downPayment,
         addOns,
+        termsAccepted: formData.termsAccepted,
       };
 
       await onSubmit(bookingData);
@@ -550,13 +648,31 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className={labelClass}>First Name *</label>
-                        <input type="text" name="firstName" value={formData.firstName} onChange={handleInputChange} required className={`${inputClass} ${errors.firstName ? "border-red-500" : ""}`} placeholder="Enter first name" />
-                        {errors.firstName && <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3 flex-shrink-0" /> {errors.firstName}</p>}
+                        <input
+                          type="text"
+                          name="firstName"
+                          value={formData.firstName}
+                          onChange={handleInputChange}
+                          onKeyDown={blockNonNameKeys}
+                          required
+                          className={`${inputClass} ${errors.firstName ? "border-red-500" : ""}`}
+                          placeholder="Enter first name"
+                        />
+                        {errors.firstName && <p className="text-red-500 text-xs mt-1">{errors.firstName}</p>}
                       </div>
                       <div>
                         <label className={labelClass}>Last Name *</label>
-                        <input type="text" name="lastName" value={formData.lastName} onChange={handleInputChange} required className={`${inputClass} ${errors.lastName ? "border-red-500" : ""}`} placeholder="Enter last name" />
-                        {errors.lastName && <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3 flex-shrink-0" /> {errors.lastName}</p>}
+                        <input
+                          type="text"
+                          name="lastName"
+                          value={formData.lastName}
+                          onChange={handleInputChange}
+                          onKeyDown={blockNonNameKeys}
+                          required
+                          className={`${inputClass} ${errors.lastName ? "border-red-500" : ""}`}
+                          placeholder="Enter last name"
+                        />
+                        {errors.lastName && <p className="text-red-500 text-xs mt-1">{errors.lastName}</p>}
                       </div>
                       <div>
                         <label className={labelClass}>Age *</label>
@@ -575,13 +691,30 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                       </div>
                       <div>
                         <label className={labelClass}>Email *</label>
-                        <input type="email" name="email" value={formData.email} onChange={handleInputChange} required className={`${inputClass} ${errors.email ? "border-red-500" : ""}`} placeholder="Enter email" />
-                        {errors.email && <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3 flex-shrink-0" /> {errors.email}</p>}
+                        <input
+                          type="email"
+                          name="email"
+                          value={formData.email}
+                          onChange={handleInputChange}
+                          onBlur={() => {
+                            if (formData.email && !isValidEmail(formData.email)) {
+                              setErrors((prev) => ({ ...prev, email: "Invalid email format (e.g. name@example.com)" }));
+                            }
+                          }}
+                          required
+                          className={`${inputClass} ${errors.email ? "border-red-500" : ""}`}
+                          placeholder="name@example.com"
+                        />
+                        {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
                       </div>
                       <div>
                         <label className={labelClass}>Phone *</label>
-                        <input type="tel" name="phone" value={formData.phone} onChange={handleInputChange} required inputMode="numeric" className={`${inputClass} ${errors.phone ? "border-red-500" : ""}`} placeholder="Enter Mobile Number" />
-                        {errors.phone && <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3 flex-shrink-0" /> {errors.phone}</p>}
+                        <input type="tel" name="phone" value={formData.phone} onChange={handleInputChange} required inputMode="numeric" maxLength={11} className={`${inputClass} ${errors.phone ? "border-red-500" : ""}`} placeholder="09XXXXXXXXX" />
+                        {errors.phone ? (
+                          <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3 flex-shrink-0" /> {errors.phone}</p>
+                        ) : (
+                          <p className="text-gray-400 text-xs mt-1">PH mobile number starting with 09 (11 digits)</p>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -647,12 +780,26 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                       </h3>
                       <div className="grid grid-cols-2 gap-4 mb-4">
                         <div>
-                          <input type="text" value={guest.firstName} onChange={(e) => handleAdditionalGuestChange(index, "firstName", e.target.value)} placeholder="First Name *" className={`${inputClass} ${errors[`guest${index}FirstName`] ? "border-red-500" : ""}`} />
-                          {errors[`guest${index}FirstName`] && <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3 flex-shrink-0" /> {errors[`guest${index}FirstName`]}</p>}
+                          <input
+                            type="text"
+                            value={guest.firstName}
+                            onChange={(e) => handleAdditionalGuestChange(index, "firstName", e.target.value)}
+                            onKeyDown={blockNonNameKeys}
+                            placeholder="First Name *"
+                            className={`${inputClass} ${errors[`guest${index}FirstName`] ? "border-red-500" : ""}`}
+                          />
+                          {errors[`guest${index}FirstName`] && <p className="text-red-500 text-xs mt-1">{errors[`guest${index}FirstName`]}</p>}
                         </div>
                         <div>
-                          <input type="text" value={guest.lastName} onChange={(e) => handleAdditionalGuestChange(index, "lastName", e.target.value)} placeholder="Last Name *" className={`${inputClass} ${errors[`guest${index}LastName`] ? "border-red-500" : ""}`} />
-                          {errors[`guest${index}LastName`] && <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3 flex-shrink-0" /> {errors[`guest${index}LastName`]}</p>}
+                          <input
+                            type="text"
+                            value={guest.lastName}
+                            onChange={(e) => handleAdditionalGuestChange(index, "lastName", e.target.value)}
+                            onKeyDown={blockNonNameKeys}
+                            placeholder="Last Name *"
+                            className={`${inputClass} ${errors[`guest${index}LastName`] ? "border-red-500" : ""}`}
+                          />
+                          {errors[`guest${index}LastName`] && <p className="text-red-500 text-xs mt-1">{errors[`guest${index}LastName`]}</p>}
                         </div>
                         <div>
                           <input type="number" value={guest.age} onChange={(e) => handleAdditionalGuestChange(index, "age", e.target.value)} placeholder="Age *" min="1" max="999" inputMode="numeric" className={`${inputClass} ${errors[`guest${index}Age`] ? "border-red-500" : ""}`} />

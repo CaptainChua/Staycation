@@ -14,6 +14,8 @@ export interface DepositRecord {
   guest_phone: string | null;
   guest_facebook_link: string | null;
   guest_valid_id_url: string | null;
+  guest_age: number | null;
+  guest_gender: string | null;
   haven: string;
   tower: string;
   deposit_amount: number;
@@ -60,11 +62,13 @@ export async function getDeposits(): Promise<DepositRecord[]> {
         bg.phone,
         bg.facebook_link,
         bg.valid_id_url,
+        bg.age,
+        bg.gender,
         h.tower
       FROM booking_security_deposits sd
       INNER JOIN booking b ON sd.booking_id = b.id
       LEFT JOIN LATERAL (
-        SELECT first_name, last_name, email, phone, facebook_link, valid_id_url
+        SELECT first_name, last_name, email, phone, facebook_link, valid_id_url, age, gender
         FROM booking_guests
         WHERE booking_id = b.id
         LIMIT 1
@@ -133,6 +137,8 @@ export async function getDeposits(): Promise<DepositRecord[]> {
         guest_phone: row.phone,
         guest_facebook_link: row.facebook_link,
         guest_valid_id_url: row.valid_id_url,
+        guest_age: row.age != null ? parseInt(row.age) : null,
+        guest_gender: row.gender || null,
         haven: havenDisplay,
         tower: towerDisplay,
         deposit_amount: amount,
@@ -1172,23 +1178,30 @@ export async function getDeliverables(): Promise<DeliverableRecord[]> {
       'refunded': 'Refunded'
     };
 
-    // Group rows by booking_uuid
+    // Group rows by booking_uuid. The query LEFT JOINs booking_payments and
+    // booking_security_deposits, so a single add-on row can repeat N×M times if
+    // a booking has multiple payment/deposit rows. Dedupe by add-on id (row.id).
     const groupedByBooking = new Map<string, {
       bookingInfo: typeof result.rows[0];
       items: typeof result.rows;
+      seenItemIds: Set<string>;
     }>();
 
     console.log('Grouping rows by booking...');
     for (const row of result.rows) {
       const bookingUuid = row.booking_uuid;
-      console.log('Processing row for booking UUID:', bookingUuid);
+      const addOnId = String(row.id ?? '');
       if (!groupedByBooking.has(bookingUuid)) {
         groupedByBooking.set(bookingUuid, {
           bookingInfo: row,
-          items: []
+          items: [],
+          seenItemIds: new Set<string>(),
         });
       }
-      groupedByBooking.get(bookingUuid)!.items.push(row);
+      const group = groupedByBooking.get(bookingUuid)!;
+      if (addOnId && group.seenItemIds.has(addOnId)) continue; // skip duplicate from joins
+      group.seenItemIds.add(addOnId);
+      group.items.push(row);
     }
 
     console.log('Grouped into', groupedByBooking.size, 'bookings');

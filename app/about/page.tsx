@@ -162,6 +162,7 @@ const AboutPage = () => {
               src="/Images/haven9_Living_Area_haven_7_1764217597_1817.jpg"
               alt="Staycation Haven Interior"
               fill
+              sizes="(max-width: 768px) 100vw, 50vw"
               className="object-cover"
               priority
             />

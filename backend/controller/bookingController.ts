@@ -36,6 +36,8 @@ export const updateBookingDetails = async (
       guest_last_name,
       guest_email,
       guest_phone,
+      guest_age,
+      guest_gender,
       facebook_link,
       valid_id,
       valid_id_url,
@@ -118,6 +120,8 @@ export const updateBookingDetails = async (
     allGuests.push({
       firstName: guest_first_name,
       lastName: guest_last_name,
+      age: guest_age ?? null,
+      gender: guest_gender ?? null,
       email: guest_email,
       phone: guest_phone,
       facebook_link: facebook_link || null,
@@ -142,6 +146,8 @@ export const updateBookingDetails = async (
         allGuests.push({
           firstName: g?.firstName,
           lastName: g?.lastName,
+          age: (g?.age != null && g.age !== '' && Number(g.age) > 0) ? Number(g.age) : null,
+          gender: g?.gender ?? null,
           email: g?.email || guest_email,
           phone: g?.phone || guest_phone,
           facebook_link: null,
@@ -158,14 +164,16 @@ export const updateBookingDetails = async (
       await client.query(
         `
           INSERT INTO booking_guests (
-            booking_id, first_name, last_name, email, phone, facebook_link, valid_id_url
+            booking_id, first_name, last_name, age, gender, email, phone, facebook_link, valid_id_url
           )
-          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         `,
         [
           id,
           g.firstName,
           g.lastName,
+          g.age ?? null,
+          g.gender ?? null,
           g.email,
           g.phone,
           g.facebook_link,
@@ -391,17 +399,18 @@ export const createBooking = async (
       add_ons_total,
       total_amount,
       down_payment,
-      // Add-ons
-      addOns = {},
+      // Add-ons (frontend sends snake_case `add_ons`)
+      add_ons: addOns = {},
     } = body;
 
     // --- GENERAL ROOM AVAILABILITY CHECK (time-aware) ---
     // '00:00' checkout means end-of-day midnight, so treat it as the start of the next day.
+    // Only active bookings block a new one — completed, checked-out, rejected, cancelled, declined do not.
     const availabilityCheckQuery = `
       SELECT b.id, b.booking_id
       FROM booking b
       WHERE b.room_name = $1
-        AND b.status NOT IN ('rejected', 'cancelled')
+        AND b.status IN ('pending', 'approved', 'confirmed', 'checked-in', 'on-going')
         AND (b.check_in_date::DATE + b.check_in_time::TIME) <
             CASE WHEN $5 = '00:00'
                  THEN ($4::DATE + INTERVAL '1 day')::TIMESTAMP
@@ -487,12 +496,13 @@ export const createBooking = async (
     // --- END BOOKING WINDOW VALIDATION ---
 
     // --- IDENTITY-BASED OVERLAP CHECK ---
+    // Only active bookings block a new one — completed, checked-out, rejected, cancelled, declined do not.
     const overlapCheckQuery = `
       SELECT b.id, b.booking_id, b.status, b.check_in_date, b.check_out_date
       FROM booking b
       JOIN booking_guests bg ON b.id = bg.booking_id
       WHERE b.room_name = $1
-        AND b.status NOT IN ('rejected', 'cancelled')
+        AND b.status IN ('pending', 'approved', 'confirmed', 'checked-in', 'on-going')
         AND bg.first_name = $2
         AND bg.last_name = $3
         AND bg.email = $4
@@ -633,15 +643,17 @@ export const createBooking = async (
 
     const mainGuestQuery = `
       INSERT INTO booking_guests (
-        booking_id, first_name, last_name, email, phone, facebook_link, valid_id_url
+        booking_id, first_name, last_name, age, gender, email, phone, facebook_link, valid_id_url
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
     `;
 
     const mainGuestValues = [
       bookingId,
       guest_first_name,
       guest_last_name,
+      (guest_age != null && guest_age !== '' && Number(guest_age) > 0) ? Number(guest_age) : null,
+      guest_gender || null,
       guest_email,
       guest_phone,
       facebook_link || null,
@@ -666,18 +678,20 @@ export const createBooking = async (
 
         const additionalGuestQuery = `
           INSERT INTO booking_guests (
-            booking_id, first_name, last_name, email, phone, facebook_link, valid_id_url
+            booking_id, first_name, last_name, age, gender, email, phone, facebook_link, valid_id_url
           )
-          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         `;
 
         const additionalGuestValues = [
           bookingId,
           guest.firstName,
           guest.lastName,
-          guest.email || guest_email, // Use main guest email if not provided
-          guest.phone || guest_phone, // Use main guest phone if not provided
-          null, // Facebook link for additional guests
+          (guest.age != null && guest.age !== '' && Number(guest.age) > 0) ? Number(guest.age) : null,
+          guest.gender || null,
+          guest.email || guest_email,
+          guest.phone || guest_phone,
+          null,
           guestIdUrl,
         ];
 
@@ -689,9 +703,20 @@ export const createBooking = async (
     // Note: paymentProofUrl was already uploaded earlier for calendar event
 
     // Calculate payment amounts (security deposit is handled separately during checkout)
-    const paymentTotalAmount = total_amount; // Full amount during booking (security deposit handled at checkout)
-    const paymentAmountPaid = Number(down_payment ?? 0); // initial collected amount
+    const paymentTotalAmount = Number(total_amount) || 0; // Full amount during booking
+    const requestedDownPayment = Number(down_payment) || 0;
+    // amount_paid must not exceed total_amount (booking_payments_amount_paid_check)
+    const paymentAmountPaid = Math.min(requestedDownPayment, paymentTotalAmount);
+    const paymentDownPayment = Math.min(requestedDownPayment, paymentTotalAmount);
 
+    console.log("📋 [BOOKING] Payment computed:", {
+      total_amount: paymentTotalAmount,
+      down_payment: paymentDownPayment,
+      amount_paid: paymentAmountPaid,
+    });
+
+    // Note: remaining_balance is a GENERATED column in the live DB
+    // (computed as total_amount - amount_paid). Do not include it in INSERT.
     const paymentQuery = `
       INSERT INTO booking_payments (
         booking_id, payment_method, payment_proof_url, room_rate,
@@ -707,7 +732,7 @@ export const createBooking = async (
       room_rate,
       add_ons_total,
       paymentTotalAmount,
-      down_payment,
+      paymentDownPayment,
       paymentAmountPaid,
     ];
 
@@ -1001,6 +1026,8 @@ export const getAllBookings = async (
         bg.email as guest_email,
         bg.phone as guest_phone,
         bg.valid_id_url as valid_id_url,
+        bg.age as guest_age,
+        bg.gender as guest_gender,
         bg.facebook_link,
         bp.payment_method,
         bp.payment_proof_url,
@@ -1091,12 +1118,16 @@ export const getBookingById = async (
         bg.email as guest_email,
         bg.phone as guest_phone,
         bg.valid_id_url,
+        bg.age as guest_age,
+        bg.gender as guest_gender,
         (
           SELECT COALESCE(
             json_agg(
               json_build_object(
                 'firstName', g.first_name,
                 'lastName', g.last_name,
+                'age', g.age,
+                'gender', g.gender,
                 'email', g.email,
                 'phone', g.phone,
                 'facebook_link', g.facebook_link,
@@ -1131,10 +1162,12 @@ export const getBookingById = async (
       LEFT JOIN havens h ON b.room_name = h.haven_name
       LEFT JOIN haven_images hi ON h.uuid_id = hi.haven_id
       LEFT JOIN booking_payments bp ON b.id = bp.booking_id
-      LEFT JOIN booking_guests bg ON b.id = bg.booking_id
+      LEFT JOIN booking_guests bg ON bg.id = (
+        SELECT id FROM booking_guests WHERE booking_id = b.id ORDER BY created_at ASC LIMIT 1
+      )
       LEFT JOIN booking_security_deposits bd ON b.id = bd.booking_id
       WHERE b.id = $1
-      GROUP BY b.id, h.tower, h.uuid_id, bp.total_amount, bp.down_payment, bp.remaining_balance, bp.payment_method, bp.payment_proof_url, bp.room_rate, bp.add_ons_total, bg.first_name, bg.last_name, bg.email, bg.phone, bg.valid_id_url, bd.amount
+      GROUP BY b.id, h.tower, h.uuid_id, bp.total_amount, bp.down_payment, bp.remaining_balance, bp.payment_method, bp.payment_proof_url, bp.room_rate, bp.add_ons_total, bg.first_name, bg.last_name, bg.email, bg.phone, bg.valid_id_url, bg.age, bg.gender, bd.amount
       LIMIT 1
     `;
     const bookingResult = await pool.query(query, [id]);
@@ -1188,11 +1221,20 @@ export const getBookingById = async (
     `;
     const cleaningResult = await pool.query(cleaningQuery, [id]);
 
-    // Combine all data
+    // Combine all data — always use guestsResult.rows[0] as the authoritative main guest
+    const mainGuest = guestsResult.rows[0] || null;
     const completeBooking = {
       ...booking,
+      guest_first_name: mainGuest?.first_name ?? booking.guest_first_name,
+      guest_last_name: mainGuest?.last_name ?? booking.guest_last_name,
+      guest_email: mainGuest?.email ?? booking.guest_email,
+      guest_phone: mainGuest?.phone ?? booking.guest_phone,
+      guest_age: mainGuest?.age ?? booking.guest_age,
+      guest_gender: mainGuest?.gender ?? booking.guest_gender,
+      valid_id_url: mainGuest?.valid_id_url ?? booking.valid_id_url,
+      facebook_link: mainGuest?.facebook_link ?? booking.facebook_link,
       guests: guestsResult.rows,
-      main_guest: guestsResult.rows[0] || null,
+      main_guest: mainGuest,
       additional_guests: guestsResult.rows.slice(1),
       payment: paymentResult.rows[0] || null,
       security_deposit: depositResult.rows[0] || null,

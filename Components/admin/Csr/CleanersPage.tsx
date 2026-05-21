@@ -243,6 +243,9 @@ export default function CleanersPage() {
   const { data: session } = useSession();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | CleaningStatus>("all");
+  const [selectedHaven, setSelectedHaven] = useState("all");
+  const [checkInDateFrom, setCheckInDateFrom] = useState("");
+  const [checkInDateTo, setCheckInDateTo] = useState("");
   const [dateFilter, setDateFilter] = useState<"all" | "checkin-today" | "checkout-today" | "custom">("all");
   const [customStartDate, setCustomStartDate] = useState("");
   const [customEndDate, setCustomEndDate] = useState("");
@@ -362,6 +365,11 @@ export default function CleanersPage() {
       });
   }, [cleaningTasks]);
 
+  const uniqueHavens = useMemo(() => {
+    const names = rows.map((r) => r.haven).filter((n): n is string => Boolean(n));
+    return [...new Set(names)].sort();
+  }, [rows]);
+
   const filteredRows = useMemo(() => {
     return rows.filter((row) => {
       const term = searchTerm.toLowerCase();
@@ -373,15 +381,37 @@ export default function CleanersPage() {
 
       const matchesFilter = filterStatus === "all" || row.status === filterStatus;
 
+      const matchesHaven = selectedHaven === "all" || (row.haven || "") === selectedHaven;
+
+      // Check-in date range filter (uses original task's raw check_in_date)
+      let matchesCheckIn = true;
+      if (checkInDateFrom || checkInDateTo) {
+        const originalTask = cleaningTasks.find(task => task.cleaning_id === row.cleaning_id);
+        const checkIn = originalTask?.check_in_date ? new Date(originalTask.check_in_date) : null;
+        if (checkIn) {
+          checkIn.setHours(0, 0, 0, 0);
+          if (checkInDateFrom) {
+            const from = new Date(checkInDateFrom); from.setHours(0, 0, 0, 0);
+            if (checkIn < from) matchesCheckIn = false;
+          }
+          if (checkInDateTo) {
+            const to = new Date(checkInDateTo); to.setHours(23, 59, 59, 999);
+            if (checkIn > to) matchesCheckIn = false;
+          }
+        } else {
+          matchesCheckIn = false;
+        }
+      }
+
       // Date filtering logic
       let matchesDateFilter = true;
       if (dateFilter !== "all") {
         const today = new Date();
         today.setHours(0, 0, 0, 0); // Set to start of day
-        
+
         // Find the original task to get the raw dates
         const originalTask = cleaningTasks.find(task => task.cleaning_id === row.cleaning_id);
-        
+
         if (originalTask) {
           switch (dateFilter) {
             case "checkin-today":
@@ -419,9 +449,9 @@ export default function CleanersPage() {
         }
       }
 
-      return matchesSearch && matchesFilter && matchesDateFilter;
+      return matchesSearch && matchesFilter && matchesHaven && matchesCheckIn && matchesDateFilter;
     });
-  }, [filterStatus, rows, searchTerm, dateFilter, customStartDate, customEndDate, cleaningTasks]);
+  }, [filterStatus, rows, searchTerm, dateFilter, customStartDate, customEndDate, cleaningTasks, selectedHaven, checkInDateFrom, checkInDateTo]);
 
   const sortedRows = useMemo(() => {
     const copy = [...filteredRows];
@@ -648,110 +678,175 @@ export default function CleanersPage() {
         </div>
 
         {/* Filters */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-4 flex-shrink-0 border border-gray-200 dark:border-gray-700">
-          <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-            <div className="flex flex-col sm:flex-row gap-4 flex-1 w-full">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-4 flex-shrink-0 border border-gray-200 dark:border-gray-700 space-y-3">
+          {/* Top row: Show + Search + Refresh */}
+          <div className="flex flex-col md:flex-row gap-3 items-start md:items-center">
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">Show</label>
+              <select
+                value={entriesPerPage}
+                onChange={(e) => {
+                  setEntriesPerPage(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                aria-label="Entries per page"
+                title="Entries per page"
+                className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-orange-500 text-sm"
+              >
+                <option value="5">5</option>
+                <option value="10">10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+              </select>
+              <label className="text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">entries</label>
+            </div>
+
+            <div className="flex-1 relative w-full">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500" />
+              <input
+                type="text"
+                placeholder="Search by booking ID, guest, haven, or cleaner..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                aria-label="Search cleaning tasks"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-orange-500"
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={handleRefresh}
+              disabled={isRefreshing || isLoading}
+              className="p-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Refresh Data"
+              aria-label="Refresh data"
+            >
+              <RefreshCw className={`w-4 h-4 text-gray-600 dark:text-gray-300 ${(isRefreshing || isLoading) ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
+
+          {/* Bottom row: Filters */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <Filter className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+            <select
+              value={filterStatus}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (value === "all" || ["Unassigned", "Assigned", "In Progress", "Completed"].includes(value)) {
+                  setFilterStatus(value as "all" | CleaningStatus);
+                }
+                setCurrentPage(1);
+              }}
+              aria-label="Filter by cleaning status"
+              title="Filter by cleaning status"
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-orange-500"
+            >
+              <option value="all">All Status</option>
+              <option value="Unassigned">Unassigned</option>
+              <option value="Assigned">Assigned</option>
+              <option value="In Progress">In Progress</option>
+              <option value="Completed">Completed</option>
+            </select>
+
+            {/* Haven filter */}
+            <select
+              value={selectedHaven}
+              onChange={(e) => {
+                setSelectedHaven(e.target.value);
+                setCurrentPage(1);
+              }}
+              aria-label="Filter by haven"
+              title="Filter by haven"
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-orange-500"
+            >
+              <option value="all">All Havens</option>
+              {uniqueHavens.map((name) => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
+
+            {/* Check-in date range */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">Check-in:</span>
+              <input
+                type="date"
+                value={checkInDateFrom}
+                onChange={(e) => { setCheckInDateFrom(e.target.value); setCurrentPage(1); }}
+                aria-label="Check-in date from"
+                title="Check-in date from"
+                className="px-2 py-1.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-orange-500 text-sm"
+              />
+              <span className="text-gray-400 text-xs">–</span>
+              <input
+                type="date"
+                value={checkInDateTo}
+                min={checkInDateFrom}
+                onChange={(e) => { setCheckInDateTo(e.target.value); setCurrentPage(1); }}
+                aria-label="Check-in date to"
+                title="Check-in date to"
+                className="px-2 py-1.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-orange-500 text-sm"
+              />
+              {(checkInDateFrom || checkInDateTo) && (
+                <button
+                  type="button"
+                  onClick={() => { setCheckInDateFrom(""); setCheckInDateTo(""); setCurrentPage(1); }}
+                  aria-label="Clear check-in dates"
+                  title="Clear dates"
+                  className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600 transition-colors text-xs"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            {/* Date Filter */}
+            <select
+              value={dateFilter}
+              onChange={(e) => {
+                const value = e.target.value as "all" | "checkin-today" | "checkout-today" | "custom";
+                setDateFilter(value);
+                setCurrentPage(1);
+              }}
+              aria-label="Filter by date"
+              title="Filter by date"
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-orange-500"
+            >
+              <option value="all">All Dates</option>
+              <option value="checkin-today">Check-in Today</option>
+              <option value="checkout-today">Check-out Today</option>
+              <option value="custom">Custom Range</option>
+            </select>
+
+            {/* Custom Date Range Inputs */}
+            {dateFilter === "custom" && (
               <div className="flex items-center gap-2">
-                <label className="text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">Show</label>
-                <select
-                  value={entriesPerPage}
+                <input
+                  type="date"
+                  value={customStartDate}
                   onChange={(e) => {
-                    setEntriesPerPage(Number(e.target.value));
+                    setCustomStartDate(e.target.value);
                     setCurrentPage(1);
                   }}
+                  aria-label="Custom start date"
+                  title="Custom start date"
                   className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-orange-500 text-sm"
-                >
-                  <option value="5">5</option>
-                  <option value="10">10</option>
-                  <option value="25">25</option>
-                  <option value="50">50</option>
-                </select>
-                <label className="text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">entries</label>
-              </div>
-
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500" />
+                  placeholder="Start date"
+                />
+                <span className="text-gray-500 dark:text-gray-400">to</span>
                 <input
-                  type="text"
-                  placeholder="Search by booking ID, guest, haven, or cleaner..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-orange-500"
+                  type="date"
+                  value={customEndDate}
+                  onChange={(e) => {
+                    setCustomEndDate(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  aria-label="Custom end date"
+                  title="Custom end date"
+                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-orange-500 text-sm"
+                  placeholder="End date"
                 />
               </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Filter className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-              <select
-                value={filterStatus}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  if (value === "all" || ["Unassigned", "Assigned", "In Progress", "Completed"].includes(value)) {
-                    setFilterStatus(value as "all" | CleaningStatus);
-                  }
-                  setCurrentPage(1);
-                }}
-                className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-orange-500"
-              >
-                <option value="all">All Status</option>
-                <option value="Unassigned">Unassigned</option>
-                <option value="Assigned">Assigned</option>
-                <option value="In Progress">In Progress</option>
-                <option value="Completed">Completed</option>
-              </select>
-              
-              {/* Date Filter */}
-              <select
-                value={dateFilter}
-                onChange={(e) => {
-                  const value = e.target.value as "all" | "checkin-today" | "checkout-today" | "custom";
-                  setDateFilter(value);
-                  setCurrentPage(1);
-                }}
-                className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-orange-500"
-              >
-                <option value="all">All Dates</option>
-                <option value="checkin-today">Check-in Today</option>
-                <option value="checkout-today">Check-out Today</option>
-                <option value="custom">Custom Range</option>
-              </select>
-
-              {/* Custom Date Range Inputs */}
-              {dateFilter === "custom" && (
-                <div className="flex items-center gap-2">
-                  <input
-                    type="date"
-                    value={customStartDate}
-                    onChange={(e) => {
-                      setCustomStartDate(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-orange-500 text-sm"
-                    placeholder="Start date"
-                  />
-                  <span className="text-gray-500 dark:text-gray-400">to</span>
-                  <input
-                    type="date"
-                    value={customEndDate}
-                    onChange={(e) => {
-                      setCustomEndDate(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-orange-500 text-sm"
-                    placeholder="End date"
-                  />
-                </div>
-              )}
-              <button
-                onClick={handleRefresh}
-                disabled={isRefreshing || isLoading}
-                className="p-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Refresh Data"
-              >
-                <RefreshCw className={`w-4 h-4 text-gray-600 dark:text-gray-300 ${(isRefreshing || isLoading) ? 'animate-spin' : ''}`} />
-              </button>
-            </div>
+            )}
           </div>
         </div>
 
@@ -1121,6 +1216,8 @@ export default function CleanersPage() {
                 <button
                   onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                   disabled={currentPage === 1 || totalPages === 0}
+                  aria-label="Previous page"
+                  title="Previous page"
                   className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                   type="button"
                 >
@@ -1157,6 +1254,8 @@ export default function CleanersPage() {
                 <button
                   onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                   disabled={currentPage === totalPages || totalPages === 0}
+                  aria-label="Next page"
+                  title="Next page"
                   className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                   type="button"
                 >

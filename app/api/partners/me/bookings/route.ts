@@ -37,8 +37,13 @@ export async function GET(req: NextRequest) {
         h.uuid_id AS haven_id,
         h.weekday_rate,
         h.weekend_rate,
+        -- Gross = collected revenue that CSR has already APPROVED.
+        -- Pending payments don't count yet — partner sees the money only after CSR review.
         COALESCE(
-          (SELECT SUM(bp.total_amount) FROM booking_payments bp WHERE bp.booking_id = b.id),
+          (SELECT SUM(bp.amount_paid)
+             FROM booking_payments bp
+            WHERE bp.booking_id = b.id
+              AND bp.payment_status IN ('approved_down_payment', 'approved_full_payment')),
           0
         )::numeric(12,2) AS gross,
         COALESCE(pi.commission_rate, 12)::numeric AS commission_rate

@@ -19,46 +19,40 @@ import {
 const fontFraunces = "font-[var(--font-fraunces),Georgia,serif]";
 const peso = (n: number) => "₱" + (n || 0).toLocaleString("en-PH");
 
-const REVENUE_SERIES = [
-  { label: "W1", gross: 38400, net: 33792 },
-  { label: "W2", gross: 42600, net: 37488 },
-  { label: "W3", gross: 51200, net: 45056 },
-  { label: "W4", gross: 46800, net: 41184 },
-  { label: "W5", gross: 58100, net: 51128 },
-  { label: "W6", gross: 62400, net: 54912 },
-  { label: "W7", gross: 71800, net: 63184 },
-  { label: "W8", gross: 68200, net: 60016 },
-  { label: "W9", gross: 79600, net: 70048 },
-  { label: "W10", gross: 84300, net: 74184 },
-  { label: "W11", gross: 91200, net: 80256 },
-  { label: "W12", gross: 96400, net: 84832 },
-];
-
-const BOOKINGS_BY_ROOM = [
-  { room: "Hilltop Deluxe Suite", bookings: 28, net: 124800 },
-  { room: "Garden Casita", bookings: 19, net: 48400 },
-  { room: "Bamboo Cottage", bookings: 12, net: 56700 },
-];
-
-const RECENT_BOOKINGS = [
-  { id: "BK-21048", guest: "J**** R****", room: "Hilltop Deluxe Suite", checkIn: "May 14, 2026", checkOut: "May 16, 2026", nights: 2, gross: 9600, commission: 1152, fee: 192, net: 8256, status: "Completed" },
-  { id: "BK-21042", guest: "C**** D**", room: "Garden Casita", checkIn: "May 12, 2026", checkOut: "May 15, 2026", nights: 3, gross: 7800, commission: 936, fee: 156, net: 6708, status: "Completed" },
-  { id: "BK-21039", guest: "A**** L**", room: "Bamboo Cottage", checkIn: "May 18, 2026", checkOut: "May 22, 2026", nights: 4, gross: 21600, commission: 2592, fee: 432, net: 18576, status: "Confirmed" },
-  { id: "BK-21031", guest: "M****** S**", room: "Hilltop Deluxe Suite", checkIn: "May 09, 2026", checkOut: "May 11, 2026", nights: 2, gross: 9600, commission: 1152, fee: 192, net: 8256, status: "Completed" },
-  { id: "BK-21027", guest: "R**** T*****", room: "Garden Casita", checkIn: "May 06, 2026", checkOut: "May 07, 2026", nights: 1, gross: 2600, commission: 312, fee: 52, net: 2236, status: "Cancelled" },
-  { id: "BK-21019", guest: "P**** B****", room: "Bamboo Cottage", checkIn: "May 20, 2026", checkOut: "May 23, 2026", nights: 3, gross: 16200, commission: 1944, fee: 324, net: 13932, status: "Confirmed" },
-  { id: "BK-21015", guest: "L*** F*****", room: "Hilltop Deluxe Suite", checkIn: "May 02, 2026", checkOut: "May 04, 2026", nights: 2, gross: 9600, commission: 1152, fee: 192, net: 8256, status: "Completed" },
-  { id: "BK-21008", guest: "N***** R***", room: "Garden Casita", checkIn: "Apr 28, 2026", checkOut: "Apr 30, 2026", nights: 2, gross: 5200, commission: 624, fee: 104, net: 4472, status: "Completed" },
-  { id: "BK-21002", guest: "K**** M*****", room: "Bamboo Cottage", checkIn: "Apr 25, 2026", checkOut: "Apr 27, 2026", nights: 2, gross: 10800, commission: 1296, fee: 216, net: 9288, status: "Completed" },
-  { id: "BK-20996", guest: "D*** A*****", room: "Hilltop Deluxe Suite", checkIn: "Apr 22, 2026", checkOut: "Apr 24, 2026", nights: 2, gross: 9600, commission: 1152, fee: 192, net: 8256, status: "Completed" },
-  { id: "BK-20988", guest: "S***** G****", room: "Garden Casita", checkIn: "Apr 18, 2026", checkOut: "Apr 21, 2026", nights: 3, gross: 7800, commission: 936, fee: 156, net: 6708, status: "Completed" },
-  { id: "BK-20982", guest: "B**** Y***", room: "Bamboo Cottage", checkIn: "Apr 15, 2026", checkOut: "Apr 16, 2026", nights: 1, gross: 5400, commission: 648, fee: 108, net: 4644, status: "Cancelled" },
-];
-
 const STATUS_MAP: Record<string, string> = {
   Completed: "bg-[#dcfce7] text-[#16a34a]",
+  Approved: "bg-[#dbeafe] text-[#2563eb]",
   Confirmed: "bg-[#dbeafe] text-[#2563eb]",
+  "Checked-in": "bg-[#e0e7ff] text-[#4338ca]",
+  "Checked-out": "bg-[#ede9fe] text-[#6d28d9]",
+  Pending: "bg-[#fef3c7] text-[#b45309]",
   Cancelled: "bg-[#fee2e2] text-[#dc2626]",
+  Rejected: "bg-[#fee2e2] text-[#dc2626]",
+  Declined: "bg-[#fee2e2] text-[#dc2626]",
+  "On-going": "bg-[#ccfbf1] text-[#0f766e]",
+};
+
+const STATUS_MEANING: Record<string, string> = {
+  Pending: "Guest submitted booking but down payment is not yet approved by CSR.",
+  Approved: "Down payment was approved by CSR. Guest is expected to check in.",
+  Confirmed: "Booking is confirmed and locked in.",
+  "On-going": "Guest's stay is currently in progress.",
+  "Checked-in": "Guest has arrived and checked in to the haven.",
+  "Checked-out": "Guest has finished the stay. Awaiting final payment / deposit return.",
+  Completed: "Booking is fully complete — all payments settled, deposit handled.",
+  Cancelled: "Booking was cancelled before check-in.",
+  Rejected: "CSR rejected the booking. Guest will be refunded if applicable.",
+  Declined: "CSR declined the booking request.",
+};
+
+const formatStatus = (raw?: string | null) => {
+  const s = (raw ?? "").toLowerCase().trim();
+  if (!s) return "Pending";
+  // Title-case each hyphen-separated word: "checked-in" -> "Checked-in"
+  return s
+    .split("-")
+    .map((part, i) => (i === 0 ? part.charAt(0).toUpperCase() + part.slice(1) : part))
+    .join("-");
 };
 
 interface AnalyticsPageProps {
@@ -86,7 +80,7 @@ export default function AnalyticsPage({ onNavigate }: AnalyticsPageProps) {
       commission: Number(b.commission),
       fee: Number(b.fee),
       net: Number(b.net),
-      status: b.status === "completed" ? "Completed" : b.status === "approved" || b.status === "confirmed" || b.status === "checked-in" ? "Confirmed" : b.status === "cancelled" || b.status === "rejected" ? "Cancelled" : "Confirmed",
+      status: formatStatus(b.status),
     }));
   }, [bookings]);
 
@@ -99,13 +93,19 @@ export default function AnalyticsPage({ onNavigate }: AnalyticsPageProps) {
     { id: "custom", label: "Custom" },
   ];
 
-  const revenueSeries = analytics?.revenue_series?.length ? analytics.revenue_series : REVENUE_SERIES;
-  const bookingsByRoom = analytics?.bookings_by_room?.length ? analytics.bookings_by_room : BOOKINGS_BY_ROOM;
-  const totalGross = analytics?.gross_total ?? revenueSeries.reduce((s, d) => s + d.gross, 0);
-  const totalNet = analytics?.net_total ?? revenueSeries.reduce((s, d) => s + d.net, 0);
+  // Real data only — empty arrays render an empty state instead of mock numbers
+  const revenueSeries = analytics?.revenue_series ?? [];
+  // Filter out rooms with no activity so the chart doesn't show a "12 — ₱0 — 0 bookings" row
+  const bookingsByRoom = (analytics?.bookings_by_room ?? []).filter(
+    (r) => r.net > 0 || r.bookings > 0
+  );
+  const totalGross = Number(analytics?.gross_total ?? 0);
+  const totalNet = Number(analytics?.net_total ?? 0);
   const totalBookings = analytics?.total_bookings ?? 0;
   const occupancy = analytics?.occupancy ?? 0;
   const maxNet = Math.max(...bookingsByRoom.map((x) => x.net), 1);
+  const hasRevenueData = revenueSeries.some((d) => d.gross > 0 || d.net > 0);
+  const hasRoomData = bookingsByRoom.length > 0;
 
   return (
     <div className="animate-in fade-in duration-500">
@@ -218,6 +218,13 @@ export default function AnalyticsPage({ onNavigate }: AnalyticsPageProps) {
           <div className="py-10 text-center">
             <Loader2 className="w-6 h-6 text-[#B8860B] animate-spin mx-auto" />
           </div>
+        ) : !hasRevenueData ? (
+          <div className="py-14 text-center text-[#6B7280]">
+            <p className="text-[14px] font-semibold text-[#374151] mb-1">No revenue data yet</p>
+            <p className="text-[12.5px]">
+              Once you start receiving bookings, the breakdown will appear here.
+            </p>
+          </div>
         ) : view === "revenue" ? (
           <RevenueChart data={revenueSeries} />
         ) : (
@@ -227,31 +234,44 @@ export default function AnalyticsPage({ onNavigate }: AnalyticsPageProps) {
 
       {/* TOP PERFORMER + BOOKINGS BY ROOM */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.2fr] gap-[18px] mb-6">
-        {/* Top Performer */}
-        <div className="bg-white border border-[#e5e7eb] rounded-[14px] shadow-[0_1px_2px_rgba(15,42,46,0.04)] overflow-hidden flex flex-col">
-          <div className="relative h-[160px] bg-[#f9fafb] border-b border-[#e5e7eb] grid place-items-center text-[#6B7280] font-mono text-[11px] overflow-hidden">
-            <div className="absolute inset-0 bg-[repeating-linear-gradient(-45deg,transparent_0,transparent_9px,#f3f4f6_9px,#f3f4f6_18px)] opacity-90" />
-            <span className="relative bg-white border border-[#e5e7eb] rounded-md px-2 py-1">
-              Hilltop Deluxe Suite · hero
-            </span>
-            <div className="absolute top-3 left-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#DAA520] text-[#1f2937] text-[11.5px] font-semibold uppercase tracking-widest">
-              <Sparkles className="w-3 h-3" /> Top performer
+        {/* Top Performer — derived from real bookingsByRoom (only rooms with actual earnings) */}
+        {(() => {
+          const top = bookingsByRoom
+            .filter((r) => r.net > 0 || r.bookings > 0)
+            .slice()
+            .sort((a, b) => b.net - a.net)[0];
+          return (
+            <div className="bg-white border border-[#e5e7eb] rounded-[14px] shadow-[0_1px_2px_rgba(15,42,46,0.04)] overflow-hidden flex flex-col">
+              <div className="relative h-[160px] bg-[#f9fafb] border-b border-[#e5e7eb] grid place-items-center text-[#6B7280] font-mono text-[11px] overflow-hidden">
+                <div className="absolute inset-0 bg-[repeating-linear-gradient(-45deg,transparent_0,transparent_9px,#f3f4f6_9px,#f3f4f6_18px)] opacity-90" />
+                <span className="relative bg-white border border-[#e5e7eb] rounded-md px-2 py-1">
+                  {top?.room || "No data yet"}
+                </span>
+                {top && (
+                  <div className="absolute top-3 left-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#DAA520] text-[#1f2937] text-[11.5px] font-semibold uppercase tracking-widest">
+                    <Sparkles className="w-3 h-3" /> Top performer
+                  </div>
+                )}
+              </div>
+              <div className="p-5">
+                <h3 className={`text-[17px] leading-[1.3] font-medium text-[#111827] mb-1 ${fontFraunces}`}>
+                  {top?.room || "No top performer yet"}
+                </h3>
+                <div className="text-[12.5px] text-[#6B7280] mb-4">
+                  {top
+                    ? "Your highest-earning room this period."
+                    : "Once a room receives bookings, your top performer will appear here."}
+                </div>
+                {top && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <MiniStat label="Net earned" value={peso(top.net)} accent />
+                    <MiniStat label="Bookings" value={String(top.bookings)} />
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-          <div className="p-5">
-            <h3 className={`text-[17px] leading-[1.3] font-medium text-[#111827] mb-1 ${fontFraunces}`}>
-              Hilltop Deluxe Suite
-            </h3>
-            <div className="text-[12.5px] text-[#6B7280] mb-4">
-              Your highest-earning room this period.
-            </div>
-            <div className="grid grid-cols-3 gap-3">
-              <MiniStat label="Net earned" value={peso(124800)} accent />
-              <MiniStat label="Bookings" value="28" />
-              <MiniStat label="Avg rating" value="4.9 ★" />
-            </div>
-          </div>
-        </div>
+          );
+        })()}
 
         {/* Bookings by room */}
         <div className="bg-white border border-[#e5e7eb] rounded-[14px] shadow-[0_1px_2px_rgba(15,42,46,0.04)] p-[22px]">
@@ -263,6 +283,14 @@ export default function AnalyticsPage({ onNavigate }: AnalyticsPageProps) {
               Where your earnings come from this period.
             </p>
           </div>
+          {!hasRoomData && (
+            <div className="py-10 text-center text-[#6B7280]">
+              <p className="text-[13px] font-semibold text-[#374151] mb-1">No bookings yet</p>
+              <p className="text-[12px]">
+                Once any room receives a booking, the per-room breakdown will show here.
+              </p>
+            </div>
+          )}
           <div className="flex flex-col gap-3.5">
             {bookingsByRoom.map((b, i) => {
               const pct = (b.net / maxNet) * 100;
@@ -311,10 +339,31 @@ export default function AnalyticsPage({ onNavigate }: AnalyticsPageProps) {
             onClick={() => setShowAll((s) => !s)}
             className="text-[12.5px] font-semibold text-[#374151] hover:bg-[#f9fafb] px-2.5 py-1 rounded-md inline-flex items-center gap-1 transition"
           >
-            {showAll ? "Show less" : `View all (${RECENT_BOOKINGS.length})`}
+            {showAll ? "Show less" : `View all (${recentBookings.length})`}
             <ChevronRight className={`w-3 h-3 transition-transform ${showAll ? "rotate-90" : ""}`} />
           </button>
         </div>
+
+        {/* Status legend */}
+        <details className="px-[22px] pb-3 group">
+          <summary className="text-[12px] font-medium text-[#6B7280] cursor-pointer hover:text-[#374151] inline-flex items-center gap-1 select-none">
+            <ChevronRight className="w-3 h-3 transition-transform group-open:rotate-90" />
+            What do these statuses mean?
+          </summary>
+          <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            {Object.entries(STATUS_MEANING).map(([label, meaning]) => (
+              <div key={label} className="flex items-start gap-2 text-[11.5px]">
+                <span
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-semibold flex-shrink-0 mt-0.5 ${STATUS_MAP[label] ?? "bg-[#f1f5f9] text-[#475569]"}`}
+                >
+                  <span className="w-1 h-1 rounded-full bg-current opacity-90" />
+                  {label}
+                </span>
+                <span className="text-[#6B7280]">{meaning}</span>
+              </div>
+            ))}
+          </div>
+        </details>
         <div className="overflow-x-auto">
           <table className="w-full text-[13px] border-collapse">
             <thead>
@@ -332,6 +381,16 @@ export default function AnalyticsPage({ onNavigate }: AnalyticsPageProps) {
               </tr>
             </thead>
             <tbody>
+              {visibleBookings.length === 0 && (
+                <tr>
+                  <td colSpan={9} className="px-3.5 py-10 text-center text-[#6B7280]">
+                    <p className="text-[13px] font-semibold text-[#374151] mb-1">No bookings yet</p>
+                    <p className="text-[12px]">
+                      Recent booking history will appear here as guests start booking your havens.
+                    </p>
+                  </td>
+                </tr>
+              )}
               {visibleBookings.map((b) => (
                 <tr key={b.id} className="hover:bg-[#f9fafb]">
                   <td className="px-3.5 py-3.5 border-b border-[#e5e7eb] text-[#6B7280] font-mono text-[11.5px]">
@@ -365,7 +424,8 @@ export default function AnalyticsPage({ onNavigate }: AnalyticsPageProps) {
                   </td>
                   <td className="px-3.5 py-3.5 border-b border-[#e5e7eb]">
                     <span
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11.5px] font-semibold ${STATUS_MAP[b.status]}`}
+                      title={STATUS_MEANING[b.status] ?? "Status from CSR"}
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11.5px] font-semibold cursor-help ${STATUS_MAP[b.status] ?? "bg-[#f1f5f9] text-[#475569]"}`}
                     >
                       <span className="w-1.5 h-1.5 rounded-full bg-current opacity-90" />
                       {b.status}

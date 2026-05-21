@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
-import { Upload, Trash2, CheckCircle2, Circle, Camera, Info, Plus } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Upload, Trash2, CheckCircle2, Camera, Info, Plus } from "lucide-react";
 import Image from 'next/image';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from "framer-motion";
-import { setCookie, getCookie } from "@/lib/cookieUtils";
+import { setCookie } from "@/lib/cookieUtils";
 import SubModalWrapper from "./SubModalWrapper";
 
 interface PhotoTourData {
@@ -24,7 +24,7 @@ interface PhotoCategory {
 const PHOTO_CATEGORIES: PhotoCategory[] = [
   { key: "livingArea", label: "Living Area", description: "Sofa, entertainment, and general layout", required: true },
   { key: "bedroom", label: "Bedroom", description: "Bed, linens, and bedroom decor", required: true },
-  { key: "kitchenette", label: "Kitchenette", description: "Cooking area, fridge, and appliances", required: true },
+  { key: "kitchenette", label: "Kitchenette", description: "Cooking area, fridge, and appliances", required: false },
   { key: "fullBathroom", label: "Full Bathroom", description: "Shower, toilet, and vanity", required: true },
   { key: "diningArea", label: "Dining Area", description: "Table and seating arrangements", required: false },
   { key: "exterior", label: "Exterior / View", description: "Building outside and window views", required: false },
@@ -32,6 +32,50 @@ const PHOTO_CATEGORIES: PhotoCategory[] = [
   { key: "garage", label: "Parking / Garage", description: "Parking slots and access points", required: false },
   { key: "additional", label: "Additional", description: "Any other details you want to show", required: false },
 ];
+
+// Maps an amenity (selected in the Amenities step) to a photo-tour category that should
+// become REQUIRED. Both the static amenity IDs and custom amenity iconKeys are matched.
+const AMENITY_TO_PHOTO_CATEGORY: Record<string, string> = {
+  // Static amenity IDs
+  poolAccess: "pool",
+  parking: "garage",
+  balcony: "exterior",
+  // Custom-amenity iconKeys
+  pool: "pool",
+  hottub: "pool",
+  yard: "exterior",
+};
+
+// Exposed so HavenFormModal can compute the same required set when validating the step.
+export const getDynamicRequiredPhotoCategories = (
+  selectedAmenities: Record<string, unknown> = {}
+): Set<string> => {
+  const required = new Set<string>();
+  Object.entries(selectedAmenities).forEach(([key, value]) => {
+    if (key === "_custom") return;
+    if (value !== true) return;
+    const target = AMENITY_TO_PHOTO_CATEGORY[key];
+    if (target) required.add(target);
+  });
+  const custom = (selectedAmenities._custom as Array<{ id: string; iconKey: string }> | undefined) || [];
+  custom.forEach((c) => {
+    if (selectedAmenities[c.id] === true) {
+      const target = AMENITY_TO_PHOTO_CATEGORY[c.iconKey];
+      if (target) required.add(target);
+    }
+  });
+  return required;
+};
+
+// Categories that are ALWAYS required (regardless of selected amenities)
+export const ALWAYS_REQUIRED_PHOTO_CATEGORIES = ["livingArea", "bedroom", "fullBathroom"];
+
+interface CustomAmenityMeta {
+  id: string;
+  label: string;
+  iconKey: string;
+  iconUrl?: string;
+}
 
 interface PhotoTourManagementModalProps {
   isOpen: boolean;
@@ -42,19 +86,48 @@ interface PhotoTourManagementModalProps {
   onNext?: () => void;
   onBack?: () => void;
   isLastStep?: boolean;
+  // Amenities object from the previous step — used to auto-require matching photo categories
+  selectedAmenities?: Record<string, boolean | CustomAmenityMeta[] | undefined>;
 }
 
-const PhotoTourManagementModal = ({ 
-  isOpen, 
-  onClose, 
-  onSave, 
-  initialPhotoTours = [], 
+const PhotoTourManagementModal = ({
+  isOpen,
+  onClose,
+  onSave,
+  initialPhotoTours = [],
   mode = 'modal',
   onNext,
   onBack,
-  isLastStep = false,
-  currentPhotoTourImages = {}
+  currentPhotoTourImages = {},
+  selectedAmenities = {},
 }: PhotoTourManagementModalProps & { currentPhotoTourImages?: Record<string, File[]> }) => {
+  // Compute which photo categories should be required because the partner picked
+  // a matching amenity (e.g. selected "Parking" → "Parking / Garage" becomes required).
+  const dynamicallyRequired = useMemo(
+    () => getDynamicRequiredPhotoCategories(selectedAmenities as Record<string, unknown>),
+    [selectedAmenities]
+  );
+
+  const isCategoryRequired = (key: string) => {
+    const base = PHOTO_CATEGORIES.find((c) => c.key === key)?.required ?? false;
+    return base || dynamicallyRequired.has(key);
+  };
+
+  // Show required categories first so partners see what they need at a glance.
+  // Stable sort preserves the original PHOTO_CATEGORIES order within each group.
+  const sortedCategories = useMemo(() => {
+    const decorated = PHOTO_CATEGORIES.map((cat, idx) => ({
+      cat,
+      idx,
+      required: cat.required || dynamicallyRequired.has(cat.key),
+    }));
+    decorated.sort((a, b) => {
+      if (a.required !== b.required) return a.required ? -1 : 1;
+      return a.idx - b.idx;
+    });
+    return decorated.map((d) => d.cat);
+  }, [dynamicallyRequired]);
+
   const [activeCategory, setActiveCategory] = useState<string>("livingArea");
 
   const handleUpload = (category: string, e: React.ChangeEvent<HTMLInputElement>) => {
@@ -90,9 +163,10 @@ const PhotoTourManagementModal = ({
   };
 
   const isAllRequiredFilled = useMemo(() => {
-    const mandatoryCategories = ['livingArea', 'bedroom', 'kitchenette', 'fullBathroom'];
-    return mandatoryCategories.every(cat => getCategoryStatus(cat));
-  }, [currentPhotoTourImages, initialPhotoTours]);
+    const mandatory = PHOTO_CATEGORIES.filter((c) => isCategoryRequired(c.key)).map((c) => c.key);
+    return mandatory.every((cat) => getCategoryStatus(cat));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPhotoTourImages, initialPhotoTours, dynamicallyRequired]);
 
   const handleSave = () => {
     if (!isAllRequiredFilled) {
@@ -125,7 +199,7 @@ const PhotoTourManagementModal = ({
         <h3 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2 px-2">
           Room Categories
         </h3>
-        {PHOTO_CATEGORIES.map((cat) => {
+        {sortedCategories.map((cat) => {
           const isCompleted = getCategoryStatus(cat.key);
           const isActive = activeCategory === cat.key;
           
@@ -153,8 +227,10 @@ const PhotoTourManagementModal = ({
                   <p className={`text-sm font-bold ${isActive ? 'text-brand-primary' : 'text-gray-700 dark:text-gray-300'}`}>
                     {cat.label}
                   </p>
-                  {cat.required && !isCompleted && (
-                    <span className="text-[10px] text-red-400 dark:text-red-400 font-bold uppercase">Required</span>
+                  {isCategoryRequired(cat.key) && !isCompleted && (
+                    <span className="text-[10px] text-red-400 dark:text-red-400 font-bold uppercase">
+                      {cat.required ? "Required" : "Required (amenity)"}
+                    </span>
                   )}
                 </div>
               </div>
