@@ -87,6 +87,9 @@ export default function CleanersDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [apiNotifications, setApiNotifications] = useState<ApiNotification[]>([]);
   const [showGuideModal, setShowGuideModal] = useState(false);
+  const [lang, setLang] = useState<Lang>("en");
+  const t = useTranslations(lang);
+  const toggleLang = () => setLang((prev) => (prev === "en" ? "tl" : "en"));
   const dropdownRef = useRef<HTMLDivElement>(null);
   const notificationButtonRef = useRef<HTMLButtonElement | null>(null);
   const { data: session } = useSession();

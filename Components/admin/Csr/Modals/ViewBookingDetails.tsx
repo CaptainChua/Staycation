@@ -70,6 +70,8 @@ interface AdditionalGuestRow {
   lastName: string;
   age?: number | string;
   gender?: string;
+  email?: string;
+  phone?: string;
   facebook_link?: string;
   validIdUrl?: string;
 }
@@ -101,6 +103,8 @@ export default function ViewBookingDetails({ booking, onClose }: ViewBookingDeta
               lastName: g.last_name || g.lastName || '',
               age: g.age ?? g.guest_age ?? undefined,
               gender: g.gender || g.guest_gender || undefined,
+              email: g.email,
+              phone: g.phone,
               facebook_link: g.facebook_link,
               validIdUrl: g.valid_id_url || g.validIdUrl || '',
             }))
@@ -372,6 +376,22 @@ export default function ViewBookingDetails({ booking, onClose }: ViewBookingDeta
                         {guest.gender ?? 'N/A'}
                       </span>
                     </div>
+                    {guest.email && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Email:</span>
+                        <a href={`mailto:${guest.email}`} className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 underline">
+                          {guest.email}
+                        </a>
+                      </div>
+                    )}
+                    {guest.phone && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Phone:</span>
+                        <a href={`tel:${guest.phone}`} className="text-sm text-green-600 hover:text-green-800 dark:text-green-400 underline">
+                          {guest.phone}
+                        </a>
+                      </div>
+                    )}
                     {guest.facebook_link && (
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Facebook:</span>

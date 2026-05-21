@@ -16,9 +16,65 @@ export async function PUT(request: NextRequest, { params }: RouteContext): Promi
   try {
     const { id } = await params;
     const body = await request.json();
-    
-    // Check if this is a pricing-only update
-    const isPricingOnlyUpdate = Object.keys(body).every(key => 
+
+    // NEW pricing-only update via rates JSONB array
+    const isRatesOnlyUpdate =
+      Array.isArray(body?.rates) &&
+      Object.keys(body).every((key) => key === "rates");
+
+    if (isRatesOnlyUpdate) {
+      try {
+        const rates = (body.rates as Array<{ label: string; hours: number; price: number }>).map(
+          (r) => ({
+            label: String(r.label || "").trim(),
+            hours: Number(r.hours) || 0,
+            price: Number(r.price) || 0,
+          })
+        );
+
+        // Best-effort backfill of legacy columns
+        const legacy = { six: 0, ten: 0, weekday: 0, weekend: 0 };
+        rates.forEach((r) => {
+          if (r.hours === 6) legacy.six = r.price;
+          else if (r.hours === 10) legacy.ten = r.price;
+          else if (r.hours === 21 && /weekend/i.test(r.label)) legacy.weekend = r.price;
+          else if (r.hours === 21) legacy.weekday = r.price;
+        });
+
+        const result = await pool.query(
+          `UPDATE havens
+             SET rates = $1::jsonb,
+                 six_hour_rate = $2,
+                 ten_hour_rate = $3,
+                 weekday_rate = $4,
+                 weekend_rate = $5,
+                 updated_at = NOW()
+           WHERE uuid_id = $6
+           RETURNING uuid_id, haven_name, rates, six_hour_rate, ten_hour_rate, weekday_rate, weekend_rate`,
+          [JSON.stringify(rates), legacy.six, legacy.ten, legacy.weekday, legacy.weekend, id]
+        );
+
+        if (result.rows.length === 0) {
+          return NextResponse.json(
+            { success: false, message: "Haven not found" },
+            { status: 404 }
+          );
+        }
+
+        return NextResponse.json({
+          success: true,
+          message: "Rates updated successfully",
+          data: result.rows[0],
+        });
+      } catch (dbError: unknown) {
+        const msg = dbError instanceof Error ? dbError.message : "Database error";
+        console.error("[haven/[id] PUT] Rates update error:", dbError);
+        return NextResponse.json({ success: false, message: msg }, { status: 500 });
+      }
+    }
+
+    // LEGACY pricing-only update via 4 fixed price fields
+    const isPricingOnlyUpdate = Object.keys(body).every(key =>
       ['six_hour_price', 'ten_hour_price', 'weekday_price', 'weekend_price'].includes(key)
     );
 

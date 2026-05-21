@@ -3,7 +3,7 @@
 import OwnerPageHeader from "./OwnerPageHeader";
 import { useMemo, useState, useEffect, useRef, useCallback, type ChangeEvent } from "react";
 import { useSession } from "next-auth/react";
-import { Search, Send, Image as ImageIcon, X, Loader2, ArrowLeft } from "lucide-react";
+import { Search, Send, Paperclip, X, Loader2, ArrowLeft, FileText } from "lucide-react";
 import Image from "next/image";
 import {
   useGetConversationsQuery,
@@ -26,6 +26,7 @@ interface Employee {
   last_name?: string;
   email?: string;
   employment_id?: string;
+  role?: string;
   profile_image_url?: string;
 }
 
@@ -109,6 +110,35 @@ const isImageMessage = (text: string) => {
   }
 };
 
+const MAX_ATTACHMENTS = 4;
+
+type AttachedFile = {
+  dataUrl: string;
+  name: string;
+  mimeType: string;
+  isImage: boolean;
+};
+
+const isImageDataUrl = (value: string | null | undefined) => {
+  if (!value) return false;
+  return value.trim().startsWith("data:image");
+};
+
+const filenameFromDataUrl = (value: string) => {
+  // Cloudinary / HTTP URL: use the last path segment
+  try {
+    const url = new URL(value);
+    const last = url.pathname.split("/").filter(Boolean).pop();
+    if (last) return decodeURIComponent(last);
+  } catch {
+    // not a URL — fall through
+  }
+  // base64 data URL: derive extension from MIME
+  const match = value.match(/^data:([^;]+);/);
+  if (!match) return "file";
+  return `attachment.${match[1].split("/")[1] || "bin"}`;
+};
+
 const Skeleton = ({ className }: { className: string }) => (
   <div className={`animate-pulse bg-gray-200 dark:bg-gray-800 ${className}`} />
 );
@@ -118,8 +148,11 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
   const userId = (session?.user as { id?: string })?.id;
 
   const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState("all");
   const [draft, setDraft] = useState("");
-  const [attachedImage, setAttachedImage] = useState<string | null>(null);
+  const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
+
+  const userRole = ((session?.user as { id?: string; role?: string })?.role ?? "").toLowerCase();
   const [isNewMessageModalOpen, setIsNewMessageModalOpen] = useState(false);
   const [showMobileChat, setShowMobileChat] = useState(false);
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
@@ -209,6 +242,14 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
     return map;
   }, [employees]);
 
+  const employeeRoleById = useMemo(() => {
+    const map: Record<string, string> = {};
+    employees.forEach((emp: Employee) => {
+      if (emp?.id) map[emp.id] = (emp.role ?? "").toLowerCase();
+    });
+    return map;
+  }, [employees]);
+
   useEffect(() => {
     if (activeId && userId) {
       markAsRead({ conversation_id: activeId, user_id: userId });
@@ -235,16 +276,46 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
   };
 
   const handleImageFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const fileList = e.target.files;
+    if (!fileList || fileList.length === 0) return;
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const base64 = reader.result as string;
-      setAttachedImage(base64);
-    };
-    reader.readAsDataURL(file);
-    e.target.value = "";
+    const remainingSlots = MAX_ATTACHMENTS - attachedFiles.length;
+    if (remainingSlots <= 0) {
+      toast.error(`You can attach up to ${MAX_ATTACHMENTS} files per message.`);
+      e.target.value = "";
+      return;
+    }
+
+    const incoming = Array.from(fileList).slice(0, remainingSlots);
+    if (fileList.length > remainingSlots) {
+      toast.error(`Only the first ${remainingSlots} file(s) were attached (max ${MAX_ATTACHMENTS}).`);
+    }
+
+    const readFile = (file: File) =>
+      new Promise<AttachedFile>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const dataUrl = reader.result as string;
+          resolve({
+            dataUrl,
+            name: file.name || filenameFromDataUrl(dataUrl),
+            mimeType: file.type || "application/octet-stream",
+            isImage: (file.type || "").startsWith("image/") || isImageDataUrl(dataUrl),
+          });
+        };
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+      });
+
+    try {
+      const results = await Promise.all(incoming.map(readFile));
+      setAttachedFiles((prev) => [...prev, ...results].slice(0, MAX_ATTACHMENTS));
+    } catch (err) {
+      console.error("Failed to read file(s):", err);
+      toast.error("Failed to read one or more files");
+    } finally {
+      e.target.value = "";
+    }
   };
 
   const getConversationDisplayName = useCallback(
@@ -287,33 +358,78 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
   const showSkeletonConversations = isLoadingConversations && conversations.length === 0;
   const showSkeletonMessages = isLoadingMessages && messages.length === 0;
 
+  const roleFilterOptions = [
+    { label: "All", value: "all" },
+    { label: "User", value: "user" },
+    { label: "CSR", value: "csr" },
+    ...(userRole !== "owner" ? [{ label: "Admin", value: "owner" }] : []),
+    { label: "Cleaners", value: "cleaner" },
+    { label: "Partner", value: "partner" },
+    { label: "Walk-in Staff", value: "walkinstaff" },
+  ];
+
+  const getConversationRole = useCallback(
+    (c: Conversation): string => {
+      if (c.type === "guest") return "user";
+      const otherIds = (c.participant_ids || []).filter((id) => id !== userId);
+      const roles = otherIds.map((id) => employeeRoleById[id]).filter(Boolean);
+      return roles[0] ?? "internal";
+    },
+    [userId, employeeRoleById]
+  );
+
   const filteredConversations = useMemo(() => {
     const term = search.trim().toLowerCase();
-    if (!term) return conversations;
     return conversations.filter((c: Conversation) => {
-      return (
+      const matchesSearch =
+        !term ||
         c.name?.toLowerCase().includes(term) ||
         (c.last_message && c.last_message.toLowerCase().includes(term)) ||
-        c.type.toLowerCase().includes(term)
-      );
+        c.type.toLowerCase().includes(term);
+      const matchesRole =
+        roleFilter === "all" || getConversationRole(c) === roleFilter;
+      return matchesSearch && matchesRole;
     });
-  }, [search, conversations]);
+  }, [search, roleFilter, conversations, getConversationRole]);
 
   const handleSendMessage = async () => {
     const text = draft.trim();
-    if (!activeId || !userId || (!text && !attachedImage)) return;
+    if (!activeId || !userId || (!text && attachedFiles.length === 0)) return;
+
+    const senderName = session?.user?.name || "Owner";
+    const filesToSend = [...attachedFiles];
+
+    // Optimistically clear the composer so the user can keep typing
+    // while uploads finish in the background.
+    setDraft("");
+    setAttachedFiles([]);
 
     try {
-      await sendMessage({
-        conversation_id: activeId,
-        sender_id: userId,
-        sender_name: session?.user?.name || "Owner",
-        message_text: text,
-        image: attachedImage || undefined,
-      }).unwrap();
+      if (filesToSend.length === 0) {
+        await sendMessage({
+          conversation_id: activeId,
+          sender_id: userId,
+          sender_name: senderName,
+          message_text: text,
+        }).unwrap();
+      } else {
+        // Fire all per-file sends in parallel. The server uploads each
+        // attachment to Cloudinary and persists only the URL, so the wire
+        // traffic on subsequent polls stays small. Caption rides on the
+        // first message only.
+        await Promise.all(
+          filesToSend.map((f, i) =>
+            sendMessage({
+              conversation_id: activeId,
+              sender_id: userId,
+              sender_name: senderName,
+              message_text: i === 0 ? text : "",
+              image: f.dataUrl,
+            }).unwrap()
+          )
+        );
+      }
 
-      setDraft("");
-      setAttachedImage(null);
       refetchMessages();
       refetchConversations();
     } catch (error: unknown) {
@@ -322,6 +438,9 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
         ? (error as { data?: { error?: string } }).data?.error
         : "Failed to send message";
       toast.error(errorMessage || "Failed to send message");
+      // Restore composer state so the user can retry
+      setDraft(text);
+      setAttachedFiles(filesToSend);
     }
   };
 
@@ -422,7 +541,7 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
               </div>
             </div>
 
-            <div className="p-4">
+            <div className="p-4 space-y-2">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
@@ -431,6 +550,22 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                   placeholder="Search Messenger"
                   className="w-full pl-10 pr-3 py-2.5 rounded-full bg-gray-100 dark:bg-gray-800 border border-gray-100 dark:border-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:bg-white dark:focus:bg-gray-900 focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary/30"
                 />
+              </div>
+              <div className="flex gap-1.5 overflow-x-auto pb-0.5 scrollbar-hide">
+                {roleFilterOptions.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setRoleFilter(opt.value)}
+                    className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                      roleFilter === opt.value
+                        ? "bg-brand-primary text-white"
+                        : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -587,8 +722,14 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                           m.sender_name ||
                           (activeConversation?.type === "guest" ? "Guest" : "Staff")
                         : undefined;
-                      const imageSrc = m.image_url || m.message_text;
-                      const renderImage = !!m.image_url || isImageMessage(m.message_text);
+                      const attachmentSrc = m.image_url || (isImageMessage(m.message_text) ? m.message_text : "");
+                      const isAttachmentImage = !!attachmentSrc && isImageMessage(attachmentSrc);
+                      const hasNonImageAttachment = !!m.image_url && !isAttachmentImage;
+                      // Show text only when message_text isn't itself the embedded attachment
+                      const showText = !!m.message_text && (!!m.image_url || !isImageMessage(m.message_text));
+                      const bubbleColor = isMe
+                        ? "bg-brand-primary text-white rounded-br-md"
+                        : "bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-800 rounded-bl-md";
                       return (
                         <div key={m.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
                           <div className={`max-w-[85%] sm:max-w-[75%] ${isMe ? "items-end" : "items-start"} flex flex-col gap-0.5 sm:gap-1`}>
@@ -597,24 +738,33 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                                 {senderLabel}
                               </span>
                             )}
-                            <div
-                              className={`rounded-2xl text-xs sm:text-sm leading-relaxed shadow-sm overflow-hidden ${
-                                renderImage
-                                  ? "p-0"
-                                  : `px-3 sm:px-4 py-2 sm:py-2.5 ${isMe ? "bg-brand-primary text-white rounded-br-md" : "bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-800 rounded-bl-md"}`
-                              }`}
-                            >
-                              {renderImage ? (
+                            {isAttachmentImage && (
+                              <div className="rounded-2xl overflow-hidden shadow-sm">
                                 <img
-                                  src={imageSrc}
+                                  src={attachmentSrc}
                                   alt="sent image"
                                   className="max-w-[220px] rounded-2xl object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                                  onClick={() => setZoomedImage(imageSrc)}
+                                  onClick={() => setZoomedImage(attachmentSrc)}
                                 />
-                              ) : (
-                                m.message_text
-                              )}
-                            </div>
+                              </div>
+                            )}
+                            {hasNonImageAttachment && (
+                              <a
+                                href={attachmentSrc}
+                                download={filenameFromDataUrl(attachmentSrc)}
+                                className={`inline-flex items-center gap-2 px-3 py-2 rounded-2xl text-xs sm:text-sm shadow-sm ${bubbleColor}`}
+                              >
+                                <FileText className="w-4 h-4 flex-shrink-0" />
+                                <span className="underline-offset-2 hover:underline truncate max-w-[180px]">
+                                  {filenameFromDataUrl(attachmentSrc)}
+                                </span>
+                              </a>
+                            )}
+                            {showText && (
+                              <div className={`rounded-2xl text-xs sm:text-sm leading-relaxed shadow-sm px-3 sm:px-4 py-2 sm:py-2.5 ${bubbleColor}`}>
+                                {m.message_text}
+                              </div>
+                            )}
                             <span className="text-[10px] sm:text-[11px] text-gray-400">{memoizedFormatMessageTime(m.created_at)}</span>
                           </div>
                         </div>
@@ -630,21 +780,42 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
 
                 <div className="border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-2 sm:px-4 py-2 sm:py-3">
                   <div className="flex flex-col gap-2 w-full">
-                    {attachedImage && (
-                      <div className="relative rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-900 min-h-[180px]">
-                        <img
-                          src={attachedImage}
-                          alt="Attachment preview"
-                          className="w-full max-h-72 h-auto object-contain bg-black/5"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setAttachedImage(null)}
-                          className="absolute top-2 right-2 rounded-full bg-black/70 text-white p-1.5 hover:bg-black/90 transition-colors"
-                          title="Remove attachment"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
+                    {attachedFiles.length > 0 && (
+                      <div className="flex flex-wrap items-start gap-2 rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 p-2">
+                        {attachedFiles.map((f, idx) => (
+                          <div
+                            key={`${f.name}-${idx}`}
+                            className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex items-center justify-center"
+                          >
+                            {f.isImage ? (
+                              <img
+                                src={f.dataUrl}
+                                alt={f.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="flex flex-col items-center justify-center text-center px-2 gap-1">
+                                <FileText className="w-7 h-7 text-brand-primary" />
+                                <span className="text-[10px] leading-tight text-gray-700 dark:text-gray-200 break-all line-clamp-2">
+                                  {f.name}
+                                </span>
+                              </div>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setAttachedFiles((prev) => prev.filter((_, i) => i !== idx))
+                              }
+                              className="absolute top-1 right-1 rounded-full bg-black/70 text-white p-1 hover:bg-black/90 transition-colors"
+                              title="Remove attachment"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                        <span className="text-[10px] text-gray-500 dark:text-gray-400 self-end ml-auto pb-1 pr-1">
+                          {attachedFiles.length} / {MAX_ATTACHMENTS}
+                        </span>
                       </div>
                     )}
 
@@ -652,17 +823,22 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                       <input
                         ref={fileInputRef}
                         type="file"
+                        multiple
                         className="hidden"
-                        accept="image/*"
                         onChange={handleImageFileChange}
                       />
                       <button
                         type="button"
-                        className="p-1.5 sm:p-2 rounded-full hover:bg-brand-primaryLighter transition-colors"
-                        title="Attach"
+                        className="p-1.5 sm:p-2 rounded-full hover:bg-brand-primaryLighter transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        title={
+                          attachedFiles.length >= MAX_ATTACHMENTS
+                            ? `Max ${MAX_ATTACHMENTS} files`
+                            : "Attach files"
+                        }
                         onClick={handleAttachClick}
+                        disabled={attachedFiles.length >= MAX_ATTACHMENTS}
                       >
-                        <ImageIcon className="w-4 h-4 sm:w-5 sm:h-5 text-brand-primary" />
+                        <Paperclip className="w-4 h-4 sm:w-5 sm:h-5 text-brand-primary" />
                       </button>
                       <div className="flex-1 bg-gray-100 dark:bg-gray-800 rounded-full px-2 sm:px-3 py-1.5 sm:py-2 flex items-center gap-1 sm:gap-2 border border-gray-200 dark:border-gray-700 focus-within:bg-brand-primaryLighter dark:focus-within:bg-gray-800 focus-within:border-brand-primary dark:focus-within:border-brand-primary focus-within:ring-2 focus-within:ring-brand-primary/20">
                         <input
@@ -682,7 +858,7 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                       <button
                         type="button"
                         onClick={handleSendMessage}
-                        disabled={isSending || (!draft.trim() && !attachedImage)}
+                        disabled={isSending || (!draft.trim() && attachedFiles.length === 0)}
                         className="p-1.5 sm:p-2 rounded-full hover:bg-brand-primaryLighter transition-colors disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed flex items-center justify-center"
                         title="Send"
                       >

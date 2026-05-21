@@ -488,6 +488,15 @@ function ViewDetailsModal({ room, onClose }: ViewDetailsModalProps) {
   const description = (raw.description as string) || "";
   const beds = (raw.beds as string) || "—";
   const roomSize = raw.room_size ? `${raw.room_size} sqm` : "—";
+  const bathrooms = raw.bathrooms ? String(raw.bathrooms) : "—";
+  const propertyType = (raw.property_type as string) || "—";
+  const cleaningFee = Number(raw.cleaning_fee) || 0;
+  const securityDeposit = Number(raw.security_deposit) || 0;
+  const extraPaxFee = Number(raw.extra_pax_fee) || 0;
+  const houseRules = (raw.house_rules as string) || "";
+  const smokingPolicy = (raw.smoking_policy as string) || "";
+  const petPolicy = (raw.pet_policy as string) || "";
+  const cancellationPolicy = (raw.cancellation_policy as string) || "";
   const rejectionReason = raw.rejection_reason as string | undefined;
   const reviewerNotes = raw.reviewer_notes as string | undefined;
   const badge = STATUS_BADGES[room.status];
@@ -595,7 +604,58 @@ function ViewDetailsModal({ room, onClose }: ViewDetailsModalProps) {
             <DetailStat icon={Users} label="Sleeps" value={String(room.capacity)} />
             <DetailStat icon={Map} label="Location" value={room.location} />
             <DetailStat icon={Ruler} label="Room size" value={roomSize} />
+            <DetailStat icon={Bed} label="Bathrooms" value={bathrooms} />
+            <DetailStat icon={Home} label="Property type" value={propertyType} />
           </div>
+
+          {/* Fees */}
+          {(cleaningFee > 0 || securityDeposit > 0 || extraPaxFee > 0) && (
+            <div className="bg-[#f9fafb] border border-[#e5e7eb] rounded-2xl p-4">
+              <h3 className={`text-[15px] mb-3 text-[#111827] font-medium ${fontFraunces}`}>
+                Fees
+              </h3>
+              <div className="grid grid-cols-3 gap-3">
+                <RateRow label="Cleaning fee" value={cleaningFee} />
+                <RateRow label="Security deposit" value={securityDeposit} />
+                <RateRow label="Extra pax / night" value={extraPaxFee} />
+              </div>
+            </div>
+          )}
+
+          {/* Policies */}
+          {(houseRules || smokingPolicy || petPolicy || cancellationPolicy) && (
+            <div className="bg-[#f9fafb] border border-[#e5e7eb] rounded-2xl p-4 space-y-3">
+              <h3 className={`text-[15px] text-[#111827] font-medium ${fontFraunces}`}>
+                Policies
+              </h3>
+              {houseRules && (
+                <div>
+                  <p className="text-xs uppercase tracking-wide font-semibold text-[#6B7280] mb-0.5">House rules</p>
+                  <p className="text-sm text-[#374151] whitespace-pre-wrap">{houseRules}</p>
+                </div>
+              )}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {smokingPolicy && (
+                  <div>
+                    <p className="text-xs uppercase tracking-wide font-semibold text-[#6B7280] mb-0.5">Smoking</p>
+                    <p className="text-sm text-[#374151]">{smokingPolicy}</p>
+                  </div>
+                )}
+                {petPolicy && (
+                  <div>
+                    <p className="text-xs uppercase tracking-wide font-semibold text-[#6B7280] mb-0.5">Pets</p>
+                    <p className="text-sm text-[#374151]">{petPolicy}</p>
+                  </div>
+                )}
+                {cancellationPolicy && (
+                  <div>
+                    <p className="text-xs uppercase tracking-wide font-semibold text-[#6B7280] mb-0.5">Cancellation</p>
+                    <p className="text-sm text-[#374151]">{cancellationPolicy}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Rates */}
           <div className="bg-[#f9fafb] border border-[#e5e7eb] rounded-2xl p-4">

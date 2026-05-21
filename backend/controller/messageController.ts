@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "../config/db";
+import { upload_file } from "../utils/cloudinary";
 
 export interface Conversation {
   id: string;
@@ -154,9 +155,9 @@ export const sendMessage = async (req: NextRequest): Promise<NextResponse> => {
     const { conversation_id, sender_id, sender_name, message_text } = body;
     const safeMessageText = typeof message_text === "string" ? message_text : "";
 
-    const imageUrl =
+    const rawImage =
       typeof body.image === "string" && body.image.trim()
-        ? body.image
+        ? body.image.trim()
         : null;
 
     if (!conversation_id || !sender_id || !sender_name) {
@@ -166,11 +167,27 @@ export const sendMessage = async (req: NextRequest): Promise<NextResponse> => {
       );
     }
 
-    if (!safeMessageText && !imageUrl) {
+    if (!safeMessageText && !rawImage) {
       return NextResponse.json(
         { success: false, error: "Missing required fields" },
         { status: 400 },
       );
+    }
+
+    // If the client sent a base64 data URL, upload it to Cloudinary and
+    // persist only the hosted URL. Already-uploaded URLs pass through.
+    let imageUrl: string | null = rawImage;
+    if (rawImage && rawImage.startsWith("data:")) {
+      try {
+        const uploaded = await upload_file(rawImage, "staycation-haven/messages");
+        imageUrl = uploaded.url;
+      } catch (uploadErr) {
+        console.error("Cloudinary upload failed:", uploadErr);
+        return NextResponse.json(
+          { success: false, error: "Failed to upload attachment" },
+          { status: 500 },
+        );
+      }
     }
 
     const result = await pool.query(

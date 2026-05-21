@@ -7,15 +7,38 @@ import { z } from "zod";
 const detailsSchema = z.object({
   capacity: z.string().refine(val => !isNaN(parseInt(val)) && parseInt(val) > 0, "Capacity must be a positive number"),
   room_size: z.string().refine(val => !isNaN(parseFloat(val)) && parseFloat(val) > 0, "Room size must be a positive number"),
-  beds: z.string().min(1, "Number of beds is required"),
+  beds: z.string().min(1, "Number of bedrooms is required"),
+  bathrooms: z.string().refine(val => !val || (parseInt(val) >= 0), "Bathrooms must be 0 or more").optional(),
   description: z.string().min(1, "Description is required"),
+  property_type: z.string().optional(),
+  // Optional finance + policies — empty strings allowed
+  cleaning_fee: z.string().optional(),
+  security_deposit: z.string().optional(),
+  extra_pax_fee: z.string().optional(),
+  house_rules: z.string().optional(),
+  smoking_policy: z.string().optional(),
+  pet_policy: z.string().optional(),
+  cancellation_policy: z.string().optional(),
+  google_map_address: z.string().optional(),
+  virtual_tour_url: z.string().optional(),
 });
 
 interface HavenDetailsData {
   capacity?: number | string;
   room_size?: number | string;
   beds?: string;
+  bathrooms?: number | string;
   description?: string;
+  property_type?: string;
+  cleaning_fee?: number | string;
+  security_deposit?: number | string;
+  extra_pax_fee?: number | string;
+  house_rules?: string;
+  smoking_policy?: string;
+  pet_policy?: string;
+  cancellation_policy?: string;
+  google_map_address?: string;
+  virtual_tour_url?: string;
 }
 
 interface HavenDetailsModalProps {
@@ -33,7 +56,18 @@ const HavenDetailsModal = ({
     capacity: "",
     room_size: "",
     beds: "",
+    bathrooms: "",
     description: "",
+    property_type: "",
+    cleaning_fee: "",
+    security_deposit: "",
+    extra_pax_fee: "",
+    house_rules: "",
+    smoking_policy: "",
+    pet_policy: "",
+    cancellation_policy: "",
+    google_map_address: "",
+    virtual_tour_url: "",
   });
 
   const [touched, setTouched] = useState<Record<string, boolean>>({});
@@ -44,7 +78,18 @@ const HavenDetailsModal = ({
         capacity: initialData.capacity?.toString() || "",
         room_size: initialData.room_size?.toString() || "",
         beds: initialData.beds || "",
+        bathrooms: initialData.bathrooms?.toString() || "",
         description: initialData.description || "",
+        property_type: initialData.property_type || "",
+        cleaning_fee: initialData.cleaning_fee?.toString() || "",
+        security_deposit: initialData.security_deposit?.toString() || "",
+        extra_pax_fee: initialData.extra_pax_fee?.toString() || "",
+        house_rules: initialData.house_rules || "",
+        smoking_policy: initialData.smoking_policy || "",
+        pet_policy: initialData.pet_policy || "",
+        cancellation_policy: initialData.cancellation_policy || "",
+        google_map_address: initialData.google_map_address || "",
+        virtual_tour_url: initialData.virtual_tour_url || "",
       });
     }
   }, [initialData]);
@@ -100,10 +145,36 @@ const HavenDetailsModal = ({
             <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">Describe the physical details of your haven — how many guests it can hold, the room size in square meters, the bed setup, and a description that will appear on the listing. A clear and inviting description helps guests decide faster.</p>
           </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Property type */}
+        <div>
+          <label htmlFor="property-type" className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2 ml-1 uppercase tracking-wider">
+            Property Type
+          </label>
+          <select
+            id="property-type"
+            value={formData.property_type}
+            onChange={(e) => handleChange('property_type', e.target.value)}
+            aria-label="Property Type"
+            title="Property Type"
+            className="w-full px-4 h-14 border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700 text-base font-semibold text-gray-900 dark:text-gray-100 rounded-2xl outline-none focus:border-brand-primary"
+          >
+            <option value="">Select a property type…</option>
+            <option value="condo">Condominium</option>
+            <option value="house">House</option>
+            <option value="villa">Villa</option>
+            <option value="apartment">Apartment</option>
+            <option value="loft">Loft / Studio</option>
+            <option value="cabin">Cabin / Cottage</option>
+            <option value="resort">Resort</option>
+            <option value="hotel">Hotel</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Input
             type="number"
-            label="Capacity"
+            label="Capacity (max pax)"
             labelPlacement="outside"
             placeholder="e.g., 4"
             value={formData.capacity}
@@ -125,9 +196,21 @@ const HavenDetailsModal = ({
             errorMessage={touched.room_size && (errors?.room_size as any)?._errors[0]}
             isRequired
           />
+          <Input
+            type="number"
+            label="Bathrooms"
+            labelPlacement="outside"
+            placeholder="e.g., 2"
+            min={0}
+            value={formData.bathrooms}
+            onChange={(e) => handleChange('bathrooms', e.target.value)}
+            classNames={getInputClasses('bathrooms')}
+            isInvalid={touched.bathrooms && !!errors?.bathrooms}
+            errorMessage={touched.bathrooms && (errors?.bathrooms as any)?._errors[0]}
+          />
         </div>
         <Input
-          label="Beds"
+          label="Bedrooms"
           labelPlacement="outside"
           placeholder="e.g., 2 Queen Beds"
           value={formData.beds}
@@ -150,6 +233,98 @@ const HavenDetailsModal = ({
           isInvalid={touched.description && !!errors?.description}
           errorMessage={touched.description && (errors?.description as any)?._errors[0]}
           isRequired
+        />
+
+        {/* ── Location pin (optional) ──────────────────────────────────── */}
+        <Input
+          label="Google Maps address / link (optional)"
+          labelPlacement="outside"
+          placeholder="e.g., M Place South Triangle, Quezon City"
+          value={formData.google_map_address}
+          onChange={(e) => handleChange('google_map_address', e.target.value)}
+          classNames={getInputClasses('google_map_address')}
+        />
+
+        {/* ── Finance: cleaning fee + security deposit + extra pax fee ─── */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Input
+            type="number"
+            label="Cleaning fee (₱, per booking)"
+            labelPlacement="outside"
+            placeholder="0"
+            value={formData.cleaning_fee}
+            onChange={(e) => handleChange('cleaning_fee', e.target.value)}
+            classNames={getInputClasses('cleaning_fee')}
+            startContent={<span className="text-gray-500 dark:text-gray-400 font-medium">₱</span>}
+          />
+          <Input
+            type="number"
+            label="Security deposit (₱)"
+            labelPlacement="outside"
+            placeholder="0"
+            value={formData.security_deposit}
+            onChange={(e) => handleChange('security_deposit', e.target.value)}
+            classNames={getInputClasses('security_deposit')}
+            startContent={<span className="text-gray-500 dark:text-gray-400 font-medium">₱</span>}
+          />
+          <Input
+            type="number"
+            label="Extra pax fee (₱/night)"
+            labelPlacement="outside"
+            placeholder="0"
+            value={formData.extra_pax_fee}
+            onChange={(e) => handleChange('extra_pax_fee', e.target.value)}
+            classNames={getInputClasses('extra_pax_fee')}
+            startContent={<span className="text-gray-500 dark:text-gray-400 font-medium">₱</span>}
+          />
+        </div>
+
+        {/* ── Policies (optional) ──────────────────────────────────────── */}
+        <Textarea
+          label="House rules (optional)"
+          labelPlacement="outside"
+          placeholder="e.g., No loud parties after 10 PM. No outside food in pool area."
+          value={formData.house_rules}
+          onChange={(e) => handleChange('house_rules', e.target.value)}
+          classNames={{
+            ...getInputClasses('house_rules'),
+            inputWrapper: `${getInputClasses('house_rules').inputWrapper} h-auto min-h-[80px] py-2`,
+          }}
+        />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Input
+            label="Smoking policy"
+            labelPlacement="outside"
+            placeholder="e.g., No smoking indoors"
+            value={formData.smoking_policy}
+            onChange={(e) => handleChange('smoking_policy', e.target.value)}
+            classNames={getInputClasses('smoking_policy')}
+          />
+          <Input
+            label="Pet policy"
+            labelPlacement="outside"
+            placeholder="e.g., No pets allowed"
+            value={formData.pet_policy}
+            onChange={(e) => handleChange('pet_policy', e.target.value)}
+            classNames={getInputClasses('pet_policy')}
+          />
+          <Input
+            label="Cancellation"
+            labelPlacement="outside"
+            placeholder="e.g., Free up to 48h before"
+            value={formData.cancellation_policy}
+            onChange={(e) => handleChange('cancellation_policy', e.target.value)}
+            classNames={getInputClasses('cancellation_policy')}
+          />
+        </div>
+
+        <Input
+          label="Virtual tour URL (optional)"
+          labelPlacement="outside"
+          placeholder="e.g., https://my.matterport.com/show/?m=..."
+          value={formData.virtual_tour_url}
+          onChange={(e) => handleChange('virtual_tour_url', e.target.value)}
+          classNames={getInputClasses('virtual_tour_url')}
         />
       </div>
     </div>

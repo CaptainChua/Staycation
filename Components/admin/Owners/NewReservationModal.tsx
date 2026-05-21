@@ -210,7 +210,6 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
     e.preventDefault();
   };
 
-  // ── Name helpers ──────────────────────────────────────────────
   const toNameOnly = (value: string): string =>
     value.replace(/[^a-zA-ZÀ-ÿ\s'-]/g, "");
 
@@ -220,11 +219,9 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
     }
   };
 
-  // ── Email helper ──────────────────────────────────────────────
   const isValidEmail = (value: string): boolean =>
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
-  // ── Other input helpers ───────────────────────────────────────
   const handlePhoneChange = (value: string): string => {
     const cleaned = value.replace(/[^0-9]/g, "").slice(0, 11);
     if (cleaned && !/^09/.test(cleaned)) {
@@ -246,13 +243,11 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
 
-    // ── Name fields: letters only ─────────────────────────────
     if (name === "firstName" || name === "lastName") {
       setFormData((prev) => ({ ...prev, [name]: toNameOnly(value) }));
       return;
     }
 
-    // ── Email: real-time format validation ────────────────────
     if (name === "email") {
       setFormData((prev) => ({ ...prev, email: value }));
       if (value && !isValidEmail(value)) {
@@ -310,7 +305,7 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
     }
   };
 
-  const handleAdditionalGuestChange = (index: number, field: keyof GuestInfo, value: string) => {
+  const handleAdditionalGuestChange = (index: number, field: "firstName" | "lastName" | "age" | "gender", value: string) => {
     const updatedGuests = [...additionalGuests];
     const sanitizedValue =
       field === "age"
@@ -359,7 +354,11 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
     } else if (!isValidEmail(formData.email)) {
       newErrors.email = "Invalid email format (e.g. name@example.com)";
     }
-    if (!formData.phone) newErrors.phone = "Phone number is required";
+    if (!formData.phone) {
+      newErrors.phone = "Phone number is required";
+    } else if (!/^09\d{9}$/.test(formData.phone)) {
+      newErrors.phone = "Enter a valid PH mobile number (e.g. 09XXXXXXXXX)";
+    }
     if (formData.age && parseInt(formData.age) >= 10 && !formData.validId) {
       newErrors.validId = "Valid ID is required for guests 10+ years old";
     }
@@ -648,31 +647,13 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className={labelClass}>First Name *</label>
-                        <input
-                          type="text"
-                          name="firstName"
-                          value={formData.firstName}
-                          onChange={handleInputChange}
-                          onKeyDown={blockNonNameKeys}
-                          required
-                          className={`${inputClass} ${errors.firstName ? "border-red-500" : ""}`}
-                          placeholder="Enter first name"
-                        />
-                        {errors.firstName && <p className="text-red-500 text-xs mt-1">{errors.firstName}</p>}
+                        <input type="text" name="firstName" value={formData.firstName} onChange={handleInputChange} onKeyDown={blockNonNameKeys} required className={`${inputClass} ${errors.firstName ? "border-red-500" : ""}`} placeholder="Enter first name" />
+                        {errors.firstName && <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3 flex-shrink-0" /> {errors.firstName}</p>}
                       </div>
                       <div>
                         <label className={labelClass}>Last Name *</label>
-                        <input
-                          type="text"
-                          name="lastName"
-                          value={formData.lastName}
-                          onChange={handleInputChange}
-                          onKeyDown={blockNonNameKeys}
-                          required
-                          className={`${inputClass} ${errors.lastName ? "border-red-500" : ""}`}
-                          placeholder="Enter last name"
-                        />
-                        {errors.lastName && <p className="text-red-500 text-xs mt-1">{errors.lastName}</p>}
+                        <input type="text" name="lastName" value={formData.lastName} onChange={handleInputChange} onKeyDown={blockNonNameKeys} required className={`${inputClass} ${errors.lastName ? "border-red-500" : ""}`} placeholder="Enter last name" />
+                        {errors.lastName && <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3 flex-shrink-0" /> {errors.lastName}</p>}
                       </div>
                       <div>
                         <label className={labelClass}>Age *</label>
@@ -705,7 +686,7 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                           className={`${inputClass} ${errors.email ? "border-red-500" : ""}`}
                           placeholder="name@example.com"
                         />
-                        {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
+                        {errors.email && <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3 flex-shrink-0" /> {errors.email}</p>}
                       </div>
                       <div>
                         <label className={labelClass}>Phone *</label>
@@ -780,26 +761,12 @@ const NewReservationModal = ({ isOpen, onClose, onSubmit }: NewReservationModalP
                       </h3>
                       <div className="grid grid-cols-2 gap-4 mb-4">
                         <div>
-                          <input
-                            type="text"
-                            value={guest.firstName}
-                            onChange={(e) => handleAdditionalGuestChange(index, "firstName", e.target.value)}
-                            onKeyDown={blockNonNameKeys}
-                            placeholder="First Name *"
-                            className={`${inputClass} ${errors[`guest${index}FirstName`] ? "border-red-500" : ""}`}
-                          />
-                          {errors[`guest${index}FirstName`] && <p className="text-red-500 text-xs mt-1">{errors[`guest${index}FirstName`]}</p>}
+                          <input type="text" value={guest.firstName} onChange={(e) => handleAdditionalGuestChange(index, "firstName", e.target.value)} onKeyDown={blockNonNameKeys} placeholder="First Name *" className={`${inputClass} ${errors[`guest${index}FirstName`] ? "border-red-500" : ""}`} />
+                          {errors[`guest${index}FirstName`] && <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3 flex-shrink-0" /> {errors[`guest${index}FirstName`]}</p>}
                         </div>
                         <div>
-                          <input
-                            type="text"
-                            value={guest.lastName}
-                            onChange={(e) => handleAdditionalGuestChange(index, "lastName", e.target.value)}
-                            onKeyDown={blockNonNameKeys}
-                            placeholder="Last Name *"
-                            className={`${inputClass} ${errors[`guest${index}LastName`] ? "border-red-500" : ""}`}
-                          />
-                          {errors[`guest${index}LastName`] && <p className="text-red-500 text-xs mt-1">{errors[`guest${index}LastName`]}</p>}
+                          <input type="text" value={guest.lastName} onChange={(e) => handleAdditionalGuestChange(index, "lastName", e.target.value)} onKeyDown={blockNonNameKeys} placeholder="Last Name *" className={`${inputClass} ${errors[`guest${index}LastName`] ? "border-red-500" : ""}`} />
+                          {errors[`guest${index}LastName`] && <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3 flex-shrink-0" /> {errors[`guest${index}LastName`]}</p>}
                         </div>
                         <div>
                           <input type="number" value={guest.age} onChange={(e) => handleAdditionalGuestChange(index, "age", e.target.value)} placeholder="Age *" min="1" max="999" inputMode="numeric" className={`${inputClass} ${errors[`guest${index}Age`] ? "border-red-500" : ""}`} />

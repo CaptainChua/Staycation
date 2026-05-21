@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import OwnerPageHeader from "./OwnerPageHeader";
 import React, { useState, useMemo } from "react";
@@ -38,7 +38,16 @@ import {
   FileText,
   BarChart3,
   Users,
+  ShieldCheck,
+  Banknote,
+  UserCheck,
+  ScrollText,
 } from "lucide-react";
+import AmenityVerificationsTab from "./AmenityVerificationsTab";
+import PayoutsTab from "./PayoutsTab";
+import PartnerApprovalsTab from "./PartnerApprovalsTab";
+import SystemAuditLogsTab from "./SystemAuditLogsTab";
+import { useSetHavenListingStatusMutation } from "@/redux/api/havenListingStatusApi";
 
 import toast from "react-hot-toast";
 import AddPartnerModal from "./Modals/AddPartnerModal";
@@ -83,7 +92,6 @@ const [tab, setTab] = useState(1);
 const [search, setSearch] = useState("");
 const [modalOpen, setModalOpen] = useState(false);
 const [editing, setEditing] = useState<Partner | null>(null);
-const [selectedListing, setSelectedListing] = useState<any>(null);
 
 const [page, setPage] = useState(1);
 const perPage = 10;
@@ -398,6 +406,10 @@ const paginatedMessages = messages.slice(
           { id: 3, label: "Pending Requests", icon: FileText },
           { id: 4, label: "Messages", icon: MessageCircle },
           { id: 5, label: "Docs & Analytics", icon: FileText },
+          { id: 6, label: "Verifications", icon: ShieldCheck },
+          { id: 7, label: "Payouts", icon: Banknote },
+          { id: 8, label: "Approvals", icon: UserCheck },
+          { id: 9, label: "Audit Logs", icon: ScrollText },
         ].map((t) => (
           <button
             key={t.id}
@@ -1431,6 +1443,18 @@ const paginatedMessages = messages.slice(
 
       {/* DOCS & ANALYTICS */}
 {tab === 5 && <DocsAnalyticsTab />}
+
+{/* AMENITY VERIFICATIONS */}
+{tab === 6 && <AmenityVerificationsTab />}
+
+{/* PAYOUTS */}
+{tab === 7 && <PayoutsTab />}
+
+{/* PARTNER APPROVALS */}
+{tab === 8 && <PartnerApprovalsTab />}
+
+{/* SYSTEM AUDIT LOGS */}
+{tab === 9 && <SystemAuditLogsTab />}
 {false && (
   <div className="space-y-6">
 
@@ -2957,6 +2981,8 @@ function PartnerDetailPane({ partner, peso }: PartnerDetailPaneProps) {
                 <span className={`w-1.5 h-1.5 rounded-full ${statusConfig.dot}`} />
                 {statusConfig.label}
               </span>
+              {/* Admin "Take down" / "Re-enable" — fires the listing-status override */}
+              <ListingStatusToggle room={selectedRoom} />
               <button
                 type="button"
                 onClick={() => setShowRoomDetails(true)}
@@ -3524,6 +3550,125 @@ function MessagesTab() {
         )}
       </div>
     </div>
+  );
+}
+
+
+/* =========================================
+   LISTING STATUS TOGGLE — admin disable / re-enable a haven
+========================================= */
+function ListingStatusToggle({ room }: { room: PartnerListingRow }) {
+  const [setStatus, { isLoading }] = useSetHavenListingStatusMutation();
+  const [showReason, setShowReason] = useState(false);
+  const [reason, setReason] = useState("");
+  const currentStatus = room.listing_status || "active";
+  const isActive = currentStatus === "active";
+
+  const disable = async () => {
+    if (!reason.trim()) {
+      toast.error("Please provide a reason");
+      return;
+    }
+    try {
+      await setStatus({ havenId: room.uuid_id, listing_status: "disabled", reason: reason.trim() }).unwrap();
+      toast.success("Listing disabled — now hidden from the marketplace");
+      setShowReason(false);
+      setReason("");
+    } catch (err) {
+      const msg = (err as { data?: { error?: string } })?.data?.error || "Failed";
+      toast.error(msg);
+    }
+  };
+
+  const enable = async () => {
+    try {
+      await setStatus({ havenId: room.uuid_id, listing_status: "active" }).unwrap();
+      toast.success("Listing re-enabled");
+    } catch (err) {
+      const msg = (err as { data?: { error?: string } })?.data?.error || "Failed";
+      toast.error(msg);
+    }
+  };
+
+  return (
+    <>
+      {isActive ? (
+        <button
+          type="button"
+          onClick={() => setShowReason(true)}
+          disabled={isLoading}
+          title="Take this listing off the marketplace"
+          className="px-3 py-1.5 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold inline-flex items-center gap-1.5 transition active:scale-95 shadow-sm border border-rose-200 disabled:opacity-60"
+        >
+          <XIcon className="w-3.5 h-3.5" />
+          Disable
+        </button>
+      ) : (
+        <span className="inline-flex items-center gap-1.5">
+          <span className="px-2.5 py-1 rounded-full bg-rose-100 text-rose-700 text-[10px] font-bold uppercase tracking-wider">
+            {currentStatus}
+          </span>
+          <button
+            type="button"
+            onClick={enable}
+            disabled={isLoading}
+            title="Make this listing visible again"
+            className="px-3 py-1.5 rounded-full bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold inline-flex items-center gap-1.5 transition active:scale-95 shadow-sm border border-emerald-200 disabled:opacity-60"
+          >
+            <Check className="w-3.5 h-3.5" />
+            Re-enable
+          </button>
+        </span>
+      )}
+
+      {showReason && (
+        <div className="fixed inset-0 z-[9999] grid place-items-center p-4">
+          <button
+            type="button"
+            aria-label="Close"
+            onClick={() => setShowReason(false)}
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          />
+          <div className="relative bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl p-6 max-w-md w-full">
+            <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-2">
+              Disable this listing?
+            </h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+              Hide <strong className="text-gray-700 dark:text-gray-200">{room.haven_name}</strong> from the public marketplace. The partner&apos;s approval status is unchanged. You can re-enable any time.
+            </p>
+            <label htmlFor="disable-reason" className="block text-xs uppercase font-semibold text-gray-500 dark:text-gray-400 mb-1.5">
+              Reason (shown in audit log)
+            </label>
+            <textarea
+              id="disable-reason"
+              rows={3}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="e.g. Photos look outdated — partner asked to refresh first"
+              className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-lg outline-none focus:border-brand-primary text-sm resize-none placeholder:text-gray-400"
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowReason(false)}
+                className="px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-semibold"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={disable}
+                disabled={isLoading}
+                className="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold inline-flex items-center gap-1.5 disabled:opacity-50"
+              >
+                {isLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XIcon className="w-3.5 h-3.5" />}
+                Disable listing
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

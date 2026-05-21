@@ -2,7 +2,10 @@
   "permissions": {
     "allow": [
       "Bash(git mv:*)",
-      "Bash(git pull *)"
+      "Bash(git pull *)",
+      "Bash(git add *)",
+      "Bash(awk 'NR>=783 && NR<=1040 {next} {print}' \"Components/admin/Owners/MessagesPage.tsx\")",
+      "Bash(awk 'NR==244 || NR==245 || NR==373 || NR==441 || NR==442 || NR==623 {next} {print}' \"Components/admin/Partners/pages/CostBreakdownPage.tsx\")"
     ]
   }
 }

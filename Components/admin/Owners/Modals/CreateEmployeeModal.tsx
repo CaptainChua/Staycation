@@ -584,45 +584,45 @@ const CreateEmployeeModal = ({ isOpen, onClose }: CreateEmployeeModalProps) => {
                     }}
                   />
                   <DatePicker
-  name="hireDate"
-  label="Hire Date *"
-  labelPlacement="outside"
-  value={(() => {
-    try {
-      return formData.hireDate ? (parseDate(formData.hireDate) as any) : null;
-    } catch {
-      return null;
-    }
-  })()}
-  onChange={(date: DateValue | null) => {
-    if (date) {
-      const year = String(date.year).padStart(4, "0");
-      const month = String(date.month).padStart(2, "0");
-      const day = String(date.day).padStart(2, "0");
-      const dateStr = `${year}-${month}-${day}`;
-      setFormData((prev) => ({ ...prev, hireDate: dateStr }));
-      setErrors((prev) => ({ ...prev, hireDate: "" }));
-      setTouchedFields((prev) => ({ ...prev, hireDate: true }));
-    } else {
-      setFormData((prev) => ({ ...prev, hireDate: "" }));
-      setErrors((prev) => ({ ...prev, hireDate: "Hire date is required" }));
-    }
-  }}
-  onBlur={() => {
-    setTouchedFields((prev) => ({ ...prev, hireDate: true }));
-  }}
-  isRequired
-  isDisabled={isLoading}
-  isInvalid={touchedFields.hireDate && !!errors.hireDate}
-  errorMessage={touchedFields.hireDate && errors.hireDate}
-  classNames={{
-    base: "w-full",
-    label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
-    calendarContent: "dark:bg-slate-900",
-    calendar: "dark:bg-slate-900 dark:text-white",
-    inputWrapper: "cursor-pointer",
-  }}
-/>
+                    name="hireDate"
+                    label="Hire Date *"
+                    labelPlacement="outside"
+                    value={(() => {
+                      try {
+                        return formData.hireDate ? (parseDate(formData.hireDate) as any) : null;
+                      } catch {
+                        return null;
+                      }
+                    })()}
+                    onChange={(date: DateValue | null) => {
+                      if (date) {
+                        const year = String(date.year).padStart(4, "0");
+                        const month = String(date.month).padStart(2, "0");
+                        const day = String(date.day).padStart(2, "0");
+                        const dateStr = `${year}-${month}-${day}`;
+                        setFormData((prev) => ({ ...prev, hireDate: dateStr }));
+                        setErrors((prev) => ({ ...prev, hireDate: "" }));
+                        setTouchedFields((prev) => ({ ...prev, hireDate: true }));
+                      } else {
+                        setFormData((prev) => ({ ...prev, hireDate: "" }));
+                        setErrors((prev) => ({ ...prev, hireDate: "Hire date is required" }));
+                      }
+                    }}
+                    onBlur={() => {
+                      setTouchedFields((prev) => ({ ...prev, hireDate: true }));
+                    }}
+                    isRequired
+                    isDisabled={isLoading}
+                    isInvalid={touchedFields.hireDate && !!errors.hireDate}
+                    errorMessage={touchedFields.hireDate && errors.hireDate}
+                    classNames={{
+                      base: "w-full",
+                      label: "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1",
+                      calendarContent: "dark:bg-slate-900",
+                      calendar: "dark:bg-slate-900 dark:text-white",
+                      inputWrapper: "cursor-pointer",
+                    }}
+                  />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">

@@ -14,6 +14,19 @@ export interface PartnerListing {
   weekend_rate?: number;
   ten_hour_rate?: number;
   six_hour_rate?: number;
+  rates?: Array<{ label: string; hours: number; price: number }>;
+  bathrooms?: number;
+  property_type?: string;
+  cleaning_fee?: number;
+  security_deposit?: number;
+  extra_pax_fee?: number;
+  house_rules?: string;
+  smoking_policy?: string;
+  pet_policy?: string;
+  cancellation_policy?: string;
+  google_map_address?: string;
+  virtual_tour_url?: string;
+  listing_status?: "active" | "disabled" | "suspended";
   status?: string;
   rejection_reason?: string | null;
   reviewer_notes?: string | null;
@@ -57,6 +70,23 @@ export interface PartnerAnalytics {
   revenue_series: { label: string; gross: number; net: number }[];
 }
 
+export interface PartnerPayoutItem {
+  id: string;
+  booking_id: string;
+  haven_name: string;
+  guest_name: string;
+  check_in_date: string;
+  check_out_date: string;
+  nights: number;
+  gross: number;
+  cleaning_fee: number;
+  platform_share: number;
+  partner_share: number;
+  processing_fee: number;
+  commission_type: string;
+  notes: string | null;
+}
+
 export interface PartnerPayout {
   id: string;
   cycle_start: string;
@@ -66,20 +96,71 @@ export interface PartnerPayout {
   gross_amount: number;
   commission_amount: number;
   processing_fee: number;
+  deductions_total?: number;
+  deductions?: Array<{ label: string; amount: number }>;
   net_amount: number;
-  payment_method: string;
+  payment_method: string | null;
+  payment_destination: string | null;
   reference_number: string | null;
+  proof_of_payment_url: string | null;
   status: "pending" | "processing" | "paid" | "failed" | "cancelled";
   notes: string | null;
+  items?: PartnerPayoutItem[] | null;
+}
+
+export interface PartnerCommissionDefaults {
+  commission_type: "percentage" | "fixed_daily" | "fixed_commission" | "hybrid";
+  partner_share_pct: number;
+  platform_share_pct: number;
+  cleaning_fee_share_pct: number;
+  payment_schedule: "weekly" | "biweekly" | "monthly" | "per_booking";
+  payout_method: "gcash" | "maya" | "bank";
+  payout_destination: string | null;
 }
 
 export interface PartnerPayoutSummary {
   commission_rate: number;
+  default_config: PartnerCommissionDefaults;
   total_earnings: number;
   total_paid: number;
   pending_amount: number;
+  processing_amount: number;
   next_payout_date: string | null;
   payouts: PartnerPayout[];
+}
+
+export interface PartnerEarningRow {
+  booking_uuid: string;
+  booking_id: string;
+  haven_id: string;
+  haven_name: string;
+  check_in_date: string;
+  check_out_date: string;
+  nights: number;
+  status: string;
+  booking_source: string;
+  payout_id: string | null;
+  payout_settled_at: string | null;
+  gross: number;
+  cleaning_fee: number;
+  total_collected: number;
+  platform_share: number;
+  partner_share: number;
+  processing_fee: number;
+  net_payable: number;
+  commission_type: string;
+  config_source: "haven" | "partner_default" | "platform_default";
+}
+
+export interface PartnerEarningsResponse {
+  items: PartnerEarningRow[];
+  totals: {
+    gross: number;
+    partner_share: number;
+    platform_share: number;
+    net_payable: number;
+    pending_payout: number;
+  } | null;
 }
 
 export interface PartnerMessage {
@@ -161,7 +242,7 @@ interface ApiOk<T> {
 export const partnerSelfApi = createApi({
   reducerPath: "partnerSelfApi",
   baseQuery: fetchBaseQuery({ baseUrl: "/api/partners/me" }),
-  tagTypes: ["Listings", "Bookings", "Analytics", "Payouts", "Messages", "Notifications", "Profile"],
+  tagTypes: ["Listings", "Bookings", "Analytics", "Payouts", "Messages", "Notifications", "Profile", "Earnings"],
   endpoints: (builder) => ({
     getMyListings: builder.query<PartnerListing[], void>({
       query: () => "/listings",
@@ -182,6 +263,11 @@ export const partnerSelfApi = createApi({
       query: () => "/payouts",
       transformResponse: (res: ApiOk<PartnerPayoutSummary>) => res.data,
       providesTags: ["Payouts"],
+    }),
+    getMyEarnings: builder.query<PartnerEarningsResponse, void>({
+      query: () => "/earnings",
+      transformResponse: (res: ApiOk<PartnerEarningsResponse>) => res.data,
+      providesTags: ["Earnings"],
     }),
     getMyMessageThreads: builder.query<PartnerMessageThread[], void>({
       query: () => "/messages",
@@ -225,6 +311,7 @@ export const {
   useGetMyBookingsQuery,
   useGetMyAnalyticsQuery,
   useGetMyPayoutsQuery,
+  useGetMyEarningsQuery,
   useGetMyMessageThreadsQuery,
   useSendPartnerMessageMutation,
   useGetMyNotificationsQuery,
