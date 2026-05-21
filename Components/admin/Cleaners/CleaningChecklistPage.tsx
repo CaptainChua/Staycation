@@ -16,7 +16,7 @@ import {
   Camera,
   Upload,
 } from "lucide-react";
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import toast from "react-hot-toast";
 import { useTranslations, type Lang } from "./translations";
 
@@ -66,6 +66,11 @@ export default function CleaningChecklistPage({ initialHavenId, initialBookingId
   const [categoryPhotos, setCategoryPhotos] = useState<Record<string, string>>({});
   const [uploadingCategory, setUploadingCategory] = useState<string | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [proofFile, setProofFile] = useState<File | null>(null);
+  const [proofPreview, setProofPreview] = useState<string | null>(null);
+  const [proofUploaded, setProofUploaded] = useState(false);
+  const [isUploadingProof, setIsUploadingProof] = useState(false);
+  const proofInputRef = useRef<HTMLInputElement | null>(null);
 
   const iconMap = {
     Bedroom: BedDouble,
@@ -348,6 +353,17 @@ export default function CleaningChecklistPage({ initialHavenId, initialBookingId
     }
   };
 
+  // Progress: General checkboxes + photo uploads for other categories
+  const generalCategory = checklist.find((c) => c.category === "General");
+  const photoCategories = checklist.filter((c) => c.category !== "General");
+  const completedTasks = generalCategory?.tasks.filter((t) => t.completed).length ?? 0;
+  const totalTasks = generalCategory?.tasks.length ?? 0;
+  const completedPhotos = photoCategories.filter((c) => !!categoryPhotos[c.category]).length;
+  const totalPhotos = photoCategories.length;
+  const totalItems = totalTasks + totalPhotos;
+  const completedItems = completedTasks + completedPhotos;
+  const progressPct = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
+
   // Empty / no task selected — shown when navigating directly to the tab without clicking Start Cleaning
   if (!initialHavenId && !isLoading) {
     return (
@@ -439,6 +455,29 @@ export default function CleaningChecklistPage({ initialHavenId, initialBookingId
         </div>
       )}
 
+
+      {/* Progress Overview */}
+      {!isLoading && checklist.length > 0 && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-5">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">Overall Progress</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                {completedTasks}/{totalTasks} tasks &middot; {completedPhotos}/{totalPhotos} photos
+              </p>
+            </div>
+            <span className={`text-3xl font-bold ${progressPct === 100 ? "text-green-500" : "text-brand-primary"}`}>
+              {progressPct}%
+            </span>
+          </div>
+          <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
+            <div
+              className={`h-3 rounded-full transition-all duration-500 ${progressPct === 100 ? "bg-green-500" : "bg-brand-primary"}`}
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Checklist by Category */}
       <div className="space-y-4">

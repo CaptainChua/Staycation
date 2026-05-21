@@ -101,6 +101,7 @@ CREATE TABLE booking_security_deposits (
       'pending',
       'pending_verification',
       'held',
+      'pending_verification',
       'returned',
       'partial',
       'forfeited'

@@ -120,6 +120,7 @@ export const getAllCleaningTasks = async (
           bc.inspected_at,
           sd.deposit_status,
           sd.amount as security_deposit,
+          bp.id::text as booking_payment_id,
           bp.total_amount,
           bp.amount_paid,
           bp.down_payment,

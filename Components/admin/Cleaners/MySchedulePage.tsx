@@ -285,6 +285,24 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning,
       const notes = depositReferenceNumber.trim() ? `Ref: ${depositReferenceNumber.trim()} | Method: ${methodLabel}` : `Method: ${methodLabel}`;
       await updateDepositStatusByBookingId(depositModalTask.booking_uuid, "Paid", userId, notes, amountReceived, methodLabel, "cleaner");
 
+      // If there is a remaining balance, update booking_payments so it's saved
+      if (remBal > 0 && depositModalTask.booking_payment_id) {
+        try {
+          await fetch(`/api/booking-payments/${depositModalTask.booking_payment_id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              collect_amount: remBal,
+              payment_status: "approved_full_payment",
+              payment_method: methodLabel,
+              reviewed_by: userId ?? undefined,
+            }),
+          });
+        } catch (paymentErr) {
+          console.error("Failed to update booking payment remaining balance:", paymentErr);
+        }
+      }
+
       // Upload proof file if provided
       if (depositProofFile) {
         const fd = new FormData();
