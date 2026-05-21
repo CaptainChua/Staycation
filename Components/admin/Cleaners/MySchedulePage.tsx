@@ -540,13 +540,19 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning,
             </h2>
             <div className="flex gap-2">
               <button
+                type="button"
                 onClick={() => setCalMonth(m => new Date(m.getFullYear(), m.getMonth() - 1, 1))}
+                aria-label="Previous month"
+                title="Previous month"
                 className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
               >
                 <ChevronLeft className="w-4 h-4 text-gray-700 dark:text-gray-300" />
               </button>
               <button
+                type="button"
                 onClick={() => setCalMonth(m => new Date(m.getFullYear(), m.getMonth() + 1, 1))}
+                aria-label="Next month"
+                title="Next month"
                 className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
               >
                 <ChevronRight className="w-4 h-4 text-gray-700 dark:text-gray-300" />
@@ -1003,7 +1009,7 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning,
                   <p className="text-xs text-gray-500 dark:text-gray-400">{t.depositModalSub}</p>
                 </div>
               </div>
-              <button onClick={closeDepositModal} disabled={isConfirmingDeposit} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50">
+              <button type="button" onClick={closeDepositModal} disabled={isConfirmingDeposit} aria-label="Close" title="Close" className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50">
                 <X className="w-5 h-5 text-gray-500" />
               </button>
             </div>
@@ -1095,6 +1101,8 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning,
                     onChange={e => { setDepositAmountReceived(e.target.value); setDepositErrors(p => ({ ...p, amount: "" })); }}
                     disabled={isConfirmingDeposit}
                     placeholder="1000.00"
+                    aria-label="Amount received"
+                    title="Amount received"
                     className="flex-1 px-3 py-2.5 text-sm text-gray-900 dark:text-gray-100 bg-transparent outline-none disabled:opacity-50"
                   />
                 </div>
@@ -1110,6 +1118,8 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning,
                   value={depositPaymentMethod}
                   onChange={e => { setDepositPaymentMethod(e.target.value); setDepositReferenceNumber(""); }}
                   disabled={isConfirmingDeposit}
+                  aria-label="Payment method"
+                  title="Payment method"
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg text-sm"
                 >
                   <option value="cash">Cash</option>
@@ -1212,6 +1222,8 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning,
                       <button
                         type="button"
                         onClick={() => { setDepositProofFile(null); setDepositProofPreview(null); if (depositProofInputRef.current) depositProofInputRef.current.value = ""; }}
+                        aria-label="Remove uploaded file"
+                        title="Remove uploaded file"
                         className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors flex-shrink-0"
                       >
                         <X className="w-4 h-4 text-gray-500" />
@@ -1255,6 +1267,8 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning,
                   ref={depositProofInputRef}
                   type="file"
                   accept="image/jpeg,image/png,image/webp,application/pdf"
+                  aria-label="Upload proof of payment"
+                  title="Upload proof of payment"
                   className="hidden"
                   onChange={e => { handleDepositProofChange(e); setDepositErrors(p => ({ ...p, proof: "" })); }}
                 />

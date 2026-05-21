@@ -1178,23 +1178,30 @@ export async function getDeliverables(): Promise<DeliverableRecord[]> {
       'refunded': 'Refunded'
     };
 
-    // Group rows by booking_uuid
+    // Group rows by booking_uuid. The query LEFT JOINs booking_payments and
+    // booking_security_deposits, so a single add-on row can repeat N×M times if
+    // a booking has multiple payment/deposit rows. Dedupe by add-on id (row.id).
     const groupedByBooking = new Map<string, {
       bookingInfo: typeof result.rows[0];
       items: typeof result.rows;
+      seenItemIds: Set<string>;
     }>();
 
     console.log('Grouping rows by booking...');
     for (const row of result.rows) {
       const bookingUuid = row.booking_uuid;
-      console.log('Processing row for booking UUID:', bookingUuid);
+      const addOnId = String(row.id ?? '');
       if (!groupedByBooking.has(bookingUuid)) {
         groupedByBooking.set(bookingUuid, {
           bookingInfo: row,
-          items: []
+          items: [],
+          seenItemIds: new Set<string>(),
         });
       }
-      groupedByBooking.get(bookingUuid)!.items.push(row);
+      const group = groupedByBooking.get(bookingUuid)!;
+      if (addOnId && group.seenItemIds.has(addOnId)) continue; // skip duplicate from joins
+      group.seenItemIds.add(addOnId);
+      group.items.push(row);
     }
 
     console.log('Grouped into', groupedByBooking.size, 'bookings');
