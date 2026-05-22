@@ -58,6 +58,8 @@ export interface PartnerBooking {
   guest_first_name?: string | null;
   guest_last_name?: string | null;
   guest_details_visible?: boolean;
+  // Per-booking owner override. null = inherit partner default.
+  show_guest_details_override?: boolean | null;
   amenities?: Array<{
     id: string;
     name: string;

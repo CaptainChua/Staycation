@@ -59,6 +59,7 @@ const EditHavenModal = ({ isOpen, onClose, havenData }: EditHavenModalProps) => 
       isOpen={isOpen}
       onClose={onClose}
       initialData={havenData}
+      canEditCommission
     />
   );
 };

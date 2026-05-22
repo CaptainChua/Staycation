@@ -25,46 +25,59 @@ export async function getAllPartners(req: NextRequest): Promise<NextResponse> {
     const status = searchParams.get("status");
     const search = searchParams.get("search");
 
-    let query = `
-      SELECT
-        pa.id,
-        pa.partner_email as email,
-        pi.partner_fullname as fullname,
-        pi.partner_phone as phone,
-        pi.partner_address as address,
-        pi.partner_type as type,
-        pi.commission_rate,
-        pi.show_guest_details,
-        pi.total_earnings,
-        pi.total_paid,
-        pa.status,
-        pa.created_at,
-        pa.updated_at
-      FROM partners_account pa
-      LEFT JOIN partners_information pi ON pa.id = pi.partner_id
-      WHERE 1=1
-    `;
+    // Defensive: try with show_guest_details (latest column). If that migration
+    // hasn't been run yet, fall back to the older SELECT so the endpoint still
+    // returns partners — otherwise the Generate Payout modal etc. break entirely.
+    const buildQuery = (includeShowGuestDetails: boolean) => {
+      let q = `
+        SELECT
+          pa.id,
+          pa.partner_email as email,
+          pi.partner_fullname as fullname,
+          pi.partner_phone as phone,
+          pi.partner_address as address,
+          pi.partner_type as type,
+          pi.commission_rate,
+          ${includeShowGuestDetails ? "pi.show_guest_details," : "TRUE AS show_guest_details,"}
+          pi.total_earnings,
+          pi.total_paid,
+          pa.status,
+          pa.created_at,
+          pa.updated_at
+        FROM partners_account pa
+        LEFT JOIN partners_information pi ON pa.id = pi.partner_id
+        WHERE 1=1
+      `;
+      const values: any[] = [];
+      let paramCount = 1;
+      if (status && status !== "all") {
+        q += ` AND pa.status = $${paramCount}`;
+        values.push(status);
+        paramCount++;
+      }
+      if (search) {
+        q += ` AND (pi.partner_fullname ILIKE $${paramCount} OR pa.partner_email ILIKE $${paramCount} OR pi.partner_phone ILIKE $${paramCount})`;
+        values.push(`%${search}%`);
+        values.push(`%${search}%`);
+        values.push(`%${search}%`);
+        paramCount += 3;
+      }
+      q += " ORDER BY pa.created_at DESC";
+      return { q, values };
+    };
 
-    const values: any[] = [];
-    let paramCount = 1;
-
-    if (status && status !== "all") {
-      query += ` AND pa.status = $${paramCount}`;
-      values.push(status);
-      paramCount++;
+    let result;
+    try {
+      const { q, values } = buildQuery(true);
+      result = await pool.query(q, values);
+    } catch (innerErr) {
+      console.warn(
+        "[getAllPartners] show_guest_details missing, falling back:",
+        innerErr instanceof Error ? innerErr.message : innerErr
+      );
+      const { q, values } = buildQuery(false);
+      result = await pool.query(q, values);
     }
-
-    if (search) {
-      query += ` AND (pi.partner_fullname ILIKE $${paramCount} OR pa.partner_email ILIKE $${paramCount} OR pi.partner_phone ILIKE $${paramCount})`;
-      values.push(`%${search}%`);
-      values.push(`%${search}%`);
-      values.push(`%${search}%`);
-      paramCount += 3;
-    }
-
-    query += " ORDER BY pa.created_at DESC";
-
-    const result = await pool.query(query, values);
 
     return NextResponse.json({
       success: true,

@@ -15,6 +15,13 @@ const detailsSchema = z.object({
   cleaning_fee: z.string().optional(),
   security_deposit: z.string().optional(),
   extra_pax_fee: z.string().optional(),
+  commission_rate: z
+    .string()
+    .optional()
+    .refine(
+      (val) => !val || (Number(val) >= 0 && Number(val) <= 100),
+      "Commission must be between 0 and 100"
+    ),
   house_rules: z.string().optional(),
   smoking_policy: z.string().optional(),
   pet_policy: z.string().optional(),
@@ -33,6 +40,7 @@ interface HavenDetailsData {
   cleaning_fee?: number | string;
   security_deposit?: number | string;
   extra_pax_fee?: number | string;
+  commission_rate?: number | string | null;
   house_rules?: string;
   smoking_policy?: string;
   pet_policy?: string;
@@ -45,13 +53,22 @@ interface HavenDetailsModalProps {
   onSave: (data: HavenDetailsData) => void;
   initialData?: HavenDetailsData;
   isAddMode?: boolean;
+  // Per-room commission only makes sense for partner-owned havens — the
+  // platform takes 100% of its own rooms. The input only renders when:
+  //   1. canEditCommission (owner-only UI gate), AND
+  //   2. havenHasPartner (this haven actually belongs to a partner).
+  canEditCommission?: boolean;
+  havenHasPartner?: boolean;
 }
 
 const HavenDetailsModal = ({
   onSave,
   initialData,
   isAddMode = false,
+  canEditCommission = false,
+  havenHasPartner = false,
 }: HavenDetailsModalProps) => {
+  const showCommissionInput = canEditCommission && havenHasPartner;
   const [formData, setFormData] = useState<Record<string, string>>({
     capacity: "",
     room_size: "",
@@ -62,6 +79,7 @@ const HavenDetailsModal = ({
     cleaning_fee: "",
     security_deposit: "",
     extra_pax_fee: "",
+    commission_rate: "",
     house_rules: "",
     smoking_policy: "",
     pet_policy: "",
@@ -84,6 +102,10 @@ const HavenDetailsModal = ({
         cleaning_fee: initialData.cleaning_fee?.toString() || "",
         security_deposit: initialData.security_deposit?.toString() || "",
         extra_pax_fee: initialData.extra_pax_fee?.toString() || "",
+        commission_rate:
+          initialData.commission_rate === null || initialData.commission_rate === undefined
+            ? ""
+            : initialData.commission_rate.toString(),
         house_rules: initialData.house_rules || "",
         smoking_policy: initialData.smoking_policy || "",
         pet_policy: initialData.pet_policy || "",
@@ -245,8 +267,8 @@ const HavenDetailsModal = ({
           classNames={getInputClasses('google_map_address')}
         />
 
-        {/* ── Finance: cleaning fee + security deposit + extra pax fee ─── */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* ── Finance: cleaning fee + security deposit + extra pax fee (+ commission for owner on partner havens) ─── */}
+        <div className={`grid grid-cols-1 md:grid-cols-2 ${showCommissionInput ? "lg:grid-cols-4" : "lg:grid-cols-3"} gap-4`}>
           <Input
             type="number"
             label="Cleaning fee (₱, per booking)"
@@ -277,6 +299,22 @@ const HavenDetailsModal = ({
             classNames={getInputClasses('extra_pax_fee')}
             startContent={<span className="text-gray-500 dark:text-gray-400 font-medium">₱</span>}
           />
+          {showCommissionInput && (
+            <Input
+              type="number"
+              label="Commission % (per room)"
+              labelPlacement="outside"
+              placeholder="Use partner default"
+              description="Leave blank to use the partner's default commission rate"
+              min={0}
+              max={100}
+              step="0.01"
+              value={formData.commission_rate}
+              onChange={(e) => handleChange('commission_rate', e.target.value)}
+              classNames={getInputClasses('commission_rate')}
+              endContent={<span className="text-gray-500 dark:text-gray-400 font-medium">%</span>}
+            />
+          )}
         </div>
 
         {/* ── Policies (optional) ──────────────────────────────────────── */}

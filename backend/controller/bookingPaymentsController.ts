@@ -702,20 +702,66 @@ export const updateBookingPayment = async (
         if (bookingDetailsResult.rows.length > 0) {
           const booking = bookingDetailsResult.rows[0];
 
-          // Fetch rentable items for the pamphlet
+          // Fetch add-ons (formerly "rentable items") for the pamphlet,
+          // grouped by category. Falls back to flat list if the migration
+          // for category_id hasn't been run yet.
           let rentableItems: { name: string; icon: string; price_per_night: number }[] = [];
+          let addonCategories: {
+            id: string;
+            name: string;
+            icon: string;
+            items: { name: string; icon: string; price_per_night: number }[];
+          }[] = [];
           try {
-            const rentableRes = await pool.query(
-              `SELECT ri.name, ri.icon, ri.price_per_night
-               FROM haven_rentable_items ri
-               INNER JOIN havens h ON h.uuid_id = ri.haven_id
-               WHERE h.haven_name = $1 AND ri.is_active = true
-               ORDER BY ri.id ASC`,
+            const catRes = await pool.query(
+              `SELECT
+                 c.id::text, c.name, c.icon,
+                 COALESCE(
+                   (
+                     SELECT json_agg(
+                       json_build_object('name', i.name, 'icon', i.icon, 'price_per_night', i.price_per_night)
+                       ORDER BY i.id
+                     )
+                     FROM haven_rentable_items i
+                     WHERE i.category_id = c.id AND i.is_active = true
+                   ),
+                   '[]'::json
+                 ) AS items
+               FROM haven_addon_categories c
+               INNER JOIN havens h ON h.uuid_id = c.haven_id
+               WHERE h.haven_name = $1
+               ORDER BY c.sort_order ASC, c.created_at ASC`,
               [booking.room_name],
             );
-            rentableItems = rentableRes.rows;
+            addonCategories = catRes.rows.map((r) => ({
+              id: r.id,
+              name: r.name,
+              icon: r.icon,
+              items: r.items || [],
+            }));
+            try {
+              const uncatRes = await pool.query(
+                `SELECT ri.name, ri.icon, ri.price_per_night
+                 FROM haven_rentable_items ri
+                 INNER JOIN havens h ON h.uuid_id = ri.haven_id
+                 WHERE h.haven_name = $1 AND ri.is_active = true AND ri.category_id IS NULL
+                 ORDER BY ri.id ASC`,
+                [booking.room_name],
+              );
+              rentableItems = uncatRes.rows;
+            } catch {
+              const allRes = await pool.query(
+                `SELECT ri.name, ri.icon, ri.price_per_night
+                 FROM haven_rentable_items ri
+                 INNER JOIN havens h ON h.uuid_id = ri.haven_id
+                 WHERE h.haven_name = $1 AND ri.is_active = true
+                 ORDER BY ri.id ASC`,
+                [booking.room_name],
+              );
+              rentableItems = allRes.rows;
+            }
           } catch (rentErr) {
-            console.error("⚠️ Could not fetch rentable items for pamphlet:", rentErr);
+            console.error("⚠️ Could not fetch add-ons for pamphlet:", rentErr);
           }
 
           const emailData = {
@@ -738,6 +784,7 @@ export const updateBookingPayment = async (
             downPayment: booking.down_payment ?? updatedPayment.down_payment,
             totalAmount: booking.total_amount || updatedPayment.total_amount,
             rentableItems,
+            addonCategories,
           };
 
           // Fire-and-forget email

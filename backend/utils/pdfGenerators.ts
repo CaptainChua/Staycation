@@ -21,6 +21,15 @@ export interface RentableItem {
   price_per_night: number;
 }
 
+// Optional grouped structure for the pamphlet. When provided, the PDF
+// renders items grouped under category headers instead of a flat list.
+export interface AddOnCategory {
+  id?: string;
+  name: string;
+  icon?: string;
+  items: RentableItem[];
+}
+
 export interface ReceiptData {
   bookingId: string;
   firstName: string;
@@ -364,7 +373,10 @@ export interface PamphletData {
   checkInDate: string;
   checkOutDate: string;
   bookingId: string;
+  // Legacy flat list — kept for back-compat with callers that haven't moved to categories.
   rentableItems: RentableItem[];
+  // Optional grouped form. When present + non-empty, the pamphlet renders by category.
+  categories?: AddOnCategory[];
 }
 
 export async function generatePamphletPDF(data: PamphletData): Promise<Buffer> {
@@ -519,7 +531,7 @@ export async function generatePamphletPDF(data: PamphletData): Promise<Buffer> {
   pdf.setFontSize(8.5);
   pdf.setFont("helvetica", "normal");
   const intro = pdf.splitTextToSize(
-    "Enhance your stay with our optional rentable items. Simply request any of the items below at the front desk or via the contacts provided. All prices are per night unless stated otherwise.",
+    "Enhance your stay with our optional add-ons. Simply request any of the items below at the front desk or via the contacts provided. All prices are per night unless stated otherwise.",
     cw,
   );
   pdf.text(intro, margin, y);
@@ -529,31 +541,118 @@ export async function generatePamphletPDF(data: PamphletData): Promise<Buffer> {
   pdf.setTextColor(...PRIMARY_DARK);
   pdf.setFontSize(10);
   pdf.setFont("helvetica", "bold");
-  pdf.text("AVAILABLE RENTABLE ITEMS", margin, y);
+  pdf.text("AVAILABLE ADD-ONS", margin, y);
   pdf.setDrawColor(...PRIMARY);
   pdf.setLineWidth(0.6);
   pdf.line(margin, y + 2, margin + 62, y + 2);
   y += 9;
 
   // ── Items table ──────────────────────────────────────────────────────────
-  //
   // Price badge: fixed 46 mm wide, anchored 3 mm from the box's right inner edge.
   // Item name is clipped to the space left of the badge.
-  //
   const PRICE_BADGE_W = 46;
-  const PRICE_BADGE_X = margin + cw - PRICE_BADGE_W - 3; // stays inside the box
-  const NAME_MAX_W    = PRICE_BADGE_X - (margin + 17) - 3; // room for the name
+  const PRICE_BADGE_X = margin + cw - PRICE_BADGE_W - 3;
+  const NAME_MAX_W    = PRICE_BADGE_X - (margin + 17) - 3;
+  const ROW_H = 13;
 
-  if (data.rentableItems.length === 0) {
+  // Renders one item row. Reused by both flat + grouped layouts.
+  const renderItemRow = (item: RentableItem, i: number) => {
+    const rowBg: [number, number, number] = i % 2 === 0 ? WHITE : [251, 247, 238];
+    pdf.setFillColor(...rowBg);
+    pdf.rect(margin, y, cw, ROW_H, "F");
+
+    const CX = margin + 9;
+    const CY = y + ROW_H / 2;
+    pdf.setFillColor(...PRIMARY_SOFT);
+    pdf.circle(CX, CY, 4.2, "F");
+    pdf.setTextColor(...PRIMARY_DARK);
+    pdf.setFontSize(6.5);
+    pdf.setFont("helvetica", "bold");
+    const iconChar =
+      item.icon && /[^\x00-\x7F]/.test(item.icon)
+        ? item.name.charAt(0).toUpperCase()
+        : (item.icon || item.name.charAt(0).toUpperCase());
+    pdf.text(iconChar, CX, CY + 2.3, { align: "center" });
+
+    pdf.setTextColor(...BLACK);
+    pdf.setFontSize(9);
+    pdf.setFont("helvetica", "normal");
+    const displayName = (pdf.splitTextToSize(item.name, NAME_MAX_W) as string[])[0];
+    pdf.text(displayName, margin + 17, CY + 3.2);
+
+    const priceText = `₱${Number(item.price_per_night).toLocaleString("en-PH", { minimumFractionDigits: 2 })}/night`;
+    const PBY = y + (ROW_H - 8) / 2;
+    pdf.setFillColor(254, 248, 228);
+    pdf.roundedRect(PRICE_BADGE_X, PBY, PRICE_BADGE_W, 8, 2, 2, "F");
+    pdf.setDrawColor(235, 215, 165);
+    pdf.setLineWidth(0.2);
+    pdf.roundedRect(PRICE_BADGE_X, PBY, PRICE_BADGE_W, 8, 2, 2, "S");
+    pdf.setTextColor(...PRIMARY_DARK);
+    pdf.setFontSize(7.5);
+    pdf.setFont("helvetica", "bold");
+    pdf.text(priceText, PRICE_BADGE_X + PRICE_BADGE_W / 2, PBY + 5.5, { align: "center" });
+
+    pdf.setDrawColor(228, 215, 190);
+    pdf.setLineWidth(0.15);
+    pdf.line(margin, y + ROW_H, margin + cw, y + ROW_H);
+
+    y += ROW_H;
+  };
+
+  // Renders a "Category — N items" header band before its items.
+  const renderCategoryHeader = (cat: AddOnCategory) => {
+    pdf.setFillColor(...PRIMARY);
+    pdf.roundedRect(margin, y, cw, 9, 2, 2, "F");
+    pdf.setTextColor(...WHITE);
+    pdf.setFontSize(8);
+    pdf.setFont("helvetica", "bold");
+    const safeIcon =
+      cat.icon && /[^\x00-\x7F]/.test(cat.icon) ? "" : (cat.icon ? `${cat.icon}  ` : "");
+    pdf.text(`${safeIcon}${cat.name.toUpperCase()}`, margin + 3, y + 6.2);
+    pdf.text(
+      `${cat.items.length} item${cat.items.length === 1 ? "" : "s"}`,
+      margin + cw - 3,
+      y + 6.2,
+      { align: "right" },
+    );
+    y += 9;
+  };
+
+  const totalItems =
+    (data.categories?.reduce((s, c) => s + c.items.length, 0) || 0) + data.rentableItems.length;
+
+  if (totalItems === 0) {
     pdf.setFillColor(254, 243, 199);
     pdf.roundedRect(margin, y, cw, 16, 2, 2, "F");
     pdf.setTextColor(...GRAY);
     pdf.setFontSize(9);
     pdf.setFont("helvetica", "italic");
-    pdf.text("No rentable items are listed for this room.", pageWidth / 2, y + 10, { align: "center" });
+    pdf.text("No add-ons are listed for this room.", pageWidth / 2, y + 10, { align: "center" });
     y += 24;
+  } else if (data.categories && data.categories.length > 0) {
+    // Grouped layout: render each non-empty category with its items.
+    let rowIdx = 0;
+    for (const cat of data.categories) {
+      if (cat.items.length === 0) continue;
+      renderCategoryHeader(cat);
+      cat.items.forEach((item) => {
+        renderItemRow(item, rowIdx++);
+      });
+      y += 2; // tiny gap before the next category
+    }
+    // Any leftover uncategorized items (from the flat list when categories is also passed)
+    if (data.rentableItems.length > 0) {
+      renderCategoryHeader({ name: "Other", icon: "📦", items: data.rentableItems });
+      data.rentableItems.forEach((item) => {
+        renderItemRow(item, rowIdx++);
+      });
+    }
+    pdf.setDrawColor(200, 175, 120);
+    pdf.setLineWidth(0.4);
+    pdf.line(margin, y, margin + cw, y);
+    y += 5;
   } else {
-    // Gold header row
+    // Flat layout (legacy callers that haven't moved to categories yet).
     pdf.setFillColor(...PRIMARY);
     pdf.roundedRect(margin, y, cw, 9, 2, 2, "F");
     pdf.setTextColor(...WHITE);
@@ -562,57 +661,7 @@ export async function generatePamphletPDF(data: PamphletData): Promise<Buffer> {
     pdf.text("ITEM",          margin + 20,               y + 6.2);
     pdf.text("PRICE / NIGHT", PRICE_BADGE_X + PRICE_BADGE_W / 2, y + 6.2, { align: "center" });
     y += 9;
-
-    const ROW_H = 13;
-
-    data.rentableItems.forEach((item, i) => {
-      const rowBg: [number, number, number] = i % 2 === 0 ? WHITE : [251, 247, 238];
-      pdf.setFillColor(...rowBg);
-      pdf.rect(margin, y, cw, ROW_H, "F");
-
-      // Icon circle
-      const CX = margin + 9;
-      const CY = y + ROW_H / 2;
-      pdf.setFillColor(...PRIMARY_SOFT);
-      pdf.circle(CX, CY, 4.2, "F");
-      pdf.setTextColor(...PRIMARY_DARK);
-      pdf.setFontSize(6.5);
-      pdf.setFont("helvetica", "bold");
-      const iconChar =
-        item.icon && /[^\x00-\x7F]/.test(item.icon)
-          ? item.name.charAt(0).toUpperCase()
-          : (item.icon || item.name.charAt(0).toUpperCase());
-      pdf.text(iconChar, CX, CY + 2.3, { align: "center" });
-
-      // Item name — clipped so it never touches the price badge
-      pdf.setTextColor(...BLACK);
-      pdf.setFontSize(9);
-      pdf.setFont("helvetica", "normal");
-      const displayName = (pdf.splitTextToSize(item.name, NAME_MAX_W) as string[])[0];
-      pdf.text(displayName, margin + 17, CY + 3.2);
-
-      // Price badge (amber rounded rect — clearly inside the row box)
-      const priceText = `₱${Number(item.price_per_night).toLocaleString("en-PH", { minimumFractionDigits: 2 })}/night`;
-      const PBY = y + (ROW_H - 8) / 2; // vertically centred in row
-      pdf.setFillColor(254, 248, 228);
-      pdf.roundedRect(PRICE_BADGE_X, PBY, PRICE_BADGE_W, 8, 2, 2, "F");
-      pdf.setDrawColor(235, 215, 165);
-      pdf.setLineWidth(0.2);
-      pdf.roundedRect(PRICE_BADGE_X, PBY, PRICE_BADGE_W, 8, 2, 2, "S");
-      pdf.setTextColor(...PRIMARY_DARK);
-      pdf.setFontSize(7.5);
-      pdf.setFont("helvetica", "bold");
-      pdf.text(priceText, PRICE_BADGE_X + PRICE_BADGE_W / 2, PBY + 5.5, { align: "center" });
-
-      // Row divider
-      pdf.setDrawColor(228, 215, 190);
-      pdf.setLineWidth(0.15);
-      pdf.line(margin, y + ROW_H, margin + cw, y + ROW_H);
-
-      y += ROW_H;
-    });
-
-    // Table bottom border
+    data.rentableItems.forEach((item, i) => renderItemRow(item, i));
     pdf.setDrawColor(200, 175, 120);
     pdf.setLineWidth(0.4);
     pdf.line(margin, y, margin + cw, y);

@@ -13,6 +13,7 @@ const AddNewHavenModal = ({ isOpen, onClose }: AddNewHavenModalProps) => {
       isOpen={isOpen}
       onClose={onClose}
       initialData={null}
+      canEditCommission
     />
   );
 };
