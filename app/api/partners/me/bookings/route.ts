@@ -21,6 +21,24 @@ export async function GET(req: NextRequest) {
       conditions.push(`b.status = $${values.length}`);
     }
 
+    // Whether to surface guest first/last name. Owner-controlled per partner.
+    // Defensive: if the show_guest_details column hasn't been added yet
+    // (migration not run), default to true and keep serving bookings.
+    let showGuestDetails = true;
+    try {
+      const piRow = await pool.query<{ show_guest_details: boolean }>(
+        `SELECT COALESCE(show_guest_details, true) AS show_guest_details
+         FROM partners_information WHERE partner_id = $1`,
+        [partnerId]
+      );
+      showGuestDetails = piRow.rows[0]?.show_guest_details ?? true;
+    } catch (err) {
+      console.warn(
+        "[partners/me/bookings] show_guest_details lookup failed, defaulting to true:",
+        err instanceof Error ? err.message : err
+      );
+    }
+
     const query = `
       SELECT
         b.id AS booking_uuid,
@@ -46,10 +64,47 @@ export async function GET(req: NextRequest) {
               AND bp.payment_status IN ('approved_down_payment', 'approved_full_payment')),
           0
         )::numeric(12,2) AS gross,
-        COALESCE(pi.commission_rate, 12)::numeric AS commission_rate
+        COALESCE(pi.commission_rate, 12)::numeric AS commission_rate,
+        -- Amenities = rentable items / extras the guest selected at booking time.
+        -- We expose them so the partner can hover to see the breakdown and
+        -- know what to prepare.
+        COALESCE(
+          (
+            SELECT json_agg(
+              json_build_object(
+                'id',       ao.id,
+                'name',     ao.name,
+                'price',    ao.price,
+                'quantity', ao.quantity,
+                'status',   ao.status,
+                'total',    (ao.price * ao.quantity)
+              )
+              ORDER BY ao.name
+            )
+            FROM booking_add_ons ao
+            WHERE ao.booking_id = b.id
+          ),
+          '[]'::json
+        ) AS amenities,
+        COALESCE(
+          (
+            SELECT SUM(ao.price * ao.quantity)
+            FROM booking_add_ons ao
+            WHERE ao.booking_id = b.id
+              AND ao.status NOT IN ('cancelled', 'refunded')
+          ),
+          0
+        )::numeric(12,2) AS amenities_total
       FROM booking b
       JOIN havens h ON h.haven_name = b.room_name
       LEFT JOIN partners_information pi ON pi.partner_id = h.partner_id
+      LEFT JOIN LATERAL (
+        SELECT first_name, last_name
+        FROM booking_guests
+        WHERE booking_id = b.id
+        ORDER BY id
+        LIMIT 1
+      ) bg ON true
       WHERE ${conditions.join(" AND ")}
       ORDER BY b.created_at DESC
       LIMIT ${limit};
@@ -57,7 +112,7 @@ export async function GET(req: NextRequest) {
 
     const result = await pool.query(query, values);
 
-    // Mask guest names + compute commission/fee/net
+    // Compute commission/fee/net + gate guest name fields on owner setting.
     const data = result.rows.map((b) => {
       const gross = Number(b.gross) || 0;
       const commissionRate = Number(b.commission_rate) / 100;
@@ -66,6 +121,9 @@ export async function GET(req: NextRequest) {
       const net = gross - commission - fee;
       return {
         ...b,
+        guest_first_name: showGuestDetails ? b.guest_first_name : null,
+        guest_last_name: showGuestDetails ? b.guest_last_name : null,
+        guest_details_visible: showGuestDetails,
         commission,
         fee,
         net,

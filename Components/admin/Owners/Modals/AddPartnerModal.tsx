@@ -12,6 +12,7 @@ interface FormData {
   address: string;
   type: string;
   commission_rate: number;
+  show_guest_details: boolean;
 }
 
 interface Partner {
@@ -279,6 +280,37 @@ const AddPartnerModal = ({
                   />
                 </div>
               </div>
+            </div>
+
+            {/* Owner-controlled visibility toggle. Partners cannot change this
+                themselves — it gates whether guest names appear on their
+                Booking details card. */}
+            <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/40 p-4 flex items-start gap-3">
+              <input
+                id="show_guest_details"
+                type="checkbox"
+                name="show_guest_details"
+                checked={!!formData.show_guest_details}
+                onChange={(e) =>
+                  onFormChange({
+                    ...e,
+                    target: {
+                      ...e.target,
+                      name: "show_guest_details",
+                      value: (e.target as HTMLInputElement).checked ? "true" : "false",
+                    },
+                  } as unknown as React.ChangeEvent<HTMLInputElement>)
+                }
+                disabled={isLoading}
+                className="mt-0.5 w-4 h-4 accent-brand-primary"
+              />
+              <label htmlFor="show_guest_details" className="text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+                <span className="font-semibold block">Show guest details to this partner</span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  When enabled, this partner sees guest first &amp; last name on their
+                  bookings in Analytics. Partner cannot change this setting.
+                </span>
+              </label>
             </div>
 
             {/* BUTTONS */}

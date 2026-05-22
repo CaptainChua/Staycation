@@ -1,59 +1,19 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import {
   Download,
   Receipt,
   Calendar,
   BarChart3,
   TrendingUp,
-  ChevronRight,
   Sparkles,
   Loader2,
 } from "lucide-react";
-import {
-  useGetMyAnalyticsQuery,
-  useGetMyBookingsQuery,
-} from "@/redux/api/partnerSelfApi";
+import { useGetMyAnalyticsQuery } from "@/redux/api/partnerSelfApi";
 
 const fontFraunces = "font-[var(--font-fraunces),Georgia,serif]";
 const peso = (n: number) => "₱" + (n || 0).toLocaleString("en-PH");
-
-const STATUS_MAP: Record<string, string> = {
-  Completed: "bg-[#dcfce7] text-[#16a34a]",
-  Approved: "bg-[#dbeafe] text-[#2563eb]",
-  Confirmed: "bg-[#dbeafe] text-[#2563eb]",
-  "Checked-in": "bg-[#e0e7ff] text-[#4338ca]",
-  "Checked-out": "bg-[#ede9fe] text-[#6d28d9]",
-  Pending: "bg-[#fef3c7] text-[#b45309]",
-  Cancelled: "bg-[#fee2e2] text-[#dc2626]",
-  Rejected: "bg-[#fee2e2] text-[#dc2626]",
-  Declined: "bg-[#fee2e2] text-[#dc2626]",
-  "On-going": "bg-[#ccfbf1] text-[#0f766e]",
-};
-
-const STATUS_MEANING: Record<string, string> = {
-  Pending: "Guest submitted booking but down payment is not yet approved by CSR.",
-  Approved: "Down payment was approved by CSR. Guest is expected to check in.",
-  Confirmed: "Booking is confirmed and locked in.",
-  "On-going": "Guest's stay is currently in progress.",
-  "Checked-in": "Guest has arrived and checked in to the haven.",
-  "Checked-out": "Guest has finished the stay. Awaiting final payment / deposit return.",
-  Completed: "Booking is fully complete — all payments settled, deposit handled.",
-  Cancelled: "Booking was cancelled before check-in.",
-  Rejected: "CSR rejected the booking. Guest will be refunded if applicable.",
-  Declined: "CSR declined the booking request.",
-};
-
-const formatStatus = (raw?: string | null) => {
-  const s = (raw ?? "").toLowerCase().trim();
-  if (!s) return "Pending";
-  // Title-case each hyphen-separated word: "checked-in" -> "Checked-in"
-  return s
-    .split("-")
-    .map((part, i) => (i === 0 ? part.charAt(0).toUpperCase() + part.slice(1) : part))
-    .join("-");
-};
 
 interface AnalyticsPageProps {
   onNavigate: (page: string) => void;
@@ -62,29 +22,9 @@ interface AnalyticsPageProps {
 export default function AnalyticsPage({ onNavigate }: AnalyticsPageProps) {
   const [range, setRange] = useState("3mo");
   const [view, setView] = useState<"revenue" | "bookings">("revenue");
-  const [showAll, setShowAll] = useState(false);
 
   const daysForRange = range === "wk" ? 7 : range === "mo" ? 30 : 90;
   const { data: analytics, isLoading: analyticsLoading } = useGetMyAnalyticsQuery({ days: daysForRange });
-  const { data: bookings = [] } = useGetMyBookingsQuery({ limit: 50 });
-
-  const recentBookings = useMemo(() => {
-    return bookings.map((b) => ({
-      id: b.booking_id,
-      guest: "—",
-      room: b.room_name,
-      checkIn: new Date(b.check_in_date).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" }),
-      checkOut: new Date(b.check_out_date).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" }),
-      nights: b.nights,
-      gross: Number(b.gross),
-      commission: Number(b.commission),
-      fee: Number(b.fee),
-      net: Number(b.net),
-      status: formatStatus(b.status),
-    }));
-  }, [bookings]);
-
-  const visibleBookings = showAll ? recentBookings : recentBookings.slice(0, 5);
 
   const ranges = [
     { id: "wk", label: "This week" },
@@ -323,120 +263,6 @@ export default function AnalyticsPage({ onNavigate }: AnalyticsPageProps) {
         </div>
       </div>
 
-      {/* RECENT BOOKINGS */}
-      <div className="bg-white border border-[#e5e7eb] rounded-[14px] shadow-[0_1px_2px_rgba(15,42,46,0.04)] overflow-hidden">
-        <div className="px-[22px] pt-5 pb-3 flex justify-between items-baseline flex-wrap gap-2">
-          <div>
-            <h3 className={`text-[17px] leading-[1.3] font-medium text-[#111827] mb-1 ${fontFraunces}`}>
-              Recent bookings
-            </h3>
-            <p className="text-[12.5px] text-[#6B7280]">
-              Guest names are masked for privacy.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setShowAll((s) => !s)}
-            className="text-[12.5px] font-semibold text-[#374151] hover:bg-[#f9fafb] px-2.5 py-1 rounded-md inline-flex items-center gap-1 transition"
-          >
-            {showAll ? "Show less" : `View all (${recentBookings.length})`}
-            <ChevronRight className={`w-3 h-3 transition-transform ${showAll ? "rotate-90" : ""}`} />
-          </button>
-        </div>
-
-        {/* Status legend */}
-        <details className="px-[22px] pb-3 group">
-          <summary className="text-[12px] font-medium text-[#6B7280] cursor-pointer hover:text-[#374151] inline-flex items-center gap-1 select-none">
-            <ChevronRight className="w-3 h-3 transition-transform group-open:rotate-90" />
-            What do these statuses mean?
-          </summary>
-          <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-            {Object.entries(STATUS_MEANING).map(([label, meaning]) => (
-              <div key={label} className="flex items-start gap-2 text-[11.5px]">
-                <span
-                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-semibold flex-shrink-0 mt-0.5 ${STATUS_MAP[label] ?? "bg-[#f1f5f9] text-[#475569]"}`}
-                >
-                  <span className="w-1 h-1 rounded-full bg-current opacity-90" />
-                  {label}
-                </span>
-                <span className="text-[#6B7280]">{meaning}</span>
-              </div>
-            ))}
-          </div>
-        </details>
-        <div className="overflow-x-auto">
-          <table className="w-full text-[13px] border-collapse">
-            <thead>
-              <tr>
-                {["Booking", "Guest", "Room", "Stay", "Gross", "Commission", "Fee", "Net", "Status"].map((h, i) => (
-                  <th
-                    key={h}
-                    className={`text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6B7280] px-3.5 py-3 border-b border-[#e5e7eb] bg-[#f9fafb] ${
-                      [4, 5, 6, 7].includes(i) ? "text-right" : ""
-                    }`}
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {visibleBookings.length === 0 && (
-                <tr>
-                  <td colSpan={9} className="px-3.5 py-10 text-center text-[#6B7280]">
-                    <p className="text-[13px] font-semibold text-[#374151] mb-1">No bookings yet</p>
-                    <p className="text-[12px]">
-                      Recent booking history will appear here as guests start booking your havens.
-                    </p>
-                  </td>
-                </tr>
-              )}
-              {visibleBookings.map((b) => (
-                <tr key={b.id} className="hover:bg-[#f9fafb]">
-                  <td className="px-3.5 py-3.5 border-b border-[#e5e7eb] text-[#6B7280] font-mono text-[11.5px]">
-                    {b.id}
-                  </td>
-                  <td className="px-3.5 py-3.5 border-b border-[#e5e7eb] text-[#374151]">
-                    {b.guest}
-                  </td>
-                  <td className="px-3.5 py-3.5 border-b border-[#e5e7eb] text-[#374151]">
-                    {b.room}
-                  </td>
-                  <td className="px-3.5 py-3.5 border-b border-[#e5e7eb] text-[#374151]">
-                    <div className="text-[12.5px]">
-                      {b.checkIn} → {b.checkOut}
-                    </div>
-                    <div className="text-[11.5px] text-[#6B7280]">
-                      {b.nights} night{b.nights > 1 ? "s" : ""}
-                    </div>
-                  </td>
-                  <td className="px-3.5 py-3.5 border-b border-[#e5e7eb] text-right font-mono text-[#111827]">
-                    {peso(b.gross)}
-                  </td>
-                  <td className="px-3.5 py-3.5 border-b border-[#e5e7eb] text-right font-mono text-[#dc2626]">
-                    −{peso(b.commission)}
-                  </td>
-                  <td className="px-3.5 py-3.5 border-b border-[#e5e7eb] text-right font-mono text-[#dc2626]">
-                    −{peso(b.fee)}
-                  </td>
-                  <td className="px-3.5 py-3.5 border-b border-[#e5e7eb] text-right font-mono font-semibold text-[#111827]">
-                    {peso(b.net)}
-                  </td>
-                  <td className="px-3.5 py-3.5 border-b border-[#e5e7eb]">
-                    <span
-                      title={STATUS_MEANING[b.status] ?? "Status from CSR"}
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11.5px] font-semibold cursor-help ${STATUS_MAP[b.status] ?? "bg-[#f1f5f9] text-[#475569]"}`}
-                    >
-                      <span className="w-1.5 h-1.5 rounded-full bg-current opacity-90" />
-                      {b.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
     </div>
   );
 }
@@ -489,6 +315,7 @@ const MiniStat = ({ label, value, accent }: { label: string; value: string; acce
     </div>
   </div>
 );
+
 
 function OccupancyGauge({ value, bookedNights, availableNights }: { value: number; bookedNights?: number; availableNights?: number }) {
   const radius = 44;

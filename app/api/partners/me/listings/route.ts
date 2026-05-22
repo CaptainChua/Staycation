@@ -30,6 +30,7 @@ export async function GET() {
         h.cleaning_fee,
         h.security_deposit,
         h.extra_pax_fee,
+        h.commission_rate,
         h.house_rules,
         h.smoking_policy,
         h.pet_policy,

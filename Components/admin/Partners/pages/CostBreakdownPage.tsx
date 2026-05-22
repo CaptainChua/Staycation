@@ -1,22 +1,35 @@
 "use client";
 
-import { useState } from "react";
-import { BarChart3, Info, Sparkles, ChevronDown, ExternalLink, Receipt, Calendar, FileText, CheckCircle2, Clock, AlertCircle, XCircle } from "lucide-react";
+import React, { useMemo, useState } from "react";
+import { BarChart3, Sparkles, ChevronDown, ExternalLink, Receipt, Calendar, FileText, CheckCircle2, Clock, AlertCircle, XCircle, EyeOff } from "lucide-react";
 import {
   useGetMyPayoutsQuery,
   useGetMyEarningsQuery,
   useGetMyAnalyticsQuery,
   useGetMyListingsQuery,
+  useGetMyBookingsQuery,
 } from "@/redux/api/partnerSelfApi";
-import type { PartnerPayout } from "@/redux/api/partnerSelfApi";
+import type { PartnerPayout, PartnerBooking } from "@/redux/api/partnerSelfApi";
+
+// Status pill styling — mirrors the old Recent Bookings table from AnalyticsPage.
+const STATUS_MAP: Record<string, string> = {
+  Completed: "bg-[#dcfce7] text-[#16a34a]",
+  Confirmed: "bg-[#dbeafe] text-[#2563eb]",
+  Cancelled: "bg-[#fee2e2] text-[#dc2626]",
+};
+
+const normalizeStatus = (s: string | undefined): "Completed" | "Confirmed" | "Cancelled" => {
+  if (s === "completed") return "Completed";
+  if (s === "cancelled" || s === "rejected") return "Cancelled";
+  return "Confirmed";
+};
 
 // Tier threshold — matches the FAQ copy ("50 completed bookings").
 // Keep PREMIUM_THRESHOLD in sync with the FAQ answer in [FAQS].
 const PREMIUM_THRESHOLD = 50;
 
 // Progress-bar widths snapped to 5% buckets so Tailwind JIT can statically
-// resolve the class. Inline style={{ width }} would work but triggers the
-// "no inline styles" lint and breaks the convention used by [ALLOCATIONS].
+// resolve the class.
 const PROGRESS_WIDTH_CLASSES: Record<number, string> = {
   0: "w-[0%]",   5: "w-[5%]",   10: "w-[10%]",  15: "w-[15%]",  20: "w-[20%]",
   25: "w-[25%]", 30: "w-[30%]", 35: "w-[35%]",  40: "w-[40%]",  45: "w-[45%]",
@@ -27,16 +40,6 @@ const PROGRESS_WIDTH_CLASSES: Record<number, string> = {
 
 const fontFraunces = "font-[var(--font-fraunces),Georgia,serif]";
 const peso = (n: number) => "₱" + (n || 0).toLocaleString("en-PH");
-// Variant that preserves decimals — used in the worked-example receipt so small
-// rates (e.g. ₱1) don't make every deduction round to ₱0.
-const pesoExact = (n: number) => {
-  const v = n || 0;
-  const hasDecimals = Math.abs(v - Math.round(v)) > 0.005;
-  return "₱" + v.toLocaleString("en-PH", {
-    minimumFractionDigits: hasDecimals ? 2 : 0,
-    maximumFractionDigits: 2,
-  });
-};
 
 const FAQS = [
   {
@@ -57,29 +60,30 @@ const FAQS = [
   },
 ];
 
-const ALLOCATIONS = [
-  { label: "Platform & engineering", pct: 32, widthClass: "w-[32%]", color: "bg-[#B8860B]" },
-  { label: "Marketing & guest acquisition", pct: 28, widthClass: "w-[28%]", color: "bg-[#DAA520]" },
-  { label: "Customer support (24/7)", pct: 22, widthClass: "w-[22%]", color: "bg-[#16a34a]" },
-  { label: "Payment processing & fraud", pct: 11, widthClass: "w-[11%]", color: "bg-[#2563eb]" },
-  { label: "Insurance & verification", pct: 7, widthClass: "w-[7%]", color: "bg-[#92400e]" },
-];
-
 interface CostBreakdownPageProps {
   onNavigate: (page: string) => void;
 }
 
+type DateFilter = "today" | "7d" | "30d" | "upcoming" | "all" | "custom";
+
 export default function CostBreakdownPage({ onNavigate }: CostBreakdownPageProps) {
   const [openFaq, setOpenFaq] = useState<number>(0);
   const [expandedPayout, setExpandedPayout] = useState<string | null>(null);
+  const [dateFilter, setDateFilter] = useState<DateFilter>("all");
+  const [customFrom, setCustomFrom] = useState<string>("");
+  const [customTo, setCustomTo] = useState<string>("");
+  // Which booking row in the date-range card is currently expanded.
+  const [expandedBookingId, setExpandedBookingId] = useState<string | null>(null);
   const { data: payoutData } = useGetMyPayoutsQuery();
   const { data: earningsData, isLoading: earningsLoading } = useGetMyEarningsQuery();
   const { data: analytics } = useGetMyAnalyticsQuery();
   const { data: listings = [] } = useGetMyListingsQuery();
+  // Same source the Analytics "Recent bookings" table used to use.
+  const { data: bookings = [], isLoading: bookingsLoading } = useGetMyBookingsQuery({ limit: 50 });
+  const guestDetailsVisible = bookings.length === 0 ? true : (bookings[0].guest_details_visible ?? true);
 
   const commissionRatePct = payoutData?.commission_rate ?? 12;
   const commissionRate = commissionRatePct / 100;
-  const processingRate = 0.02;
 
   // Tier — derived from real lifetime completed bookings.
   const completedBookings = analytics?.lifetime_completed_bookings ?? 0;
@@ -90,21 +94,55 @@ export default function CostBreakdownPage({ onNavigate }: CostBreakdownPageProps
   const tierProgressBucket = Math.round(tierProgressPct / 5) * 5;
   const tierProgressWidth = PROGRESS_WIDTH_CLASSES[tierProgressBucket] || PROGRESS_WIDTH_CLASSES[0];
 
-  // Worked example — uses the partner's real first listing. No fallback.
-  // Numbers reflect their actual rate, even if low — accurate over polished.
-  const firstListing = listings[0];
-  const rate =
-    Number(firstListing?.weekday_rate) ||
-    Number(firstListing?.weekend_rate) ||
-    Number(firstListing?.ten_hour_rate) ||
-    0;
-  const exampleRoomName = firstListing?.haven_name || "—";
-  const nights = 2;
-  const gross = rate * nights;
-  // Keep two decimals so small rates (e.g. ₱1) don't show all-zero deductions.
-  const commission = +(gross * commissionRate).toFixed(2);
-  const processing = +(gross * processingRate).toFixed(2);
-  const net = +(gross - commission - processing).toFixed(2);
+  // Per-room breakdown — every line item is shown as a deduction from the
+  // base nightly rate so the partner sees exactly what's subtracted before
+  // their net per night. Each room can have its own commission_rate set by
+  // the owner; if null, we fall back to the partner's default commissionRate.
+  const roomBreakdowns = listings.map((l) => {
+    const baseRate =
+      Number(l.weekday_rate) ||
+      Number(l.weekend_rate) ||
+      Number(l.ten_hour_rate) ||
+      0;
+    const cleaningFee = Number(l.cleaning_fee) || 0;
+    const securityDeposit = Number(l.security_deposit) || 0;
+    const roomCommissionPct =
+      l.commission_rate === null || l.commission_rate === undefined
+        ? commissionRatePct
+        : Number(l.commission_rate);
+    const roomCommissionRate = roomCommissionPct / 100;
+    const commissionAmt = Math.round(baseRate * roomCommissionRate);
+    // Amenities = rentable items / other extra-charge things tied to the room.
+    // Wire this up to a real source (e.g. sum of booking_add_ons for this haven)
+    // when the data is exposed on the partner listings endpoint.
+    const amenitiesAmt = 0;
+    const netPerNight = baseRate - commissionAmt - amenitiesAmt - cleaningFee - securityDeposit;
+    return {
+      uuid: l.uuid_id,
+      name: l.haven_name,
+      baseRate,
+      cleaningFee,
+      securityDeposit,
+      commissionAmt,
+      commissionPct: roomCommissionPct,
+      isCommissionOverride: l.commission_rate !== null && l.commission_rate !== undefined,
+      amenitiesAmt,
+      netPerNight,
+    };
+  });
+
+  // Overall totals across all rooms — the "per partner" rollup.
+  const overall = roomBreakdowns.reduce(
+    (acc, r) => ({
+      baseRate: acc.baseRate + r.baseRate,
+      cleaningFee: acc.cleaningFee + r.cleaningFee,
+      securityDeposit: acc.securityDeposit + r.securityDeposit,
+      commissionAmt: acc.commissionAmt + r.commissionAmt,
+      amenitiesAmt: acc.amenitiesAmt + r.amenitiesAmt,
+      netPerNight: acc.netPerNight + r.netPerNight,
+    }),
+    { baseRate: 0, cleaningFee: 0, securityDeposit: 0, commissionAmt: 0, amenitiesAmt: 0, netPerNight: 0 }
+  );
 
   const pendingAmount = Number(payoutData?.pending_amount) || 0;
   const nextPayoutDate = payoutData?.next_payout_date
@@ -126,6 +164,67 @@ export default function CostBreakdownPage({ onNavigate }: CostBreakdownPageProps
   const payouts = payoutData?.payouts || [];
   const earnings = earningsData?.items || [];
   const totals = earningsData?.totals;
+
+  // Date-range filter for the "Bookings & net profit by date range" card.
+  // A booking matches if its stay [check_in, check_out] OVERLAPS the window,
+  // so a stay that spans the range edge is included even if check-in lands
+  // outside it. "All time" disables filtering entirely.
+  const filteredByDate = useMemo(() => {
+    const now = new Date();
+    let from: Date | null = null;
+    let to: Date | null = null;
+
+    if (dateFilter === "today") {
+      from = new Date(now); from.setHours(0, 0, 0, 0);
+      to = new Date(now); to.setHours(23, 59, 59, 999);
+    } else if (dateFilter === "7d") {
+      from = new Date(now); from.setDate(from.getDate() - 7); from.setHours(0, 0, 0, 0);
+      to = new Date(now); to.setHours(23, 59, 59, 999);
+    } else if (dateFilter === "30d") {
+      from = new Date(now); from.setDate(from.getDate() - 30); from.setHours(0, 0, 0, 0);
+      to = new Date(now); to.setHours(23, 59, 59, 999);
+    } else if (dateFilter === "upcoming") {
+      from = new Date(now); from.setHours(0, 0, 0, 0);
+      to = null; // open-ended into the future
+    } else if (dateFilter === "all") {
+      from = null;
+      to = null;
+    } else if (dateFilter === "custom") {
+      from = customFrom ? new Date(customFrom + "T00:00:00") : null;
+      to = customTo ? new Date(customTo + "T23:59:59") : null;
+    }
+
+    const items = bookings.filter((b) => {
+      if (from === null && to === null) return true;
+      const checkIn = new Date(b.check_in_date);
+      const checkOut = b.check_out_date ? new Date(b.check_out_date) : checkIn;
+      // Overlap: stay ends on/after `from` AND starts on/before `to`.
+      if (from && checkOut < from) return false;
+      if (to && checkIn > to) return false;
+      return true;
+    });
+
+    const netTotal = items.reduce(
+      (sum, b) => sum + Number(b.net || 0),
+      0
+    );
+    const grossTotal = items.reduce(
+      (sum, b) => sum + Number(b.gross || 0),
+      0
+    );
+    const commissionTotal = items.reduce(
+      (sum, b) => sum + Number(b.commission || 0),
+      0
+    );
+    // Sum of booking_add_ons across all bookings in the range (excludes
+    // cancelled/refunded — those are also excluded server-side on amenities_total).
+    const amenitiesTotal = items.reduce(
+      (sum, b) => sum + Number(b.amenities_total || 0),
+      0
+    );
+
+    return { items, netTotal, grossTotal, commissionTotal, amenitiesTotal, from, to };
+  }, [bookings, dateFilter, customFrom, customTo]);
 
   return (
     <div className="animate-in fade-in duration-500">
@@ -224,83 +323,324 @@ export default function CostBreakdownPage({ onNavigate }: CostBreakdownPageProps
         </div>
       </div>
 
-      {/* RECEIPT + ALLOCATIONS */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_1fr] gap-[18px] mb-6">
-        {/* Receipt example */}
-        <div className="bg-white border border-[#e5e7eb] rounded-[14px] shadow-[0_1px_2px_rgba(15,42,46,0.04)] p-[22px]">
-          <h3 className={`text-[17px] leading-[1.3] font-medium text-[#111827] mb-1.5 ${fontFraunces}`}>
-            How a single booking breaks down
+      {/* PER-ROOM BREAKDOWN */}
+      <div className="bg-white border border-[#e5e7eb] rounded-[14px] shadow-[0_1px_2px_rgba(15,42,46,0.04)] p-[22px] mb-6">
+        <div className="flex items-baseline justify-between flex-wrap gap-2 mb-1.5">
+          <h3 className={`text-[17px] leading-[1.3] font-medium text-[#111827] ${fontFraunces}`}>
+            Per-room cost breakdown
           </h3>
-          <p className="text-[12.5px] text-[#6B7280] mb-4">
-            Worked example for a 2-night stay at{" "}
-            <strong className="text-[#111827]">{exampleRoomName}</strong>.
-          </p>
+          <span className="text-[11.5px] text-[#6B7280]">
+            {roomBreakdowns.length} room{roomBreakdowns.length === 1 ? "" : "s"} · {commissionRatePct}% commission
+          </span>
+        </div>
+        <p className="text-[12.5px] text-[#6B7280] mb-4">
+          Every deduction shown is subtracted from the room&apos;s base nightly rate. The Net per
+          night column is what reaches your payout for one night at the room&apos;s standard rate.
+        </p>
 
-          <div className="bg-[#f9fafb] p-1.5 rounded-[12px]">
-            <div className="bg-white rounded-[10px] px-[26px] py-6 border border-dashed border-[#d1d5db] shadow-[0_1px_2px_rgba(15,42,46,0.04)] font-mono text-[13.5px]">
-              <div className={`text-[16px] mb-1 text-[#111827] ${fontFraunces}`}>
-                Booking BK-21048
-              </div>
-              <div className="text-[11px] text-[#6B7280] mb-4">
-                {exampleRoomName} · J**** R**** · May 14–16, 2026
-              </div>
+        {roomBreakdowns.length === 0 ? (
+          <div className="py-10 text-center text-[#6B7280]">
+            <Receipt className="w-8 h-8 mx-auto mb-2 text-[#9CA3AF]" />
+            <p className="text-[14px] font-semibold text-[#374151] mb-0.5">No rooms yet</p>
+            <p className="text-[12.5px]">Add a listing to see its per-room cost breakdown here.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-[12.5px] border-collapse">
+              <thead>
+                <tr>
+                  {["Room", "Base rate / night", "Commission", "Amenities", "Cleaning fee", "Security deposit", "Net per night"].map((h, i) => (
+                    <th
+                      key={h}
+                      className={`text-left text-[10.5px] font-semibold uppercase tracking-wider text-[#6B7280] px-3 py-2 border-b border-[#e5e7eb] bg-[#f9fafb] ${
+                        i > 0 ? "text-right" : ""
+                      }`}
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {roomBreakdowns.map((r) => (
+                  <tr key={r.uuid} className="hover:bg-[#f9fafb]">
+                    <td className="px-3 py-2.5 border-b border-[#e5e7eb] text-[#111827] font-medium truncate max-w-[240px]">
+                      {r.name}
+                    </td>
+                    <td className="px-3 py-2.5 border-b border-[#e5e7eb] text-right font-mono text-[#111827]">
+                      {peso(r.baseRate)}
+                    </td>
+                    <td className="px-3 py-2.5 border-b border-[#e5e7eb] text-right font-mono text-[#dc2626]">
+                      <div>− {peso(r.commissionAmt)}</div>
+                      <div className="text-[10px] text-[#6B7280] font-sans">
+                        {r.commissionPct}%
+                        {r.isCommissionOverride && (
+                          <span className="ml-1 text-[#B8860B] font-semibold">override</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2.5 border-b border-[#e5e7eb] text-right font-mono text-[#dc2626]">
+                      − {peso(r.amenitiesAmt)}
+                    </td>
+                    <td className="px-3 py-2.5 border-b border-[#e5e7eb] text-right font-mono text-[#dc2626]">
+                      − {peso(r.cleaningFee)}
+                    </td>
+                    <td className="px-3 py-2.5 border-b border-[#e5e7eb] text-right font-mono text-[#dc2626]">
+                      − {peso(r.securityDeposit)}
+                    </td>
+                    <td className="px-3 py-2.5 border-b border-[#e5e7eb] text-right font-mono font-semibold text-[#16a34a]">
+                      {peso(r.netPerNight)}
+                    </td>
+                  </tr>
+                ))}
+                {/* Overall totals */}
+                <tr className="bg-[#FEF3C7]">
+                  <td className={`px-3 py-3 text-[#111827] font-semibold ${fontFraunces}`}>
+                    Overall ({roomBreakdowns.length} room{roomBreakdowns.length === 1 ? "" : "s"})
+                  </td>
+                  <td className="px-3 py-3 text-right font-mono font-semibold text-[#111827]">
+                    {peso(overall.baseRate)}
+                  </td>
+                  <td className="px-3 py-3 text-right font-mono font-semibold text-[#dc2626]">
+                    − {peso(overall.commissionAmt)}
+                  </td>
+                  <td className="px-3 py-3 text-right font-mono font-semibold text-[#dc2626]">
+                    − {peso(overall.amenitiesAmt)}
+                  </td>
+                  <td className="px-3 py-3 text-right font-mono font-semibold text-[#dc2626]">
+                    − {peso(overall.cleaningFee)}
+                  </td>
+                  <td className="px-3 py-3 text-right font-mono font-semibold text-[#dc2626]">
+                    − {peso(overall.securityDeposit)}
+                  </td>
+                  <td className="px-3 py-3 text-right font-mono font-semibold text-[#B8860B]">
+                    {peso(overall.netPerNight)}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
-              <ReceiptLine label="Room rate × nights" sub={`${pesoExact(rate)} × ${nights}`} value={pesoExact(gross)} />
-              <ReceiptLine label="Gross booking amount" value={pesoExact(gross)} bold />
-              <Divider />
-              <ReceiptLine label="Platform service fee" sub={`${(commissionRate * 100).toFixed(0)}% commission`} value={`− ${pesoExact(commission)}`} deduct />
-              <ReceiptLine label="Payment processing" sub={`${(processingRate * 100).toFixed(0)}% (cards / e-wallet)`} value={`− ${pesoExact(processing)}`} deduct />
-              <Divider />
-              <ReceiptLine label="Net payout to you" value={pesoExact(net)} bold accent />
+      {/* BOOKINGS & NET PROFIT BY DATE RANGE */}
+      <div className="bg-white border border-[#e5e7eb] rounded-[14px] shadow-[0_1px_2px_rgba(15,42,46,0.04)] p-[22px] mb-6">
+        <div className="flex items-baseline justify-between flex-wrap gap-2 mb-1.5">
+          <h3 className={`text-[17px] leading-[1.3] font-medium text-[#111827] ${fontFraunces}`}>
+            Bookings & net profit by date range
+          </h3>
+          <span className="text-[11.5px] text-[#6B7280]">
+            Filter by check-in date
+          </span>
+        </div>
+        <p className="text-[12.5px] text-[#6B7280] mb-4">
+          Same breakdown as above, but scoped to a date range you pick. The total
+          shown is the sum of your net payable from bookings checking in inside
+          the selected window.
+        </p>
+
+        {/* Filter chips */}
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          {([
+            { id: "all", label: "All time" },
+            { id: "today", label: "Today" },
+            { id: "7d", label: "Last 7 days" },
+            { id: "30d", label: "Last 30 days" },
+            { id: "upcoming", label: "Upcoming" },
+            { id: "custom", label: "Custom" },
+          ] as { id: DateFilter; label: string }[]).map((opt) => {
+            const active = dateFilter === opt.id;
+            return (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => setDateFilter(opt.id)}
+                className={`px-3 py-1.5 rounded-full text-[12px] font-semibold border transition ${
+                  active
+                    ? "bg-[#B8860B] border-[#B8860B] text-white"
+                    : "bg-white border-[#d1d5db] text-[#374151] hover:bg-[#f3f4f6]"
+                }`}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+          {dateFilter === "custom" && (
+            <div className="flex items-center gap-2 ml-1">
+              <input
+                type="date"
+                value={customFrom}
+                onChange={(e) => setCustomFrom(e.target.value)}
+                className="px-2 py-1 text-[12px] border border-[#d1d5db] rounded-[8px] bg-white text-[#111827]"
+              />
+              <span className="text-[12px] text-[#6B7280]">→</span>
+              <input
+                type="date"
+                value={customTo}
+                onChange={(e) => setCustomTo(e.target.value)}
+                className="px-2 py-1 text-[12px] border border-[#d1d5db] rounded-[8px] bg-white text-[#111827]"
+              />
             </div>
-          </div>
-
-          <div className="mt-4 p-4 rounded-[11px] bg-[#FEF3C7] flex gap-3">
-            <Info className="w-4 h-4 text-[#B8860B] flex-shrink-0 mt-0.5" />
-            <p className="text-[13px] text-[#374151]">
-              Staycation Haven PH charges a{" "}
-              <strong>{(commissionRate * 100).toFixed(0)}% service commission</strong> per confirmed
-              booking. This covers platform maintenance, customer support, marketing, and payment
-              processing. You always see exactly what&apos;s deducted before you receive your payout.
-            </p>
-          </div>
+          )}
         </div>
 
-        {/* Allocations + pro tip */}
-        <div className="flex flex-col gap-[18px]">
-          <div className="bg-white border border-[#e5e7eb] rounded-[14px] shadow-[0_1px_2px_rgba(15,42,46,0.04)] p-[22px]">
-            <h3 className={`text-[17px] leading-[1.3] font-medium text-[#111827] mb-4 ${fontFraunces}`}>
-              What your commission pays for
-            </h3>
-            <div className="flex flex-col gap-3.5">
-              {ALLOCATIONS.map((a, i) => (
-                <div key={i}>
-                  <div className="flex justify-between mb-1.5">
-                    <span className="text-[13px] font-semibold text-[#111827]">{a.label}</span>
-                    <span className="text-[12.5px] font-mono text-[#6B7280]">{a.pct}%</span>
-                  </div>
-                  <div className="h-1.5 rounded-full bg-[#f3f4f6] overflow-hidden">
-                    <div className={`h-full rounded-full ${a.color} ${a.widthClass}`} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+        {/* Range totals */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4 p-3 rounded-[10px] bg-[#f9fafb] border border-[#e5e7eb]">
+          <Stat label="Bookings in range" value={filteredByDate.items.length.toString()} />
+          <Stat label="Gross in range" value={peso(filteredByDate.grossTotal)} />
+          <Stat label="Commission + amenities" value={peso(filteredByDate.commissionTotal + filteredByDate.amenitiesTotal)} />
+          <Stat label="Net profit in range" value={peso(filteredByDate.netTotal)} accent />
+        </div>
 
-          <div className="bg-white border border-[#e5e7eb] rounded-[14px] shadow-[0_1px_2px_rgba(15,42,46,0.04)] p-[22px]">
-            <div className="text-[11.5px] text-[#B8860B] font-semibold uppercase tracking-widest mb-2">
-              Pro tip
-            </div>
-            <h3 className={`text-[15.5px] mb-2 text-[#111827] font-medium ${fontFraunces}`}>
-              Pricing for the long stay
-            </h3>
-            <p className="text-[13px] text-[#374151]">
-              Rooms offering a 3+ night discount see <strong>34% more</strong> bookings and net
-              higher overall — the commission is calculated on the discounted total, not the
-              original rate.
+        {bookingsLoading ? (
+          <div className="py-10 text-center text-[13px] text-[#6B7280]">Loading bookings…</div>
+        ) : bookings.length === 0 ? (
+          <div className="py-10 text-center text-[#6B7280]">
+            <Calendar className="w-8 h-8 mx-auto mb-2 text-[#9CA3AF]" />
+            <p className="text-[14px] font-semibold text-[#374151] mb-0.5">You don&apos;t have any bookings yet</p>
+            <p className="text-[12.5px]">Once a guest books one of your rooms, it&apos;ll appear here.</p>
+          </div>
+        ) : filteredByDate.items.length === 0 ? (
+          <div className="py-10 text-center text-[#6B7280]">
+            <Calendar className="w-8 h-8 mx-auto mb-2 text-[#9CA3AF]" />
+            <p className="text-[14px] font-semibold text-[#374151] mb-0.5">
+              No bookings overlap this range
+            </p>
+            <p className="text-[12.5px]">
+              You have <strong>{bookings.length}</strong> booking{bookings.length === 1 ? "" : "s"} in
+              total — try “All time”, “Upcoming”, or a wider custom window.
             </p>
           </div>
-        </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-[12.5px] border-collapse">
+              <thead>
+                <tr>
+                  {["Booking", "Room", "Stay", "Gross", "Commission", "Amenities", "Net", "Status", ""].map((h, i) => (
+                    <th
+                      key={i}
+                      className={`text-left text-[10.5px] font-semibold uppercase tracking-wider text-[#6B7280] px-3 py-2 border-b border-[#e5e7eb] bg-[#f9fafb] ${
+                        [3, 4, 5, 6].includes(i) ? "text-right" : ""
+                      } ${i === 8 ? "text-center w-[1%]" : ""}`}
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filteredByDate.items.map((b) => {
+                  const statusLabel = normalizeStatus(b.status);
+                  const expanded = expandedBookingId === b.booking_uuid;
+                  const adults = Number(b.adults) || 0;
+                  const children = Number(b.children) || 0;
+                  const infants = Number(b.infants) || 0;
+                  const totalGuests = adults + children + infants;
+                  const fullName = [b.guest_first_name, b.guest_last_name]
+                    .filter(Boolean)
+                    .join(" ")
+                    .trim();
+                  return (
+                    <React.Fragment key={b.booking_uuid}>
+                      <tr className="hover:bg-[#f9fafb]">
+                        <td className="px-3 py-2.5 border-b border-[#e5e7eb] font-mono text-[11px] text-[#6B7280]">
+                          {b.booking_id}
+                        </td>
+                        <td className="px-3 py-2.5 border-b border-[#e5e7eb] text-[#374151] truncate max-w-[200px]">
+                          {b.room_name}
+                        </td>
+                        <td className="px-3 py-2.5 border-b border-[#e5e7eb] text-[#374151]">
+                          <div className="text-[12px]">
+                            {fmtDate(b.check_in_date)} → {fmtDate(b.check_out_date)}
+                          </div>
+                          <div className="text-[10.5px] text-[#6B7280]">
+                            {b.nights} night{b.nights > 1 ? "s" : ""}
+                          </div>
+                        </td>
+                        <td className="px-3 py-2.5 border-b border-[#e5e7eb] text-right font-mono text-[#111827]">
+                          {peso(Number(b.gross))}
+                        </td>
+                        <td className="px-3 py-2.5 border-b border-[#e5e7eb] text-right font-mono text-[#dc2626]">
+                          − {peso(Number(b.commission))}
+                        </td>
+                        <td className="px-3 py-2.5 border-b border-[#e5e7eb] text-right font-mono text-[#dc2626] relative">
+                          <AmenitiesCell amenities={b.amenities} total={Number(b.amenities_total || 0)} />
+                        </td>
+                        <td className="px-3 py-2.5 border-b border-[#e5e7eb] text-right font-mono font-semibold text-[#16a34a]">
+                          {peso(Number(b.net))}
+                        </td>
+                        <td className="px-3 py-2.5 border-b border-[#e5e7eb]">
+                          <span
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold ${STATUS_MAP[statusLabel]}`}
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full bg-current opacity-90" />
+                            {statusLabel}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2.5 border-b border-[#e5e7eb] text-center">
+                          <button
+                            type="button"
+                            onClick={() => setExpandedBookingId(expanded ? null : b.booking_uuid)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[#f3f4f6] text-[#374151] hover:bg-[#e5e7eb] transition whitespace-nowrap"
+                          >
+                            {expanded ? "Hide" : "Details"}
+                            <ChevronDown
+                              className={`w-3.5 h-3.5 transition-transform ${expanded ? "rotate-180" : ""}`}
+                            />
+                          </button>
+                        </td>
+                      </tr>
+                      {expanded && (
+                        <tr className="bg-[#f9fafb]">
+                          <td colSpan={9} className="px-4 py-4 border-b border-[#e5e7eb]">
+                            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+                              <div className="col-span-2">
+                                <div className="text-[10.5px] uppercase tracking-wide font-semibold text-[#6B7280] mb-0.5">
+                                  Guest name
+                                </div>
+                                <div className="text-[14px] text-[#111827] font-medium">
+                                  {guestDetailsVisible ? (
+                                    fullName || <span className="text-[#9CA3AF]">—</span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 text-[12px] text-[#92400e] bg-[#fef3c7] px-2 py-0.5 rounded-full">
+                                      <EyeOff className="w-3 h-3" /> Hidden by admin
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <DetailStat label="Adults" value={adults} />
+                              <DetailStat label="Children" value={children} />
+                              <DetailStat label="Infants" value={infants} />
+                              <DetailStat label="Total guests" value={totalGuests} accent />
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+                <tr className="bg-[#FEF3C7]">
+                  <td className={`px-3 py-3 text-[#111827] font-semibold ${fontFraunces}`} colSpan={3}>
+                    Total ({filteredByDate.items.length} booking{filteredByDate.items.length === 1 ? "" : "s"})
+                  </td>
+                  <td className="px-3 py-3 text-right font-mono font-semibold text-[#111827]">
+                    {peso(filteredByDate.grossTotal)}
+                  </td>
+                  <td className="px-3 py-3 text-right font-mono font-semibold text-[#dc2626]">
+                    − {peso(filteredByDate.commissionTotal)}
+                  </td>
+                  <td className="px-3 py-3 text-right font-mono font-semibold text-[#dc2626]">
+                    − {peso(filteredByDate.amenitiesTotal)}
+                  </td>
+                  <td className="px-3 py-3 text-right font-mono font-semibold text-[#B8860B]">
+                    {peso(filteredByDate.netTotal)}
+                  </td>
+                  <td className="px-3 py-3" colSpan={2} />
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* YOUR EARNINGS — real per-booking breakdown */}
@@ -472,33 +812,7 @@ export default function CostBreakdownPage({ onNavigate }: CostBreakdownPageProps
   );
 }
 
-interface ReceiptLineProps {
-  label: string;
-  sub?: string;
-  value: string;
-  bold?: boolean;
-  accent?: boolean;
-  deduct?: boolean;
-}
-
-const ReceiptLine = ({ label, sub, value, bold, accent, deduct }: ReceiptLineProps) => {
-  const color = deduct ? "text-[#dc2626]" : accent ? "text-[#B8860B]" : "text-[#111827]";
-  return (
-    <div className={`flex justify-between items-baseline py-1.5 ${color} ${bold ? "font-semibold" : ""}`}>
-      <div>
-        <div>{label}</div>
-        {sub && <div className="text-[10.5px] text-[#6B7280] font-normal">{sub}</div>}
-      </div>
-      <div className={bold ? "text-[15px]" : "text-[13.5px]"}>{value}</div>
-    </div>
-  );
-};
-
-const Divider = () => (
-  <div className="h-px bg-[#e5e7eb] my-1 border-t border-dashed border-[#d1d5db]" />
-);
-
-// ─── Helpers for the new Earnings + Payouts sections ───────────────────────
+// ─── Helpers for the Earnings + Payouts sections ───────────────────────
 const fmtDate = (iso: string) =>
   iso
     ? new Date(iso).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })
@@ -530,6 +844,77 @@ const Stat = ({ label, value, accent }: { label: string; value: string; accent?:
     </div>
   </div>
 );
+
+const DetailStat = ({ label, value, accent }: { label: string; value: number; accent?: boolean }) => (
+  <div>
+    <div className="text-[10.5px] uppercase tracking-wide font-semibold text-[#6B7280] mb-0.5">{label}</div>
+    <div className={`text-[18px] font-semibold ${accent ? "text-[#B8860B]" : "text-[#111827]"}`}>
+      {value}
+    </div>
+  </div>
+);
+
+// Amenities cell: shows the deducted total, with a hover popover listing each
+// rentable item (name · qty · subtotal). Uses CSS group-hover so no JS state
+// per cell — works on touch by tapping which fires :hover momentarily.
+type AmenityItem = NonNullable<PartnerBooking["amenities"]>[number];
+const AmenitiesCell = ({
+  amenities,
+  total,
+}: {
+  amenities: AmenityItem[] | undefined;
+  total: number;
+}) => {
+  const list = amenities || [];
+  return (
+    <span className="group inline-block relative cursor-help">
+      <span className={list.length > 0 ? "underline decoration-dotted" : ""}>
+        − {peso(total)}
+      </span>
+      {list.length > 0 && (
+        <div
+          className="hidden group-hover:block absolute right-0 z-30 mt-1 w-[260px] rounded-[10px] border border-[#e5e7eb] bg-white shadow-lg p-3 text-left font-sans"
+          role="tooltip"
+        >
+          <div className="text-[10.5px] uppercase tracking-wide font-semibold text-[#6B7280] mb-1.5">
+            Amenities for this stay
+          </div>
+          <ul className="flex flex-col gap-1.5">
+            {list.map((a) => {
+              const isInactive = a.status === "cancelled" || a.status === "refunded";
+              return (
+                <li
+                  key={a.id}
+                  className={`flex items-baseline justify-between gap-2 text-[12px] ${
+                    isInactive ? "text-[#9CA3AF] line-through" : "text-[#374151]"
+                  }`}
+                >
+                  <span className="truncate">
+                    {a.name}
+                    {a.quantity > 1 && (
+                      <span className="text-[#6B7280]"> × {a.quantity}</span>
+                    )}
+                  </span>
+                  <span className="font-mono text-[11.5px] whitespace-nowrap">
+                    {peso(Number(a.total))}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+          <div className="mt-2 pt-2 border-t border-[#e5e7eb] flex items-baseline justify-between text-[12px]">
+            <span className="text-[10.5px] uppercase tracking-wide font-semibold text-[#6B7280]">
+              Total
+            </span>
+            <span className="font-mono font-semibold text-[#111827]">
+              {peso(total)}
+            </span>
+          </div>
+        </div>
+      )}
+    </span>
+  );
+};
 
 function PayoutRow({
   payout,

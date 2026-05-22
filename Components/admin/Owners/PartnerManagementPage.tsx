@@ -84,6 +84,27 @@ const PartnerManagementPage = () => {
   
   const partners: Partner[] = data?.data || [];
 
+  // Opens the Add/Edit Partner modal pre-filled with the chosen partner.
+  // Wired through ListingsTab → PartnerDetailPane so the Edit button on the
+  // partner profile band can trigger it. Looks up the full partner record by
+  // ID from the partners list this page already fetches.
+  const handleEditPartner = (partnerId: string) => {
+    const p = partners.find((x) => x.id === partnerId);
+    if (!p) return;
+    setEditing(p);
+    setForm({
+      email: p.email || "",
+      password: "",
+      fullname: p.fullname || "",
+      phone: p.phone || "",
+      address: p.address || "",
+      type: p.type || "hotel",
+      commission_rate: Number(p.commission_rate ?? 10),
+      show_guest_details: p.show_guest_details ?? true,
+    });
+    setModalOpen(true);
+  };
+
   /* =========================
    STATE
 ========================= */
@@ -117,6 +138,7 @@ const [form, setForm] = useState({
   address: "",
   type: "hotel",
   commission_rate: 10,
+  show_guest_details: true,
 });
 
 
@@ -600,7 +622,7 @@ const paginatedMessages = messages.slice(
         )}
 
      {/* LISTINGS */}
-{tab === 2 && <ListingsTab />}
+{tab === 2 && <ListingsTab onEditPartner={handleEditPartner} />}
 {false && (
   <div className="space-y-5">
 
@@ -977,7 +999,13 @@ const paginatedMessages = messages.slice(
                       <button
                         onClick={() => {
                           setEditing(selectedListing as any);
-                          setForm(selectedListing as any);
+                          setForm({
+                            ...(selectedListing as any),
+                            // Default to true so older records (pre-migration)
+                            // still display the toggle in the expected state.
+                            show_guest_details:
+                              (selectedListing as { show_guest_details?: boolean }).show_guest_details ?? true,
+                          });
                           setModalOpen(true);
                         }}
                         className="
@@ -2020,7 +2048,9 @@ const paginatedMessages = messages.slice(
             [e.target.name]:
               e.target.name === "commission_rate"
                 ? Number(e.target.value)
-                : e.target.value,
+                : e.target.name === "show_guest_details"
+                  ? e.target.value === "true"
+                  : e.target.value,
           }))
         }
         onSave={handleSave}
@@ -2747,7 +2777,7 @@ interface PartnerGroup {
   rooms: PartnerListingRow[];
 }
 
-function ListingsTab() {
+function ListingsTab({ onEditPartner }: { onEditPartner: (partnerId: string) => void }) {
   const [search, setSearch] = useState("");
   const { data: listings = [], isLoading } = useGetPartnerListingsQuery();
   const [selectedPartnerId, setSelectedPartnerId] = useState<string | null>(null);
@@ -2885,7 +2915,7 @@ function ListingsTab() {
                 Select a partner to view their listings
               </div>
             ) : (
-              <PartnerDetailPane partner={selectedPartner} peso={peso} />
+              <PartnerDetailPane partner={selectedPartner} peso={peso} onEditPartner={onEditPartner} />
             )}
           </div>
         </div>
@@ -2897,9 +2927,10 @@ function ListingsTab() {
 interface PartnerDetailPaneProps {
   partner: PartnerGroup;
   peso: (n: number) => string;
+  onEditPartner: (partnerId: string) => void;
 }
 
-function PartnerDetailPane({ partner, peso }: PartnerDetailPaneProps) {
+function PartnerDetailPane({ partner, peso, onEditPartner }: PartnerDetailPaneProps) {
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const [showRoomDetails, setShowRoomDetails] = useState(false);
 
@@ -2946,6 +2977,15 @@ function PartnerDetailPane({ partner, peso }: PartnerDetailPaneProps) {
             <NumStat value={totalBookings} label="Bookings" />
             <NumStat value={`${Number(partner.commission_rate || 12).toFixed(0)}%`} label="Fee" />
           </div>
+          <button
+            type="button"
+            onClick={() => onEditPartner(partner.partner_id)}
+            className="ml-2 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold inline-flex items-center gap-1.5 transition active:scale-95 shadow-sm flex-shrink-0"
+            title="Edit partner — set commission and guest-details visibility"
+          >
+            <Edit2 className="w-3.5 h-3.5" />
+            Edit partner
+          </button>
         </div>
 
         <div className="mt-4 flex items-center gap-1.5 flex-wrap">

@@ -9,9 +9,9 @@ interface AddNewHavenModalProps {
 
 const AddNewHavenModal = ({ isOpen, onClose }: AddNewHavenModalProps) => {
   return (
-    <HavenFormModal 
-      isOpen={isOpen} 
-      onClose={onClose} 
+    <HavenFormModal
+      isOpen={isOpen}
+      onClose={onClose}
       initialData={null}
     />
   );
