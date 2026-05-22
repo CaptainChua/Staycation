@@ -51,6 +51,10 @@ export async function GET(req: NextRequest) {
         b.adults,
         b.children,
         b.infants,
+        -- Per-booking visibility override set by the Owner. NULL = inherit
+        -- partner default (computed above). Migration:
+        -- backend/models/2026-05-21-booking-guest-visibility-override.sql
+        b.show_guest_details_override,
         b.created_at,
         h.uuid_id AS haven_id,
         h.weekday_rate,
@@ -94,7 +98,9 @@ export async function GET(req: NextRequest) {
               AND ao.status NOT IN ('cancelled', 'refunded')
           ),
           0
-        )::numeric(12,2) AS amenities_total
+        )::numeric(12,2) AS amenities_total,
+        bg.first_name AS guest_first_name,
+        bg.last_name  AS guest_last_name
       FROM booking b
       JOIN havens h ON h.haven_name = b.room_name
       LEFT JOIN partners_information pi ON pi.partner_id = h.partner_id
@@ -112,18 +118,26 @@ export async function GET(req: NextRequest) {
 
     const result = await pool.query(query, values);
 
-    // Compute commission/fee/net + gate guest name fields on owner setting.
+    // Compute commission/fee/net + gate guest name fields. Per-booking
+    // override (b.show_guest_details_override) wins if set; otherwise we fall
+    // back to the partner-level default (showGuestDetails).
     const data = result.rows.map((b) => {
       const gross = Number(b.gross) || 0;
       const commissionRate = Number(b.commission_rate) / 100;
       const commission = Math.round(gross * commissionRate);
       const fee = Math.round(gross * 0.02);
       const net = gross - commission - fee;
+      const effectiveVisible =
+        b.show_guest_details_override === null || b.show_guest_details_override === undefined
+          ? showGuestDetails
+          : Boolean(b.show_guest_details_override);
       return {
         ...b,
-        guest_first_name: showGuestDetails ? b.guest_first_name : null,
-        guest_last_name: showGuestDetails ? b.guest_last_name : null,
-        guest_details_visible: showGuestDetails,
+        guest_first_name: effectiveVisible ? b.guest_first_name : null,
+        guest_last_name: effectiveVisible ? b.guest_last_name : null,
+        guest_details_visible: effectiveVisible,
+        // Surface the raw override so the owner-side UI can show the toggle state.
+        show_guest_details_override: b.show_guest_details_override ?? null,
         commission,
         fee,
         net,

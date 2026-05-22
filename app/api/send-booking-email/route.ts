@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
-import { generatePamphletPDF, type RentableItem } from '@/backend/utils/pdfGenerators';
+import { generatePamphletPDF, type RentableItem, type AddOnCategory } from '@/backend/utils/pdfGenerators';
 
 export async function POST(request: NextRequest) {
   try {
     const bookingData = await request.json();
     const rentableItems: RentableItem[] = bookingData.rentableItems || [];
+    const addonCategories: AddOnCategory[] = bookingData.addonCategories || [];
 
-    // Generate pamphlet PDF with the room's rentable items
+    // Generate pamphlet PDF with the room's add-ons (grouped by category if provided)
     const pamphletBuffer = await generatePamphletPDF({
       guestName: `${bookingData.firstName} ${bookingData.lastName || ''}`.trim(),
       roomName: bookingData.roomName || '',
@@ -15,6 +16,7 @@ export async function POST(request: NextRequest) {
       checkOutDate: bookingData.checkOutDate || '',
       bookingId: bookingData.bookingId || '',
       rentableItems,
+      categories: addonCategories,
     });
 
     // Create transporter with your Gmail credentials

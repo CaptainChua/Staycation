@@ -15,6 +15,7 @@ import {
   type AdminPayoutRow,
 } from "@/redux/api/adminPayoutsApi";
 import { useGetPartnersQuery } from "@/redux/api/partnersApi";
+import DocumentsManager from "./Modals/DocumentsManager";
 
 const peso = (n: number) => "₱" + (Number(n) || 0).toLocaleString("en-PH");
 const fmtDate = (iso: string | null | undefined) =>
@@ -86,7 +87,7 @@ export default function PayoutsTab() {
             onClick={() => setShowGenerate(true)}
             className="px-3 py-2 rounded-lg bg-brand-primary hover:bg-brand-primaryDark text-white text-xs font-semibold inline-flex items-center gap-1.5"
           >
-            <Plus className="w-3.5 h-3.5" /> Generate payout
+            <Plus className="w-3.5 h-3.5" /> Record payout
           </button>
         </div>
       </div>
@@ -144,7 +145,7 @@ export default function PayoutsTab() {
             {statusFilter === "pending" ? "No payouts pending" : "No payouts match"}
           </p>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Click <strong>Generate payout</strong> to create one for a partner based on their completed bookings.
+            Click <strong>Record payout</strong> to log a direct payment you've sent to a partner.
           </p>
         </div>
       ) : (
@@ -208,111 +209,192 @@ function PayoutRow({ payout, onOpen }: { payout: AdminPayoutRow; onOpen: () => v
 
 function GeneratePayoutModal({ onClose }: { onClose: () => void }) {
   // useGetPartnersQuery returns { success, data: Partner[], count } — unwrap to the array
-  const { data: partnersResp } = useGetPartnersQuery();
+  const { data: partnersResp, isLoading: partnersLoading, error: partnersError } = useGetPartnersQuery();
   const partners = Array.isArray(partnersResp?.data) ? partnersResp.data : [];
   const [partnerId, setPartnerId] = useState("");
-  const [cycleStart, setCycleStart] = useState(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 14);
-    return d.toISOString().slice(0, 10);
-  });
-  const [cycleEnd, setCycleEnd] = useState(() => new Date().toISOString().slice(0, 10));
-  const [scheduledDate, setScheduledDate] = useState("");
+  const [amount, setAmount] = useState("");
+  const [paymentDate, setPaymentDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [paymentMethod, setPaymentMethod] = useState("gcash");
   const [paymentDestination, setPaymentDestination] = useState("");
-  const [deductionLabel, setDeductionLabel] = useState("");
-  const [deductionAmount, setDeductionAmount] = useState("");
-  const [deductions, setDeductions] = useState<Array<{ label: string; amount: number }>>([]);
+  const [referenceNumber, setReferenceNumber] = useState("");
+  const [notes, setNotes] = useState("");
+  // Single primary receipt image.
+  const [proofFile, setProofFile] = useState<File | null>(null);
+  // Additional evidence (multi-file, uploaded after payout creation).
+  const [pendingAttachments, setPendingAttachments] = useState<Array<{ label: string; file: File }>>([]);
+  const [attachmentLabel, setAttachmentLabel] = useState("");
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
+  const [uploadingAttachments, setUploadingAttachments] = useState(false);
   const [generate, { isLoading }] = useGeneratePayoutMutation();
 
-  const partnerList: Array<{ id: string; label: string }> = (partners as Array<{
-    id?: string; uuid_id?: string; partner_email?: string; partner_fullname?: string; fullname?: string;
-  }>).map((p) => ({
-    id: String(p.id || p.uuid_id || ""),
-    label: `${p.partner_fullname || p.fullname || p.partner_email || "Partner"}`,
-  })).filter((p) => p.id);
+  // The /api/admin/partners endpoint returns rows with `email` and `fullname`
+  // (not partner_email / partner_fullname). Fall back through all the variants
+  // so we still get a sensible label whichever shape the backend ever returns.
+  const partnerList: Array<{ id: string; label: string }> = (
+    partners as Array<{
+      id?: string;
+      uuid_id?: string;
+      email?: string;
+      partner_email?: string;
+      fullname?: string;
+      partner_fullname?: string;
+    }>
+  )
+    .map((p) => {
+      const id = String(p.id || p.uuid_id || "");
+      const name = p.fullname || p.partner_fullname || "";
+      const email = p.email || p.partner_email || "";
+      const label = name && email ? `${name} (${email})` : name || email || "Partner";
+      return { id, label };
+    })
+    .filter((p) => p.id);
 
-  const addDeduction = () => {
-    const amt = parseFloat(deductionAmount);
-    if (!deductionLabel.trim() || isNaN(amt) || amt <= 0) {
-      toast.error("Enter a label and positive amount");
+  const addAttachment = () => {
+    if (!attachmentLabel.trim()) {
+      toast.error("Add a label for the attachment first");
       return;
     }
-    setDeductions((prev) => [...prev, { label: deductionLabel.trim(), amount: amt }]);
-    setDeductionLabel("");
-    setDeductionAmount("");
+    if (!attachmentFile) {
+      toast.error("Pick a file to attach");
+      return;
+    }
+    if (attachmentFile.size > 10 * 1024 * 1024) {
+      toast.error(`"${attachmentFile.name}" is larger than 10 MB`);
+      return;
+    }
+    setPendingAttachments((prev) => [...prev, { label: attachmentLabel.trim(), file: attachmentFile }]);
+    setAttachmentLabel("");
+    setAttachmentFile(null);
   };
 
   const submit = async () => {
     if (!partnerId) return toast.error("Select a partner");
-    if (!cycleStart || !cycleEnd) return toast.error("Pick a date range");
+    const amt = parseFloat(amount);
+    if (!Number.isFinite(amt) || amt <= 0) return toast.error("Enter a positive amount");
+    if (!paymentDate) return toast.error("Pick a payment date");
     try {
-      await generate({
+      const proofDataUrl = proofFile
+        ? await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = () => reject(reader.error);
+            reader.readAsDataURL(proofFile);
+          })
+        : undefined;
+      const created = (await generate({
         partner_id: partnerId,
-        cycle_start: cycleStart,
-        cycle_end: cycleEnd,
-        scheduled_date: scheduledDate || undefined,
+        amount: amt,
+        payment_date: paymentDate,
         payment_method: paymentMethod || undefined,
         payment_destination: paymentDestination || undefined,
-        deductions,
-      }).unwrap();
-      toast.success("Payout generated");
+        reference_number: referenceNumber || undefined,
+        proof_data_url: proofDataUrl,
+        notes: notes || undefined,
+      }).unwrap()) as { id?: string; data?: { id?: string } } | undefined;
+      const newPayoutId =
+        (created as { id?: string })?.id || (created as { data?: { id?: string } })?.data?.id || null;
+
+      // Upload any queued evidence files to the freshly-created payout.
+      if (newPayoutId && pendingAttachments.length > 0) {
+        setUploadingAttachments(true);
+        let ok = 0;
+        let failed = 0;
+        for (const a of pendingAttachments) {
+          try {
+            const dataUrl = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(reader.result as string);
+              reader.onerror = () => reject(reader.error);
+              reader.readAsDataURL(a.file);
+            });
+            const r = await fetch(`/api/admin/partner-payouts/${newPayoutId}/attachments`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                label: a.label,
+                file_data_url: dataUrl,
+                mime_type: a.file.type || null,
+                file_size_bytes: a.file.size,
+              }),
+            });
+            if (!r.ok) throw new Error(await r.text().catch(() => ""));
+            ok++;
+          } catch {
+            failed++;
+          }
+        }
+        setUploadingAttachments(false);
+        if (failed > 0) {
+          toast.success(`Payment recorded. ${ok}/${pendingAttachments.length} attachment(s) uploaded.`);
+        } else {
+          toast.success(`Payment recorded with ${ok} attachment(s)`);
+        }
+      } else {
+        toast.success("Payment recorded");
+      }
       onClose();
     } catch (err) {
-      const msg = (err as { data?: { error?: string } })?.data?.error || "Generate failed";
+      const msg = (err as { data?: { error?: string } })?.data?.error || "Failed to record payment";
       toast.error(msg);
     }
   };
 
   return (
-    <ModalShell title="Generate payout" onClose={onClose}>
+    <ModalShell title="Record payout" onClose={onClose}>
       <div className="space-y-4">
-        <Field label="Partner">
+        <Field label={`Partner${partnerList.length ? ` (${partnerList.length} available)` : ""}`}>
           <select
             value={partnerId}
             onChange={(e) => setPartnerId(e.target.value)}
+            disabled={partnersLoading || partnerList.length === 0}
             aria-label="Partner"
             title="Partner"
-            className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-lg outline-none focus:border-brand-primary text-sm"
+            className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-lg outline-none focus:border-brand-primary text-sm disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            <option value="">Select a partner…</option>
+            <option value="">
+              {partnersLoading
+                ? "Loading partners…"
+                : partnersError
+                  ? "Failed to load partners"
+                  : partnerList.length === 0
+                    ? "No partners found — create one in Partner Management first"
+                    : "Select a partner…"}
+            </option>
             {partnerList.map((p) => (
               <option key={p.id} value={p.id}>{p.label}</option>
             ))}
           </select>
+          {partnersError && (
+            <p className="text-[11px] text-rose-600 mt-1">
+              Could not load partners. Check your session role (Owner needed).
+            </p>
+          )}
         </Field>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Cycle start">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Field label="Amount (₱)">
             <input
-              type="date"
-              value={cycleStart}
-              onChange={(e) => setCycleStart(e.target.value)}
-              aria-label="Cycle start"
-              title="Cycle start"
-              className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-lg outline-none focus:border-brand-primary text-sm"
+              type="number"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="0.00"
+              min="0"
+              step="0.01"
+              aria-label="Amount"
+              className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-lg outline-none focus:border-brand-primary text-sm placeholder:text-gray-400"
             />
           </Field>
-          <Field label="Cycle end">
+          <Field label="Payment date">
             <input
               type="date"
-              value={cycleEnd}
-              onChange={(e) => setCycleEnd(e.target.value)}
-              aria-label="Cycle end"
-              title="Cycle end"
+              value={paymentDate}
+              onChange={(e) => setPaymentDate(e.target.value)}
+              aria-label="Payment date"
+              title="Payment date"
               className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-lg outline-none focus:border-brand-primary text-sm"
             />
           </Field>
         </div>
-        <Field label="Scheduled payout date (optional)">
-          <input
-            type="date"
-            value={scheduledDate}
-            onChange={(e) => setScheduledDate(e.target.value)}
-            aria-label="Scheduled date"
-            title="Scheduled date"
-            className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-lg outline-none focus:border-brand-primary text-sm"
-          />
-        </Field>
+
         <div className="grid grid-cols-[140px_1fr] gap-3">
           <Field label="Method">
             <select
@@ -325,9 +407,11 @@ function GeneratePayoutModal({ onClose }: { onClose: () => void }) {
               <option value="gcash">GCash</option>
               <option value="maya">Maya</option>
               <option value="bank">Bank Transfer</option>
+              <option value="cash">Cash</option>
+              <option value="other">Other</option>
             </select>
           </Field>
-          <Field label="Destination">
+          <Field label="Destination / account">
             <input
               type="text"
               value={paymentDestination}
@@ -338,51 +422,106 @@ function GeneratePayoutModal({ onClose }: { onClose: () => void }) {
           </Field>
         </div>
 
-        {/* Deductions */}
+        <Field label="Reference number (optional)">
+          <input
+            type="text"
+            value={referenceNumber}
+            onChange={(e) => setReferenceNumber(e.target.value)}
+            placeholder="GCash tx ID, bank ref, etc."
+            className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-lg outline-none focus:border-brand-primary text-sm placeholder:text-gray-400"
+          />
+        </Field>
+
+        <Field label="Receipt / proof of payment (image, optional)">
+          <label className="flex items-center gap-2 px-3 py-2 border border-dashed border-brand-primary/40 bg-brand-primary/5 hover:bg-brand-primary/10 rounded-lg text-brand-primary text-xs font-semibold cursor-pointer">
+            <Upload className="w-3.5 h-3.5" />
+            <span className="truncate">
+              {proofFile ? proofFile.name : "Upload receipt screenshot"}
+            </span>
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => setProofFile(e.target.files?.[0] || null)}
+            />
+          </label>
+        </Field>
+
+        <Field label="Notes (optional)">
+          <textarea
+            rows={2}
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Anything to record about this transfer"
+            className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-lg outline-none focus:border-brand-primary text-sm resize-none placeholder:text-gray-400"
+          />
+        </Field>
+
+        {/* Evidence attachments — queued here, uploaded to the new payout after creation. */}
         <div>
           <div className="text-xs uppercase font-semibold text-gray-500 dark:text-gray-400 mb-1.5">
-            Deductions (optional)
+            Evidence attachments (optional)
           </div>
+          <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-2">
+            Receipts, screenshots, bank confirmations — anything you want the partner to see on their Cost Breakdown.
+            Files upload after the payout is generated.
+          </p>
           <div className="space-y-2">
-            {deductions.map((d, i) => (
+            {pendingAttachments.map((a, i) => (
               <div key={i} className="flex items-center gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-900/40 rounded-lg border border-gray-200 dark:border-gray-700">
-                <span className="text-sm text-gray-700 dark:text-gray-200 flex-1">{d.label}</span>
-                <span className="text-sm font-mono text-red-600">− {peso(d.amount)}</span>
+                <Upload className="w-3.5 h-3.5 text-brand-primary flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-semibold text-gray-700 dark:text-gray-200 truncate">{a.label}</div>
+                  <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate">
+                    {a.file.name} · {(a.file.size / 1024).toFixed(1)} KB
+                  </div>
+                </div>
                 <button
                   type="button"
-                  onClick={() => setDeductions((prev) => prev.filter((_, j) => j !== i))}
+                  onClick={() =>
+                    setPendingAttachments((prev) => prev.filter((_, j) => j !== i))
+                  }
                   className="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded p-1"
-                  aria-label="Remove deduction"
-                  title="Remove deduction"
+                  aria-label="Remove attachment"
+                  title="Remove attachment"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
               </div>
             ))}
           </div>
-          <div className="flex gap-2 mt-2">
+          <div className="flex flex-col sm:flex-row gap-2 mt-2 items-stretch">
             <input
               type="text"
-              value={deductionLabel}
-              onChange={(e) => setDeductionLabel(e.target.value)}
-              placeholder="Damage / refund / penalty…"
-              aria-label="Deduction label"
+              value={attachmentLabel}
+              onChange={(e) => setAttachmentLabel(e.target.value)}
+              placeholder="Label (e.g. GCash receipt)"
+              aria-label="Attachment label"
               className="flex-1 px-3 py-2 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-lg outline-none focus:border-brand-primary text-sm placeholder:text-gray-400"
             />
-            <input
-              type="number"
-              value={deductionAmount}
-              onChange={(e) => setDeductionAmount(e.target.value)}
-              placeholder="Amount"
-              aria-label="Deduction amount"
-              min="0"
-              step="0.01"
-              className="w-[120px] px-3 py-2 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-lg outline-none focus:border-brand-primary text-sm placeholder:text-gray-400"
-            />
+            <label
+              className={`inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border cursor-pointer text-xs font-semibold transition ${
+                attachmentFile
+                  ? "bg-brand-primary/10 border-brand-primary/30 text-brand-primary"
+                  : "bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+              }`}
+            >
+              <Upload className="w-3.5 h-3.5" />
+              <span className="truncate max-w-[160px]">
+                {attachmentFile ? attachmentFile.name : "Choose file"}
+              </span>
+              <input
+                type="file"
+                className="hidden"
+                accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx"
+                onChange={(e) => setAttachmentFile(e.target.files?.[0] || null)}
+              />
+            </label>
             <button
               type="button"
-              onClick={addDeduction}
-              className="px-3 rounded-lg border border-brand-primary/40 text-brand-primary hover:bg-brand-primary/5 font-semibold text-xs"
+              onClick={addAttachment}
+              disabled={!attachmentLabel.trim() || !attachmentFile}
+              className="px-3 rounded-lg border border-brand-primary/40 text-brand-primary hover:bg-brand-primary/5 font-semibold text-xs disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Add
             </button>
@@ -394,11 +533,15 @@ function GeneratePayoutModal({ onClose }: { onClose: () => void }) {
         <button
           type="button"
           onClick={submit}
-          disabled={isLoading}
+          disabled={isLoading || uploadingAttachments}
           className="px-4 py-2 rounded-lg bg-brand-primary hover:bg-brand-primaryDark text-white font-semibold text-sm disabled:opacity-50 inline-flex items-center gap-1.5"
         >
-          {isLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
-          Generate
+          {(isLoading || uploadingAttachments) ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          ) : (
+            <Plus className="w-3.5 h-3.5" />
+          )}
+          {uploadingAttachments ? "Uploading files…" : "Record payout"}
         </button>
       </ModalFooter>
     </ModalShell>
@@ -451,9 +594,30 @@ function PayoutDetailModal({ id, onClose }: { id: string; onClose: () => void })
     }
   };
 
+  const partnerLabel = data.partner_fullname || data.partner_email || "Unknown partner";
+
   return (
-    <ModalShell title={`Payout · ${data.partner_fullname || data.partner_email}`} onClose={onClose} maxW="max-w-4xl">
+    <ModalShell title={`Payout · ${partnerLabel}`} onClose={onClose} maxW="max-w-4xl">
       <div className="space-y-4">
+        {/* Partner info card — always visible regardless of fullname/email state */}
+        <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gradient-to-br from-brand-primary/5 via-transparent to-transparent px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
+          <div className="min-w-0">
+            <div className="text-[10.5px] uppercase font-semibold text-gray-500 dark:text-gray-400 tracking-wide">
+              Partner
+            </div>
+            <div className="text-base font-bold text-gray-900 dark:text-white truncate">
+              {data.partner_fullname || "—"}
+            </div>
+            <div className="text-[11.5px] text-gray-500 dark:text-gray-400 truncate">
+              {data.partner_email || "no email on file"}
+              {data.partner_id ? ` · ID ${data.partner_id.slice(0, 8)}…` : ""}
+            </div>
+          </div>
+          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold ${meta.bg} ${meta.text}`}>
+            <meta.Icon className="w-3 h-3" /> {meta.label}
+          </span>
+        </div>
+
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
             <div className="text-xs uppercase font-semibold text-gray-500">Cycle</div>
@@ -461,9 +625,6 @@ function PayoutDetailModal({ id, onClose }: { id: string; onClose: () => void })
               {fmtDate(data.cycle_start)} → {fmtDate(data.cycle_end)}
             </div>
           </div>
-          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold ${meta.bg} ${meta.text}`}>
-            <meta.Icon className="w-3 h-3" /> {meta.label}
-          </span>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-3 bg-gray-50 dark:bg-gray-900/40 rounded-xl">
@@ -510,6 +671,20 @@ function PayoutDetailModal({ id, onClose }: { id: string; onClose: () => void })
           </div>
         </div>
 
+        {/* Multi-file evidence gallery — receipts, GCash confirmations, etc.
+            Moved up here so it's visible above the fold. */}
+        <div>
+          <div className="text-[11.5px] font-semibold text-gray-600 dark:text-gray-300 mb-1.5 uppercase tracking-wide">
+            Evidence attachments
+          </div>
+          <DocumentsManager
+            listEndpoint={`/api/admin/partner-payouts/${id}/attachments`}
+            deleteUrlBuilder={(d) => `/api/admin/payout-attachments/${d.id}`}
+            title="Receipts, screenshots & confirmations"
+            subtitle="Attach as many evidence files as you like. Visible to the partner on their Cost Breakdown."
+          />
+        </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Field label="Reference number (e.g. GCash tx ID)">
             <input
@@ -553,6 +728,7 @@ function PayoutDetailModal({ id, onClose }: { id: string; onClose: () => void })
             className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-lg outline-none focus:border-brand-primary text-sm resize-none placeholder:text-gray-400"
           />
         </Field>
+
       </div>
 
       <ModalFooter onClose={onClose}>

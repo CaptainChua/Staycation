@@ -15,13 +15,16 @@ export interface AdminPayoutDetail extends AdminPayoutRow {
 }
 
 export interface GeneratePayoutBody {
+  // Direct payment record — no booking derivation. Just what the owner
+  // actually transferred to the partner.
   partner_id: string;
-  cycle_start: string;   // YYYY-MM-DD
-  cycle_end: string;
-  scheduled_date?: string;
+  amount: number;
+  payment_date: string;          // YYYY-MM-DD
   payment_method?: string;
   payment_destination?: string;
-  deductions?: Array<{ label: string; amount: number }>;
+  reference_number?: string;
+  proof_data_url?: string;       // single primary receipt (data URL)
+  notes?: string;
 }
 
 export interface UpdatePayoutBody {

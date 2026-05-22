@@ -22,7 +22,7 @@ import { useGetAllAdminRoomsQuery, useDeleteHavenMutation } from "@/redux/api/ro
 import EditHavenModal from "./Modals/EditHavenModal";
 import DeleteHavenModal from "./Modals/DeleteHavenModal";
 import BookingModalSetting from "./Modals/BookingModalSetting";
-import RentableItemsModal from "./Modals/RentableItemsModal";
+import AddOnsModal from "./Modals/AddOnsModal";
 import toast from 'react-hot-toast';
 
 interface HavenUnit {
@@ -58,7 +58,7 @@ const ViewAllUnits = ({ onAddUnitClick, hideHeader = false }: ViewAllUnitsProps)
   const [isEditHavnModal, setIsEditOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isBookingSettingsOpen, setIsBookingSettingsOpen] = useState(false);
-  const [isRentableModalOpen, setIsRentableModalOpen] = useState(false);
+  const [isAddOnsModalOpen, setIsAddOnsModalOpen] = useState(false);
   const [selectedHaven, setSelectedHaven] = useState<HavenUnit | null>(null);
 
   // RTK Query call
@@ -136,9 +136,9 @@ const ViewAllUnits = ({ onAddUnitClick, hideHeader = false }: ViewAllUnitsProps)
     setIsBookingSettingsOpen(true);
   };
 
-  const handleRentableItems = (unit: HavenUnit) => {
+  const handleAddOns = (unit: HavenUnit) => {
     setSelectedHaven(unit);
-    setIsRentableModalOpen(true);
+    setIsAddOnsModalOpen(true);
   };
 
   const handleDeleteClick = (unit: HavenUnit) => {
@@ -395,9 +395,9 @@ const ViewAllUnits = ({ onAddUnitClick, hideHeader = false }: ViewAllUnitsProps)
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleRentableItems(unit)}
+                          onClick={() => handleAddOns(unit)}
                           className="p-2 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded-lg transition-colors"
-                          title="Rentable Items (Pamphlet)"
+                          title="Add-ons (Pamphlet)"
                         >
                           <Tag className="w-4 h-4" />
                         </button>
@@ -523,10 +523,10 @@ const ViewAllUnits = ({ onAddUnitClick, hideHeader = false }: ViewAllUnitsProps)
           initialHavenId={selectedHaven.uuid_id}
         />
       )}
-      {isRentableModalOpen && selectedHaven && (
-        <RentableItemsModal
+      {isAddOnsModalOpen && selectedHaven && (
+        <AddOnsModal
           isOpen={true}
-          onClose={() => { setIsRentableModalOpen(false); setSelectedHaven(null); }}
+          onClose={() => { setIsAddOnsModalOpen(false); setSelectedHaven(null); }}
           havenId={selectedHaven.uuid_id || ""}
           havenName={selectedHaven.haven_name}
         />

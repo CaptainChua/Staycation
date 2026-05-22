@@ -10,6 +10,7 @@ import {
   useGetMyBookingsQuery,
 } from "@/redux/api/partnerSelfApi";
 import type { PartnerPayout, PartnerBooking } from "@/redux/api/partnerSelfApi";
+import DocumentsManager from "@/Components/admin/Owners/Modals/DocumentsManager";
 
 // Status pill styling — mirrors the old Recent Bookings table from AnalyticsPage.
 const STATUS_MAP: Record<string, string> = {
@@ -79,8 +80,13 @@ export default function CostBreakdownPage({ onNavigate }: CostBreakdownPageProps
   const { data: analytics } = useGetMyAnalyticsQuery();
   const { data: listings = [] } = useGetMyListingsQuery();
   // Same source the Analytics "Recent bookings" table used to use.
-  const { data: bookings = [], isLoading: bookingsLoading } = useGetMyBookingsQuery({ limit: 50 });
-  const guestDetailsVisible = bookings.length === 0 ? true : (bookings[0].guest_details_visible ?? true);
+  // Poll every 15s so owner-side visibility toggles propagate without a manual refresh.
+  const { data: bookings = [], isLoading: bookingsLoading } = useGetMyBookingsQuery(
+    { limit: 50 },
+    { pollingInterval: 15000 }
+  );
+  // Visibility is decided per-row via b.guest_details_visible (computed server-side
+  // from booking.show_guest_details_override ?? partner-level default).
 
   const commissionRatePct = payoutData?.commission_rate ?? 12;
   const commissionRate = commissionRatePct / 100;
@@ -599,8 +605,15 @@ export default function CostBreakdownPage({ onNavigate }: CostBreakdownPageProps
                                   Guest name
                                 </div>
                                 <div className="text-[14px] text-[#111827] font-medium">
-                                  {guestDetailsVisible ? (
-                                    fullName || <span className="text-[#9CA3AF]">—</span>
+                                  {/* Per-row: honor this specific booking's flag. */}
+                                  {(b.guest_details_visible ?? true) ? (
+                                    fullName ? (
+                                      fullName
+                                    ) : (
+                                      <span className="text-[12px] text-[#9CA3AF] italic">
+                                        No guest name on file
+                                      </span>
+                                    )
                                   ) : (
                                     <span className="inline-flex items-center gap-1 text-[12px] text-[#92400e] bg-[#fef3c7] px-2 py-0.5 rounded-full">
                                       <EyeOff className="w-3 h-3" /> Hidden by admin
@@ -1022,6 +1035,16 @@ function PayoutRow({
               <ExternalLink className="w-3.5 h-3.5" /> View proof of payment
             </a>
           )}
+
+          {/* Multi-file evidence — receipts, screenshots, confirmations the
+              owner attached for this specific payout. Read-only on partner side. */}
+          <DocumentsManager
+            listEndpoint={`/api/partners/me/payouts/${payout.id}/attachments`}
+            deleteUrlBuilder={() => ""}
+            title="Evidence attachments"
+            subtitle="Receipts, GCash screenshots, and other proofs the owner attached."
+            readOnly
+          />
 
           {/* Line items */}
           {items.length > 0 && (
