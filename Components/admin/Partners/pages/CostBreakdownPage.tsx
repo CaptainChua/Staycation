@@ -74,6 +74,8 @@ export default function CostBreakdownPage({ onNavigate }: CostBreakdownPageProps
   const [customTo, setCustomTo] = useState<string>("");
   // Which booking row in the date-range card is currently expanded.
   const [expandedBookingId, setExpandedBookingId] = useState<string | null>(null);
+  // Whether the "What do these statuses mean?" explainer is open above the bookings table.
+  const [showStatusLegend, setShowStatusLegend] = useState<boolean>(false);
   const { data: payoutData } = useGetMyPayoutsQuery();
   const { data: earningsData, isLoading: earningsLoading } = useGetMyEarningsQuery();
   const { data: analytics } = useGetMyAnalyticsQuery();
@@ -439,6 +441,47 @@ export default function CostBreakdownPage({ onNavigate }: CostBreakdownPageProps
           the selected window.
         </p>
 
+        {/* Status legend — collapsible explainer for the Status column below */}
+        <div className="mb-4 border border-[#e5e7eb] rounded-[10px] overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setShowStatusLegend((v) => !v)}
+            aria-expanded={showStatusLegend}
+            className="w-full flex items-center gap-2 px-3.5 py-2.5 text-left bg-[#f9fafb] hover:bg-[#f3f4f6] transition"
+          >
+            <ChevronDown
+              className={`w-4 h-4 text-[#6B7280] transition-transform ${showStatusLegend ? "rotate-180" : ""}`}
+            />
+            <span className="text-[12.5px] font-semibold text-[#374151]">
+              What do these statuses mean?
+            </span>
+          </button>
+          {showStatusLegend && (
+            <div className="px-4 py-3.5 bg-white border-t border-[#e5e7eb] grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-5 gap-y-3">
+              {[
+                { label: "Pending", chip: "bg-[#fef3c7] text-[#92400e]", text: "Guest submitted booking but down payment is not yet approved by CSR." },
+                { label: "Approved", chip: "bg-[#dbeafe] text-[#2563eb]", text: "Down payment was approved by CSR. Guest is expected to check in." },
+                { label: "Confirmed", chip: "bg-[#dbeafe] text-[#2563eb]", text: "Booking is confirmed and locked in." },
+                { label: "On-going", chip: "bg-[#dcfce7] text-[#16a34a]", text: "Guest's stay is currently in progress." },
+                { label: "Checked-in", chip: "bg-[#f3e8ff] text-[#9333ea]", text: "Guest has arrived and checked in to the haven." },
+                { label: "Checked-out", chip: "bg-[#f3e8ff] text-[#9333ea]", text: "Guest has finished the stay. Awaiting final payment / deposit return." },
+                { label: "Completed", chip: "bg-[#dcfce7] text-[#16a34a]", text: "Booking is fully complete — all payments settled, deposit handled." },
+                { label: "Cancelled", chip: "bg-[#fee2e2] text-[#dc2626]", text: "Booking was cancelled before check-in." },
+                { label: "Rejected", chip: "bg-[#fee2e2] text-[#dc2626]", text: "CSR rejected the booking. Guest will be refunded if applicable." },
+                { label: "Declined", chip: "bg-[#fee2e2] text-[#dc2626]", text: "CSR declined the booking request." },
+              ].map((s) => (
+                <div key={s.label} className="flex items-start gap-2.5">
+                  <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold flex-shrink-0 mt-0.5 ${s.chip}`}>
+                    <span className="w-1.5 h-1.5 rounded-full bg-current opacity-90" />
+                    {s.label}
+                  </span>
+                  <p className="text-[12px] text-[#374151] leading-snug">{s.text}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* Filter chips */}
         <div className="flex flex-wrap items-center gap-2 mb-4">
           {([
@@ -471,6 +514,8 @@ export default function CostBreakdownPage({ onNavigate }: CostBreakdownPageProps
                 type="date"
                 value={customFrom}
                 onChange={(e) => setCustomFrom(e.target.value)}
+                aria-label="Custom range start date"
+                title="Custom range start date"
                 className="px-2 py-1 text-[12px] border border-[#d1d5db] rounded-[8px] bg-white text-[#111827]"
               />
               <span className="text-[12px] text-[#6B7280]">→</span>
@@ -478,6 +523,8 @@ export default function CostBreakdownPage({ onNavigate }: CostBreakdownPageProps
                 type="date"
                 value={customTo}
                 onChange={(e) => setCustomTo(e.target.value)}
+                aria-label="Custom range end date"
+                title="Custom range end date"
                 className="px-2 py-1 text-[12px] border border-[#d1d5db] rounded-[8px] bg-white text-[#111827]"
               />
             </div>

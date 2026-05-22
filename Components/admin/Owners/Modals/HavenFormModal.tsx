@@ -2,9 +2,9 @@
 
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { 
+import {
   X, Home, DollarSign, Clock, FileText, Star,
-  Image as ImageIcon, Images, Youtube, CheckCircle2, AlertCircle, Circle 
+  Image as ImageIcon, Images, Youtube, CheckCircle2, AlertCircle, Circle, Package
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCreateHavenMutation, useUpdateHavenMutation } from "@/redux/api/roomApi";
@@ -16,6 +16,7 @@ import PricingManagementModal, { type RateEntry } from "./PricingManagementModal
 import CheckInTimeSettingsModal from "./CheckInTimeSettingsModal";
 import HavenDetailsModal from "./HavenDetailsModal";
 import AmenitiesModal from "./AmenitiesModal";
+import AddOnsManagementModal from "./AddOnsManagementModal";
 import HavenImagesModal from "./HavenImagesModal";
 import PhotoTourManagementModal, { getDynamicRequiredPhotoCategories, ALWAYS_REQUIRED_PHOTO_CATEGORIES } from "./PhotoTourManagementModal";
 import YouTubeVideoModal from "./YouTubeVideoModal";
@@ -163,6 +164,7 @@ const STEPS: Step[] = [
   { id: 'checkin', label: 'Check-in', description: 'Time settings', icon: Clock, component: CheckInTimeSettingsModal, validationSchema: checkInSchema },
   { id: 'details', label: 'Details', description: 'Capacity, beds, size', icon: FileText, component: HavenDetailsModal, validationSchema: detailsSchema },
   { id: 'amenities', label: 'Amenities', description: 'Features list', icon: Star, component: AmenitiesModal }, // Validation handled internally
+  { id: 'addons', label: 'Add-ons', description: 'Rentable extras for guests', icon: Package, component: AddOnsManagementModal }, // Validation handled internally
   { id: 'images', label: 'Images', description: 'Gallery photos', icon: ImageIcon, component: HavenImagesModal, validationSchema: imagesSchema },
   { id: 'phototour', label: 'Photo Tour', description: 'Categorized photos', icon: Images, component: PhotoTourManagementModal }, // Validation handled internally
   { id: 'youtube', label: 'Video', description: 'YouTube URL', icon: Youtube, component: YouTubeVideoModal }, // Validation handled internally
@@ -943,6 +945,7 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
                             step.id === 'checkin' ? checkInInitialData :
                             step.id === 'details' ? detailsInitialData :
                             step.id === 'amenities' ? amenitiesInitialData :
+                            step.id === 'addons' ? { uuid_id: (initialData as { uuid_id?: string } | null | undefined)?.uuid_id } :
                             step.id === 'images' ? imagesInitialData :
                             step.id === 'phototour' ? photoTourInitialData :
                             step.id === 'youtube' ? formData.youtubeUrl :

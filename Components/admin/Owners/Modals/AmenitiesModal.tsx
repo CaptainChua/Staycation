@@ -62,7 +62,7 @@ const AMENITIES_LIST: AmenityItem[] = [
 
 // Auto-detect icon based on amenity name keywords.
 // Brand-specific keywords are matched FIRST (more specific than generic ones).
-const ICON_KEYWORDS: Array<{ keys: string[]; iconKey: string; icon: React.ElementType }> = [
+export const ICON_KEYWORDS: Array<{ keys: string[]; iconKey: string; icon: React.ElementType }> = [
   // ---- Brand-specific ----
   // Inline SVGs for Microsoft/Nintendo (not in Simple Icons due to trademark)
   { keys: ["xbox"], iconKey: "xbox", icon: XboxIcon },
@@ -119,14 +119,14 @@ const ICON_KEYWORDS: Array<{ keys: string[]; iconKey: string; icon: React.Elemen
   { keys: ["power", "charger", "outlet"], iconKey: "power", icon: Zap },
 ];
 
-const ICON_BY_KEY: Record<string, React.ElementType> = ICON_KEYWORDS.reduce(
+export const ICON_BY_KEY: Record<string, React.ElementType> = ICON_KEYWORDS.reduce(
   (acc, entry) => ({ ...acc, [entry.iconKey]: entry.icon }),
   { default: Sparkles } as Record<string, React.ElementType>
 );
 
 // Curated list of all icons the partner can pick manually (in addition to keyword auto-detect).
 // Ordered roughly by category for the picker UI.
-const ICON_OPTIONS: Array<{ key: string; label: string; icon: React.ElementType; group: string }> = [
+export const ICON_OPTIONS: Array<{ key: string; label: string; icon: React.ElementType; group: string }> = [
   // Brand — Gaming
   { key: "xbox", label: "Xbox", icon: XboxIcon, group: "Gaming" },
   { key: "switch", label: "Nintendo Switch", icon: NintendoSwitchIcon, group: "Gaming" },
@@ -185,7 +185,7 @@ const ICON_OPTIONS: Array<{ key: string; label: string; icon: React.ElementType;
   { key: "default", label: "Generic", icon: Sparkles, group: "Other" },
 ];
 
-const pickIconForLabel = (label: string): { icon: React.ElementType; iconKey: string } => {
+export const pickIconForLabel = (label: string): { icon: React.ElementType; iconKey: string } => {
   const lower = label.toLowerCase();
   for (const entry of ICON_KEYWORDS) {
     if (entry.keys.some((k) => lower.includes(k))) {
@@ -217,7 +217,7 @@ interface CustomAmenityMeta {
 
 // Resize an uploaded image to a square dataURL (default 96x96, PNG).
 // Keeps the result tiny enough to safely store in JSONB.
-const fileToResizedDataUrl = (file: File, size = 96): Promise<string> =>
+export const fileToResizedDataUrl = (file: File, size = 96): Promise<string> =>
   new Promise((resolve, reject) => {
     if (!file.type.startsWith("image/")) {
       reject(new Error("Please choose an image file"));

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { Search, Download, Plus, Edit, Eye, Info, Home, Map, Star, Loader2, X, Users, Bed, Ruler, Calendar, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Search, Download, Plus, Edit, Eye, Info, Home, Map, Star, Loader2, X, Users, Bed, Ruler, Calendar, AlertCircle, CheckCircle2, Clock, MapPin, Percent, Youtube, Image as ImageIcon, ExternalLink } from "lucide-react";
 import Image from "next/image";
 import toast from "react-hot-toast";
 import HavenFormModal from "@/Components/admin/Owners/Modals/HavenFormModal";
@@ -10,6 +10,42 @@ import { useGetMyListingsQuery, PartnerListing } from "@/redux/api/partnerSelfAp
 
 const fontFraunces = "font-[var(--font-fraunces),Georgia,serif]";
 const peso = (n: number) => "₱" + (n || 0).toLocaleString("en-PH");
+
+// Built-in amenity keys → human labels (extra/custom amenities fall back to the raw key).
+const AMENITY_LABELS: Record<string, string> = {
+  wifi: "WiFi",
+  airConditioning: "Air conditioning",
+  poolAccess: "Pool access",
+  netflix: "Netflix",
+  kitchen: "Kitchen",
+  parking: "Parking",
+  ps4: "PS4",
+  balcony: "Balcony",
+  washerDryer: "Washer / Dryer",
+  glowBed: "Glow Bed",
+  tv: "TV",
+  towels: "Towels",
+};
+
+const prettifyAmenityKey = (k: string): string =>
+  AMENITY_LABELS[k] || k.replace(/[_-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+
+// Convert a YouTube watch/share URL into its /embed/ form. Returns null on parse failure.
+const ytEmbedUrl = (url: string): string | null => {
+  if (!url) return null;
+  try {
+    const u = new URL(url);
+    if (u.hostname === "youtu.be") return `https://www.youtube.com/embed/${u.pathname.slice(1)}`;
+    if (u.hostname.endsWith("youtube.com")) {
+      if (u.pathname.startsWith("/embed/")) return url;
+      const v = u.searchParams.get("v");
+      if (v) return `https://www.youtube.com/embed/${v}`;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+};
 
 interface Room {
   id: string;
@@ -499,6 +535,30 @@ function ViewDetailsModal({ room, onClose }: ViewDetailsModalProps) {
   const cancellationPolicy = (raw.cancellation_policy as string) || "";
   const rejectionReason = raw.rejection_reason as string | undefined;
   const reviewerNotes = raw.reviewer_notes as string | undefined;
+
+  // Newly surfaced fields
+  const amenitiesMap = (raw.amenities as Record<string, unknown> | undefined) || {};
+  const activeAmenities = Object.entries(amenitiesMap)
+    .filter(([k, v]) => k !== "_custom" && v === true)
+    .map(([k]) => prettifyAmenityKey(k));
+  const allImages = (raw.images as Array<{ id?: string; image_url?: string; is_main?: boolean }> | undefined) || [];
+  const galleryImages = allImages.filter((i) => i?.image_url && i.image_url !== room.imageUrl);
+  const photoTours = (raw.photo_tours as Array<{ id?: string; category?: string; image_url?: string }> | undefined) || [];
+  const photoTourGroups: Record<string, string[]> = {};
+  photoTours.forEach((pt) => {
+    if (!pt?.category || !pt.image_url) return;
+    (photoTourGroups[pt.category] ||= []).push(pt.image_url);
+  });
+  const checkInBuckets: Array<{ label: string; check_in: string; check_out: string }> = [
+    { label: "6-hour stay", check_in: (raw.six_hour_check_in as string) || "", check_out: (raw.six_hour_check_out as string) || "" },
+    { label: "10-hour stay", check_in: (raw.ten_hour_check_in as string) || "", check_out: (raw.ten_hour_check_out as string) || "" },
+    { label: "21-hour stay", check_in: (raw.twenty_one_hour_check_in as string) || "", check_out: (raw.twenty_one_hour_check_out as string) || "" },
+  ].filter((b) => b.check_in || b.check_out);
+  const youtubeUrl = (raw.youtube_url as string) || "";
+  const youtubeEmbed = ytEmbedUrl(youtubeUrl);
+  const googleMapAddress = (raw.google_map_address as string) || "";
+  const virtualTourUrl = (raw.virtual_tour_url as string) || "";
+  const commissionRate = raw.commission_rate != null ? Number(raw.commission_rate) : null;
   const badge = STATUS_BADGES[room.status];
 
   // Lock background scroll while modal is open
@@ -569,6 +629,24 @@ function ViewDetailsModal({ room, onClose }: ViewDetailsModalProps) {
           ) : (
             <div className="h-64 rounded-2xl bg-[#f9fafb] border border-[#e5e7eb] grid place-items-center text-[#6B7280]">
               <Home className="w-16 h-16" />
+            </div>
+          )}
+
+          {/* Additional gallery images (anything beyond the cover) */}
+          {galleryImages.length > 0 && (
+            <div>
+              <h3 className={`text-[15px] mb-2 text-[#111827] font-medium flex items-center gap-2 ${fontFraunces}`}>
+                <ImageIcon className="w-4 h-4 text-brand-primary" /> Gallery ({galleryImages.length + 1} photos)
+              </h3>
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                {galleryImages.map((img, i) => (
+                  <div key={img.id || i} className="relative aspect-square rounded-xl overflow-hidden bg-[#f9fafb] border border-[#e5e7eb]">
+                    {img.image_url && (
+                      <Image src={img.image_url} alt={`${room.name} photo ${i + 2}`} fill sizes="180px" className="object-cover" />
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
@@ -688,6 +766,139 @@ function ViewDetailsModal({ room, onClose }: ViewDetailsModalProps) {
               <p className="text-sm text-[#374151] leading-relaxed whitespace-pre-wrap">
                 {description}
               </p>
+            </div>
+          )}
+
+          {/* Check-in / check-out times per rate bucket */}
+          {checkInBuckets.length > 0 && (
+            <div className="bg-[#f9fafb] border border-[#e5e7eb] rounded-2xl p-4">
+              <h3 className={`text-[15px] mb-3 text-[#111827] font-medium flex items-center gap-2 ${fontFraunces}`}>
+                <Clock className="w-4 h-4 text-brand-primary" /> Check-in &amp; check-out
+              </h3>
+              <div className="space-y-2">
+                {checkInBuckets.map((b) => (
+                  <div key={b.label} className="bg-white border border-[#e5e7eb] rounded-xl p-3 flex items-center justify-between gap-3">
+                    <p className="text-[12.5px] font-semibold text-[#111827]">{b.label}</p>
+                    <p className="text-sm text-[#374151] font-mono">
+                      {b.check_in || "—"} <span className="text-[#9CA3AF]">→</span> {b.check_out || "—"}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Amenities */}
+          {activeAmenities.length > 0 && (
+            <div className="bg-[#f9fafb] border border-[#e5e7eb] rounded-2xl p-4">
+              <h3 className={`text-[15px] mb-3 text-[#111827] font-medium flex items-center gap-2 ${fontFraunces}`}>
+                <Star className="w-4 h-4 text-brand-primary" /> Amenities ({activeAmenities.length})
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {activeAmenities.map((label) => (
+                  <span key={label} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] font-semibold bg-white border border-[#e5e7eb] text-[#374151]">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-[#16a34a]" />
+                    {label}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Photo tour by room category */}
+          {Object.keys(photoTourGroups).length > 0 && (
+            <div className="bg-[#f9fafb] border border-[#e5e7eb] rounded-2xl p-4">
+              <h3 className={`text-[15px] mb-3 text-[#111827] font-medium flex items-center gap-2 ${fontFraunces}`}>
+                <ImageIcon className="w-4 h-4 text-brand-primary" /> Photo tour
+              </h3>
+              <div className="space-y-4">
+                {Object.entries(photoTourGroups).map(([category, urls]) => (
+                  <div key={category}>
+                    <p className="text-[11px] uppercase tracking-wide font-semibold text-[#6B7280] mb-1.5">
+                      {category.replace(/[_-]+/g, " ")} ({urls.length})
+                    </p>
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                      {urls.map((url, i) => (
+                        <div key={`${category}-${i}`} className="relative aspect-square rounded-xl overflow-hidden bg-white border border-[#e5e7eb]">
+                          <Image src={url} alt={`${category} ${i + 1}`} fill sizes="180px" className="object-cover" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* YouTube video */}
+          {youtubeUrl && (
+            <div className="bg-[#f9fafb] border border-[#e5e7eb] rounded-2xl p-4">
+              <h3 className={`text-[15px] mb-3 text-[#111827] font-medium flex items-center gap-2 ${fontFraunces}`}>
+                <Youtube className="w-4 h-4 text-brand-primary" /> Video
+              </h3>
+              {youtubeEmbed ? (
+                <div className="relative w-full pt-[56.25%] rounded-xl overflow-hidden bg-black">
+                  <iframe
+                    src={youtubeEmbed}
+                    title={`${room.name} video`}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    className="absolute inset-0 w-full h-full"
+                  />
+                </div>
+              ) : (
+                <a href={youtubeUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-sm text-brand-primary hover:underline">
+                  {youtubeUrl} <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              )}
+            </div>
+          )}
+
+          {/* Location links + commission */}
+          {(googleMapAddress || virtualTourUrl || commissionRate != null) && (
+            <div className="bg-[#f9fafb] border border-[#e5e7eb] rounded-2xl p-4 space-y-3">
+              <h3 className={`text-[15px] text-[#111827] font-medium ${fontFraunces}`}>
+                More
+              </h3>
+              {googleMapAddress && (
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(googleMapAddress)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-start gap-2.5 bg-white border border-[#e5e7eb] rounded-xl p-3 hover:bg-[#f9fafb] transition"
+                >
+                  <MapPin className="w-4 h-4 text-brand-primary flex-shrink-0 mt-0.5" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10.5px] uppercase tracking-wide font-bold text-[#6B7280]">Google maps</p>
+                    <p className="text-sm text-[#374151] truncate">{googleMapAddress}</p>
+                  </div>
+                  <ExternalLink className="w-3.5 h-3.5 text-[#6B7280] flex-shrink-0 mt-1" />
+                </a>
+              )}
+              {virtualTourUrl && (
+                <a
+                  href={virtualTourUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-start gap-2.5 bg-white border border-[#e5e7eb] rounded-xl p-3 hover:bg-[#f9fafb] transition"
+                >
+                  <Eye className="w-4 h-4 text-brand-primary flex-shrink-0 mt-0.5" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10.5px] uppercase tracking-wide font-bold text-[#6B7280]">Virtual tour</p>
+                    <p className="text-sm text-[#374151] truncate">{virtualTourUrl}</p>
+                  </div>
+                  <ExternalLink className="w-3.5 h-3.5 text-[#6B7280] flex-shrink-0 mt-1" />
+                </a>
+              )}
+              {commissionRate != null && (
+                <div className="flex items-start gap-2.5 bg-white border border-[#e5e7eb] rounded-xl p-3">
+                  <Percent className="w-4 h-4 text-brand-primary flex-shrink-0 mt-0.5" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10.5px] uppercase tracking-wide font-bold text-[#6B7280]">Commission rate</p>
+                    <p className="text-sm text-[#374151]">{commissionRate}% of each booking</p>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

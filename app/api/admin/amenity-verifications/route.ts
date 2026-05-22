@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
          av.updated_at
        FROM haven_amenity_verifications av
        JOIN havens h ON h.uuid_id = av.haven_id
-       LEFT JOIN partners_account pa ON pa.id = h.partner_id
+       JOIN partners_account pa ON pa.id = h.partner_id
        LEFT JOIN partners_information pi ON pi.partner_id = h.partner_id
        ${whereClause}
        ORDER BY
@@ -76,9 +76,13 @@ export async function GET(req: NextRequest) {
       params
     );
 
-    // Pull counts for the admin badge UI
+    // Counts mirror the same partner filter so badges match what's visible.
     const counts = await pool.query(
-      `SELECT status, COUNT(*)::int AS count FROM haven_amenity_verifications GROUP BY status`
+      `SELECT av.status, COUNT(*)::int AS count
+       FROM haven_amenity_verifications av
+       JOIN havens h ON h.uuid_id = av.haven_id
+       JOIN partners_account pa ON pa.id = h.partner_id
+       GROUP BY av.status`
     );
     const countMap: Record<string, number> = {};
     counts.rows.forEach((r: { status: string; count: number }) => {

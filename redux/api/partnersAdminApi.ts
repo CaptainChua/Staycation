@@ -102,8 +102,8 @@ export const partnersAdminApi = createApi({
   baseQuery: fetchBaseQuery({ baseUrl: "/api/admin" }),
   tagTypes: ["Overview", "Listings", "Threads", "ThreadMessages"],
   endpoints: (builder) => ({
-    getPartnersOverview: builder.query<PartnersOverview, void>({
-      query: () => "/partners-overview",
+    getPartnersOverview: builder.query<PartnersOverview, { partner_id?: string } | void>({
+      query: (params) => ({ url: "/partners-overview", params: params || {} }),
       transformResponse: (res: ApiOk<PartnersOverview>) => res.data,
       providesTags: ["Overview"],
     }),

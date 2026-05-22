@@ -20,11 +20,19 @@ export async function GET() {
         h.room_size,
         h.beds,
         h.description,
+        h.youtube_url,
         h.weekday_rate,
         h.weekend_rate,
         h.ten_hour_rate,
         h.six_hour_rate,
         h.rates,
+        h.six_hour_check_in,
+        h.six_hour_check_out,
+        h.ten_hour_check_in,
+        h.ten_hour_check_out,
+        h.twenty_one_hour_check_in,
+        h.twenty_one_hour_check_out,
+        h.amenities,
         h.bathrooms,
         h.property_type,
         h.cleaning_fee,
@@ -59,6 +67,17 @@ export async function GET() {
           ),
           '[]'::json
         ) AS images,
+        COALESCE(
+          (
+            SELECT json_agg(
+              json_build_object('id', pt.id, 'category', pt.category, 'image_url', pt.image_url)
+              ORDER BY pt.category ASC, pt.display_order ASC
+            )
+            FROM photo_tour_images pt
+            WHERE pt.haven_id = h.uuid_id
+          ),
+          '[]'::json
+        ) AS photo_tours,
         (
           SELECT COUNT(*)::int
           FROM booking b

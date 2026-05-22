@@ -3594,7 +3594,35 @@ function MessagesTab() {
    DOCS & ANALYTICS TAB — real aggregated metrics
 ========================================= */
 function DocsAnalyticsTab() {
-  const { data: ov, isLoading } = useGetPartnersOverviewQuery();
+  const [selectedPartnerId, setSelectedPartnerId] = useState<string>("");
+  const { data: partnersResp } = useGetPartnersQuery();
+  const partnerList: Partner[] = partnersResp?.data || [];
+  const { data: listings = [] } = useGetPartnerListingsQuery();
+
+  // Build display labels: "Partner Name — Haven A, Haven B"
+  const partnerOptions = useMemo(() => {
+    const havensByPartner = new Map<string, string[]>();
+    for (const l of listings) {
+      if (!l.partner_id || !l.haven_name) continue;
+      const arr = havensByPartner.get(l.partner_id) || [];
+      if (!arr.includes(l.haven_name)) arr.push(l.haven_name);
+      havensByPartner.set(l.partner_id, arr);
+    }
+    return partnerList.map((p) => {
+      const name = p.fullname || p.email || p.id;
+      const havens = havensByPartner.get(p.id) || [];
+      const havensLabel = havens.length > 0 ? havens.join(", ") : "no listings";
+      return {
+        id: p.id,
+        label: `${name} — ${havensLabel}`,
+        name,
+      };
+    });
+  }, [partnerList, listings]);
+
+  const { data: ov, isLoading } = useGetPartnersOverviewQuery(
+    selectedPartnerId ? { partner_id: selectedPartnerId } : undefined
+  );
 
   if (isLoading) {
     return (
@@ -3617,11 +3645,31 @@ function DocsAnalyticsTab() {
 
   return (
     <div className="space-y-6">
-      {/* TOP NOTICE */}
-      <div className="border-l-4 border-l-indigo-500 bg-gray-100 dark:bg-[#1E1E1E] rounded-2xl px-5 py-4 border border-gray-200 dark:border-white/10">
+      {/* TOP NOTICE + PARTNER FILTER */}
+      <div className="border-l-4 border-l-indigo-500 bg-gray-100 dark:bg-[#1E1E1E] rounded-2xl px-5 py-4 border border-gray-200 dark:border-white/10 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <p className="text-sm md:text-base font-medium text-gray-700 dark:text-gray-300">
-          Aggregated metrics across all partner accounts. Updated live from the database.
+          {selectedPartnerId
+            ? `Showing metrics for ${partnerOptions.find((p) => p.id === selectedPartnerId)?.name || "selected partner"}.`
+            : "Aggregated metrics across all partner accounts. Updated live from the database."}
         </p>
+        <div className="flex items-center gap-2">
+          <label htmlFor="partner-filter" className="text-xs font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap">
+            View:
+          </label>
+          <select
+            id="partner-filter"
+            value={selectedPartnerId}
+            onChange={(e) => setSelectedPartnerId(e.target.value)}
+            aria-label="Filter by partner"
+            title="Filter by partner"
+            className="px-3 py-2 rounded-lg border border-gray-300 dark:border-white/10 bg-white dark:bg-[#262626] text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-400 min-w-[260px]"
+          >
+            <option value="">All Partners</option>
+            {partnerOptions.map((opt) => (
+              <option key={opt.id} value={opt.id}>{opt.label}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* REVENUE BREAKDOWN */}

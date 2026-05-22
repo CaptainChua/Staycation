@@ -142,7 +142,13 @@ export default function RentableItemsModal({ isOpen, onClose, havenId, havenName
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Rentable Items</h2>
             <p className="text-sm text-gray-500 dark:text-gray-400">{havenName}</p>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            title="Close"
+            className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+          >
             <X className="w-5 h-5 text-gray-500" />
           </button>
         </div>
@@ -210,6 +216,9 @@ export default function RentableItemsModal({ isOpen, onClose, havenId, havenName
                       type="text"
                       value={editForm.icon}
                       onChange={(e) => setEditForm((p) => ({ ...p, icon: e.target.value }))}
+                      placeholder="🛎️"
+                      aria-label="Icon emoji"
+                      title="Icon emoji"
                       className="w-12 px-1.5 py-1 text-center border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-sm"
                       maxLength={4}
                     />
@@ -217,20 +226,39 @@ export default function RentableItemsModal({ isOpen, onClose, havenId, havenName
                       type="text"
                       value={editForm.name}
                       onChange={(e) => setEditForm((p) => ({ ...p, name: e.target.value }))}
+                      placeholder="Item name"
+                      aria-label="Item name"
+                      title="Item name"
                       className="flex-1 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white"
                     />
                     <input
                       type="number"
                       value={editForm.price_per_night}
                       onChange={(e) => setEditForm((p) => ({ ...p, price_per_night: e.target.value }))}
+                      placeholder="₱/night"
+                      aria-label="Price per night"
+                      title="Price per night"
                       className="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white"
                       min="0"
                       step="0.01"
                     />
-                    <button onClick={() => handleUpdate(item.id)} disabled={saving} className="p-1.5 text-green-600 hover:text-green-700">
+                    <button
+                      type="button"
+                      onClick={() => handleUpdate(item.id)}
+                      disabled={saving}
+                      aria-label="Save changes"
+                      title="Save changes"
+                      className="p-1.5 text-green-600 hover:text-green-700"
+                    >
                       <Check className="w-4 h-4" />
                     </button>
-                    <button onClick={() => setEditingId(null)} className="p-1.5 text-gray-400 hover:text-gray-600">
+                    <button
+                      type="button"
+                      onClick={() => setEditingId(null)}
+                      aria-label="Cancel editing"
+                      title="Cancel editing"
+                      className="p-1.5 text-gray-400 hover:text-gray-600"
+                    >
                       <X className="w-4 h-4" />
                     </button>
                   </li>
@@ -241,10 +269,22 @@ export default function RentableItemsModal({ isOpen, onClose, havenId, havenName
                     <span className="text-sm font-medium text-amber-700 dark:text-amber-400">
                       ₱{Number(item.price_per_night).toLocaleString("en-PH", { minimumFractionDigits: 2 })}/night
                     </span>
-                    <button onClick={() => startEdit(item)} className="p-1.5 text-gray-400 hover:text-amber-600 transition-colors">
+                    <button
+                      type="button"
+                      onClick={() => startEdit(item)}
+                      aria-label={`Edit ${item.name}`}
+                      title="Edit"
+                      className="p-1.5 text-gray-400 hover:text-amber-600 transition-colors"
+                    >
                       <Pencil className="w-3.5 h-3.5" />
                     </button>
-                    <button onClick={() => handleDelete(item.id)} className="p-1.5 text-gray-400 hover:text-red-500 transition-colors">
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(item.id)}
+                      aria-label={`Delete ${item.name}`}
+                      title="Delete"
+                      className="p-1.5 text-gray-400 hover:text-red-500 transition-colors"
+                    >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </li>

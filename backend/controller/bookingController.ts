@@ -245,7 +245,21 @@ export const updateBookingDetails = async (
     await client.query(`DELETE FROM booking_add_ons WHERE booking_id = $1`, [
       id,
     ]);
-    if (add_ons && typeof add_ons === "object") {
+    // Accept two shapes:
+    //   1. Array<{ name, price, quantity }> — new per-haven rentable-items flow (price from the catalog).
+    //   2. Record<string, number> — legacy hardcoded add-on keys, priced from ADD_ON_PRICES.
+    if (Array.isArray(add_ons)) {
+      for (const item of add_ons as Array<{ name?: string; price?: number | string; quantity?: number | string }>) {
+        const quantityNum = Number(item?.quantity || 0);
+        if (quantityNum > 0) {
+          await client.query(
+            `INSERT INTO booking_add_ons (booking_id, name, price, quantity)
+             VALUES ($1, $2, $3, $4)`,
+            [id, String(item.name || ""), Number(item.price || 0), quantityNum],
+          );
+        }
+      }
+    } else if (add_ons && typeof add_ons === "object") {
       for (const [name, quantity] of Object.entries(add_ons)) {
         const quantityNum = Number(quantity);
         if (quantityNum > 0) {
@@ -753,21 +767,30 @@ export const createBooking = async (
     await client.query(depositQuery, depositValues);
 
     // Step 5: Create add-ons records
-    if (addOns && Object.keys(addOns).length > 0) {
+    // Accepts array form (per-haven rentable-items: name+price+quantity from the catalog)
+    // and legacy object form (hardcoded keys priced from ADD_ON_PRICES).
+    if (Array.isArray(addOns)) {
+      for (const item of addOns as Array<{ name?: string; price?: number | string; quantity?: number | string }>) {
+        const quantityNum = Number(item?.quantity || 0);
+        if (quantityNum > 0) {
+          await client.query(
+            `INSERT INTO booking_add_ons (booking_id, name, price, quantity)
+             VALUES ($1, $2, $3, $4)`,
+            [bookingId, String(item.name || ""), Number(item.price || 0), quantityNum],
+          );
+        }
+      }
+    } else if (addOns && Object.keys(addOns).length > 0) {
       for (const [name, quantity] of Object.entries(addOns)) {
         const quantityNum = Number(quantity);
         if (quantityNum > 0) {
           const addOnPrice =
             ADD_ON_PRICES[name as keyof typeof ADD_ON_PRICES] || 0;
-
-          const addOnQuery = `
-            INSERT INTO booking_add_ons (booking_id, name, price, quantity)
-            VALUES ($1, $2, $3, $4)
-          `;
-
-          const addOnValues = [bookingId, name, addOnPrice, quantityNum];
-
-          await client.query(addOnQuery, addOnValues);
+          await client.query(
+            `INSERT INTO booking_add_ons (booking_id, name, price, quantity)
+             VALUES ($1, $2, $3, $4)`,
+            [bookingId, name, addOnPrice, quantityNum],
+          );
         }
       }
     }

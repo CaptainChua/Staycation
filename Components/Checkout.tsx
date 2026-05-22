@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { ICON_BY_KEY, pickIconForLabel } from "@/Components/admin/Owners/Modals/AmenitiesModal";
 import { useAppSelector, useAppDispatch } from "@/redux/hooks";
 import { setCheckInDate, setCheckOutDate, setSelectedRoom, setGuests as setReduxGuests } from "@/redux/slices/bookingSlice";
 import { useRouter } from "next/navigation";
@@ -39,13 +40,30 @@ import DateRangePicker from "@/Components/HeroSection/DateRangePicker";
 import GuestSelector from "@/Components/HeroSection/GuestSelector";
 import { formatDateSafe } from "@/lib/dateUtils";
 
-interface AddOns {
-  poolPass: number;
-  towels: number;
-  bathRobe: number;
-  extraComforter: number;
-  guestKit: number;
-  extraSlippers: number;
+// Add-ons map: rentable_item.id (stringified) → quantity selected by guest
+type AddOns = Record<string, number>;
+
+interface RentableItem {
+  // Real catalog items have numeric IDs (from haven_rentable_items.id),
+  // inventory-sourced fallbacks have UUID strings, and pure hardcoded items
+  // use negative-number sentinels.
+  id: number | string;
+  haven_id: string;
+  name: string;
+  icon: string;
+  icon_url: string | null;
+  price_per_night: number | string;
+  is_active: boolean;
+}
+
+// Raw shape of an inventory row from /api/inventory.
+interface InventoryItem {
+  item_id: string;
+  item_name: string;
+  category: string;
+  current_stock: number;
+  price_per_unit: number | string | null;
+  status: "In Stock" | "Low Stock" | "Out of Stock";
 }
 
 interface Booking {
@@ -90,14 +108,25 @@ interface SessionUser {
   role?: string;
 }
 
-const ADD_ON_PRICES = {
-  poolPass: 100,
-  towels: 50,
-  bathRobe: 150,
-  extraComforter: 100,
-  guestKit: 75,
-  extraSlippers: 30,
-};
+// Items that aren't physical inventory (services, access passes, etc.) and
+// therefore never come from CSR's inventory table. Always appended to the
+// fallback list. Negative IDs are sentinels — they don't collide with real
+// DB rows or inventory UUIDs.
+const NON_INVENTORY_FALLBACK_ADD_ONS: RentableItem[] = [
+  { id: -1, haven_id: "", name: "Pool Pass", icon: "pool", icon_url: null, price_per_night: 100, is_active: true },
+];
+
+// Map an inventory row (CSR-managed) into the RentableItem shape that the
+// add-ons UI expects. Auto-picks an icon from the item name.
+const inventoryToRentableItem = (row: InventoryItem): RentableItem => ({
+  id: row.item_id,
+  haven_id: "",
+  name: row.item_name,
+  icon: pickIconForLabel(row.item_name).iconKey,
+  icon_url: null,
+  price_per_night: Number(row.price_per_unit) || 0,
+  is_active: row.status !== "Out of Stock",
+});
 
 const Checkout = () => {
   const router = useRouter();
@@ -283,14 +312,73 @@ const Checkout = () => {
     updated_at: string;
   }
 
-  const [addOns, setAddOns] = useState<AddOns>({
-    poolPass: 0,
-    towels: 0,
-    bathRobe: 0,
-    extraComforter: 0,
-    guestKit: 0,
-    extraSlippers: 0,
-  });
+  // Quantities are keyed by RentableItem.id (as string). Empty by default — populated as the guest taps +.
+  const [addOns, setAddOns] = useState<AddOns>({});
+
+  // Per-haven add-ons. Begins with just the non-inventory hardcoded items so
+  // the step never flashes empty; either the haven's own catalog or the
+  // inventory-driven fallback replaces this once the fetches resolve.
+  const [rentableItems, setRentableItems] = useState<RentableItem[]>(NON_INVENTORY_FALLBACK_ADD_ONS);
+  useEffect(() => {
+    const havenId = bookingData.selectedRoom?.id;
+    if (!havenId) {
+      setRentableItems(NON_INVENTORY_FALLBACK_ADD_ONS);
+      return;
+    }
+    let cancelled = false;
+    // Build the inventory-driven fallback list: CSR-curated "Add ons" items
+    // (in-stock only) plus the non-inventory extras like Pool Pass.
+    const buildInventoryFallback = async (): Promise<RentableItem[]> => {
+      try {
+        const invRes = await fetch(`/api/inventory`);
+        const invJson = await invRes.json();
+        if (!invJson?.success || !Array.isArray(invJson.data)) {
+          return NON_INVENTORY_FALLBACK_ADD_ONS;
+        }
+        const fromInventory = (invJson.data as InventoryItem[])
+          .filter(
+            (row) =>
+              row.category === "Add ons" &&
+              row.status !== "Out of Stock" &&
+              Number(row.current_stock) > 0,
+          )
+          .map(inventoryToRentableItem);
+        return [...NON_INVENTORY_FALLBACK_ADD_ONS, ...fromInventory];
+      } catch {
+        return NON_INVENTORY_FALLBACK_ADD_ONS;
+      }
+    };
+
+    fetch(`/api/haven/${havenId}/rentable-items`)
+      .then((r) => r.json())
+      .then(async (res) => {
+        if (cancelled) return;
+        const items = (res?.success && Array.isArray(res.data) ? res.data : []) as RentableItem[];
+        const isPartnerHaven = !!res?.haven_partner_id;
+
+        if (items.length > 0) {
+          // Partner-defined or owner-defined catalog exists for this haven — use it.
+          setRentableItems(items);
+        } else if (isPartnerHaven) {
+          // Partner haven with no catalog yet: do NOT show the inventory fallback —
+          // partners curate their own offering. Render the empty-state instead.
+          setRentableItems([]);
+        } else {
+          // Owner-direct haven with no catalog: fall back to inventory + non-inventory extras.
+          const fallback = await buildInventoryFallback();
+          if (!cancelled) setRentableItems(fallback);
+        }
+      })
+      .catch(async () => {
+        if (cancelled) return;
+        // On network error, be defensive: assume owner-direct and show the fallback.
+        const fallback = await buildInventoryFallback();
+        if (!cancelled) setRentableItems(fallback);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [bookingData.selectedRoom?.id]);
 
   // Auto-adjust dates based on stay type selection
   useEffect(() => {
@@ -537,9 +625,11 @@ const Checkout = () => {
     return bookingWindowTypes.filter(t => t.available_days.includes(checkInDayAbbr));
   }, [bookingWindowTypes, checkInDayAbbr]);
 
-  // Calculate add-ons total
-  const addOnsTotal = Object.entries(addOns).reduce((total, [key, quantity]) => {
-    return total + quantity * ADD_ON_PRICES[key as keyof AddOns];
+  // Calculate add-ons total from the per-haven rentable items list.
+  // Anything in addOns that doesn't match a known item is treated as removed.
+  const addOnsTotal = rentableItems.reduce((total, item) => {
+    const qty = Number(addOns[String(item.id)] || 0);
+    return total + qty * Number(item.price_per_night || 0);
   }, 0);
 
   // Total amount for payment record (excluding security deposit - it's tracked separately)
@@ -864,13 +954,6 @@ const Checkout = () => {
         dispatch(setCheckOutDate(s));
       }
     }
-  };
-
-  const handleAddOnChange = (item: keyof AddOns, increment: boolean) => {
-    setAddOns((prev) => ({
-      ...prev,
-      [item]: Math.max(0, prev[item] + (increment ? 1 : -1)),
-    }));
   };
 
   const scrollToError = (fieldName: string) => {
@@ -1206,7 +1289,14 @@ const Checkout = () => {
         add_ons_total: addOnsTotal,
         total_amount: totalAmount,
         down_payment: downPayment,
-        add_ons: addOns,
+        // New array form: server reads name+price+quantity directly (no static price table).
+        add_ons: rentableItems
+          .filter((item) => Number(addOns[String(item.id)] || 0) > 0)
+          .map((item) => ({
+            name: item.name,
+            price: Number(item.price_per_night || 0),
+            quantity: Number(addOns[String(item.id)] || 0),
+          })),
       };
 
       // Save booking to database using RTK Query mutation
@@ -1619,6 +1709,8 @@ const Checkout = () => {
                               setErrors(prev => ({...prev, gender: ''}));
                             }}
                             required
+                            aria-label="Gender"
+                            title="Gender"
                             className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-colors ${
                               errors.gender ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-gray-600'
                             }`}
@@ -1952,6 +2044,8 @@ const Checkout = () => {
                                   setErrors(prev => ({...prev, [`guest${index}Gender`]: ''}));
                                 }}
                                 required
+                                aria-label={`Additional guest ${index + 1} gender`}
+                                title="Gender"
                                 className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-colors ${
                                   errors[`guest${index}Gender`] ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-gray-600'
                                 }`}
@@ -2117,6 +2211,8 @@ const Checkout = () => {
                             setErrors(prev => ({...prev, stayType: ''}));
                           }}
                           required
+                          aria-label="Stay type"
+                          title="Stay type"
                           className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-colors ${
                             errors.stayType ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-gray-600'
                           }`}
@@ -2260,6 +2356,8 @@ const Checkout = () => {
                               }
                             }}
                             required
+                            aria-label="Check-in time"
+                            title="Check-in time"
                             className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-colors ${
                               errors.checkInTime ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-gray-600'
                             }`}
@@ -2292,6 +2390,8 @@ const Checkout = () => {
                               setErrors(prev => ({...prev, checkOutTime: ''}));
                             }}
                             required
+                            aria-label="Check-out time"
+                            title="Check-out time"
                             className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-colors ${
                               errors.checkOutTime ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-gray-600'
                             }`}
@@ -2322,53 +2422,71 @@ const Checkout = () => {
                         Enhance your stay with these optional amenities. You can skip this step if you don&apos;t need any add-ons.
                       </p>
 
-                      <div className="space-y-3">
-                        {[
-                          { key: "poolPass", label: "Pool Pass", price: ADD_ON_PRICES.poolPass },
-                          { key: "towels", label: "Towels", price: ADD_ON_PRICES.towels },
-                          { key: "bathRobe", label: "Bath Robe", price: ADD_ON_PRICES.bathRobe },
-                          {
-                            key: "extraComforter",
-                            label: "Extra Comforter",
-                            price: ADD_ON_PRICES.extraComforter,
-                          },
-                          { key: "guestKit", label: "Guest Kit", price: ADD_ON_PRICES.guestKit },
-                          {
-                            key: "extraSlippers",
-                            label: "Extra Slippers",
-                            price: ADD_ON_PRICES.extraSlippers,
-                          },
-                        ].map((item) => (
-                          <div
-                            key={item.key}
-                            className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-brand-primary dark:hover:border-brand-primary transition-colors"
-                          >
-                            <div>
-                              <p className="font-medium text-gray-900 dark:text-white">{item.label}</p>
-                              <p className="text-sm text-gray-600 dark:text-gray-400">₱{item.price} each</p>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <button
-                                type="button"
-                                onClick={() => handleAddOnChange(item.key as keyof AddOns, false)}
-                                className="w-8 h-8 flex items-center justify-center bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-full transition-colors"
+                      {rentableItems.length === 0 ? (
+                        <div className="p-6 text-center border border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
+                          <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            No add-ons available for this haven
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            You can continue to the next step.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {rentableItems.map((item) => {
+                            const itemKey = String(item.id);
+                            const qty = Number(addOns[itemKey] || 0);
+                            return (
+                              <div
+                                key={item.id}
+                                className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-brand-primary dark:hover:border-brand-primary transition-colors"
                               >
-                                <Minus className="w-4 h-4 text-gray-700 dark:text-gray-300" />
-                              </button>
-                              <span className="w-8 text-center font-semibold text-gray-900 dark:text-white">
-                                {addOns[item.key as keyof AddOns]}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => handleAddOnChange(item.key as keyof AddOns, true)}
-                                className="w-8 h-8 flex items-center justify-center bg-brand-primary hover:bg-brand-primaryDark text-white rounded-full transition-colors"
-                              >
-                                <Plus className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <div className="w-10 h-10 rounded-lg bg-brand-primary/10 text-brand-primary grid place-items-center flex-shrink-0 overflow-hidden">
+                                    {(() => {
+                                      // Render precedence: uploaded image > iconKey (lookup) > emoji literal.
+                                      if (item.icon_url) {
+                                        // eslint-disable-next-line @next/next/no-img-element
+                                        return <img src={item.icon_url} alt="" className="w-full h-full object-cover" />;
+                                      }
+                                      const Comp = item.icon ? ICON_BY_KEY[item.icon] : null;
+                                      if (Comp) return <Comp className="w-5 h-5" />;
+                                      return <span className="text-xl" aria-hidden="true">{item.icon || "🛎️"}</span>;
+                                    })()}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="font-medium text-gray-900 dark:text-white truncate">{item.name}</p>
+                                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                                      ₱{Number(item.price_per_night).toLocaleString("en-PH")} each
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <button
+                                    type="button"
+                                    onClick={() => setAddOns((prev) => ({ ...prev, [itemKey]: Math.max(0, qty - 1) }))}
+                                    className="w-8 h-8 flex items-center justify-center bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-full transition-colors"
+                                    aria-label={`Decrease ${item.name}`}
+                                  >
+                                    <Minus className="w-4 h-4 text-gray-700 dark:text-gray-300" />
+                                  </button>
+                                  <span className="w-8 text-center font-semibold text-gray-900 dark:text-white">
+                                    {qty}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => setAddOns((prev) => ({ ...prev, [itemKey]: qty + 1 }))}
+                                    className="w-8 h-8 flex items-center justify-center bg-brand-primary hover:bg-brand-primaryDark text-white rounded-full transition-colors"
+                                    aria-label={`Increase ${item.name}`}
+                                  >
+                                    <Plus className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
 
                       {addOnsTotal > 0 && (
                         <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
@@ -2997,11 +3115,14 @@ const Checkout = () => {
             <div id="mobile-date-dropdown" className="hidden bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-4 mb-2">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Select Dates</h3>
-                <button 
+                <button
+                  type="button"
                   onClick={() => {
                     const dropdown = document.getElementById('mobile-date-dropdown');
                     dropdown?.classList.add('hidden');
                   }}
+                  aria-label="Close dates"
+                  title="Close"
                   className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
                 >
                   <X className="w-5 h-5 text-gray-500" />
@@ -3020,11 +3141,14 @@ const Checkout = () => {
             <div id="mobile-guest-dropdown" className="hidden bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-4">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Number of Guests</h3>
-                <button 
+                <button
+                  type="button"
                   onClick={() => {
                     const dropdown = document.getElementById('mobile-guest-dropdown');
                     dropdown?.classList.add('hidden');
                   }}
+                  aria-label="Close guest picker"
+                  title="Close"
                   className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
                 >
                   <X className="w-5 h-5 text-gray-500" />
@@ -3175,8 +3299,11 @@ const Checkout = () => {
                 <Camera className="w-6 h-6 text-brand-primary" />
                 Capture ID Photo
               </h3>
-              <button 
+              <button
+                type="button"
                 onClick={stopCamera}
+                aria-label="Close camera"
+                title="Close camera"
                 className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
               >
                 <X className="w-6 h-6 text-gray-500" />

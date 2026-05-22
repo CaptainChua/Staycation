@@ -35,6 +35,16 @@ export interface PartnerListing {
   updated_at?: string;
   bookings_count?: number;
   images?: Array<{ id?: string; image_url?: string; is_main?: boolean }>;
+  // Fields needed to rehydrate the Edit Haven wizard
+  youtube_url?: string;
+  six_hour_check_in?: string;
+  six_hour_check_out?: string;
+  ten_hour_check_in?: string;
+  ten_hour_check_out?: string;
+  twenty_one_hour_check_in?: string;
+  twenty_one_hour_check_out?: string;
+  amenities?: Record<string, boolean>;
+  photo_tours?: Array<{ id?: string; category?: string; image_url?: string }>;
 }
 
 export interface PartnerBooking {

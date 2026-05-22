@@ -455,7 +455,7 @@ export async function updateDepositStatusByBookingId(
         style: 'currency',
         currency: 'PHP',
         minimumFractionDigits: 0
-      }).format(finalAmount);
+      }).format(reportedAmount);
       const methodPart = paymentMethod ? ` via ${paymentMethod}` : '';
 
       if (source === 'cleaner') {

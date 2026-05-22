@@ -1,10 +1,15 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import pool from "@/backend/config/db";
 
-// GET /api/admin/partners-overview
-// Aggregated stats across all partners for the owner's Partner Management → Overview tab
-export async function GET() {
+// GET /api/admin/partners-overview?partner_id=<uuid>
+// Aggregated stats across all partners (or scoped to one partner when ?partner_id is set).
+export async function GET(req: NextRequest) {
   try {
+    const url = new URL(req.url);
+    const partnerId = url.searchParams.get("partner_id") || null;
+    // Param shared by all queries: $1 = partner_id filter (or NULL for "all partners")
+    const params: (string | null)[] = [partnerId];
+
     const [partnerStats, havenStats, bookingStats, recentActivity] = await Promise.all([
       pool.query(`
         SELECT
@@ -17,7 +22,8 @@ export async function GET() {
           COALESCE(AVG(pi.commission_rate), 12)::numeric(5,2) AS avg_commission_rate
         FROM partners_account pa
         LEFT JOIN partners_information pi ON pi.partner_id = pa.id
-      `),
+        WHERE ($1::uuid IS NULL OR pa.id = $1::uuid)
+      `, params),
       pool.query(`
         SELECT
           COUNT(*)::int AS total_partner_havens,
@@ -27,7 +33,8 @@ export async function GET() {
         FROM havens h
         LEFT JOIN property_approval pa ON pa.haven_id = h.uuid_id
         WHERE h.partner_id IS NOT NULL
-      `),
+          AND ($1::uuid IS NULL OR h.partner_id = $1::uuid)
+      `, params),
       pool.query(`
         SELECT
           COUNT(b.id)::int AS total_bookings,
@@ -35,14 +42,18 @@ export async function GET() {
           COUNT(b.id) FILTER (WHERE b.created_at >= NOW() - INTERVAL '30 days')::int AS bookings_last_30d,
           COALESCE(
             SUM(
-              (SELECT SUM(bp.total_amount) FROM booking_payments bp WHERE bp.booking_id = b.id)
+              (SELECT SUM(bp.amount_paid)
+                 FROM booking_payments bp
+                WHERE bp.booking_id = b.id
+                  AND bp.payment_status IN ('approved_down_payment', 'approved_full_payment'))
             ),
             0
           )::numeric(12,2) AS gross_revenue
         FROM booking b
         JOIN havens h ON h.haven_name = b.room_name
         WHERE h.partner_id IS NOT NULL
-      `),
+          AND ($1::uuid IS NULL OR h.partner_id = $1::uuid)
+      `, params),
       pool.query(`
         (
           SELECT 'haven_submitted' AS kind, h.haven_name AS title,
@@ -50,6 +61,7 @@ export async function GET() {
           FROM havens h
           LEFT JOIN partners_information pi ON pi.partner_id = h.partner_id
           WHERE h.partner_id IS NOT NULL
+            AND ($1::uuid IS NULL OR h.partner_id = $1::uuid)
           ORDER BY h.created_at DESC LIMIT 5
         )
         UNION ALL
@@ -62,17 +74,22 @@ export async function GET() {
           JOIN havens h ON h.haven_name = b.room_name
           LEFT JOIN partners_information pi ON pi.partner_id = h.partner_id
           WHERE h.partner_id IS NOT NULL
+            AND ($1::uuid IS NULL OR h.partner_id = $1::uuid)
           ORDER BY b.created_at DESC LIMIT 5
         )
         ORDER BY at DESC LIMIT 8
-      `),
+      `, params),
     ]);
 
     const p = partnerStats.rows[0] || {};
     const h = havenStats.rows[0] || {};
     const b = bookingStats.rows[0] || {};
-    const totalEarnings = Number(p.total_partner_earnings) || 0;
-    const platformCommission = Math.round(totalEarnings * (Number(p.avg_commission_rate) / 100));
+    // Platform commission = approved gross revenue × avg commission rate.
+    // This reflects money actually collected rather than a stale stored column.
+    const grossRevenue = Number(b.gross_revenue) || 0;
+    const avgRate = Number(p.avg_commission_rate) || 12;
+    const platformCommission = Math.round(grossRevenue * (avgRate / 100));
+    const partnerEarnings = Math.max(0, grossRevenue - platformCommission);
 
     return NextResponse.json({
       success: true,
@@ -96,10 +113,10 @@ export async function GET() {
           gross_revenue: Number(b.gross_revenue) || 0,
         },
         financials: {
-          partner_earnings: totalEarnings,
+          partner_earnings: partnerEarnings,
           partner_paid: Number(p.total_paid_out) || 0,
           platform_commission: platformCommission,
-          avg_commission_rate: Number(p.avg_commission_rate) || 12,
+          avg_commission_rate: avgRate,
         },
         recent_activity: recentActivity.rows,
       },

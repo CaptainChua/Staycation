@@ -357,14 +357,15 @@ function OccupancyGauge({ value, bookedNights, availableNights }: { value: numbe
   );
 }
 
-function RevenueChart({ data }: { data: typeof REVENUE_SERIES }) {
+function RevenueChart({ data }: { data: Array<{ label: string; gross: number; net: number }> }) {
   const W = 880,
     H = 240,
     PADX = 30,
     PADY = 20;
   const innerW = W - PADX * 2;
   const innerH = H - PADY * 2;
-  const max = Math.max(...data.map((d) => d.gross));
+  if (data.length === 0) return null;
+  const max = Math.max(...data.map((d) => Math.max(d.gross, d.net)), 1);
   const stepX = innerW / data.length;
   const barW = stepX * 0.32;
   const ticks = [0, 25, 50, 75, 100].map((p) => Math.round(((max * p) / 100) / 1000) * 1000);
@@ -402,19 +403,25 @@ function RevenueChart({ data }: { data: typeof REVENUE_SERIES }) {
   );
 }
 
-function BookingsChart({ data }: { data: typeof REVENUE_SERIES }) {
+function BookingsChart({ data }: { data: Array<{ label: string; gross: number; net: number }> }) {
   const W = 880,
     H = 240,
     PADX = 30,
     PADY = 20;
   const innerW = W - PADX * 2;
   const innerH = H - PADY * 2;
+  if (data.length === 0) return null;
   const counts = data.map((d) => Math.round(d.gross / 3400));
-  const max = Math.max(...counts);
-  const stepX = innerW / (counts.length - 1);
-  const pts = counts.map((c, i) => [PADX + stepX * i, PADY + innerH - (c / max) * innerH] as const);
+  const max = Math.max(...counts, 1);
+  const stepX = counts.length > 1 ? innerW / (counts.length - 1) : 0;
+  const pts = counts.map((c, i) => {
+    const x = counts.length > 1 ? PADX + stepX * i : PADX + innerW / 2;
+    const y = PADY + innerH - (c / max) * innerH;
+    return [x, y] as const;
+  });
   const path = "M " + pts.map((p) => p.join(",")).join(" L ");
-  const fill = `${path} L ${pts[pts.length - 1][0]},${PADY + innerH} L ${PADX},${PADY + innerH} Z`;
+  const last = pts[pts.length - 1];
+  const fill = `${path} L ${last[0]},${PADY + innerH} L ${PADX},${PADY + innerH} Z`;
 
   return (
     <div className="w-full overflow-x-auto">
