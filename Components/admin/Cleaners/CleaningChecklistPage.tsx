@@ -18,12 +18,12 @@ import {
   CalendarCheck,
   Loader2,
   ZoomIn,
-  X,
 } from "lucide-react";
-import React, { useEffect, useState, useCallback } from "react";
-import toast from "react-hot-toast";
 import { useTranslations, type Lang } from "./translations";
 
+/* ==============================
+ * Types
+ * ============================== */
 type Photo = {
   id: string;
   url: string;
@@ -48,35 +48,29 @@ type Haven = {
 };
 
 interface Props {
-  /** Passed from MySchedulePage when "Start Cleaning" is clicked */
   initialHavenId?: string | null;
   lang?: Lang;
 }
 
-export default function CleaningChecklistPage({ initialHavenId, lang = "en" }: Props = {}) {
-  const t = useTranslations(lang);
-  const [havens, setHavens] = useState<Haven[]>([]);
-  const [selectedHavenId, setSelectedHavenId] = useState<string | null>(null);
-  const [isHavensLoading, setIsHavensLoading] = useState<boolean>(false);
-  const [selectedHaven, setSelectedHaven] = useState<Haven | null>(null);
+/* ==============================
+ * Constants
+ * ============================== */
+const CATEGORIES = ["Bedroom", "Bathroom", "Kitchen", "Living Room", "General"];
 
-  const [checklist, setChecklist] = useState<Category[]>([]);
-  const [checklistId, setChecklistId] = useState<string | null>(null);
-
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-
-  const iconMap = {
-    Bedroom: BedDouble,
-    Bathroom: Bath,
-    Kitchen: ChefHat,
-    "Living Room": Sofa,
-    General: Sparkles,
-  };
+const ICON_MAP: Record<string, React.ElementType> = {
+  Bedroom: BedDouble,
+  Bathroom: Bath,
+  Kitchen: ChefHat,
+  "Living Room": Sofa,
+  General: Sparkles,
+};
 
 /* ==============================
  * Main Component
  * ============================== */
-export default function CleaningPhotoPage({ initialHavenId }: Props = {}) {
+export default function CleaningChecklistPage({ initialHavenId, lang = "en" }: Props = {}) {
+  const t = useTranslations(lang);
+
   const [haven, setHaven] = useState<Haven | null>(null);
   const [rooms, setRooms] = useState<RoomState[]>(
     CATEGORIES.map((cat) => ({ category: cat, photos: [], isUploading: false }))
@@ -84,7 +78,6 @@ export default function CleaningPhotoPage({ initialHavenId }: Props = {}) {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isPageLoading, setIsPageLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  /** URL of photo open in lightbox (null = closed) */
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
   /* ---- Fetch haven info ---- */
@@ -127,7 +120,6 @@ export default function CleaningPhotoPage({ initialHavenId }: Props = {}) {
 
         if (session?.id) setSessionId(session.id);
 
-        // Group photos by category
         const byCategory: Record<string, Photo[]> = {};
         (photos ?? []).forEach((p) => {
           if (!byCategory[p.category]) byCategory[p.category] = [];
@@ -164,7 +156,6 @@ export default function CleaningPhotoPage({ initialHavenId }: Props = {}) {
     const files = Array.from(e.target.files ?? []);
     if (!files.length || !initialHavenId) return;
 
-    // Reset input so the same file can be picked again if needed
     e.target.value = "";
 
     setRooms((prev) =>
@@ -193,7 +184,6 @@ export default function CleaningPhotoPage({ initialHavenId }: Props = {}) {
           throw new Error(payload.error ?? "Upload failed");
         }
 
-        // Capture newly created session id if first upload
         if (payload.data?.session_id && !sessionId) {
           setSessionId(payload.data.session_id);
         }
@@ -214,9 +204,7 @@ export default function CleaningPhotoPage({ initialHavenId }: Props = {}) {
       );
     } catch (err) {
       console.error("Upload error:", err);
-      toast.error(
-        err instanceof Error ? err.message : "Failed to upload photo"
-      );
+      toast.error(err instanceof Error ? err.message : "Failed to upload photo");
       setRooms((prev) =>
         prev.map((r) =>
           r.category === category ? { ...r, isUploading: false } : r
@@ -247,9 +235,7 @@ export default function CleaningPhotoPage({ initialHavenId }: Props = {}) {
       );
       toast.success("Photo removed");
     } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Failed to remove photo"
-      );
+      toast.error(err instanceof Error ? err.message : "Failed to remove photo");
     }
   };
 
@@ -270,9 +256,7 @@ export default function CleaningPhotoPage({ initialHavenId }: Props = {}) {
       }
       toast.success("Cleaning submitted successfully!");
     } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Failed to submit"
-      );
+      toast.error(err instanceof Error ? err.message : "Failed to submit");
     } finally {
       setIsSubmitting(false);
     }
@@ -335,33 +319,33 @@ export default function CleaningPhotoPage({ initialHavenId }: Props = {}) {
       </div>
 
       {/* Booking Info Card */}
-      {selectedHaven && (
+      {haven && (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-4 border-l-4 border-brand-primary">
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
             <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
               <Home className="w-4 h-4 text-brand-primary" />
-              <span className="font-medium">{selectedHaven.name}</span>
-              {selectedHaven.address && (
+              <span className="font-medium">{haven.name}</span>
+              {haven.address && (
                 <span className="text-gray-400 dark:text-gray-500">
-                  ({selectedHaven.address})
+                  ({haven.address})
                 </span>
               )}
             </div>
-            {selectedHaven.guestName && (
+            {haven.guestName && (
               <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
                 <User className="w-4 h-4" />
-                <span>{t.guest} {selectedHaven.guestName}</span>
+                <span>{t.guest} {haven.guestName}</span>
               </div>
             )}
-            {selectedHaven.checkOutDate && (
+            {haven.checkOutDate && (
               <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
                 <CalendarCheck className="w-4 h-4" />
-                <span>{t.checkedOut} {selectedHaven.checkOutDate}</span>
+                <span>{t.checkedOut} {haven.checkOutDate}</span>
               </div>
             )}
-            {selectedHaven.bookingId && (
+            {haven.bookingId && (
               <div className="text-xs text-gray-400 dark:text-gray-500">
-                {t.bookingHash}{selectedHaven.bookingId}
+                {t.bookingHash}{haven.bookingId}
               </div>
             )}
           </div>
@@ -369,13 +353,13 @@ export default function CleaningPhotoPage({ initialHavenId }: Props = {}) {
       )}
 
       {/* Upcoming notice */}
-      {selectedHaven?.isUpcoming && (
+      {haven?.isUpcoming && (
         <div className="flex items-start gap-3 bg-sky-50 dark:bg-sky-900/20 border border-sky-300 dark:border-sky-700 rounded-lg p-4">
           <AlertCircle className="w-5 h-5 text-sky-500 flex-shrink-0 mt-0.5" />
           <div>
             <p className="text-sm font-semibold text-sky-700 dark:text-sky-300">{t.upcomingTitle}</p>
             <p className="text-xs text-sky-600 dark:text-sky-400 mt-0.5">
-              {t.upcomingMsg(selectedHaven.checkOutDate ?? "")}
+              {t.upcomingMsg(haven.checkOutDate ?? "")}
             </p>
           </div>
         </div>
@@ -390,202 +374,153 @@ export default function CleaningPhotoPage({ initialHavenId }: Props = {}) {
             </h2>
             <p className="text-sm text-gray-500 dark:text-gray-400">
               <span className="font-semibold text-brand-primary text-base">
-                {completedTasks}/{totalTasks}
+                {roomsWithPhotos}/{totalRooms}
               </span>{" "}
               {t.tasksCompleted}
             </p>
           </div>
-          <div className="text-right">
-            <p className="text-3xl font-bold text-brand-primary">{progress}%</p>
-          </div>
-          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
+          <p className="text-3xl font-bold text-brand-primary">{progress}%</p>
+        </div>
+        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
+          <div
+            className={`h-3 rounded-full transition-all duration-500 ${
+              progress === 100 ? "bg-green-500" : "bg-brand-primary"
+            }`}
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Room cards */}
+      <div className="space-y-4">
+        {rooms.map((room) => {
+          const RoomIcon = ICON_MAP[room.category] ?? Sparkles;
+          const isLocked = !!haven?.isUpcoming;
+
+          return (
             <div
-              className={`h-3 rounded-full transition-all duration-500 ${
-                progress === 100 ? "bg-green-500" : "bg-brand-primary"
-              }`}
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-        </div>
-
-        {/* ---- Room cards ---- */}
-        <div className="space-y-4">
-          {isPageLoading
-            ? /* Skeleton */
-              CATEGORIES.map((cat) => (
-                <div
-                  key={cat}
-                  className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-5"
-                >
-                  <div className="flex items-center gap-3 mb-4">
-                    <Skeleton
-                      className="w-11 h-11 rounded-lg"
-                      label="Loading room icon"
-                    />
-                    <div>
-                      <Skeleton
-                        className="h-4 w-28 rounded mb-1"
-                        label="Loading room name"
-                      />
-                      <Skeleton
-                        className="h-3 w-20 rounded"
-                        label="Loading room status"
-                      />
-                    </div>
+              key={room.category}
+              className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-6"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="bg-brand-primary text-white p-3 rounded-lg">
+                    <RoomIcon className="w-6 h-6" />
                   </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    {[1, 2, 3].map((j) => (
-                      <Skeleton
-                        key={j}
-                        className="aspect-square rounded-lg"
-                        label="Loading photo"
-                      />
-                    ))}
+                  <div>
+                    <h3 className="font-bold text-gray-800 dark:text-gray-100">
+                      {room.category}
+                    </h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {room.photos.length} photo{room.photos.length !== 1 ? "s" : ""}
+                    </p>
                   </div>
                 </div>
-              ))
-            : /* Actual rooms */
-              rooms.map((room) => {
-                const RoomIcon = ICON_MAP[room.category] ?? Sparkles;
-                const isDone = room.photos.length > 0;
-                const isLocked = !!haven?.isUpcoming;
+                {room.photos.length > 0 && (
+                  <CheckCircle2 className="w-5 h-5 text-green-500" />
+                )}
+              </div>
 
-            return (
-              <div
-                key={category.category}
-                className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-6"
-              >
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="bg-brand-primary text-white p-3 rounded-lg">
-                      <CategoryIcon className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-gray-800 dark:text-gray-100">
-                        {category.category}
-                      </h3>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {t.ofCompleted(categoryCompleted, categoryTotal)}
-                      </p>
-                    </div>
-                  </div>
-                  <span className="text-sm font-bold text-brand-primary">
-                    {categoryProgress}%
-                  </span>
-                </div>
-
-                    {/* Photo grid */}
-                    {room.photos.length > 0 && (
-                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 mb-4">
-                        {room.photos.map((photo) => (
-                          <div
-                            key={photo.id}
-                            className="relative group aspect-square"
+              {/* Photo grid */}
+              {room.photos.length > 0 && (
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 mb-4">
+                  {room.photos.map((photo) => (
+                    <div key={photo.id} className="relative group aspect-square">
+                      <img
+                        src={photo.url}
+                        alt={`${room.category} photo`}
+                        className="w-full h-full object-cover rounded-lg cursor-pointer"
+                        onClick={() => setLightboxUrl(photo.url)}
+                      />
+                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
+                        <button
+                          type="button"
+                          aria-label="View photo"
+                          onClick={() => setLightboxUrl(photo.url)}
+                          className="p-1.5 bg-white/90 rounded-full"
+                        >
+                          <ZoomIn className="w-3.5 h-3.5 text-gray-800" />
+                        </button>
+                        {!isLocked && (
+                          <button
+                            type="button"
+                            aria-label="Delete photo"
+                            onClick={() => deletePhoto(photo.id, room.category)}
+                            className="p-1.5 bg-red-500 rounded-full"
                           >
-                            <img
-                              src={photo.url}
-                              alt={`${room.category} photo`}
-                              className="w-full h-full object-cover rounded-lg cursor-pointer"
-                              onClick={() => setLightboxUrl(photo.url)}
-                            />
-                            {/* Hover overlay */}
-                            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
-                              <button
-                                type="button"
-                                aria-label="View photo"
-                                onClick={() => setLightboxUrl(photo.url)}
-                                className="p-1.5 bg-white/90 rounded-full"
-                              >
-                                <ZoomIn className="w-3.5 h-3.5 text-gray-800" />
-                              </button>
-                              {!isLocked && (
-                                <button
-                                  type="button"
-                                  aria-label="Delete photo"
-                                  onClick={() =>
-                                    deletePhoto(photo.id, room.category)
-                                  }
-                                  className="p-1.5 bg-red-500 rounded-full"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5 text-white" />
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        ))}
+                            <Trash2 className="w-3.5 h-3.5 text-white" />
+                          </button>
+                        )}
                       </div>
-                    )}
+                    </div>
+                  ))}
+                </div>
+              )}
 
-                    {/* Upload / camera buttons */}
-                    {!isLocked && (
-                      <div className="flex gap-2">
-                        {/* ---- Take Photo (opens camera directly on mobile) ---- */}
-                        <label
-                          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg border-2 border-dashed
-                            transition-colors text-sm font-medium select-none
-                            ${
-                              room.isUploading
-                                ? "border-gray-200 dark:border-gray-700 text-gray-400 cursor-not-allowed"
-                                : "border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 cursor-pointer hover:border-brand-primary hover:bg-brand-primary/5 hover:text-brand-primary"
-                            }`}
-                        >
-                          {room.isUploading ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <Camera className="w-4 h-4" />
-                          )}
-                          <span>Camera</span>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            capture="environment"
-                            className="hidden"
-                            disabled={room.isUploading}
-                            onChange={(e) =>
-                              handleFileChange(e, room.category)
-                            }
-                          />
-                        </label>
-
-                        {/* ---- Choose from Gallery ---- */}
-                        <label
-                          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg border-2 border-dashed
-                            transition-colors text-sm font-medium select-none
-                            ${
-                              room.isUploading
-                                ? "border-gray-200 dark:border-gray-700 text-gray-400 cursor-not-allowed"
-                                : "border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 cursor-pointer hover:border-brand-primary hover:bg-brand-primary/5 hover:text-brand-primary"
-                            }`}
-                        >
-                          {room.isUploading ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <ImagePlus className="w-4 h-4" />
-                          )}
-                          <span>Gallery</span>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            multiple
-                            className="hidden"
-                            disabled={room.isUploading}
-                            onChange={(e) =>
-                              handleFileChange(e, room.category)
-                            }
-                          />
-                        </label>
-                      </div>
+              {/* Upload / camera buttons */}
+              {!isLocked && (
+                <div className="flex gap-2">
+                  <label
+                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg border-2 border-dashed
+                      transition-colors text-sm font-medium select-none
+                      ${
+                        room.isUploading
+                          ? "border-gray-200 dark:border-gray-700 text-gray-400 cursor-not-allowed"
+                          : "border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 cursor-pointer hover:border-brand-primary hover:bg-brand-primary/5 hover:text-brand-primary"
+                      }`}
+                  >
+                    {room.isUploading ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Camera className="w-4 h-4" />
                     )}
-                  </div>
-                );
-              })}
-        </div>
+                    <span>Camera</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      className="hidden"
+                      disabled={room.isUploading}
+                      onChange={(e) => handleFileChange(e, room.category)}
+                    />
+                  </label>
+
+                  <label
+                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg border-2 border-dashed
+                      transition-colors text-sm font-medium select-none
+                      ${
+                        room.isUploading
+                          ? "border-gray-200 dark:border-gray-700 text-gray-400 cursor-not-allowed"
+                          : "border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 cursor-pointer hover:border-brand-primary hover:bg-brand-primary/5 hover:text-brand-primary"
+                      }`}
+                  >
+                    {room.isUploading ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <ImagePlus className="w-4 h-4" />
+                    )}
+                    <span>Gallery</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      disabled={room.isUploading}
+                      onChange={(e) => handleFileChange(e, room.category)}
+                    />
+                  </label>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
 
       {/* Action / Status */}
-      {!selectedHaven?.isUpcoming && !isLoading && checklist.length > 0 && (
+      {!haven?.isUpcoming && (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-4 flex flex-col sm:flex-row gap-3 items-center">
           <div className="flex-1 text-center sm:text-left">
-            {canComplete ? (
+            {canSubmit ? (
               <div className="flex items-center gap-2 text-green-600 dark:text-green-400 font-semibold text-sm">
                 <CheckCircle2 className="w-5 h-5" />
                 {t.allDone}
@@ -594,7 +529,7 @@ export default function CleaningPhotoPage({ initialHavenId }: Props = {}) {
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 {t.autoSave} &nbsp;·&nbsp;{" "}
                 <span className="font-semibold text-brand-primary">
-                  {totalTasks - completedTasks} task{totalTasks - completedTasks !== 1 ? "s" : ""} remaining
+                  {totalRooms - roomsWithPhotos} room{totalRooms - roomsWithPhotos !== 1 ? "s" : ""} remaining
                 </span>
               </p>
             )}
@@ -602,37 +537,44 @@ export default function CleaningPhotoPage({ initialHavenId }: Props = {}) {
 
           <button
             type="button"
-            disabled={!canComplete || !checklistId}
-            onClick={async () => {
-              try {
-                const res = await fetch("/api/admin/cleaners", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    action: "submit",
-                    checklist_id: checklistId,
-                  }),
-                });
-                const payload = await res.json();
-                if (!res.ok || !payload?.success) {
-                  throw new Error(payload?.error || "Failed to submit checklist");
-                }
-                toast.success("Checklist submitted successfully");
-              } catch (err) {
-                console.error("Submit checklist error:", err);
-                const message = err instanceof Error ? err.message : String(err);
-                toast.error(message || "Failed to submit checklist");
-              }
-            }}
+            disabled={!canSubmit || !sessionId || isSubmitting}
+            onClick={handleSubmit}
             className={`w-full sm:w-auto font-semibold rounded-lg px-6 py-2.5 transition-colors flex items-center justify-center gap-2 ${
-              canComplete
+              canSubmit && sessionId
                 ? "bg-brand-primary text-white hover:bg-brand-primary/90"
                 : "bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed"
             }`}
           >
-            <CheckCircle2 className="w-4 h-4" />
+            {isSubmitting ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <CheckCircle2 className="w-4 h-4" />
+            )}
             {t.confirmFinish}
           </button>
+        </div>
+      )}
+
+      {/* Lightbox */}
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <button
+            type="button"
+            aria-label="Close lightbox"
+            className="absolute top-4 right-4 p-2 bg-white/20 hover:bg-white/30 rounded-full text-white"
+            onClick={() => setLightboxUrl(null)}
+          >
+            ✕
+          </button>
+          <img
+            src={lightboxUrl}
+            alt="Full size preview"
+            className="max-w-full max-h-full rounded-lg object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
         </div>
       )}
     </div>
