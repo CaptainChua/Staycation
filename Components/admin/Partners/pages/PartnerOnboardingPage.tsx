@@ -11,6 +11,7 @@ import {
   useUpdateMyRegistrationMutation,
   type PartnerStatus,
 } from "@/redux/api/partnerRegistrationApi";
+import DocumentsManager from "@/Components/admin/Owners/Modals/DocumentsManager";
 
 const fontFraunces = "font-[var(--font-fraunces),Georgia,serif]";
 
@@ -295,6 +296,22 @@ export default function PartnerOnboardingPage() {
         )}
       </Section>
 
+      {/* Additional documents — partner adds labeled files (IDs, permits, bank certs, etc.) */}
+      <Section title="Additional documents" icon={FileText}>
+        <p className="text-[12.5px] text-[#6B7280] mb-3">
+          Upload any other supporting files our team should see — Mayor&apos;s Permit, BIR
+          registration, bank certificate, business permit, proof of ownership, etc. Add a
+          short label so we know what each file is. Owners may add more documents on your
+          behalf after onboarding.
+        </p>
+        <DocumentsManager
+          listEndpoint="/api/partners/me/documents"
+          deleteUrlBuilder={(d) => `/api/partners/me/documents/${d.id}`}
+          title="Your supporting files"
+          subtitle="Up to 25 files, 10 MB each. PDF/JPG/PNG/DOCX accepted."
+        />
+      </Section>
+
       {/* Payout */}
       <Section title="Payout details" icon={Banknote} required>
         <p className="text-[12.5px] text-[#6B7280] mb-3">
@@ -345,6 +362,21 @@ export default function PartnerOnboardingPage() {
             <Input value={form.tax_registered_name} onChange={(v) => setForm((p) => ({ ...p, tax_registered_name: v }))} placeholder="As registered with BIR" />
           </Field>
         </div>
+      </Section>
+
+      {/* Platform documents — owner-published files (agreements, policies, etc.) */}
+      <Section title="Platform documents" icon={FileText}>
+        <p className="text-[12.5px] text-[#6B7280] mb-3">
+          Reference files published by Staycation Haven — agreement templates, platform
+          policies, and other partner resources. Read-only.
+        </p>
+        <DocumentsManager
+          listEndpoint="/api/partners/me/platform-documents"
+          deleteUrlBuilder={(d) => `/api/partners/me/platform-documents/${d.id}`}
+          title="Owner-published files"
+          subtitle="Click any file to view or download."
+          readOnly
+        />
       </Section>
 
       {/* Save */}

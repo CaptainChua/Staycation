@@ -22,6 +22,7 @@ import {
   useSendStaffReplyMutation,
   PartnerListingRow,
   AdminPartnerThread,
+  type PartnersOverview,
 } from "@/redux/api/partnersAdminApi";
 import Image from "next/image";
 import { Check, X as XIcon, AlertCircle, Loader2, Building, Send, Edit } from "lucide-react";
@@ -50,6 +51,7 @@ import SystemAuditLogsTab from "./SystemAuditLogsTab";
 
 import toast from "react-hot-toast";
 import AddPartnerModal from "./Modals/AddPartnerModal";
+import DocumentsManager from "./Modals/DocumentsManager";
 
 /* =========================
    TABLE SKELETON
@@ -87,20 +89,41 @@ const PartnerManagementPage = () => {
   // Opens the Add/Edit Partner modal pre-filled with the chosen partner.
   // Wired through ListingsTab → PartnerDetailPane so the Edit button on the
   // partner profile band can trigger it. Looks up the full partner record by
-  // ID from the partners list this page already fetches.
-  const handleEditPartner = (partnerId: string) => {
+  // ID from the partners list this page already fetches. If that lookup
+  // fails (e.g. partners query still loading, or the listings endpoint ID
+  // doesn't match the partners endpoint ID), we fall back to the lightweight
+  // PartnerGroup info passed in from the listing so the modal still opens.
+  const handleEditPartner = (
+    partnerId: string,
+    fallback?: { fullname?: string; email?: string; commission_rate?: number }
+  ) => {
     const p = partners.find((x) => x.id === partnerId);
-    if (!p) return;
-    setEditing(p);
+    if (!p && !fallback) {
+      toast.error("Partner not found. Try refreshing the page.");
+      return;
+    }
+    setEditing(
+      (p ?? {
+        id: partnerId,
+        email: fallback?.email || "",
+        fullname: fallback?.fullname || "",
+        commission_rate: Number(fallback?.commission_rate ?? 10),
+        commission_total: 0,
+        type: "hotel",
+        status: "active",
+        created_at: "",
+        updated_at: "",
+      }) as Partner
+    );
     setForm({
-      email: p.email || "",
+      email: (p?.email ?? fallback?.email) || "",
       password: "",
-      fullname: p.fullname || "",
-      phone: p.phone || "",
-      address: p.address || "",
-      type: p.type || "hotel",
-      commission_rate: Number(p.commission_rate ?? 10),
-      show_guest_details: p.show_guest_details ?? true,
+      fullname: (p?.fullname ?? fallback?.fullname) || "",
+      phone: p?.phone || "",
+      address: p?.address || "",
+      type: p?.type || "hotel",
+      commission_rate: Number(p?.commission_rate ?? fallback?.commission_rate ?? 10),
+      show_guest_details: p?.show_guest_details ?? true,
     });
     setModalOpen(true);
   };
@@ -622,7 +645,11 @@ const paginatedMessages = messages.slice(
         )}
 
      {/* LISTINGS */}
-{tab === 2 && <ListingsTab onEditPartner={handleEditPartner} />}
+{tab === 2 && (
+  <ListingsTab
+    onEditPartner={(partnerId, fallback) => handleEditPartner(partnerId, fallback)}
+  />
+)}
 {false && (
   <div className="space-y-5">
 
@@ -2777,7 +2804,12 @@ interface PartnerGroup {
   rooms: PartnerListingRow[];
 }
 
-function ListingsTab({ onEditPartner }: { onEditPartner: (partnerId: string) => void }) {
+type EditPartnerFn = (
+  partnerId: string,
+  fallback?: { fullname?: string; email?: string; commission_rate?: number }
+) => void;
+
+function ListingsTab({ onEditPartner }: { onEditPartner: EditPartnerFn }) {
   const [search, setSearch] = useState("");
   const { data: listings = [], isLoading } = useGetPartnerListingsQuery();
   const [selectedPartnerId, setSelectedPartnerId] = useState<string | null>(null);
@@ -2927,12 +2959,107 @@ function ListingsTab({ onEditPartner }: { onEditPartner: (partnerId: string) => 
 interface PartnerDetailPaneProps {
   partner: PartnerGroup;
   peso: (n: number) => string;
-  onEditPartner: (partnerId: string) => void;
+  onEditPartner: EditPartnerFn;
+}
+
+interface PartnerBookingRow {
+  booking_uuid: string;
+  booking_id: string;
+  room_name: string;
+  check_in_date: string;
+  check_out_date: string;
+  status: string;
+  show_guest_details_override: boolean | null;
+  guest_first_name: string | null;
+  guest_last_name: string | null;
 }
 
 function PartnerDetailPane({ partner, peso, onEditPartner }: PartnerDetailPaneProps) {
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const [showRoomDetails, setShowRoomDetails] = useState(false);
+
+  // Per-booking guest-detail visibility — owner-only inline toggle.
+  const [bookings, setBookings] = useState<PartnerBookingRow[]>([]);
+  const [bookingsLoading, setBookingsLoading] = useState(false);
+  const [updatingBookingId, setUpdatingBookingId] = useState<string | null>(null);
+  const [bookingsError, setBookingsError] = useState<string | null>(null);
+  const [migrationApplied, setMigrationApplied] = useState(true);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    setBookingsLoading(true);
+    setBookingsError(null);
+    fetch(`/api/admin/partners/${partner.partner_id}/bookings`, { cache: "no-store" })
+      .then(async (r) => {
+        const res = await r.json().catch(() => ({} as { success?: boolean; error?: string }));
+        if (cancelled) return;
+        if (r.ok && res?.success) {
+          setBookings((res.data as PartnerBookingRow[]) || []);
+          setMigrationApplied(res.meta?.migration_applied !== false);
+        } else {
+          setBookings([]);
+          setBookingsError(res?.error || `HTTP ${r.status}`);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setBookings([]);
+          setBookingsError(err instanceof Error ? err.message : "Network error");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setBookingsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [partner.partner_id]);
+
+  // PATCH /api/admin/bookings/:id/guest-visibility — cycles override values:
+  // null (inherit) → false (hidden) → true (shown) → null (inherit).
+  const cycleVisibilityOverride = async (b: PartnerBookingRow) => {
+    const next: boolean | null =
+      b.show_guest_details_override === null
+        ? false
+        : b.show_guest_details_override === false
+          ? true
+          : null;
+    const previous = b.show_guest_details_override;
+    // Optimistic update
+    setBookings((prev) =>
+      prev.map((x) =>
+        x.booking_uuid === b.booking_uuid ? { ...x, show_guest_details_override: next } : x
+      )
+    );
+    setUpdatingBookingId(b.booking_uuid);
+    try {
+      const res = await fetch(`/api/admin/bookings/${b.booking_uuid}/guest-visibility`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ override: next }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.error || "Failed");
+      toast.success(
+        next === null
+          ? "Visibility reset to partner default"
+          : next
+            ? "Guest details visible for this booking"
+            : "Guest details hidden for this booking"
+      );
+    } catch (err) {
+      // Revert on failure
+      setBookings((prev) =>
+        prev.map((x) =>
+          x.booking_uuid === b.booking_uuid
+            ? { ...x, show_guest_details_override: previous }
+            : x
+        )
+      );
+      toast.error(err instanceof Error ? err.message : "Failed to update visibility");
+    } finally {
+      setUpdatingBookingId(null);
+    }
+  };
 
   React.useEffect(() => {
     setSelectedRoomId(partner.rooms[0]?.uuid_id || null);
@@ -2979,8 +3106,14 @@ function PartnerDetailPane({ partner, peso, onEditPartner }: PartnerDetailPanePr
           </div>
           <button
             type="button"
-            onClick={() => onEditPartner(partner.partner_id)}
-            className="ml-2 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold inline-flex items-center gap-1.5 transition active:scale-95 shadow-sm flex-shrink-0"
+            onClick={() =>
+              onEditPartner(partner.partner_id, {
+                fullname: partner.partner_name,
+                email: partner.partner_email,
+                commission_rate: Number(partner.commission_rate ?? 10),
+              })
+            }
+            className="ml-2 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold inline-flex items-center gap-1.5 transition active:scale-95 shadow-sm flex-shrink-0 cursor-pointer"
             title="Edit partner — set commission and guest-details visibility"
           >
             <Edit2 className="w-3.5 h-3.5" />
@@ -3029,6 +3162,97 @@ function PartnerDetailPane({ partner, peso, onEditPartner }: PartnerDetailPanePr
               </button>
             </div>
           </div>
+        </div>
+
+        {/* Per-booking guest-detail visibility (owner-only) */}
+        <div className="mt-5 bg-white dark:bg-[#181818] border border-gray-200 dark:border-white/10 rounded-2xl overflow-hidden">
+          <div className="px-4 py-3 border-b border-gray-100 dark:border-white/5 flex items-baseline justify-between gap-2">
+            <div>
+              <h4 className="font-bold text-gray-900 dark:text-white text-sm">Booking guest visibility</h4>
+              <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
+                Per-booking override. Click the chip to cycle: Default → Hidden → Visible → Default.
+              </p>
+            </div>
+            <span className="text-[10.5px] uppercase tracking-wide font-semibold text-gray-500 dark:text-gray-400">
+              {bookings.length} booking{bookings.length === 1 ? "" : "s"}
+            </span>
+          </div>
+          {!migrationApplied && (
+            <div className="px-4 py-2.5 text-[11.5px] bg-amber-50 dark:bg-amber-900/20 text-amber-900 dark:text-amber-200 border-b border-amber-200 dark:border-amber-800">
+              Override column not found in the DB yet. Run the migration{" "}
+              <code className="font-mono text-[11px]">
+                2026-05-21-booking-guest-visibility-override.sql
+              </code>{" "}
+              to enable cycling. Bookings are listed below; chips will only stick once the migration runs.
+            </div>
+          )}
+          {bookingsError && (
+            <div className="px-4 py-2.5 text-[11.5px] bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300 border-b border-rose-200 dark:border-rose-800">
+              Failed to load bookings: {bookingsError}
+            </div>
+          )}
+          {bookingsLoading ? (
+            <div className="p-4 text-center text-[12.5px] text-gray-500">Loading bookings…</div>
+          ) : bookings.length === 0 ? (
+            <div className="p-4 text-center text-[12.5px] text-gray-500">
+              {bookingsError
+                ? "Could not load bookings."
+                : "No bookings yet for this partner."}
+            </div>
+          ) : (
+            <div className="max-h-[280px] overflow-y-auto">
+              {bookings.map((b) => {
+                const fullName = [b.guest_first_name, b.guest_last_name].filter(Boolean).join(" ").trim() || "—";
+                const stateLabel =
+                  b.show_guest_details_override === null
+                    ? "Default"
+                    : b.show_guest_details_override
+                      ? "Visible"
+                      : "Hidden";
+                const stateClass =
+                  b.show_guest_details_override === null
+                    ? "bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700"
+                    : b.show_guest_details_override
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-700"
+                      : "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-900/30 dark:text-rose-300 dark:border-rose-700";
+                return (
+                  <div
+                    key={b.booking_uuid}
+                    className="px-4 py-2.5 border-b border-gray-100 dark:border-white/5 last:border-0 flex items-center gap-3"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-baseline gap-2">
+                        <span className="font-mono text-[11px] text-gray-500 truncate">{b.booking_id}</span>
+                        <span className="text-[12px] font-semibold text-gray-900 dark:text-white truncate">{fullName}</span>
+                      </div>
+                      <div className="text-[10.5px] text-gray-500 truncate">
+                        {b.room_name} · {new Date(b.check_in_date).toLocaleDateString("en-US", { month: "short", day: "2-digit" })} → {new Date(b.check_out_date).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => cycleVisibilityOverride(b)}
+                      disabled={updatingBookingId === b.booking_uuid}
+                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10.5px] font-semibold border transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap ${stateClass}`}
+                      title="Click to cycle: Default → Hidden → Visible"
+                    >
+                      {updatingBookingId === b.booking_uuid ? "Updating…" : stateLabel}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Partner documents — gallery; owner can add/replace; partner uploads at onboarding */}
+        <div className="mt-5">
+          <DocumentsManager
+            listEndpoint={`/api/admin/partners/${partner.partner_id}/documents`}
+            deleteUrlBuilder={(d) => `/api/admin/partner-documents/${d.id}`}
+            title="Partner documents"
+            subtitle="Files the partner submitted at onboarding + anything you add for them. Up to 25 files."
+          />
         </div>
 
         {/* Minimal info under hero */}
@@ -3129,6 +3353,7 @@ function RoomDetailsModal({ room, peso, onClose }: RoomDetailsModalProps) {
           blocked_dates: [],
           partner_id: room.partner_id,
         } as unknown as Record<string, unknown>}
+        canEditCommission
       />
     );
   }
@@ -3737,38 +3962,226 @@ function DocsAnalyticsTab() {
         </div>
       </div>
 
-      {/* DOCUMENTS PLACEHOLDER */}
-      <div className="rounded-3xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#181818] overflow-hidden shadow-sm">
-        <div className="px-5 py-4 border-b border-gray-200 dark:border-white/10">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-            Documents & Agreements
-          </h2>
-          <p className="text-sm text-gray-500 mt-1">
-            Partnership files and policies (upload integration coming soon)
-          </p>
-        </div>
-        <div className="divide-y divide-gray-200 dark:divide-white/10">
-          {[
-            { title: "Partnership agreement template", desc: "Reusable contract template for new partner onboarding", badge: "PDF" },
-            { title: "Platform guidelines & policies", desc: "Standards partners must follow", badge: "PDF" },
-            { title: "Commission & payout structure", desc: `${ov?.financials.avg_commission_rate.toFixed(1)}% platform fee · payout 15th & 30th`, badge: "Policy" },
-          ].map((doc, i) => (
-            <div key={i} className="w-full flex items-center justify-between gap-4 px-5 py-4">
+      {/* DOCUMENTS & AGREEMENTS — predefined rows with per-row file attachments. */}
+      <PlatformDocumentSlots ov={ov} />
+    </div>
+  );
+}
+
+// ─── Platform document slots ──────────────────────────────────────────────
+// Three fixed rows that mirror the original Docs & Analytics placeholders.
+// Each row has its own slot_key; the owner attaches one file per slot. Files
+// surface to partners on their Onboarding page (read-only).
+
+interface PlatformDoc {
+  id: string;
+  slot_key: string | null;
+  label: string;
+  description: string | null;
+  file_url: string;
+  cloudinary_public_id: string | null;
+  mime_type: string | null;
+  file_size_bytes: number | null;
+  uploaded_at: string;
+}
+
+const PLATFORM_SLOTS: { key: string; title: string; defaultDesc: string; badge: string }[] = [
+  {
+    key: "agreement_template",
+    title: "Partnership agreement template",
+    defaultDesc: "Reusable contract template for new partner onboarding",
+    badge: "PDF",
+  },
+  {
+    key: "platform_guidelines",
+    title: "Platform guidelines & policies",
+    defaultDesc: "Standards partners must follow",
+    badge: "PDF",
+  },
+  {
+    key: "commission_policy",
+    title: "Commission & payout structure",
+    defaultDesc: "Platform commission & payout schedule",
+    badge: "Policy",
+  },
+];
+
+const slotFileToDataUrl = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+
+function PlatformDocumentSlots({ ov }: { ov: PartnersOverview | undefined }) {
+  const [docs, setDocs] = useState<PlatformDoc[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busySlot, setBusySlot] = useState<string | null>(null);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const r = await fetch("/api/admin/platform-documents", { cache: "no-store" });
+      const res = await r.json();
+      if (r.ok && res?.success) setDocs(res.data || []);
+      else setDocs([]);
+    } catch {
+      setDocs([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    load();
+  }, []);
+
+  const upload = async (slot: typeof PLATFORM_SLOTS[number], file: File) => {
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("File is larger than 10 MB");
+      return;
+    }
+    setBusySlot(slot.key);
+    try {
+      const dataUrl = await slotFileToDataUrl(file);
+      const r = await fetch("/api/admin/platform-documents", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slot_key: slot.key,
+          label: slot.title,
+          description: slot.defaultDesc,
+          file_data_url: dataUrl,
+          mime_type: file.type || null,
+          file_size_bytes: file.size,
+        }),
+      });
+      const res = await r.json();
+      if (!r.ok || !res?.success) throw new Error(res?.error || `HTTP ${r.status}`);
+      // Replace any existing slot entry, then add the new one.
+      setDocs((prev) => [res.data as PlatformDoc, ...prev.filter((d) => d.slot_key !== slot.key)]);
+      toast.success(`Attached "${file.name}" to ${slot.title}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setBusySlot(null);
+    }
+  };
+
+  const remove = async (slot: typeof PLATFORM_SLOTS[number], doc: PlatformDoc) => {
+    if (!confirm(`Remove the attached file for "${slot.title}"?`)) return;
+    setBusySlot(slot.key);
+    try {
+      const r = await fetch(`/api/admin/platform-documents/${doc.id}`, { method: "DELETE" });
+      const res = await r.json().catch(() => ({}));
+      if (!r.ok || res?.success === false) throw new Error(res?.error || `HTTP ${r.status}`);
+      setDocs((prev) => prev.filter((d) => d.id !== doc.id));
+      toast.success(`Removed file from ${slot.title}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Delete failed");
+    } finally {
+      setBusySlot(null);
+    }
+  };
+
+  return (
+    <div className="rounded-3xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#181818] overflow-hidden shadow-sm">
+      <div className="px-5 py-4 border-b border-gray-200 dark:border-white/10">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+          Documents & Agreements
+        </h2>
+        <p className="text-sm text-gray-500 mt-1">
+          Partnership files and policies. Attach a file to each slot — partners can download these from their dashboard.
+        </p>
+      </div>
+      <div className="divide-y divide-gray-200 dark:divide-white/10">
+        {PLATFORM_SLOTS.map((slot) => {
+          const doc = docs.find((d) => d.slot_key === slot.key);
+          const busy = busySlot === slot.key;
+          const desc = slot.key === "commission_policy"
+            ? `${ov?.financials.avg_commission_rate.toFixed(1) ?? "—"}% platform fee · payout 15th & 30th`
+            : slot.defaultDesc;
+          return (
+            <div key={slot.key} className="w-full flex items-center justify-between gap-4 px-5 py-4">
               <div className="flex items-center gap-4 min-w-0">
                 <div className="h-12 w-12 rounded-2xl bg-gray-100 dark:bg-white/5 grid place-items-center shrink-0">
                   <FileText className="w-5 h-5 text-gray-600 dark:text-gray-300" />
                 </div>
                 <div className="min-w-0">
-                  <p className="font-semibold text-gray-900 dark:text-white truncate">{doc.title}</p>
-                  <p className="text-sm text-gray-500 truncate">{doc.desc}</p>
+                  <p className="font-semibold text-gray-900 dark:text-white truncate">{slot.title}</p>
+                  <p className="text-sm text-gray-500 truncate">{desc}</p>
+                  {doc && (
+                    <p className="text-[11px] text-gray-400 mt-0.5 truncate">
+                      Attached {new Date(doc.uploaded_at).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })}
+                      {doc.file_size_bytes ? ` · ${(doc.file_size_bytes / 1024 / 1024).toFixed(1)} MB` : ""}
+                    </p>
+                  )}
                 </div>
               </div>
-              <span className="px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300">
-                {doc.badge}
-              </span>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <span className="px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300">
+                  {slot.badge}
+                </span>
+                {doc && (
+                  <>
+                    <a
+                      href={doc.file_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-brand-primary hover:bg-brand-primary/10 transition"
+                    >
+                      View
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => remove(slot, doc)}
+                      disabled={busy}
+                      className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition disabled:opacity-50"
+                      title="Remove file"
+                    >
+                      {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Remove"}
+                    </button>
+                  </>
+                )}
+                <label
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition ${
+                    busy
+                      ? "bg-gray-100 text-gray-400 cursor-wait"
+                      : doc
+                        ? "bg-gray-100 dark:bg-white/5 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/10"
+                        : "bg-indigo-600 text-white hover:bg-indigo-700"
+                  }`}
+                  title={doc ? "Replace file" : "Attach file"}
+                >
+                  {busy ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" /> Uploading…
+                    </>
+                  ) : doc ? (
+                    <>Replace</>
+                  ) : (
+                    <>Attach</>
+                  )}
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx"
+                    disabled={busy}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = "";
+                      if (file) upload(slot, file);
+                    }}
+                  />
+                </label>
+              </div>
             </div>
-          ))}
-        </div>
+          );
+        })}
+        {loading && (
+          <div className="px-5 py-3 text-[12.5px] text-gray-500 text-center">Loading attachments…</div>
+        )}
       </div>
     </div>
   );

@@ -102,6 +102,9 @@ interface HavenFormModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialData?: HavenData | null; // If provided, Edit Mode. If null/undefined, Add Mode.
+  // Owner-only: shows the per-room commission override input in the Details
+  // step and lets it through to the server. Partner-side callers leave this off.
+  canEditCommission?: boolean;
 }
 
 // Define Zod Schemas for each step's validation
@@ -170,7 +173,10 @@ const STEPS: Step[] = [
   { id: 'youtube', label: 'Video', description: 'YouTube URL', icon: Youtube, component: YouTubeVideoModal }, // Validation handled internally
 ];
 
-const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) => {
+const HavenFormModal = ({ isOpen, onClose, initialData, canEditCommission = false }: HavenFormModalProps) => {
+  // Commission only applies to partner-owned havens. Platform havens (no
+  // partner_id) skip the input entirely.
+  const havenHasPartner = !!(initialData as { partner_id?: string | null } | null | undefined)?.partner_id;
   const isEditMode = !!initialData;
   
   // mutations
@@ -212,6 +218,7 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
     cleaningFee: string;
     securityDeposit: string;
     extraPaxFee: string;
+    commissionRate: string;
     houseRules: string;
     smokingPolicy: string;
     petPolicy: string;
@@ -243,6 +250,7 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
     cleaningFee: "",
     securityDeposit: "",
     extraPaxFee: "",
+    commissionRate: "",
     houseRules: "",
     smokingPolicy: "",
     petPolicy: "",
@@ -343,6 +351,10 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
         cleaningFee: (initialData as { cleaning_fee?: number })?.cleaning_fee?.toString() || "",
         securityDeposit: (initialData as { security_deposit?: number })?.security_deposit?.toString() || "",
         extraPaxFee: (initialData as { extra_pax_fee?: number })?.extra_pax_fee?.toString() || "",
+        commissionRate: (() => {
+          const v = (initialData as { commission_rate?: number | null })?.commission_rate;
+          return v === null || v === undefined ? "" : String(v);
+        })(),
         houseRules: (initialData as { house_rules?: string })?.house_rules || "",
         smokingPolicy: (initialData as { smoking_policy?: string })?.smoking_policy || "",
         petPolicy: (initialData as { pet_policy?: string })?.pet_policy || "",
@@ -413,6 +425,10 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
         cleaningFee: data.cleaning_fee?.toString() || "",
         securityDeposit: data.security_deposit?.toString() || "",
         extraPaxFee: data.extra_pax_fee?.toString() || "",
+        commissionRate:
+          data.commission_rate === null || data.commission_rate === undefined
+            ? ""
+            : String(data.commission_rate),
         houseRules: data.house_rules || "",
         smokingPolicy: data.smoking_policy || "",
         petPolicy: data.pet_policy || "",
@@ -704,6 +720,12 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
         cleaning_fee: formData.cleaningFee ? parseFloat(formData.cleaningFee) : 0,
         security_deposit: formData.securityDeposit ? parseFloat(formData.securityDeposit) : 0,
         extra_pax_fee: formData.extraPaxFee ? parseFloat(formData.extraPaxFee) : 0,
+        // Only include for partner-owned havens edited by the Owner. Platform
+        // havens (no partner) shouldn't carry a commission value at all.
+        // Server strips this for non-Owner sessions as a second layer.
+        ...(canEditCommission && havenHasPartner
+          ? { commission_rate: formData.commissionRate ? parseFloat(formData.commissionRate) : null }
+          : {}),
         house_rules: formData.houseRules || null,
         smoking_policy: formData.smokingPolicy || null,
         pet_policy: formData.petPolicy || null,
@@ -811,6 +833,7 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
     cleaning_fee: formData.cleaningFee,
     security_deposit: formData.securityDeposit,
     extra_pax_fee: formData.extraPaxFee,
+    commission_rate: formData.commissionRate,
     house_rules: formData.houseRules,
     smoking_policy: formData.smokingPolicy,
     pet_policy: formData.petPolicy,
@@ -820,7 +843,7 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
   }), [
     formData.capacity, formData.roomSize, formData.beds, formData.bathrooms, formData.description,
     formData.propertyType, formData.cleaningFee,
-    formData.securityDeposit, formData.extraPaxFee, formData.houseRules,
+    formData.securityDeposit, formData.extraPaxFee, formData.commissionRate, formData.houseRules,
     formData.smokingPolicy, formData.petPolicy, formData.cancellationPolicy,
     formData.googleMapAddress, formData.virtualTourUrl,
   ]);
@@ -954,6 +977,7 @@ const HavenFormModal = ({ isOpen, onClose, initialData }: HavenFormModalProps) =
                           {...(step.id === 'images' ? { initialImages: imagesInitialData } : {})}
                           {...(step.id === 'phototour' ? { initialPhotoTours: photoTourInitialData, selectedAmenities: formData.amenities } : {})}
                           {...(step.id === 'youtube' ? { initialUrl: formData.youtubeUrl } : {})}
+                          {...(step.id === 'details' ? { canEditCommission, havenHasPartner } : {})}
                           isAddMode={!isEditMode}
                           mode="step"
                           isOpen={isOpen}

@@ -1,7 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { upload_file, delete_file } from "../utils/cloudinary";
 import pool from "../config/db";
 import { syncAmenityVerifications } from "../utils/amenityVerifySync";
+
+// Only Owner / admin sessions are allowed to set per-room commission overrides.
+// Partner-side callers (MyListingsPage, AddRoomPage) hit the same haven create/
+// update endpoints, so we strip the field server-side rather than trusting the UI.
+const isOwnerSession = async (): Promise<boolean> => {
+  try {
+    const session = await getServerSession(authOptions);
+    const role = (session?.user as { role?: string } | undefined)?.role;
+    return role === "Owner";
+  } catch {
+    return false;
+  }
+};
 
 //  /api/addHavenRoom/route.ts
 
@@ -49,6 +64,7 @@ export const createHaven = async (req: NextRequest): Promise<NextResponse> => {
       cleaning_fee,
       security_deposit,
       extra_pax_fee,
+      commission_rate,
       house_rules,
       smoking_policy,
       pet_policy,
@@ -58,6 +74,10 @@ export const createHaven = async (req: NextRequest): Promise<NextResponse> => {
       google_map_lng,
       virtual_tour_url,
     } = body;
+
+    // Per-room commission override: Owner only. Partner self-service create
+    // forces it to null so the partner default rate applies.
+    const effectiveCommissionRate = (await isOwnerSession()) ? commission_rate : null;
 
     // Partner-status gate: only approved partners can submit havens
     if (partner_id) {
@@ -161,11 +181,13 @@ export const createHaven = async (req: NextRequest): Promise<NextResponse> => {
         house_rules, smoking_policy, pet_policy, cancellation_policy,
         google_map_address, google_map_lat, google_map_lng, virtual_tour_url,
         bathrooms, property_type, cleaning_fee,
+        commission_rate,
         created_at, updated_at
         )
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22::jsonb,
                 $23, $24, $25, $26, $27, $28, $29, $30, $31, $32,
                 $33, $34, $35,
+                $36,
                 NOW(), NOW())
       RETURNING *
     `;
@@ -206,6 +228,11 @@ export const createHaven = async (req: NextRequest): Promise<NextResponse> => {
       bathrooms ? parseInt(bathrooms) : null,
       property_type || null,
       cleaning_fee ? parseFloat(cleaning_fee) : 0,
+      effectiveCommissionRate === "" ||
+      effectiveCommissionRate === null ||
+      effectiveCommissionRate === undefined
+        ? null
+        : parseFloat(String(effectiveCommissionRate)),
     ];
 
     const havenResult = await pool.query(havenQuery, havenValues);
@@ -612,6 +639,7 @@ export const updateHaven = async (req: NextRequest): Promise<NextResponse> => {
       cleaning_fee,
       security_deposit,
       extra_pax_fee,
+      commission_rate,
       house_rules,
       smoking_policy,
       pet_policy,
@@ -621,6 +649,19 @@ export const updateHaven = async (req: NextRequest): Promise<NextResponse> => {
       google_map_lng,
       virtual_tour_url,
     } = body;
+
+    // Owner-only per-room commission override. Non-Owner callers (partners
+    // editing their own listing) cannot change it — we keep whatever's in
+    // the DB so a crafted request can't override it.
+    const ownerCanEditCommission = await isOwnerSession();
+    let effectiveCommissionRate: unknown = commission_rate;
+    if (!ownerCanEditCommission) {
+      const existing = await pool.query<{ commission_rate: number | null }>(
+        `SELECT commission_rate FROM havens WHERE uuid_id = $1`,
+        [id]
+      );
+      effectiveCommissionRate = existing.rows[0]?.commission_rate ?? null;
+    }
 
     // Required fields validation
     if (!id || !haven_name || !tower || !floor || !view_type || !capacity || !room_size || !beds || !description) {
@@ -671,6 +712,7 @@ export const updateHaven = async (req: NextRequest): Promise<NextResponse> => {
           bathrooms = $33,
           property_type = $34,
           cleaning_fee = $35,
+          commission_rate = $36,
           updated_at = NOW()
       WHERE uuid_id = $22
       RETURNING *
@@ -712,6 +754,11 @@ export const updateHaven = async (req: NextRequest): Promise<NextResponse> => {
       bathrooms ? parseInt(bathrooms) : null,
       property_type || null,
       cleaning_fee ? parseFloat(cleaning_fee) : 0,
+      effectiveCommissionRate === "" ||
+      effectiveCommissionRate === null ||
+      effectiveCommissionRate === undefined
+        ? null
+        : parseFloat(String(effectiveCommissionRate)),
     ];
 
     const result = await pool.query(query, values);
