@@ -79,7 +79,7 @@ const RevenueManagementPage = () => {
       value: formatCurrency(summary?.total_revenue || 0),
       change: `${summary?.revenue_change?.toFixed(1) || 0}%`,
       color: "bg-blue-500",
-      icon: DollarSign,
+      icon: () => <span className="text-5xl font-bold opacity-50">₱</span>,
       positive: (summary?.revenue_change || 0) >= 0
     },
     {

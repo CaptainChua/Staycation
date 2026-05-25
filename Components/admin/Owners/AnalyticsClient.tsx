@@ -21,7 +21,7 @@ export default function AnalyticsClient({ summary, revenueByHaven, monthlyRevenu
       value: `₱${summary.total_revenue.toLocaleString()}`,
       change: `${summary.revenue_change >= 0 ? '+' : ''}${summary.revenue_change.toFixed(1)}%`,
       trending: summary.revenue_change >= 0 ? "up" : "down",
-      icon: DollarSign,
+      icon: () => <span className="text-5xl font-bold opacity-50">₱</span>,
       color: "bg-green-500" // Match Bookings "Confirmed" card color
     },
     {
