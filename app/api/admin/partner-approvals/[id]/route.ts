@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/backend/config/db";
-import { getServerSession } from "next-auth";
 import { logAudit } from "@/backend/utils/auditLog";
+import { requireAdmin } from "@/backend/utils/requireAdmin";
 
 // PATCH /api/admin/partner-approvals/[id]
 // Body: { action: 'approve' | 'reject' | 'suspend' | 'reactivate', reason? }
@@ -12,14 +12,13 @@ import { logAudit } from "@/backend/utils/auditLog";
 //   active           → 'suspended'  (suspend — reason required)
 //   suspended        → 'active'     (reactivate)
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.response;
   try {
-    const session = await getServerSession();
-    if (!session?.user) {
-      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
-    }
+    const session = guard.session;
     const reviewerLookup = await pool.query<{ id: string }>(
       `SELECT id FROM employees WHERE email = $1 LIMIT 1`,
-      [session.user.email]
+      [session.user!.email]
     );
     const reviewerId = reviewerLookup.rows[0]?.id || null;
 
@@ -98,7 +97,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       entity_id: id,
       actor_type: "admin",
       actor_id: reviewerId,
-      actor_email: session.user.email,
+      actor_email: session.user!.email,
       metadata: {
         from_status: currentStatus,
         to_status: nextStatus,

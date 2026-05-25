@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCleaningTaskById, updateCleaningTask } from "@/backend/controller/cleanersController";
+import { requireEmployee } from "@/backend/utils/requireAdmin";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const guard = await requireEmployee();
+  if (!guard.ok) return guard.response;
   const { id } = await params;
   console.log("🔍 API Route called: GET /api/admin/cleaners/tasks/[id]", id);
   try {
@@ -30,6 +33,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 }
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const guard = await requireEmployee();
+  if (!guard.ok) return guard.response;
   const { id } = await params;
   console.log("🔍 API Route called: PUT /api/admin/cleaners/tasks/[id]", id);
   try {

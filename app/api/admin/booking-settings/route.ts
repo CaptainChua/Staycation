@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Pool } from 'pg';
+import { requireAdmin } from '@/backend/utils/requireAdmin';
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
@@ -94,6 +95,8 @@ function formatRow(row: any) {
 }
 
 export async function GET() {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.response;
   try {
     await ensureTable();
 
@@ -121,6 +124,8 @@ export async function GET() {
 }
 
 export async function PATCH(request: NextRequest) {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.response;
   const client = await pool.connect();
   try {
     await ensureTable();

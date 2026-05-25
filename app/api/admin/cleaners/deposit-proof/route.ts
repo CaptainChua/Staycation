@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/backend/config/db";
 import { upload_file } from "@/backend/utils/cloudinary";
+import { requireEmployee } from "@/backend/utils/requireAdmin";
 
 export async function GET(req: NextRequest) {
+  const guard = await requireEmployee();
+  if (!guard.ok) return guard.response;
   const bookingUuid = req.nextUrl.searchParams.get("booking_uuid");
   if (!bookingUuid) {
     return NextResponse.json({ success: false, error: "booking_uuid is required" }, { status: 400 });
@@ -24,6 +27,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const guard = await requireEmployee();
+  if (!guard.ok) return guard.response;
   const client = await pool.connect();
   try {
     const formData = await req.formData();

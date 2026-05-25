@@ -16,22 +16,28 @@ export async function GET() {
 
     const bookings = await pool.query(
       `SELECT
-         b.booking_uuid::text AS booking_uuid,
+         b.id::text AS booking_uuid,
          b.booking_id,
-         b.haven_id::text AS haven_id,
+         h.uuid_id::text AS haven_id,
          h.haven_name,
          b.check_in_date::text,
          b.check_out_date::text,
-         b.nights,
+         GREATEST(b.check_out_date - b.check_in_date, 1) AS nights,
          b.status,
          b.booking_source,
          b.payout_id::text AS payout_id,
          b.payout_settled_at,
-         COALESCE(bp.total_amount, b.total_amount, 0) AS gross,
+         COALESCE(bp.total_amount, 0) AS gross,
          COALESCE(bp.add_ons_total, 0) AS cleaning_fee
        FROM booking b
-       LEFT JOIN booking_payments bp ON bp.booking_id = b.booking_id
-       JOIN havens h ON h.uuid_id = b.haven_id
+       JOIN havens h ON h.haven_name = b.room_name
+       LEFT JOIN LATERAL (
+         SELECT total_amount, add_ons_total
+         FROM booking_payments
+         WHERE booking_id = b.id
+         ORDER BY created_at DESC
+         LIMIT 1
+       ) bp ON true
        WHERE h.partner_id = $1
        ORDER BY b.check_in_date DESC NULLS LAST
        LIMIT 100`,
@@ -73,7 +79,11 @@ export async function GET() {
     }
 
     // Totals across all rows
-    const totals = items.reduce(
+    type Totals = {
+      gross: number; partner_share: number; platform_share: number;
+      net_payable: number; pending_payout: number;
+    };
+    const totals = items.reduce<Totals>(
       (acc, it) => ({
         gross: acc.gross + Number(it.gross),
         partner_share: acc.partner_share + Number(it.partner_share),
@@ -89,7 +99,9 @@ export async function GET() {
     return NextResponse.json({ success: true, data: { items, totals } });
   } catch (err: unknown) {
     const code = (err as { code?: string })?.code;
-    if (code === "42P01") {
+    // 42P01 = undefined_table, 42703 = undefined_column — degrade gracefully
+    // until the revenue-share / calendar-sync migrations are applied.
+    if (code === "42P01" || code === "42703") {
       return NextResponse.json({ success: true, data: { items: [], totals: null } });
     }
     const msg = err instanceof Error ? err.message : "Failed to load earnings";

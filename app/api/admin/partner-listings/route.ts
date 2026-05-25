@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/backend/config/db";
+import { requireAdmin } from "@/backend/utils/requireAdmin";
 
 // GET /api/admin/partner-listings?status=all|approved|pending|rejected
 // All partner-submitted havens across every partner, with partner info attached
 export async function GET(req: NextRequest) {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.response;
   try {
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status") || "all";

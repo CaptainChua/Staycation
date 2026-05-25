@@ -5,15 +5,17 @@ import {
   submitChecklist,
   updateTask as controllerUpdateTask,
 } from "@/backend/controller/cleaningChecklistController";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireEmployee } from "@/backend/utils/requireAdmin";
 
 export async function GET(req: NextRequest) {
-  // Delegate to controller which reads the query params (haven_id) from the request
+  const guard = await requireEmployee();
+  if (!guard.ok) return guard.response;
   return getChecklistByHaven(req);
 }
 
 export async function POST(req: NextRequest) {
+  const guard = await requireEmployee();
+  if (!guard.ok) return guard.response;
   try {
     const body = await req.json().catch(() => ({}));
     const { action } = body || {};
@@ -37,8 +39,7 @@ export async function POST(req: NextRequest) {
       case "submit": {
         // Inject the caller's role so the controller can bypass the
         // incomplete-task check for CSR and admin users.
-        const session = await getServerSession(authOptions);
-        const sessionRole = (session?.user as { role?: string })?.role ?? "";
+        const sessionRole = (guard.session.user as { role?: string })?.role ?? "";
         const bodyWithRole = { ...body, role: sessionRole };
         const reqWithRole = { ...req, json: async () => bodyWithRole } as NextRequest;
         return submitChecklist(reqWithRole);
@@ -60,6 +61,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
+  const guard = await requireEmployee();
+  if (!guard.ok) return guard.response;
   try {
     // Accept body with a task identifier and new completed value:
     // { task_id: string, completed: boolean }

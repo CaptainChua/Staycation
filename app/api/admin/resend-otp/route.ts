@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/backend/config/db";
+import { sendOtpEmail } from "@/backend/utils/sendOtpEmail";
 
+// PUBLIC BY DESIGN — called by an UNAUTHENTICATED locked-out user from the
+// OtpVerification UI to request a fresh unlock code. Must NOT call
+// requireAdmin(). See backend/utils/requireAdmin.ts for the exemption list.
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -13,7 +17,7 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Get user info for email template
+    // Get user info for email template — check employees first, then partners.
     let userName = null;
     if (type === 'ACCOUNT_LOCK') {
       try {
@@ -23,6 +27,17 @@ export async function POST(request: NextRequest) {
         );
         if (userResult.rows.length > 0) {
           userName = `${userResult.rows[0].first_name} ${userResult.rows[0].last_name}`;
+        } else {
+          const partnerResult = await pool.query(
+            `SELECT pi.partner_fullname
+             FROM partners_account pa
+             LEFT JOIN partners_information pi ON pi.partner_id = pa.id
+             WHERE pa.partner_email = $1`,
+            [email]
+          );
+          if (partnerResult.rows.length > 0) {
+            userName = partnerResult.rows[0].partner_fullname || null;
+          }
         }
       } catch (error) {
         console.error("Error fetching user name:", error);
@@ -48,20 +63,14 @@ export async function POST(request: NextRequest) {
       [email, otp, type, expiresAt]
     );
 
-    // Send email with OTP
-    await fetch(
-      `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/api/admin/send-email`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email,
-          otp,
-          type,
-          userName,
-        }),
-      }
-    );
+    // Send email with OTP — direct call (no HTTP hop) so send-email can be
+    // locked down later without breaking the unlock flow.
+    try {
+      await sendOtpEmail({ email, otp, type, userName });
+    } catch (emailError) {
+      console.error("❌ Failed to send OTP email:", emailError);
+      // Continue — the OTP row is already inserted; user can retry resend.
+    }
 
     return NextResponse.json({
       success: true,

@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/backend/config/db";
+import { requireAdmin } from "@/backend/utils/requireAdmin";
 
 // GET /api/admin/partner-havens?status=pending
 // Lists partner-submitted havens grouped by approval status (pending by default).
 export async function GET(req: NextRequest) {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.response;
   try {
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status") || "pending";
@@ -103,6 +106,8 @@ export async function GET(req: NextRequest) {
 // PATCH /api/admin/partner-havens
 // Body: { haven_id, action: 'approve' | 'reject', reason?, reviewer_notes? }
 export async function PATCH(req: NextRequest) {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.response;
   try {
     const body = await req.json();
     const { haven_id, action, reason, reviewer_notes } = body;

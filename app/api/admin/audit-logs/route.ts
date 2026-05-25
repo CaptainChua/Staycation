@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Pool } from 'pg';
+import { requireAdmin } from '@/backend/utils/requireAdmin';
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
@@ -21,6 +22,8 @@ function mapSeverity(activityType: string): string {
 }
 
 export async function GET(request: NextRequest) {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.response;
   try {
     const { searchParams } = new URL(request.url);
     const typeFilter = searchParams.get('type') || 'all';

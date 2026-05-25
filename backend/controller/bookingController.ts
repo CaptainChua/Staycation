@@ -461,6 +461,38 @@ export const createBooking = async (
     }
     // --- END AVAILABILITY CHECK ---
 
+    // --- BLOCKED-DATES CHECK ---
+    // The availability check above only looks at Staycation bookings. Partners can
+    // also block dates manually (renovation, leave) and iCal sync imports reservations
+    // from Airbnb / Booking.com as blocked_dates rows with block_type='imported_external'.
+    // Without this check, guests can book over external reservations and partner-blocked
+    // windows. Skipped if haven_id is missing (e.g. legacy clients that send only
+    // room_name) so we don't regress those callers.
+    if (body.haven_id) {
+      const blockedCheck = await client.query(
+        `SELECT id, from_date, to_date, block_type, reason
+         FROM blocked_dates
+         WHERE haven_id = $1
+           AND status = 'active'
+           AND daterange(from_date, to_date, '[]')
+               && daterange($2::date, $3::date, '[)')
+         LIMIT 1`,
+        [body.haven_id, check_in_date, check_out_date]
+      );
+
+      if (blockedCheck.rows.length > 0) {
+        await client.query("ROLLBACK");
+        return NextResponse.json(
+          {
+            success: false,
+            error: "This room is unavailable on the selected dates. Please choose different dates.",
+          },
+          { status: 400 }
+        );
+      }
+    }
+    // --- END BLOCKED-DATES CHECK ---
+
     // --- BOOKING WINDOW VALIDATION ---
     const { stay_type, haven_id } = body;
     if (stay_type && haven_id) {

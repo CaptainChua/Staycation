@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { PoolClient } from "pg";
 import pool from "@/backend/config/db";
 
+// NOTE: Despite living under /api/admin/**, this route is called from
+// Components/Checkout.tsx by UNAUTHENTICATED guests during the booking flow
+// to fetch check-in/out times for the selected haven. Must NOT call
+// requireAdmin(). Consider relocating to /api/havens/[id]/times in a future
+// refactor so the URL matches the access model.
+
 interface RouteContext {
   params: Promise<{ id: string }>;
 }

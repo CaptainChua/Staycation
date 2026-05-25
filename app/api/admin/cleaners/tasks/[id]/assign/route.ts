@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import pool from "@/backend/config/db";
 import { logActivity } from "@/backend/utils/activityLogger";
 import { createNotificationForUser } from "@/backend/utils/notificationHelper";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireEmployee } from "@/backend/utils/requireAdmin";
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const guard = await requireEmployee();
+  if (!guard.ok) return guard.response;
   try {
     const { id: cleaningTaskId } = await params;
     const body = await req.json();
@@ -18,8 +19,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       );
     }
 
-    const session = await getServerSession(authOptions);
-    const currentUserId = (session?.user as { id?: string })?.id ?? '00000000-0000-0000-0000-000000000000';
+    const currentUserId = (guard.session.user as { id?: string })?.id ?? '00000000-0000-0000-0000-000000000000';
 
     // Get cleaner and task details for logging and notification
     const taskDetailsQuery = `

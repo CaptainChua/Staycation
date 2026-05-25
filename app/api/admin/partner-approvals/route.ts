@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/backend/config/db";
+import { requireAdmin } from "@/backend/utils/requireAdmin";
 
 // GET /api/admin/partner-approvals?status=pending|active|suspended|rejected|all
 // Admin queue for partner approval — returns full onboarding data so the reviewer
 // can see the documents, payout details, and business info in one view.
 export async function GET(req: NextRequest) {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.response;
   try {
     const url = new URL(req.url);
     const status = (url.searchParams.get("status") || "pending").toLowerCase();

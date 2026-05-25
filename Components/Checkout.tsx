@@ -2396,11 +2396,9 @@ const Checkout = () => {
                             onChange={(e) => {
                               handleInputChange(e);
                               setErrors(prev => ({...prev, checkInTime: ''}));
-                              // Auto-recalculate checkout time when check-in changes
-                              if (selectedBookingType) {
-                                const newOut = addHoursToTime(e.target.value, selectedBookingType.duration);
-                                setFormData(prev => ({ ...prev, checkOutTime: newOut }));
-                              }
+                              // Check-out recompute is handled by the auto-derive
+                              // useEffect that watches formData.checkInTime — it sets
+                              // both the date and time (with midnight rollover).
                             }}
                             required
                             aria-label="Check-in time"
@@ -2666,6 +2664,14 @@ const Checkout = () => {
                             <span>Security Deposit</span>
                             <span className="font-semibold">₱{securityDeposit.toLocaleString()}</span>
                           </div>
+                          {securityDeposit > 0 && (
+                            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-md px-2.5 py-2 flex items-start gap-1.5">
+                              <Info className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-green-700 dark:text-green-300" aria-hidden="true" />
+                              <p className="text-xs text-green-800 dark:text-green-200 leading-snug">
+                                <span className="font-semibold">Refundable</span> — given back after check-out if the room is in good condition and no issues are reported.
+                              </p>
+                            </div>
+                          )}
                           {addOnsTotal > 0 && (
                             <div className="flex justify-between text-gray-700 dark:text-gray-300">
                               <span>Add-ons</span>
@@ -3077,6 +3083,14 @@ const Checkout = () => {
                         {securityDeposit > 0 ? `₱${securityDeposit.toLocaleString()}` : "—"}
                       </span>
                     </div>
+                    {securityDeposit > 0 && (
+                      <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-md px-2.5 py-2 flex items-start gap-1.5">
+                        <Info className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-green-700 dark:text-green-300" aria-hidden="true" />
+                        <p className="text-xs text-green-800 dark:text-green-200 leading-snug">
+                          <span className="font-semibold">Refundable</span> — given back after check-out if the room is in good condition and no issues are reported.
+                        </p>
+                      </div>
+                    )}
                     {addOnsTotal > 0 && (
                       <div className="flex justify-between">
                         <span className="text-gray-600 dark:text-gray-400">Add-ons</span>

@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/backend/config/db";
+import { requireAdmin } from "@/backend/utils/requireAdmin";
 
 // GET /api/admin/partner-messages
 // All partner message threads across every partner, for owner Messages tab
 export async function GET() {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.response;
   try {
     const result = await pool.query(`
       SELECT
@@ -51,6 +54,8 @@ export async function GET() {
 //       default staff↔partner thread. Created on the fly the first time a
 //       member of staff messages a partner from the new-message picker.
 export async function POST(req: NextRequest) {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.response;
   try {
     const { thread_id: requestedThreadId, partner_id, body, sender_name } = await req.json();
 

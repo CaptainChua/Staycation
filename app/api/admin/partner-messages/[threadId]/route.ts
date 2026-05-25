@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/backend/config/db";
+import { requireAdmin } from "@/backend/utils/requireAdmin";
 
 // GET /api/admin/partner-messages/[threadId] — full conversation for one thread
 export async function GET(
   _req: NextRequest,
   ctx: { params: Promise<{ threadId: string }> }
 ) {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.response;
   try {
     const { threadId } = await ctx.params;
     const result = await pool.query(

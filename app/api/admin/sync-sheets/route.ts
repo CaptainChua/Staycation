@@ -1,17 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { syncBookingsToSheet } from "@/backend/utils/googleSheets";
+import { requireAdmin } from "@/backend/utils/requireAdmin";
 
 export const dynamic = 'force-dynamic'; // Ensure this route is not cached
 
 export async function POST(req: NextRequest) {
   try {
+    // Allow either a valid cron bearer token OR an admin (Owner/CSR) session.
+    // CSR triggers a manual sync from the BookingPage; cron triggers it on a
+    // schedule. Previously, if CRON_SECRET was unset the route was wide open.
     const cronSecret = process.env.CRON_SECRET;
-    if (cronSecret) {
-      const auth = req.headers.get("authorization") || "";
-      const token = auth.toLowerCase().startsWith("bearer ") ? auth.slice(7) : "";
-      if (token !== cronSecret) {
-        return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
-      }
+    const auth = req.headers.get("authorization") || "";
+    const token = auth.toLowerCase().startsWith("bearer ") ? auth.slice(7) : "";
+    const isCronCall = !!cronSecret && token === cronSecret;
+
+    if (!isCronCall) {
+      const guard = await requireAdmin();
+      if (!guard.ok) return guard.response;
     }
 
     const result = await syncBookingsToSheet();

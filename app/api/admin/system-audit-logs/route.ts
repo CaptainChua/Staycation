@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/backend/config/db";
+import { requireAdmin } from "@/backend/utils/requireAdmin";
 
 // GET /api/admin/system-audit-logs
 //   ?entity_type=&entity_id=&actor_email=&action=&limit=&offset=
 // Returns system-wide audit-log rows from the `audit_logs` table (separate from
 // the older `employee_activity_logs` which covers admin login/staff actions).
 export async function GET(req: NextRequest) {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.response;
   try {
     const url = new URL(req.url);
     const entityType = url.searchParams.get("entity_type");

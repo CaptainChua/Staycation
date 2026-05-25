@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/backend/config/db";
-import { getServerSession } from "next-auth";
 import { upload_file } from "@/backend/utils/cloudinary";
+import { requireAdmin } from "@/backend/utils/requireAdmin";
 
 // GET /api/admin/partner-payouts
 //   ?status=pending|processing|paid|failed|cancelled|all
 //   ?partner_id=<uuid>
 // Returns enriched payout rows with partner context and line items.
 export async function GET(req: NextRequest) {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.response;
   try {
     const url = new URL(req.url);
     const status = (url.searchParams.get("status") || "all").toLowerCase();
@@ -92,13 +94,10 @@ export async function GET(req: NextRequest) {
 //   proof_data_url?, notes?
 // }
 export async function POST(req: NextRequest) {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.response;
   const client = await pool.connect();
   try {
-    const session = await getServerSession();
-    if (!session?.user) {
-      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
-    }
-
     const body = await req.json();
     const partnerId: string = body.partner_id;
     const amountRaw = body.amount;
@@ -129,7 +128,7 @@ export async function POST(req: NextRequest) {
     // Find the reviewer/admin id from the session email
     const reviewerLookup = await client.query<{ id: string }>(
       `SELECT id FROM employees WHERE email = $1 LIMIT 1`,
-      [session.user.email]
+      [guard.session.user.email]
     );
     const reviewerId = reviewerLookup.rows[0]?.id || null;
 

@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/backend/config/db";
+import { requireAdmin } from "@/backend/utils/requireAdmin";
 
 // GET /api/admin/partners-overview?partner_id=<uuid>
 // Aggregated stats across all partners (or scoped to one partner when ?partner_id is set).
 export async function GET(req: NextRequest) {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.response;
   try {
     const url = new URL(req.url);
     const partnerId = url.searchParams.get("partner_id") || null;

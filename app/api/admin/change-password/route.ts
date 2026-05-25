@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import pool from "@/backend/config/db";
 import bcrypt from "bcryptjs";
 
+// PUBLIC BY DESIGN — self-service password change. Authenticates via the
+// old password supplied in the request body (compared with bcrypt), not via
+// a session. Must NOT call requireAdmin(). See backend/utils/requireAdmin.ts
+// for the full exemption list.
 export async function POST(request: NextRequest) {
   try {
     const { email, currentPassword, newPassword } = await request.json();

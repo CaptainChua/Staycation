@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/backend/config/db";
 import { upload_file } from "@/backend/utils/cloudinary";
+import { requireEmployee } from "@/backend/utils/requireAdmin";
 
 export async function GET(req: NextRequest) {
+  const guard = await requireEmployee();
+  if (!guard.ok) return guard.response;
   const checklistId = req.nextUrl.searchParams.get("checklist_id");
   if (!checklistId) {
     return NextResponse.json({ success: false, error: "checklist_id is required" }, { status: 400 });
@@ -27,6 +30,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const guard = await requireEmployee();
+  if (!guard.ok) return guard.response;
   try {
     const formData = await req.formData();
     const file = formData.get("file") as File | null;

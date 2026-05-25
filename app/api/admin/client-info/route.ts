@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireAdmin } from "@/backend/utils/requireAdmin";
 
 export async function GET(request: NextRequest) {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.response;
   try {
     // Get client IP address
     const forwarded = request.headers.get('x-forwarded-for');

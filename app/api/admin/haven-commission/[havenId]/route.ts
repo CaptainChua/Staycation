@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/backend/config/db";
+import { requireAdmin } from "@/backend/utils/requireAdmin";
 
 const VALID_TYPES = ["percentage", "fixed_daily", "fixed_commission", "hybrid"] as const;
 const VALID_SCHEDULES = ["weekly", "biweekly", "monthly", "per_booking"] as const;
 
 // GET — current commission for one haven (with partner default for fallback context)
 export async function GET(_req: NextRequest, ctx: { params: Promise<{ havenId: string }> }) {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.response;
   try {
     const { havenId } = await ctx.params;
     const r = await pool.query(
@@ -33,6 +36,8 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ havenId: s
 
 // PATCH — update the haven's commission config. Pass null to clear and inherit partner default.
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ havenId: string }> }) {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.response;
   try {
     const { havenId } = await ctx.params;
     const body = await req.json();

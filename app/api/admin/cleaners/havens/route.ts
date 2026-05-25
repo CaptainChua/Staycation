@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/backend/config/db";
+import { requireEmployee } from "@/backend/utils/requireAdmin";
 
 function formatTimeHHMM(time: string): string | null {
   if (!time || time === "00:00:00" || time === "00:00") return null;
@@ -10,6 +11,8 @@ function formatTimeHHMM(time: string): string | null {
 }
 
 export async function GET(req: NextRequest) {
+  const guard = await requireEmployee();
+  if (!guard.ok) return guard.response;
   const { searchParams } = new URL(req.url);
   const includeId = searchParams.get("include_id");
 

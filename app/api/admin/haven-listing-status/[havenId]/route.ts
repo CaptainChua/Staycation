@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/backend/config/db";
-import { getServerSession } from "next-auth";
 import { logAudit } from "@/backend/utils/auditLog";
+import { requireAdmin } from "@/backend/utils/requireAdmin";
 
 // PATCH /api/admin/haven-listing-status/[havenId]
 // Body: { listing_status: 'active' | 'disabled' | 'suspended', reason?: string }
@@ -10,14 +10,13 @@ import { logAudit } from "@/backend/utils/auditLog";
 // rejecting the partner's approval status. Separate from property_approval so
 // approve→reject and active→disabled are two independent levers.
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ havenId: string }> }) {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.response;
   try {
-    const session = await getServerSession();
-    if (!session?.user) {
-      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
-    }
+    const session = guard.session;
     const reviewerLookup = await pool.query<{ id: string }>(
       `SELECT id FROM employees WHERE email = $1 LIMIT 1`,
-      [session.user.email]
+      [session.user!.email]
     );
     const reviewerId = reviewerLookup.rows[0]?.id || null;
 
@@ -66,7 +65,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ havenId: 
       entity_id: havenId,
       actor_type: "admin",
       actor_id: reviewerId,
-      actor_email: session.user.email,
+      actor_email: session.user!.email,
       metadata: {
         from_status: prevStatus,
         to_status: status,

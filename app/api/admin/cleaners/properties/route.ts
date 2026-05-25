@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import pool from '@/backend/config/db';
+import { requireEmployee } from '@/backend/utils/requireAdmin';
 
 interface TowerData {
   id: string;
@@ -20,6 +21,8 @@ const TOWER_COORDS: Record<string, { lat: number; lng: number }> = {
 };
 
 export async function GET() {
+  const guard = await requireEmployee();
+  if (!guard.ok) return guard.response;
   try {
     const client = await pool.connect();
     try {

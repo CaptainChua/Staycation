@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDeliverables } from '@/app/admin/csr/actions';
 import { updateDeliverableStatus, markDeliverableDelivered, cancelDeliverable, refundDeliverable } from '@/app/admin/csr/actions';
+import { requireAdmin } from '@/backend/utils/requireAdmin';
 
 export async function GET(request: NextRequest) {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.response;
   try {
     const deliverables = await getDeliverables();
     return NextResponse.json({
@@ -23,6 +26,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.response;
   try {
     const { deliverableId, newStatus } = await request.json();
     
@@ -53,6 +58,8 @@ export async function PATCH(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.response;
   try {
     const { deliverableId, action } = await request.json();
     

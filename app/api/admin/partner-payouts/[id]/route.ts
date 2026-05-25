@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/backend/config/db";
 import { upload_file } from "@/backend/utils/cloudinary";
-import { getServerSession } from "next-auth";
 import { logAudit } from "@/backend/utils/auditLog";
+import { requireAdmin } from "@/backend/utils/requireAdmin";
 
 // GET /api/admin/partner-payouts/[id] — detail incl. line items
 export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.response;
   try {
     const { id } = await ctx.params;
     const payout = await pool.query(
@@ -54,6 +56,8 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
 //         proof_data_url?, reference_number?, reviewer_notes?, scheduled_date? }
 // Used by admin to advance the payout through its state machine + attach proof.
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.response;
   try {
     const { id } = await ctx.params;
     const body = await req.json();
@@ -140,13 +144,12 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       );
     }
 
-    const session = await getServerSession();
     await logAudit({
       action: `payout.${action}`,
       entity_type: "payout",
       entity_id: id,
       actor_type: "admin",
-      actor_email: session?.user?.email || null,
+      actor_email: guard.session.user.email || null,
       metadata: {
         to_status: nextStatus,
         net_amount: Number(updated.rows[0].net_amount) || 0,

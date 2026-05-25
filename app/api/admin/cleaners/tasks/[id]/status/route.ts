@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { updateCleaningTask } from "@/backend/controller/cleanersController";
+import { requireEmployee } from "@/backend/utils/requireAdmin";
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const guard = await requireEmployee();
+  if (!guard.ok) return guard.response;
   try {
     const { id } = await params;
     const body = await req.json();

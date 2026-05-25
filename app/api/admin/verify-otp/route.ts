@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/backend/config/db";
 
+// PUBLIC BY DESIGN — called by an UNAUTHENTICATED locked-out user
+// (employee or partner) to unlock their account via OTP. Must NOT call
+// requireAdmin(). See backend/utils/requireAdmin.ts for the exemption list.
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -69,12 +72,22 @@ export async function POST(request: NextRequest) {
     );
 
     // 🔓 UNLOCK ACCOUNT (CRITICAL)
+    // The OTP is keyed only by email, so we don't know which table the locked
+    // account lives in. Reset login_attempts on both — only the matching row
+    // will actually change.
     if (type === "ACCOUNT_LOCK") {
       await pool.query(
         `UPDATE employees
          SET login_attempts = 0,
              updated_at = NOW()
          WHERE email = $1`,
+        [email]
+      );
+      await pool.query(
+        `UPDATE partners_account
+         SET login_attempts = 0,
+             updated_at = NOW()
+         WHERE partner_email = $1`,
         [email]
       );
     }

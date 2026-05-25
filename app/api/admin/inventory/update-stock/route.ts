@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/backend/config/db";
+import { requireAdmin } from "@/backend/utils/requireAdmin";
 
 export const runtime = "nodejs";
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.response;
   try {
     const { itemName, quantity, operation } = await request.json();
 

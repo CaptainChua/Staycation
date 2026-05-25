@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Pool } from 'pg';
+import { requireEmployee } from '@/backend/utils/requireAdmin';
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -24,6 +25,8 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ employeeId: string }> }
 ) {
+  const guard = await requireEmployee();
+  if (!guard.ok) return guard.response;
   try {
     const { employeeId } = await params;
 

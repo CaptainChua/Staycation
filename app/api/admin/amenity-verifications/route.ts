@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/backend/config/db";
+import { requireAdmin } from "@/backend/utils/requireAdmin";
 
 // GET /api/admin/amenity-verifications
 //   ?status=pending|verified|rejected|revision_requested|all   (default: all)
@@ -9,6 +10,8 @@ import pool from "@/backend/config/db";
 //
 // Returns enriched verification rows with haven + partner context for the admin queue.
 export async function GET(req: NextRequest) {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.response;
   try {
     const url = new URL(req.url);
     const status = (url.searchParams.get("status") || "all").toLowerCase();

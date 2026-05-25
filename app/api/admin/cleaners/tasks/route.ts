@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAllCleaningTasks } from "@/backend/controller/cleanersController";
+import { requireEmployee } from "@/backend/utils/requireAdmin";
 
 export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
+  const guard = await requireEmployee();
+  if (!guard.ok) return guard.response;
   console.log("🚀 CLEANERS TASKS API CALLED");
 
   try {

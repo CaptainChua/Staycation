@@ -5,6 +5,9 @@ import { logActivity } from '@/backend/utils/activityLogger';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
+// GET is PUBLIC BY DESIGN — Components/Checkout.tsx fetches this from the
+// unauthenticated booking flow to list available payment options to the
+// guest. POST/PUT/DELETE remain session-gated (admin manages methods).
 export async function GET() {
   try {
     const client = await pool.connect();

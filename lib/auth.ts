@@ -5,6 +5,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { upsertUser, upsertFacebookUser } from "@/backend/controller/userController";
 import pool from "@/backend/config/db";
 import bcrypt from "bcryptjs";
+import { sendOtpEmail } from "@/backend/utils/sendOtpEmail";
 
 // Verify Turnstile token
 const verifyTurnstileToken = async (token: string): Promise<boolean> => {
@@ -158,20 +159,18 @@ export const authOptions: NextAuthOptions = {
                   ]
                 );
 
-                // Send OTP email
-                await fetch(
-                  `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/api/admin/send-email`,
-                  {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      email: credentials.email,
-                      otp,
-                      type: "ACCOUNT_LOCK",
-                      userName: `${user.first_name} ${user.last_name}`,
-                    }),
-                  }
-                );
+                // Send OTP email directly (no HTTP hop) so /api/admin/send-email
+                // can be locked down later without breaking the lockout flow.
+                try {
+                  await sendOtpEmail({
+                    email: credentials.email,
+                    otp,
+                    type: "ACCOUNT_LOCK",
+                    userName: `${user.first_name} ${user.last_name}`,
+                  });
+                } catch (emailError) {
+                  console.error("❌ Failed to send employee lock OTP email:", emailError);
+                }
 
                 throw new Error(
                   "Account locked due to multiple failed attempts. Please check your email for OTP verification."
@@ -251,7 +250,7 @@ export const authOptions: NextAuthOptions = {
           // If not found in employees, check partners_account (for Partner login)
           console.log("📊 Querying partners_account table...");
           const partnerResult = await pool.query(
-            `SELECT pa.id, pa.partner_email, pa.partner_password, pa.status,
+            `SELECT pa.id, pa.partner_email, pa.partner_password, pa.status, pa.login_attempts,
                     pi.partner_fullname
              FROM partners_account pa
              LEFT JOIN partners_information pi ON pa.id = pi.partner_id
@@ -261,7 +260,17 @@ export const authOptions: NextAuthOptions = {
 
           if (partnerResult.rows.length > 0) {
             const partner = partnerResult.rows[0];
-            console.log("✅ Partner found:", partner.partner_email, "- Status:", partner.status);
+            console.log("✅ Partner found:", partner.partner_email, "- Status:", partner.status, "- Current attempts:", partner.login_attempts || 0);
+
+            // 🔒 IMMEDIATE LOCK CHECK — blocks even before turnstile/password
+            // so a locked account cannot be brute-forced further. Unlock happens
+            // via /api/admin/verify-otp with type=ACCOUNT_LOCK.
+            if ((partner.login_attempts || 0) >= 3) {
+              console.log(`🔒 Partner account already locked for ${partner.partner_email}`);
+              throw new Error(
+                "Account locked due to multiple failed attempts. Please check your email for OTP verification."
+              );
+            }
 
             // Status gating:
             //   pending  → allowed (so the partner can log in and complete docs)
@@ -297,15 +306,75 @@ export const authOptions: NextAuthOptions = {
 
             if (!isValidPartner) {
               console.log("❌ Invalid password for partner:", partner.partner_email);
+
+              // ⬆ Increment login attempts
+              const attemptUpdate = await pool.query(
+                `UPDATE partners_account
+                 SET login_attempts = COALESCE(login_attempts, 0) + 1,
+                     updated_at = NOW()
+                 WHERE id = $1
+                 RETURNING login_attempts`,
+                [partner.id]
+              );
+
+              const attempts = attemptUpdate.rows[0].login_attempts;
+              console.log(`📊 Login attempts for ${partner.partner_email}: ${attempts}`);
+
+              // 🔒 LOCK ACCOUNT AT 3 ATTEMPTS — generate OTP, store it, email it
+              if (attempts >= 3) {
+                const otp = Math.floor(100000 + Math.random() * 900000).toString();
+                const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+                // Remove any previous unlock OTP for this email
+                await pool.query(
+                  `DELETE FROM otp_verification
+                   WHERE email = $1 AND otp_type = 'ACCOUNT_LOCK'`,
+                  [credentials.email]
+                );
+
+                await pool.query(
+                  `INSERT INTO otp_verification
+                   (email, otp_code, otp_type, expires_at, ip_address, user_agent, created_at)
+                   VALUES ($1, $2, 'ACCOUNT_LOCK', $3, $4, $5, NOW())`,
+                  [
+                    credentials.email,
+                    otp,
+                    expiresAt,
+                    ipAddress !== "unknown" ? ipAddress : null,
+                    userAgent !== "unknown" ? userAgent : null,
+                  ]
+                );
+
+                // Fire-and-log the email — failure here must not mask the lock
+                try {
+                  await sendOtpEmail({
+                    email: credentials.email,
+                    otp,
+                    type: "ACCOUNT_LOCK",
+                    userName: partner.partner_fullname || partner.partner_email,
+                  });
+                } catch (emailError) {
+                  console.error("❌ Failed to send partner lock OTP email:", emailError);
+                }
+
+                throw new Error(
+                  "Account locked due to multiple failed attempts. Please check your email for OTP verification."
+                );
+              }
+
               throw new Error("Invalid email or password");
             }
 
             console.log("✅ Partner login successful");
 
-            // Update last_login
+            // Reset login attempts + update last_login on successful login
             try {
               await pool.query(
-                `UPDATE partners_account SET last_login = NOW(), updated_at = NOW() WHERE id = $1`,
+                `UPDATE partners_account
+                 SET login_attempts = 0,
+                     last_login = NOW(),
+                     updated_at = NOW()
+                 WHERE id = $1`,
                 [partner.id]
               );
             } catch (updateError) {

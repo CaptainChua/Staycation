@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/backend/config/db';
+import { requireEmployee } from '@/backend/utils/requireAdmin';
 
 export async function POST(request: NextRequest) {
+  const guard = await requireEmployee();
+  if (!guard.ok) return guard.response;
   console.log('🚀 Employee Activity API called');
   
   try {
