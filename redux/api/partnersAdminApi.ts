@@ -127,6 +127,17 @@ export const partnersAdminApi = createApi({
       transformResponse: (res: ApiOk<AdminPartnerMessage>) => res.data,
       invalidatesTags: (_, __, arg) => ["Threads", { type: "ThreadMessages", id: arg.thread_id }],
     }),
+    // Starts (or reuses) the default 'support' thread for a partner and posts
+    // the first staff message. Used by the new-message picker when the Owner
+    // selects a partner who doesn't yet have an existing conversation.
+    startPartnerThread: builder.mutation<
+      AdminPartnerMessage & { thread_id: string },
+      { partner_id: string; body: string; sender_name?: string }
+    >({
+      query: (body) => ({ url: "/partner-messages", method: "POST", body }),
+      transformResponse: (res: ApiOk<AdminPartnerMessage & { thread_id: string }>) => res.data,
+      invalidatesTags: ["Threads"],
+    }),
   }),
 });
 
@@ -136,4 +147,5 @@ export const {
   useGetPartnerThreadsQuery,
   useGetPartnerThreadMessagesQuery,
   useSendStaffReplyMutation,
+  useStartPartnerThreadMutation,
 } = partnersAdminApi;

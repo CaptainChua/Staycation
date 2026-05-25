@@ -43,13 +43,26 @@ export async function GET() {
 }
 
 // POST /api/admin/partner-messages
-// Send a message as staff to a partner thread
+// Send a message as staff to a partner thread.
+//
+// Accepts EITHER:
+//   - { thread_id, body, sender_name? }              — reply in an existing thread
+//   - { partner_id, body, sender_name? }             — start (or reuse) the
+//       default staff↔partner thread. Created on the fly the first time a
+//       member of staff messages a partner from the new-message picker.
 export async function POST(req: NextRequest) {
   try {
-    const { thread_id, body, sender_name } = await req.json();
-    if (!thread_id || !body?.trim()) {
+    const { thread_id: requestedThreadId, partner_id, body, sender_name } = await req.json();
+
+    if (!body?.trim()) {
       return NextResponse.json(
-        { success: false, error: "thread_id and body are required" },
+        { success: false, error: "body is required" },
+        { status: 400 }
+      );
+    }
+    if (!requestedThreadId && !partner_id) {
+      return NextResponse.json(
+        { success: false, error: "thread_id or partner_id is required" },
         { status: 400 }
       );
     }
@@ -58,11 +71,58 @@ export async function POST(req: NextRequest) {
     try {
       await client.query("BEGIN");
 
+      // Resolve the thread id — either trust the one the caller passed, or
+      // find-or-create the default 'support' thread for the given partner.
+      let threadId: string = requestedThreadId;
+      if (!threadId) {
+        const existing = await client.query(
+          `SELECT id FROM partner_message_threads
+            WHERE partner_id = $1 AND thread_key = 'support'
+            LIMIT 1`,
+          [partner_id]
+        );
+
+        if (existing.rows.length > 0) {
+          threadId = existing.rows[0].id;
+        } else {
+          // Pull display fields from partners_information so the thread renders
+          // with a real name on both ends, falling back to the email.
+          const partnerInfo = await client.query(
+            `SELECT pi.partner_fullname, pa.partner_email
+               FROM partners_account pa
+               LEFT JOIN partners_information pi ON pi.partner_id = pa.id
+              WHERE pa.id = $1
+              LIMIT 1`,
+            [partner_id]
+          );
+          if (partnerInfo.rows.length === 0) {
+            await client.query("ROLLBACK");
+            return NextResponse.json(
+              { success: false, error: "Partner not found" },
+              { status: 404 }
+            );
+          }
+          const displayName =
+            partnerInfo.rows[0].partner_fullname?.trim() ||
+            partnerInfo.rows[0].partner_email ||
+            "Partner";
+
+          const newThread = await client.query(
+            `INSERT INTO partner_message_threads
+               (partner_id, thread_key, display_name, role_label)
+             VALUES ($1, 'support', $2, 'Support')
+             RETURNING id`,
+            [partner_id, displayName]
+          );
+          threadId = newThread.rows[0].id;
+        }
+      }
+
       const insertResult = await client.query(
         `INSERT INTO partner_messages (thread_id, sender, sender_name, body, is_read)
          VALUES ($1, 'staff', $2, $3, false)
          RETURNING *`,
-        [thread_id, sender_name || "Support", body.trim()]
+        [threadId, sender_name || "Support", body.trim()]
       );
 
       const preview = body.trim().slice(0, 140);
@@ -73,11 +133,14 @@ export async function POST(req: NextRequest) {
              unread_count = unread_count + 1,
              updated_at = NOW()
          WHERE id = $1`,
-        [thread_id, preview]
+        [threadId, preview]
       );
 
       await client.query("COMMIT");
-      return NextResponse.json({ success: true, data: insertResult.rows[0] });
+      return NextResponse.json({
+        success: true,
+        data: { ...insertResult.rows[0], thread_id: threadId },
+      });
     } catch (e) {
       await client.query("ROLLBACK");
       throw e;

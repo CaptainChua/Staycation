@@ -6,6 +6,8 @@ import { X, Search, UserCircle, MessageSquare, Loader2 } from "lucide-react";
 import Image from "next/image";
 import { useGetEmployeesQuery } from "@/redux/api/employeeApi";
 import { useCreateConversationMutation } from "@/redux/api/messagesApi";
+import { useGetPartnersQuery } from "@/redux/api/partnersApi";
+import { useStartPartnerThreadMutation } from "@/redux/api/partnersAdminApi";
 import toast from "react-hot-toast";
 
 interface NewMessageModalProps {
@@ -25,6 +27,18 @@ interface Employee {
   profile_image_url?: string;
 }
 
+// Unified picker row. `kind` distinguishes employees (which go into the
+// regular `conversations` table) from partners (which use the separate
+// partner_message_threads / partner_messages system).
+interface PickerEntry {
+  kind: "employee" | "partner";
+  id: string;
+  name: string;
+  email?: string;
+  role: string;
+  profile_image_url?: string;
+}
+
 export default function NewMessageModal({
   isOpen,
   onClose,
@@ -32,13 +46,45 @@ export default function NewMessageModal({
   onConversationCreated,
 }: NewMessageModalProps) {
   const [search, setSearch] = useState("");
-  const [selectedUser, setSelectedUser] = useState<Employee | null>(null);
+  const [selectedUser, setSelectedUser] = useState<PickerEntry | null>(null);
+  const [firstMessage, setFirstMessage] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const { data: employeesData, isLoading } = useGetEmployeesQuery({});
+  const { data: employeesData, isLoading: isLoadingEmployees } = useGetEmployeesQuery({});
+  const { data: partnersData, isLoading: isLoadingPartners } = useGetPartnersQuery();
   const [createConversation, { isLoading: isCreating }] = useCreateConversationMutation();
+  const [startPartnerThread, { isLoading: isStartingPartner }] = useStartPartnerThreadMutation();
 
-  const employees = useMemo(() => employeesData?.data || [], [employeesData?.data]);
+  const isLoading = isLoadingEmployees || isLoadingPartners;
+
+  // Merge employees + partners into a single role-aware picker list. Partners
+  // live in their own table so they need to be marked `kind: "partner"` so the
+  // submit handler can route through the partner_messages API.
+  const pickerEntries = useMemo<PickerEntry[]>(() => {
+    const employees = (employeesData?.data || []) as Employee[];
+    const employeeRows: PickerEntry[] = employees
+      .filter((emp) => emp.id !== currentUserId)
+      .map((emp) => ({
+        kind: "employee",
+        id: emp.id,
+        name: `${emp.first_name ?? ""} ${emp.last_name ?? ""}`.trim() || emp.email || "Employee",
+        email: emp.email,
+        role: emp.role || "Staff",
+        profile_image_url: emp.profile_image_url,
+      }));
+
+    const partnerRows: PickerEntry[] = (partnersData?.data || [])
+      .filter((p) => p.id !== currentUserId)
+      .map((p) => ({
+        kind: "partner",
+        id: p.id,
+        name: p.fullname || p.email || "Partner",
+        email: p.email,
+        role: "Partner",
+      }));
+
+    return [...partnerRows, ...employeeRows];
+  }, [employeesData?.data, partnersData?.data, currentUserId]);
 
   // Handle click outside to close modal
   useEffect(() => {
@@ -55,18 +101,17 @@ export default function NewMessageModal({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isOpen, onClose]);
 
-  const filteredEmployees = useMemo(() => {
+  const filteredEntries = useMemo(() => {
     const term = search.trim().toLowerCase();
-    return employees
-      .filter((emp: Employee) => emp.id !== currentUserId)
-      .filter((emp: Employee) => {
-        if (!term) return true;
-        const fullName = `${emp.first_name ?? ""} ${emp.last_name ?? ""}`.toLowerCase();
-        const role = (emp.role ?? "").toLowerCase();
-        const email = (emp.email ?? "").toLowerCase();
-        return fullName.includes(term) || role.includes(term) || email.includes(term);
-      });
-  }, [employees, currentUserId, search]);
+    if (!term) return pickerEntries;
+    return pickerEntries.filter((e) => {
+      return (
+        e.name.toLowerCase().includes(term) ||
+        e.role.toLowerCase().includes(term) ||
+        (e.email ?? "").toLowerCase().includes(term)
+      );
+    });
+  }, [pickerEntries, search]);
 
   // Don't render anything during SSR
   if (typeof window === "undefined") {
@@ -75,35 +120,52 @@ export default function NewMessageModal({
 
   if (!isOpen) return null;
 
+  const isPartnerSelected = selectedUser?.kind === "partner";
+  const isBusy = isCreating || isStartingPartner;
+
   const handleCreateConversation = async () => {
     if (!selectedUser) {
       toast.error("Please select a user to message");
       return;
     }
 
+    // Partner messages live in a separate inbox system that requires the
+    // first message to exist upfront (it's used to populate the thread's
+    // preview row). We block submit until a body is supplied.
+    if (selectedUser.kind === "partner" && !firstMessage.trim()) {
+      toast.error("Type the first message to send to this partner");
+      return;
+    }
+
     try {
-      const conversationName = `${selectedUser.first_name ?? ""} ${selectedUser.last_name ?? ""}`.trim();
-      const result = await createConversation({
-        name: conversationName || selectedUser.email || "Conversation",
-        type: "internal",
-        participant_ids: [currentUserId, selectedUser.id],
-      }).unwrap();
-
-      toast.success("Conversation created!");
-
-      if (onConversationCreated && result.data?.id) {
-        onConversationCreated(result.data.id);
+      if (selectedUser.kind === "partner") {
+        await startPartnerThread({
+          partner_id: selectedUser.id,
+          body: firstMessage.trim(),
+        }).unwrap();
+        toast.success(`Message sent to ${selectedUser.name} — they'll see it in their partner inbox.`);
+      } else {
+        const result = await createConversation({
+          name: selectedUser.name || selectedUser.email || "Conversation",
+          type: "internal",
+          participant_ids: [currentUserId, selectedUser.id],
+        }).unwrap();
+        toast.success("Conversation created!");
+        if (onConversationCreated && result.data?.id) {
+          onConversationCreated(result.data.id);
+        }
       }
 
       setSelectedUser(null);
       setSearch("");
+      setFirstMessage("");
       onClose();
     } catch (error: unknown) {
       console.error("Failed to create conversation:", error);
-      const errorMessage = error && typeof error === 'object' && 'data' in error 
-        ? (error as { data?: { error?: string } }).data?.error 
-        : "Failed to create conversation";
-      toast.error(errorMessage || "Failed to create conversation");
+      const errorMessage = error && typeof error === 'object' && 'data' in error
+        ? (error as { data?: { error?: string } }).data?.error
+        : "Failed to send message";
+      toast.error(errorMessage || "Failed to send message");
     }
   };
 
@@ -151,28 +213,34 @@ export default function NewMessageModal({
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-8 h-8 animate-spin text-brand-primary" />
             </div>
-          ) : filteredEmployees.length > 0 ? (
+          ) : filteredEntries.length > 0 ? (
             <div className="space-y-2">
-              {filteredEmployees.map((employee: Employee) => {
-                const isSelected = selectedUser?.id === employee.id;
-                const fullName = `${employee.first_name ?? ""} ${employee.last_name ?? ""}`.trim() || employee.email || "Employee";
-                const initials = `${(employee.first_name?.[0] ?? "").toUpperCase()}${(employee.last_name?.[0] ?? "").toUpperCase()}` || "?";
+              {filteredEntries.map((entry) => {
+                const isSelected = selectedUser?.id === entry.id && selectedUser?.kind === entry.kind;
+                const initials =
+                  entry.name
+                    .split(/\s+/)
+                    .map((p) => p[0])
+                    .filter(Boolean)
+                    .slice(0, 2)
+                    .join("")
+                    .toUpperCase() || "?";
 
                 return (
                   <button
-                    key={employee.id}
+                    key={`${entry.kind}-${entry.id}`}
                     type="button"
-                    onClick={() => setSelectedUser(employee)}
+                    onClick={() => setSelectedUser(entry)}
                     className={`w-full px-4 py-3 rounded-xl border transition-all text-left flex items-center gap-4 ${
                       isSelected
                         ? "border-brand-primary bg-brand-primaryLighter/50 dark:bg-gray-800"
                         : "border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50"
                     }`}
                   >
-                    {employee.profile_image_url ? (
+                    {entry.profile_image_url ? (
                       <Image
-                        src={employee.profile_image_url}
-                        alt={fullName}
+                        src={entry.profile_image_url}
+                        alt={entry.name}
                         width={48}
                         height={48}
                         className="w-12 h-12 rounded-full object-cover"
@@ -182,25 +250,28 @@ export default function NewMessageModal({
                         }}
                       />
                     ) : (
-                      <div className="w-12 h-12 rounded-full bg-brand-primary text-white font-bold flex items-center justify-center">
+                      <div className={`w-12 h-12 rounded-full text-white font-bold flex items-center justify-center ${
+                        entry.kind === "partner" ? "bg-indigo-500" : "bg-brand-primary"
+                      }`}>
                         {initials}
                       </div>
                     )}
 
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{fullName}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-xs text-gray-500 dark:text-gray-400 capitalize">
-                          {employee.role || "Staff"}
-                        </span>
-                        {employee.department && (
-                          <>
-                            <span className="text-xs text-gray-400">•</span>
-                            <span className="text-xs text-gray-500 dark:text-gray-400 truncate">{employee.department}</span>
-                          </>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{entry.name}</p>
+                        {entry.kind === "partner" && (
+                          <span className="text-[10px] uppercase font-bold tracking-wide text-indigo-600 bg-indigo-50 dark:bg-indigo-500/10 dark:text-indigo-300 px-1.5 py-0.5 rounded">
+                            Partner
+                          </span>
                         )}
                       </div>
-                      <p className="text-xs text-gray-400 mt-1 truncate">{employee.email}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-xs text-gray-500 dark:text-gray-400 capitalize">
+                          {entry.role}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-400 mt-1 truncate">{entry.email}</p>
                     </div>
                   </button>
                 );
@@ -209,20 +280,39 @@ export default function NewMessageModal({
           ) : (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <UserCircle className="w-16 h-16 text-gray-300 mb-3" />
-              <p className="text-gray-500 dark:text-gray-400 font-medium mb-1">No staff members found</p>
-              <p className="text-gray-400 text-sm">{search ? "Try a different search term" : "No employees available"}</p>
+              <p className="text-gray-500 dark:text-gray-400 font-medium mb-1">No people found</p>
+              <p className="text-gray-400 text-sm">{search ? "Try a different search term" : "No employees or partners available"}</p>
             </div>
           )}
         </div>
+
+        {isPartnerSelected && (
+          <div className="px-6 py-3 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/40">
+            <label htmlFor="partner-first-message" className="text-xs font-semibold text-gray-700 dark:text-gray-200 mb-1.5 block">
+              First message to {selectedUser?.name}
+            </label>
+            <textarea
+              id="partner-first-message"
+              value={firstMessage}
+              onChange={(e) => setFirstMessage(e.target.value)}
+              rows={2}
+              placeholder="Partners receive messages in their own inbox — type your opening message here…"
+              className="w-full resize-none rounded-lg bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary/30"
+            />
+          </div>
+        )}
 
         <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 flex items-center justify-between gap-4">
           <div className="text-sm text-gray-600 dark:text-gray-300 truncate">
             {selectedUser ? (
               <span>
-                Selected: <span className="font-semibold text-gray-900 dark:text-gray-100">{`${selectedUser.first_name ?? ""} ${selectedUser.last_name ?? ""}`.trim() || selectedUser.email}</span>
+                Selected: <span className="font-semibold text-gray-900 dark:text-gray-100">{selectedUser.name}</span>
+                {isPartnerSelected && (
+                  <span className="ml-1 text-indigo-600 dark:text-indigo-300">(Partner)</span>
+                )}
               </span>
             ) : (
-              <span>Select a staff member to start messaging</span>
+              <span>Select a person to start messaging</span>
             )}
           </div>
           <div className="flex gap-3">
@@ -236,18 +326,21 @@ export default function NewMessageModal({
             <button
               type="button"
               onClick={handleCreateConversation}
-              disabled={!selectedUser || isCreating}
+              disabled={
+                !selectedUser || isBusy ||
+                (isPartnerSelected && !firstMessage.trim())
+              }
               className="px-5 py-2 rounded-lg bg-brand-primary text-white font-semibold shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
             >
-              {isCreating ? (
+              {isBusy ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Creating...
+                  {isPartnerSelected ? "Sending..." : "Creating..."}
                 </>
               ) : (
                 <>
                   <MessageSquare className="w-4 h-4" />
-                  Start
+                  {isPartnerSelected ? "Send" : "Start"}
                 </>
               )}
             </button>

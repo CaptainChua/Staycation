@@ -35,7 +35,21 @@ interface Employee {
   email?: string;
   employment_id?: string;
   profile_image_url?: string;
+  role?: string;
 }
+
+// Role filter dropdown — values map 1:1 to employees.role except "all" (no filter)
+// and "Guest" (synthetic — applies to conversations of type "guest" which don't
+// have a backing employee row).
+type RoleFilter = "all" | "Owner" | "CSR" | "Cleaner" | "Partner" | "Guest";
+const ROLE_FILTER_OPTIONS: { value: RoleFilter; label: string }[] = [
+  { value: "all", label: "All roles" },
+  { value: "Owner", label: "Owner" },
+  { value: "CSR", label: "CSR" },
+  { value: "Cleaner", label: "Cleaner" },
+  { value: "Partner", label: "Partner" },
+  { value: "Guest", label: "Guest" },
+];
 
 interface Message {
   id: string;
@@ -249,6 +263,19 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
     return map;
   }, [employees]);
 
+  // employee id → role string. Drives the role filter — conversations whose
+  // OTHER participant has the chosen role pass through; guest conversations
+  // are matched via type==='guest'.
+  const employeeRoleById = useMemo(() => {
+    const map: Record<string, string> = {};
+    employees.forEach((emp: Employee) => {
+      if (emp?.id && emp?.role) map[emp.id] = emp.role;
+    });
+    return map;
+  }, [employees]);
+
+  const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
+
   // ── side-effects ───────────────────────────────────────────────────────────
 
   // Mark messages as read when opening a conversation
@@ -299,13 +326,27 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
 
   const filteredConversations = useMemo(() => {
     const term = search.trim().toLowerCase();
-    if (!term) return conversations;
-    return conversations.filter((c: Conversation) =>
-      c.name?.toLowerCase().includes(term) ||
-      c.last_message?.toLowerCase().includes(term) ||
-      c.type.toLowerCase().includes(term)
-    );
-  }, [search, conversations]);
+    return conversations.filter((c: Conversation) => {
+      // Role filter first — cheaper check.
+      if (roleFilter !== "all") {
+        if (roleFilter === "Guest") {
+          if (c.type !== "guest") return false;
+        } else {
+          if (c.type === "guest") return false;
+          const otherIds = (c.participant_ids || []).filter((id) => id !== userId);
+          const hasRole = otherIds.some((id) => employeeRoleById[id] === roleFilter);
+          if (!hasRole) return false;
+        }
+      }
+
+      if (!term) return true;
+      return (
+        c.name?.toLowerCase().includes(term) ||
+        c.last_message?.toLowerCase().includes(term) ||
+        c.type.toLowerCase().includes(term)
+      );
+    });
+  }, [search, conversations, roleFilter, employeeRoleById, userId]);
 
   // ── image attachment ───────────────────────────────────────────────────────
 
@@ -487,7 +528,7 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                 </div>
               </div>
 
-              <div className="p-4">
+              <div className="p-4 space-y-2">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <input
@@ -497,6 +538,18 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                     className="w-full pl-10 pr-3 py-2.5 rounded-full bg-gray-100 dark:bg-gray-800 border border-gray-100 dark:border-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:bg-white dark:focus:bg-gray-900 focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary/30"
                   />
                 </div>
+                <select
+                  aria-label="Filter conversations by role"
+                  value={roleFilter}
+                  onChange={(e) => setRoleFilter(e.target.value as RoleFilter)}
+                  className="w-full px-3 py-2 rounded-full text-sm bg-gray-100 dark:bg-gray-800 border border-gray-100 dark:border-gray-800 text-gray-900 dark:text-gray-100 focus:bg-white dark:focus:bg-gray-900 focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary/30"
+                >
+                  {ROLE_FILTER_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="flex-1 overflow-y-auto">

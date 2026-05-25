@@ -377,6 +377,12 @@ export interface PamphletData {
   rentableItems: RentableItem[];
   // Optional grouped form. When present + non-empty, the pamphlet renders by category.
   categories?: AddOnCategory[];
+  // Owner / front-desk contact number rendered in the "How to request" card.
+  // When omitted, a placeholder is shown.
+  contactPhone?: string;
+  // Owner / front-desk contact email rendered alongside the phone. When
+  // omitted, falls back to the platform default.
+  contactEmail?: string;
 }
 
 export async function generatePamphletPDF(data: PamphletData): Promise<Buffer> {
@@ -454,8 +460,8 @@ export async function generatePamphletPDF(data: PamphletData): Promise<Buffer> {
   // Each row: value (large, bold) then label (small, gray) directly below it.
   // Bottom amber strip holds the booking REF.
   //
-  const CARD_BODY_H = 28; // content area height
-  const REF_H       = 11; // amber ref strip height
+  const CARD_BODY_H = 38; // content area height (bumped for larger value text)
+  const REF_H       = 15; // amber ref strip height
   const CARD_H      = CARD_BODY_H + REF_H;
 
   // Shadow
@@ -486,11 +492,11 @@ export async function generatePamphletPDF(data: PamphletData): Promise<Buffer> {
 
   // REF text centred in the amber strip
   pdf.setTextColor(...PRIMARY_DARK);
-  pdf.setFontSize(7.5);
+  pdf.setFontSize(11);
   pdf.setFont("helvetica", "bold");
-  pdf.text("BOOKING REF:", margin + 10, y + CARD_BODY_H + 7.2);
+  pdf.text("BOOKING REF:", margin + 10, y + CARD_BODY_H + 10);
   pdf.setFont("helvetica", "normal");
-  pdf.text(data.bookingId, margin + 38, y + CARD_BODY_H + 7.2);
+  pdf.text(data.bookingId, margin + 49, y + CARD_BODY_H + 10);
 
   // 4-column layout inside the card body
   // columns start after the left strip (4.5 mm) with 4 mm inner padding
@@ -502,9 +508,9 @@ export async function generatePamphletPDF(data: PamphletData): Promise<Buffer> {
   const C4 = COL_INNER_X + COL_W * 3;
 
   // Value row (date / name — displayed FIRST)
-  const VAL_Y = y + 11;
+  const VAL_Y = y + 15;
   pdf.setTextColor(...BLACK);
-  pdf.setFontSize(9.5);
+  pdf.setFontSize(13);
   pdf.setFont("helvetica", "bold");
   // truncate to fit column so columns don't bleed into each other
   const truncate = (text: string, maxW: number) =>
@@ -515,9 +521,9 @@ export async function generatePamphletPDF(data: PamphletData): Promise<Buffer> {
   pdf.text(truncate(data.checkOutDate,COL_W - 2), C4, VAL_Y);
 
   // Label row (below the value)
-  const LBL_Y = VAL_Y + 7;
+  const LBL_Y = VAL_Y + 10;
   pdf.setTextColor(...GRAY);
-  pdf.setFontSize(6);
+  pdf.setFontSize(8.5);
   pdf.setFont("helvetica", "bold");
   pdf.text("GUEST NAME", C1, LBL_Y);
   pdf.text("ROOM",       C2, LBL_Y);
@@ -528,32 +534,33 @@ export async function generatePamphletPDF(data: PamphletData): Promise<Buffer> {
 
   // ── Intro text ───────────────────────────────────────────────────────────
   pdf.setTextColor(...GRAY);
-  pdf.setFontSize(8.5);
+  pdf.setFontSize(12.5);
   pdf.setFont("helvetica", "normal");
   const intro = pdf.splitTextToSize(
     "Enhance your stay with our optional add-ons. Simply request any of the items below at the front desk or via the contacts provided. All prices are per night unless stated otherwise.",
     cw,
   );
   pdf.text(intro, margin, y);
-  y += (intro as string[]).length * 4.5 + 9;
+  y += (intro as string[]).length * 6.2 + 11;
 
   // ── Section title ────────────────────────────────────────────────────────
   pdf.setTextColor(...PRIMARY_DARK);
-  pdf.setFontSize(10);
+  pdf.setFontSize(15);
   pdf.setFont("helvetica", "bold");
   pdf.text("AVAILABLE ADD-ONS", margin, y);
   pdf.setDrawColor(...PRIMARY);
-  pdf.setLineWidth(0.6);
-  pdf.line(margin, y + 2, margin + 62, y + 2);
-  y += 9;
+  pdf.setLineWidth(0.8);
+  pdf.line(margin, y + 2.5, margin + 90, y + 2.5);
+  y += 12;
 
   // ── Items table ──────────────────────────────────────────────────────────
-  // Price badge: fixed 46 mm wide, anchored 3 mm from the box's right inner edge.
+  // Price badge: fixed 64 mm wide, anchored 3 mm from the box's right inner edge.
   // Item name is clipped to the space left of the badge.
-  const PRICE_BADGE_W = 46;
+  const PRICE_BADGE_W = 64;
+  const PRICE_BADGE_H = 12;
   const PRICE_BADGE_X = margin + cw - PRICE_BADGE_W - 3;
-  const NAME_MAX_W    = PRICE_BADGE_X - (margin + 17) - 3;
-  const ROW_H = 13;
+  const NAME_MAX_W    = PRICE_BADGE_X - (margin + 22) - 3;
+  const ROW_H = 20;
 
   // Renders one item row. Reused by both flat + grouped layouts.
   const renderItemRow = (item: RentableItem, i: number) => {
@@ -561,36 +568,36 @@ export async function generatePamphletPDF(data: PamphletData): Promise<Buffer> {
     pdf.setFillColor(...rowBg);
     pdf.rect(margin, y, cw, ROW_H, "F");
 
-    const CX = margin + 9;
+    const CX = margin + 11;
     const CY = y + ROW_H / 2;
     pdf.setFillColor(...PRIMARY_SOFT);
-    pdf.circle(CX, CY, 4.2, "F");
+    pdf.circle(CX, CY, 6, "F");
     pdf.setTextColor(...PRIMARY_DARK);
-    pdf.setFontSize(6.5);
+    pdf.setFontSize(10);
     pdf.setFont("helvetica", "bold");
     const iconChar =
       item.icon && /[^\x00-\x7F]/.test(item.icon)
         ? item.name.charAt(0).toUpperCase()
         : (item.icon || item.name.charAt(0).toUpperCase());
-    pdf.text(iconChar, CX, CY + 2.3, { align: "center" });
+    pdf.text(iconChar, CX, CY + 3.5, { align: "center" });
 
     pdf.setTextColor(...BLACK);
-    pdf.setFontSize(9);
+    pdf.setFontSize(12.5);
     pdf.setFont("helvetica", "normal");
     const displayName = (pdf.splitTextToSize(item.name, NAME_MAX_W) as string[])[0];
-    pdf.text(displayName, margin + 17, CY + 3.2);
+    pdf.text(displayName, margin + 22, CY + 4.5);
 
     const priceText = `₱${Number(item.price_per_night).toLocaleString("en-PH", { minimumFractionDigits: 2 })}/night`;
-    const PBY = y + (ROW_H - 8) / 2;
+    const PBY = y + (ROW_H - PRICE_BADGE_H) / 2;
     pdf.setFillColor(254, 248, 228);
-    pdf.roundedRect(PRICE_BADGE_X, PBY, PRICE_BADGE_W, 8, 2, 2, "F");
+    pdf.roundedRect(PRICE_BADGE_X, PBY, PRICE_BADGE_W, PRICE_BADGE_H, 2, 2, "F");
     pdf.setDrawColor(235, 215, 165);
     pdf.setLineWidth(0.2);
-    pdf.roundedRect(PRICE_BADGE_X, PBY, PRICE_BADGE_W, 8, 2, 2, "S");
+    pdf.roundedRect(PRICE_BADGE_X, PBY, PRICE_BADGE_W, PRICE_BADGE_H, 2, 2, "S");
     pdf.setTextColor(...PRIMARY_DARK);
-    pdf.setFontSize(7.5);
+    pdf.setFontSize(11);
     pdf.setFont("helvetica", "bold");
-    pdf.text(priceText, PRICE_BADGE_X + PRICE_BADGE_W / 2, PBY + 5.5, { align: "center" });
+    pdf.text(priceText, PRICE_BADGE_X + PRICE_BADGE_W / 2, PBY + 8, { align: "center" });
 
     pdf.setDrawColor(228, 215, 190);
     pdf.setLineWidth(0.15);
@@ -600,22 +607,23 @@ export async function generatePamphletPDF(data: PamphletData): Promise<Buffer> {
   };
 
   // Renders a "Category — N items" header band before its items.
+  const CATEGORY_H = 13;
   const renderCategoryHeader = (cat: AddOnCategory) => {
     pdf.setFillColor(...PRIMARY);
-    pdf.roundedRect(margin, y, cw, 9, 2, 2, "F");
+    pdf.roundedRect(margin, y, cw, CATEGORY_H, 2, 2, "F");
     pdf.setTextColor(...WHITE);
-    pdf.setFontSize(8);
+    pdf.setFontSize(11.5);
     pdf.setFont("helvetica", "bold");
     const safeIcon =
       cat.icon && /[^\x00-\x7F]/.test(cat.icon) ? "" : (cat.icon ? `${cat.icon}  ` : "");
-    pdf.text(`${safeIcon}${cat.name.toUpperCase()}`, margin + 3, y + 6.2);
+    pdf.text(`${safeIcon}${cat.name.toUpperCase()}`, margin + 4, y + 9);
     pdf.text(
       `${cat.items.length} item${cat.items.length === 1 ? "" : "s"}`,
-      margin + cw - 3,
-      y + 6.2,
+      margin + cw - 4,
+      y + 9,
       { align: "right" },
     );
-    y += 9;
+    y += CATEGORY_H;
   };
 
   const totalItems =
@@ -623,12 +631,12 @@ export async function generatePamphletPDF(data: PamphletData): Promise<Buffer> {
 
   if (totalItems === 0) {
     pdf.setFillColor(254, 243, 199);
-    pdf.roundedRect(margin, y, cw, 16, 2, 2, "F");
+    pdf.roundedRect(margin, y, cw, 24, 2, 2, "F");
     pdf.setTextColor(...GRAY);
-    pdf.setFontSize(9);
+    pdf.setFontSize(13);
     pdf.setFont("helvetica", "italic");
-    pdf.text("No add-ons are listed for this room.", pageWidth / 2, y + 10, { align: "center" });
-    y += 24;
+    pdf.text("No add-ons are listed for this room.", pageWidth / 2, y + 15, { align: "center" });
+    y += 32;
   } else if (data.categories && data.categories.length > 0) {
     // Grouped layout: render each non-empty category with its items.
     let rowIdx = 0;
@@ -654,13 +662,13 @@ export async function generatePamphletPDF(data: PamphletData): Promise<Buffer> {
   } else {
     // Flat layout (legacy callers that haven't moved to categories yet).
     pdf.setFillColor(...PRIMARY);
-    pdf.roundedRect(margin, y, cw, 9, 2, 2, "F");
+    pdf.roundedRect(margin, y, cw, CATEGORY_H, 2, 2, "F");
     pdf.setTextColor(...WHITE);
-    pdf.setFontSize(7.5);
+    pdf.setFontSize(11);
     pdf.setFont("helvetica", "bold");
-    pdf.text("ITEM",          margin + 20,               y + 6.2);
-    pdf.text("PRICE / NIGHT", PRICE_BADGE_X + PRICE_BADGE_W / 2, y + 6.2, { align: "center" });
-    y += 9;
+    pdf.text("ITEM",          margin + 24,               y + 9);
+    pdf.text("PRICE / NIGHT", PRICE_BADGE_X + PRICE_BADGE_W / 2, y + 9, { align: "center" });
+    y += CATEGORY_H;
     data.rentableItems.forEach((item, i) => renderItemRow(item, i));
     pdf.setDrawColor(200, 175, 120);
     pdf.setLineWidth(0.4);
@@ -669,11 +677,12 @@ export async function generatePamphletPDF(data: PamphletData): Promise<Buffer> {
   }
 
   // ── How to request ───────────────────────────────────────────────────────
-  y += 5;
-  const CONTACT_H = 38;
+  y += 7;
+  const CONTACT_H = 64;
+  const FOOTER_H  = 30;
 
   // Overflow guard — if not enough space, start a new page
-  if (y + CONTACT_H > pageHeight - 24) {
+  if (y + CONTACT_H > pageHeight - FOOTER_H - 4) {
     pdf.addPage();
     y = margin;
   }
@@ -687,31 +696,37 @@ export async function generatePamphletPDF(data: PamphletData): Promise<Buffer> {
   pdf.roundedRect(margin, y, 4, CONTACT_H, 2, 2, "F");
 
   pdf.setTextColor(146, 64, 14);
-  pdf.setFontSize(8.5);
+  pdf.setFontSize(13.5);
   pdf.setFont("helvetica", "bold");
-  pdf.text("HOW TO REQUEST YOUR ITEMS", margin + 9, y + 10);
+  pdf.text("HOW TO REQUEST YOUR ITEMS", margin + 11, y + 13);
 
   pdf.setTextColor(120, 53, 15);
-  pdf.setFontSize(8.5);
+  pdf.setFontSize(12);
   pdf.setFont("helvetica", "normal");
-  pdf.text("Front Desk  —  Visit us anytime during your stay", margin + 9, y + 19);
-  pdf.text("Phone          —  +63 123 456 7890",              margin + 9, y + 27);
-  pdf.text("Email           —  staycationhaven9@gmail.com",   margin + 9, y + 35);
+  const phoneDisplay = data.contactPhone && data.contactPhone.trim()
+    ? data.contactPhone.trim()
+    : "Contact number not configured";
+  const emailDisplay = data.contactEmail && data.contactEmail.trim()
+    ? data.contactEmail.trim()
+    : "staycationhaven9@gmail.com";
+  pdf.text("Front Desk  —  Visit us anytime during your stay", margin + 11, y + 27);
+  pdf.text(`Phone          —  ${phoneDisplay}`,                margin + 11, y + 41);
+  pdf.text(`Email           —  ${emailDisplay}`,               margin + 11, y + 55);
 
   // ── Footer band ──────────────────────────────────────────────────────────
   pdf.setFillColor(...PRIMARY);
-  pdf.rect(0, pageHeight - 22, pageWidth, 22, "F");
+  pdf.rect(0, pageHeight - FOOTER_H, pageWidth, FOOTER_H, "F");
   pdf.setFillColor(...PRIMARY_SOFT);
-  pdf.rect(0, pageHeight - 22, pageWidth, 1.5, "F");
+  pdf.rect(0, pageHeight - FOOTER_H, pageWidth, 1.5, "F");
 
   pdf.setTextColor(...WHITE);
-  pdf.setFontSize(10);
+  pdf.setFontSize(14);
   pdf.setFont("helvetica", "bold");
-  pdf.text("We hope you enjoy your stay at Staycation Haven!", pageWidth / 2, pageHeight - 11, { align: "center" });
+  pdf.text("We hope you enjoy your stay at Staycation Haven!", pageWidth / 2, pageHeight - 16, { align: "center" });
   pdf.setTextColor(...PRIMARY_SOFT);
-  pdf.setFontSize(7);
+  pdf.setFontSize(10.5);
   pdf.setFont("helvetica", "normal");
-  pdf.text(`Ref: ${data.bookingId}  •  Items subject to availability`, pageWidth / 2, pageHeight - 5, { align: "center" });
+  pdf.text(`Ref: ${data.bookingId}  •  Items subject to availability`, pageWidth / 2, pageHeight - 6, { align: "center" });
 
   return Buffer.from(pdf.output("arraybuffer"));
 }
