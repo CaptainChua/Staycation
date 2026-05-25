@@ -239,7 +239,7 @@ const DashboardPage = ({
     {
       title: "Total Revenue",
       value: `₱${Number(totalRevenue).toLocaleString('en-US', { maximumFractionDigits: 0 })}`,
-      Icon: DollarSign,
+      Icon: () => <span className="text-5xl font-bold opacity-50">₱</span>,
       color: "bg-green-500",
       loading: analyticsLoading,
       subtitle: "Last 30 days"
