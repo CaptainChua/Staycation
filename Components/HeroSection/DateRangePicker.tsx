@@ -27,6 +27,12 @@ interface DateRangePickerProps {
   expanded?: boolean; // Optional: if true, always show calendar inline
   onDone?: () => void; // Optional: callback when Done button is clicked in expanded mode
   onReset?: () => void; // Optional: callback when Reset button is clicked
+  // When true the picker acts as a single-date selector: clicking a date sets
+  // both check-in and check-out to that same day, and the "selecting check-out"
+  // second step is skipped. Used by same-day stay types (6h/10h) where the
+  // check-out date is derived from check-in + duration, so the guest only
+  // needs to pick one date.
+  lockCheckOut?: boolean;
 }
 
 const DateRangePicker = ({
@@ -38,6 +44,7 @@ const DateRangePicker = ({
   expanded = false,
   onDone,
   onReset,
+  lockCheckOut = false,
 }: DateRangePickerProps) => {
   const todayMonthOffset = new Date().getFullYear() * 12 + new Date().getMonth();
   const [isOpen, setIsOpen] = useState(false);
@@ -189,6 +196,18 @@ const DateRangePicker = ({
 
     // Don't allow selecting past, blocked, or maintenance dates
     if (isPastDate || isBlockedDate || isMaintenanceDate) {
+      return;
+    }
+
+    // Same-day mode: clicking a date sets check-in AND check-out to the same
+    // day, no second-step picker. The actual check-out date may roll forward
+    // a day downstream (if check-in time + duration crosses midnight) — that
+    // happens in the parent's effect, not here.
+    if (lockCheckOut) {
+      onCheckInChange(dateString);
+      onCheckOutChange(dateString);
+      setSelectingCheckOut(false);
+      setHoveredDate(null);
       return;
     }
 

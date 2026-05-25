@@ -69,29 +69,8 @@ export default function AddRoomPage({ onNavigate }: AddRoomPageProps) {
               You can save and come back anytime.
             </p>
 
-            {/* Steps preview */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-6">
-              {[
-                "Basic Info",
-                "Pricing",
-                "Check-in",
-                "Details",
-                "Amenities",
-                "Images",
-                "Photo Tour",
-                "Video",
-              ].map((step, i) => (
-                <div
-                  key={step}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#f9fafb] border border-[#e5e7eb] text-[12.5px] text-[#374151]"
-                >
-                  <span className="w-5 h-5 rounded-full bg-brand-primary/15 text-brand-primary text-[10.5px] font-bold grid place-items-center">
-                    {i + 1}
-                  </span>
-                  {step}
-                </div>
-              ))}
-            </div>
+            {/* Steps preview — each chip has a hover/tap tooltip with brief guidance. */}
+            <StepsPreview />
 
             <div className="flex flex-wrap gap-2.5">
               <button
@@ -124,6 +103,78 @@ export default function AddRoomPage({ onNavigate }: AddRoomPageProps) {
 
       {/* WIZARD MODAL */}
       <HavenFormModal isOpen={isWizardOpen} onClose={handleClose} initialData={null} />
+    </div>
+  );
+}
+
+// ─── Steps preview with hover/tap tooltips ──────────────────────────────────
+// Each chip explains in 1–2 lines what the partner needs to prepare for that
+// step. Tooltip appears on hover (desktop) and on tap (mobile/touch).
+
+interface StepDef {
+  label: string;
+  tip: string;
+}
+
+const STEPS: StepDef[] = [
+  { label: "Basic Info", tip: "Room name, tower, floor, view type — the listing's headline." },
+  { label: "Pricing", tip: "Hourly + nightly rates and any long-stay discounts you want to offer." },
+  { label: "Check-in", tip: "Check-in / check-out time for each rate plan (6h, 10h, weekday, weekend)." },
+  { label: "Details", tip: "Capacity, bed setup, room size, cleaning fee, deposit, house rules." },
+  { label: "Amenities", tip: "What's included in the room — Wi-Fi, AC, kitchen, TV, parking, etc." },
+  { label: "Images", tip: "5+ clear photos for the listing card and gallery (JPG or PNG)." },
+  { label: "Photo Tour", tip: "One representative photo per amenity (bed, bath, view, kitchen)." },
+  { label: "Video", tip: "Optional YouTube link — embedded on your listing page." },
+];
+
+function StepsPreview() {
+  const [tappedIdx, setTappedIdx] = useState<number | null>(null);
+
+  // Close the tapped tooltip when the user taps anywhere else.
+  useEffect(() => {
+    if (tappedIdx === null) return;
+    const close = () => setTappedIdx(null);
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, [tappedIdx]);
+
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-6">
+      {STEPS.map((step, i) => (
+        <div
+          key={step.label}
+          className="relative group"
+          onClick={(e) => {
+            e.stopPropagation();
+            setTappedIdx((prev) => (prev === i ? null : i));
+          }}
+        >
+          <button
+            type="button"
+            aria-describedby={`step-tip-${i}`}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-[#f9fafb] border border-[#e5e7eb] text-[12.5px] text-[#374151] cursor-help hover:border-brand-primary/40 hover:bg-white transition text-left"
+          >
+            <span className="w-5 h-5 rounded-full bg-brand-primary/15 text-brand-primary text-[10.5px] font-bold grid place-items-center flex-shrink-0">
+              {i + 1}
+            </span>
+            <span className="truncate">{step.label}</span>
+          </button>
+
+          {/* Tooltip: visible on hover (desktop) OR when this chip is tapped (touch). */}
+          <div
+            id={`step-tip-${i}`}
+            role="tooltip"
+            className={`pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-full mb-2 z-30 w-[220px] px-3 py-2 rounded-lg bg-gray-900 text-white text-[11.5px] leading-snug shadow-lg transition-opacity duration-150 ${
+              tappedIdx === i
+                ? "opacity-100"
+                : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+            }`}
+          >
+            {step.tip}
+            <span className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[5px] border-r-[5px] border-t-[5px] border-l-transparent border-r-transparent border-t-gray-900" />
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

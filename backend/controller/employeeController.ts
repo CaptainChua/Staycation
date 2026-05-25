@@ -205,7 +205,15 @@ export const getAllEmployees = async (req: NextRequest): Promise<NextResponse> =
 export const updateEmployee = async (req: NextRequest): Promise<NextResponse> => {
   try {
     const body = await req.json();
-    const { id, profile_image_url, ...employeeData } = body;
+    const { id: bodyId, profile_image_url, ...employeeData } = body;
+
+    // The route /api/admin/employees/[id] places the id in the URL path; the
+    // ProfilePage save flow doesn't duplicate it in the request body. Prefer
+    // the path segment, fall back to the body for older callers.
+    const url = new URL(req.url);
+    const segments = url.pathname.split("/").filter(Boolean);
+    const pathId = segments[segments.length - 1] || "";
+    const id = bodyId || pathId;
 
     if (!id) {
       return NextResponse.json({

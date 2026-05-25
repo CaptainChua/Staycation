@@ -103,6 +103,27 @@ function addHoursToTime(time: string, hours: number): string {
   return `${String(Math.floor(total / 60) % 24).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
 }
 
+// Like addHoursToTime, but also returns how many days forward check-out lands.
+// Used to roll check-out date when check-in + duration crosses midnight
+// (e.g. 10h rate starting at 9 PM → ends at 7 AM the next day).
+function addHoursWithRollover(time: string, hours: number): { time: string; dayOffset: number } {
+  if (!time) return { time: "", dayOffset: 0 };
+  const [h, m] = time.split(":").map(Number);
+  const total = h * 60 + m + hours * 60;
+  const dayOffset = Math.floor(total / (24 * 60));
+  const minOfDay = ((total % (24 * 60)) + 24 * 60) % (24 * 60);
+  const out = `${String(Math.floor(minOfDay / 60)).padStart(2, "0")}:${String(minOfDay % 60).padStart(2, "0")}`;
+  return { time: out, dayOffset };
+}
+
+// Add N days to a YYYY-MM-DD string and return YYYY-MM-DD.
+function shiftDateString(dateStr: string, days: number): string {
+  if (!dateStr) return "";
+  const d = new Date(dateStr + "T12:00:00"); // noon avoids DST edge cases
+  d.setDate(d.getDate() + days);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 interface SessionUser {
   id?: string;
   role?: string;
@@ -380,31 +401,30 @@ const Checkout = () => {
     };
   }, [bookingData.selectedRoom?.id]);
 
-  // Auto-adjust dates based on stay type selection
+  // Auto-derive check-out date AND check-out time from check-in + rate duration.
+  // Runs whenever the rate, check-in date, or check-in time changes. This is
+  // the single source of truth for check-out, so the guest never needs to
+  // pick it themselves (the check-out time input is locked read-only too).
+  //
+  // Multi-day stays (duration >= 24h) skip this — the guest picks both dates
+  // freely via the DateRangePicker.
   useEffect(() => {
-    if (formData.stayType && localCheckInDate) {
-      if (formData.stayType === "10 Hours - ₱1,599") {
-        // For 10 hours stay, check-out should be same day as check-in
-        if (localCheckOutDate !== localCheckInDate) {
-          setLocalCheckOutDate(localCheckInDate);
-          toast.success("Check-out date adjusted to same day for 10-hour stay");
-        }
-      } else if (formData.stayType.includes("21 Hours")) {
-        // For 21 hours stay, check-out should be next day
-        const checkIn = new Date(localCheckInDate);
-        const nextDay = new Date(checkIn);
-        nextDay.setDate(nextDay.getDate() + 1);
-        const nextDayStr = `${nextDay.getFullYear()}-${String(nextDay.getMonth() + 1).padStart(2, '0')}-${String(nextDay.getDate()).padStart(2, '0')}`;
+    if (!selectedBookingType || !localCheckInDate || !formData.checkInTime) return;
+    const duration = selectedBookingType.duration;
+    if (duration >= 24) return; // multi-day: user picks check-out date manually
 
-        if (localCheckOutDate !== nextDayStr) {
-          setLocalCheckOutDate(nextDayStr);
-          toast.success("Check-out date adjusted to next day for 21-hour stay");
-        }
-      }
-      // For Multi-Day Stay, user can choose any date range
+    const { time: outTime, dayOffset } = addHoursWithRollover(
+      formData.checkInTime,
+      duration,
+    );
+    const outDate = shiftDateString(localCheckInDate, dayOffset);
+
+    if (outDate !== localCheckOutDate) setLocalCheckOutDate(outDate);
+    if (outTime && outTime !== formData.checkOutTime) {
+      setFormData((prev) => ({ ...prev, checkOutTime: outTime }));
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.stayType, localCheckInDate]);
+  }, [selectedBookingType, localCheckInDate, formData.checkInTime]);
 
   // Reset 21-hour stayType if the check-in date changes to an incompatible day
   useEffect(() => {
@@ -929,20 +949,44 @@ const Checkout = () => {
       return;
     }
 
-    // Fallback: hardcoded legacy behaviour
+    // Fallback: hardcoded legacy behaviour (used when the haven has no
+    // booking_windows configured). We still synthesise a BookingType so the
+    // date picker can lock check-out and the auto-derive effect can run —
+    // otherwise the picker would still ask the guest for a check-out date.
     let defaultCheckInTime = "";
     let defaultCheckOutTime = "";
+    let legacyDuration = 0;
+    let legacyPrice = 0;
     if (selectedStayType === "10 Hours - ₱1,599") {
       defaultCheckInTime = "14:00";
       defaultCheckOutTime = "00:00";
+      legacyDuration = 10;
+      legacyPrice = 1599;
     } else if (selectedStayType.includes("21 Hours")) {
       defaultCheckInTime = "14:00";
       defaultCheckOutTime = "11:00";
+      legacyDuration = 21;
+      legacyPrice = selectedStayType.includes("Fri-Sat") ? 1999 : 1799;
     } else if (selectedStayType === "Multi-Day Stay") {
       defaultCheckInTime = "14:00";
       defaultCheckOutTime = "11:00";
+      legacyDuration = 24; // ≥ 24h → multi-day mode (no lock, manual check-out date)
+      legacyPrice = 0;
     }
-    setSelectedBookingType(null);
+    // Synthesise a BookingType so downstream (lockCheckOut, auto-derive
+    // useEffect) treats this the same as the modern booking_windows path.
+    if (legacyDuration > 0) {
+      setSelectedBookingType({
+        name: selectedStayType,
+        duration: legacyDuration,
+        price: legacyPrice,
+        available_days: [],
+        first_check_in: "00:00",
+        last_check_in: "22:00",
+      } as BookingType);
+    } else {
+      setSelectedBookingType(null);
+    }
     setFormData(prev => ({ ...prev, stayType: selectedStayType, checkInTime: defaultCheckInTime, checkOutTime: defaultCheckOutTime }));
 
     if (bookingData.checkInDate && selectedStayType) {
@@ -2273,6 +2317,9 @@ const Checkout = () => {
                           onCheckInChange={setLocalCheckInDate}
                           onCheckOutChange={setLocalCheckOutDate}
                           havenId={bookingData.selectedRoom?.id}
+                          // Same-day rates (6h, 10h, anything < 24h) — guest picks
+                          // ONE date; check-out date is derived from check-in + duration.
+                          lockCheckOut={!!selectedBookingType && selectedBookingType.duration < 24}
                         />
                       </div>
 
@@ -2378,28 +2425,32 @@ const Checkout = () => {
 
                         <div ref={(el) => { errorRefs.current.checkOutTime = el; }}>
                           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Check-out Time *
+                            Check-out Time
                             {bookingData.checkOutDate && <span className="text-xs text-gray-500 dark:text-gray-400 font-normal ml-2">({new Date(bookingData.checkOutDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })})</span>}
+                            <span className="ml-2 text-[10.5px] uppercase tracking-wide font-semibold text-brand-primary">
+                              Auto · locked
+                            </span>
                           </label>
                           <input
                             type="time"
                             name="checkOutTime"
                             value={formData.checkOutTime}
-                            onChange={(e) => {
-                              handleInputChange(e);
-                              setErrors(prev => ({...prev, checkOutTime: ''}));
-                            }}
-                            required
-                            aria-label="Check-out time"
-                            title="Check-out time"
-                            className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-colors ${
-                              errors.checkOutTime ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-gray-600'
-                            }`}
+                            readOnly
+                            tabIndex={-1}
+                            aria-label="Check-out time (auto-calculated from check-in + rate duration)"
+                            title={
+                              selectedBookingType
+                                ? `Check-out time is locked: check-in + ${selectedBookingType.duration} hours`
+                                : "Check-out time is locked"
+                            }
+                            className="w-full px-4 py-2 border rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600 cursor-not-allowed"
                           />
-                          {errors.checkOutTime && (
-                            <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
-                              <AlertCircle className="w-4 h-4" />
-                              {errors.checkOutTime}
+                          {selectedBookingType && (
+                            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              Derived from check-in + {selectedBookingType.duration}h.
+                              {localCheckInDate && bookingData.checkOutDate && localCheckInDate !== bookingData.checkOutDate &&
+                                " Crosses into the next day."}
                             </p>
                           )}
                         </div>
@@ -2988,6 +3039,7 @@ const Checkout = () => {
                     onCheckInChange={setLocalCheckInDate}
                     onCheckOutChange={setLocalCheckOutDate}
                     havenId={bookingData.selectedRoom?.id}
+                    lockCheckOut={!!selectedBookingType && selectedBookingType.duration < 24}
                   />
                 </div>
 
@@ -3134,6 +3186,7 @@ const Checkout = () => {
                 onCheckInChange={setLocalCheckInDate}
                 onCheckOutChange={setLocalCheckOutDate}
                 havenId={bookingData.selectedRoom?.id}
+                lockCheckOut={!!selectedBookingType && selectedBookingType.duration < 24}
               />
             </div>
 

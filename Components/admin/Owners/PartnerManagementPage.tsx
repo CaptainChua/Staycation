@@ -17,11 +17,7 @@ import {
 import {
   useGetPartnersOverviewQuery,
   useGetPartnerListingsQuery,
-  useGetPartnerThreadsQuery,
-  useGetPartnerThreadMessagesQuery,
-  useSendStaffReplyMutation,
   PartnerListingRow,
-  AdminPartnerThread,
   type PartnersOverview,
 } from "@/redux/api/partnersAdminApi";
 import Image from "next/image";
@@ -449,7 +445,6 @@ const paginatedMessages = messages.slice(
           { id: 1, label: "Overview", icon: BarChart3 },
           { id: 2, label: "Listings", icon: Eye },
           { id: 3, label: "Pending Requests", icon: FileText },
-          { id: 4, label: "Messages", icon: MessageCircle },
           { id: 5, label: "Docs & Analytics", icon: FileText },
           { id: 6, label: "Verifications", icon: ShieldCheck },
           { id: 7, label: "Payouts", icon: Banknote },
@@ -1167,8 +1162,6 @@ const paginatedMessages = messages.slice(
       {tab === 3 && <PendingRequestsTab />}
 
 
-    {/* MESSAGES - MODERN CHAT UI */}
-{tab === 4 && <MessagesTab />}
 {false && (
   <div className="h-[82vh] bg-white dark:bg-[#18191A] rounded-3xl border border-gray-200 dark:border-[#2A2D31] overflow-hidden flex">
 
@@ -3634,187 +3627,6 @@ const NumStat = ({ value, label }: { value: number | string; label: string }) =>
 /* =========================================
    MESSAGES TAB — real partner threads, reply as staff
 ========================================= */
-function MessagesTab() {
-  const { data: threads = [], isLoading } = useGetPartnerThreadsQuery();
-  const [activeThread, setActiveThread] = useState<AdminPartnerThread | null>(null);
-  const [replyText, setReplyText] = useState("");
-  const [sendReply, { isLoading: isSending }] = useSendStaffReplyMutation();
-
-  // Auto-select first thread
-  React.useEffect(() => {
-    if (!activeThread && threads.length > 0) setActiveThread(threads[0]);
-  }, [threads, activeThread]);
-
-  const { data: threadMessages = [] } = useGetPartnerThreadMessagesQuery(activeThread?.id ?? "", {
-    skip: !activeThread,
-  });
-
-  const handleSend = async () => {
-    if (!activeThread || !replyText.trim()) return;
-    try {
-      await sendReply({ thread_id: activeThread.id, body: replyText.trim() }).unwrap();
-      setReplyText("");
-      toast.success("Reply sent");
-    } catch {
-      toast.error("Failed to send reply");
-    }
-  };
-
-  const formatTime = (iso: string) =>
-    new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-
-  return (
-    <div className="h-[78vh] bg-white dark:bg-[#18191A] rounded-3xl border border-gray-200 dark:border-[#2A2D31] overflow-hidden flex">
-      {/* LEFT — thread list */}
-      <aside className="w-[320px] border-r border-gray-200 dark:border-[#2A2D31] flex flex-col bg-[#F8F8F8] dark:bg-[#1E1F22]">
-        <div className="px-5 py-4 border-b border-gray-200 dark:border-[#2A2D31]">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">Partner Inbox</h2>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-            {threads.length} conversation{threads.length === 1 ? "" : "s"}
-          </p>
-        </div>
-        <div className="flex-1 overflow-y-auto">
-          {isLoading ? (
-            <div className="p-6 text-center">
-              <Loader2 className="w-5 h-5 text-indigo-500 animate-spin mx-auto" />
-            </div>
-          ) : threads.length === 0 ? (
-            <p className="px-5 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
-              No partner conversations yet.
-            </p>
-          ) : (
-            threads.map((t: AdminPartnerThread) => {
-              const isActive = activeThread?.id === t.id;
-              const initials = (t.partner_name || t.partner_email || "P")
-                .split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase();
-              return (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => setActiveThread(t)}
-                  className={`w-full px-4 py-3 flex items-start gap-3 text-left border-b border-black/5 dark:border-white/5 transition ${
-                    isActive
-                      ? "bg-white dark:bg-[#2A2D31]"
-                      : "hover:bg-[#ECECEC] dark:hover:bg-[#2A2D31]"
-                  }`}
-                >
-                  <div className="w-11 h-11 rounded-full bg-indigo-500 text-white grid place-items-center font-bold text-sm flex-shrink-0">
-                    {initials}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-semibold text-sm text-gray-900 dark:text-white truncate">
-                        {t.partner_name || t.partner_email}
-                      </span>
-                      {t.unread_count > 0 && (
-                        <span className="text-[10px] bg-indigo-500 text-white rounded-full px-2 py-0.5 font-bold">
-                          {t.unread_count}
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-[11px] text-gray-500 dark:text-gray-400 mb-0.5">
-                      {t.role_label || t.thread_key}
-                    </div>
-                    <p className="text-xs text-gray-600 dark:text-gray-300 truncate">
-                      {t.last_message_preview || "—"}
-                    </p>
-                  </div>
-                </button>
-              );
-            })
-          )}
-        </div>
-      </aside>
-
-      {/* RIGHT — conversation */}
-      <div className="flex-1 flex flex-col bg-white dark:bg-[#18191A] min-w-0">
-        {!activeThread ? (
-          <div className="flex-1 grid place-items-center text-gray-400 text-sm">
-            Select a conversation
-          </div>
-        ) : (
-          <>
-            <header className="h-[72px] px-5 border-b border-gray-200 dark:border-[#2A2D31] flex items-center gap-3">
-              <div className="w-11 h-11 rounded-full bg-indigo-500 text-white grid place-items-center font-bold">
-                {(activeThread.partner_name || activeThread.partner_email)?.[0]?.toUpperCase()}
-              </div>
-              <div className="min-w-0">
-                <h3 className="font-bold text-gray-900 dark:text-white truncate">
-                  {activeThread.partner_name || activeThread.partner_email}
-                </h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                  {activeThread.partner_email} · {activeThread.role_label || activeThread.thread_key}
-                </p>
-              </div>
-            </header>
-
-            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3 bg-[#FAFAFA] dark:bg-[#18191A]">
-              {threadMessages.length === 0 ? (
-                <p className="text-center text-sm text-gray-400 py-8">No messages yet.</p>
-              ) : (
-                threadMessages.map((m) => {
-                  const fromStaff = m.sender === "staff";
-                  return (
-                    <div key={m.id} className={`flex ${fromStaff ? "justify-end" : "justify-start"}`}>
-                      <div className="max-w-[70%]">
-                        {!fromStaff && m.sender_name && (
-                          <span className="text-[10px] text-gray-500 dark:text-gray-400 px-1 mb-0.5 block">
-                            {m.sender_name}
-                          </span>
-                        )}
-                        <div
-                          className={`px-4 py-2.5 rounded-2xl text-sm break-words shadow-sm ${
-                            fromStaff
-                              ? "bg-indigo-500 text-white rounded-br-md"
-                              : "bg-white dark:bg-[#2A2D31] text-gray-800 dark:text-white border border-gray-200 dark:border-white/10 rounded-bl-md"
-                          }`}
-                        >
-                          {m.body}
-                        </div>
-                        <div className={`text-[10px] text-gray-400 mt-1 ${fromStaff ? "text-right" : "text-left"}`}>
-                          {formatTime(m.created_at)}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-
-            <div className="px-5 py-4 border-t border-gray-200 dark:border-[#2A2D31] bg-white dark:bg-[#1E1F22] flex items-center gap-3">
-              <textarea
-                value={replyText}
-                onChange={(e) => setReplyText(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSend();
-                  }
-                }}
-                rows={1}
-                placeholder="Reply to partner…"
-                aria-label="Reply message"
-                className="flex-1 resize-none rounded-full bg-gray-100 dark:bg-[#2A2D31] px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[44px] max-h-[140px]"
-              />
-              <button
-                type="button"
-                onClick={handleSend}
-                disabled={isSending || !replyText.trim()}
-                title="Send"
-                aria-label="Send"
-                className="w-11 h-11 rounded-full bg-indigo-500 hover:bg-indigo-600 text-white grid place-items-center transition active:scale-95 disabled:opacity-50"
-              >
-                {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-
 /* =========================================
    DOCS & ANALYTICS TAB — real aggregated metrics
 ========================================= */

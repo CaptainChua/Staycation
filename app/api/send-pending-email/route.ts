@@ -1,12 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
 import { generatePamphletPDF, type RentableItem, type AddOnCategory } from '@/backend/utils/pdfGenerators';
+import pool from '@/backend/config/db';
+
+// Pull the platform Owner's contact phone + email for the pamphlet.
+// Best-effort — returns nulls when no Owner row exists or the fields are
+// empty, in which case the pamphlet shows placeholders instead of breaking
+// the email send. Prefers the earliest-hired Owner who has BOTH fields set;
+// falls back to whoever has at least the phone, then whoever has at least
+// the email, so partial data still wins over the hardcoded default.
+async function fetchOwnerContact(): Promise<{ phone: string | null; email: string | null }> {
+  try {
+    const r = await pool.query(
+      `SELECT phone, email FROM employees
+        WHERE role = 'Owner'
+        ORDER BY
+          ((phone IS NOT NULL AND phone <> '')::int
+           + (email IS NOT NULL AND email <> '')::int) DESC,
+          hire_date ASC NULLS LAST,
+          id ASC
+        LIMIT 1`,
+    );
+    const row = r.rows[0];
+    return {
+      phone: row?.phone && row.phone.trim() ? row.phone.trim() : null,
+      email: row?.email && row.email.trim() ? row.email.trim() : null,
+    };
+  } catch {
+    return { phone: null, email: null };
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
     const bookingData = await request.json();
     const rentableItems: RentableItem[] = bookingData.rentableItems || [];
     const addonCategories: AddOnCategory[] = bookingData.addonCategories || [];
+    const ownerContact = await fetchOwnerContact();
 
     // Generate pamphlet PDF with the room's add-ons (grouped by category if provided)
     const pamphletBuffer = await generatePamphletPDF({
@@ -17,6 +47,8 @@ export async function POST(request: NextRequest) {
       bookingId: bookingData.bookingId || '',
       rentableItems,
       categories: addonCategories,
+      contactPhone: ownerContact.phone ?? undefined,
+      contactEmail: ownerContact.email ?? undefined,
     });
 
     // Create transporter

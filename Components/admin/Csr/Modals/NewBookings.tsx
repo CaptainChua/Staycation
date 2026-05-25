@@ -131,6 +131,37 @@ const ADD_ON_PRICES = {
 const statusOptions = ["pending", "approved", "declined", "checked-in", "checked-out", "cancelled", "completed"];
 const paymentMethods = ["cash", "gcash", "bank-transfer", "credit-card"];
 
+// Add `hours` to an HH:MM string. Returns the resulting time + the number of
+// full days the addition rolled past midnight (1 = next day).
+function addHoursWithRollover(time: string, hours: number): { time: string; dayOffset: number } {
+  if (!time) return { time: "", dayOffset: 0 };
+  const [h, m] = time.split(":").map(Number);
+  const total = h * 60 + m + hours * 60;
+  const dayOffset = Math.floor(total / (24 * 60));
+  const minOfDay = ((total % (24 * 60)) + 24 * 60) % (24 * 60);
+  const out = `${String(Math.floor(minOfDay / 60)).padStart(2, "0")}:${String(minOfDay % 60).padStart(2, "0")}`;
+  return { time: out, dayOffset };
+}
+
+// Shift a YYYY-MM-DD string by N days (preserves the YYYY-MM-DD shape).
+function shiftDateString(dateStr: string, days: number): string {
+  if (!dateStr) return "";
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dt = new Date(y, (m || 1) - 1, d || 1);
+  dt.setDate(dt.getDate() + days);
+  const yy = dt.getFullYear();
+  const mm = String(dt.getMonth() + 1).padStart(2, "0");
+  const dd = String(dt.getDate()).padStart(2, "0");
+  return `${yy}-${mm}-${dd}`;
+}
+
+// Stay-type → fixed duration in hours. Returns null for Multi-Day Stay (variable).
+function stayTypeDuration(stayType: string): number | null {
+  if (stayType === "10 Hours - ₱1,599") return 10;
+  if (stayType.includes("21 Hours")) return 21;
+  return null;
+}
+
 export default function NewBookingModal({ onClose, initialBooking, onSuccess }: NewBookingModalProps) {
   const [isMounted, setIsMounted] = useState(false);
   const [createBooking, { isLoading: isCreating }] = useCreateBookingMutation();
@@ -348,6 +379,44 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
       });
     };
   }, [roomBookingsData]);
+
+  // Fixed-duration stays (10h / 21h) — check-out date & time are derived from
+  // check-in date + check-in time + the stay's hour count. Multi-Day Stay is
+  // excluded; the user picks the check-out date themselves there.
+  // Must live above the `!isMounted` early return so hook order stays stable.
+  const isShortStay =
+    Boolean(formData.stayType) && formData.stayType !== "Multi-Day Stay";
+
+  useEffect(() => {
+    if (!isShortStay) return;
+    if (!checkInDate || !formData.checkInTime) return;
+    const duration = stayTypeDuration(formData.stayType);
+    if (duration === null) return;
+
+    const { time: outTime, dayOffset } = addHoursWithRollover(
+      formData.checkInTime,
+      duration,
+    );
+
+    // The backend treats `check_out_time === '00:00'` as "end of check_out_date"
+    // (i.e. it adds +1 day internally). If we also shift the date forward we'd
+    // double-count the rollover and the booking would span two nights instead
+    // of one — causing spurious "room already booked" conflicts. So when the
+    // computed end-time is exactly midnight, keep checkOutDate aligned with
+    // checkInDate and let the backend's convention provide the rollover.
+    const effectiveOffset = outTime === "00:00" && dayOffset > 0 ? dayOffset - 1 : dayOffset;
+    const outDate = shiftDateString(checkInDate, effectiveOffset);
+
+    if (outDate && outDate !== checkOutDate) {
+      setCheckOutDate(outDate);
+      setErrors(prev => ({ ...prev, checkOutDate: "" }));
+    }
+    if (outTime && outTime !== formData.checkOutTime) {
+      setFormData(prev => ({ ...prev, checkOutTime: outTime }));
+      setErrors(prev => ({ ...prev, checkOutTime: "" }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.stayType, formData.checkInTime, checkInDate, isShortStay]);
 
   if (!isMounted) return null;
 
@@ -1460,6 +1529,7 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                         checkOutDate={checkOutDate}
                         unavailableDates={unavailableDates}
                         minDate={new Date().toISOString().split('T')[0]}
+                        lockCheckOut={isShortStay}
                         onSelectCheckIn={(d) => {
                           setCheckInDate(d);
                           setErrors(prev => ({ ...prev, checkInDate: '' }));
@@ -1510,22 +1580,37 @@ export default function NewBookingModal({ onClose, initialBooking, onSuccess }: 
                     </div>
 
                     <div ref={(el) => { errorRefs.current.checkOutTime = el; }}>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Check-out Time *
+                      <label className="flex items-center justify-between text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <span>Check-out Time *</span>
+                        {isShortStay && (
+                          <span className="text-[10.5px] font-semibold uppercase tracking-wide text-amber-600 bg-amber-50 dark:bg-amber-500/10 dark:text-amber-300 px-2 py-0.5 rounded-full">
+                            Auto · locked
+                          </span>
+                        )}
                       </label>
                       <input
                         aria-label="Check-out Time"
                         type="time"
                         name="checkOutTime"
                         value={formData.checkOutTime}
+                        readOnly={isShortStay}
                         onChange={(e) => {
+                          if (isShortStay) return;
                           handleTimeChange(e);
                           setErrors(prev => ({...prev, checkOutTime: ''}));
                         }}
-                        className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
-                          errors.checkOutTime ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                        }`}
+                        className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary text-gray-900 dark:text-white ${
+                          isShortStay
+                            ? 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 cursor-not-allowed text-gray-500 dark:text-gray-400'
+                            : 'bg-white dark:bg-gray-700'
+                        } ${errors.checkOutTime ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}`}
                       />
+                      {isShortStay && (
+                        <p className="mt-1 text-[11.5px] text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          Auto-set from check-in time + stay duration.
+                        </p>
+                      )}
                       {errors.checkOutTime && (
                         <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
                           <AlertCircle className="w-4 h-4" />

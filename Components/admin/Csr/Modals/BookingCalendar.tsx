@@ -14,6 +14,12 @@ interface BookingCalendarProps {
   minDate?: string;
   onSelectCheckIn: (date: string) => void;
   onSelectCheckOut: (date: string) => void;
+  /**
+   * When true the calendar acts as a single-date picker for fixed-duration stays
+   * (10h / 21h). Clicking a date fires both onSelectCheckIn and onSelectCheckOut
+   * with the same date — the parent's auto-derive effect handles next-day rollover.
+   */
+  lockCheckOut?: boolean;
 }
 
 const WEEK_DAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
@@ -155,6 +161,7 @@ export default function BookingCalendar({
   minDate,
   onSelectCheckIn,
   onSelectCheckOut,
+  lockCheckOut = false,
 }: BookingCalendarProps) {
   const today = useMemo(() => {
     const d = new Date();
@@ -182,6 +189,15 @@ export default function BookingCalendar({
 
   const handlePick = (date: Date, ymd: string) => {
     if (unavailableSet.has(ymd) || date < minDateObj) return;
+
+    if (lockCheckOut) {
+      // Single-date mode — parent computes the real check-out date from
+      // stayType + check-in time, so we just hand it the same date for both.
+      onSelectCheckIn(ymd);
+      onSelectCheckOut(ymd);
+      return;
+    }
+
     const checkIn = parseYMD(checkInDate);
     const checkOut = parseYMD(checkOutDate);
 
@@ -208,7 +224,11 @@ export default function BookingCalendar({
   const goNext = () =>
     setLeftMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
 
-  const headerText = pickingMode === "checkIn" ? "Select check-in date" : "Select check-out date";
+  const headerText = lockCheckOut
+    ? "Select date"
+    : pickingMode === "checkIn"
+    ? "Select check-in date"
+    : "Select check-out date";
 
   return (
     <div className="rounded-2xl bg-gray-900 dark:bg-gray-900 p-5">
@@ -259,32 +279,40 @@ export default function BookingCalendar({
 
       {/* Selected summary + mode toggle */}
       <div className="mt-5 pt-4 border-t border-gray-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => setPickingMode("checkIn")}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
-              pickingMode === "checkIn"
-                ? "bg-amber-500 text-white"
-                : "bg-gray-800 text-gray-300 hover:bg-gray-700"
-            }`}
-          >
-            Check-in
-            {checkInDate && ` · ${new Date(checkInDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`}
-          </button>
-          <button
-            type="button"
-            onClick={() => setPickingMode("checkOut")}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
-              pickingMode === "checkOut"
-                ? "bg-amber-500 text-white"
-                : "bg-gray-800 text-gray-300 hover:bg-gray-700"
-            }`}
-          >
-            Check-out
-            {checkOutDate && ` · ${new Date(checkOutDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`}
-          </button>
-        </div>
+        {lockCheckOut ? (
+          <div className="text-xs text-gray-300">
+            {checkInDate
+              ? `Selected · ${new Date(checkInDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
+              : "Pick a date — check-out is set automatically"}
+          </div>
+        ) : (
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setPickingMode("checkIn")}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+                pickingMode === "checkIn"
+                  ? "bg-amber-500 text-white"
+                  : "bg-gray-800 text-gray-300 hover:bg-gray-700"
+              }`}
+            >
+              Check-in
+              {checkInDate && ` · ${new Date(checkInDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`}
+            </button>
+            <button
+              type="button"
+              onClick={() => setPickingMode("checkOut")}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+                pickingMode === "checkOut"
+                  ? "bg-amber-500 text-white"
+                  : "bg-gray-800 text-gray-300 hover:bg-gray-700"
+              }`}
+            >
+              Check-out
+              {checkOutDate && ` · ${new Date(checkOutDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`}
+            </button>
+          </div>
+        )}
 
         {/* Legend */}
         <div className="flex items-center gap-3 flex-wrap text-[11px] text-gray-400">
