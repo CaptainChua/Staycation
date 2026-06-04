@@ -25,7 +25,9 @@ import {
   Download,
   CreditCard,
   Banknote,
-  ExternalLink
+  ExternalLink,
+  HelpCircle,
+  X
 } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
@@ -275,11 +277,9 @@ const DiscountPage = () => {
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   
-  // Guide states
-  const [showStatusGuide, setShowStatusGuide] = useState(false);
-  const [showDiscountGuide, setShowDiscountGuide] = useState(false);
-  const [showBulkGuide, setShowBulkGuide] = useState(false);
-  const [showPropertyGuide, setShowPropertyGuide] = useState(false);
+  // Guide drawer states
+  const [showGuideDrawer, setShowGuideDrawer] = useState(false);
+  const [activeGuideTab, setActiveGuideTab] = useState<"status" | "manage" | "bulk" | "property">("status");
   const [guideLanguage, setGuideLanguage] = useState<"en" | "fil">("en");
 
   const fetchData = async () => {
@@ -487,256 +487,23 @@ const DiscountPage = () => {
   return (
     <div className="space-y-6 animate-in fade-in duration-700 overflow-hidden h-full flex flex-col">
       {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 flex-shrink-0 border border-gray-200 dark:border-gray-700 rounded-lg p-6 bg-white dark:bg-gray-800 shadow dark:shadow-gray-900">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 flex-shrink-0">
         <div>
           <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Discount Management</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Create and manage promotional discounts for your properties</p>
         </div>
-      </div>
-
-      {/* Status Guide */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-6 flex-shrink-0 border border-gray-200 dark:border-gray-700">
-        <div className="flex items-center justify-between mb-2">
-          <button
-            onClick={() => setShowStatusGuide(!showStatusGuide)}
-            className="flex-1 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded-lg transition-colors"
-          >
-            <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100">{guideTranslations[guideLanguage].statusGuide.title}</h4>
-            <ChevronRight className={`w-5 h-5 text-gray-600 dark:text-gray-300 transform transition-transform ${showStatusGuide ? 'rotate-90' : ''}`} />
-          </button>
-          <div className="flex gap-1 ml-2">
-            {(['en', 'fil'] as const).map((lang) => (
-              <button
-                key={lang}
-                onClick={() => setGuideLanguage(lang)}
-                className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                  guideLanguage === lang
-                    ? 'bg-brand-primary text-white'
-                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-                }`}
-              >
-                {lang === 'en' ? 'EN' : 'FIL'}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {showStatusGuide && (
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-            {guideTranslations[guideLanguage].statusGuide.statuses.map((status, idx) => {
-              const statusColors: Record<string, { dot: string }> = {
-                Active: { dot: 'bg-green-500' },
-                Inactive: { dot: 'bg-red-500' }
-              };
-              const color = statusColors[status.name] || { dot: 'bg-gray-500' };
-
-              return (
-                <div key={idx} className="flex items-start gap-3">
-                  <div className={`w-3 h-3 ${color.dot} rounded-full mt-1 flex-shrink-0`}></div>
-                  <div>
-                    <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{status.name}</h5>
-                    <p className="text-xs text-gray-600 dark:text-gray-300">{status.description}</p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* How to Manage Discounts Guide */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-6 flex-shrink-0 border border-gray-200 dark:border-gray-700">
-        <div className="flex items-center justify-between mb-2">
-          <button
-            onClick={() => setShowDiscountGuide(!showDiscountGuide)}
-            className="flex-1 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded-lg transition-colors"
-          >
-            <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100">{guideTranslations[guideLanguage].discountGuide.title}</h4>
-            <ChevronRight className={`w-5 h-5 text-gray-600 dark:text-gray-300 transform transition-transform ${showDiscountGuide ? 'rotate-90' : ''}`} />
-          </button>
-          <div className="flex gap-1 ml-2">
-            {(['en', 'fil'] as const).map((lang) => (
-              <button
-                key={lang}
-                onClick={() => setGuideLanguage(lang)}
-                className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                  guideLanguage === lang
-                    ? 'bg-brand-primary text-white'
-                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-                }`}
-              >
-                {lang === 'en' ? 'EN' : 'FIL'}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {showDiscountGuide && (
-          <div className="mt-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {guideTranslations[guideLanguage].discountGuide.steps.map((step, idx) => (
-                <div key={idx} className="flex items-start gap-3">
-                  <div className="w-8 h-8 bg-brand-primary text-white rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold">{idx + 1}</div>
-                  <div>
-                    <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{step.title}</h5>
-                    <p className="text-xs text-gray-600 dark:text-gray-300">{step.description}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
-              <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm mb-3">{guideTranslations[guideLanguage].discountGuide.actionGuideTitle}</h5>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-gray-600 dark:text-gray-300">
-                {guideTranslations[guideLanguage].discountGuide.actions.map((action, idx) => {
-                  const getActionIconAndColor = (title: string) => {
-                    const iconMap: Record<string, { Icon: typeof CheckCircle; color: string }> = {
-                      Active: { Icon: CheckCircle, color: 'text-green-600 dark:text-green-400' },
-                      Inactive: { Icon: XCircle, color: 'text-red-600 dark:text-red-400' }
-                    };
-                    return iconMap[title];
-                  };
-                  const iconData = getActionIconAndColor(action.title);
-
-                  return (
-                    <div key={idx} className="flex items-start gap-2">
-                      {iconData && <iconData.Icon className={`w-4 h-4 ${iconData.color} flex-shrink-0 mt-0.5`} />}
-                      <span><strong>{action.title}:</strong> {action.description}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Bulk Operations Guide */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-6 flex-shrink-0 border border-gray-200 dark:border-gray-700">
-        <div className="flex items-center justify-between mb-2">
-          <button
-            onClick={() => setShowBulkGuide(!showBulkGuide)}
-            className="flex-1 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded-lg transition-colors"
-          >
-            <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100">{guideTranslations[guideLanguage].bulkGuide.title}</h4>
-            <ChevronRight className={`w-5 h-5 text-gray-600 dark:text-gray-300 transform transition-transform ${showBulkGuide ? 'rotate-90' : ''}`} />
-          </button>
-          <div className="flex gap-1 ml-2">
-            {(['en', 'fil'] as const).map((lang) => (
-              <button
-                key={lang}
-                onClick={() => setGuideLanguage(lang)}
-                className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                  guideLanguage === lang
-                    ? 'bg-brand-primary text-white'
-                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-                }`}
-              >
-                {lang === 'en' ? 'EN' : 'FIL'}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {showBulkGuide && (
-          <div className="mt-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {guideTranslations[guideLanguage].bulkGuide.steps.map((step, idx) => (
-                <div key={idx} className="flex items-start gap-3">
-                  <div className="w-8 h-8 bg-brand-primary text-white rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold">{idx + 1}</div>
-                  <div>
-                    <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{step.title}</h5>
-                    <p className="text-xs text-gray-600 dark:text-gray-300">{step.description}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
-              <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm mb-3">{guideTranslations[guideLanguage].bulkGuide.whenToUseTitle}</h5>
-              <div className="space-y-2 text-xs text-gray-600 dark:text-gray-300">
-                {guideTranslations[guideLanguage].bulkGuide.useCases.map((useCase, idx) => {
-                  const getUseCaseIcon = (title: string) => {
-                    const iconMap: Record<string, typeof CheckCircle> = {
-                      'Activate Multiple': CheckCircle,
-                      'Deactivate Multiple': XCircle,
-                      'Delete Expired': Trash2
-                    };
-                    return iconMap[title] || CheckCircle;
-                  };
-
-                  const getUseCaseColor = (title: string) => {
-                    const colorMap: Record<string, string> = {
-                      'Activate Multiple': 'text-green-600 dark:text-green-400',
-                      'Deactivate Multiple': 'text-red-600 dark:text-red-400',
-                      'Delete Expired': 'text-gray-600 dark:text-gray-400'
-                    };
-                    return colorMap[title] || 'text-gray-600 dark:text-gray-400';
-                  };
-
-                  const IconComponent = getUseCaseIcon(useCase.title);
-                  const iconColor = getUseCaseColor(useCase.title);
-
-                  return (
-                    <div key={idx} className="flex items-start gap-2">
-                      <IconComponent className={`w-4 h-4 ${iconColor} flex-shrink-0 mt-0.5`} />
-                      <span><strong>{useCase.title}:</strong> {useCase.description}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Property Selection Guide */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-6 flex-shrink-0 border border-gray-200 dark:border-gray-700">
-        <div className="flex items-center justify-between mb-2">
-          <button
-            onClick={() => setShowPropertyGuide(!showPropertyGuide)}
-            className="flex-1 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded-lg transition-colors"
-          >
-            <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100">{guideTranslations[guideLanguage].propertyGuide.title}</h4>
-            <ChevronRight className={`w-5 h-5 text-gray-600 dark:text-gray-300 transform transition-transform ${showPropertyGuide ? 'rotate-90' : ''}`} />
-          </button>
-          <div className="flex gap-1 ml-2">
-            {(['en', 'fil'] as const).map((lang) => (
-              <button
-                key={lang}
-                onClick={() => setGuideLanguage(lang)}
-                className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                  guideLanguage === lang
-                    ? 'bg-brand-primary text-white'
-                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-                }`}
-              >
-                {lang.toUpperCase()}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {showPropertyGuide && (
-          <div className="mt-4">
-            <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">{guideTranslations[guideLanguage].propertyGuide.description}</p>
-            <div className="space-y-3">
-              {guideTranslations[guideLanguage].propertyGuide.tips.map((tip, idx) => (
-                <div key={idx} className="flex items-start gap-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 border border-blue-200 dark:border-blue-800">
-                  <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold">{idx + 1}</div>
-                  <div>
-                    <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{tip.title}</h5>
-                    <p className="text-xs text-gray-600 dark:text-gray-300 mt-1">{tip.description}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        <button
+          onClick={() => setShowGuideDrawer(true)}
+          className="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors font-medium text-sm whitespace-nowrap"
+          title="Open help & guides"
+        >
+          <HelpCircle className="w-4 h-4" />
+          Help &amp; Guides
+        </button>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 flex-shrink-0">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 flex-shrink-0">
         {[
           { label: "Total Discounts", value: String(totalCount), color: "bg-indigo-500", icon: Tag },
           { label: "Active", value: String(activeCount), color: "bg-green-500", icon: CheckCircle },
@@ -747,11 +514,11 @@ const DiscountPage = () => {
           return (
             <div
               key={i}
-              className={`${stat.color} text-white rounded-lg p-6 shadow dark:shadow-gray-900 hover:shadow-lg transition-all border border-gray-200 dark:border-gray-600`}
+              className={`${stat.color} text-white rounded-lg p-5 shadow dark:shadow-gray-900 hover:shadow-lg transition-transform duration-200 transform hover:-translate-y-1`}
             >
-              <div className="flex items-center justify-between">
+              <div className="flex items-start justify-between gap-2">
                 <div>
-                  <p className="text-sm opacity-90">{stat.label}</p>
+                  <p className="text-sm opacity-90 leading-snug">{stat.label}</p>
                   <div className="text-3xl font-bold mt-2">
                     {isLoading ? (
                       <div className="w-16 h-8 bg-white/20 rounded animate-pulse" />
@@ -760,7 +527,7 @@ const DiscountPage = () => {
                     )}
                   </div>
                 </div>
-                <IconComponent className="w-12 h-12 opacity-50" />
+                <IconComponent className="w-10 h-10 opacity-50 flex-shrink-0" />
               </div>
             </div>
           );
@@ -934,7 +701,14 @@ const DiscountPage = () => {
             </div>
           ) : (
             paginatedRows.map((row, index) => (
-              <div key={`${row.id}-mobile-${index}`} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+              <div
+                key={`${row.id}-mobile-${index}`}
+                className={`border rounded-lg p-4 transition-colors ${
+                  selectedDiscounts.includes(row.id)
+                    ? "border-blue-400 dark:border-blue-600 ring-2 ring-blue-200 dark:ring-blue-800 bg-blue-50/50 dark:bg-blue-900/20"
+                    : "border-gray-200 dark:border-gray-700"
+                }`}
+              >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
@@ -1058,7 +832,7 @@ const DiscountPage = () => {
           <table className="w-full min-w-[800px]">
             <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 border-b-2 border-gray-200 dark:border-gray-600 sticky top-0 z-10">
               <tr>
-                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                <th className="text-left py-2.5 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
                   <div className="flex items-center gap-2">
                     <input
                       type="checkbox"
@@ -1071,7 +845,7 @@ const DiscountPage = () => {
                 </th>
                 <th
                   onClick={() => handleSort("discount_code")}
-                  className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
+                  className="text-left py-2.5 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
                 >
                   <div className="flex items-center gap-2">
                     Discount Info
@@ -1080,7 +854,7 @@ const DiscountPage = () => {
                 </th>
                 <th
                   onClick={() => handleSort("discount_value")}
-                  className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
+                  className="text-left py-2.5 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
                 >
                   <div className="flex items-center gap-2">
                     Value & Usage
@@ -1089,14 +863,14 @@ const DiscountPage = () => {
                 </th>
                 <th
                   onClick={() => handleSort("active")}
-                  className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors whitespace-nowrap"
+                  className="text-center py-2.5 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors whitespace-nowrap"
                 >
                   <div className="flex items-center justify-center gap-2">
                     Status & Date
                     <ArrowUpDown className="w-4 h-4 text-gray-400 dark:text-gray-300" />
                   </div>
                 </th>
-                <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap border border-gray-200 dark:border-gray-700">Actions</th>
+                <th className="text-center py-2.5 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap border border-gray-200 dark:border-gray-700">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -1108,11 +882,11 @@ const DiscountPage = () => {
                       className="border border-gray-200 dark:border-gray-700 animate-pulse"
                     >
                       {/* Select Checkbox */}
-                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                      <td className="py-2.5 px-4 border border-gray-200 dark:border-gray-700">
                         <div className="h-4 w-4 bg-gray-200 dark:bg-gray-700 rounded"></div>
                       </td>
                       {/* Discount Info - Combined */}
-                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                      <td className="py-2.5 px-4 border border-gray-200 dark:border-gray-700">
                         <div className="space-y-2">
                           <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
                           <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
@@ -1120,7 +894,7 @@ const DiscountPage = () => {
                         </div>
                       </td>
                       {/* Value & Usage - Combined */}
-                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                      <td className="py-2.5 px-4 border border-gray-200 dark:border-gray-700">
                         <div className="space-y-2">
                           <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
                           <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
@@ -1128,7 +902,7 @@ const DiscountPage = () => {
                         </div>
                       </td>
                       {/* Status & Date - Combined */}
-                      <td className="py-4 px-4 text-center border border-gray-200 dark:border-gray-700">
+                      <td className="py-2.5 px-4 text-center border border-gray-200 dark:border-gray-700">
                         <div className="space-y-2 flex flex-col items-center">
                           <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded-full w-20"></div>
                           <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
@@ -1136,7 +910,7 @@ const DiscountPage = () => {
                         </div>
                       </td>
                       {/* Actions */}
-                      <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                      <td className="py-2.5 px-4 border border-gray-200 dark:border-gray-700">
                         <div className="flex items-center justify-center gap-1">
                           <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
                           <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
@@ -1155,8 +929,15 @@ const DiscountPage = () => {
                   </tr>
               ) : (
                 paginatedRows.map((row, index) => (
-                  <tr key={`${row.id}-${index}`} className="border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                  <tr
+                    key={`${row.id}-${index}`}
+                    className={`border border-gray-200 dark:border-gray-700 transition-colors ${
+                      selectedDiscounts.includes(row.id)
+                        ? "bg-blue-50 dark:bg-blue-900/30 ring-1 ring-inset ring-blue-300 dark:ring-blue-700"
+                        : "hover:bg-gray-50 dark:hover:bg-gray-700"
+                    }`}
+                  >
+                    <td className="py-2.5 px-4 border border-gray-200 dark:border-gray-700">
                       <input
                         type="checkbox"
                         checked={selectedDiscounts.includes(row.id)}
@@ -1164,7 +945,7 @@ const DiscountPage = () => {
                         className="w-4 h-4 text-brand-primary border-gray-300 rounded focus:ring-brand-primary"
                       />
                     </td>
-                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                    <td className="py-2.5 px-4 border border-gray-200 dark:border-gray-700">
                       <div className="space-y-2">
                         <div className="font-semibold text-gray-800 dark:text-gray-100 text-sm font-mono">
                           {highlightText(row.discount_code, searchTerm)}
@@ -1177,7 +958,7 @@ const DiscountPage = () => {
                         </div>
                       </div>
                     </td>
-                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                    <td className="py-2.5 px-4 border border-gray-200 dark:border-gray-700">
                       <div className="space-y-2">
                         <div className="font-bold text-gray-800 dark:text-gray-100 text-sm">
                           {highlightText(row.formatted_value, searchTerm)}
@@ -1211,7 +992,7 @@ const DiscountPage = () => {
                         )}
                       </div>
                     </td>
-                    <td className="py-4 px-4 text-center border border-gray-200 dark:border-gray-700">
+                    <td className="py-2.5 px-4 text-center border border-gray-200 dark:border-gray-700">
                       <div className="space-y-2 flex flex-col items-center">
                         <span
                           className={`inline-block px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${
@@ -1230,7 +1011,7 @@ const DiscountPage = () => {
                         </div>
                       </div>
                     </td>
-                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                    <td className="py-2.5 px-4 border border-gray-200 dark:border-gray-700">
                       <div className="flex items-center justify-center gap-1">
                         <button
                           className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
@@ -1357,6 +1138,212 @@ const DiscountPage = () => {
           </div>
         </div>
       </div>
+
+      {/* Help & Guides Drawer */}
+      {showGuideDrawer && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200"
+            onClick={() => setShowGuideDrawer(false)}
+          />
+
+          {/* Panel */}
+          <div className="relative w-full max-w-xl bg-white dark:bg-gray-800 h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+            {/* Drawer Header */}
+            <div className="flex items-center justify-between p-5 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <HelpCircle className="w-6 h-6 text-brand-primary" />
+                <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">Help &amp; Guides</h3>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="flex gap-1">
+                  {(['en', 'fil'] as const).map((lang) => (
+                    <button
+                      key={lang}
+                      onClick={() => setGuideLanguage(lang)}
+                      className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+                        guideLanguage === lang
+                          ? 'bg-brand-primary text-white'
+                          : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                      }`}
+                    >
+                      {lang.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setShowGuideDrawer(false)}
+                  className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  title="Close"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+
+            {/* Tabs */}
+            <div className="flex gap-1 px-4 pt-3 flex-shrink-0 overflow-x-auto border-b border-gray-200 dark:border-gray-700">
+              {([
+                { key: 'status', label: 'Status' },
+                { key: 'manage', label: 'Manage' },
+                { key: 'bulk', label: 'Bulk' },
+                { key: 'property', label: 'Property' },
+              ] as const).map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveGuideTab(tab.key)}
+                  className={`px-4 py-2.5 rounded-t-lg text-base font-semibold whitespace-nowrap transition-colors -mb-px ${
+                    activeGuideTab === tab.key
+                      ? 'bg-gray-100 dark:bg-gray-700 text-brand-primary border-b-2 border-brand-primary'
+                      : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Tab Content */}
+            <div className="flex-1 overflow-y-auto p-5">
+              {activeGuideTab === 'status' && (
+                <div>
+                  <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-5">{guideTranslations[guideLanguage].statusGuide.title}</h4>
+                  <div className="space-y-5">
+                    {guideTranslations[guideLanguage].statusGuide.statuses.map((status, idx) => {
+                      const statusColors: Record<string, { dot: string }> = {
+                        Active: { dot: 'bg-green-500' },
+                        Inactive: { dot: 'bg-red-500' }
+                      };
+                      const color = statusColors[status.name] || { dot: 'bg-gray-500' };
+
+                      return (
+                        <div key={idx} className="flex items-start gap-3">
+                          <div className={`w-3.5 h-3.5 ${color.dot} rounded-full mt-1.5 flex-shrink-0`}></div>
+                          <div>
+                            <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-base">{status.name}</h5>
+                            <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">{status.description}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {activeGuideTab === 'manage' && (
+                <div>
+                  <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-5">{guideTranslations[guideLanguage].discountGuide.title}</h4>
+                  <div className="space-y-5">
+                    {guideTranslations[guideLanguage].discountGuide.steps.map((step, idx) => (
+                      <div key={idx} className="flex items-start gap-3">
+                        <div className="w-9 h-9 bg-brand-primary text-white rounded-full flex items-center justify-center flex-shrink-0 text-base font-bold">{idx + 1}</div>
+                        <div>
+                          <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-base">{step.title}</h5>
+                          <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">{step.description}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-5 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                    <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-base mb-3">{guideTranslations[guideLanguage].discountGuide.actionGuideTitle}</h5>
+                    <div className="space-y-3 text-sm text-gray-600 dark:text-gray-300">
+                      {guideTranslations[guideLanguage].discountGuide.actions.map((action, idx) => {
+                        const getActionIconAndColor = (title: string) => {
+                          const iconMap: Record<string, { Icon: typeof CheckCircle; color: string }> = {
+                            Active: { Icon: CheckCircle, color: 'text-green-600 dark:text-green-400' },
+                            Inactive: { Icon: XCircle, color: 'text-red-600 dark:text-red-400' }
+                          };
+                          return iconMap[title];
+                        };
+                        const iconData = getActionIconAndColor(action.title);
+
+                        return (
+                          <div key={idx} className="flex items-start gap-2">
+                            {iconData && <iconData.Icon className={`w-5 h-5 ${iconData.color} flex-shrink-0 mt-0.5`} />}
+                            <span className="leading-relaxed"><strong>{action.title}:</strong> {action.description}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeGuideTab === 'bulk' && (
+                <div>
+                  <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-5">{guideTranslations[guideLanguage].bulkGuide.title}</h4>
+                  <div className="space-y-5">
+                    {guideTranslations[guideLanguage].bulkGuide.steps.map((step, idx) => (
+                      <div key={idx} className="flex items-start gap-3">
+                        <div className="w-9 h-9 bg-brand-primary text-white rounded-full flex items-center justify-center flex-shrink-0 text-base font-bold">{idx + 1}</div>
+                        <div>
+                          <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-base">{step.title}</h5>
+                          <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">{step.description}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-5 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                    <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-base mb-3">{guideTranslations[guideLanguage].bulkGuide.whenToUseTitle}</h5>
+                    <div className="space-y-3 text-sm text-gray-600 dark:text-gray-300">
+                      {guideTranslations[guideLanguage].bulkGuide.useCases.map((useCase, idx) => {
+                        const getUseCaseIcon = (title: string) => {
+                          const iconMap: Record<string, typeof CheckCircle> = {
+                            'Activate Multiple': CheckCircle,
+                            'Deactivate Multiple': XCircle,
+                            'Delete Expired': Trash2
+                          };
+                          return iconMap[title] || CheckCircle;
+                        };
+
+                        const getUseCaseColor = (title: string) => {
+                          const colorMap: Record<string, string> = {
+                            'Activate Multiple': 'text-green-600 dark:text-green-400',
+                            'Deactivate Multiple': 'text-red-600 dark:text-red-400',
+                            'Delete Expired': 'text-gray-600 dark:text-gray-400'
+                          };
+                          return colorMap[title] || 'text-gray-600 dark:text-gray-400';
+                        };
+
+                        const IconComponent = getUseCaseIcon(useCase.title);
+                        const iconColor = getUseCaseColor(useCase.title);
+
+                        return (
+                          <div key={idx} className="flex items-start gap-2">
+                            <IconComponent className={`w-5 h-5 ${iconColor} flex-shrink-0 mt-0.5`} />
+                            <span className="leading-relaxed"><strong>{useCase.title}:</strong> {useCase.description}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeGuideTab === 'property' && (
+                <div>
+                  <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-2">{guideTranslations[guideLanguage].propertyGuide.title}</h4>
+                  <p className="text-base text-gray-700 dark:text-gray-300 mb-5 leading-relaxed">{guideTranslations[guideLanguage].propertyGuide.description}</p>
+                  <div className="space-y-4">
+                    {guideTranslations[guideLanguage].propertyGuide.tips.map((tip, idx) => (
+                      <div key={idx} className="flex items-start gap-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
+                        <div className="w-7 h-7 bg-blue-600 text-white rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold">{idx + 1}</div>
+                        <div>
+                          <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-base">{tip.title}</h5>
+                          <p className="text-sm text-gray-600 dark:text-gray-300 mt-1 leading-relaxed">{tip.description}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modals */}
       <ViewDiscountModal

@@ -21,7 +21,7 @@ import {
   CheckSquare,
   Loader2,
 } from "lucide-react";
-import { useCallback, useMemo, useState, useEffect } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
 import type { UpdateBookingPaymentPayload } from "@/types/bookingPayment";
@@ -35,7 +35,6 @@ import ApproveModal from "./Modals/ApproveModal";
 import RejectModal from "./Modals/RejectModal";
 import ChangeModal from "./Modals/ChangeModal";
 import ViewPaymentModal from "./Modals/ViewPaymentModal";
-import TotalBreakdown from "./TotalBreakdown";
 import { GuestDetailsColumn, DateRangeWithDays, BookingIdWithProof } from "./Column";
 
 // Payment types are imported from ./types
@@ -71,17 +70,17 @@ const TableSkeleton = ({ rows = 5 }: { rows?: number }) => (
     {Array.from({ length: rows }).map((_, i) => (
       <tr key={i} className="border-b border-gray-100 dark:border-gray-700">
         {/* Select */}
-        <td className="py-4 px-4">
+        <td className="py-2.5 px-4">
           <div className="h-4 w-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
         </td>
 
         {/* Booking ID */}
-        <td className="py-4 px-4">
+        <td className="py-2.5 px-4">
           <div className="h-4 w-28 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
         </td>
 
         {/* Guest Details */}
-        <td className="py-4 px-4">
+        <td className="py-2.5 px-4">
           <div className="space-y-2">
             <div className="h-4 w-40 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
             <div className="h-3 w-48 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
@@ -90,7 +89,7 @@ const TableSkeleton = ({ rows = 5 }: { rows?: number }) => (
         </td>
 
         {/* Check-in / Check-out */}
-        <td className="py-4 px-4">
+        <td className="py-2.5 px-4">
           <div className="space-y-2">
             <div className="h-3 w-36 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
             <div className="h-3 w-36 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
@@ -98,7 +97,7 @@ const TableSkeleton = ({ rows = 5 }: { rows?: number }) => (
         </td>
 
         {/* Total */}
-        <td className="py-4 px-4 text-right">
+        <td className="py-2.5 px-4 text-right">
           <div className="space-y-1">
             <div className="h-4 w-20 ml-auto bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
             <div className="h-3 w-24 ml-auto bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
@@ -106,12 +105,12 @@ const TableSkeleton = ({ rows = 5 }: { rows?: number }) => (
         </td>
 
         {/* Payment Proof */}
-        <td className="py-4 px-4 text-center">
+        <td className="py-2.5 px-4 text-center">
           <div className="h-4 w-20 mx-auto bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
         </td>
 
         {/* Actions */}
-        <td className="py-4 px-4">
+        <td className="py-2.5 px-4">
           <div className="flex items-center justify-center gap-2">
             <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
             <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
@@ -129,7 +128,7 @@ const TableSkeleton = ({ rows = 5 }: { rows?: number }) => (
 
 // ChangeModal component moved to ./Modals/ChangeModal
 
-export default function PaymentPage() {
+export default function PaymentPage({ hideSummary = false }: { hideSummary?: boolean } = {}) {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | PaymentStatus>(
     "all",
@@ -419,11 +418,9 @@ export default function PaymentPage() {
 
   const onSearchChange = (value: string) => {
     setSearchTerm(value);
-  };
-
-  useEffect(() => {
+    // Reset to the first page whenever the search term changes
     setCurrentPage(1);
-  }, [searchTerm]);
+  };
 
   const openRejectModal = useCallback(
     (row: PaymentRow) => {
@@ -760,7 +757,7 @@ export default function PaymentPage() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
-            Payments Management
+            Down Payment
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             Review and manage payment submissions
@@ -768,6 +765,7 @@ export default function PaymentPage() {
         </div>
       </div>
 
+      {!hideSummary && (
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {[
           {
@@ -799,19 +797,20 @@ export default function PaymentPage() {
           return (
             <div
               key={i}
-              className={`${stat.color} text-white rounded-lg p-6 shadow dark:shadow-gray-900 hover:shadow-lg transition-transform duration-200 transform hover:-translate-y-1`}
+              className={`${stat.color} text-white rounded-lg p-5 shadow dark:shadow-gray-900 hover:shadow-lg transition-transform duration-200 transform hover:-translate-y-1`}
             >
-              <div className="flex items-center justify-between">
+              <div className="flex items-start justify-between gap-2">
                 <div>
-                  <p className="text-sm opacity-90">{stat.label}</p>
+                  <p className="text-sm opacity-90 leading-snug">{stat.label}</p>
                   <p className="text-3xl font-bold mt-2">{stat.value}</p>
                 </div>
-                <IconComponent className="w-12 h-12 opacity-50" />
+                <IconComponent className="w-10 h-10 opacity-50 flex-shrink-0" />
               </div>
             </div>
           );
         })}
       </div>
+      )}
 
       {/* Bulk Actions Bar */}
       {selectedPayments.length > 0 && (
@@ -1019,7 +1018,7 @@ export default function PaymentPage() {
           <table className="w-full border-collapse">
             <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 border-b-2 border-gray-200 dark:border-gray-600">
               <tr>
-                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap border border-gray-200 dark:border-gray-700">
+                <th className="text-left py-2.5 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap border border-gray-200 dark:border-gray-700">
                   <div className="flex items-center gap-2">
                     <input
                       type="checkbox"
@@ -1037,24 +1036,24 @@ export default function PaymentPage() {
                 </th>
                 <th
                   onClick={() => handleSort("booking_id")}
-                  className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap border border-gray-200 dark:border-gray-700"
+                  className="text-left py-2.5 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap border border-gray-200 dark:border-gray-700"
                 >
                   <div className="flex items-center gap-2">
                     Booking ID
                     <ArrowUpDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600 dark:text-gray-300 dark:group-hover:text-gray-100" />
                   </div>
                 </th>
-                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap border border-gray-200 dark:border-gray-700">
+                <th className="text-left py-2.5 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap border border-gray-200 dark:border-gray-700">
                   Guest Details
                 </th>
 
-                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap border border-gray-200 dark:border-gray-700">
+                <th className="text-left py-2.5 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap border border-gray-200 dark:border-gray-700">
                   Check-in / Check-out
                 </th>
 
                 <th
                   onClick={() => handleSort("totalAmount")}
-                  className="text-right py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap border border-gray-200 dark:border-gray-700"
+                  className="text-right py-2.5 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap border border-gray-200 dark:border-gray-700"
                 >
                   <div className="flex items-center justify-end gap-2">
                     Total
@@ -1062,10 +1061,10 @@ export default function PaymentPage() {
                   </div>
                 </th>
 
-                <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap border border-gray-200 dark:border-gray-700">
+                <th className="text-center py-2.5 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap border border-gray-200 dark:border-gray-700">
                   Payment Proof & Method
                 </th>
-                <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap border border-gray-200 dark:border-gray-700">
+                <th className="text-center py-2.5 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap border border-gray-200 dark:border-gray-700">
                   Actions
                 </th>
               </tr>
@@ -1074,12 +1073,20 @@ export default function PaymentPage() {
               <TableSkeleton rows={entriesPerPage} />
             ) : (
               <tbody>
-                {paginatedPayments.map((payment) => (
+                {paginatedPayments.map((payment) => {
+                  const isSelected = payment.id
+                    ? selectedPayments.includes(payment.id)
+                    : false;
+                  return (
                   <tr
                     key={payment.id}
-                    className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    className={`border-b border-gray-100 dark:border-gray-700 transition-colors ${
+                      isSelected
+                        ? "bg-blue-50 dark:bg-blue-900/30 ring-1 ring-inset ring-blue-300 dark:ring-blue-700"
+                        : "hover:bg-gray-50 dark:hover:bg-gray-700"
+                    }`}
                   >
-                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                    <td className="py-2.5 px-4 border border-gray-200 dark:border-gray-700">
                       <input
                         type="checkbox"
                         checked={
@@ -1096,12 +1103,12 @@ export default function PaymentPage() {
                         className="w-4 h-4 text-brand-primary border-gray-300 rounded focus:ring-brand-primary"
                       />
                     </td>
-                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                    <td className="py-2.5 px-4 border border-gray-200 dark:border-gray-700">
                       <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm">
                         {payment.booking_id}
                       </span>
                     </td>
-                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                    <td className="py-2.5 px-4 border border-gray-200 dark:border-gray-700">
                       <GuestDetailsColumn
                         guestName={payment.guest}
                         guestEmail={payment.guest_email}
@@ -1111,7 +1118,7 @@ export default function PaymentPage() {
                         isCompact={true}
                       />
                     </td>
-                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                    <td className="py-2.5 px-4 border border-gray-200 dark:border-gray-700">
                       <DateRangeWithDays
                         checkInDate={payment.check_in_date}
                         checkInTime={payment.check_in_time}
@@ -1120,20 +1127,22 @@ export default function PaymentPage() {
                         isCompact={true}
                       />
                     </td>
-                    <td className="py-4 px-4 text-right border border-gray-200 dark:border-gray-700">
-                      <TotalBreakdown
-                        roomRate={payment.roomRate ?? 0}
-                        securityDeposit={payment.security_deposit ?? 0}
-                        depositStatus={payment.deposit_status ?? "pending"}
-                        addOnsTotal={payment.addOnsTotal ?? 0}
-                        totalAmount={payment.totalAmountValue ?? 0}
-                        downPayment={payment.downPaymentValue ?? 0}
-                        remainingBalance={payment.remainingValue ?? 0}
-                        paymentStatus={payment.status.includes("approved") ? "Approved" : "Pending"}
-                        isCompact={true}
-                      />
+                    <td className="py-2.5 px-4 text-right border border-gray-200 dark:border-gray-700">
+                      <div className="space-y-1">
+                        <div className="font-bold text-gray-800 dark:text-gray-100 text-sm">
+                          {payment.totalAmount}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          Down payment: {payment.downPayment}
+                        </div>
+                        {(payment.remainingValue ?? 0) > 0 && (
+                          <div className="text-xs text-orange-600 dark:text-orange-400">
+                            Balance: {payment.remaining}
+                          </div>
+                        )}
+                      </div>
                     </td>
-                    <td className="py-4 px-4 text-center border border-gray-200 dark:border-gray-700">
+                    <td className="py-2.5 px-4 text-center border border-gray-200 dark:border-gray-700">
                       <div className="space-y-3">
                         <div className="space-y-2">
                           {payment.payment_method && (
@@ -1174,7 +1183,7 @@ export default function PaymentPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                    <td className="py-2.5 px-4 border border-gray-200 dark:border-gray-700">
                       <div className="flex items-center justify-center gap-1">
                         <button
                           onClick={() => handleView(payment)}
@@ -1275,7 +1284,8 @@ export default function PaymentPage() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             )}
           </table>
@@ -1323,7 +1333,11 @@ export default function PaymentPage() {
           paginatedPayments.map((payment) => (
             <div
               key={payment.id}
-              className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-4 border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-transform duration-200 transform hover:-translate-y-1"
+              className={`bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 p-4 border transition-transform duration-200 transform hover:-translate-y-1 hover:shadow-xl ${
+                payment.id && selectedPayments.includes(payment.id)
+                  ? "border-blue-400 dark:border-blue-600 ring-2 ring-blue-200 dark:ring-blue-800 bg-blue-50/50 dark:bg-blue-900/20"
+                  : "border-gray-200 dark:border-gray-700"
+              }`}
             >
               <div className="flex items-start justify-between mb-3 pb-3 border-b border-gray-200 dark:border-gray-600">
                 <div className="flex items-start gap-3">
@@ -1376,17 +1390,19 @@ export default function PaymentPage() {
 
               <div className="mb-3 pb-3 border-b border-gray-200 dark:border-gray-600">
                 <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Total</p>
-                <TotalBreakdown
-                  roomRate={payment.roomRate ?? 0}
-                  securityDeposit={payment.security_deposit ?? 0}
-                  depositStatus={payment.deposit_status ?? "pending"}
-                  addOnsTotal={payment.addOnsTotal ?? 0}
-                  totalAmount={payment.totalAmountValue ?? 0}
-                  downPayment={payment.downPaymentValue ?? 0}
-                  remainingBalance={payment.remainingValue ?? 0}
-                  paymentStatus={payment.status.includes("approved") ? "Approved" : "Pending"}
-                  isCompact={true}
-                />
+                <div className="space-y-1">
+                  <div className="font-bold text-gray-800 dark:text-gray-100 text-sm">
+                    {payment.totalAmount}
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                    Down payment: {payment.downPayment}
+                  </div>
+                  {(payment.remainingValue ?? 0) > 0 && (
+                    <div className="text-xs text-orange-600 dark:text-orange-400">
+                      Balance: {payment.remaining}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="mb-3 pb-3 border-b border-gray-200 dark:border-gray-600">

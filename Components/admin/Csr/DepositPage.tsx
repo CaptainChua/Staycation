@@ -280,7 +280,7 @@ const guideTranslations = {
   }
 };
 
-export default function DepositPage() {
+export default function DepositPage({ hideSummary = false }: { hideSummary?: boolean } = {}) {
   const { data: session } = useSession();
   const employeeId = (session?.user as any)?.id;
 
@@ -934,7 +934,7 @@ export default function DepositPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 flex-shrink-0 border border-gray-200 dark:border-gray-700 rounded-lg p-6 bg-white dark:bg-gray-800 shadow dark:shadow-gray-900">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Deposit Management</h1>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Security Deposit</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage security deposits for bookings</p>
         </div>
       </div>
@@ -1140,6 +1140,7 @@ export default function DepositPage() {
       </div>
 
       {/* Summary Cards */}
+      {!hideSummary && (
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 flex-shrink-0">
         {[
           { label: "Total Bookings", value: String(totalCount), color: "bg-gray-500", icon: Wallet },
@@ -1151,11 +1152,11 @@ export default function DepositPage() {
           return (
             <div
               key={i}
-              className={`${stat.color} text-white rounded-lg p-6 shadow dark:shadow-gray-900 hover:shadow-lg transition-all border border-gray-200 dark:border-gray-600`}
+              className={`${stat.color} text-white rounded-lg p-5 shadow dark:shadow-gray-900 hover:shadow-lg transition-transform duration-200 transform hover:-translate-y-1`}
             >
-              <div className="flex items-center justify-between">
+              <div className="flex items-start justify-between gap-2">
                 <div>
-                  <p className="text-sm opacity-90">{stat.label}</p>
+                  <p className="text-sm opacity-90 leading-snug">{stat.label}</p>
                   <div className="text-3xl font-bold mt-2">
                     {isLoading ? (
                       <div className="w-16 h-8 bg-white/20 rounded animate-pulse" />
@@ -1164,12 +1165,13 @@ export default function DepositPage() {
                     )}
                   </div>
                 </div>
-                <IconComponent className="w-12 h-12 opacity-50" />
+                <IconComponent className="w-10 h-10 opacity-50 flex-shrink-0" />
               </div>
             </div>
           );
         })}
       </div>
+      )}
 
       {/* Bulk Actions Bar */}
       {selectedDeposits.length > 0 && (
@@ -1470,7 +1472,11 @@ export default function DepositPage() {
             </div>
           ) : (
             paginatedRows.map((row, index) => (
-              <div key={`${row.id}-mobile-${index}`} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+              <div key={`${row.id}-mobile-${index}`} className={`border rounded-lg p-4 transition-colors ${
+                selectedDeposits.includes(row.id)
+                  ? "border-blue-400 dark:border-blue-600 ring-2 ring-blue-200 dark:ring-blue-800 bg-blue-50/50 dark:bg-blue-900/20"
+                  : "border-gray-200 dark:border-gray-700"
+              }`}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
@@ -1619,7 +1625,7 @@ export default function DepositPage() {
           <table className="w-full min-w-[1400px]">
             <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 border-b-2 border-gray-200 dark:border-gray-600 sticky top-0 z-10">
               <tr>
-                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                <th className="text-left py-2.5 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
                   <div className="flex items-center gap-2">
                     <input
                       type="checkbox"
@@ -1634,7 +1640,7 @@ export default function DepositPage() {
                 </th>
                 <th
                   onClick={() => handleSort("deposit_id")}
-                  className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
+                  className="text-left py-2.5 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
                 >
                   <div className="flex items-center gap-2">
                     Deposit ID
@@ -1643,7 +1649,7 @@ export default function DepositPage() {
                 </th>
                 <th
                   onClick={() => handleSort("haven")}
-                  className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
+                  className="text-left py-2.5 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
                 >
                   <div className="flex items-center gap-2">
                     Haven & Booking
@@ -1652,7 +1658,7 @@ export default function DepositPage() {
                 </th>
                 <th
                   onClick={() => handleSort("guest")}
-                  className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
+                  className="text-left py-2.5 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
                 >
                   <div className="flex items-center gap-2">
                     Guest
@@ -1661,7 +1667,7 @@ export default function DepositPage() {
                 </th>
                 <th
                   onClick={() => handleSort("deposit_amount")}
-                  className="text-right py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
+                  className="text-right py-2.5 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
                 >
                   <div className="flex items-center justify-end gap-2">
                     Amount
@@ -1670,7 +1676,7 @@ export default function DepositPage() {
                 </th>
                 <th
                   onClick={() => handleSort("status")}
-                  className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors whitespace-nowrap"
+                  className="text-center py-2.5 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors whitespace-nowrap"
                 >
                   <div className="flex items-center justify-center gap-2">
                     Status
@@ -1679,14 +1685,14 @@ export default function DepositPage() {
                 </th>
                 <th
                   onClick={() => handleSort("checkin_date")}
-                  className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
+                  className="text-left py-2.5 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
                 >
                   <div className="flex items-center gap-2">
                     Check-in / Check-out Dates
                     <ArrowUpDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600 dark:text-gray-300 dark:group-hover:text-gray-100" />
                   </div>
                 </th>
-                <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap border border-gray-200 dark:border-gray-700">Actions</th>
+                <th className="text-center py-2.5 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap border border-gray-200 dark:border-gray-700">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -1698,18 +1704,18 @@ export default function DepositPage() {
                     className="border border-gray-200 dark:border-gray-700 animate-pulse"
                   >
                     {/* Select Checkbox */}
-                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                    <td className="py-2.5 px-4 border border-gray-200 dark:border-gray-700">
                       <div className="h-4 w-4 bg-gray-200 dark:bg-gray-700 rounded"></div>
                     </td>
                     {/* Deposit ID */}
-                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                    <td className="py-2.5 px-4 border border-gray-200 dark:border-gray-700">
                       <div className="space-y-2">
                         <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
                         <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
                       </div>
                     </td>
                     {/* Haven & Booking */}
-                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                    <td className="py-2.5 px-4 border border-gray-200 dark:border-gray-700">
                       <div className="space-y-2">
                         <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-36"></div>
                         <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-28"></div>
@@ -1717,7 +1723,7 @@ export default function DepositPage() {
                       </div>
                     </td>
                     {/* Guest */}
-                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                    <td className="py-2.5 px-4 border border-gray-200 dark:border-gray-700">
                       <div className="space-y-2">
                         <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
                         <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-40"></div>
@@ -1725,22 +1731,22 @@ export default function DepositPage() {
                       </div>
                     </td>
                     {/* Amount */}
-                    <td className="py-4 px-4 text-right border border-gray-200 dark:border-gray-700">
+                    <td className="py-2.5 px-4 text-right border border-gray-200 dark:border-gray-700">
                       <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20 ml-auto"></div>
                     </td>
                     {/* Status */}
-                    <td className="py-4 px-4 text-center border border-gray-200 dark:border-gray-700">
+                    <td className="py-2.5 px-4 text-center border border-gray-200 dark:border-gray-700">
                       <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded-full w-20 mx-auto"></div>
                     </td>
                     {/* Check-in / Check-out */}
-                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                    <td className="py-2.5 px-4 border border-gray-200 dark:border-gray-700">
                       <div className="space-y-1">
                         <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
                         <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
                       </div>
                     </td>
                     {/* Actions */}
-                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                    <td className="py-2.5 px-4 border border-gray-200 dark:border-gray-700">
                       <div className="flex items-center justify-center gap-1">
                         <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
                         <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
@@ -1758,8 +1764,12 @@ export default function DepositPage() {
                 </tr>
               ) : (
                 paginatedRows.map((row, index) => (
-                  <tr key={`${row.id}-${index}`} className="border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                  <tr key={`${row.id}-${index}`} className={`border border-gray-200 dark:border-gray-700 transition-colors ${
+                    selectedDeposits.includes(row.id)
+                      ? "bg-blue-50 dark:bg-blue-900/30 ring-1 ring-inset ring-blue-300 dark:ring-blue-700"
+                      : "hover:bg-gray-50 dark:hover:bg-gray-700"
+                  }`}>
+                    <td className="py-2.5 px-4 border border-gray-200 dark:border-gray-700">
                       <input
                         type="checkbox"
                         checked={selectedDeposits.includes(row.id)}
@@ -1769,7 +1779,7 @@ export default function DepositPage() {
                         className="w-4 h-4 text-brand-primary border-gray-300 rounded focus:ring-brand-primary"
                       />
                     </td>
-                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                    <td className="py-2.5 px-4 border border-gray-200 dark:border-gray-700">
                       <div className="flex flex-col gap-1">
                         <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{highlightText(row.deposit_id, searchTerm)}</span>
                         {row.payment_method ? (
@@ -1799,7 +1809,7 @@ export default function DepositPage() {
                         )}
                       </div>
                     </td>
-                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                    <td className="py-2.5 px-4 border border-gray-200 dark:border-gray-700">
                       <div className="space-y-2">
                         <div className="flex items-center gap-2">
                           <MapPin className="w-4 h-4 text-orange-500 flex-shrink-0" />
@@ -1815,7 +1825,7 @@ export default function DepositPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                    <td className="py-2.5 px-4 border border-gray-200 dark:border-gray-700">
                       <div className="space-y-2 min-w-[200px]">
                         <div className="flex items-center gap-2">
                           <User className="w-4 h-4 text-gray-400 flex-shrink-0" />
@@ -1865,7 +1875,7 @@ export default function DepositPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="py-4 px-4 text-right border border-gray-200 dark:border-gray-700">
+                    <td className="py-2.5 px-4 text-right border border-gray-200 dark:border-gray-700">
                       <div className="space-y-1">
                         <div className="font-bold text-gray-800 dark:text-gray-100 text-sm">
                           {highlightText(row.formatted_amount, searchTerm)}
@@ -1894,7 +1904,7 @@ export default function DepositPage() {
                         )}
                       </div>
                     </td>
-                    <td className="py-4 px-4 text-center border border-gray-200 dark:border-gray-700">
+                    <td className="py-2.5 px-4 text-center border border-gray-200 dark:border-gray-700">
                       <span
                         className={`inline-block px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${row.status === "Pending"
                           ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300"
@@ -1912,7 +1922,7 @@ export default function DepositPage() {
                         {highlightText(row.status, searchTerm)}
                       </span>
                     </td>
-                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                    <td className="py-2.5 px-4 border border-gray-200 dark:border-gray-700">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
                           <div className="w-2 h-2 bg-green-500 rounded-full"></div>
@@ -1926,7 +1936,7 @@ export default function DepositPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                    <td className="py-2.5 px-4 border border-gray-200 dark:border-gray-700">
                       <div className="flex items-center justify-center gap-1">
                         <button
                           className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"

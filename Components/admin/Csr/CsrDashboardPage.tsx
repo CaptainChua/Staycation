@@ -1,16 +1,15 @@
 "use client";
 
-import { Menu, X, Home, Calendar, CalendarDays, DollarSign, FileText, Users, Wallet, Package, Settings, Bell, ChevronDown, User, MessageSquare, BarChart3, Headphones, Moon, Sun, Monitor, Cloud, CloudRain, CloudSnow, Activity, Tag, Globe } from "lucide-react";
+import { Menu, X, Home, Calendar, CalendarDays, DollarSign, FileText, Users, Package, Settings, Bell, ChevronDown, User, MessageSquare, BarChart3, Headphones, Moon, Sun, Monitor, Cloud, CloudRain, CloudSnow, Activity, Tag, Globe } from "lucide-react";
 import Image from "next/image";
 import { useMemo, useState, useEffect, useRef } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useTheme } from "next-themes";
 import DashboardPage from "./DashboardPage";
 import BookingsPage from "./BookingPage";
-import PaymentsPage from "./PaymentPage.tsx";
+import PaymentsHub from "./PaymentsHub";
 import DeliverablesPage from "./DeliverablesPage";
 import CleanersPage from "./CleanersPage";
-import DepositsPage from "./DepositPage";
 import DiscountPage from "./DiscountPage";
 import SettingsPage from "./SettingsPage";
 import MessagePage from "./MessagePage";
@@ -394,14 +393,14 @@ export default function CsrDashboard() {
         {
           id: "bookings",
           icon: Calendar,
-          label: "Guest Bookings",
+          label: "Bookings",
           subtitle: "Management",
           color: "text-green-500",
         },
         {
           id: "calendar",
           icon: CalendarDays,
-          label: "Booking Calendar",
+          label: "Calendar",
           color: "text-cyan-500",
         },
         {
@@ -418,21 +417,14 @@ export default function CsrDashboard() {
         {
           id: "payments",
           icon: DollarSign,
-          label: "Guest Down Payment",
-          subtitle: "Management",
+          label: "Payments",
+          subtitle: "Down payment & deposit",
           color: "text-purple-500",
-        },
-        {
-          id: "deposits",
-          icon: Wallet,
-          label: "Guest Security Deposit",
-          subtitle: "Management",
-          color: "text-indigo-500",
         },
         {
           id: "discounts",
           icon: Tag,
-          label: "Discount Management",
+          label: "Discount",
           color: "text-yellow-500",
         },
       ],
@@ -443,41 +435,23 @@ export default function CsrDashboard() {
         {
           id: "deliverables",
           icon: FileText,
-          label: "Guest Deliverables",
+          label: "Add-ons",
           subtitle: "Assign deliverables",
           color: "text-pink-500",
         },
         {
           id: "cleaners",
           icon: Users,
-          label: "Cleaners Management",
+          label: "Cleaning",
           subtitle: "Assign Cleaners",
           color: "text-brand-primary",
         },
         {
           id: "inventory",
           icon: Package,
-          label: "Inventory Management",
+          label: "Inventory",
           color: "text-teal-500",
         },
-      ],
-    },
-    {
-      category: "Communication",
-      items: [
-        {
-          id: "messages",
-          icon: MessageSquare,
-          label: "Messages",
-          color: "text-green-500",
-        },
-      ],
-    },
-    {
-      category: "System",
-      items: [
-        { id: "activity-logs", icon: Activity, label: "Activity Logs", color: "text-orange-500" },
-        { id: "settings", icon: Settings, label: "Settings", color: "text-gray-500" },
       ],
     },
   ];
@@ -835,6 +809,20 @@ export default function CsrDashboard() {
                     </button>
                     <button
                       onClick={() => {
+                        setPage("activity-logs");
+                        setProfileDropdownOpen(false);
+                      }}
+                      className={`w-full px-4 py-2.5 flex items-center gap-3 transition-colors duration-150 text-left ${
+                        page === "activity-logs"
+                          ? "bg-brand-primary/10 dark:bg-brand-primary/20 text-brand-primary dark:text-brand-primary"
+                          : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      }`}
+                    >
+                      <Activity className={`w-4 h-4 ${page === "activity-logs" ? "text-brand-primary" : "text-brand-primary"}`} />
+                      <span className="text-sm font-medium">Activity Logs</span>
+                    </button>
+                    <button
+                      onClick={() => {
                         setPage("settings");
                         setProfileDropdownOpen(false);
                       }}
@@ -926,10 +914,9 @@ export default function CsrDashboard() {
             {page === "bookings" && <BookingsPage />}
             {page === "calendar" && <CalendarPage />}
             {page === "google-calendar" && <GoogleCalendarPage />}
-            {page === "payments" && <PaymentsPage />}
+            {page === "payments" && <PaymentsHub />}
             {page === "deliverables" && <DeliverablesPage />}
             {page === "cleaners" && <CleanersPage />}
-            {page === "deposits" && <DepositsPage />}
             {page === "discounts" && <DiscountPage />}
             {page === "inventory" && <InventoryPage />}
             {page === "profile" && <ProfilePage user={session?.user as AdminUser} onClose={() => {}} />}

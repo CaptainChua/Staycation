@@ -815,14 +815,14 @@ export default function BookingsPage() {
           return (
             <div
               key={i}
-              className={`${stat.color} text-white rounded-lg p-6 shadow dark:shadow-gray-900 hover:shadow-lg transition-all border border-gray-200 dark:border-gray-600`}
+              className={`${stat.color} text-white rounded-lg p-5 shadow dark:shadow-gray-900 hover:shadow-lg transition-transform duration-200 transform hover:-translate-y-1`}
             >
-              <div className="flex items-center justify-between">
+              <div className="flex items-start justify-between gap-2">
                 <div>
-                  <p className="text-sm opacity-90">{stat.label}</p>
+                  <p className="text-sm opacity-90 leading-snug">{stat.label}</p>
                   <p className="text-3xl font-bold mt-2">{stat.value}</p>
                 </div>
-                <IconComponent className="w-12 h-12 opacity-50" />
+                <IconComponent className="w-10 h-10 opacity-50 flex-shrink-0" />
               </div>
             </div>
           );
@@ -1116,7 +1116,7 @@ export default function BookingsPage() {
       </div>
 
       {/* Bookings Table - Desktop View */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden flex-1 flex flex-col min-h-0 border border-gray-200 dark:border-gray-700 hidden lg:flex">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden flex-1 flex-col min-h-0 border border-gray-200 dark:border-gray-700 hidden lg:flex">
         <div className="overflow-x-auto overflow-y-auto flex-1 h-[600px] max-h-[600px]">
           <table className="w-full min-w-[1400px]">
             <thead className="bg-gray-50 dark:bg-gray-700 border-b-2 border-gray-200 dark:border-gray-600 sticky top-0 z-10">
