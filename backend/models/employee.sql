@@ -20,6 +20,7 @@ CREATE TABLE employees (
     user_agent TEXT DEFAULT NULL,
     login_attempts INT DEFAULT 0,
     last_login TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    mfa_enabled BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 )

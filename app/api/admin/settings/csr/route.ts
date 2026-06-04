@@ -14,7 +14,10 @@ let csrSettings: any = {
     systemAlerts: true,
     emergencyAlerts: true,
     maintenanceAlerts: true,
-    lowInventoryAlerts: false,
+    lowInventoryAlerts: true,
+    // Delivery methods
+    email: true,
+    push: true,
   },
 };
 

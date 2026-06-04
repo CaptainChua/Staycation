@@ -147,7 +147,7 @@ export default function MessageModal({
         right: position.right,
       }}
     >
-      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-brand-primary/20 dark:border-gray-800 overflow-hidden">
+      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-brand-primary/20 dark:border-gray-800 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-full bg-brand-primary text-white flex items-center justify-center">
@@ -167,16 +167,6 @@ export default function MessageModal({
               </div>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-full hover:bg-brand-primaryLighter dark:hover:bg-gray-800 transition-colors text-gray-500 dark:text-gray-300"
-            type="button"
-            aria-label="Close messages"
-          >
-            <svg viewBox="0 0 24 24" className="w-5 h-5" stroke="currentColor" fill="none">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
         </div>
 
         <div className="max-h-[70vh] overflow-y-auto">

@@ -1061,6 +1061,102 @@ export async function sendEmployeeWelcomeEmail(
   }
 }
 
+// ---------------------------------------------------------------------------
+// Low Inventory Alert Email
+// ---------------------------------------------------------------------------
+export interface LowStockEmailItem {
+  name: string;
+  stock: number;
+}
+
+export function getLowInventoryAlertEmailTemplate(
+  lowItems: LowStockEmailItem[],
+  outItems: LowStockEmailItem[],
+  threshold: number,
+): string {
+  const date = new Date().toLocaleString("en-PH", { timeZone: "Asia/Manila" });
+  const total = lowItems.length + outItems.length;
+
+  const row = (label: string, value: string, color: string) => `
+    <tr>
+      <td style="padding:10px 14px;border-bottom:1px solid #eee;font-size:14px;color:#1F2937;">${label}</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #eee;font-size:14px;text-align:right;font-weight:600;color:${color};">${value}</td>
+    </tr>`;
+
+  const outRows = outItems.map((i) => row(i.name, "Out of stock", "#dc2626")).join("");
+  const lowRows = lowItems.map((i) => row(i.name, `${i.stock} pcs left`, "#d97706")).join("");
+
+  return `
+  <!DOCTYPE html>
+  <html lang="en">
+  <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+  <body style="margin:0;padding:20px;background:#f5f5f5;font-family:'Segoe UI',Arial,sans-serif;">
+    <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #eee;">
+      <div style="background:#B8860B;color:#fff;padding:24px 30px;">
+        <div style="font-size:22px;font-weight:700;">🏡 Staycation Haven</div>
+        <div style="font-size:14px;opacity:.95;margin-top:4px;">Inventory Alert</div>
+      </div>
+      <div style="padding:28px 30px;">
+        <div style="background:#FEF3C7;border-left:4px solid #F59E0B;padding:14px 18px;border-radius:6px;margin-bottom:22px;">
+          <div style="font-weight:700;color:#92400E;font-size:16px;">⚠️ ${total} item(s) need restocking</div>
+          <div style="font-size:13px;color:#78350F;margin-top:4px;">Items at or below ${threshold} pcs as of ${date}.</div>
+        </div>
+        <table style="width:100%;border-collapse:collapse;border:1px solid #eee;border-radius:6px;overflow:hidden;">
+          <thead>
+            <tr style="background:#f9fafb;">
+              <th style="padding:10px 14px;text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:#6B7280;">Item</th>
+              <th style="padding:10px 14px;text-align:right;font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:#6B7280;">Status</th>
+            </tr>
+          </thead>
+          <tbody>${outRows}${lowRows}</tbody>
+        </table>
+        <p style="font-size:13px;color:#6B7280;margin-top:22px;line-height:1.6;">
+          Please review the Inventory page and restock these items soon to avoid running out.
+        </p>
+      </div>
+      <div style="background:#1F2937;color:#9CA3AF;padding:18px 30px;text-align:center;font-size:12px;">
+        &copy; ${new Date().getFullYear()} Staycation Haven · Automated inventory alert
+      </div>
+    </div>
+  </body>
+  </html>`;
+}
+
+// Send a low-inventory alert email to the CSR team
+export async function sendLowInventoryAlertEmail(
+  recipient: string,
+  lowItems: LowStockEmailItem[],
+  outItems: LowStockEmailItem[],
+  threshold: number,
+): Promise<boolean> {
+  try {
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASSWORD,
+      },
+    });
+
+    const total = lowItems.length + outItems.length;
+    const htmlContent = getLowInventoryAlertEmailTemplate(lowItems, outItems, threshold);
+
+    const mailOptions = {
+      from: `"Staycation Haven" <${process.env.EMAIL_USER}>`,
+      to: recipient,
+      subject: `⚠️ Low Inventory Alert - ${total} item(s) need restocking`,
+      html: htmlContent,
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log(`Low inventory alert email sent to ${recipient}`);
+    return true;
+  } catch (error) {
+    console.error("Error sending low inventory alert email:", error);
+    return false;
+  }
+}
+
 // Send partner welcome email using the same setup as booking emails
 export async function sendPartnerWelcomeEmail(
   email: string,

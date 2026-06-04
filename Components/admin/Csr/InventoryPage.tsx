@@ -560,26 +560,73 @@ export default function InventoryPage() {
     [rows],
   );
 
-  // Show a warning toast once when low/out-of-stock items are detected after loading
+  // Alert preferences (controlled from the CSR Settings page). Default ON so alerts
+  // work unless the user explicitly turns them off.
+  // - alertsEnabled (lowInventoryAlerts): master switch for the low-stock alert
+  // - pushEnabled (push): deliver as an in-app toast notification
+  // - emailEnabled (email): also email the CSR team
+  const [alertsEnabled, setAlertsEnabled] = useState(true);
+  const [pushEnabled, setPushEnabled] = useState(true);
+  const [emailEnabled, setEmailEnabled] = useState(true);
+  useEffect(() => {
+    let active = true;
+    fetch("/api/admin/settings/csr")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        const prefs = data?.notificationPrefs;
+        if (!active || !prefs) return;
+        if (typeof prefs.lowInventoryAlerts === "boolean") setAlertsEnabled(prefs.lowInventoryAlerts);
+        if (typeof prefs.push === "boolean") setPushEnabled(prefs.push);
+        if (typeof prefs.email === "boolean") setEmailEnabled(prefs.email);
+      })
+      .catch(() => {
+        /* keep defaults (on) if settings can't be loaded */
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Deliver low-stock alerts (push toast + email) once per detection after loading
   const lowStockWarnedRef = useRef(false);
+  const emailSentRef = useRef(false);
   useEffect(() => {
     if (loading) return;
+    if (!alertsEnabled) return;
 
     const affected = [...outOfStockItems, ...lowStockItems];
     if (affected.length === 0) {
-      lowStockWarnedRef.current = false; // reset so a future drop warns again
+      // healthy again — re-arm both deliveries for the next drop
+      lowStockWarnedRef.current = false;
+      emailSentRef.current = false;
       return;
     }
-    if (lowStockWarnedRef.current) return;
-    lowStockWarnedRef.current = true;
 
-    const names = affected.slice(0, 3).map((r) => r.item_name).join(", ");
-    const extra = affected.length > 3 ? ` +${affected.length - 3} more` : "";
-    toast.error(
-      `⚠️ ${affected.length} item(s) running low (≤ ${LOW_STOCK_THRESHOLD} pcs): ${names}${extra}`,
-      { id: "inventory-low-stock", duration: 6000 },
-    );
-  }, [loading, lowStockItems, outOfStockItems]);
+    // Push delivery → in-app toast notification
+    if (pushEnabled && !lowStockWarnedRef.current) {
+      lowStockWarnedRef.current = true;
+      const names = affected.slice(0, 3).map((r) => r.item_name).join(", ");
+      const extra = affected.length > 3 ? ` +${affected.length - 3} more` : "";
+      toast.error(
+        `⚠️ ${affected.length} item(s) running low (≤ ${LOW_STOCK_THRESHOLD} pcs): ${names}${extra}`,
+        { id: "inventory-low-stock", duration: 6000 },
+      );
+    }
+
+    // Email delivery → notify the CSR team (sent once per detection)
+    if (emailEnabled && !emailSentRef.current) {
+      emailSentRef.current = true;
+      fetch("/api/admin/alerts/low-inventory", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          threshold: LOW_STOCK_THRESHOLD,
+          lowItems: lowStockItems.map((r) => ({ name: r.item_name, stock: r.current_stock })),
+          outItems: outOfStockItems.map((r) => ({ name: r.item_name, stock: 0 })),
+        }),
+      }).catch((e) => console.error("Failed to send low-inventory alert email:", e));
+    }
+  }, [loading, alertsEnabled, pushEnabled, emailEnabled, lowStockItems, outOfStockItems]);
 
   const categoryOptions = CATEGORY_FILTER_OPTIONS;
 
@@ -1034,7 +1081,7 @@ export default function InventoryPage() {
           )}
 
           {/* Low Stock Warning */}
-          {!loading && (lowStockItems.length > 0 || outOfStockItems.length > 0) && (
+          {!loading && alertsEnabled && (lowStockItems.length > 0 || outOfStockItems.length > 0) && (
             <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 rounded-lg p-4 flex-shrink-0">
               <div className="flex items-start gap-3">
                 <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />

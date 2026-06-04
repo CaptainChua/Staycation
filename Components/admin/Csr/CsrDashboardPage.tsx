@@ -1,6 +1,6 @@
 "use client";
 
-import { Menu, X, Home, Calendar, CalendarDays, DollarSign, FileText, Users, Package, Settings, Bell, ChevronDown, User, MessageSquare, BarChart3, Headphones, Moon, Sun, Monitor, Cloud, CloudRain, CloudSnow, Activity, Tag, Globe } from "lucide-react";
+import { Menu, X, Home, Calendar, CalendarDays, DollarSign, FileText, Users, Package, Settings, Bell, ChevronDown, User, MessageSquare, BarChart3, Headphones, Moon, Sun, Monitor, Cloud, CloudRain, CloudSnow, Activity, Tag, Globe, LogOut } from "lucide-react";
 import Image from "next/image";
 import { useMemo, useState, useEffect, useRef } from "react";
 import { useSession, signOut } from "next-auth/react";
@@ -837,54 +837,32 @@ export default function CsrDashboard() {
                     </button>
                   </div>
 
-                  {/* Theme Toggle */}
-                  <div className="flex justify-center py-2 border-t border-b border-gray-200 dark:border-gray-600">
+                  {/* Appearance / Theme */}
+                  <div className="px-4 py-2.5 border-t border-gray-200 dark:border-gray-600 flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Appearance</span>
                     <div className="flex items-center gap-0.5 bg-gray-100 dark:bg-gray-700 rounded-full p-0.5">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setTheme("dark");
-                        }}
-                        className={`p-1 rounded-full transition-all duration-200 ${
-                          theme === "dark"
-                            ? "bg-white dark:bg-gray-600 text-brand-primary shadow-sm"
-                            : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                        }`}
-                        aria-label="Dark mode"
-                        title="Dark"
-                      >
-                        <Moon className="w-3 h-3" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setTheme("light");
-                        }}
-                        className={`p-1 rounded-full transition-all duration-200 ${
-                          theme === "light"
-                            ? "bg-white dark:bg-gray-600 text-brand-primary shadow-sm"
-                            : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                        }`}
-                        aria-label="Light mode"
-                        title="Light"
-                      >
-                        <Sun className="w-3 h-3" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setTheme("system");
-                        }}
-                        className={`p-1 rounded-full transition-all duration-200 ${
-                          theme === "system"
-                            ? "bg-white dark:bg-gray-600 text-brand-primary shadow-sm"
-                            : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                        }`}
-                        aria-label="System mode"
-                        title="System"
-                      >
-                        <Monitor className="w-3 h-3" />
-                      </button>
+                      {([
+                        { value: "light", Icon: Sun, label: "Light" },
+                        { value: "dark", Icon: Moon, label: "Dark" },
+                        { value: "system", Icon: Monitor, label: "System" },
+                      ] as const).map(({ value, Icon, label }) => (
+                        <button
+                          key={value}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setTheme(value);
+                          }}
+                          className={`p-1.5 rounded-full transition-all duration-200 ${
+                            theme === value
+                              ? "bg-white dark:bg-gray-600 text-brand-primary shadow-sm"
+                              : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                          }`}
+                          aria-label={`${label} mode`}
+                          title={label}
+                        >
+                          <Icon className="w-3.5 h-3.5" />
+                        </button>
+                      ))}
                     </div>
                   </div>
 
@@ -897,7 +875,7 @@ export default function CsrDashboard() {
                       }}
                       className="w-full px-4 py-2.5 flex items-center gap-3 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors duration-150 text-left"
                     >
-                      <X className="w-4 h-4" />
+                      <LogOut className="w-4 h-4" />
                       <span className="text-sm font-medium">Sign Out</span>
                     </button>
                   </div>
@@ -943,6 +921,7 @@ export default function CsrDashboard() {
       {notificationOpen && (
         <NotificationModal
           userId={userId}
+          anchorRef={notificationButtonRef}
           onClose={() => setNotificationOpen(false)}
           onViewAll={() => {
             setNotificationOpen(false);
