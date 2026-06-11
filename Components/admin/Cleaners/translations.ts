@@ -64,6 +64,25 @@ const translations = {
     outLabel: "Out:",
     today: "Today",
 
+    // Next job card
+    nextJobTitle: "Your Next Cleaning",
+    nextJobSub: "Here's where to go next — tap to start",
+    tomorrow: "Tomorrow",
+    readyNow: "Ready to clean now",
+    nextJobNone: "No upcoming cleanings",
+    nextJobNoneSub: "You're all caught up. New jobs will show here.",
+
+    // View toggle + list
+    listView: "List",
+    calendarView: "Calendar",
+    upcomingHeading: "Upcoming",
+    completedHeading: "Completed",
+    completedLast7: "Last 7 days",
+    completedThisMonth: "This month",
+    completedNoneRange: "Nothing completed in this range.",
+    listEmpty: "No cleanings yet",
+    listEmptySub: "Your assigned jobs will appear here.",
+
     // Checklist page
     checklistTitle: "Cleaning Checklist",
     checklistSubtitle: "Complete cleaning tasks for your assigned haven",
@@ -176,6 +195,25 @@ const translations = {
     inLabel: "Pasok:",
     outLabel: "Labas:",
     today: "Ngayon",
+
+    // Next job card
+    nextJobTitle: "Susunod Mong Lilinisin",
+    nextJobSub: "Ito ang susunod mong pupuntahan — pindutin para magsimula",
+    tomorrow: "Bukas",
+    readyNow: "Pwede nang linisin ngayon",
+    nextJobNone: "Walang darating na lilinisin",
+    nextJobNoneSub: "Wala ka pang trabaho. Lalabas dito ang mga bago.",
+
+    // View toggle + list
+    listView: "Talaan",
+    calendarView: "Kalendaryo",
+    upcomingHeading: "Mga Darating",
+    completedHeading: "Tapos Na",
+    completedLast7: "Huling 7 araw",
+    completedThisMonth: "Ngayong buwan",
+    completedNoneRange: "Walang natapos sa panahong ito.",
+    listEmpty: "Wala pang lilinisin",
+    listEmptySub: "Lalabas dito ang mga trabaho mo.",
 
     // Checklist page
     checklistTitle: "Listahan ng Linis",
