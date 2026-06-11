@@ -233,11 +233,15 @@ export const updateEmployee = async (req: NextRequest): Promise<NextResponse> =>
     const values: any[] = [];
     let paramCount = 1;
 
-    // Add profile_image_url if it exists
+    // Add profile_image_url if a new one was provided, or clear it when the
+    // caller explicitly passes null (user removed their photo). Callers that
+    // omit the field send undefined and are left untouched.
     if (profileImageUrl) {
       fields.push(`profile_image_url = $${paramCount}`);
       values.push(profileImageUrl);
       paramCount++;
+    } else if (profile_image_url === null) {
+      fields.push(`profile_image_url = NULL`);
     }
 
     Object.entries(employeeData).forEach(([key, value]) => {

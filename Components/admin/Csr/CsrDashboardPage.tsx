@@ -394,7 +394,6 @@ export default function CsrDashboard() {
           id: "bookings",
           icon: Calendar,
           label: "Bookings",
-          subtitle: "Management",
           color: "text-green-500",
         },
         {

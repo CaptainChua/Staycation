@@ -1,6 +1,6 @@
 "use client";
 
-import { Calendar, Search, Filter, Plus, XCircle, CheckSquare, Eye, Edit, Trash2, MapPin, User, Phone, Mail, CheckCircle, Clock, LogIn, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUpDown, Download, FileSpreadsheet, RefreshCw, Check, X, ExternalLink, CreditCard, Banknote, Shield, ShieldAlert } from "lucide-react";
+import { Calendar, Search, Filter, Plus, XCircle, CheckSquare, Eye, Edit, Trash2, MapPin, User, Phone, Mail, CheckCircle, Clock, LogIn, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUpDown, Download, FileSpreadsheet, RefreshCw, Check, X, ExternalLink, CreditCard, Banknote, Shield, ShieldAlert, HelpCircle } from "lucide-react";
 import { useEffect, useMemo, useState, useRef } from "react";
 import { useSession } from "next-auth/react";
 import ViewBookings from "./Modals/ViewBookings";
@@ -62,6 +62,7 @@ export default function BookingsPage() {
   const employeeId = session?.user?.id;
 
   const [searchTerm, setSearchTerm] = useState("");
+  const [showGuideDrawer, setShowGuideDrawer] = useState(false);
   const [filterStatus, setFilterStatus] = useState("all");
   const [selectedHaven, setSelectedHaven] = useState("all");
   const [checkInDateFrom, setCheckInDateFrom] = useState("");
@@ -756,52 +757,69 @@ export default function BookingsPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 flex-shrink-0 border border-gray-200 dark:border-gray-700 rounded-lg p-6 bg-white dark:bg-gray-800 shadow dark:shadow-gray-900">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Bookings Management</h1>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Bookings</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage all customer bookings and reservations</p>
         </div>
+        <button
+          onClick={() => setShowGuideDrawer(true)}
+          className="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors font-medium text-sm whitespace-nowrap"
+          title="Open help & guides"
+        >
+          <HelpCircle className="w-4 h-4" />
+          Help &amp; Guides
+        </button>
       </div>
 
-      {/* Booking Status Guide */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-6 flex-shrink-0 border border-gray-200 dark:border-gray-700">
-        <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4">Booking Status Guide</h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          <div className="flex items-start gap-3">
-            <div className="w-3 h-3 bg-yellow-500 rounded-full mt-1 flex-shrink-0"></div>
-            <div>
-              <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">Pending</h5>
-              <p className="text-xs text-gray-600 dark:text-gray-300">Booking awaiting approval or payment confirmation</p>
+      {/* Help & Guides Drawer */}
+      {showGuideDrawer && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200"
+            onClick={() => setShowGuideDrawer(false)}
+          />
+
+          {/* Panel */}
+          <div className="relative w-full max-w-xl bg-white dark:bg-gray-800 h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+            {/* Drawer Header */}
+            <div className="flex items-center justify-between p-5 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <HelpCircle className="w-6 h-6 text-brand-primary" />
+                <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">Help &amp; Guides</h3>
+              </div>
+              <button
+                onClick={() => setShowGuideDrawer(false)}
+                className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                title="Close"
+              >
+                <X className="w-6 h-6" />
+              </button>
             </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <div className="w-3 h-3 bg-teal-500 rounded-full mt-1 flex-shrink-0"></div>
-            <div>
-              <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">On-going</h5>
-              <p className="text-xs text-gray-600 dark:text-gray-300">Down payment accepted, booking is confirmed</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <div className="w-3 h-3 bg-green-500 rounded-full mt-1 flex-shrink-0"></div>
-            <div>
-              <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">Approved</h5>
-              <p className="text-xs text-gray-600 dark:text-gray-300">Booking confirmed and approved by management</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <div className="w-3 h-3 bg-blue-500 rounded-full mt-1 flex-shrink-0"></div>
-            <div>
-              <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">Checked-In</h5>
-              <p className="text-xs text-gray-600 dark:text-gray-300">Guest has arrived and checked in to the haven</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <div className="w-3 h-3 bg-red-500 rounded-full mt-1 flex-shrink-0"></div>
-            <div>
-              <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">Checked-Out</h5>
-              <p className="text-xs text-gray-600 dark:text-gray-300">Guest has completed their stay</p>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-5">
+              <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-5">Booking Status Guide</h4>
+              <div className="space-y-5">
+                {[
+                  { name: "Pending", color: "bg-yellow-500", description: "Booking awaiting approval or payment confirmation" },
+                  { name: "On-going", color: "bg-teal-500", description: "Down payment accepted, booking is confirmed" },
+                  { name: "Approved", color: "bg-green-500", description: "Booking confirmed and approved by management" },
+                  { name: "Checked-In", color: "bg-blue-500", description: "Guest has arrived and checked in to the haven" },
+                  { name: "Checked-Out", color: "bg-red-500", description: "Guest has completed their stay" },
+                ].map((status) => (
+                  <div key={status.name} className="flex items-start gap-3">
+                    <div className={`w-3.5 h-3.5 ${status.color} rounded-full mt-1.5 flex-shrink-0`}></div>
+                    <div>
+                      <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-base">{status.name}</h5>
+                      <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">{status.description}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 flex-shrink-0">
@@ -1121,7 +1139,7 @@ export default function BookingsPage() {
           <table className="w-full min-w-[1400px]">
             <thead className="bg-gray-50 dark:bg-gray-700 border-b-2 border-gray-200 dark:border-gray-600 sticky top-0 z-10">
               <tr>
-                <th className="py-4 px-4 w-12">
+                <th className="py-2.5 px-3 w-12">
                   <input
                     type="checkbox"
                     aria-label="Select all bookings on this page"
@@ -1139,7 +1157,7 @@ export default function BookingsPage() {
                 </th>
                 <th
                   onClick={() => handleSort("id")}
-                  className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
+                  className="text-left py-2.5 px-3 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
                 >
                   <div className="flex items-center gap-2">
                     Booking ID
@@ -1148,7 +1166,7 @@ export default function BookingsPage() {
                 </th>
                 <th
                   onClick={() => handleSort("haven")}
-                  className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
+                  className="text-left py-2.5 px-3 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
                 >
                   <div className="flex items-center gap-2">
                     Haven & Booking
@@ -1157,7 +1175,7 @@ export default function BookingsPage() {
                 </th>
                 <th
                   onClick={() => handleSort("guestName")}
-                  className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
+                  className="text-left py-2.5 px-3 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
                 >
                   <div className="flex items-center gap-2">
                     Guest
@@ -1166,24 +1184,24 @@ export default function BookingsPage() {
                 </th>
                 <th
                   onClick={() => handleSort("checkIn")}
-                  className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
+                  className="text-left py-2.5 px-3 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
                 >
                   <div className="flex items-center gap-2">
                     Check-In / Check-Out
                     <ArrowUpDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600" />
                   </div>
                 </th>
-                <th className="text-right py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">Total</th>
+                <th className="text-right py-2.5 px-3 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">Total</th>
                 <th
                   onClick={() => handleSort("status")}
-                  className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors whitespace-nowrap"
+                  className="text-center py-2.5 px-3 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors whitespace-nowrap"
                 >
                   <div className="flex items-center justify-center gap-2">
                     Status
                     <ArrowUpDown className="w-4 h-4 text-gray-400" />
                   </div>
                 </th>
-                <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">Actions</th>
+                <th className="text-center py-2.5 px-3 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -1194,47 +1212,47 @@ export default function BookingsPage() {
                     key={`skeleton-${idx}`}
                     className="border-b border-gray-100 dark:border-gray-700 animate-pulse"
                   >
-                    <td className="py-4 px-4">
+                    <td className="py-2.5 px-3">
                       <div className="h-4 w-4 bg-gray-200 dark:bg-gray-700 rounded"></div>
                     </td>
-                    <td className="py-4 px-4">
+                    <td className="py-2.5 px-3">
                       <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
                     </td>
-                    <td className="py-4 px-4">
+                    <td className="py-2.5 px-3">
                       <div className="space-y-2 min-w-[200px]">
                         <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
                         <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-40"></div>
                         <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-28"></div>
                       </div>
                     </td>
-                    <td className="py-4 px-4">
+                    <td className="py-2.5 px-3">
                       <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-36"></div>
                     </td>
-                    <td className="py-4 px-4">
+                    <td className="py-2.5 px-3">
                       <div className="space-y-1">
                         <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
                         <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
                       </div>
                     </td>
-                    <td className="py-4 px-4">
+                    <td className="py-2.5 px-3">
                       <div className="space-y-1">
                         <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
                         <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
                       </div>
                     </td>
-                    <td className="py-4 px-4 text-center">
+                    <td className="py-2.5 px-3 text-center">
                       <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-8 mx-auto"></div>
                     </td>
-                    <td className="py-4 px-4 text-center">
+                    <td className="py-2.5 px-3 text-center">
                       <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded-full w-20 mx-auto"></div>
                     </td>
-                    <td className="py-4 px-4 text-right">
+                    <td className="py-2.5 px-3 text-right">
                       <div className="space-y-1">
                         <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20 ml-auto"></div>
                         <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-16 ml-auto"></div>
                       </div>
                     </td>
-                    <td className="py-4 px-4">
+                    <td className="py-2.5 px-3">
                       <div className="flex items-center justify-center gap-1">
                         <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded"></div>
                         <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded"></div>
@@ -1268,7 +1286,7 @@ export default function BookingsPage() {
                       key={booking.id}
                       className={`border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${selectedBookings.includes(booking.id) ? 'bg-brand-primary/5' : ''}`}
                     >
-                      <td className="py-4 px-4">
+                      <td className="py-2.5 px-3">
                         <input
                           type="checkbox"
                           aria-label={`Select booking ${booking.booking_id}`}
@@ -1284,7 +1302,7 @@ export default function BookingsPage() {
                           }}
                         />
                       </td>
-                      <td className="py-4 px-4">
+                      <td className="py-2.5 px-3">
                         <div className="flex flex-col gap-1">
                           <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{booking.booking_id}</span>
                           {booking.payment_method && (
@@ -1315,7 +1333,7 @@ export default function BookingsPage() {
                           )}
                         </div>
                       </td>
-                      <td className="py-4 px-4">
+                      <td className="py-2.5 px-3">
                         <div className="space-y-2">
                           <div className="flex items-center gap-2">
                             <MapPin className="w-4 h-4 text-orange-500 flex-shrink-0" />
@@ -1327,7 +1345,7 @@ export default function BookingsPage() {
                           </div>
                         </div>
                       </td>
-                      <td className="py-4 px-4">
+                      <td className="py-2.5 px-3">
                         <div className="space-y-2 min-w-[200px]">
                           <div className="flex items-center gap-2">
                             <User className="w-4 h-4 text-gray-400 flex-shrink-0" />
@@ -1379,7 +1397,7 @@ export default function BookingsPage() {
                           )}
                         </div>
                       </td>
-                      <td className="py-4 px-4">
+                      <td className="py-2.5 px-3">
                         <DateRangeWithDays
                           checkInDate={booking.check_in_date}
                           checkInTime={booking.check_in_time}
@@ -1388,7 +1406,7 @@ export default function BookingsPage() {
                           isCompact={true}
                         />
                       </td>
-                      <td className="py-4 px-4 text-right">
+                      <td className="py-2.5 px-3 text-right">
                         <TotalBreakdown
                           roomRate={booking.room_rate ?? 0}
                           securityDeposit={booking.security_deposit ?? 0}
@@ -1401,7 +1419,7 @@ export default function BookingsPage() {
                           isCompact={true}
                         />
                       </td>
-                      <td className="py-4 px-4 text-center">
+                      <td className="py-2.5 px-3 text-center">
                         <div className="flex flex-col items-center gap-1">
                           <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap capitalize ${getStatusColor(booking.status)}`}>
                             {booking.status}
@@ -1414,7 +1432,7 @@ export default function BookingsPage() {
                           )}
                         </div>
                       </td>
-                      <td className="py-4 px-4">
+                      <td className="py-2.5 px-3">
                         <div className="flex items-center justify-center gap-1">
                           {booking.deposit_status?.toLowerCase() === 'pending_verification' && (
                             <button

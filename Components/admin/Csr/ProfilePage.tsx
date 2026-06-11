@@ -69,6 +69,8 @@ export default function ProfilePage({ user, onClose }: ProfilePageProps) {
   const [error, setError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState<Partial<EmployeeProfile>>({});
+  const [profilePreview, setProfilePreview] = useState<string | null>(null);
+  const [removePhoto, setRemovePhoto] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
   const [activeTab, setActiveTab] = useState<'personal' | 'professional' | 'contact' | 'security'>('personal');
   const [passwordForm, setPasswordForm] = useState({
@@ -197,6 +199,13 @@ export default function ProfilePage({ user, onClose }: ProfilePageProps) {
         }
       });
 
+      // Include the new profile picture if one was selected, or clear it if removed
+      if (profilePreview) {
+        updateData.profile_image_url = profilePreview;
+      } else if (removePhoto && profileImage) {
+        (updateData as any).profile_image_url = null;
+      }
+
       // If no changes were made, show message and exit
       if (Object.keys(updateData).length === 0) {
         toast.error('No changes were made');
@@ -273,6 +282,8 @@ export default function ProfilePage({ user, onClose }: ProfilePageProps) {
 
       setIsEditing(false);
       setEditForm({});
+      setProfilePreview(null);
+      setRemovePhoto(false);
       setSaveStatus('success');
 
       setTimeout(() => setSaveStatus('idle'), 3000);
@@ -287,10 +298,38 @@ export default function ProfilePage({ user, onClose }: ProfilePageProps) {
   const handleCancel = () => {
     setIsEditing(false);
     setEditForm({});
+    setProfilePreview(null);
+    setRemovePhoto(false);
   };
 
   const handleInputChange = (field: string, value: string) => {
     setEditForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image size must be less than 5MB');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setProfilePreview(reader.result as string);
+      setRemovePhoto(false);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveImage = () => {
+    setProfilePreview(null);
+    setRemovePhoto(true);
   };
 
   const handlePasswordInputChange = (field: string, value: string) => {
@@ -476,9 +515,9 @@ export default function ProfilePage({ user, onClose }: ProfilePageProps) {
             <div className="absolute -bottom-16 left-8">
               <div className="relative group">
                 <div className="w-32 h-32 bg-white dark:bg-gray-800 rounded-full p-1">
-                  {profileImage ? (
+                  {(!removePhoto && (profilePreview || profileImage)) ? (
                     <Image
-                      src={profileImage}
+                      src={profilePreview || profileImage}
                       alt={displayName}
                       width={120}
                       height={120}
@@ -490,9 +529,29 @@ export default function ProfilePage({ user, onClose }: ProfilePageProps) {
                     </div>
                   )}
                 </div>
-                <button className="absolute bottom-2 right-2 w-8 h-8 bg-brand-primary text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Camera className="w-4 h-4" />
-                </button>
+                {isEditing && (
+                  <label
+                    className="absolute bottom-2 right-2 w-9 h-9 bg-brand-primary hover:bg-brand-primaryDark text-white rounded-full flex items-center justify-center cursor-pointer shadow-lg transition-colors"
+                    title="Change profile picture"
+                  >
+                    <Camera className="w-4 h-4" />
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageChange}
+                      className="hidden"
+                    />
+                  </label>
+                )}
+                {isEditing && !removePhoto && (profilePreview || profileImage) && (
+                  <button
+                    onClick={handleRemoveImage}
+                    className="absolute top-2 right-2 w-7 h-7 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-lg transition-colors"
+                    title="Remove profile picture"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
             </div>
           </div>
