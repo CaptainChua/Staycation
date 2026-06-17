@@ -2613,7 +2613,7 @@ const formatTime = (t?: string | null): string => {
 };
 
 const TimeRangeBox = ({ label, start, end }: { label: string; start?: string | null; end?: string | null }) => (
-  <div className="p-2.5 rounded-lg bg-gray-50 dark:bg-slate-800/50 dark:bg-white/5 border border-gray-200 dark:border-slate-700 dark:border-white/5">
+  <div className="p-2.5 rounded-lg bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/5">
     <p className="text-[10px] uppercase tracking-wide font-bold text-gray-500 dark:text-gray-400 mb-1.5">{label}</p>
     <div className="flex items-center gap-1.5 text-[12px] font-semibold text-gray-800 dark:text-gray-200">
       <span>{formatTime(start)}</span>

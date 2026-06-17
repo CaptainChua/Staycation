@@ -26,7 +26,9 @@ import {
   Play,
   XCircle,
   Download,
-  Shield
+  Shield,
+  HelpCircle,
+  X
 } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
@@ -280,7 +282,7 @@ const guideTranslations = {
   }
 };
 
-export default function DepositPage() {
+export default function DepositPage({ hideSummary = false }: { hideSummary?: boolean } = {}) {
   const { data: session } = useSession();
   const employeeId = (session?.user as any)?.id;
 
@@ -314,9 +316,8 @@ export default function DepositPage() {
   const [isBulkForfeitedModalOpen, setIsBulkForfeitedModalOpen] = useState(false);
   const [isBulkPartialModalOpen, setIsBulkPartialModalOpen] = useState(false);
   const [bulkAction, setBulkAction] = useState<string>("");
-  const [showStatusGuide, setShowStatusGuide] = useState(false);
-  const [showDepositGuide, setShowDepositGuide] = useState(false);
-  const [showBulkGuide, setShowBulkGuide] = useState(false);
+  const [showGuideDrawer, setShowGuideDrawer] = useState(false);
+  const [activeGuideTab, setActiveGuideTab] = useState<"status" | "manage" | "bulk">("status");
   const [guideLanguage, setGuideLanguage] = useState<"en" | "fil">("en");
 
   const fetchData = async () => {
@@ -932,214 +933,23 @@ export default function DepositPage() {
   return (
     <div className="space-y-6 animate-in fade-in duration-700 overflow-hidden h-full flex flex-col">
       {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 flex-shrink-0 border border-gray-200 dark:border-gray-700 rounded-lg p-6 bg-white dark:bg-gray-800 shadow dark:shadow-gray-900">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 flex-shrink-0">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Deposit Management</h1>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Security Deposit</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage security deposits for bookings</p>
         </div>
-      </div>
-
-      {/* Status Guide */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-6 flex-shrink-0 border border-gray-200 dark:border-gray-700">
-        <div className="flex items-center justify-between mb-2">
-          <button
-            onClick={() => setShowStatusGuide(!showStatusGuide)}
-            className="flex-1 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded-lg transition-colors"
-          >
-            <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100">{guideTranslations[guideLanguage].statusGuide.title}</h4>
-            <ChevronRight className={`w-5 h-5 text-gray-600 dark:text-gray-300 transform transition-transform ${showStatusGuide ? 'rotate-90' : ''}`} />
-          </button>
-          <div className="flex gap-1 ml-2">
-            {(['en', 'fil'] as const).map((lang) => (
-              <button
-                key={lang}
-                onClick={() => setGuideLanguage(lang)}
-                className={`px-3 py-1 rounded text-xs font-medium transition-colors ${guideLanguage === lang
-                  ? 'bg-brand-primary text-white'
-                  : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-                  }`}
-              >
-                {lang === 'en' ? 'EN' : 'FIL'}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {showStatusGuide && (
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-            {guideTranslations[guideLanguage].statusGuide.statuses.map((status, idx) => {
-              const statusColors: Record<string, { dot: string; icon?: string }> = {
-                Pending: { dot: 'bg-yellow-500' },
-                Paid: { dot: 'bg-indigo-500' },
-                Returned: { dot: 'bg-green-500' },
-                Partial: { dot: 'bg-orange-500' },
-                Forfeited: { dot: 'bg-red-500' }
-              };
-              const color = statusColors[status.name] || { dot: 'bg-gray-500' };
-
-              return (
-                <div key={idx} className="flex items-start gap-3">
-                  <div className={`w-3 h-3 ${color.dot} rounded-full mt-1 flex-shrink-0`}></div>
-                  <div>
-                    <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{status.name}</h5>
-                    <p className="text-xs text-gray-600 dark:text-gray-300">{status.description}</p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* How to Manage Security Deposits Guide */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-6 flex-shrink-0 border border-gray-200 dark:border-gray-700">
-        <div className="flex items-center justify-between mb-2">
-          <button
-            onClick={() => setShowDepositGuide(!showDepositGuide)}
-            className="flex-1 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded-lg transition-colors"
-          >
-            <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100">{guideTranslations[guideLanguage].depositGuide.title}</h4>
-            <ChevronRight className={`w-5 h-5 text-gray-600 dark:text-gray-300 transform transition-transform ${showDepositGuide ? 'rotate-90' : ''}`} />
-          </button>
-          <div className="flex gap-1 ml-2">
-            {(['en', 'fil'] as const).map((lang) => (
-              <button
-                key={lang}
-                onClick={() => setGuideLanguage(lang)}
-                className={`px-3 py-1 rounded text-xs font-medium transition-colors ${guideLanguage === lang
-                  ? 'bg-brand-primary text-white'
-                  : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-                  }`}
-              >
-                {lang === 'en' ? 'EN' : 'FIL'}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {showDepositGuide && (
-          <div className="mt-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {guideTranslations[guideLanguage].depositGuide.steps.map((step, idx) => (
-                <div key={idx} className="flex items-start gap-3">
-                  <div className="w-8 h-8 bg-brand-primary text-white rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold">{idx + 1}</div>
-                  <div>
-                    <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{step.title}</h5>
-                    <p className="text-xs text-gray-600 dark:text-gray-300">{step.description}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
-              <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm mb-3">{guideTranslations[guideLanguage].depositGuide.actionGuideTitle}</h5>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-gray-600 dark:text-gray-300">
-                {guideTranslations[guideLanguage].depositGuide.actions.map((action, idx) => {
-                  const getActionIconAndColor = (title: string) => {
-                    const iconMap: Record<string, { Icon: typeof CheckCircle; color: string }> = {
-                      Returned: { Icon: CheckCircle, color: 'text-green-600 dark:text-green-400' },
-                      Partial: { Icon: RotateCcw, color: 'text-orange-600 dark:text-orange-400' },
-                      Forfeited: { Icon: XCircle, color: 'text-red-600 dark:text-red-400' },
-                      Held: { Icon: Play, color: 'text-indigo-600 dark:text-indigo-400' }
-                    };
-                    return iconMap[title];
-                  };
-                  const iconData = getActionIconAndColor(action.title);
-
-                  return (
-                    <div key={idx} className="flex items-start gap-2">
-                      {iconData && <iconData.Icon className={`w-4 h-4 ${iconData.color} flex-shrink-0 mt-0.5`} />}
-                      <span><strong>{action.title}:</strong> {action.description}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Bulk Operations Guide */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-6 flex-shrink-0 border border-gray-200 dark:border-gray-700">
-        <div className="flex items-center justify-between mb-2">
-          <button
-            onClick={() => setShowBulkGuide(!showBulkGuide)}
-            className="flex-1 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded-lg transition-colors"
-          >
-            <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100">{guideTranslations[guideLanguage].bulkGuide.title}</h4>
-            <ChevronRight className={`w-5 h-5 text-gray-600 dark:text-gray-300 transform transition-transform ${showBulkGuide ? 'rotate-90' : ''}`} />
-          </button>
-          <div className="flex gap-1 ml-2">
-            {(['en', 'fil'] as const).map((lang) => (
-              <button
-                key={lang}
-                onClick={() => setGuideLanguage(lang)}
-                className={`px-3 py-1 rounded text-xs font-medium transition-colors ${guideLanguage === lang
-                  ? 'bg-brand-primary text-white'
-                  : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-                  }`}
-              >
-                {lang === 'en' ? 'EN' : 'FIL'}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {showBulkGuide && (
-          <div className="mt-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {guideTranslations[guideLanguage].bulkGuide.steps.map((step, idx) => (
-                <div key={idx} className="flex items-start gap-3">
-                  <div className="w-8 h-8 bg-brand-primary text-white rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold">{idx + 1}</div>
-                  <div>
-                    <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{step.title}</h5>
-                    <p className="text-xs text-gray-600 dark:text-gray-300">{step.description}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
-              <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm mb-3">{guideTranslations[guideLanguage].bulkGuide.whenToUseTitle}</h5>
-              <div className="space-y-2 text-xs text-gray-600 dark:text-gray-300">
-                {guideTranslations[guideLanguage].bulkGuide.useCases.map((useCase, idx) => {
-                  const getUseCaseIcon = (title: string) => {
-                    const iconMap: Record<string, typeof Play> = {
-                      'Mark as Paid': Play,
-                      'Mark as Returned': CheckCircle,
-                      'Mark as Partial': RotateCcw,
-                      'Mark as Forfeited': XCircle
-                    };
-                    return iconMap[title] || Play;
-                  };
-
-                  const getUseCaseColor = (title: string) => {
-                    const colorMap: Record<string, string> = {
-                      'Mark as Paid': 'text-indigo-600 dark:text-indigo-400',
-                      'Mark as Returned': 'text-green-600 dark:text-green-400',
-                      'Mark as Partial': 'text-orange-600 dark:text-orange-400',
-                      'Mark as Forfeited': 'text-red-600 dark:text-red-400'
-                    };
-                    return colorMap[title] || 'text-gray-600 dark:text-gray-400';
-                  };
-
-                  const IconComponent = getUseCaseIcon(useCase.title);
-                  const iconColor = getUseCaseColor(useCase.title);
-
-                  return (
-                    <div key={idx} className="flex items-start gap-2">
-                      <IconComponent className={`w-4 h-4 ${iconColor} flex-shrink-0 mt-0.5`} />
-                      <span><strong>{useCase.title}:</strong> {useCase.description}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        )}
+        <button
+          onClick={() => setShowGuideDrawer(true)}
+          className="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors font-medium text-sm whitespace-nowrap"
+          title="Open help & guides"
+        >
+          <HelpCircle className="w-4 h-4" />
+          Help &amp; Guides
+        </button>
       </div>
 
       {/* Summary Cards */}
+      {!hideSummary && (
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 flex-shrink-0">
         {[
           { label: "Total Bookings", value: String(totalCount), color: "bg-gray-500", icon: Wallet },
@@ -1151,11 +961,11 @@ export default function DepositPage() {
           return (
             <div
               key={i}
-              className={`${stat.color} text-white rounded-lg p-6 shadow dark:shadow-gray-900 hover:shadow-lg transition-all border border-gray-200 dark:border-gray-600`}
+              className={`${stat.color} text-white rounded-lg p-5 shadow dark:shadow-gray-900 hover:shadow-lg transition-transform duration-200 transform hover:-translate-y-1`}
             >
-              <div className="flex items-center justify-between">
+              <div className="flex items-start justify-between gap-2">
                 <div>
-                  <p className="text-sm opacity-90">{stat.label}</p>
+                  <p className="text-sm opacity-90 leading-snug">{stat.label}</p>
                   <div className="text-3xl font-bold mt-2">
                     {isLoading ? (
                       <div className="w-16 h-8 bg-white/20 rounded animate-pulse" />
@@ -1164,12 +974,13 @@ export default function DepositPage() {
                     )}
                   </div>
                 </div>
-                <IconComponent className="w-12 h-12 opacity-50" />
+                <IconComponent className="w-10 h-10 opacity-50 flex-shrink-0" />
               </div>
             </div>
           );
         })}
       </div>
+      )}
 
       {/* Bulk Actions Bar */}
       {selectedDeposits.length > 0 && (
@@ -1470,7 +1281,11 @@ export default function DepositPage() {
             </div>
           ) : (
             paginatedRows.map((row, index) => (
-              <div key={`${row.id}-mobile-${index}`} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+              <div key={`${row.id}-mobile-${index}`} className={`border rounded-lg p-4 transition-colors ${
+                selectedDeposits.includes(row.id)
+                  ? "border-blue-400 dark:border-blue-600 ring-2 ring-blue-200 dark:ring-blue-800 bg-blue-50/50 dark:bg-blue-900/20"
+                  : "border-gray-200 dark:border-gray-700"
+              }`}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
@@ -1619,7 +1434,7 @@ export default function DepositPage() {
           <table className="w-full min-w-[1400px]">
             <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 border-b-2 border-gray-200 dark:border-gray-600 sticky top-0 z-10">
               <tr>
-                <th className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                <th className="text-left py-2.5 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
                   <div className="flex items-center gap-2">
                     <input
                       type="checkbox"
@@ -1634,7 +1449,7 @@ export default function DepositPage() {
                 </th>
                 <th
                   onClick={() => handleSort("deposit_id")}
-                  className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
+                  className="text-left py-2.5 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
                 >
                   <div className="flex items-center gap-2">
                     Deposit ID
@@ -1643,7 +1458,7 @@ export default function DepositPage() {
                 </th>
                 <th
                   onClick={() => handleSort("haven")}
-                  className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
+                  className="text-left py-2.5 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
                 >
                   <div className="flex items-center gap-2">
                     Haven & Booking
@@ -1652,7 +1467,7 @@ export default function DepositPage() {
                 </th>
                 <th
                   onClick={() => handleSort("guest")}
-                  className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
+                  className="text-left py-2.5 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
                 >
                   <div className="flex items-center gap-2">
                     Guest
@@ -1661,7 +1476,7 @@ export default function DepositPage() {
                 </th>
                 <th
                   onClick={() => handleSort("deposit_amount")}
-                  className="text-right py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
+                  className="text-right py-2.5 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
                 >
                   <div className="flex items-center justify-end gap-2">
                     Amount
@@ -1670,7 +1485,7 @@ export default function DepositPage() {
                 </th>
                 <th
                   onClick={() => handleSort("status")}
-                  className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors whitespace-nowrap"
+                  className="text-center py-2.5 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors whitespace-nowrap"
                 >
                   <div className="flex items-center justify-center gap-2">
                     Status
@@ -1679,14 +1494,14 @@ export default function DepositPage() {
                 </th>
                 <th
                   onClick={() => handleSort("checkin_date")}
-                  className="text-left py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
+                  className="text-left py-2.5 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group whitespace-nowrap"
                 >
                   <div className="flex items-center gap-2">
                     Check-in / Check-out Dates
                     <ArrowUpDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600 dark:text-gray-300 dark:group-hover:text-gray-100" />
                   </div>
                 </th>
-                <th className="text-center py-4 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap border border-gray-200 dark:border-gray-700">Actions</th>
+                <th className="text-center py-2.5 px-4 text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap border border-gray-200 dark:border-gray-700">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -1698,18 +1513,18 @@ export default function DepositPage() {
                     className="border border-gray-200 dark:border-gray-700 animate-pulse"
                   >
                     {/* Select Checkbox */}
-                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                    <td className="py-2.5 px-4 border border-gray-200 dark:border-gray-700">
                       <div className="h-4 w-4 bg-gray-200 dark:bg-gray-700 rounded"></div>
                     </td>
                     {/* Deposit ID */}
-                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                    <td className="py-2.5 px-4 border border-gray-200 dark:border-gray-700">
                       <div className="space-y-2">
                         <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
                         <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
                       </div>
                     </td>
                     {/* Haven & Booking */}
-                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                    <td className="py-2.5 px-4 border border-gray-200 dark:border-gray-700">
                       <div className="space-y-2">
                         <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-36"></div>
                         <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-28"></div>
@@ -1717,7 +1532,7 @@ export default function DepositPage() {
                       </div>
                     </td>
                     {/* Guest */}
-                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                    <td className="py-2.5 px-4 border border-gray-200 dark:border-gray-700">
                       <div className="space-y-2">
                         <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
                         <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-40"></div>
@@ -1725,22 +1540,22 @@ export default function DepositPage() {
                       </div>
                     </td>
                     {/* Amount */}
-                    <td className="py-4 px-4 text-right border border-gray-200 dark:border-gray-700">
+                    <td className="py-2.5 px-4 text-right border border-gray-200 dark:border-gray-700">
                       <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20 ml-auto"></div>
                     </td>
                     {/* Status */}
-                    <td className="py-4 px-4 text-center border border-gray-200 dark:border-gray-700">
+                    <td className="py-2.5 px-4 text-center border border-gray-200 dark:border-gray-700">
                       <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded-full w-20 mx-auto"></div>
                     </td>
                     {/* Check-in / Check-out */}
-                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                    <td className="py-2.5 px-4 border border-gray-200 dark:border-gray-700">
                       <div className="space-y-1">
                         <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
                         <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
                       </div>
                     </td>
                     {/* Actions */}
-                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                    <td className="py-2.5 px-4 border border-gray-200 dark:border-gray-700">
                       <div className="flex items-center justify-center gap-1">
                         <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
                         <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
@@ -1758,8 +1573,12 @@ export default function DepositPage() {
                 </tr>
               ) : (
                 paginatedRows.map((row, index) => (
-                  <tr key={`${row.id}-${index}`} className="border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                  <tr key={`${row.id}-${index}`} className={`border border-gray-200 dark:border-gray-700 transition-colors ${
+                    selectedDeposits.includes(row.id)
+                      ? "bg-blue-50 dark:bg-blue-900/30 ring-1 ring-inset ring-blue-300 dark:ring-blue-700"
+                      : "hover:bg-gray-50 dark:hover:bg-gray-700"
+                  }`}>
+                    <td className="py-2.5 px-4 border border-gray-200 dark:border-gray-700">
                       <input
                         type="checkbox"
                         checked={selectedDeposits.includes(row.id)}
@@ -1769,7 +1588,7 @@ export default function DepositPage() {
                         className="w-4 h-4 text-brand-primary border-gray-300 rounded focus:ring-brand-primary"
                       />
                     </td>
-                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                    <td className="py-2.5 px-4 border border-gray-200 dark:border-gray-700">
                       <div className="flex flex-col gap-1">
                         <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{highlightText(row.deposit_id, searchTerm)}</span>
                         {row.payment_method ? (
@@ -1799,7 +1618,7 @@ export default function DepositPage() {
                         )}
                       </div>
                     </td>
-                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                    <td className="py-2.5 px-4 border border-gray-200 dark:border-gray-700">
                       <div className="space-y-2">
                         <div className="flex items-center gap-2">
                           <MapPin className="w-4 h-4 text-orange-500 flex-shrink-0" />
@@ -1815,7 +1634,7 @@ export default function DepositPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                    <td className="py-2.5 px-4 border border-gray-200 dark:border-gray-700">
                       <div className="space-y-2 min-w-[200px]">
                         <div className="flex items-center gap-2">
                           <User className="w-4 h-4 text-gray-400 flex-shrink-0" />
@@ -1865,7 +1684,7 @@ export default function DepositPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="py-4 px-4 text-right border border-gray-200 dark:border-gray-700">
+                    <td className="py-2.5 px-4 text-right border border-gray-200 dark:border-gray-700">
                       <div className="space-y-1">
                         <div className="font-bold text-gray-800 dark:text-gray-100 text-sm">
                           {highlightText(row.formatted_amount, searchTerm)}
@@ -1894,7 +1713,7 @@ export default function DepositPage() {
                         )}
                       </div>
                     </td>
-                    <td className="py-4 px-4 text-center border border-gray-200 dark:border-gray-700">
+                    <td className="py-2.5 px-4 text-center border border-gray-200 dark:border-gray-700">
                       <span
                         className={`inline-block px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${row.status === "Pending"
                           ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300"
@@ -1912,7 +1731,7 @@ export default function DepositPage() {
                         {highlightText(row.status, searchTerm)}
                       </span>
                     </td>
-                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                    <td className="py-2.5 px-4 border border-gray-200 dark:border-gray-700">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
                           <div className="w-2 h-2 bg-green-500 rounded-full"></div>
@@ -1926,7 +1745,7 @@ export default function DepositPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="py-4 px-4 border border-gray-200 dark:border-gray-700">
+                    <td className="py-2.5 px-4 border border-gray-200 dark:border-gray-700">
                       <div className="flex items-center justify-center gap-1">
                         <button
                           className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
@@ -2077,6 +1896,200 @@ export default function DepositPage() {
           </div>
         </div>
       </div>
+
+      {/* Help & Guides Drawer */}
+      {showGuideDrawer && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200"
+            onClick={() => setShowGuideDrawer(false)}
+          />
+
+          {/* Panel */}
+          <div className="relative w-full max-w-xl bg-white dark:bg-gray-800 h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+            {/* Drawer Header */}
+            <div className="flex items-center justify-between p-5 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <HelpCircle className="w-6 h-6 text-brand-primary" />
+                <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">Help &amp; Guides</h3>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="flex gap-1">
+                  {(['en', 'fil'] as const).map((lang) => (
+                    <button
+                      key={lang}
+                      onClick={() => setGuideLanguage(lang)}
+                      className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+                        guideLanguage === lang
+                          ? 'bg-brand-primary text-white'
+                          : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                      }`}
+                    >
+                      {lang.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setShowGuideDrawer(false)}
+                  className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  title="Close"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+
+            {/* Tabs */}
+            <div className="flex gap-1 px-4 pt-3 flex-shrink-0 overflow-x-auto border-b border-gray-200 dark:border-gray-700">
+              {([
+                { key: 'status', label: 'Status' },
+                { key: 'manage', label: 'Manage' },
+                { key: 'bulk', label: 'Bulk' },
+              ] as const).map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveGuideTab(tab.key)}
+                  className={`px-4 py-2.5 rounded-t-lg text-base font-semibold whitespace-nowrap transition-colors -mb-px ${
+                    activeGuideTab === tab.key
+                      ? 'bg-gray-100 dark:bg-gray-700 text-brand-primary border-b-2 border-brand-primary'
+                      : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Tab Content */}
+            <div className="flex-1 overflow-y-auto p-5">
+              {activeGuideTab === 'status' && (
+                <div>
+                  <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-5">{guideTranslations[guideLanguage].statusGuide.title}</h4>
+                  <div className="space-y-5">
+                    {guideTranslations[guideLanguage].statusGuide.statuses.map((status, idx) => {
+                      const statusColors: Record<string, string> = {
+                        Pending: 'bg-yellow-500',
+                        Paid: 'bg-indigo-500',
+                        Returned: 'bg-green-500',
+                        Partial: 'bg-orange-500',
+                        Forfeited: 'bg-red-500'
+                      };
+                      const color = statusColors[status.name] || 'bg-gray-500';
+
+                      return (
+                        <div key={idx} className="flex items-start gap-3">
+                          <div className={`w-3.5 h-3.5 ${color} rounded-full mt-1.5 flex-shrink-0`}></div>
+                          <div>
+                            <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-base">{status.name}</h5>
+                            <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">{status.description}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {activeGuideTab === 'manage' && (
+                <div>
+                  <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-5">{guideTranslations[guideLanguage].depositGuide.title}</h4>
+                  <div className="space-y-5">
+                    {guideTranslations[guideLanguage].depositGuide.steps.map((step, idx) => (
+                      <div key={idx} className="flex items-start gap-3">
+                        <div className="w-9 h-9 bg-brand-primary text-white rounded-full flex items-center justify-center flex-shrink-0 text-base font-bold">{idx + 1}</div>
+                        <div>
+                          <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-base">{step.title}</h5>
+                          <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">{step.description}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-5 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                    <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-base mb-3">{guideTranslations[guideLanguage].depositGuide.actionGuideTitle}</h5>
+                    <div className="space-y-3 text-sm text-gray-600 dark:text-gray-300">
+                      {guideTranslations[guideLanguage].depositGuide.actions.map((action, idx) => {
+                        const getActionIconAndColor = (title: string) => {
+                          const iconMap: Record<string, { Icon: typeof CheckCircle; color: string }> = {
+                            Returned: { Icon: CheckCircle, color: 'text-green-600 dark:text-green-400' },
+                            Partial: { Icon: RotateCcw, color: 'text-orange-600 dark:text-orange-400' },
+                            Forfeited: { Icon: XCircle, color: 'text-red-600 dark:text-red-400' },
+                            Held: { Icon: Play, color: 'text-indigo-600 dark:text-indigo-400' }
+                          };
+                          return iconMap[title];
+                        };
+                        const iconData = getActionIconAndColor(action.title);
+
+                        return (
+                          <div key={idx} className="flex items-start gap-2">
+                            {iconData && <iconData.Icon className={`w-5 h-5 ${iconData.color} flex-shrink-0 mt-0.5`} />}
+                            <span className="leading-relaxed"><strong>{action.title}:</strong> {action.description}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeGuideTab === 'bulk' && (
+                <div>
+                  <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-5">{guideTranslations[guideLanguage].bulkGuide.title}</h4>
+                  <div className="space-y-5">
+                    {guideTranslations[guideLanguage].bulkGuide.steps.map((step, idx) => (
+                      <div key={idx} className="flex items-start gap-3">
+                        <div className="w-9 h-9 bg-brand-primary text-white rounded-full flex items-center justify-center flex-shrink-0 text-base font-bold">{idx + 1}</div>
+                        <div>
+                          <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-base">{step.title}</h5>
+                          <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">{step.description}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-5 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                    <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-base mb-3">{guideTranslations[guideLanguage].bulkGuide.whenToUseTitle}</h5>
+                    <div className="space-y-3 text-sm text-gray-600 dark:text-gray-300">
+                      {guideTranslations[guideLanguage].bulkGuide.useCases.map((useCase, idx) => {
+                        const getUseCaseIcon = (title: string) => {
+                          const iconMap: Record<string, typeof Play> = {
+                            'Mark as Paid': Play,
+                            'Mark as Returned': CheckCircle,
+                            'Mark as Partial': RotateCcw,
+                            'Mark as Forfeited': XCircle
+                          };
+                          return iconMap[title] || Play;
+                        };
+
+                        const getUseCaseColor = (title: string) => {
+                          const colorMap: Record<string, string> = {
+                            'Mark as Paid': 'text-indigo-600 dark:text-indigo-400',
+                            'Mark as Returned': 'text-green-600 dark:text-green-400',
+                            'Mark as Partial': 'text-orange-600 dark:text-orange-400',
+                            'Mark as Forfeited': 'text-red-600 dark:text-red-400'
+                          };
+                          return colorMap[title] || 'text-gray-600 dark:text-gray-400';
+                        };
+
+                        const IconComponent = getUseCaseIcon(useCase.title);
+                        const iconColor = getUseCaseColor(useCase.title);
+
+                        return (
+                          <div key={idx} className="flex items-start gap-2">
+                            <IconComponent className={`w-5 h-5 ${iconColor} flex-shrink-0 mt-0.5`} />
+                            <span className="leading-relaxed"><strong>{useCase.title}:</strong> {useCase.description}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Bulk Processing Modals */}
       <BulkProcessingModal

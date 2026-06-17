@@ -26,7 +26,9 @@ import {
   BadgeCheck,
   CircleDollarSign,
   ChevronDown,
-  UserPlus
+  UserPlus,
+  HelpCircle,
+  X
 } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
@@ -277,10 +279,9 @@ export default function DeliverablesPage() {
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
   const [selectedPaymentRecord, setSelectedPaymentRecord] = useState<DeliverableRecord | null>(null);
 
-  // Guide states
-  const [showStatusGuide, setShowStatusGuide] = useState(false);
-  const [showUsageGuide, setShowUsageGuide] = useState(false);
-  const [showBulkGuide, setShowBulkGuide] = useState(false);
+  // Guide drawer states
+  const [showGuideDrawer, setShowGuideDrawer] = useState(false);
+  const [activeGuideTab, setActiveGuideTab] = useState<"status" | "manage" | "bulk">("status");
   const [guideLanguage, setGuideLanguage] = useState<"en" | "fil">("en");
 
   // Modal states
@@ -950,222 +951,19 @@ const handleMarkAllDelivered = async (bookingId: string) => {
   return (
     <div className="space-y-6 animate-in fade-in duration-700 overflow-hidden h-full flex flex-col">
       {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 flex-shrink-0 border border-gray-200 dark:border-gray-700 rounded-lg p-6 bg-white dark:bg-gray-800 shadow dark:shadow-gray-900">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 flex-shrink-0">
         <div>
           <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Deliverables Management</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Track and manage add-ons and deliverables for bookings</p>
         </div>
-      </div>
-
-      {/* Status Guide */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-6 flex-shrink-0 border border-gray-200 dark:border-gray-700">
-        <div className="flex items-center justify-between mb-2">
-          <button
-            onClick={() => setShowStatusGuide(!showStatusGuide)}
-            className="flex-1 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded-lg transition-colors"
-          >
-            <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100">{guideTranslations[guideLanguage].statusGuide.title}</h4>
-            <ChevronRight className={`w-5 h-5 text-gray-600 dark:text-gray-300 transform transition-transform ${showStatusGuide ? 'rotate-90' : ''}`} />
-          </button>
-          <div className="flex gap-1 ml-2">
-            {(['en', 'fil'] as const).map((lang) => (
-              <button
-                key={lang}
-                onClick={() => setGuideLanguage(lang)}
-                className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                  guideLanguage === lang
-                    ? 'bg-brand-primary text-white'
-                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-                }`}
-              >
-                {lang === 'en' ? 'EN' : 'FIL'}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {showStatusGuide && (
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-            {guideTranslations[guideLanguage].statusGuide.statuses.map((status, idx) => {
-              const statusColors: Record<string, string> = {
-                Pending: 'bg-yellow-500',
-                Preparing: 'bg-indigo-500',
-                Delivered: 'bg-green-500',
-                Cancelled: 'bg-red-500',
-                Refunded: 'bg-orange-500'
-              };
-              const color = statusColors[status.name] || 'bg-gray-500';
-
-              return (
-                <div key={idx} className="flex items-start gap-3">
-                  <div className={`w-3 h-3 ${color} rounded-full mt-1 flex-shrink-0`}></div>
-                  <div>
-                    <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{status.name}</h5>
-                    <p className="text-xs text-gray-600 dark:text-gray-300">{status.description}</p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* How to Use Deliverables Guide */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-6 flex-shrink-0 border border-gray-200 dark:border-gray-700">
-        <div className="flex items-center justify-between mb-2">
-          <button
-            onClick={() => setShowUsageGuide(!showUsageGuide)}
-            className="flex-1 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded-lg transition-colors"
-          >
-            <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100">{guideTranslations[guideLanguage].usageGuide.title}</h4>
-            <ChevronRight className={`w-5 h-5 text-gray-600 dark:text-gray-300 transform transition-transform ${showUsageGuide ? 'rotate-90' : ''}`} />
-          </button>
-          <div className="flex gap-1 ml-2">
-            {(['en', 'fil'] as const).map((lang) => (
-              <button
-                key={lang}
-                onClick={() => setGuideLanguage(lang)}
-                className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                  guideLanguage === lang
-                    ? 'bg-brand-primary text-white'
-                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-                }`}
-              >
-                {lang === 'en' ? 'EN' : 'FIL'}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {showUsageGuide && (
-          <div className="mt-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {guideTranslations[guideLanguage].usageGuide.steps.map((step, idx) => (
-                <div key={idx} className="flex items-start gap-3">
-                  <div className="w-8 h-8 bg-brand-primary text-white rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold">{idx + 1}</div>
-                  <div>
-                    <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{step.title}</h5>
-                    <p className="text-xs text-gray-600 dark:text-gray-300">{step.description}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
-              <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm mb-3">{guideTranslations[guideLanguage].usageGuide.actionGuideTitle}</h5>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-gray-600 dark:text-gray-300">
-                {guideTranslations[guideLanguage].usageGuide.actions.map((action, idx) => {
-                  const getActionIcon = (title: string) => {
-                    const iconMap: Record<string, typeof Play> = {
-                      Preparing: Play,
-                      Delivered: Truck,
-                      Cancelled: XCircle
-                    };
-                    return iconMap[title] || Play;
-                  };
-
-                  const getActionColor = (title: string) => {
-                    const colorMap: Record<string, string> = {
-                      Preparing: 'text-indigo-600 dark:text-indigo-400',
-                      Delivered: 'text-green-600 dark:text-green-400',
-                      Cancelled: 'text-red-600 dark:text-red-400'
-                    };
-                    return colorMap[title] || 'text-gray-600 dark:text-gray-400';
-                  };
-
-                  const IconComponent = getActionIcon(action.title);
-                  const iconColor = getActionColor(action.title);
-
-                  return (
-                    <div key={idx} className="flex items-start gap-2">
-                      <IconComponent className={`w-4 h-4 ${iconColor} flex-shrink-0 mt-0.5`} />
-                      <span><strong>{action.title}:</strong> {action.description}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Bulk Operations Guide */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-6 flex-shrink-0 border border-gray-200 dark:border-gray-700">
-        <div className="flex items-center justify-between mb-2">
-          <button
-            onClick={() => setShowBulkGuide(!showBulkGuide)}
-            className="flex-1 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded-lg transition-colors"
-          >
-            <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100">{guideTranslations[guideLanguage].bulkGuide.title}</h4>
-            <ChevronRight className={`w-5 h-5 text-gray-600 dark:text-gray-300 transform transition-transform ${showBulkGuide ? 'rotate-90' : ''}`} />
-          </button>
-          <div className="flex gap-1 ml-2">
-            {(['en', 'fil'] as const).map((lang) => (
-              <button
-                key={lang}
-                onClick={() => setGuideLanguage(lang)}
-                className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                  guideLanguage === lang
-                    ? 'bg-brand-primary text-white'
-                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-                }`}
-              >
-                {lang === 'en' ? 'EN' : 'FIL'}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {showBulkGuide && (
-          <div className="mt-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {guideTranslations[guideLanguage].bulkGuide.steps.map((step, idx) => (
-                <div key={idx} className="flex items-start gap-3">
-                  <div className="w-8 h-8 bg-brand-primary text-white rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold">{idx + 1}</div>
-                  <div>
-                    <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{step.title}</h5>
-                    <p className="text-xs text-gray-600 dark:text-gray-300">{step.description}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
-              <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm mb-3">{guideTranslations[guideLanguage].bulkGuide.whenToUseTitle}</h5>
-              <div className="space-y-2 text-xs text-gray-600 dark:text-gray-300">
-                {guideTranslations[guideLanguage].bulkGuide.useCases.map((useCase, idx) => {
-                  const getUseCaseIcon = (title: string) => {
-                    const iconMap: Record<string, typeof Play> = {
-                      'Mark as Preparing': Play,
-                      'Mark as Delivered': Truck,
-                      'Mark as Cancelled': XCircle
-                    };
-                    return iconMap[title] || Play;
-                  };
-
-                  const getUseCaseColor = (title: string) => {
-                    const colorMap: Record<string, string> = {
-                      'Mark as Preparing': 'text-indigo-600 dark:text-indigo-400',
-                      'Mark as Delivered': 'text-green-600 dark:text-green-400',
-                      'Mark as Cancelled': 'text-red-600 dark:text-red-400'
-                    };
-                    return colorMap[title] || 'text-gray-600 dark:text-gray-400';
-                  };
-
-                  const IconComponent = getUseCaseIcon(useCase.title);
-                  const iconColor = getUseCaseColor(useCase.title);
-
-                  return (
-                    <div key={idx} className="flex items-start gap-2">
-                      <IconComponent className={`w-4 h-4 ${iconColor} flex-shrink-0 mt-0.5`} />
-                      <span><strong>{useCase.title}:</strong> {useCase.description}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        )}
+        <button
+          onClick={() => setShowGuideDrawer(true)}
+          className="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors font-medium text-sm whitespace-nowrap"
+          title="Open help & guides"
+        >
+          <HelpCircle className="w-4 h-4" />
+          Help &amp; Guides
+        </button>
       </div>
 
       {/* Summary Cards */}
@@ -1180,11 +978,11 @@ const handleMarkAllDelivered = async (bookingId: string) => {
           return (
             <div
               key={i}
-              className={`${stat.color} text-white rounded-lg p-6 shadow dark:shadow-gray-900 hover:shadow-lg transition-all border border-gray-200 dark:border-gray-600`}
+              className={`${stat.color} text-white rounded-lg p-5 shadow dark:shadow-gray-900 hover:shadow-lg transition-transform duration-200 transform hover:-translate-y-1`}
             >
-              <div className="flex items-center justify-between">
+              <div className="flex items-start justify-between gap-2">
                 <div>
-                  <p className="text-sm opacity-90">{stat.label}</p>
+                  <p className="text-sm opacity-90 leading-snug">{stat.label}</p>
                   <div className="text-3xl font-bold mt-2">
                     {isLoading ? (
                       <div className="w-16 h-8 bg-white/20 rounded animate-pulse" />
@@ -1193,7 +991,7 @@ const handleMarkAllDelivered = async (bookingId: string) => {
                     )}
                   </div>
                 </div>
-                <IconComponent className="w-12 h-12 opacity-50" />
+                <IconComponent className="w-10 h-10 opacity-50 flex-shrink-0" />
               </div>
             </div>
           );
@@ -2100,6 +1898,208 @@ const handleMarkAllDelivered = async (bookingId: string) => {
           </div>
         </div>
       </div>
+
+      {/* Help & Guides Drawer */}
+      {showGuideDrawer && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200"
+            onClick={() => setShowGuideDrawer(false)}
+          />
+
+          {/* Panel */}
+          <div className="relative w-full max-w-xl bg-white dark:bg-gray-800 h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+            {/* Drawer Header */}
+            <div className="flex items-center justify-between p-5 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <HelpCircle className="w-6 h-6 text-brand-primary" />
+                <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">Help &amp; Guides</h3>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="flex gap-1">
+                  {(['en', 'fil'] as const).map((lang) => (
+                    <button
+                      key={lang}
+                      onClick={() => setGuideLanguage(lang)}
+                      className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+                        guideLanguage === lang
+                          ? 'bg-brand-primary text-white'
+                          : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                      }`}
+                    >
+                      {lang.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setShowGuideDrawer(false)}
+                  className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  title="Close"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+
+            {/* Tabs */}
+            <div className="flex gap-1 px-4 pt-3 flex-shrink-0 overflow-x-auto border-b border-gray-200 dark:border-gray-700">
+              {([
+                { key: 'status', label: 'Status' },
+                { key: 'manage', label: 'Manage' },
+                { key: 'bulk', label: 'Bulk' },
+              ] as const).map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveGuideTab(tab.key)}
+                  className={`px-4 py-2.5 rounded-t-lg text-base font-semibold whitespace-nowrap transition-colors -mb-px ${
+                    activeGuideTab === tab.key
+                      ? 'bg-gray-100 dark:bg-gray-700 text-brand-primary border-b-2 border-brand-primary'
+                      : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Tab Content */}
+            <div className="flex-1 overflow-y-auto p-5">
+              {activeGuideTab === 'status' && (
+                <div>
+                  <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-5">{guideTranslations[guideLanguage].statusGuide.title}</h4>
+                  <div className="space-y-5">
+                    {guideTranslations[guideLanguage].statusGuide.statuses.map((status, idx) => {
+                      const statusColors: Record<string, string> = {
+                        Pending: 'bg-yellow-500',
+                        Preparing: 'bg-indigo-500',
+                        Delivered: 'bg-green-500',
+                        Cancelled: 'bg-red-500',
+                        Refunded: 'bg-orange-500'
+                      };
+                      const color = statusColors[status.name] || 'bg-gray-500';
+
+                      return (
+                        <div key={idx} className="flex items-start gap-3">
+                          <div className={`w-3.5 h-3.5 ${color} rounded-full mt-1.5 flex-shrink-0`}></div>
+                          <div>
+                            <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-base">{status.name}</h5>
+                            <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">{status.description}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {activeGuideTab === 'manage' && (
+                <div>
+                  <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-5">{guideTranslations[guideLanguage].usageGuide.title}</h4>
+                  <div className="space-y-5">
+                    {guideTranslations[guideLanguage].usageGuide.steps.map((step, idx) => (
+                      <div key={idx} className="flex items-start gap-3">
+                        <div className="w-9 h-9 bg-brand-primary text-white rounded-full flex items-center justify-center flex-shrink-0 text-base font-bold">{idx + 1}</div>
+                        <div>
+                          <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-base">{step.title}</h5>
+                          <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">{step.description}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-5 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                    <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-base mb-3">{guideTranslations[guideLanguage].usageGuide.actionGuideTitle}</h5>
+                    <div className="space-y-3 text-sm text-gray-600 dark:text-gray-300">
+                      {guideTranslations[guideLanguage].usageGuide.actions.map((action, idx) => {
+                        const getActionIcon = (title: string) => {
+                          const iconMap: Record<string, typeof Play> = {
+                            Preparing: Play,
+                            Delivered: Truck,
+                            Cancelled: XCircle
+                          };
+                          return iconMap[title] || Play;
+                        };
+
+                        const getActionColor = (title: string) => {
+                          const colorMap: Record<string, string> = {
+                            Preparing: 'text-indigo-600 dark:text-indigo-400',
+                            Delivered: 'text-green-600 dark:text-green-400',
+                            Cancelled: 'text-red-600 dark:text-red-400'
+                          };
+                          return colorMap[title] || 'text-gray-600 dark:text-gray-400';
+                        };
+
+                        const IconComponent = getActionIcon(action.title);
+                        const iconColor = getActionColor(action.title);
+
+                        return (
+                          <div key={idx} className="flex items-start gap-2">
+                            <IconComponent className={`w-5 h-5 ${iconColor} flex-shrink-0 mt-0.5`} />
+                            <span className="leading-relaxed"><strong>{action.title}:</strong> {action.description}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeGuideTab === 'bulk' && (
+                <div>
+                  <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-5">{guideTranslations[guideLanguage].bulkGuide.title}</h4>
+                  <div className="space-y-5">
+                    {guideTranslations[guideLanguage].bulkGuide.steps.map((step, idx) => (
+                      <div key={idx} className="flex items-start gap-3">
+                        <div className="w-9 h-9 bg-brand-primary text-white rounded-full flex items-center justify-center flex-shrink-0 text-base font-bold">{idx + 1}</div>
+                        <div>
+                          <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-base">{step.title}</h5>
+                          <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">{step.description}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-5 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                    <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-base mb-3">{guideTranslations[guideLanguage].bulkGuide.whenToUseTitle}</h5>
+                    <div className="space-y-3 text-sm text-gray-600 dark:text-gray-300">
+                      {guideTranslations[guideLanguage].bulkGuide.useCases.map((useCase, idx) => {
+                        const getUseCaseIcon = (title: string) => {
+                          const iconMap: Record<string, typeof Play> = {
+                            'Mark as Preparing': Play,
+                            'Mark as Delivered': Truck,
+                            'Mark as Cancelled': XCircle
+                          };
+                          return iconMap[title] || Play;
+                        };
+
+                        const getUseCaseColor = (title: string) => {
+                          const colorMap: Record<string, string> = {
+                            'Mark as Preparing': 'text-indigo-600 dark:text-indigo-400',
+                            'Mark as Delivered': 'text-green-600 dark:text-green-400',
+                            'Mark as Cancelled': 'text-red-600 dark:text-red-400'
+                          };
+                          return colorMap[title] || 'text-gray-600 dark:text-gray-400';
+                        };
+
+                        const IconComponent = getUseCaseIcon(useCase.title);
+                        const iconColor = getUseCaseColor(useCase.title);
+
+                        return (
+                          <div key={idx} className="flex items-start gap-2">
+                            <IconComponent className={`w-5 h-5 ${iconColor} flex-shrink-0 mt-0.5`} />
+                            <span className="leading-relaxed"><strong>{useCase.title}:</strong> {useCase.description}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Payment Details Modal */}
       <ViewPaymentDetailsModal

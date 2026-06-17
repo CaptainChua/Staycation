@@ -19,6 +19,7 @@ import { ThemeProvider as NextThemesProvider } from "next-themes";
 import { Toaster } from "react-hot-toast";
 import { useInactivityLogout } from '@/hooks/useInactivityLogout';
 import ConditionalLayout from './ConditionalLayout';
+import GlobalTooltip from './GlobalTooltip';
 
 function InactivityLogoutWrapper({ children }: { children: React.ReactNode }) {
     useInactivityLogout();
@@ -40,6 +41,7 @@ export function Providers ({ children }: {children:React.ReactNode}) {
                             <ConditionalLayout>
                                 {children}
                             </ConditionalLayout>
+                            <GlobalTooltip />
                             <Toaster
                                 position="top-center"
                                 containerStyle={{

@@ -19,12 +19,16 @@ import {
   FileDown,
   FileSpreadsheet,
   AlertCircle,
+  AlertTriangle,
   CheckCircle,
   RefreshCw,
+  HelpCircle,
+  X,
 } from "lucide-react";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import React from "react";
+import { toast } from "react-hot-toast";
 import { useSession } from "next-auth/react";
 import AddItem from "./Modals/AddItem";
 import EditItem, { EditInventoryItemInput } from "./Modals/EditItem";
@@ -34,6 +38,9 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
 type InventoryStatus = "In Stock" | "Low Stock" | "Out of Stock";
+
+// Items at or below this stock level trigger a low-stock warning
+const LOW_STOCK_THRESHOLD = 15;
 
 const CATEGORY_FILTER_OPTIONS = [
   "Guest Amenities",
@@ -87,7 +94,7 @@ const statusToColor = (status: InventoryStatus) => {
 
 const getUiStatus = (currentStock: number): InventoryStatus => {
   if (!Number.isFinite(currentStock) || currentStock <= 0) return "Out of Stock";
-  if (currentStock <= 10) return "Low Stock";
+  if (currentStock <= LOW_STOCK_THRESHOLD) return "Low Stock";
   return "In Stock";
 };
 
@@ -137,7 +144,7 @@ const guideTranslations = {
         },
         {
           name: "Low Stock",
-          description: "Items are running low (at or below threshold of 10 units)"
+          description: "Items are running low (at or below threshold of 15 units)"
         },
         {
           name: "Out of Stock",
@@ -224,7 +231,7 @@ const guideTranslations = {
         },
         {
           name: "Low Stock",
-          description: "Kaunting items na lang (10 units o mas kaunti)"
+          description: "Kaunting items na lang (15 units o mas kaunti)"
         },
         {
           name: "Out of Stock",
@@ -348,10 +355,9 @@ export default function InventoryPage() {
   const [rows, setRows] = useState<InventoryRow[]>([]);
   const [usageData, setUsageData] = useState<UsageRow[]>([]);
 
-  // Guide states
-  const [showStatusGuide, setShowStatusGuide] = useState(false);
-  const [showUsageGuide, setShowUsageGuide] = useState(false);
-  const [showBulkGuide, setShowBulkGuide] = useState(false);
+  // Guide drawer states
+  const [showGuideDrawer, setShowGuideDrawer] = useState(false);
+  const [activeGuideTab, setActiveGuideTab] = useState<"status" | "manage" | "bulk">("status");
   const [guideLanguage, setGuideLanguage] = useState<"en" | "fil">("en");
 
   const loadInventory = async () => {
@@ -544,6 +550,84 @@ export default function InventoryPage() {
   const lowStockCount = rows.filter((r) => r.status === "Low Stock").length;
   const outOfStockCount = rows.filter((r) => r.status === "Out of Stock").length;
 
+  // Items that need restocking (low or out of stock)
+  const lowStockItems = useMemo(
+    () => rows.filter((r) => r.current_stock > 0 && r.current_stock <= LOW_STOCK_THRESHOLD),
+    [rows],
+  );
+  const outOfStockItems = useMemo(
+    () => rows.filter((r) => r.current_stock <= 0),
+    [rows],
+  );
+
+  // Alert preferences (controlled from the CSR Settings page). Default ON so alerts
+  // work unless the user explicitly turns them off.
+  // - alertsEnabled (lowInventoryAlerts): master switch for the low-stock alert
+  // - pushEnabled (push): deliver as an in-app toast notification
+  // - emailEnabled (email): also email the CSR team
+  const [alertsEnabled, setAlertsEnabled] = useState(true);
+  const [pushEnabled, setPushEnabled] = useState(true);
+  const [emailEnabled, setEmailEnabled] = useState(true);
+  useEffect(() => {
+    let active = true;
+    fetch("/api/admin/settings/csr")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        const prefs = data?.notificationPrefs;
+        if (!active || !prefs) return;
+        if (typeof prefs.lowInventoryAlerts === "boolean") setAlertsEnabled(prefs.lowInventoryAlerts);
+        if (typeof prefs.push === "boolean") setPushEnabled(prefs.push);
+        if (typeof prefs.email === "boolean") setEmailEnabled(prefs.email);
+      })
+      .catch(() => {
+        /* keep defaults (on) if settings can't be loaded */
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Deliver low-stock alerts (push toast + email) once per detection after loading
+  const lowStockWarnedRef = useRef(false);
+  const emailSentRef = useRef(false);
+  useEffect(() => {
+    if (loading) return;
+    if (!alertsEnabled) return;
+
+    const affected = [...outOfStockItems, ...lowStockItems];
+    if (affected.length === 0) {
+      // healthy again — re-arm both deliveries for the next drop
+      lowStockWarnedRef.current = false;
+      emailSentRef.current = false;
+      return;
+    }
+
+    // Push delivery → in-app toast notification
+    if (pushEnabled && !lowStockWarnedRef.current) {
+      lowStockWarnedRef.current = true;
+      const names = affected.slice(0, 3).map((r) => r.item_name).join(", ");
+      const extra = affected.length > 3 ? ` +${affected.length - 3} more` : "";
+      toast.error(
+        `⚠️ ${affected.length} item(s) running low (≤ ${LOW_STOCK_THRESHOLD} pcs): ${names}${extra}`,
+        { id: "inventory-low-stock", duration: 6000 },
+      );
+    }
+
+    // Email delivery → notify the CSR team (sent once per detection)
+    if (emailEnabled && !emailSentRef.current) {
+      emailSentRef.current = true;
+      fetch("/api/admin/alerts/low-inventory", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          threshold: LOW_STOCK_THRESHOLD,
+          lowItems: lowStockItems.map((r) => ({ name: r.item_name, stock: r.current_stock })),
+          outItems: outOfStockItems.map((r) => ({ name: r.item_name, stock: 0 })),
+        }),
+      }).catch((e) => console.error("Failed to send low-inventory alert email:", e));
+    }
+  }, [loading, alertsEnabled, pushEnabled, emailEnabled, lowStockItems, outOfStockItems]);
+
   const categoryOptions = CATEGORY_FILTER_OPTIONS;
 
   const getExportRows = () => sortedRows;
@@ -716,7 +800,7 @@ export default function InventoryPage() {
   return (
     <div className="space-y-6 animate-in fade-in duration-700 overflow-hidden h-full flex flex-col">
       <div className="w-full space-y-6 flex-1 flex flex-col">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 flex-shrink-0 border border-gray-200 dark:border-gray-700 rounded-lg p-6 bg-white dark:bg-gray-800 shadow dark:shadow-gray-900">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 flex-shrink-0">
             <div>
               <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
                 Inventory Management
@@ -725,6 +809,14 @@ export default function InventoryPage() {
                 Manage items, stock levels, and usage tracking
               </p>
             </div>
+            <button
+              onClick={() => setShowGuideDrawer(true)}
+              className="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors font-medium text-sm whitespace-nowrap"
+              title="Open help & guides"
+            >
+              <HelpCircle className="w-4 h-4" />
+              Help &amp; Guides
+            </button>
           </div>
 
           {isAddItemOpen && (
@@ -738,7 +830,7 @@ export default function InventoryPage() {
                     !Number.isFinite(item.current_stock) ||
                     item.current_stock <= 0
                       ? "Out of Stock"
-                      : item.current_stock <= 10
+                      : item.current_stock <= LOW_STOCK_THRESHOLD
                         ? "Low Stock"
                         : "In Stock";
 
@@ -818,215 +910,6 @@ export default function InventoryPage() {
             />
           )}
 
-          {/* Status Guide */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-6 border border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between mb-2">
-              <button
-                onClick={() => setShowStatusGuide(!showStatusGuide)}
-                className="flex-1 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded-lg transition-colors"
-              >
-                <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100">{guideTranslations[guideLanguage].statusGuide.title}</h4>
-                <ChevronRight className={`w-5 h-5 text-gray-600 dark:text-gray-300 transform transition-transform ${showStatusGuide ? 'rotate-90' : ''}`} />
-              </button>
-              <div className="flex gap-1 ml-2">
-                {(['en', 'fil'] as const).map((lang) => (
-                  <button
-                    key={lang}
-                    onClick={() => setGuideLanguage(lang)}
-                    className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                      guideLanguage === lang
-                        ? 'bg-brand-primary text-white'
-                        : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-                    }`}
-                  >
-                    {lang === 'en' ? 'EN' : 'FIL'}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {showStatusGuide && (
-              <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-                {guideTranslations[guideLanguage].statusGuide.statuses.map((status, idx) => {
-                  const statusColors: Record<string, string> = {
-                    "In Stock": "bg-green-500",
-                    "Low Stock": "bg-yellow-500",
-                    "Out of Stock": "bg-red-500"
-                  };
-                  const color = statusColors[status.name] || "bg-gray-500";
-
-                  return (
-                    <div key={idx} className="flex items-start gap-3">
-                      <div className={`w-3 h-3 ${color} rounded-full mt-1 flex-shrink-0`}></div>
-                      <div>
-                        <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{status.name}</h5>
-                        <p className="text-xs text-gray-600 dark:text-gray-300">{status.description}</p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* How to Use Inventory Guide */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-6 border border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between mb-2">
-              <button
-                onClick={() => setShowUsageGuide(!showUsageGuide)}
-                className="flex-1 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded-lg transition-colors"
-              >
-                <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100">{guideTranslations[guideLanguage].usageGuide.title}</h4>
-                <ChevronRight className={`w-5 h-5 text-gray-600 dark:text-gray-300 transform transition-transform ${showUsageGuide ? 'rotate-90' : ''}`} />
-              </button>
-              <div className="flex gap-1 ml-2">
-                {(['en', 'fil'] as const).map((lang) => (
-                  <button
-                    key={lang}
-                    onClick={() => setGuideLanguage(lang)}
-                    className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                      guideLanguage === lang
-                        ? 'bg-brand-primary text-white'
-                        : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-                    }`}
-                  >
-                    {lang === 'en' ? 'EN' : 'FIL'}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {showUsageGuide && (
-              <div className="mt-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {guideTranslations[guideLanguage].usageGuide.steps.map((step, idx) => (
-                    <div key={idx} className="flex items-start gap-3">
-                      <div className="w-8 h-8 bg-brand-primary text-white rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold">{idx + 1}</div>
-                      <div>
-                        <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{step.title}</h5>
-                        <p className="text-xs text-gray-600 dark:text-gray-300">{step.description}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
-                  <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm mb-3">{guideTranslations[guideLanguage].usageGuide.actionGuideTitle}</h5>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-gray-600 dark:text-gray-300">
-                    {guideTranslations[guideLanguage].usageGuide.actions.map((action, idx) => {
-                      const getActionIcon = (title: string) => {
-                        const iconMap: Record<string, typeof Eye> = {
-                          View: Eye,
-                          Edit: Edit,
-                          Delete: Trash2
-                        };
-                        return iconMap[title] || Eye;
-                      };
-
-                      const getActionColor = (title: string) => {
-                        const colorMap: Record<string, string> = {
-                          View: 'text-blue-600 dark:text-blue-400',
-                          Edit: 'text-indigo-600 dark:text-indigo-400',
-                          Delete: 'text-red-600 dark:text-red-400'
-                        };
-                        return colorMap[title] || 'text-gray-600 dark:text-gray-400';
-                      };
-
-                      const IconComponent = getActionIcon(action.title);
-                      const iconColor = getActionColor(action.title);
-
-                      return (
-                        <div key={idx} className="flex items-start gap-2">
-                          <IconComponent className={`w-4 h-4 ${iconColor} flex-shrink-0 mt-0.5`} />
-                          <span><strong>{action.title}:</strong> {action.description}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Bulk Operations Guide */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900 p-6 border border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between mb-2">
-              <button
-                onClick={() => setShowBulkGuide(!showBulkGuide)}
-                className="flex-1 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded-lg transition-colors"
-              >
-                <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100">{guideTranslations[guideLanguage].bulkGuide.title}</h4>
-                <ChevronRight className={`w-5 h-5 text-gray-600 dark:text-gray-300 transform transition-transform ${showBulkGuide ? 'rotate-90' : ''}`} />
-              </button>
-              <div className="flex gap-1 ml-2">
-                {(['en', 'fil'] as const).map((lang) => (
-                  <button
-                    key={lang}
-                    onClick={() => setGuideLanguage(lang)}
-                    className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                      guideLanguage === lang
-                        ? 'bg-brand-primary text-white'
-                        : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-                    }`}
-                  >
-                    {lang === 'en' ? 'EN' : 'FIL'}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {showBulkGuide && (
-              <div className="mt-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {guideTranslations[guideLanguage].bulkGuide.steps.map((step, idx) => (
-                    <div key={idx} className="flex items-start gap-3">
-                      <div className="w-8 h-8 bg-brand-primary text-white rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold">{idx + 1}</div>
-                      <div>
-                        <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{step.title}</h5>
-                        <p className="text-xs text-gray-600 dark:text-gray-300">{step.description}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
-                  <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-sm mb-3">{guideTranslations[guideLanguage].bulkGuide.whenToUseTitle}</h5>
-                  <div className="space-y-2 text-xs text-gray-600 dark:text-gray-300">
-                    {guideTranslations[guideLanguage].bulkGuide.useCases.map((useCase, idx) => {
-                      const getUseCaseIcon = (title: string) => {
-                        const iconMap: Record<string, typeof AlertCircle> = {
-                          'Use Filters': Filter,
-                          'Export Reports': FileDown,
-                          'Monitor Usage': Activity
-                        };
-                        return iconMap[title] || AlertCircle;
-                      };
-
-                      const getUseCaseColor = (title: string) => {
-                        const colorMap: Record<string, string> = {
-                          'Use Filters': 'text-blue-600 dark:text-blue-400',
-                          'Export Reports': 'text-green-600 dark:text-green-400',
-                          'Monitor Usage': 'text-indigo-600 dark:text-indigo-400'
-                        };
-                        return colorMap[title] || 'text-gray-600 dark:text-gray-400';
-                      };
-
-                      const IconComponent = getUseCaseIcon(useCase.title);
-                      const iconColor = getUseCaseColor(useCase.title);
-
-                      return (
-                        <div key={idx} className="flex items-start gap-2">
-                          <IconComponent className={`w-4 h-4 ${iconColor} flex-shrink-0 mt-0.5`} />
-                          <span><strong>{useCase.title}:</strong> {useCase.description}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {[
               {
@@ -1058,11 +941,11 @@ export default function InventoryPage() {
               return (
                 <div
                   key={i}
-                  className={`${stat.color} text-white rounded-lg p-6 shadow hover:shadow-lg hover:scale-[1.02] transition-all`}
+                  className={`${stat.color} text-white rounded-lg p-5 shadow dark:shadow-gray-900 hover:shadow-lg transition-transform duration-200 transform hover:-translate-y-1`}
                 >
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-start justify-between gap-2">
                     <div>
-                      <p className="text-sm opacity-90">{stat.label}</p>
+                      <p className="text-sm opacity-90 leading-snug">{stat.label}</p>
                       <div className="text-3xl font-bold mt-2">
                         {loading ? (
                           <div className="w-16 h-8 bg-white/20 rounded animate-pulse" />
@@ -1071,7 +954,7 @@ export default function InventoryPage() {
                         )}
                       </div>
                     </div>
-                    <IconComponent className="w-12 h-12 opacity-50" />
+                    <IconComponent className="w-10 h-10 opacity-50 flex-shrink-0" />
                   </div>
                 </div>
               );
@@ -1197,6 +1080,41 @@ export default function InventoryPage() {
             </div>
           )}
 
+          {/* Low Stock Warning */}
+          {!loading && alertsEnabled && (lowStockItems.length > 0 || outOfStockItems.length > 0) && (
+            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 rounded-lg p-4 flex-shrink-0">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-sm font-bold text-amber-800 dark:text-amber-200">
+                    Low Stock Warning
+                  </h4>
+                  <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">
+                    {outOfStockItems.length + lowStockItems.length} item(s) need restocking (at or below {LOW_STOCK_THRESHOLD} pcs).
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {outOfStockItems.map((item) => (
+                      <span
+                        key={item.item_id}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
+                      >
+                        {item.item_name}: Out of stock
+                      </span>
+                    ))}
+                    {lowStockItems.map((item) => (
+                      <span
+                        key={item.item_id}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200"
+                      >
+                        {item.item_name}: {item.current_stock} pcs left
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 overflow-hidden">
             <div className="lg:hidden space-y-4 bg-white dark:bg-gray-800 overflow-hidden p-4">
               {loading ? (
@@ -1227,7 +1145,7 @@ export default function InventoryPage() {
               ) : (
                 paginatedRows.map((row) => (
                   <div key={row.item_id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                    <div className="font-semibold text-gray-800 dark:text-gray-100 text-sm truncate">
+                    <div className="font-medium text-gray-800 dark:text-gray-100 text-sm truncate">
                       {highlightText(row.item_id, searchTerm)}
                     </div>
                     <div className="text-sm text-gray-700 dark:text-gray-200 truncate mt-1">
@@ -1239,17 +1157,17 @@ export default function InventoryPage() {
                     <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
                       <div>
                         <div className="text-xs text-gray-500 dark:text-gray-400">Stock</div>
-                        <div className="font-bold text-gray-800 dark:text-gray-100">{row.current_stock}</div>
+                        <div className="font-medium text-gray-800 dark:text-gray-100">{row.current_stock}</div>
                       </div>
                       <div>
                         <div className="text-xs text-gray-500 dark:text-gray-400">Unit</div>
-                        <div className="font-bold text-gray-800 dark:text-gray-100">{row.unit_type}</div>
+                        <div className="font-medium text-gray-800 dark:text-gray-100">{row.unit_type}</div>
                       </div>
                     </div>
                     <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
                       <div>
                         <div className="text-xs text-gray-500 dark:text-gray-400">Price</div>
-                        <div className="font-bold text-gray-800 dark:text-gray-100">
+                        <div className="font-medium text-gray-800 dark:text-gray-100">
                           {row.price_per_unit > 0 ? `₱${row.price_per_unit.toFixed(2)}` : "—"}
                         </div>
                       </div>
@@ -1463,39 +1381,39 @@ export default function InventoryPage() {
                         className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                       >
                         <td className="py-4 px-4">
-                          <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm">
+                          <span className="text-gray-700 dark:text-gray-200 text-sm">
                             {row.item_id}
                           </span>
                         </td>
                         <td className="py-4 px-4">
-                          <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm">
+                          <span className="font-medium text-gray-800 dark:text-gray-100 text-sm">
                             {row.item_name}
                           </span>
                         </td>
                         <td className="py-4 px-4 text-center">
-                          <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                          <span className="text-sm text-gray-700 dark:text-gray-200">
                             {row.category}
                           </span>
                         </td>
                         <td className="py-4 px-4 text-center">
-                          <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                          <span className="text-sm text-gray-700 dark:text-gray-200">
                             {row.current_stock}
                           </span>
                         </td>
                         <td className="py-4 px-4 text-center">
-                          <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                          <span className="text-sm text-gray-700 dark:text-gray-200">
                             {row.unit_type}
                           </span>
                         </td>
                         <td className="py-4 px-4 text-center">
-                          <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                          <span className="text-sm text-gray-700 dark:text-gray-200">
                             {row.price_per_unit > 0
                               ? `₱${row.price_per_unit.toFixed(2)}`
                               : ""}
                           </span>
                         </td>
                         <td className="py-4 px-4 text-center">
-                          <span className="text-sm font-semibold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                          <span className="text-sm text-gray-700 dark:text-gray-200 whitespace-nowrap">
                             {formatDateTime(row.last_restocked)}
                           </span>
                         </td>
@@ -1742,12 +1660,12 @@ export default function InventoryPage() {
                           </p>
                         </td>
                         <td className="py-3 px-4 text-center">
-                          <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                          <span className="text-sm text-gray-700 dark:text-gray-200">
                             {u.used_today}
                           </span>
                         </td>
                         <td className="py-3 px-4 text-center">
-                          <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                          <span className="text-sm text-gray-700 dark:text-gray-200">
                             {u.used_week}
                           </span>
                         </td>
@@ -1771,6 +1689,206 @@ export default function InventoryPage() {
               </table>
             </div>
           </div>
+
+          {/* Help & Guides Drawer */}
+          {showGuideDrawer && (
+            <div className="fixed inset-0 z-50 flex justify-end">
+              {/* Backdrop */}
+              <div
+                className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200"
+                onClick={() => setShowGuideDrawer(false)}
+              />
+
+              {/* Panel */}
+              <div className="relative w-full max-w-xl bg-white dark:bg-gray-800 h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+                {/* Drawer Header */}
+                <div className="flex items-center justify-between p-5 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+                  <div className="flex items-center gap-2">
+                    <HelpCircle className="w-6 h-6 text-brand-primary" />
+                    <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">Help &amp; Guides</h3>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="flex gap-1">
+                      {(['en', 'fil'] as const).map((lang) => (
+                        <button
+                          key={lang}
+                          onClick={() => setGuideLanguage(lang)}
+                          className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+                            guideLanguage === lang
+                              ? 'bg-brand-primary text-white'
+                              : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                          }`}
+                        >
+                          {lang.toUpperCase()}
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      onClick={() => setShowGuideDrawer(false)}
+                      className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                      title="Close"
+                    >
+                      <X className="w-6 h-6" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Tabs */}
+                <div className="flex gap-1 px-4 pt-3 flex-shrink-0 overflow-x-auto border-b border-gray-200 dark:border-gray-700">
+                  {([
+                    { key: 'status', label: 'Status' },
+                    { key: 'manage', label: 'Manage' },
+                    { key: 'bulk', label: 'Bulk' },
+                  ] as const).map((tab) => (
+                    <button
+                      key={tab.key}
+                      onClick={() => setActiveGuideTab(tab.key)}
+                      className={`px-4 py-2.5 rounded-t-lg text-base font-semibold whitespace-nowrap transition-colors -mb-px ${
+                        activeGuideTab === tab.key
+                          ? 'bg-gray-100 dark:bg-gray-700 text-brand-primary border-b-2 border-brand-primary'
+                          : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Tab Content */}
+                <div className="flex-1 overflow-y-auto p-5">
+                  {activeGuideTab === 'status' && (
+                    <div>
+                      <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-5">{guideTranslations[guideLanguage].statusGuide.title}</h4>
+                      <div className="space-y-5">
+                        {guideTranslations[guideLanguage].statusGuide.statuses.map((status, idx) => {
+                          const statusColors: Record<string, string> = {
+                            "In Stock": "bg-green-500",
+                            "Low Stock": "bg-yellow-500",
+                            "Out of Stock": "bg-red-500"
+                          };
+                          const color = statusColors[status.name] || "bg-gray-500";
+
+                          return (
+                            <div key={idx} className="flex items-start gap-3">
+                              <div className={`w-3.5 h-3.5 ${color} rounded-full mt-1.5 flex-shrink-0`}></div>
+                              <div>
+                                <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-base">{status.name}</h5>
+                                <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">{status.description}</p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {activeGuideTab === 'manage' && (
+                    <div>
+                      <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-5">{guideTranslations[guideLanguage].usageGuide.title}</h4>
+                      <div className="space-y-5">
+                        {guideTranslations[guideLanguage].usageGuide.steps.map((step, idx) => (
+                          <div key={idx} className="flex items-start gap-3">
+                            <div className="w-9 h-9 bg-brand-primary text-white rounded-full flex items-center justify-center flex-shrink-0 text-base font-bold">{idx + 1}</div>
+                            <div>
+                              <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-base">{step.title}</h5>
+                              <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">{step.description}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="mt-5 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                        <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-base mb-3">{guideTranslations[guideLanguage].usageGuide.actionGuideTitle}</h5>
+                        <div className="space-y-3 text-sm text-gray-600 dark:text-gray-300">
+                          {guideTranslations[guideLanguage].usageGuide.actions.map((action, idx) => {
+                            const getActionIcon = (title: string) => {
+                              const iconMap: Record<string, typeof Eye> = {
+                                View: Eye,
+                                Edit: Edit,
+                                Delete: Trash2
+                              };
+                              return iconMap[title] || Eye;
+                            };
+
+                            const getActionColor = (title: string) => {
+                              const colorMap: Record<string, string> = {
+                                View: 'text-blue-600 dark:text-blue-400',
+                                Edit: 'text-indigo-600 dark:text-indigo-400',
+                                Delete: 'text-red-600 dark:text-red-400'
+                              };
+                              return colorMap[title] || 'text-gray-600 dark:text-gray-400';
+                            };
+
+                            const IconComponent = getActionIcon(action.title);
+                            const iconColor = getActionColor(action.title);
+
+                            return (
+                              <div key={idx} className="flex items-start gap-2">
+                                <IconComponent className={`w-5 h-5 ${iconColor} flex-shrink-0 mt-0.5`} />
+                                <span className="leading-relaxed"><strong>{action.title}:</strong> {action.description}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {activeGuideTab === 'bulk' && (
+                    <div>
+                      <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-5">{guideTranslations[guideLanguage].bulkGuide.title}</h4>
+                      <div className="space-y-5">
+                        {guideTranslations[guideLanguage].bulkGuide.steps.map((step, idx) => (
+                          <div key={idx} className="flex items-start gap-3">
+                            <div className="w-9 h-9 bg-brand-primary text-white rounded-full flex items-center justify-center flex-shrink-0 text-base font-bold">{idx + 1}</div>
+                            <div>
+                              <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-base">{step.title}</h5>
+                              <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">{step.description}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="mt-5 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                        <h5 className="font-semibold text-gray-800 dark:text-gray-100 text-base mb-3">{guideTranslations[guideLanguage].bulkGuide.whenToUseTitle}</h5>
+                        <div className="space-y-3 text-sm text-gray-600 dark:text-gray-300">
+                          {guideTranslations[guideLanguage].bulkGuide.useCases.map((useCase, idx) => {
+                            const getUseCaseIcon = (title: string) => {
+                              const iconMap: Record<string, typeof AlertCircle> = {
+                                'Use Filters': Filter,
+                                'Export Reports': FileDown,
+                                'Monitor Usage': Activity
+                              };
+                              return iconMap[title] || AlertCircle;
+                            };
+
+                            const getUseCaseColor = (title: string) => {
+                              const colorMap: Record<string, string> = {
+                                'Use Filters': 'text-blue-600 dark:text-blue-400',
+                                'Export Reports': 'text-green-600 dark:text-green-400',
+                                'Monitor Usage': 'text-indigo-600 dark:text-indigo-400'
+                              };
+                              return colorMap[title] || 'text-gray-600 dark:text-gray-400';
+                            };
+
+                            const IconComponent = getUseCaseIcon(useCase.title);
+                            const iconColor = getUseCaseColor(useCase.title);
+
+                            return (
+                              <div key={idx} className="flex items-start gap-2">
+                                <IconComponent className={`w-5 h-5 ${iconColor} flex-shrink-0 mt-0.5`} />
+                                <span className="leading-relaxed"><strong>{useCase.title}:</strong> {useCase.description}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
       </div>
     </div>
   );

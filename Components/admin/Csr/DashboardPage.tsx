@@ -180,11 +180,11 @@ export default function DashboardPage({ onViewAllBookings }: DashboardPageProps)
           return (
             <div
               key={i}
-              className={`${kpi.color} text-white rounded-lg p-6 shadow dark:shadow-gray-900 hover:shadow-lg transition-all border border-gray-200 dark:border-gray-600`}
+              className={`${kpi.color} text-white rounded-lg p-5 shadow dark:shadow-gray-900 hover:shadow-lg transition-transform duration-200 transform hover:-translate-y-1`}
             >
-              <div className="flex items-center justify-between">
+              <div className="flex items-start justify-between gap-2">
                 <div className="flex-1">
-                  <p className="text-sm opacity-90">{kpi.title}</p>
+                  <p className="text-sm opacity-90 leading-snug">{kpi.title}</p>
                   <div className="text-3xl font-bold mt-2">
                     {kpi.loading ? (
                       <div className="w-16 h-8 bg-white/20 rounded animate-pulse" />
@@ -205,7 +205,7 @@ export default function DashboardPage({ onViewAllBookings }: DashboardPageProps)
                     </div>
                   )}
                 </div>
-                <IconComponent className="w-12 h-12 opacity-50 flex-shrink-0" />
+                <IconComponent className="w-10 h-10 opacity-50 flex-shrink-0" />
               </div>
             </div>
           );

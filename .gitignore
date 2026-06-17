@@ -36,6 +36,10 @@ yarn-error.log*
 .env.local
 database.sql
 
+# database backups (contain guest PII + password hashes — never commit)
+/backups
+_diag_booking.js
+
 # vercel
 .vercel
 

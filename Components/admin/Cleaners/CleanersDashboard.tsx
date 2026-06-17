@@ -483,78 +483,12 @@ useEffect(() => {
             );
           })}
         </nav>
-
-        {/* User Profile Section */}
-        <div className="p-2 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
-          {sidebar && (
-            <div className="mb-2">
-              {isLoading ? (
-                <div className="flex items-center gap-3 p-2">
-                  <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 animate-pulse flex-shrink-0"></div>
-                  <div className="flex-1 min-w-0 space-y-2">
-                    <div className="h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
-                    <div className="h-3 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center gap-3 p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
-                  {employee?.profile_image_url ? (
-                    <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
-                      <Image
-                        src={employee.profile_image_url}
-                        alt={cleanerData.name}
-                        width={40}
-                        height={40}
-                        className="w-full h-full object-cover"
-                        key={`${employee.profile_image_url}-${employee.updated_at || ''}`}
-                      />
-                    </div>
-                  ) : (
-                    <div className="w-10 h-10 rounded-full bg-white dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 flex-shrink-0 flex items-center justify-center text-gray-700 dark:text-gray-200 font-medium text-lg overflow-hidden">
-                      <span>{cleanerData.name.charAt(0)}</span>
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">
-                      {cleanerData.name}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                      {cleanerData.role}
-                    </p>
-                  </div>
-                </div>
-              )}
-              <div className="mt-2">
-                <button
-                  onClick={handleLogout}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all font-medium"
-                >
-                  <LogOut className="w-5 h-5" />
-                  <span className="text-sm">{t.logout}</span>
-                </button>
-              </div>
-            </div>
-          )}
-          {!sidebar && (
-            <div className="flex justify-center py-2">
-              <button
-                onClick={handleLogout}
-                className="p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
-                title="Logout"
-              >
-                <LogOut className="w-5 h-5 text-red-600 dark:text-red-400" />
-              </button>
-            </div>
-          )}
-        </div>
       </div>
 
       {/* MAIN CONTENT */}
-      <div className={`flex-1 flex flex-col min-h-screen ${mobileMenuOpen ? 'overflow-hidden md:overflow-x-hidden md:overflow-y-auto' : 'overflow-x-hidden overflow-y-auto'}`}>
+      <div className={`flex-1 flex flex-col h-screen min-w-0 ${mobileMenuOpen ? 'overflow-hidden md:overflow-x-hidden md:overflow-y-auto' : 'overflow-x-hidden overflow-y-auto'}`}>
         {/* HEADER */}
-        <div className={`bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-4 sm:px-6 h-20 min-h-20 flex-shrink-0 flex justify-between items-center fixed top-0 right-0 left-0 z-30 shadow-sm ${
-          sidebar ? "md:left-20 lg:left-72" : "md:left-20 lg:left-20"
-        }`}>
+        <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-3 sm:px-6 h-16 sm:h-20 min-h-16 sm:min-h-20 flex-shrink-0 flex justify-between items-center sticky top-0 z-10">
           <div className="flex items-center gap-4">
             {/* Mobile Menu Button */}
             <button
@@ -657,7 +591,7 @@ useEffect(() => {
                     onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
                     className="flex items-center gap-2 sm:gap-3 p-1 sm:px-2 sm:py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
                   >
-                    <div className="w-10 h-10 bg-white dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-full overflow-hidden flex items-center justify-center text-gray-700 dark:text-gray-200 font-bold cursor-pointer transition-colors">
+                    <div className="w-10 h-10 bg-white dark:bg-gray-700 border-2 border-brand-primary rounded-full overflow-hidden flex items-center justify-center text-gray-700 dark:text-gray-200 font-bold cursor-pointer transition-colors shadow-sm">
                       {employee?.profile_image_url ? (
                         <Image
                           src={employee.profile_image_url}
@@ -687,7 +621,7 @@ useEffect(() => {
                   </button>
 
                   {profileDropdownOpen && (
-                    <div className="absolute right-0 mt-2 w-52 sm:w-56 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden z-50">
+                    <div className="absolute right-0 mt-2 w-52 sm:w-56 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-brand-primary/20 dark:border-gray-700 overflow-hidden z-50">
                       {/* User Info Header */}
                       <div className="p-4 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-600">
                         <div className="flex items-center gap-3">
@@ -697,12 +631,12 @@ useEffect(() => {
                               alt={cleanerData.name}
                               width={40}
                               height={40}
-                              className="w-10 h-10 rounded-full object-cover ring-2 ring-gray-200 dark:ring-gray-600"
+                              className="w-10 h-10 rounded-full object-cover ring-2 ring-brand-primary"
                               key={`${employee.profile_image_url}-${employee.updated_at || ''}`}
                             />
                           ) : (
-                            <div className="w-10 h-10 rounded-full bg-white dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 flex items-center justify-center">
-                              <User className="w-5 h-5 text-gray-700 dark:text-gray-200" />
+                            <div className="w-10 h-10 rounded-full bg-brand-primary flex items-center justify-center">
+                              <User className="w-5 h-5 text-white" />
                             </div>
                           )}
                           <div className="flex-1 min-w-0">
@@ -816,7 +750,7 @@ useEffect(() => {
       )}
 
         {/* PAGE CONTENT */}
-        <div className="flex-1 p-6 pt-24">
+        <div className="flex-1 p-6">
           <div className="max-w-[1600px] mx-auto w-full">{renderPage()}</div>
         </div>
 

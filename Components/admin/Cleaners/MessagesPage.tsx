@@ -11,6 +11,8 @@ import {
   Loader2,
   ArrowLeft,
   ZoomIn,
+  Smile,
+  Play,
 } from "lucide-react";
 import Image from "next/image";
 import {
@@ -56,6 +58,7 @@ interface Message {
   sender_id: string;
   sender_name?: string;
   message_text: string;
+  image_url?: string | null;
   created_at: string;
 }
 
@@ -100,13 +103,52 @@ const getActiveStatus = (lastMessageTime: string | undefined, type: string) => {
   return { isActive: false, statusText: "Offline" };
 };
 
+// Detect whether a stored message is a media attachment. Newer attachments are
+// Cloudinary URLs; older images may still be inline base64 data URLs.
+const getMediaType = (text: string): "image" | "video" | "text" => {
+  if (!text) return "text";
+  if (text.startsWith("data:image")) return "image";
+  if (text.startsWith("data:video")) return "video";
+  if (/res\.cloudinary\.com/i.test(text)) {
+    return /\/video\/upload\//i.test(text) ? "video" : "image";
+  }
+  return "text";
+};
+
+// Resolve a message's attachment from either the image_url column (used by the
+// CSR side) or an inline message_text URL/base64 (used by the cleaner side).
+const getMessageMedia = (
+  m: { image_url?: string | null; message_text?: string },
+): { src: string; type: "image" | "video" } | null => {
+  if (m.image_url) {
+    return { src: m.image_url, type: /\/video\/upload\//i.test(m.image_url) ? "video" : "image" };
+  }
+  const t = getMediaType(m.message_text || "");
+  if (t === "text") return null;
+  return { src: m.message_text || "", type: t };
+};
+
+const EMOJIS = [
+  "😀", "😄", "😁", "😂", "🙂", "😉", "😊", "😍", "😘", "🤗",
+  "🤔", "😴", "😎", "😢", "😭", "😡", "👍", "👎", "👏", "🙏",
+  "💪", "👋", "🔥", "✨", "🎉", "❤️", "✅", "❌", "⚠️", "🧹",
+];
+
 const Skeleton = ({ className }: { className: string }) => (
   <div className={`animate-pulse bg-gray-200 dark:bg-gray-800 ${className}`} />
 );
 
 // ─── Lightbox ────────────────────────────────────────────────────────────────
 
-function Lightbox({ src, onClose }: { src: string; onClose: () => void }) {
+function Lightbox({
+  src,
+  type,
+  onClose,
+}: {
+  src: string;
+  type: "image" | "video";
+  onClose: () => void;
+}) {
   // Close on Escape key
   useEffect(() => {
     const handler = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -129,17 +171,26 @@ function Lightbox({ src, onClose }: { src: string; onClose: () => void }) {
         <X className="w-6 h-6 text-white" />
       </button>
 
-      {/* Image — stop propagation so clicking image doesn't close */}
+      {/* Media — stop propagation so clicking it doesn't close */}
       <div
         className="max-w-[90vw] max-h-[90vh] rounded-xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={src}
-          alt="Attachment"
-          className="max-w-[90vw] max-h-[90vh] object-contain"
-        />
+        {type === "video" ? (
+          <video
+            src={src}
+            controls
+            autoPlay
+            className="max-w-[90vw] max-h-[90vh] object-contain bg-black"
+          />
+        ) : (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            src={src}
+            alt="Attachment"
+            className="max-w-[90vw] max-h-[90vh] object-contain"
+          />
+        )}
       </div>
     </div>
   );
@@ -153,8 +204,9 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
 
   const [search, setSearch] = useState("");
   const [draft, setDraft] = useState("");
-  const [attachedImage, setAttachedImage] = useState<string | null>(null); // base64 preview
-  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  const [attachedMedia, setAttachedMedia] = useState<{ url: string; type: "image" | "video" } | null>(null);
+  const [isUploadingMedia, setIsUploadingMedia] = useState(false);
+  const [lightbox, setLightbox] = useState<{ src: string; type: "image" | "video" } | null>(null);
   const [isNewMessageModalOpen, setIsNewMessageModalOpen] = useState(false);
   const [showMobileChat, setShowMobileChat] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -348,54 +400,71 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
     });
   }, [search, conversations, roleFilter, employeeRoleById, userId]);
 
-  // ── image attachment ───────────────────────────────────────────────────────
+  // ── image / video attachment ───────────────────────────────────────────────
 
   const handleImageIconClick = () => fileInputRef.current?.click();
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    // Reset input so the same file can be re-selected later
+    e.target.value = "";
     if (!file) return;
 
-    if (!file.type.startsWith("image/")) {
-      toast.error("Only image files are supported.");
+    const isImage = file.type.startsWith("image/");
+    const isVideo = file.type.startsWith("video/");
+    if (!isImage && !isVideo) {
+      toast.error("Only image and video files are supported.");
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("Image must be smaller than 5 MB.");
+    const maxBytes = isVideo ? 50 * 1024 * 1024 : 10 * 1024 * 1024;
+    if (file.size > maxBytes) {
+      toast.error(`${isVideo ? "Video" : "Image"} must be smaller than ${isVideo ? 50 : 10} MB.`);
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => setAttachedImage(reader.result as string);
-    reader.readAsDataURL(file);
-
-    // Reset input so the same file can be re-selected
-    e.target.value = "";
+    // Upload to Cloudinary; the message stores just the URL (keeps the 3s poll light).
+    setIsUploadingMedia(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/messages/upload", { method: "POST", body: formData });
+      const data = await res.json();
+      if (!res.ok || !data?.success || !data?.url) {
+        throw new Error(data?.error || "Upload failed");
+      }
+      setAttachedMedia({ url: data.url, type: isVideo ? "video" : "image" });
+    } catch (err) {
+      console.error("Media upload failed:", err);
+      toast.error(err instanceof Error ? err.message : "Failed to upload file.");
+    } finally {
+      setIsUploadingMedia(false);
+    }
   };
 
-  const removeAttachedImage = () => setAttachedImage(null);
+  const removeAttachedMedia = () => setAttachedMedia(null);
 
   // ── send ───────────────────────────────────────────────────────────────────
 
   const handleSendMessage = async () => {
     const text = draft.trim();
-    if (!text && !attachedImage) return;
+    if (!text && !attachedMedia) return;
     if (!activeId || !userId) return;
+    if (isUploadingMedia) return;
 
     try {
       await sendMessage({
         conversation_id: activeId,
         sender_id: userId,
         sender_name: session?.user?.name || "Cleaner",
-        message_text: attachedImage || text,
+        message_text: attachedMedia?.url || text,
       }).unwrap();
 
       setDraft("");
-      setAttachedImage(null);
+      setAttachedMedia(null);
       refetchMessages();
       refetchConversations();
-      
+
       toast.success("Message sent!");
     } catch (error: unknown) {
       console.error("Failed to send message:", error);
@@ -476,15 +545,15 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
   return (
     <>
       {/* Lightbox */}
-      {lightboxSrc && (
-        <Lightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
+      {lightbox && (
+        <Lightbox src={lightbox.src} type={lightbox.type} onClose={() => setLightbox(null)} />
       )}
 
       {/* Hidden file input */}
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*"
+        accept="image/*,video/*"
         className="hidden"
         onChange={handleFileChange}
       />
@@ -721,32 +790,81 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                                 </span>
                               )}
 
-                              {m.message_text.startsWith("data:image") ? (
-                                <div
-                                  className="relative group cursor-zoom-in rounded-2xl overflow-hidden shadow-sm border border-gray-200 dark:border-gray-700"
-                                  onClick={() => setLightboxSrc(m.message_text)}
-                                >
-                                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                                  <img
-                                    src={m.message_text}
-                                    alt="Attachment"
-                                    className="max-w-[220px] sm:max-w-[280px] max-h-[220px] object-cover rounded-2xl transition-opacity group-hover:opacity-90"
-                                  />
-                                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20 rounded-2xl">
-                                    <ZoomIn className="w-7 h-7 text-white drop-shadow" />
+                              {(() => {
+                                const media = getMessageMedia(m);
+                                // Caption: text alongside an attachment, but not the media URL itself.
+                                const caption =
+                                  media && m.message_text && m.message_text !== media.src
+                                    ? m.message_text
+                                    : null;
+                                const captionBubble = caption && (
+                                  <div
+                                    className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl text-xs sm:text-sm leading-relaxed shadow-sm ${
+                                      isMe
+                                        ? "bg-brand-primary text-white rounded-br-md"
+                                        : "bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-800 rounded-bl-md"
+                                    }`}
+                                  >
+                                    {caption}
                                   </div>
-                                </div>
-                              ) : (
-                                <div
-                                  className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl text-xs sm:text-sm leading-relaxed shadow-sm ${
-                                    isMe
-                                      ? "bg-brand-primary text-white rounded-br-md"
-                                      : "bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-800 rounded-bl-md"
-                                  }`}
-                                >
-                                  {m.message_text}
-                                </div>
-                              )}
+                                );
+                                if (media?.type === "image") {
+                                  return (
+                                    <>
+                                      <div
+                                        className="relative group cursor-zoom-in rounded-2xl overflow-hidden shadow-sm border border-gray-200 dark:border-gray-700"
+                                        onClick={() => setLightbox({ src: media.src, type: "image" })}
+                                      >
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img
+                                          src={media.src}
+                                          alt="Attachment"
+                                          className="max-w-[220px] sm:max-w-[280px] max-h-[220px] object-cover rounded-2xl transition-opacity group-hover:opacity-90"
+                                        />
+                                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20 rounded-2xl">
+                                          <ZoomIn className="w-7 h-7 text-white drop-shadow" />
+                                        </div>
+                                      </div>
+                                      {captionBubble}
+                                    </>
+                                  );
+                                }
+                                if (media?.type === "video") {
+                                  return (
+                                    <>
+                                      <div
+                                        className="relative group cursor-pointer rounded-2xl overflow-hidden shadow-sm border border-gray-200 dark:border-gray-700 bg-black"
+                                        onClick={() => setLightbox({ src: media.src, type: "video" })}
+                                      >
+                                        <video
+                                          src={media.src}
+                                          muted
+                                          playsInline
+                                          preload="metadata"
+                                          className="max-w-[220px] sm:max-w-[280px] max-h-[220px] object-cover rounded-2xl"
+                                        />
+                                        <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/40 transition-colors rounded-2xl">
+                                          <span className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
+                                            <Play className="w-6 h-6 text-brand-primary fill-brand-primary ml-0.5" />
+                                          </span>
+                                        </div>
+                                      </div>
+                                      {captionBubble}
+                                    </>
+                                  );
+                                }
+                                return (
+                                  <div
+                                    className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl text-xs sm:text-sm leading-relaxed shadow-sm ${
+                                      isMe
+                                        ? "bg-brand-primary text-white rounded-br-md"
+                                        : "bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-800 rounded-bl-md"
+                                    }`}
+                                  >
+                                    {m.message_text}
+                                  </div>
+                                );
+                              })()}
 
                               <span className="text-[10px] sm:text-[11px] text-gray-400">{memoizedFormatMessageTime(m.created_at)}</span>
                             </div>
@@ -763,22 +881,42 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
 
                   {/* Input area */}
                   <div className="border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-2 sm:px-4 py-2 sm:py-3">
-                    {/* Image preview strip */}
-                    {attachedImage && (
+                    {/* Uploading indicator */}
+                    {isUploadingMedia && (
+                      <div className="mb-2 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                        <Loader2 className="w-4 h-4 animate-spin text-brand-primary" />
+                        Uploading…
+                      </div>
+                    )}
+
+                    {/* Attachment preview strip (image or video) */}
+                    {attachedMedia && !isUploadingMedia && (
                       <div className="mb-2 flex items-start gap-2">
                         <div className="relative group">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={attachedImage}
-                            alt="Attachment preview"
-                            className="w-16 h-16 rounded-xl object-cover border border-gray-200 dark:border-gray-700 shadow-sm cursor-zoom-in"
-                            onClick={() => setLightboxSrc(attachedImage)}
-                          />
+                          {attachedMedia.type === "video" ? (
+                            <div
+                              className="w-16 h-16 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 shadow-sm cursor-pointer bg-black relative"
+                              onClick={() => setLightbox({ src: attachedMedia.url, type: "video" })}
+                            >
+                              <video src={attachedMedia.url} muted playsInline preload="metadata" className="w-16 h-16 object-cover" />
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                                <Play className="w-5 h-5 text-white fill-white" />
+                              </div>
+                            </div>
+                          ) : (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img
+                              src={attachedMedia.url}
+                              alt="Attachment preview"
+                              className="w-16 h-16 rounded-xl object-cover border border-gray-200 dark:border-gray-700 shadow-sm cursor-zoom-in"
+                              onClick={() => setLightbox({ src: attachedMedia.url, type: "image" })}
+                            />
+                          )}
                           <button
                             type="button"
-                            onClick={removeAttachedImage}
+                            onClick={removeAttachedMedia}
                             className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-gray-700 text-white flex items-center justify-center hover:bg-red-500 transition-colors shadow"
-                            title="Remove image"
+                            title="Remove attachment"
                           >
                             <X className="w-3 h-3" />
                           </button>
@@ -796,15 +934,46 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                         <Plus className="w-4 h-4 sm:w-5 sm:h-5 text-brand-primary" />
                       </button>
 
-                      {/* Image attach button */}
+                      {/* Photo / video attach button */}
                       <button
                         type="button"
                         onClick={handleImageIconClick}
-                        className="p-1.5 sm:p-2 rounded-full hover:bg-brand-primaryLighter transition-colors"
-                        title="Attach image"
+                        disabled={isUploadingMedia}
+                        className="p-1.5 sm:p-2 rounded-full hover:bg-brand-primaryLighter transition-colors disabled:opacity-50"
+                        title="Attach photo or video"
                       >
-                        <ImageIcon className="w-4 h-4 sm:w-5 sm:h-5 text-brand-primary" />
+                        {isUploadingMedia ? (
+                          <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 text-brand-primary animate-spin" />
+                        ) : (
+                          <ImageIcon className="w-4 h-4 sm:w-5 sm:h-5 text-brand-primary" />
+                        )}
                       </button>
+
+                      {/* Emoji picker */}
+                      <div className="relative" ref={emojiPickerRef}>
+                        <button
+                          type="button"
+                          onClick={() => setShowEmojiPicker((p) => !p)}
+                          className="p-1.5 sm:p-2 rounded-full hover:bg-brand-primaryLighter transition-colors"
+                          title="Emoji"
+                        >
+                          <Smile className="w-4 h-4 sm:w-5 sm:h-5 text-brand-primary" />
+                        </button>
+                        {showEmojiPicker && (
+                          <div className="absolute bottom-full left-0 mb-2 w-56 sm:w-64 p-2 bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 z-20 grid grid-cols-6 gap-1">
+                            {EMOJIS.map((emoji) => (
+                              <button
+                                key={emoji}
+                                type="button"
+                                onClick={() => handleEmojiSelect(emoji)}
+                                className="text-xl rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 p-1 transition-colors"
+                              >
+                                {emoji}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
 
                       <div className="flex-1 bg-gray-100 dark:bg-gray-800 rounded-full px-2 sm:px-3 py-1.5 sm:py-2 flex items-center gap-1 sm:gap-2 border border-gray-200 dark:border-gray-700 focus-within:bg-brand-primaryLighter dark:focus-within:bg-gray-800 focus-within:border-brand-primary dark:focus-within:border-brand-primary focus-within:ring-2 focus-within:ring-brand-primary/20">
                         <input
@@ -825,7 +994,7 @@ export default function MessagesPage({ onClose, initialConversationId }: Message
                       <button
                         type="button"
                         onClick={handleSendMessage}
-                        disabled={isSending || (!draft.trim() && !attachedImage)}
+                        disabled={isSending || isUploadingMedia || (!draft.trim() && !attachedMedia)}
                         className="p-1.5 sm:p-2 rounded-full hover:bg-brand-primaryLighter transition-colors disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed flex items-center justify-center"
                         title="Send"
                       >

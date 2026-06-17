@@ -21,8 +21,9 @@ import {
   User,
   Phone,
   Pencil,
+  ArrowRight,
 } from "lucide-react";
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useSession } from "next-auth/react";
 import { useGetCleaningTasksQuery } from "@/redux/api/cleanersApi";
@@ -464,6 +465,234 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning,
       })
     : [];
 
+  // ── Next upcoming cleaning job (for the hero card + auto-select) ─────────────
+  const nextCleaningJob = useMemo(() => {
+    const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    return (
+      assignments
+        .filter((a: any) => {
+          if (!a.check_out_date) return false;
+          const isDone = a.cleaning_status === "cleaned" || a.cleaning_status === "inspected";
+          if (isDone) return false;
+          return toLocalMidnight(a.check_out_date) >= todayMidnight;
+        })
+        .sort(
+          (a: any, b: any) =>
+            toLocalMidnight(a.check_out_date).getTime() -
+            toLocalMidnight(b.check_out_date).getTime(),
+        )[0] || null
+    );
+  }, [assignments, today]);
+
+  // Friendly relative-day label: Today / Tomorrow / weekday + date
+  const dayLabel = (d: Date) => {
+    const tm = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const tomorrow = new Date(tm);
+    tomorrow.setDate(tm.getDate() + 1);
+    if (isSameDay(d, tm)) return t.today;
+    if (isSameDay(d, tomorrow)) return t.tomorrow;
+    return d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+  };
+
+  // On first load, if today has no task, jump the calendar/panel to the nearest
+  // upcoming job so a non-techy cleaner never sees a misleading empty "today".
+  const didAutoSelect = useRef(false);
+  useEffect(() => {
+    if (didAutoSelect.current || isLoading || assignments.length === 0) return;
+    didAutoSelect.current = true;
+
+    const todayHasTask = assignments.some(
+      (a: any) =>
+        (a.check_out_date && isSameDay(toLocalMidnight(a.check_out_date), today)) ||
+        (a.check_in_date && isSameDay(toLocalMidnight(a.check_in_date), today)),
+    );
+    if (todayHasTask) return;
+
+    if (nextCleaningJob?.check_out_date) {
+      const d = toLocalMidnight(nextCleaningJob.check_out_date);
+      setSelectedDate(d);
+      setCalMonth(new Date(d.getFullYear(), d.getMonth(), 1));
+    }
+  }, [isLoading, assignments, today, nextCleaningJob]);
+
+  // Open the cleaning checklist for a given assignment (same logic as detail cards).
+  const startCleaningFor = (a: any) => {
+    const havenId = a.haven_id ?? a.booking_uuid;
+    if (onStartCleaning && havenId) {
+      onStartCleaning(String(havenId), a.booking_uuid ? String(a.booking_uuid) : undefined);
+    } else {
+      onNavigate("cleaning-checklist");
+    }
+  };
+
+  // ── Reusable job cards (shared by the calendar detail panel and the list view) ──
+  const renderDepositCard = (a: any) => {
+    // 'pending_verification' = cleaner submitted, awaiting CSR review.
+    // 'held' / 'paid' = CSR confirmed. All three mean "already collected".
+    const depositCollected =
+      a.deposit_status === "held" ||
+      a.deposit_status === "paid" ||
+      a.deposit_status === "pending_verification" ||
+      collectedDeposits.has(a.cleaning_id);
+    const secDepAmt = Number(a.security_deposit) > 0 ? Number(a.security_deposit) : 1000;
+    const remBalAmt = Number(a.remaining_balance) > 0 ? Number(a.remaining_balance) : 0;
+    const depositAmount = new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(secDepAmt + remBalAmt);
+    const isCollecting = collectingDepositId === a.cleaning_id;
+
+    return (
+      <div
+        key={`checkin-${a.cleaning_id ?? a.id}`}
+        className="rounded-xl border border-green-100 dark:border-green-900/40 bg-green-50/50 dark:bg-green-900/10 p-4 space-y-3"
+      >
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <Banknote className="w-3.5 h-3.5 text-green-600 flex-shrink-0" />
+              <span className="text-[10px] font-bold text-green-600 uppercase tracking-wide">{t.checkInToday}</span>
+            </div>
+            <p className="font-bold text-gray-800 dark:text-gray-100 text-sm truncate">
+              {a.haven ?? a.room_name ?? "—"}
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+              {a.guest_first_name} {a.guest_last_name}
+            </p>
+          </div>
+          {depositCollected ? (
+            <span className="flex items-center gap-1 px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs font-bold rounded-full flex-shrink-0">
+              <CheckCircle2 className="w-3 h-3" /> {t.collected}
+            </span>
+          ) : (
+            <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-xs font-bold rounded-full flex-shrink-0">
+              {t.pending}
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+          <span className="flex items-center gap-1">
+            <Clock className="w-3.5 h-3.5 flex-shrink-0" />
+            {t.checkInLabel} {a.check_in_time ? formatTime(a.check_in_time) : "—"}
+          </span>
+          <span className="flex items-center gap-1 font-semibold text-green-700 dark:text-green-400">
+            <Banknote className="w-3.5 h-3.5 flex-shrink-0" />
+            {depositAmount}
+          </span>
+        </div>
+
+        {depositCollected ? (
+          <div className="w-full flex items-center gap-2">
+            <div className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 text-xs font-semibold">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              {t.depositCollected}
+            </div>
+            <button
+              onClick={() => openDepositModal(a, true)}
+              className="flex items-center justify-center gap-1 py-2 px-3 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 text-xs font-semibold transition-colors"
+            >
+              <Pencil className="w-3.5 h-3.5" /> Edit
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => openDepositModal(a)}
+            disabled={isCollecting}
+            className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-semibold disabled:opacity-50 transition-colors"
+          >
+            <Banknote className="w-3.5 h-3.5" /> {t.securityDeposit}
+          </button>
+        )}
+      </div>
+    );
+  };
+
+  const renderCleaningCard = (a: any) => {
+    const todayMidnight = new Date(); todayMidnight.setHours(0, 0, 0, 0);
+    const checkoutDate = a.check_out_date ? toLocalMidnight(a.check_out_date) : null;
+    const isUpcoming = checkoutDate ? checkoutDate > todayMidnight : false;
+    const isDone = a.cleaning_status === "cleaned" || a.cleaning_status === "inspected";
+    const effectiveBadgeStatus = isDone ? a.cleaning_status
+      : isUpcoming ? "upcoming"
+      : a.cleaning_status === "in-progress" ? "in-progress"
+      : "ready";
+    const badge = getStatusBadge(effectiveBadgeStatus);
+    const isActionable = !isDone && !isUpcoming;
+
+    return (
+      <div
+        key={a.cleaning_id ?? a.id}
+        className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/60 p-4 space-y-3 hover:shadow-md transition-all"
+      >
+        <div className="flex items-start justify-between gap-2">
+          <p className="font-bold text-gray-800 dark:text-gray-100 text-sm leading-snug">
+            {a.haven ?? a.room_name ?? "—"}
+          </p>
+          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold flex-shrink-0 ${badge.bg} ${badge.text}`}>
+            {badge.label}
+          </span>
+        </div>
+
+        <div className="space-y-1.5 text-xs text-gray-500 dark:text-gray-400">
+          {a.location && (
+            <div className="flex items-center gap-1.5">
+              <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
+              <span className="truncate">{a.location}</span>
+            </div>
+          )}
+          <div className="flex items-center gap-3">
+            <span className="flex items-center gap-1">
+              <Clock className="w-3.5 h-3.5" />
+              {t.checkoutLabel} {formatDate(a.check_out_date)}
+              {a.check_out_time ? ` · ${formatTime(a.check_out_time)}` : ""}
+            </span>
+          </div>
+          {(a.cleaning_time_in || a.cleaning_time_out) && (
+            <div className="flex items-center gap-3">
+              <span>{t.inLabel} {formatTime(a.cleaning_time_in)}</span>
+              <span>{t.outLabel} {formatTime(a.cleaning_time_out)}</span>
+            </div>
+          )}
+        </div>
+
+        <div className="flex gap-2 pt-1">
+          <button
+            onClick={(e) => { e.stopPropagation(); openInMaps(a.location); }}
+            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 text-xs font-semibold hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+          >
+            <Navigation className="w-3.5 h-3.5" />
+            {t.openInMaps}
+          </button>
+
+          {isActionable && (
+            <button
+              onClick={(e) => { e.stopPropagation(); startCleaningFor(a); }}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-brand-primary/10 dark:bg-brand-primary/20 text-brand-primary text-xs font-semibold hover:bg-brand-primary/20 dark:hover:bg-brand-primary/30 transition-colors"
+            >
+              <CheckSquare className="w-3.5 h-3.5" />
+              {t.startCleaning}
+            </button>
+          )}
+
+          {isUpcoming && (
+            <button
+              onClick={(e) => { e.stopPropagation(); startCleaningFor(a); }}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-sky-50 dark:bg-sky-900/20 text-sky-600 dark:text-sky-400 text-xs font-semibold hover:bg-sky-100 dark:hover:bg-sky-900/40 transition-colors"
+            >
+              <CheckSquare className="w-3.5 h-3.5" />
+              {t.viewChecklist}
+            </button>
+          )}
+
+          {isDone && (
+            <div className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 text-xs font-semibold">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              {t.done}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const handleTotalTasksClick = () => {
     const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     // Find the nearest assignment date that is ready or upcoming
@@ -499,33 +728,110 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning,
         </p>
       </div>
 
+      {/* Next job hero — the one thing a cleaner needs to see first */}
+      {isLoading ? (
+        <div className="rounded-2xl bg-gray-100 dark:bg-gray-800 h-32 animate-pulse" />
+      ) : nextCleaningJob ? (
+        (() => {
+          const job = nextCleaningJob;
+          const checkoutDate = toLocalMidnight(job.check_out_date);
+          const tm = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+          const isUpcoming = checkoutDate > tm;
+          const unitName = job.haven ?? job.room_name ?? "—";
+          return (
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-primary to-brand-primary/85 text-white shadow-lg p-5 sm:p-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="min-w-0 space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide bg-white/20 rounded-full px-2.5 py-1">
+                      <Calendar className="w-3.5 h-3.5" /> {t.nextJobTitle}
+                    </span>
+                    <span className="text-xs font-semibold bg-white/15 rounded-full px-2.5 py-1">
+                      {dayLabel(checkoutDate)}
+                    </span>
+                  </div>
+                  <h2 className="text-xl sm:text-2xl font-bold leading-tight truncate">{unitName}</h2>
+                  {job.location && (
+                    <p className="flex items-center gap-1.5 text-sm text-white/90">
+                      <MapPin className="w-4 h-4 flex-shrink-0" />
+                      <span className="truncate">{job.location}</span>
+                    </p>
+                  )}
+                  <p className="flex items-center gap-1.5 text-sm text-white/90">
+                    <Clock className="w-4 h-4 flex-shrink-0" />
+                    {isUpcoming ? (
+                      <span>
+                        {t.checkoutLabel} {formatDate(job.check_out_date)}
+                        {job.check_out_time ? ` · ${formatTime(job.check_out_time)}` : ""}
+                      </span>
+                    ) : (
+                      <span className="font-semibold">{t.readyNow}</span>
+                    )}
+                  </p>
+                </div>
+                <div className="flex flex-col gap-2 sm:w-56 flex-shrink-0">
+                  <button
+                    onClick={() => startCleaningFor(job)}
+                    className="flex items-center justify-center gap-2 py-3 rounded-xl bg-white text-brand-primary font-bold text-sm shadow-sm hover:bg-white/90 active:scale-[0.98] transition-all"
+                  >
+                    <CheckSquare className="w-4 h-4" />
+                    {isUpcoming ? t.viewChecklist : t.startCleaning}
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => openInMaps(job.location)}
+                    className="flex items-center justify-center gap-1.5 py-2 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-semibold transition-colors"
+                  >
+                    <Navigation className="w-3.5 h-3.5" /> {t.openInMaps}
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()
+      ) : (
+        <div className="rounded-2xl border border-dashed border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 flex items-center gap-3">
+          <CheckCircle2 className="w-8 h-8 text-green-400 flex-shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">{t.nextJobNone}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">{t.nextJobNoneSub}</p>
+          </div>
+        </div>
+      )}
+
       {/* Stats row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {statsCards.map(({ label, value, color, icon: Icon, sub, onClick }) => {
           const inner = (
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[10px] sm:text-xs opacity-90">{label}</p>
-                <p className="text-lg sm:text-2xl font-bold mt-0.5">{isLoading ? "…" : value}</p>
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex-1">
+                <p className="text-sm opacity-90 leading-snug">{label}</p>
+                <div className="text-3xl font-bold mt-2">
+                  {isLoading ? (
+                    <div className="w-16 h-8 bg-white/20 rounded animate-pulse" />
+                  ) : (
+                    value
+                  )}
+                </div>
                 {sub && !isLoading && (
-                  <p className="text-[9px] sm:text-[10px] opacity-75 mt-0.5 leading-tight">{sub}</p>
+                  <div className="text-xs opacity-90 mt-2 leading-tight">{sub}</div>
                 )}
               </div>
-              <Icon className="w-5 h-5 sm:w-8 sm:h-8 opacity-40" />
+              <Icon className="w-10 h-10 opacity-50 flex-shrink-0" />
             </div>
           );
           return onClick ? (
             <button
               key={label}
               onClick={onClick}
-              className={`${color} text-white rounded-lg p-2.5 sm:p-4 shadow dark:shadow-gray-900 hover:shadow-lg hover:brightness-110 active:scale-95 transition-all text-left w-full`}
+              className={`${color} text-white rounded-lg p-5 shadow dark:shadow-gray-900 hover:shadow-lg transition-transform duration-200 transform hover:-translate-y-1 text-left w-full`}
             >
               {inner}
             </button>
           ) : (
             <div
               key={label}
-              className={`${color} text-white rounded-lg p-2.5 sm:p-4 shadow dark:shadow-gray-900 hover:shadow-lg transition-all`}
+              className={`${color} text-white rounded-lg p-5 shadow dark:shadow-gray-900 hover:shadow-lg transition-transform duration-200 transform hover:-translate-y-1`}
             >
               {inner}
             </div>
@@ -778,189 +1084,11 @@ export default function MySchedulePage({ onNavigate = () => {}, onStartCleaning,
                 const isCheckinDay = a.check_in_date && isSameDay(toLocalMidnight(a.check_in_date), selectedDate);
                 const isCheckoutDay = a.check_out_date && isSameDay(toLocalMidnight(a.check_out_date), selectedDate);
 
-                // ── Check-in day: show deposit collection card ──────────────
+                // Deposit collection (guest check-in) vs cleaning (checkout)
                 if (isCheckinDay && !isCheckoutDay) {
-                  // 'pending_verification' = cleaner submitted, awaiting CSR review.
-                  // 'held' / 'paid' = CSR confirmed. All three mean "already collected"
-                  // from the cleaner's perspective, so the Collect button must hide.
-                  const depositCollected =
-                    a.deposit_status === "held" ||
-                    a.deposit_status === "paid" ||
-                    a.deposit_status === "pending_verification" ||
-                    collectedDeposits.has(a.cleaning_id);
-                  const secDepAmt = Number(a.security_deposit) > 0 ? Number(a.security_deposit) : 1000;
-                  const remBalAmt = Number(a.remaining_balance) > 0 ? Number(a.remaining_balance) : 0;
-                  const depositAmount = new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(secDepAmt + remBalAmt);
-                  const isCollecting = collectingDepositId === a.cleaning_id;
-
-                  return (
-                    <div
-                      key={`checkin-${a.cleaning_id ?? a.id}`}
-                      className="rounded-xl border border-green-100 dark:border-green-900/40 bg-green-50/50 dark:bg-green-900/10 p-4 space-y-3"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5 mb-0.5">
-                            <Banknote className="w-3.5 h-3.5 text-green-600 flex-shrink-0" />
-                            <span className="text-[10px] font-bold text-green-600 uppercase tracking-wide">{t.checkInToday}</span>
-                          </div>
-                          <p className="font-bold text-gray-800 dark:text-gray-100 text-sm truncate">
-                            {a.haven ?? a.room_name ?? "—"}
-                          </p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                            {a.guest_first_name} {a.guest_last_name}
-                          </p>
-                        </div>
-                        {depositCollected ? (
-                          <span className="flex items-center gap-1 px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs font-bold rounded-full flex-shrink-0">
-                            <CheckCircle2 className="w-3 h-3" /> {t.collected}
-                          </span>
-                        ) : (
-                          <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-xs font-bold rounded-full flex-shrink-0">
-                            {t.pending}
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-3.5 h-3.5 flex-shrink-0" />
-                          {t.checkInLabel} {a.check_in_time ? formatTime(a.check_in_time) : "—"}
-                        </span>
-                        <span className="flex items-center gap-1 font-semibold text-green-700 dark:text-green-400">
-                          <Banknote className="w-3.5 h-3.5 flex-shrink-0" />
-                          {depositAmount}
-                        </span>
-                      </div>
-
-                      {depositCollected ? (
-                        <div className="w-full flex items-center gap-2">
-                          <div className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 text-xs font-semibold">
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            {t.depositCollected}
-                          </div>
-                          <button
-                            onClick={() => openDepositModal(a, true)}
-                            className="flex items-center justify-center gap-1 py-2 px-3 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 text-xs font-semibold transition-colors"
-                          >
-                            <Pencil className="w-3.5 h-3.5" /> Edit
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => openDepositModal(a)}
-                          disabled={isCollecting}
-                          className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-semibold disabled:opacity-50 transition-colors"
-                        >
-                          <Banknote className="w-3.5 h-3.5" /> {t.securityDeposit}
-                        </button>
-                      )}
-                    </div>
-                  );
+                  return renderDepositCard(a);
                 }
-
-                // ── Check-out day: show cleaning task card ──────────────────
-                const todayMidnight = new Date(); todayMidnight.setHours(0,0,0,0);
-                const checkoutDate = a.check_out_date ? toLocalMidnight(a.check_out_date) : null;
-                const isUpcoming = checkoutDate ? checkoutDate > todayMidnight : false;
-                const isDone = a.cleaning_status === "cleaned" || a.cleaning_status === "inspected";
-                const effectiveBadgeStatus = isDone ? a.cleaning_status
-                  : isUpcoming ? "upcoming"
-                  : a.cleaning_status === "in-progress" ? "in-progress"
-                  : "ready";
-                const badge = getStatusBadge(effectiveBadgeStatus);
-                const isActionable = !isDone && !isUpcoming;
-
-                return (
-                  <div
-                    key={a.cleaning_id ?? a.id}
-                    className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/60 p-4 space-y-3 hover:shadow-md transition-all"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="font-bold text-gray-800 dark:text-gray-100 text-sm leading-snug">
-                        {a.haven ?? a.room_name ?? "—"}
-                      </p>
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-semibold flex-shrink-0 ${badge.bg} ${badge.text}`}>
-                        {badge.label}
-                      </span>
-                    </div>
-
-                    <div className="space-y-1.5 text-xs text-gray-500 dark:text-gray-400">
-                      {a.location && (
-                        <div className="flex items-center gap-1.5">
-                          <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
-                          <span className="truncate">{a.location}</span>
-                        </div>
-                      )}
-                      <div className="flex items-center gap-3">
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-3.5 h-3.5" />
-                          {t.checkoutLabel} {formatDate(a.check_out_date)}
-                          {a.check_out_time ? ` · ${formatTime(a.check_out_time)}` : ""}
-                        </span>
-                      </div>
-                      {(a.cleaning_time_in || a.cleaning_time_out) && (
-                        <div className="flex items-center gap-3">
-                          <span>{t.inLabel} {formatTime(a.cleaning_time_in)}</span>
-                          <span>{t.outLabel} {formatTime(a.cleaning_time_out)}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex gap-2 pt-1">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); openInMaps(a.location); }}
-                        className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 text-xs font-semibold hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
-                      >
-                        <Navigation className="w-3.5 h-3.5" />
-                        {t.openInMaps}
-                      </button>
-
-                      {isActionable && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const havenId = a.haven_id ?? a.booking_uuid;
-                            if (onStartCleaning && havenId) {
-                              onStartCleaning(String(havenId), a.booking_uuid ? String(a.booking_uuid) : undefined);
-                            } else {
-                              onNavigate("cleaning-checklist");
-                            }
-                          }}
-                          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-brand-primary/10 dark:bg-brand-primary/20 text-brand-primary text-xs font-semibold hover:bg-brand-primary/20 dark:hover:bg-brand-primary/30 transition-colors"
-                        >
-                          <CheckSquare className="w-3.5 h-3.5" />
-                          {t.startCleaning}
-                        </button>
-                      )}
-
-                      {isUpcoming && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const havenId = a.haven_id ?? a.booking_uuid;
-                            if (onStartCleaning && havenId) {
-                              onStartCleaning(String(havenId), a.booking_uuid ? String(a.booking_uuid) : undefined);
-                            } else {
-                              onNavigate("cleaning-checklist");
-                            }
-                          }}
-                          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-sky-50 dark:bg-sky-900/20 text-sky-600 dark:text-sky-400 text-xs font-semibold hover:bg-sky-100 dark:hover:bg-sky-900/40 transition-colors"
-                        >
-                          <CheckSquare className="w-3.5 h-3.5" />
-                          {t.viewChecklist}
-                        </button>
-                      )}
-
-                      {isDone && (
-                        <div className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 text-xs font-semibold">
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          {t.done}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
+                return renderCleaningCard(a);
               })
             )}
           </div>

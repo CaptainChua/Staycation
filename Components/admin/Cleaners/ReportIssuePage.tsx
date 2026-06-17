@@ -203,20 +203,26 @@ export default function ReportIssuePage() {
           </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {stats.map((stat, index) => {
           const IconComponent = stat.icon;
           return (
             <div
               key={index}
-              className={`${stat.color} text-white rounded-lg p-4 sm:p-6 shadow-lg dark:shadow-gray-900 hover:shadow-xl transition-all`}
+              className={`${stat.color} text-white rounded-lg p-5 shadow dark:shadow-gray-900 hover:shadow-lg transition-transform duration-200 transform hover:-translate-y-1`}
             >
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs sm:text-sm opacity-90">{stat.label}</p>
-                  <p className="text-2xl sm:text-3xl font-bold mt-1 sm:mt-2">{stat.value}</p>
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1">
+                  <p className="text-sm opacity-90 leading-snug">{stat.label}</p>
+                  <div className="text-3xl font-bold mt-2">
+                    {isLoadingReports ? (
+                      <div className="w-16 h-8 bg-white/20 rounded animate-pulse" />
+                    ) : (
+                      stat.value
+                    )}
+                  </div>
                 </div>
-                <IconComponent className="w-8 h-8 sm:w-12 sm:h-12 opacity-50" />
+                <IconComponent className="w-10 h-10 opacity-50 flex-shrink-0" />
               </div>
             </div>
           );

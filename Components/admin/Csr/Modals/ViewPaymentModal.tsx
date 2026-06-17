@@ -4,13 +4,33 @@ import { useCallback, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { X, CreditCard, User, ExternalLink, MapPin } from "lucide-react";
 import type { PaymentRow } from "../types";
-import { formatDate } from "../utils";
+import { formatDate, formatCurrency } from "../utils";
 
 interface ViewPaymentModalProps {
   isOpen: boolean;
   onClose: () => void;
   payment: PaymentRow | null;
 }
+
+/**
+ * Loose shape for the booking object shown in this modal. Covers exactly the
+ * fields read below — some (haven, status, created_at) aren't on the strict
+ * PaymentRow["booking"] type, so we widen with these optional fields instead
+ * of falling back to `any`.
+ */
+type ViewBookingInfo = {
+  status?: string | null;
+  haven?: string | null;
+  booking_id?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  guest_first_name?: string | null;
+  guest_last_name?: string | null;
+  guest_email?: string | null;
+  guest_phone?: string | null;
+  payment_proof_url?: string | null;
+  payment_method?: string | null;
+};
 
 const getStatusColorClass = (status?: string | null) => {
   const s = (status || "").toLowerCase();
@@ -57,7 +77,7 @@ export default function ViewPaymentModal({
 
   if (!isOpen || !payment) return null;
 
-  const booking: any = payment.booking ?? {};
+  const booking = (payment.booking ?? {}) as ViewBookingInfo;
   const statusSource = booking.status ?? payment.status;
   const statusClass = getStatusColorClass(statusSource);
 
@@ -214,6 +234,40 @@ export default function ViewPaymentModal({
                   <span className="text-xs">Phone</span>
                   <span>{booking?.guest_phone ?? "—"}</span>
                 </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Payment Breakdown */}
+          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-100 dark:border-gray-700">
+            <div className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+              <CreditCard className="w-4 h-4" />
+              Payment Breakdown
+            </div>
+            <div className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
+              <div className="flex justify-between">
+                <span className="text-xs">Room</span>
+                <span>{formatCurrency(payment.roomRate ?? 0)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-xs">Security Deposit</span>
+                <span>{formatCurrency(payment.security_deposit ?? 0)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-xs">Add-ons</span>
+                <span>{formatCurrency(payment.addOnsTotal ?? 0)}</span>
+              </div>
+              <div className="flex justify-between border-t border-gray-200 dark:border-gray-700 pt-2 font-semibold text-gray-900 dark:text-gray-100">
+                <span className="text-xs">Total</span>
+                <span>{payment.totalAmount}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-xs">Down Payment</span>
+                <span>{payment.downPayment}</span>
+              </div>
+              <div className="flex justify-between text-orange-600 dark:text-orange-400">
+                <span className="text-xs">Balance</span>
+                <span>{payment.remaining}</span>
               </div>
             </div>
           </div>

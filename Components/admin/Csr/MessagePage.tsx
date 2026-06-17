@@ -9,6 +9,7 @@ import {
   Smile,
   X,
   Loader2,
+  Play,
 } from "lucide-react";
 import Image from "next/image";
 import {
@@ -116,6 +117,26 @@ const getActiveStatus = (lastMessageTime: string | undefined, type: string) => {
   return { isActive: false, statusText: "Offline" };
 };
 
+// Detect a media attachment on a message. Newer attachments are Cloudinary URLs
+// (image or video); older ones may be inline base64 or the image_url column.
+const getMessageMedia = (
+  m: { image_url?: string | null; message_text?: string },
+): { src: string; type: "image" | "video" } | null => {
+  if (m.image_url) {
+    return {
+      src: m.image_url,
+      type: /\/video\/upload\//i.test(m.image_url) ? "video" : "image",
+    };
+  }
+  const txt = m.message_text || "";
+  if (txt.startsWith("data:image")) return { src: txt, type: "image" };
+  if (txt.startsWith("data:video")) return { src: txt, type: "video" };
+  if (/res\.cloudinary\.com/i.test(txt)) {
+    return { src: txt, type: /\/video\/upload\//i.test(txt) ? "video" : "image" };
+  }
+  return null;
+};
+
 // Skeleton component defined outside the main component
 const Skeleton = ({ className }: { className: string }) => (
   <div className={`animate-pulse bg-gray-200 dark:bg-gray-800 ${className}`} />
@@ -141,7 +162,8 @@ export default function MessagePage({
     return guestName || "";
   }, [session?.user, userEmail, guestName]);
   const [draft, setDraft] = useState("");
-  const [pendingImage, setPendingImage] = useState<string | null>(null);
+  const [pendingMedia, setPendingMedia] = useState<{ url: string; type: "image" | "video" } | null>(null);
+  const [isUploadingMedia, setIsUploadingMedia] = useState(false);
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -390,8 +412,9 @@ export default function MessagePage({
 
   const handleSendMessage = async () => {
     const text = draft.trim();
-    if (!text && !pendingImage) return;
+    if (!text && !pendingMedia) return;
     if (!activeId || !userId) return;
+    if (isUploadingMedia) return;
 
     try {
       await sendMessage({
@@ -399,11 +422,11 @@ export default function MessagePage({
         sender_id: userId,
         sender_name: currentUserName || "CSR",
         message_text: text,
-        image: pendingImage || undefined,
+        image: pendingMedia?.url || undefined,
       }).unwrap();
 
       setDraft("");
-      setPendingImage(null);
+      setPendingMedia(null);
       refetchMessages();
       refetchConversations();
     } catch (error: unknown) {
@@ -743,31 +766,51 @@ export default function MessagePage({
                                 {senderLabel}
                               </span>
                             )}
-                            <div
-                              className={`rounded-2xl text-sm leading-relaxed shadow-sm overflow-hidden ${
-                                m.image_url || m.message_text?.startsWith("data:image")
-                                  ? `border ${isMe ? "border-brand-primary/30" : "border-gray-200 dark:border-gray-800"}`
-                                  : `px-4 py-2.5 ${isMe ? "bg-gradient-to-r from-brand-primary to-brand-primaryDark text-white rounded-br-md" : "bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-800 rounded-bl-md"}`
-                              }`}
-                            >
-                              {m.image_url || m.message_text?.startsWith("data:image") ? (
-                                <>
-                                  <img
-                                    src={m.image_url ?? m.message_text}
-                                    alt="sent image"
-                                    className="max-w-[220px] rounded-t-2xl object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                                    onClick={() => setZoomedImage(m.image_url ?? m.message_text)}
-                                  />
-                                  {m.message_text && !m.message_text.startsWith("data:image") && (
-                                    <p className={`px-3 py-2 text-sm ${isMe ? "bg-gradient-to-r from-brand-primary to-brand-primaryDark text-white" : "bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"}`}>
-                                      {m.message_text}
-                                    </p>
+                            {(() => {
+                              const media = getMessageMedia(m);
+                              // Caption: text alongside an attachment, but not the media URL itself.
+                              const caption =
+                                media && m.message_text && m.message_text !== media.src
+                                  ? m.message_text
+                                  : null;
+                              return (
+                                <div
+                                  className={`rounded-2xl text-sm leading-relaxed shadow-sm overflow-hidden ${
+                                    media
+                                      ? `border ${isMe ? "border-brand-primary/30" : "border-gray-200 dark:border-gray-800"}`
+                                      : `px-4 py-2.5 ${isMe ? "bg-gradient-to-r from-brand-primary to-brand-primaryDark text-white rounded-br-md" : "bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-800 rounded-bl-md"}`
+                                  }`}
+                                >
+                                  {media ? (
+                                    <>
+                                      {media.type === "video" ? (
+                                        <video
+                                          src={media.src}
+                                          controls
+                                          playsInline
+                                          preload="metadata"
+                                          className="max-w-[220px] rounded-t-2xl bg-black"
+                                        />
+                                      ) : (
+                                        <img
+                                          src={media.src}
+                                          alt="sent media"
+                                          className="max-w-[220px] rounded-t-2xl object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                                          onClick={() => setZoomedImage(media.src)}
+                                        />
+                                      )}
+                                      {caption && (
+                                        <p className={`px-3 py-2 text-sm ${isMe ? "bg-gradient-to-r from-brand-primary to-brand-primaryDark text-white" : "bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"}`}>
+                                          {caption}
+                                        </p>
+                                      )}
+                                    </>
+                                  ) : (
+                                    m.message_text
                                   )}
-                                </>
-                              ) : (
-                                m.message_text
-                              )}
-                            </div>
+                                </div>
+                              );
+                            })()}
                             <span className="text-[11px] text-gray-400">
                               {memoizedFormatMessageTime(m.created_at)}
                             </span>
@@ -786,16 +829,31 @@ export default function MessagePage({
                 </div>
 
                 <div className="border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-3">
-                  {pendingImage && (
+                  {isUploadingMedia && (
+                    <div className="mb-2 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                      <Loader2 className="w-4 h-4 animate-spin text-brand-primary" />
+                      Uploading…
+                    </div>
+                  )}
+                  {pendingMedia && !isUploadingMedia && (
                     <div className="relative inline-block mb-2">
-                      <img
-                        src={pendingImage}
-                        alt="preview"
-                        className="h-20 rounded-lg object-cover border border-gray-200 dark:border-gray-700"
-                      />
+                      {pendingMedia.type === "video" ? (
+                        <div className="relative h-20 w-20 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 bg-black">
+                          <video src={pendingMedia.url} muted playsInline preload="metadata" className="h-20 w-20 object-cover" />
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                            <Play className="w-5 h-5 text-white fill-white" />
+                          </div>
+                        </div>
+                      ) : (
+                        <img
+                          src={pendingMedia.url}
+                          alt="preview"
+                          className="h-20 rounded-lg object-cover border border-gray-200 dark:border-gray-700"
+                        />
+                      )}
                       <button
                         type="button"
-                        onClick={() => setPendingImage(null)}
+                        onClick={() => setPendingMedia(null)}
                         className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center"
                       >
                         <X className="w-3 h-3" />
@@ -807,25 +865,52 @@ export default function MessagePage({
                       ref={fileInputRef}
                       type="file"
                       className="hidden"
-                      accept="image/*"
-                      onChange={(e) => {
+                      accept="image/*,video/*"
+                      onChange={async (e) => {
                         const file = e.target.files?.[0];
-                        if (!file) return;
-                        const reader = new FileReader();
-                        reader.onload = () => {
-                          setPendingImage(reader.result as string);
-                        };
-                        reader.readAsDataURL(file);
                         e.target.value = "";
+                        if (!file) return;
+                        const isImage = file.type.startsWith("image/");
+                        const isVideo = file.type.startsWith("video/");
+                        if (!isImage && !isVideo) {
+                          toast.error("Only image and video files are supported.");
+                          return;
+                        }
+                        const maxBytes = isVideo ? 50 * 1024 * 1024 : 10 * 1024 * 1024;
+                        if (file.size > maxBytes) {
+                          toast.error(`${isVideo ? "Video" : "Image"} must be smaller than ${isVideo ? 50 : 10} MB.`);
+                          return;
+                        }
+                        setIsUploadingMedia(true);
+                        try {
+                          const formData = new FormData();
+                          formData.append("file", file);
+                          const res = await fetch("/api/messages/upload", { method: "POST", body: formData });
+                          const data = await res.json();
+                          if (!res.ok || !data?.success || !data?.url) {
+                            throw new Error(data?.error || "Upload failed");
+                          }
+                          setPendingMedia({ url: data.url, type: isVideo ? "video" : "image" });
+                        } catch (err) {
+                          console.error("Media upload failed:", err);
+                          toast.error(err instanceof Error ? err.message : "Failed to upload file.");
+                        } finally {
+                          setIsUploadingMedia(false);
+                        }
                       }}
                     />
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="p-2 rounded-full hover:bg-brand-primaryLighter transition-colors"
-                      title="Attach image"
+                      disabled={isUploadingMedia}
+                      className="p-2 rounded-full hover:bg-brand-primaryLighter transition-colors disabled:opacity-50"
+                      title="Attach photo or video"
                     >
-                      <ImageIcon className="w-5 h-5 text-brand-primary" />
+                      {isUploadingMedia ? (
+                        <Loader2 className="w-5 h-5 text-brand-primary animate-spin" />
+                      ) : (
+                        <ImageIcon className="w-5 h-5 text-brand-primary" />
+                      )}
                     </button>
                     <div className="flex-1 bg-gray-100 dark:bg-gray-800 rounded-full px-3 py-2 flex items-center gap-2 border border-gray-100 dark:border-gray-800 focus-within:bg-white dark:focus-within:bg-gray-900 focus-within:border-brand-primary/30 focus-within:ring-2 focus-within:ring-brand-primary/20">
                       <input
@@ -853,7 +938,7 @@ export default function MessagePage({
                     <button
                       type="button"
                       onClick={handleSendMessage}
-                      disabled={isSending || (!draft.trim() && !pendingImage)}
+                      disabled={isSending || isUploadingMedia || (!draft.trim() && !pendingMedia)}
                       className="p-2 rounded-full hover:bg-brand-primaryLighter transition-colors disabled:opacity-50"
                       title="Send"
                     >

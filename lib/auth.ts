@@ -46,6 +46,7 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" },
         turnstileToken: { label: "Turnstile Token", type: "text", optional: true },
         isOtpLogin: { label: "OTP Login", type: "text", optional: true },
+        mfaCode: { label: "MFA Code", type: "text", optional: true },
       },
       async authorize(credentials, req) {
         try {
@@ -90,13 +91,14 @@ export const authOptions: NextAuthOptions = {
 
             // For employees, require turnstile token verification
             // 🔐 Require Turnstile ONLY if this is NOT an OTP-based auto login
-            if (!credentials?.turnstileToken && !credentials?.isOtpLogin) {
+            if (!credentials?.turnstileToken && !credentials?.isOtpLogin && !credentials?.mfaCode) {
               console.log("❌ Missing turnstile token for employee");
               throw new Error("Email, password, and security verification are required");
             }
 
-            // Verify Turnstile token for employees
-            if (!credentials?.isOtpLogin) {
+            // Verify Turnstile token for employees (skipped on the MFA 2nd step,
+            // since the token was already consumed during the 1st step)
+            if (!credentials?.isOtpLogin && !credentials?.mfaCode) {
               const isValidTurnstile = await verifyTurnstileToken(credentials.turnstileToken || "");
               if (!isValidTurnstile) {
                 console.log("❌ Invalid Turnstile token");
@@ -182,6 +184,82 @@ export const authOptions: NextAuthOptions = {
 
 
             console.log("✅ Password valid! Employee login successful");
+
+            // 🔐 Email-OTP MFA gate (employees only, opt-in via CSR Settings).
+            // Runs only after the password is already valid. Looked up defensively
+            // so a missing mfa_enabled column (migration not yet run) never blocks login.
+            let mfaEnabled = false;
+            try {
+              const mfaRow = await pool.query(
+                "SELECT mfa_enabled FROM employees WHERE id = $1",
+                [user.id]
+              );
+              mfaEnabled = mfaRow.rows[0]?.mfa_enabled === true;
+            } catch {
+              mfaEnabled = false; // column doesn't exist yet → treat MFA as off
+            }
+
+            if (mfaEnabled) {
+              const providedCode = (credentials?.mfaCode || "").trim();
+
+              if (!providedCode) {
+                // Step 1 — password ok, but no MFA code yet: email a one-time code
+                // and signal the client to prompt for it.
+                const otp = Math.floor(100000 + Math.random() * 900000).toString();
+                const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+                await pool.query(
+                  `DELETE FROM otp_verification WHERE email = $1 AND otp_type = 'MFA_LOGIN'`,
+                  [credentials.email]
+                );
+                await pool.query(
+                  `INSERT INTO otp_verification
+                    (email, otp_code, otp_type, expires_at, ip_address, user_agent, created_at)
+                   VALUES ($1, $2, 'MFA_LOGIN', $3, $4, $5, NOW())`,
+                  [
+                    credentials.email,
+                    otp,
+                    expiresAt,
+                    ipAddress !== 'unknown' ? ipAddress : null,
+                    userAgent !== 'unknown' ? userAgent : null,
+                  ]
+                );
+
+                try {
+                  await sendOtpEmail({
+                    email: credentials.email,
+                    otp,
+                    type: "MFA_LOGIN",
+                    userName: `${user.first_name} ${user.last_name}`,
+                  });
+                } catch (emailError) {
+                  console.error("❌ Failed to send MFA code email:", emailError);
+                  throw new Error("Could not send your verification code. Please try again.");
+                }
+
+                // Special signal — the login UI shows the code prompt on this error.
+                throw new Error("MFA_REQUIRED");
+              }
+
+              // Step 2 — verify the submitted code.
+              const mfaCheck = await pool.query(
+                `SELECT id FROM otp_verification
+                 WHERE email = $1 AND otp_code = $2 AND otp_type = 'MFA_LOGIN' AND expires_at > NOW()
+                 ORDER BY created_at DESC LIMIT 1`,
+                [credentials.email, providedCode]
+              );
+
+              if (mfaCheck.rows.length === 0) {
+                throw new Error("Invalid or expired verification code");
+              }
+
+              // One-time use — clear the code(s) once verified.
+              await pool.query(
+                `DELETE FROM otp_verification WHERE email = $1 AND otp_type = 'MFA_LOGIN'`,
+                [credentials.email]
+              );
+              console.log("✅ MFA code verified for employee:", user.email);
+            }
 
             // Reset login attempts on successful login
             try {

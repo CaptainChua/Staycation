@@ -1,8 +1,8 @@
 "use client";
 
-import { ReactNode, RefObject, useEffect, useRef, useState } from "react";
+import { ReactNode, RefObject, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { BellRing, CheckCircle2, Clock, Info, X } from "lucide-react";
+import { BellRing, CheckCircle2, Clock, Info } from "lucide-react";
 import { useGetNotificationsQuery, useUpdateNotificationsMutation, useMarkAllAsReadMutation, Notification } from "@/redux/api/notificationsApi";
 import toast from 'react-hot-toast';
 
@@ -65,19 +65,9 @@ export default function NotificationModal({ onClose, onViewAll, anchorRef, userI
   const [updateNotifications] = useUpdateNotificationsMutation();
   const [markAllAsRead] = useMarkAllAsReadMutation();
 
-  // Use requestAnimationFrame to avoid cascading renders
-  useEffect(() => {
-    const rafId = requestAnimationFrame(() => {
-      setIsMounted(true);
-    });
-    return () => {
-      cancelAnimationFrame(rafId);
-      setIsMounted(false);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!isMounted) return;
+  // Position the panel under the bell BEFORE the first paint, so it doesn't
+  // flash at a default spot and then jump into place.
+  useLayoutEffect(() => {
     function updatePosition() {
       if (!anchorRef?.current) {
         setPosition({ top: 96, right: 16 });
@@ -92,6 +82,7 @@ export default function NotificationModal({ onClose, onViewAll, anchorRef, userI
     }
 
     updatePosition();
+    setIsMounted(true);
 
     window.addEventListener("resize", updatePosition);
     document.addEventListener("scroll", updatePosition, true);
@@ -100,7 +91,7 @@ export default function NotificationModal({ onClose, onViewAll, anchorRef, userI
       window.removeEventListener("resize", updatePosition);
       document.removeEventListener("scroll", updatePosition, true);
     };
-  }, [anchorRef, isMounted]);
+  }, [anchorRef]);
 
   useEffect(() => {
     if (!isMounted) return;
@@ -141,7 +132,7 @@ export default function NotificationModal({ onClose, onViewAll, anchorRef, userI
         right: position.right,
       }}
     >
-        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-h-[80vh] flex flex-col overflow-hidden border border-brand-primary/20 dark:border-gray-800">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-h-[80vh] flex flex-col overflow-hidden border border-brand-primary/20 dark:border-gray-800 animate-in fade-in slide-in-from-top-2 duration-150">
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-full bg-brand-primary text-white flex items-center justify-center">
@@ -157,13 +148,6 @@ export default function NotificationModal({ onClose, onViewAll, anchorRef, userI
                 </div>
               </div>
             </div>
-            <button
-              onClick={onClose}
-              className="p-2 rounded-full hover:bg-brand-primaryLighter dark:hover:bg-gray-800 transition-colors text-gray-500 dark:text-gray-300"
-              type="button"
-            >
-              <X className="w-5 h-5" />
-            </button>
           </div>
 
           <div className="px-6 py-3 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 flex items-center gap-2">

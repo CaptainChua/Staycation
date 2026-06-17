@@ -4,11 +4,9 @@ import {
   Bell,
   ShieldCheck,
   Palette,
-  Info,
   Smartphone,
   Mail,
   AlertTriangle,
-  Fingerprint,
   Wifi,
   Lock,
   Calendar,
@@ -33,6 +31,7 @@ import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
 import { toast } from "react-hot-toast";
 import axios from "axios";
+import { signOut } from "next-auth/react";
 
 const primaryBtn =
   "relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-brand-primary focus:ring-offset-2";
@@ -52,30 +51,27 @@ export default function SettingsPage() {
     systemAlerts: true,
     emergencyAlerts: true,
     maintenanceAlerts: true,
-    lowInventoryAlerts: false,
+    lowInventoryAlerts: true,
+    // Delivery methods
+    email: true,
+    push: true,
   });
 
   const [isLoading, setIsLoading] = useState(false);
-  const [hasChanges, setHasChanges] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Load settings from backend
   useEffect(() => {
     loadSettings();
   }, []);
 
-  useEffect(() => {
-    setHasChanges(true);
-  }, [notificationPrefs]);
-
   const loadSettings = async () => {
     try {
       setIsLoading(true);
       const response = await axios.get('/api/admin/settings/csr');
       const data = response.data;
-      
+
       if (data.notificationPrefs) setNotificationPrefs(data.notificationPrefs);
-      
-      setHasChanges(false);
     } catch (error) {
       console.error('Failed to load settings:', error);
       toast.error('Failed to load settings');
@@ -84,42 +80,54 @@ export default function SettingsPage() {
     }
   };
 
-  const saveSettings = async () => {
+  // Auto-save: persist the given preferences to the backend immediately
+  const persistPrefs = async (prefs: typeof notificationPrefs) => {
     try {
-      setIsLoading(true);
-      await axios.post('/api/admin/settings/csr', {
-        notificationPrefs,
-      });
-      
-      setHasChanges(false);
-      toast.success('Settings saved successfully');
+      setIsSaving(true);
+      await axios.post('/api/admin/settings/csr', { notificationPrefs: prefs });
     } catch (error) {
       console.error('Failed to save settings:', error);
-      toast.error('Failed to save settings');
+      toast.error('Failed to save setting');
     } finally {
-      setIsLoading(false);
+      setIsSaving(false);
     }
   };
 
-  const resetToDefaults = () => {
-    setNotificationPrefs({
-      newBookings: true,
-      paymentConfirmations: true,
-      checkInNotifications: true,
-      checkOutNotifications: true,
-      cleaningUpdates: true,
-      deliverableUpdates: true,
-      guestMessages: true,
-      systemAlerts: true,
-      emergencyAlerts: true,
-      maintenanceAlerts: true,
-      lowInventoryAlerts: false,
-    });
-    toast.success('Settings reset to defaults');
+  const toggleNotification = (key: keyof typeof notificationPrefs) => {
+    const next = { ...notificationPrefs, [key]: !notificationPrefs[key] };
+    setNotificationPrefs(next);
+    persistPrefs(next); // save instantly — no "Save Changes" button needed
   };
 
-  const toggleNotification = (key: keyof typeof notificationPrefs) => {
-    setNotificationPrefs((prev) => ({ ...prev, [key]: !prev[key] }));
+  // Multi-factor authentication (email OTP) for the logged-in employee
+  const [mfaEnabled, setMfaEnabled] = useState(false);
+  const [mfaLoading, setMfaLoading] = useState(false);
+
+  useEffect(() => {
+    axios
+      .get('/api/admin/settings/csr/mfa')
+      .then((res) => setMfaEnabled(Boolean(res.data?.mfaEnabled)))
+      .catch((err) => console.error('Failed to load MFA status:', err));
+  }, []);
+
+  const toggleMfa = async () => {
+    const next = !mfaEnabled;
+    setMfaEnabled(next); // optimistic update
+    setMfaLoading(true);
+    try {
+      await axios.post('/api/admin/settings/csr/mfa', { enabled: next });
+      toast.success(
+        next
+          ? "Two-factor enabled — you'll get an email code at login"
+          : 'Two-factor disabled',
+      );
+    } catch (error) {
+      setMfaEnabled(!next); // revert on failure
+      console.error('Failed to update MFA:', error);
+      toast.error('Failed to update two-factor setting');
+    } finally {
+      setMfaLoading(false);
+    }
   };
 
   return (
@@ -130,22 +138,23 @@ export default function SettingsPage() {
         </p>
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Settings</h1>
-          <div className="flex gap-2">
-            {hasChanges && (
-              <button
-                onClick={resetToDefaults}
-                className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
-              >
-                Reset to Defaults
-              </button>
+          <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+            {isLoading ? (
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-gray-400 animate-pulse" />
+                Loading…
+              </span>
+            ) : isSaving ? (
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-brand-primary animate-pulse" />
+                Saving…
+              </span>
+            ) : (
+              <span className="flex items-center gap-1.5">
+                <CheckCircle className="w-4 h-4 text-emerald-500" />
+                All changes saved automatically
+              </span>
             )}
-            <button
-              onClick={saveSettings}
-              disabled={!hasChanges || isLoading}
-              className="px-4 py-2 bg-brand-primary text-white rounded-lg hover:bg-brand-primary/90 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
-            >
-              {isLoading ? 'Saving...' : 'Save Changes'}
-            </button>
           </div>
         </div>
         <p className="text-sm text-gray-500 dark:text-gray-400 max-w-2xl">
@@ -368,10 +377,17 @@ export default function SettingsPage() {
                   </div>
                 </div>
                 <button
-                  className={`${primaryBtn} bg-gray-200`}
-                  disabled
+                  onClick={() => toggleNotification(channel.id)}
+                  className={`${primaryBtn} ${
+                    notificationPrefs[channel.id] ? "bg-brand-primary" : "bg-gray-200"
+                  }`}
+                  aria-pressed={notificationPrefs[channel.id]}
                 >
-                  <span className="inline-block h-5 w-5 transform rounded-full bg-white transition translate-x-1" />
+                  <span
+                    className={`inline-block h-5 w-5 transform rounded-full bg-white transition ${
+                      notificationPrefs[channel.id] ? "translate-x-5" : "translate-x-1"
+                    }`}
+                  />
                 </button>
               </div>
             ))}
@@ -395,44 +411,36 @@ export default function SettingsPage() {
             </p>
           </div>
           <div className="divide-y divide-gray-100 dark:divide-gray-800">
-            {[
-              {
-                title: "Last verified login",
-                meta: "Today, 10:42 AM · QC office IP",
-                icon: <Fingerprint className="w-4 h-4 text-emerald-600" />,
-                action: "Review activity",
-              },
-              {
-                title: "Multi-factor enforcement",
-                meta: "Required for all CSR roles",
-                icon: <Lock className="w-4 h-4 text-emerald-600" />,
-                action: "Manage MFA",
-              },
-              {
-                title: "Recovery contacts",
-                meta: "csr-ops@staycation.ph · 2 fallback numbers",
-                icon: <Info className="w-4 h-4 text-emerald-600" />,
-                action: "Update contacts",
-              },
-            ].map((item) => (
-              <div
-                key={item.title}
-                className="flex items-center justify-between gap-4 px-6 py-5"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="rounded-full bg-emerald-50 dark:bg-emerald-900/20 p-2">{item.icon}</div>
-                  <div>
-                    <p className="text-base font-semibold text-gray-900 dark:text-gray-100">
-                      {item.title}
-                    </p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">{item.meta}</p>
-                  </div>
+            {/* Two-factor authentication — real, working toggle */}
+            <div className="flex items-center justify-between gap-4 px-6 py-5">
+              <div className="flex items-start gap-3">
+                <div className="rounded-full bg-emerald-50 dark:bg-emerald-900/20 p-2">
+                  <Lock className="w-4 h-4 text-emerald-600" />
                 </div>
-                <button className="text-sm font-semibold text-emerald-600 hover:text-emerald-700">
-                  {item.action}
-                </button>
+                <div>
+                  <p className="text-base font-semibold text-gray-900 dark:text-gray-100">
+                    Two-factor authentication
+                  </p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {mfaEnabled
+                      ? "Enabled — a verification code is emailed at every login"
+                      : "Disabled — sign in with just your password"}
+                  </p>
+                </div>
               </div>
-            ))}
+              <button
+                onClick={toggleMfa}
+                disabled={mfaLoading}
+                aria-pressed={mfaEnabled}
+                className={`${primaryBtn} ${mfaEnabled ? "bg-emerald-600" : "bg-gray-200"} disabled:opacity-50`}
+              >
+                <span
+                  className={`inline-block h-5 w-5 transform rounded-full bg-white transition ${
+                    mfaEnabled ? "translate-x-5" : "translate-x-1"
+                  }`}
+                />
+              </button>
+            </div>
           </div>
         </section>
       </div>
@@ -450,8 +458,8 @@ export default function SettingsPage() {
             Session management
           </h2>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Log out idle devices or regenerate API keys if an integration was
-            compromised.
+            Your session signs out automatically when idle. You can also sign out
+            of this device manually below.
           </p>
         </div>
 
@@ -459,21 +467,28 @@ export default function SettingsPage() {
           <div className="rounded-2xl border border-red-100 dark:border-red-900/30 bg-red-50 dark:bg-red-900/10 p-4">
             <div className="flex flex-col gap-1 text-sm text-red-900 dark:text-red-400">
               <p className="font-semibold">Idle device timeout</p>
-              <p>Sessions inactive for 45 minutes will be auto-signed out.</p>
+              <p>Sessions inactive for 30 minutes are automatically signed out.</p>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <p className="text-base font-semibold text-gray-900 dark:text-gray-100">
-                Force sign-out on all devices
+                Sign out of this device
               </p>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Useful if an agent misplaced a laptop or phone.
+                Ends your current session and returns you to the login page.
               </p>
             </div>
-            <button className="rounded-xl border border-red-200 dark:border-red-900/30 px-4 py-2 text-sm font-semibold text-red-600 dark:text-red-500 transition hover:bg-red-50 dark:hover:bg-red-900/10">
-              Sign out sessions
+            <button
+              onClick={() => {
+                if (confirm("Sign out of this device now?")) {
+                  signOut({ callbackUrl: "/admin/login", redirect: true });
+                }
+              }}
+              className="rounded-xl border border-red-200 dark:border-red-900/30 px-4 py-2 text-sm font-semibold text-red-600 dark:text-red-500 transition hover:bg-red-50 dark:hover:bg-red-900/10"
+            >
+              Sign out now
             </button>
           </div>
         </div>
