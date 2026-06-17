@@ -761,14 +761,16 @@ export const createBooking = async (
       amount_paid: paymentAmountPaid,
     });
 
-    // Note: remaining_balance is a GENERATED column in the live DB
-    // (computed as total_amount - amount_paid). Do not include it in INSERT.
+    // remaining_balance is a NOT NULL column (= total_amount - amount_paid),
+    // matching the CHECK constraint in bookings.sql. Compute and supply it
+    // explicitly so the insert satisfies the constraint on the rebuilt schema.
+    const paymentRemainingBalance = paymentTotalAmount - paymentAmountPaid;
     const paymentQuery = `
       INSERT INTO booking_payments (
         booking_id, payment_method, payment_proof_url, room_rate,
-        add_ons_total, total_amount, down_payment, amount_paid
+        add_ons_total, total_amount, down_payment, amount_paid, remaining_balance
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
     `;
 
     const paymentValues = [
@@ -780,6 +782,7 @@ export const createBooking = async (
       paymentTotalAmount,
       paymentDownPayment,
       paymentAmountPaid,
+      paymentRemainingBalance,
     ];
 
     console.log("📝 [BOOKING] Inserting payment record...");
