@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Employee Information Sheet — Shiemmain Rose Bierneza</title>
+<style>
+  *{ box-sizing:border-box; }
+  body{
+    margin:0; font-family:"Segoe UI", Arial, sans-serif; color:#1f1f1f;
+    background:#f1f2f4; padding:32px 16px;
+  }
+  .sheet{
+    max-width:760px; margin:0 auto; background:#fff; border-radius:16px;
+    box-shadow:0 10px 30px rgba(0,0,0,.08); overflow:hidden;
+  }
+  .sheet-head{
+    background:#1f1f1f; color:#fff; padding:26px 32px;
+    display:flex; align-items:center; gap:18px;
+  }
+  .avatar{
+    width:64px; height:64px; border-radius:50%; background:#e9476a; color:#fff;
+    display:flex; align-items:center; justify-content:center;
+    font-size:26px; font-weight:700; flex:0 0 auto;
+  }
+  .sheet-head h1{ margin:0 0 4px; font-size:22px; }
+  .sheet-head .sub{ font-size:13px; color:#bdbdbd; }
+  .tag{
+    display:inline-block; background:#2e9e5b22; color:#2e9e5b;
+    font-size:11px; font-weight:700; padding:2px 8px; border-radius:6px;
+    text-transform:uppercase; letter-spacing:.4px; margin-top:6px;
+  }
+  .body{ padding:28px 32px 36px; }
+  .section-title{
+    font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:.6px;
+    color:#888; margin:24px 0 12px; padding-bottom:6px; border-bottom:1px solid #eee;
+  }
+  .section-title:first-child{ margin-top:0; }
+  .grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:14px 28px; }
+  .field label{ display:block; font-size:12px; color:#999; margin-bottom:3px; }
+  .full{ grid-column:1 / -1; }
+
+  /* fields look like plain text until editing */
+  .field input{
+    width:100%; font-size:15px; font-weight:600; color:#1f1f1f;
+    font-family:inherit; border:1px solid transparent; background:transparent;
+    padding:6px 0; border-radius:8px;
+  }
+  .field input:focus{ outline:none; }
+  body.editing .field input{
+    border:1px solid #d9d9d9; background:#fafafa; padding:6px 10px;
+  }
+  body.editing .field input:focus{ border-color:#e9476a; background:#fff; }
+  .field input::placeholder{ color:#c4c4c4; font-weight:400; }
+  /* in view mode, empty fields show a dash */
+  .field input:not(:placeholder-shown){ }
+
+  table{ width:100%; border-collapse:collapse; font-size:14px; }
+  th, td{ text-align:left; padding:8px 10px; border-bottom:1px solid #f0f0f0; }
+  th{ color:#888; font-weight:600; font-size:12px; text-transform:uppercase; }
+  td.amt{ text-align:right; }
+  td.amt input{
+    width:120px; text-align:right; font-size:14px; font-weight:600; color:#1f1f1f;
+    font-family:inherit; border:1px solid transparent; background:transparent;
+    padding:5px 0; border-radius:8px;
+  }
+  body.editing td.amt input{ border:1px solid #d9d9d9; background:#fafafa; padding:5px 8px; }
+  body.editing td.amt input:focus{ outline:none; border-color:#e9476a; background:#fff; }
+
+  .foot{
+    padding:18px 32px; background:#fafafa; border-top:1px solid #eee;
+    font-size:12px; color:#999; display:flex; justify-content:space-between; align-items:center;
+  }
+  .actions{ display:flex; gap:10px; }
+  .btn{
+    border:none; border-radius:8px; padding:9px 16px; font-size:13px;
+    font-weight:600; cursor:pointer;
+  }
+  .btn.primary{ background:#e9476a; color:#fff; }
+  .btn.secondary{ background:#fff; color:#1f1f1f; border:1px solid #d9d9d9; }
+  .btn.ghost{ background:transparent; color:#888; border:1px solid #ddd; }
+  .hidden{ display:none !important; }
+
+  @media print{
+    body{ background:#fff; padding:0; }
+    .sheet{ box-shadow:none; }
+    .foot{ display:none; }
+  }
+  @media(max-width:560px){ .grid{ grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+  <div class="sheet">
+    <div class="sheet-head">
+      <div class="avatar">SR</div>
+      <div>
+        <h1>Shiemmain Rose Bierneza</h1>
+        <div class="sub">Employee Information Sheet · Staycation Haven PH</div>
+        <span class="tag">CSR</span>
+      </div>
+    </div>
+
+    <div class="body">
+      <div class="section-title">Personal Details</div>
+      <div class="grid">
+        <div class="field"><label>Full Name</label><input data-k="fullName" placeholder="—"></div>
+        <div class="field"><label>Nickname</label><input data-k="nickname" placeholder="—"></div>
+        <div class="field"><label>Age</label><input data-k="age" placeholder="—"></div>
+        <div class="field"><label>Sex</label><input data-k="sex" placeholder="—"></div>
+        <div class="field"><label>Position</label><input data-k="position" placeholder="—"></div>
+        <div class="field"><label>Status</label><input data-k="status" placeholder="—"></div>
+      </div>
+
+      <div class="section-title">Employment</div>
+      <div class="grid">
+        <div class="field"><label>Department</label><input data-k="department" placeholder="—"></div>
+        <div class="field"><label>Rate</label><input data-k="rate" placeholder="—"></div>
+        <div class="field"><label>Schedule</label><input data-k="schedule" placeholder="—"></div>
+        <div class="field"><label>Pay Type</label><input data-k="payType" placeholder="—"></div>
+      </div>
+
+      <div class="section-title">Contact</div>
+      <div class="grid">
+        <div class="field"><label>Contact Number</label><input data-k="contact" placeholder="—"></div>
+        <div class="field"><label>Email</label><input data-k="email" placeholder="—"></div>
+        <div class="field full"><label>Address</label><input data-k="address" placeholder="—"></div>
+        <div class="field full"><label>Emergency Contact</label><input data-k="emergency" placeholder="—"></div>
+      </div>
+
+      <div class="section-title">Government Numbers</div>
+      <div class="grid">
+        <div class="field"><label>SSS Number</label><input data-k="sssNo" placeholder="—"></div>
+        <div class="field"><label>PhilHealth Number</label><input data-k="philNo" placeholder="—"></div>
+        <div class="field"><label>Pag-IBIG Number</label><input data-k="pagibigNo" placeholder="—"></div>
+      </div>
+
+      <div class="section-title">Benefits &amp; Deductions</div>
+      <table>
+        <thead><tr><th>Item</th><th class="amt">Value</th></tr></thead>
+        <tbody>
+          <tr><td>SSS</td><td class="amt"><input data-k="sss" placeholder="—"></td></tr>
+          <tr><td>PhilHealth</td><td class="amt"><input data-k="philhealth" placeholder="—"></td></tr>
+          <tr><td>Pag-IBIG</td><td class="amt"><input data-k="pagibig" placeholder="—"></td></tr>
+          <tr><td>Loans</td><td class="amt"><input data-k="loans" placeholder="—"></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="foot">
+      <span>Staycation Haven PH — Confidential</span>
+      <div class="actions">
+        <button class="btn ghost" onclick="goBack()">← Back</button>
+        <button class="btn ghost" onclick="window.print()">🖨️ Print</button>
+        <button class="btn primary" id="editBtn" onclick="startEdit()">✏️ Edit</button>
+        <button class="btn secondary hidden" id="cancelBtn" onclick="cancelEdit()">Cancel</button>
+        <button class="btn primary hidden" id="saveBtn" onclick="saveSheet()">Save</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const STORE_KEY = "shph_employee_nicole";
+  // defaults pulled from the dashboard staff record
+  const DEFAULTS = {
+    fullName:"Shiemmain Rose Bierneza", nickname:"Nicole",
+    age:"", sex:"",
+    position:"Customer Service Representative (CSR)", status:"Active",
+    department:"Front Desk / Bookings", rate:"₱695 / day (8 hrs) + OT",
+    schedule:"8:00 AM – 5:00 PM", payType:"Daily + Commission",
+    contact:"", email:"", address:"", emergency:"",
+    sssNo:"", philNo:"", pagibigNo:"",
+    sss:"5%", philhealth:"2.5%", pagibig:"₱200", loans:"₱335"
+  };
+  const inputs = () => document.querySelectorAll("input[data-k]");
+
+  function load(){
+    let saved = {};
+    try { saved = JSON.parse(localStorage.getItem(STORE_KEY)) || {}; } catch(e){}
+    const data = { ...DEFAULTS, ...saved };
+    inputs().forEach(inp => { inp.value = data[inp.dataset.k] || ""; });
+    setReadonly(true);
+  }
+  function setReadonly(ro){
+    inputs().forEach(inp => { inp.readOnly = ro; });
+    document.body.classList.toggle("editing", !ro);
+  }
+  function startEdit(){
+    setReadonly(false);
+    document.getElementById("editBtn").classList.add("hidden");
+    document.getElementById("saveBtn").classList.remove("hidden");
+    document.getElementById("cancelBtn").classList.remove("hidden");
+    const first = document.querySelector("input[data-k]");
+    if(first) first.focus();
+  }
+  function endEdit(){
+    setReadonly(true);
+    document.getElementById("editBtn").classList.remove("hidden");
+    document.getElementById("saveBtn").classList.add("hidden");
+    document.getElementById("cancelBtn").classList.add("hidden");
+  }
+  function saveSheet(){
+    const data = {};
+    inputs().forEach(inp => { data[inp.dataset.k] = inp.value.trim(); });
+    localStorage.setItem(STORE_KEY, JSON.stringify(data));
+    endEdit();
+  }
+  function cancelEdit(){ load(); endEdit(); }
+  function goBack(){
+    // this sheet usually opens in a new tab — close it; otherwise fall back to the dashboard
+    if(window.opener && !window.opener.closed){ window.close(); }
+    else if(history.length > 1){ history.back(); }
+    else { window.location.href = "dashboard.html"; }
+  }
+
+  load();
+</script>
+</body>
+</html>

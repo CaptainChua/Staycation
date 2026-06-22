@@ -1,0 +1,4 @@
+<%# Injects the current server data + the bridge that keeps existing
+    localStorage-based page code working against the shared backend. %>
+<script>window.__SEED__ = <%- JSON.stringify(seed).replace(/</g, "\\u003c") %>;</script>
+<script src="/js/seed-bridge.js"></script>

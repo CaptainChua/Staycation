@@ -1,0 +1,16 @@
+{
+  "name": "staycation-haven-ph",
+  "version": "1.0.0",
+  "description": "Staycation Haven PH — Node.js (Express + EJS) app with a shared server-side data store replacing per-browser localStorage.",
+  "type": "commonjs",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "build:views": "node tools/build-views.js"
+  },
+  "dependencies": {
+    "ejs": "^3.1.10",
+    "express": "^4.21.2"
+  }
+}

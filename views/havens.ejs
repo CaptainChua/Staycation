@@ -1,0 +1,1181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<%- include('partials/seed') %>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Haven Details | Staycation Haven PH</title>
+    <link rel="icon" href="images/logo.png">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+    <a class="logo" href="index.html"><img class="logo-img" src="images/logo.png" alt="" onerror="this.remove()"> Staycation Haven PH</a>
+
+    <nav>
+        <a href="index.html">Home</a>
+        <a href="havens.html">Havens</a>
+        <a href="#">Promos</a>
+        <a href="#">Contact</a>
+    </nav>
+</header>
+
+<!--
+    Haven details are managed from the Admin Dashboard
+    (dashboard.html → "Haven Listings"). This page just
+    displays the haven matching ?id= in the link.
+-->
+<script src="havens-data.js"></script>
+<script src="site-settings.js"></script>
+
+<section class="haven-detail">
+    <a class="back-link" id="backLink" href="havens.html">← Back to all havens</a>
+
+    <div id="haven-content">
+        <!-- Haven details are filled in automatically -->
+    </div>
+</section>
+
+<footer>
+    <p>© 2026 Staycation Haven PH. All Rights Reserved.</p>
+</footer>
+
+<!-- floating photo viewer -->
+<div class="lightbox" id="photoLightbox" hidden onclick="closeLightbox()">
+    <span class="lightbox-close" aria-hidden="true">✕</span>
+    <img id="lightboxImg" src="" alt="">
+</div>
+
+<script>
+function openLightbox(src){
+    document.getElementById("lightboxImg").src = src;
+    document.getElementById("photoLightbox").removeAttribute("hidden");
+}
+function closeLightbox(){
+    document.getElementById("photoLightbox").setAttribute("hidden", "");
+}
+
+// listing of all havens (shown when havens.html is opened without ?id=)
+function renderHavenList(container) {
+    document.title = "Our Havens | Staycation Haven PH";
+    const section = document.querySelector(".haven-detail");
+    if (section) section.style.maxWidth = "1200px";
+    const backLink = document.getElementById("backLink");
+    if (backLink) { backLink.textContent = "← Back to home"; backLink.href = "index.html"; }
+
+    const havens = loadHavens();
+    container.innerHTML = `
+        <h1 style="margin-bottom:24px;">Our Havens</h1>
+        <div class="cards">
+            ${havens.map(h => `
+                <a class="card" href="havens.html?id=${h.id}">
+                    <img src="${h.image}" alt="${h.name}">
+                    <h3>${h.name}</h3>
+                    <p>${h.description}</p>
+                </a>`).join("")}
+        </div>`;
+}
+
+function renderHaven() {
+    const id = new URLSearchParams(window.location.search).get("id");
+    const container = document.getElementById("haven-content");
+
+    // no specific haven → show the full listing of all havens
+    if (!id) { renderHavenList(container); return; }
+
+    const haven = getHaven(id);
+    if (!haven) {
+        container.innerHTML = "<p>Sorry, that haven was not found.</p>";
+        return;
+    }
+
+    document.title = haven.name + " | Staycation Haven PH";
+    currentHavenName = haven.name;
+
+    const gallery = haven.gallery || [];
+    const photos = [haven.image, ...gallery].filter(Boolean);
+    const thumbs = photos.length > 1
+        ? `<div class="haven-thumbs">${photos.map(src =>
+              `<img class="haven-thumb" src="${src}" alt="" onclick="openLightbox(this.src)">`).join("")}</div>`
+        : "";
+
+    const customAddonRows = CUSTOM_ADDONS.map((a, i) => `
+        <div class="addon-row">
+            <div>
+                <div class="g-title">${a.name}</div>
+                <div class="g-sub">${peso(a.price)}${a.perPax ? " / pax" : ""}</div>
+            </div>
+            <div class="stepper">
+                <button type="button" class="step-btn" id="ca${i}Minus" onclick="changeCustomAddon(${i},-1)" disabled>−</button>
+                <span class="step-count" id="ca${i}Count">0</span>
+                <button type="button" class="step-btn" onclick="changeCustomAddon(${i},1)">+</button>
+            </div>
+        </div>`).join("");
+
+    container.innerHTML = `
+        <img class="haven-photo" id="havenPhoto" src="${haven.image}" alt="${haven.name}" onclick="openLightbox(this.src)">
+        ${thumbs}
+        <div class="haven-grid">
+            <div class="haven-main">
+                <h1>${haven.name}</h1>
+                <p class="haven-meta">Entire staycation unit · Up to 6 guests · Mplace Tower D, Quezon City</p>
+                <p class="haven-price">Price starts at ₱999</p>
+                <hr class="haven-divider">
+                <p class="haven-desc">${haven.description}</p>
+                <hr class="haven-divider">
+                <h3>What this place offers</h3>
+                <ul class="haven-amenities">
+                    ${haven.amenities.map(a => `<li>${a}</li>`).join("")}
+                </ul>
+                <button class="book-btn" onclick="alert('Booking request sent for ${haven.name}!')">Book This Haven</button>
+            </div>
+
+            <aside class="booking-card">
+                <h2 class="booking-title">Details of your stay:</h2>
+
+                <div class="booking-fields">
+                    <div class="date-row">
+                        <button type="button" class="date-cell" onclick="openCalendar()">
+                            <span class="cell-label">CHECK-IN</span>
+                            <span class="date-value empty" id="checkinValue">Add date</span>
+                        </button>
+                        <button type="button" class="date-cell" onclick="openCalendar()">
+                            <span class="cell-label">CHECKOUT</span>
+                            <span class="date-value empty" id="checkoutValue">Add date</span>
+                        </button>
+                    </div>
+
+                    <div class="stay-cell" id="stayCell">
+                        <span class="cell-label">HOURS OF STAY</span>
+                        <select id="hoursOfStay" onchange="syncBooking()" disabled>
+                            <option value="">Select dates first</option>
+                        </select>
+                    </div>
+
+                    <div class="stay-cell">
+                        <span class="cell-label">CHECK-IN TIME</span>
+                        <select id="checkinTime" onchange="syncBooking()" disabled>
+                            <option value="">Select dates first</option>
+                        </select>
+                    </div>
+
+                    <div class="stay-cell">
+                        <span class="cell-label">CHECK-OUT TIME</span>
+                        <span class="checkout-time empty" id="checkoutTimeValue">—</span>
+                    </div>
+
+                    <div class="checkin-info" id="checkinInfo"></div>
+
+                    <div class="guest-cell">
+                        <button type="button" class="guest-toggle" onclick="toggleGuests()">
+                            <span class="guest-toggle-text">
+                                <span class="cell-label">GUESTS</span>
+                                <span id="guestSummary">1 guest</span>
+                            </span>
+                            <span class="chevron" id="guestChevron">⌄</span>
+                        </button>
+
+                        <div class="guest-panel" id="guestPanel" hidden>
+                            <div class="guest-stepper-row">
+                                <div>
+                                    <div class="g-title">Adults</div>
+                                    <div class="g-sub">Age 18+</div>
+                                </div>
+                                <div class="stepper">
+                                    <button type="button" class="step-btn" id="adultsMinus" onclick="changeGuest('adults',-1)">−</button>
+                                    <span class="step-count" id="adultsCount">1</span>
+                                    <button type="button" class="step-btn" id="adultsPlus" onclick="changeGuest('adults',1)">+</button>
+                                </div>
+                            </div>
+                            <div class="guest-stepper-row">
+                                <div>
+                                    <div class="g-title">Children</div>
+                                    <div class="g-sub">Ages 4–17</div>
+                                </div>
+                                <div class="stepper">
+                                    <button type="button" class="step-btn" id="childrenMinus" onclick="changeGuest('children',-1)">−</button>
+                                    <span class="step-count" id="childrenCount">0</span>
+                                    <button type="button" class="step-btn" id="childrenPlus" onclick="changeGuest('children',1)">+</button>
+                                </div>
+                            </div>
+                            <div class="guest-stepper-row">
+                                <div>
+                                    <div class="g-title">Kids</div>
+                                    <div class="g-sub">Under 3 · free</div>
+                                </div>
+                                <div class="stepper">
+                                    <button type="button" class="step-btn" id="infantsMinus" onclick="changeGuest('infants',-1)">−</button>
+                                    <span class="step-count" id="infantsCount">0</span>
+                                    <button type="button" class="step-btn" id="infantsPlus" onclick="changeGuest('infants',1)">+</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="addons">
+                    <div class="addons-title">Optional add-ons</div>
+                    <div class="addon-row">
+                        <div>
+                            <div class="g-title">Pool pass</div>
+                            <div class="g-sub">₱150/pax · ₱300 on holidays</div>
+                        </div>
+                        <div class="stepper">
+                            <button type="button" class="step-btn" id="poolMinus" onclick="changeAddon('pool',-1)">−</button>
+                            <span class="step-count" id="poolPassCount">0</span>
+                            <button type="button" class="step-btn" onclick="changeAddon('pool',1)">+</button>
+                        </div>
+                    </div>
+                    <div class="addon-row">
+                        <div>
+                            <div class="g-title">Additional hours</div>
+                            <div class="g-sub">₱150/hr</div>
+                        </div>
+                        <div class="stepper">
+                            <button type="button" class="step-btn" id="hoursMinus" onclick="changeAddon('hours',-1)">−</button>
+                            <span class="step-count" id="extraHoursCount">0</span>
+                            <button type="button" class="step-btn" onclick="changeAddon('hours',1)">+</button>
+                        </div>
+                    </div>
+                    ${customAddonRows}
+                </div>
+
+                <div class="price-breakdown" id="priceBreakdown"></div>
+
+                <div class="calendar-popup" id="calendarPopup" hidden>
+                    <div class="cal-top">
+                        <div class="cal-heading">
+                            <h3>Select dates</h3>
+                            <p>Add your travel dates for exact pricing</p>
+                        </div>
+                        <div class="cal-fields">
+                            <div class="cal-field" id="calFieldIn">
+                                <span class="cell-label">CHECK-IN</span>
+                                <span class="cal-field-value ph" id="calInValue">MM/DD/YYYY</span>
+                                <button type="button" class="cal-clear-x" id="calClearX" onclick="clearDates()">✕</button>
+                            </div>
+                            <div class="cal-field" id="calFieldOut">
+                                <span class="cell-label">CHECKOUT</span>
+                                <span class="cal-field-value ph" id="calOutValue">MM/DD/YYYY</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="cal-months">
+                        <button type="button" class="cal-nav cal-prev" id="calPrev" onclick="changeMonth(-1)">‹</button>
+                        <div class="cal-month" id="calMonth0"></div>
+                        <div class="cal-month" id="calMonth1"></div>
+                        <button type="button" class="cal-nav cal-next" onclick="changeMonth(1)">›</button>
+                    </div>
+
+                    <div class="cal-footer">
+                        <span class="cal-kbd" aria-hidden="true">⌨</span>
+                        <div class="cal-actions">
+                            <button type="button" class="cal-text-btn" onclick="clearDates()">Clear dates</button>
+                            <button type="button" class="cal-close-btn" onclick="closeCalendar()">Close</button>
+                        </div>
+                    </div>
+                </div>
+
+                <button class="check-btn" onclick="bookNow()">Book now</button>
+                <p class="guest-note">Maximum 4 adults and 2 kids (0–12) per unit; kids under 3 stay free. Pets aren't allowed. Rate covers 2 pax — extra pax ₱300 each.</p>
+                <p class="deposit-note">The ₱1,000 security deposit is refundable the day after check-out, as long as there's no violation, damage, or lost item in the unit.</p>
+            </aside>
+        </div>
+    `;
+
+    computeUnavailable();
+    applyStayFromUrl();
+    syncBooking();
+    updateGuestUI();
+}
+
+// pre-fills the booking widget from the search bar details passed in the URL
+// (?checkin=&checkout=&hours=&adults=&children=) so guests don't re-enter them
+function applyStayFromUrl() {
+    const p = new URLSearchParams(window.location.search);
+    const checkin = p.get("checkin");
+    if (!checkin) return;                       // nothing carried over
+
+    selStart = checkin;
+    const checkout = p.get("checkout");
+    if (checkout && daysBetween(checkin, checkout) >= 2) {   // 2+ nights = explicit multi-night
+        selEnd = checkout;
+        manualRange = true;
+    } else {
+        // same-day or a single night → single stay, priced by Hours of Stay (6/10/21)
+        selEnd = null;
+        manualRange = false;
+    }
+
+    // populate the hours dropdown for the chosen dates, then apply the hours value
+    updateHoursOptions();
+    const hours = p.get("hours");
+    if (!manualRange && hours && ["6", "10", "21"].includes(hours)) {
+        document.getElementById("hoursOfStay").value = hours;
+    }
+
+    const adults = parseInt(p.get("adults"), 10);
+    const children = parseInt(p.get("children"), 10);
+    if (!isNaN(adults))   guests.adults   = Math.max(1, Math.min(MAX_ADULTS, adults));
+    if (!isNaN(children)) guests.children = Math.max(0, Math.min(MAX_CHILDREN, children));
+}
+
+let guests = { adults: 1, children: 0, infants: 0 };
+let currentHavenName = null;
+
+// Bookings live in the Admin Dashboard's calendar; both pages share this
+// localStorage key, so availability here reflects the real calendar.
+const BOOKINGS_KEY = "shph_bookings_v3";
+
+function loadBookings() {
+    try {
+        return JSON.parse(localStorage.getItem(BOOKINGS_KEY)) || [];
+    } catch (e) {
+        return [];
+    }
+}
+
+// occupied range as a half-open interval [checkin, endExclusive);
+// a same-day (day-use) booking occupies that one day.
+function addOneDayIso(isoDate) {
+    const d = new Date(isoDate + "T00:00:00");
+    d.setDate(d.getDate() + 1);
+    // build from local parts — toISOString() would shift the day in UTC+8 (PH)
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+}
+function endExclusive(checkin, checkout) {
+    return checkout > checkin ? checkout : addOneDayIso(checkin);
+}
+
+/* ---------- pricing (editable from the Admin Dashboard) ---------- */
+const SETTINGS = loadSettings();
+const PRICE = SETTINGS.pricing;
+const CUSTOM_ADDONS = SETTINGS.customAddons || [];
+let customAddonQty = {};   // qty per custom add-on index
+
+// Philippine holidays the holiday rate applies to — edit this list as needed.
+const HOLIDAYS = new Set([
+    "2026-01-01", "2026-04-09", "2026-05-01", "2026-06-12",
+    "2026-08-21", "2026-08-31", "2026-11-01", "2026-11-30",
+    "2026-12-08", "2026-12-25", "2026-12-30", "2026-12-31"
+]);
+function isHoliday(iso) { return HOLIDAYS.has(iso); }
+
+const MAX_ADULTS = 4;
+const MAX_CHILDREN = 2;
+const MAX_KIDS = 4;        // under-3s, not counted toward occupancy
+
+// standard Sat/Sun 21-hour check-in / check-out times, by haven
+const HAVEN_TIMES = {
+    "Haven 1":     { in: "12:00 NN", out: "9:00 AM" },
+    "Haven 2":     { in: "12:00 NN", out: "9:00 AM" },
+    "Haven 3":     { in: "12:00 NN", out: "9:00 AM" },
+    "Haven 4":     { in: "3:00 PM",  out: "12:00 NN" },
+    "Haven 5":     { in: "3:00 PM",  out: "12:00 NN" },
+    "Haven 7":     { in: "3:00 PM",  out: "12:00 NN" },
+    "Haven 8":     { in: "6:00 PM",  out: "3:00 PM" },
+    "Casa Bienca": { in: "6:00 PM",  out: "3:00 PM" }
+};
+
+// flexible check-in times (10-hour stays, etc.): 8 AM – 10 PM
+const FLEX_TIMES = [
+    "8:00 AM", "9:00 AM", "10:00 AM", "11:00 AM", "12:00 NN",
+    "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM", "5:00 PM", "6:00 PM",
+    "7:00 PM", "8:00 PM", "9:00 PM", "10:00 PM"
+];
+
+// 6-hour day-use slots: morning (8 AM – 12 NN) or evening (7 PM – 12 MN)
+const SIX_HOUR_MORNING = ["8:00 AM", "9:00 AM", "10:00 AM", "11:00 AM", "12:00 NN"];
+const SIX_HOUR_EVENING = ["7:00 PM", "8:00 PM", "9:00 PM", "10:00 PM", "11:00 PM", "12:00 MN"];
+const SIX_HOUR_TIMES = [...SIX_HOUR_MORNING, ...SIX_HOUR_EVENING];
+
+// which 6-hour slot a check-in time belongs to
+function slotForCheckinTime(timeStr) {
+    return SIX_HOUR_MORNING.includes(timeStr) ? "morning" : "evening";
+}
+
+// the 6-hour slots still free for a haven on a given day (reads dashboard bookings)
+function freeSlotsForDate(iso) {
+    return ["morning", "evening"].filter(slot => !slotConflict(iso, iso, 6, slot));
+}
+
+let addons = { pool: 0, hours: 0 };
+
+function peso(n) { return "₱" + Number(n).toLocaleString("en-PH"); }
+function isFriSat(date) { const d = date.getDay(); return d === 5 || d === 6; }
+function daysBetween(aIso, bIso) {
+    return Math.round((isoToDate(bIso) - isoToDate(aIso)) / 86400000);
+}
+
+function changeAddon(type, delta) {
+    const next = addons[type] + delta;
+    if (next < 0) return;
+    addons[type] = next;
+    document.getElementById("poolPassCount").textContent = addons.pool;
+    document.getElementById("extraHoursCount").textContent = addons.hours;
+    document.getElementById("poolMinus").disabled = addons.pool <= 0;
+    document.getElementById("hoursMinus").disabled = addons.hours <= 0;
+    syncBooking();   // additional hours change the check-out time
+}
+
+function changeCustomAddon(i, delta) {
+    const next = (customAddonQty[i] || 0) + delta;
+    if (next < 0) return;
+    customAddonQty[i] = next;
+    document.getElementById(`ca${i}Count`).textContent = next;
+    document.getElementById(`ca${i}Minus`).disabled = next <= 0;
+    renderPricing();
+}
+
+// true if any night (or the day-use date) falls on a holiday
+function bookingHasHoliday() {
+    if (!selStart) return false;
+    const nights = selEnd ? daysBetween(selStart, selEnd) : 0;
+    if (nights === 0) return isHoliday(selStart);
+    const d = isoToDate(selStart);
+    for (let i = 0; i < nights; i++) {
+        if (isHoliday(dateToIso(d))) return true;
+        d.setDate(d.getDate() + 1);
+    }
+    return false;
+}
+
+// downpayment scales with the number of days booked (tiers from settings)
+function downpaymentFor(days) {
+    const tiers = SETTINGS.downpayment || [];
+    for (const t of tiers) {
+        if (days <= t.maxDays) return t.amount;
+    }
+    return tiers.length ? tiers[tiers.length - 1].amount : 0;
+}
+
+// works out the full cost for the current selection
+function computeBooking() {
+    if (!selStart) return { ready: false, msg: "Select your dates to see pricing." };
+
+    const checkinDate = isoToDate(selStart);
+    let base = 0;
+    let days;
+    let nights = 0;
+    const lines = [];
+
+    if (manualRange && selEnd) {
+        // multiple nights — per-night pricing (holiday rate, then 3+ night discount)
+        nights = daysBetween(selStart, selEnd);
+        if (nights > PRICE.maxDays) {
+            return { ready: false, error: true, msg: `Maximum booking is ${PRICE.maxDays} days.` };
+        }
+        const longStay = nights >= 3;
+        const d = new Date(checkinDate);
+        for (let i = 0; i < nights; i++) {
+            const wknd = isFriSat(d);
+            if (isHoliday(dateToIso(d))) base += PRICE.holidayNight;
+            else if (longStay) base += wknd ? PRICE.longWeekend : PRICE.longWeekday;
+            else base += wknd ? PRICE.stay21Weekend : PRICE.stay21Weekday;
+            d.setDate(d.getDate() + 1);
+        }
+        days = nights;
+        lines.push([`${nights} night${nights > 1 ? "s" : ""}${longStay ? " (3+ night rate)" : ""}`, base]);
+    } else {
+        // single stay — priced by Hours of Stay
+        const hours = Number(document.getElementById("hoursOfStay").value);
+        if (!hours) return { ready: false, msg: "Choose your hours of stay." };
+
+        if (hours === 21) {
+            // overnight — price per night (holiday rate, then 3+ night discount)
+            nights = Math.max(selEnd ? daysBetween(selStart, selEnd) : 1, 1);
+            const longStay = nights >= 3;
+            const d = new Date(checkinDate);
+            for (let i = 0; i < nights; i++) {
+                const wknd = isFriSat(d);
+                if (isHoliday(dateToIso(d))) base += PRICE.holidayNight;
+                else if (longStay) base += wknd ? PRICE.longWeekend : PRICE.longWeekday;
+                else base += wknd ? PRICE.stay21Weekend : PRICE.stay21Weekday;
+                d.setDate(d.getDate() + 1);
+            }
+            days = nights;
+            lines.push([`21 hours × ${nights} night${nights > 1 ? "s" : ""}`, base]);
+        } else {
+            // 6 or 10 hour short stay (may cross midnight) — flat rate
+            const holiday = isHoliday(selStart);
+            base = holiday ? PRICE.holidayDayUse : (hours === 6 ? PRICE.stay6 : PRICE.stay10);
+            days = 1;
+            lines.push([`${hours} hours${holiday ? " (holiday)" : ""}`, base]);
+        }
+    }
+
+    // extra pax — base covers 2; children count, kids under 3 are free
+    const counted = guests.adults + guests.children;
+    const extraPax = Math.max(0, counted - PRICE.includedPax);
+    if (extraPax > 0) lines.push([`Extra pax (${extraPax} × ${peso(PRICE.addPax)})`, extraPax * PRICE.addPax]);
+
+    // optional add-ons
+    const holidayBooking = bookingHasHoliday();
+    if (addons.pool > 0) {
+        const poolRate = holidayBooking ? PRICE.poolHoliday : PRICE.poolRegular;
+        lines.push([`Pool pass (${addons.pool} × ${peso(poolRate)})`, addons.pool * poolRate]);
+    }
+    if (addons.hours > 0) {
+        lines.push([`Additional hours (${addons.hours} × ${peso(PRICE.extraHour)})`, addons.hours * PRICE.extraHour]);
+    }
+
+    // owner-defined custom add-ons
+    CUSTOM_ADDONS.forEach((a, i) => {
+        const qty = customAddonQty[i] || 0;
+        if (qty <= 0) return;
+        const cost = a.perPax ? qty * a.price * counted : qty * a.price;
+        lines.push([`${a.name} (${qty}${a.perPax ? " × " + counted + " pax" : ""} × ${peso(a.price)})`, cost]);
+    });
+
+    const subtotal = lines.reduce((sum, [, amt]) => sum + amt, 0);
+    const deposit = PRICE.deposit;
+    const total = subtotal + deposit;
+    const downpayment = downpaymentFor(days);
+    const balance = total - downpayment;
+    return { ready: true, nights, days, base, deposit, total, downpayment, balance, lines };
+}
+
+// fills the Hours of Stay dropdown based on the chosen dates / check-in day
+function updateHoursOptions() {
+    const sel = document.getElementById("hoursOfStay");
+
+    if (!selStart) {
+        sel.innerHTML = `<option value="">Select dates first</option>`;
+        sel.disabled = true;
+        return;
+    }
+
+    if (manualRange && selEnd) {
+        // a multi-night range was picked → hours don't apply
+        sel.innerHTML = `<option value="">Multiple nights</option>`;
+        sel.disabled = true;
+        return;
+    }
+
+    // Saturday check-ins are 21-hour (overnight) only — no 6h or 10h
+    if (isoToDate(selStart).getDay() === 6) {
+        sel.disabled = false;
+        if (freeCheckinTimes(21, selStart, addons.hours).length) {
+            sel.innerHTML = `<option value="21">21 hours (overnight)</option>`;
+            sel.value = "21";
+        } else {
+            sel.innerHTML = `<option value="">Fully booked for this date</option>`;
+            sel.disabled = true;
+        }
+        return;
+    }
+
+    // only offer a duration if at least one check-in time still fits it
+    // (respecting existing bookings + the 2-hour cleaning gap)
+    const prev = sel.value;
+    sel.disabled = false;
+    let opts = `<option value="">Choose hours…</option>`;
+    if (PRICE.offer6 !== false  && freeCheckinTimes(6,  selStart, addons.hours).length)  opts += `<option value="6">6 hours</option>`;
+    if (PRICE.offer10 !== false && freeCheckinTimes(10, selStart, addons.hours).length)  opts += `<option value="10">10 hours</option>`;
+    if (PRICE.offer21 !== false && freeCheckinTimes(21, selStart, addons.hours).length)  opts += `<option value="21">21 hours (overnight)</option>`;
+    sel.innerHTML = opts;
+    if (prev && new RegExp(`value="${prev}"`).test(opts)) sel.value = prev;
+}
+function checkinDateDay() { return isoToDate(selStart).getDay(); } // 0 Sun … 6 Sat
+
+// fills the Check-in Time dropdown based on the booking type
+function updateCheckinTimeOptions() {
+    const sel = document.getElementById("checkinTime");
+
+    if (!selStart) {
+        sel.innerHTML = `<option value="">Select dates first</option>`;
+        sel.disabled = true;
+        return;
+    }
+
+    if (manualRange && selEnd) {
+        // multi-night → fixed standard check-in time for this haven
+        const t = HAVEN_TIMES[currentHavenName];
+        const inTime = t ? t.in : "Standard time";
+        sel.innerHTML = `<option value="${inTime}">${inTime} (standard)</option>`;
+        sel.disabled = true;
+        return;
+    }
+
+    const hours = Number(document.getElementById("hoursOfStay").value);
+    if (!hours) {
+        sel.innerHTML = `<option value="">Choose hours first</option>`;
+        sel.disabled = true;
+        return;
+    }
+
+    // only show times that fit around existing bookings + the 2-hour cleaning gap
+    const free = freeCheckinTimes(hours, selStart, addons.hours);
+    if (free.length === 0) {
+        sel.innerHTML = `<option value="">Fully booked for this date</option>`;
+        sel.disabled = true;
+        return;
+    }
+
+    // Saturday 21-hour overnight uses the haven's single standard check-in time
+    const day = checkinDateDay();
+    if (hours === 21 && day === 6 && free.length === 1) {
+        sel.innerHTML = `<option value="${free[0]}">${free[0]} (standard)</option>`;
+        sel.disabled = true;
+        return;
+    }
+
+    const prev = sel.value;
+    sel.disabled = false;
+    sel.innerHTML = free.map(t => `<option value="${t}">${t}</option>`).join("");
+    sel.value = free.includes(prev) ? prev : free[0];
+}
+
+// parse "8:00 AM" / "12:00 NN" / "12:00 MN" → minutes after midnight
+function parseTimeToMinutes(str) {
+    const m = String(str).match(/^(\d{1,2}):(\d{2})\s*(AM|PM|NN|MN)$/i);
+    if (!m) return null;
+    let h = Number(m[1]);
+    const min = Number(m[2]);
+    const suf = m[3].toUpperCase();
+    if (suf === "NN") h = 12;
+    else if (suf === "MN") h = 0;
+    else if (suf === "PM") h = (h % 12) + 12;
+    else h = h % 12;                       // AM
+    return h * 60 + min;
+}
+
+// minutes after midnight → "6:00 PM" / "12:00 NN" / "12:00 MN"
+function minutesToTimeStr(min) {
+    min = ((min % 1440) + 1440) % 1440;
+    const h = Math.floor(min / 60);
+    const mm = String(min % 60).padStart(2, "0");
+    if (h === 0) return `12:${mm} MN`;
+    if (h === 12) return `12:${mm} NN`;
+    const ampm = h < 12 ? "AM" : "PM";
+    const h12 = h > 12 ? h - 12 : h;
+    return `${h12}:${mm} ${ampm}`;
+}
+
+/* ---------- time-interval availability (2-hour cleaning gap) ---------- */
+const CLEAN_BUFFER_MIN = 120;   // required cleaning gap between bookings (2 hours)
+const REF_ISO = "2000-01-01";
+function dayIndex(iso){ return daysBetween(REF_ISO, iso); }
+
+// a check-in time in minutes; "12:00 MN" means midnight at the END of the day (24:00)
+function checkinMinOf(timeStr){
+    const m = parseTimeToMinutes(timeStr);
+    if(m == null) return null;
+    return m === 0 ? 1440 : m;
+}
+
+// an existing booking's check-in minute-of-day (stored time, else derived)
+function bookingStartMin(b){
+    if(b.checkinTime){ const m = checkinMinOf(b.checkinTime); if(m != null) return m; }
+    const h = Number(b.stayHours) || 21;
+    if(h === 6) return parseTimeToMinutes(b.slot === "evening" ? "7:00 PM" : "8:00 AM");
+    if(h === 21){ const t = HAVEN_TIMES[b.haven] || HAVEN_TIMES[currentHavenName]; return t ? parseTimeToMinutes(t.in) : parseTimeToMinutes("12:00 NN"); }
+    return parseTimeToMinutes("8:00 AM");   // 10h fallback
+}
+function bookingDurationMin(b){
+    return ((Number(b.stayHours) || 21) + (Number(b.extend) || 0)) * 60;
+}
+// absolute occupied interval (minutes from a fixed reference) for the current haven
+function bookingAbsInterval(b){
+    const s = dayIndex(b.checkin) * 1440 + bookingStartMin(b);
+    return { s, e: s + bookingDurationMin(b) };
+}
+// cached bookings for the current haven (refreshed in computeUnavailable)
+let havenBookingsCache = null;
+function currentHavenBookings(){
+    if(!havenBookingsCache) havenBookingsCache = loadBookings().filter(b => sameHaven(b.haven, currentHavenName));
+    return havenBookingsCache;
+}
+// does candidate [candS, candE] clash with an existing booking (+ cleaning buffer)?
+function intervalConflicts(candS, candE){
+    return currentHavenBookings().some(b => {
+        const { s, e } = bookingAbsInterval(b);
+        return candS < e + CLEAN_BUFFER_MIN && s - CLEAN_BUFFER_MIN < candE;
+    });
+}
+// candidate check-in times for a duration: 6h = AM/PM slots, 10h/21h = flexible window
+function rawTimesForHours(hours, checkinIso){
+    if(hours === 6) return SIX_HOUR_TIMES;
+    if(hours === 21){
+        const day = isoToDate(checkinIso).getDay();
+        // Saturday → fixed standard check-in; other days flexible (Sunday depends on
+        // the previous guest's checkout, which the cleaning-gap check already enforces)
+        if(day === 6){ const t = HAVEN_TIMES[currentHavenName]; return t ? [t.in] : ["3:00 PM"]; }
+        return FLEX_TIMES;
+    }
+    return FLEX_TIMES;   // 10h
+}
+// the check-in times that actually fit (no clash, cleaning gap respected)
+function freeCheckinTimes(hours, checkinIso, extend){
+    extend = extend || 0;
+    const base = dayIndex(checkinIso) * 1440;
+    return rawTimesForHours(hours, checkinIso).filter(tStr => {
+        const sMin = checkinMinOf(tStr);
+        if(sMin == null) return false;
+        const s = base + sMin;
+        const e = s + (hours + extend) * 60;
+        return !intervalConflicts(s, e);
+    });
+}
+// is any stay length still bookable on this date?
+function dayHasAnyFreeTime(iso){
+    // Saturday = 21-hour overnight only
+    if(isoToDate(iso).getDay() === 6){
+        return PRICE.offer21 !== false && freeCheckinTimes(21, iso, 0).length > 0;
+    }
+    return [
+        [6, PRICE.offer6 !== false],
+        [10, PRICE.offer10 !== false],
+        [21, PRICE.offer21 !== false]
+    ].some(([h, on]) => on && freeCheckinTimes(h, iso, 0).length > 0);
+}
+
+// auto check-out = check-in time + hours of stay + additional hours;
+// rolls the check-out DATE to the next day when the stay crosses midnight
+function recomputeCheckout() {
+    if (manualRange && selEnd) {
+        // multi-night: checkout date is the one the guest picked; show standard time
+        const t = HAVEN_TIMES[currentHavenName];
+        renderCheckoutTime(t ? t.out : "Standard time", selEnd);
+        return;
+    }
+
+    const hours = Number(document.getElementById("hoursOfStay").value);
+    const timeStr = document.getElementById("checkinTime").value;
+    if (!selStart || !hours || !timeStr) {
+        selEnd = null;
+        renderCheckoutTime(null);
+        return;
+    }
+    const startMin = checkinMinOf(timeStr);
+    if (startMin === null) { selEnd = null; renderCheckoutTime(null); return; }
+
+    const totalMin = startMin + (hours + addons.hours) * 60;
+    const dayOffset = Math.floor(totalMin / 1440);
+    const coDate = new Date(isoToDate(selStart));
+    coDate.setDate(coDate.getDate() + dayOffset);
+    selEnd = dayOffset === 0 ? selStart : dateToIso(coDate);
+    renderCheckoutTime(minutesToTimeStr(totalMin), selEnd);
+}
+
+function renderCheckoutTime(timeStr, isoDate) {
+    const el = document.getElementById("checkoutTimeValue");
+    if (!timeStr) { el.textContent = "—"; el.classList.add("empty"); return; }
+    el.classList.remove("empty");
+    el.textContent = timeStr + (isoDate ? " · " + fmtShort(isoDate) : "");
+}
+
+// recompute everything after any change to date / hours / time / add-ons
+function syncBooking() {
+    havenBookingsCache = null;   // always reflect the latest bookings (fresh checkout times)
+    updateHoursOptions();
+    updateCheckinTimeOptions();
+    recomputeCheckout();
+    updateDateDisplay();
+    renderCalendar();
+    renderCheckinInfo();
+    renderPricing();
+}
+
+// renders the price computation panel below Guests
+function renderPricing() {
+    const panel = document.getElementById("priceBreakdown");
+    const r = computeBooking();
+
+    if (!r.ready) {
+        panel.innerHTML = `<p class="price-msg${r.error ? " price-error" : ""}">${r.msg}</p>`;
+        return;
+    }
+
+    let html = "";
+    r.lines.forEach(([label, amt]) => {
+        html += `<div class="price-row"><span>${label}</span><span>${peso(amt)}</span></div>`;
+    });
+    html += `<div class="price-row"><span>Security deposit</span><span>${peso(r.deposit)}</span></div>`;
+    html += `<div class="price-row price-total"><span>Total</span><span>${peso(r.total)}</span></div>`;
+    html += `<div class="price-row"><span>Downpayment (${r.days} day${r.days > 1 ? "s" : ""})</span><span>${peso(r.downpayment)}</span></div>`;
+    html += `<div class="price-row price-balance"><span>Balance on arrival</span><span>${peso(r.balance)}</span></div>`;
+    panel.innerHTML = html;
+}
+
+// shows the matching check-out time / schedule note below the time dropdown
+function renderCheckinInfo() {
+    const el = document.getElementById("checkinInfo");
+    if (!selStart) { el.innerHTML = ""; return; }
+
+    const day = isoToDate(selStart).getDay();                 // 0 Sun … 6 Sat
+    const overnight = manualRange || Number(document.getElementById("hoursOfStay").value) === 21;
+
+    if (overnight && (day === 0 || day === 6)) {
+        // standard fixed schedule for weekend overnight stays
+        const t = HAVEN_TIMES[currentHavenName];
+        const out = t ? t.out : "standard time";
+        el.innerHTML = `<span class="ci-time">Standard weekend schedule — check-out <strong>${out}</strong>.</span>`;
+    } else {
+        // flexible window
+        el.innerHTML = `<span class="ci-time">Flexible check-in/out, 8:00 AM–10:00 PM. Check the allotted time on the calendar.</span>`;
+    }
+}
+
+/* ---------- custom availability calendar ---------- */
+let selStart = null;          // chosen check-in (iso)
+let selEnd = null;            // chosen checkout (iso)
+let manualRange = false;      // true when the guest picked an explicit checkout (multi-night)
+let viewDate = null;          // first day of the month being shown
+let unavailableSet = new Set(); // booked days for this haven (iso)
+
+function isoToDate(iso) { return new Date(iso + "T00:00:00"); }
+function dateToIso(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+}
+function todayIso() { return dateToIso(new Date()); }
+
+// build the set of booked days for the current haven, straight from the
+// dashboard calendar (localStorage).
+// a day is FULLY blocked only if a 10h/21h/overnight booking covers it, OR
+// both 6-hour slots (morning + evening) are already taken. A day with only
+// one 6-hour slot booked stays selectable for the other slot.
+// tolerant haven-name match (ignores stray whitespace / casing differences
+// between the website listing name and the dashboard booking's haven name)
+function sameHaven(a, b) {
+    return String(a || "").trim().toLowerCase() === String(b || "").trim().toLowerCase();
+}
+
+// days touched by ANY booking — used to block multi-night ranges (which need whole days)
+function computeUnavailable() {
+    havenBookingsCache = loadBookings().filter(b => sameHaven(b.haven, currentHavenName));
+    unavailableSet = new Set();
+    havenBookingsCache.forEach(b => {
+        let d = isoToDate(b.checkin);
+        const end = isoToDate(endExclusive(b.checkin, b.checkout));
+        while (d < end) {
+            unavailableSet.add(dateToIso(d));
+            d.setDate(d.getDate() + 1);
+        }
+    });
+}
+
+function rangeHasUnavailable(startIso, endIso) {
+    let d = isoToDate(startIso);
+    const end = isoToDate(endIso);
+    while (d < end) {                    // checkout day itself stays free
+        if (unavailableSet.has(dateToIso(d))) return true;
+        d.setDate(d.getDate() + 1);
+    }
+    return false;
+}
+
+// slot-aware clash check for the specific booking being made
+function slotConflict(checkinIso, checkoutIso, stayHours, slot) {
+    const cs = checkinIso;
+    const ce = endExclusive(checkinIso, checkoutIso);
+    return loadBookings().some(b => {
+        if (!sameHaven(b.haven, currentHavenName)) return false;
+        const overlap = cs < endExclusive(b.checkin, b.checkout) && b.checkin < ce;
+        if (!overlap) return false;
+        if (Number(b.stayHours) !== 6 || Number(stayHours) !== 6) return true;   // 10h/21h blocks fully
+        return (b.slot || "morning") === (slot || "morning");                    // both 6h: clash only if same slot
+    });
+}
+
+function openCalendar() {
+    const pop = document.getElementById("calendarPopup");
+    if (pop.hasAttribute("hidden")) {
+        if (!viewDate) {
+            const t = new Date();
+            viewDate = new Date(t.getFullYear(), t.getMonth(), 1);
+        }
+        renderCalendar();
+        pop.removeAttribute("hidden");
+    } else {
+        pop.setAttribute("hidden", "");
+    }
+}
+
+function changeMonth(delta) {
+    const candidate = new Date(viewDate.getFullYear(), viewDate.getMonth() + delta, 1);
+    const now = new Date();
+    const minMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    if (candidate < minMonth) return;    // don't page into the past
+    viewDate = candidate;
+    renderCalendar();
+}
+
+// renders the two visible months and refreshes the field labels
+function renderCalendar() {
+    // viewDate may be null if the guest arrived with dates already chosen
+    // (from the search bar) and never opened the calendar — initialise it so
+    // syncBooking()'s later steps (check-in note, price breakdown) still run.
+    if (!viewDate) {
+        const base = selStart ? isoToDate(selStart) : new Date();
+        viewDate = new Date(base.getFullYear(), base.getMonth(), 1);
+    }
+    const m0 = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1);
+    const m1 = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1);
+    renderMonth(document.getElementById("calMonth0"), m0);
+    renderMonth(document.getElementById("calMonth1"), m1);
+
+    // disable the back arrow when the left month is the current month
+    const now = new Date();
+    document.getElementById("calPrev").disabled =
+        m0.getFullYear() === now.getFullYear() && m0.getMonth() === now.getMonth();
+
+    updateCalFields();
+}
+
+function renderMonth(container, monthDate) {
+    const year = monthDate.getFullYear();
+    const month = monthDate.getMonth();
+    const title = monthDate.toLocaleString("en-US", { month: "long", year: "numeric" });
+    const startWeekday = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const tIso = todayIso();
+
+    let cells = "";
+    for (let i = 0; i < startWeekday; i++) cells += `<span class="cal-day empty"></span>`;
+
+    for (let day = 1; day <= daysInMonth; day++) {
+        const iso = dateToIso(new Date(year, month, day));
+        const past = iso < tIso;
+        // a day is selectable if it still has at least one bookable stay/time
+        const disabled = past || !dayHasAnyFreeTime(iso);
+
+        let cls = "cal-day";
+        if (disabled) cls += " disabled";
+        if (iso === selStart || iso === selEnd) cls += " selected";
+        else if (selStart && selEnd && iso > selStart && iso < selEnd) cls += " in-range";
+
+        if (disabled) {
+            cells += `<span class="${cls}">${day}</span>`;          // greyed, not clickable
+        } else {
+            cells += `<button type="button" class="${cls}" onclick="pickDate('${iso}')">${day}</button>`;
+        }
+    }
+
+    container.innerHTML =
+        `<div class="cal-month-title">${title}</div>` +
+        `<div class="cal-weekdays"><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div>` +
+        `<div class="cal-grid">${cells}</div>`;
+}
+
+function pickDate(iso) {
+    if (!selStart || manualRange) {
+        // first click (or restart after a completed range) → set check-in
+        selStart = iso;
+        selEnd = null;
+        manualRange = false;
+    } else if (iso > selStart && !rangeHasUnavailable(selStart, iso)) {
+        if (daysBetween(selStart, iso) >= 2) {
+            // 2+ nights → explicit multi-night booking
+            selEnd = iso;
+            manualRange = true;
+        } else {
+            // exactly 1 night → single overnight, handled by the 21-hour flow
+            manualRange = false;
+            selEnd = null;
+            document.getElementById("hoursOfStay").value = "21";
+        }
+    } else {
+        // same/earlier date, or range spans a booked day → restart at this date
+        selStart = iso;
+        selEnd = null;
+        manualRange = false;
+    }
+    syncBooking();
+}
+
+// slash-style date for the calendar fields, e.g. 6/24/2026
+function fmtSlash(iso) {
+    const d = isoToDate(iso);
+    return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
+}
+
+// updates the CHECK-IN / CHECKOUT labels inside the calendar and which one is active
+function updateCalFields() {
+    const inV = document.getElementById("calInValue");
+    const outV = document.getElementById("calOutValue");
+    inV.textContent = selStart ? fmtSlash(selStart) : "MM/DD/YYYY";
+    outV.textContent = selEnd ? fmtSlash(selEnd) : "MM/DD/YYYY";
+    inV.classList.toggle("ph", !selStart);
+    outV.classList.toggle("ph", !selEnd);
+
+    const pickingCheckout = selStart && !selEnd;
+    document.getElementById("calFieldIn").classList.toggle("active", !pickingCheckout);
+    document.getElementById("calFieldOut").classList.toggle("active", pickingCheckout);
+    document.getElementById("calClearX").style.visibility = (selStart || selEnd) ? "visible" : "hidden";
+}
+
+function clearDates() {
+    selStart = null;
+    selEnd = null;
+    manualRange = false;
+    document.getElementById("hoursOfStay").value = "";
+    syncBooking();
+}
+
+function closeCalendar() {
+    document.getElementById("calendarPopup").setAttribute("hidden", "");
+}
+
+function fmtShort(iso) {
+    return isoToDate(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function updateDateDisplay() {
+    const ci = document.getElementById("checkinValue");
+    const co = document.getElementById("checkoutValue");
+    ci.textContent = selStart ? fmtShort(selStart) : "Add date";
+    co.textContent = selEnd ? fmtShort(selEnd) : "Add date";
+    ci.classList.toggle("empty", !selStart);
+    co.classList.toggle("empty", !selEnd);
+}
+
+// close the calendar when clicking elsewhere
+document.addEventListener("click", (e) => {
+    const pop = document.getElementById("calendarPopup");
+    if (!pop || pop.hasAttribute("hidden")) return;
+    if (pop.contains(e.target) || e.target.closest(".date-cell")) return;
+    pop.setAttribute("hidden", "");
+});
+
+function toggleGuests() {
+    const panel = document.getElementById("guestPanel");
+    const chevron = document.getElementById("guestChevron");
+    if (panel.hasAttribute("hidden")) {
+        panel.removeAttribute("hidden");
+        chevron.textContent = "⌃";
+    } else {
+        panel.setAttribute("hidden", "");
+        chevron.textContent = "⌄";
+    }
+}
+
+function changeGuest(type, delta) {
+    const next = guests[type] + delta;
+    if (next < 0) return;
+    // per-unit caps: 4 adults, 2 children (0–12 that count), kids under 3 are free
+    if (type === "adults" && (next < 1 || next > MAX_ADULTS)) return;   // need at least 1 adult
+    if (type === "children" && next > MAX_CHILDREN) return;
+    if (type === "infants" && next > MAX_KIDS) return;
+    guests[type] = next;
+    updateGuestUI();
+    renderPricing();
+}
+
+function updateGuestUI() {
+    document.getElementById("adultsCount").textContent = guests.adults;
+    document.getElementById("childrenCount").textContent = guests.children;
+    document.getElementById("infantsCount").textContent = guests.infants;
+
+    // summary text: "2 guests, 1 kid"
+    const counted = guests.adults + guests.children;
+    const parts = [counted + (counted === 1 ? " guest" : " guests")];
+    if (guests.infants > 0) parts.push(guests.infants + (guests.infants === 1 ? " kid" : " kids"));
+    document.getElementById("guestSummary").textContent = parts.join(", ");
+
+    // disable steppers at their limits
+    document.getElementById("adultsMinus").disabled = guests.adults <= 1;
+    document.getElementById("adultsPlus").disabled = guests.adults >= MAX_ADULTS;
+    document.getElementById("childrenMinus").disabled = guests.children <= 0;
+    document.getElementById("childrenPlus").disabled = guests.children >= MAX_CHILDREN;
+    document.getElementById("infantsMinus").disabled = guests.infants <= 0;
+    document.getElementById("infantsPlus").disabled = guests.infants >= MAX_KIDS;
+}
+
+function bookNow() {
+    if (!selStart) {
+        alert("Please select your check-in date.");
+        return;
+    }
+
+    const pricing = computeBooking();
+    if (!pricing.ready) {
+        alert(pricing.msg);
+        return;
+    }
+
+    // stay hours + slot (also used for the slot-aware conflict check + dashboard)
+    const hoursVal = Number(document.getElementById("hoursOfStay").value);
+    const stayHours = manualRange ? 21 : (hoursVal || 21);
+    const slot = (!manualRange && stayHours === 6)
+        ? slotForCheckinTime(document.getElementById("checkinTime").value || "")
+        : "";
+
+    // final time-aware re-check (respects the 2-hour cleaning gap)
+    havenBookingsCache = null;   // force a fresh read
+    let clash;
+    if (manualRange && selEnd) {
+        clash = rangeHasUnavailable(selStart, endExclusive(selStart, selEnd));
+    } else {
+        const sMin = checkinMinOf(document.getElementById("checkinTime").value);
+        if (sMin == null) { syncBooking(); return; }
+        const candS = dayIndex(selStart) * 1440 + sMin;
+        const candE = candS + (stayHours + addons.hours) * 60;
+        clash = intervalConflicts(candS, candE);
+    }
+    if (clash) {
+        // a time was taken in the meantime → silently drop it from the choices
+        computeUnavailable();
+        syncBooking();
+        return;
+    }
+
+    // hand the details to the booking form page via localStorage
+    const booking = {
+        haven: currentHavenName,
+        havenId: new URLSearchParams(window.location.search).get("id"),
+        checkinDate: selStart,
+        checkoutDate: selEnd || selStart,
+        checkinTime: document.getElementById("checkinTime").value,
+        checkoutTime: document.getElementById("checkoutTimeValue").textContent,
+        stayLabel: pricing.lines.length ? pricing.lines[0][0] : "",
+        nights: (manualRange && selEnd) ? daysBetween(selStart, selEnd) : 0,
+        stayHours: stayHours,
+        slot: slot,
+        guests: { adults: guests.adults, children: guests.children, kids: guests.infants },
+        addons: { pool: addons.pool, hours: addons.hours },
+        lines: pricing.lines,
+        deposit: pricing.deposit,
+        total: pricing.total,
+        downpayment: pricing.downpayment,
+        balance: pricing.balance,
+        days: pricing.days
+    };
+    localStorage.setItem("shph_pending_booking", JSON.stringify(booking));
+    window.location.href = "booknow.html";
+}
+
+renderHaven();
+
+// keep availability fresh: re-check whenever the dashboard (another tab) changes
+// bookings, or when the guest returns to this tab.
+window.addEventListener("storage", (e) => {
+    if (!e.key || e.key === BOOKINGS_KEY) {
+        computeUnavailable();
+        if (currentHavenName) syncBooking();
+    }
+});
+window.addEventListener("focus", () => {
+    computeUnavailable();
+    if (currentHavenName) syncBooking();
+});
+// switching back to an already-open tab fires visibilitychange (not always focus)
+document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) {
+        computeUnavailable();
+        if (currentHavenName) syncBooking();
+    }
+});
+</script>
+
+</body>
+</html>

@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confirm Booking | Staycation Haven PH</title>
+    <link rel="icon" href="images/logo.png">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .booknow-wrap{ max-width:1000px; margin:40px auto; padding:0 20px; }
+        .booknow-wrap h1{ margin-bottom:20px; }
+
+        .booknow-grid{
+            display:grid;
+            grid-template-columns:1fr 360px;
+            gap:40px;
+            align-items:start;
+        }
+        @media(max-width:760px){ .booknow-grid{ grid-template-columns:1fr; } }
+        @media(max-width:520px){
+            .guest-field{ flex-wrap:wrap; }
+            .guest-field .g-name{ flex:1 1 100%; }
+            .guest-field .g-age{ width:100%; }
+            .id-row{ flex-wrap:wrap; }
+        }
+
+        .booking-form{
+            background:#fff;
+            padding:24px;
+            border-radius:16px;
+            box-shadow:0 5px 15px rgba(0,0,0,.06);
+        }
+        .booking-form h2{ margin:0 0 18px; }
+        .booking-form label{
+            display:block;
+            margin-bottom:16px;
+            font-size:13px;
+            font-weight:700;
+            color:#333;
+        }
+        .booking-form input,
+        .booking-form select,
+        .booking-form textarea{
+            width:100%;
+            margin-top:6px;
+            padding:11px 12px;
+            border:1px solid #ccc;
+            border-radius:8px;
+            font-size:15px;
+            font-family:inherit;
+            font-weight:400;
+        }
+        .booking-form textarea{ resize:vertical; }
+        .confirm-btn{ width:100%; font-size:16px; font-weight:bold; margin-top:4px; }
+
+        .guest-label{ font-size:12px; font-weight:700; color:#333; margin-bottom:4px; }
+        .guest-field{ display:flex; gap:12px; }
+        .guest-field .g-name{ flex:1; }
+        .guest-field .g-age{ width:80px; }
+        .form-note{ font-size:13px; color:#444; background:#faf7f1; border:1px solid #efe6d3; border-radius:8px; padding:10px 12px; margin-bottom:14px; line-height:1.5; }
+        .id-section{ margin:6px 0 18px; }
+        .id-section-label{ display:block; font-size:13px; font-weight:700; color:#333; margin-bottom:8px; }
+        .id-section-label .id-hint{ font-weight:400; color:#999; }
+        .id-row{ display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+        .id-row input[type=file]{ flex:1; font-size:13px; }
+        .id-thumb{ width:46px; height:46px; object-fit:cover; border-radius:6px; border:1px solid #eee; }
+        .id-del{ flex:0 0 auto; border:none; background:#f4f4f4; color:#c0283d; width:30px; height:30px; border-radius:8px; cursor:pointer; font-size:16px; line-height:1; }
+        .id-del:hover{ background:#fde3e7; }
+        .id-add-btn{ border:1px dashed #cdb37e; background:#fff; color:#a07c1f; font-size:13px; font-weight:600; padding:8px 14px; border-radius:8px; cursor:pointer; }
+        .id-add-btn:hover{ background:#faf7f1; }
+        .id-optout{ display:flex; align-items:center; gap:8px; font-size:13px; color:#444; margin-top:14px; }
+        .id-optout input{ width:auto; }
+        .id-fb-link{ display:inline-block; margin-top:4px; font-size:13px; color:#2b6cb0; text-decoration:none; }
+        .id-fb-link:hover{ text-decoration:underline; }
+
+        .addon-heading{ margin-top:6px; }
+        .addon-line{
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            padding:12px 14px;
+            border:1px solid #e6e6e6;
+            border-radius:10px;
+            margin-bottom:16px;
+        }
+        .addon-line .g-title{ font-weight:600; font-size:15px; }
+        .addon-line .g-sub{ font-size:13px; color:#777; }
+
+        .pay-amount{ font-size:34px; font-weight:bold; color:#b8923a; margin:6px 0 2px; }
+        .pay-sub{ color:#666; margin:0 0 20px; }
+        .pay-method{
+            background:#faf7f8;
+            border:1px solid #eee;
+            border-radius:10px;
+            padding:14px;
+            margin-bottom:18px;
+        }
+        .pay-details{ font-size:15px; margin-top:6px; }
+        .pay-note{ font-size:13px; color:#777; margin-top:16px; line-height:1.5; }
+
+        .summary-card{
+            background:#fff;
+            padding:24px;
+            border:1px solid #e6e6e6;
+            border-radius:16px;
+            box-shadow:0 6px 20px rgba(0,0,0,.08);
+        }
+        .summary-card h2{ margin:0 0 16px; font-size:20px; }
+        .sum-row{
+            display:flex;
+            justify-content:space-between;
+            gap:12px;
+            padding:7px 0;
+            font-size:14px;
+            color:#555;
+        }
+        .sum-row strong{ color:#222; text-align:right; }
+        .price-list{ margin-top:14px; border-top:1px solid #e6e6e6; padding-top:6px; }
+
+        .empty-state,
+        .booknow-success{
+            background:#fff;
+            padding:34px;
+            border-radius:16px;
+            box-shadow:0 5px 15px rgba(0,0,0,.06);
+            line-height:1.6;
+        }
+        .booknow-success h2{ margin-top:0; }
+        .home-link{
+            display:inline-block;
+            margin-top:18px;
+            background:#b8923a;
+            color:#fff;
+            padding:12px 26px;
+            border-radius:40px;
+            text-decoration:none;
+            font-weight:bold;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <a class="logo" href="index.html"><img class="logo-img" src="images/logo.png" alt="" onerror="this.remove()"> Staycation Haven PH</a>
+    <nav>
+        <a href="index.html">Home</a>
+        <a href="havens.html">Havens</a>
+        <a href="#">Promos</a>
+        <a href="#">Contact</a>
+    </nav>
+</header>
+
+<section class="booknow-wrap">
+    <a class="back-link" href="javascript:history.back()">← Back</a>
+    <h1>Complete your booking</h1>
+    <div id="booknow-content"><!-- filled by JS --></div>
+</section>
+
+<footer>
+    <p>© 2026 Staycation Haven PH. All Rights Reserved.</p>
+</footer>
+
+<script src="site-settings.js"></script>
+<script>
+function peso(n){ return "₱" + Number(n).toLocaleString("en-PH"); }
+function fmtDate(iso){
+    if(!iso) return "";
+    const d = new Date(iso + "T00:00:00");
+    return d.toLocaleDateString("en-US", { weekday:"short", month:"short", day:"numeric", year:"numeric" });
+}
+
+const SETTINGS = loadSettings();
+const TOWEL_RATE = SETTINGS.pricing.towelRate;
+const TOWEL_MAX_PER_PAX = SETTINGS.pricing.towelMaxPerPax;
+let booking = null;
+let towels = 0;
+let towelMax = 0;
+
+const container = document.getElementById("booknow-content");
+const raw = localStorage.getItem("shph_pending_booking");
+
+if(!raw){
+    container.innerHTML =
+        `<div class="empty-state">
+            <h2>No booking in progress</h2>
+            <p>Start a booking from one of our havens first.</p>
+            <a class="home-link" href="index.html#our-havens">Browse havens</a>
+        </div>`;
+} else {
+    booking = JSON.parse(raw);
+    renderBooking();
+}
+
+function paxCount(){
+    const g = booking.guests || {};
+    return (g.adults || 0) + (g.children || 0);
+}
+
+function renderBooking(){
+    const b = booking;
+    const pax = paxCount();
+    towelMax = pax * TOWEL_MAX_PER_PAX;
+
+    // first name + last name + age per counted guest
+    let guestFields = "";
+    for(let i = 1; i <= pax; i++){
+        guestFields += `
+            <div class="guest-label">Guest ${i}</div>
+            <div class="guest-field">
+                <label class="g-name">First name
+                    <input type="text" id="g${i}first" required placeholder="First name">
+                </label>
+                <label class="g-name">Last name
+                    <input type="text" id="g${i}last" required placeholder="Last name">
+                </label>
+                <label class="g-age">Age
+                    <input type="number" id="g${i}age" min="0" max="99" required placeholder="Age"
+                           oninput="if(this.value.length>2) this.value=this.value.slice(0,2)">
+                </label>
+            </div>`;
+    }
+
+    // guest count + add-on summaries
+    const g = b.guests || {};
+    const guestParts = [`${g.adults} adult${g.adults === 1 ? "" : "s"}`];
+    if(g.children) guestParts.push(`${g.children} child${g.children === 1 ? "" : "ren"}`);
+    if(g.kids) guestParts.push(`${g.kids} kid${g.kids === 1 ? "" : "s"}`);
+
+    const addonParts = [];
+    if(b.addons && b.addons.pool) addonParts.push(`${b.addons.pool} pool pass`);
+    if(b.addons && b.addons.hours) addonParts.push(`${b.addons.hours} extra hour${b.addons.hours === 1 ? "" : "s"}`);
+
+    // payment method options come from the dashboard's editable list, plus Cash on arrival
+    const methodOptions = (SETTINGS.payment.methods || []).map(m => `<option>${m.name}</option>`).join("")
+        + `<option>Cash on arrival</option>`;
+
+    container.innerHTML = `
+        <div class="booknow-grid">
+            <div class="form-col">
+                <form id="bookingForm" class="booking-form">
+                    <h2>Your details</h2>
+                    <label>Facebook Link / Name
+                        <input type="text" id="fbLink" placeholder="facebook.com/yourname or your FB name">
+                    </label>
+                    <p class="form-note">Note: 1 valid ID per guest. Children 4 y/o and below don't need to submit their IDs.</p>
+                    ${guestFields}
+                    <label>Mobile number
+                        <input type="tel" id="mobile" required placeholder="09XX XXX XXXX">
+                    </label>
+                    <label>Email (optional)
+                        <input type="email" id="email" placeholder="you@email.com">
+                    </label>
+
+                    <div class="id-section">
+                        <label class="id-section-label">Valid IDs <span class="id-hint">(1 per guest, max 6)</span></label>
+                        <div id="idList"></div>
+                        <button type="button" class="id-add-btn" id="idAddBtn" onclick="addIdInput()">+ Upload another ID</button>
+                        <label class="id-optout">
+                            <input type="checkbox" id="idOptOut" onchange="toggleIdOptOut()">
+                            I will send it on your Facebook page instead
+                        </label>
+                        <a class="id-fb-link" href="https://www.facebook.com/staycationhavenph" target="_blank" rel="noopener">www.facebook.com/staycationhavenph</a>
+                    </div>
+
+                    <h2 class="addon-heading">Add-ons</h2>
+                    <div class="addon-line">
+                        <div>
+                            <div class="g-title">Towel rent</div>
+                            <div class="g-sub">₱50 each · up to 2 per pax (max ${towelMax})</div>
+                        </div>
+                        <div class="stepper">
+                            <button type="button" class="step-btn" id="towelMinus" onclick="changeTowels(-1)" disabled>−</button>
+                            <span class="step-count" id="towelCount">0</span>
+                            <button type="button" class="step-btn" id="towelPlus" onclick="changeTowels(1)">+</button>
+                        </div>
+                    </div>
+
+                    <label>Payment method
+                        <select id="method">
+                            ${methodOptions}
+                        </select>
+                    </label>
+                    <label>Special requests (optional)
+                        <textarea id="notes" rows="3" placeholder="Early check-in, etc."></textarea>
+                    </label>
+                    <button type="submit" class="confirm-btn">Confirm booking</button>
+                </form>
+            </div>
+
+            <aside class="summary-col">
+                <div class="summary-card">
+                    <h2>Booking summary</h2>
+                    <div class="sum-row"><span>Haven</span><strong>${b.haven}</strong></div>
+                    <div class="sum-row"><span>Check-in</span><strong>${fmtDate(b.checkinDate)}${b.checkinTime ? " · " + b.checkinTime : ""}</strong></div>
+                    <div class="sum-row"><span>Check-out</span><strong>${b.checkoutTime || fmtDate(b.checkoutDate)}</strong></div>
+                    <div class="sum-row"><span>Stay</span><strong>${b.stayLabel || "—"}</strong></div>
+                    <div class="sum-row"><span>Guests</span><strong>${guestParts.join(", ")}</strong></div>
+                    ${addonParts.length ? `<div class="sum-row"><span>Add-ons</span><strong>${addonParts.join(", ")}</strong></div>` : ""}
+                    <div class="price-list" id="priceList"></div>
+                </div>
+            </aside>
+        </div>
+    `;
+
+    renderPriceList();
+    document.getElementById("bookingForm").addEventListener("submit", onConfirm);
+    initIdUploads(pax);
+    prefillFromConfirmed();
+}
+
+/* ---------- valid ID uploads ---------- */
+let idSeq = 0, idMax = 6;
+const idPhotos = {};
+function idRowHtml(rid){
+    return `<div class="id-row" data-rid="${rid}">
+        <input type="file" accept="image/*" onchange="onIdChange(this, ${rid})">
+        <img class="id-thumb" id="idThumb${rid}" style="display:none;" alt="ID preview">
+        <button type="button" class="id-del" onclick="removeIdRow(${rid})" title="Remove">×</button>
+    </div>`;
+}
+function initIdUploads(pax){
+    idMax = Math.min(pax, 6);
+    idSeq = 0;
+    for(const k in idPhotos) delete idPhotos[k];
+    document.getElementById("idList").innerHTML = "";
+    addIdInput();                               // start with one row
+    document.getElementById("idOptOut").checked = false;
+    toggleIdOptOut();
+}
+function addIdInput(){
+    const list = document.getElementById("idList");
+    if(list.children.length >= idMax) return;
+    const rid = idSeq++;
+    list.insertAdjacentHTML("beforeend", idRowHtml(rid));
+    updateIdAddBtn();
+}
+function updateIdAddBtn(){
+    const btn = document.getElementById("idAddBtn");
+    const list = document.getElementById("idList");
+    const optedOut = document.getElementById("idOptOut").checked;
+    // only offer "upload another" when 2+ guests can submit, not opted out, and below the max
+    btn.style.display = (!optedOut && idMax > 1 && list.children.length < idMax) ? "inline-block" : "none";
+}
+function onIdChange(input, rid){
+    const f = input.files[0];
+    if(!f){ delete idPhotos[rid]; return; }
+    const r = new FileReader();
+    r.onload = e => {
+        idPhotos[rid] = e.target.result;
+        const img = document.getElementById("idThumb" + rid);
+        if(img){ img.src = e.target.result; img.style.display = "block"; }
+    };
+    r.readAsDataURL(f);
+}
+function removeIdRow(rid){
+    const list = document.getElementById("idList");
+    delete idPhotos[rid];
+    if(list.children.length <= 1){
+        // keep one empty row instead of removing the last
+        const row = list.querySelector(`.id-row[data-rid="${rid}"]`);
+        if(row){
+            row.querySelector("input").value = "";
+            const img = document.getElementById("idThumb" + rid);
+            if(img){ img.src = ""; img.style.display = "none"; }
+        }
+    } else {
+        const row = list.querySelector(`.id-row[data-rid="${rid}"]`);
+        if(row) row.remove();
+    }
+    updateIdAddBtn();
+}
+function toggleIdOptOut(){
+    const optedOut = document.getElementById("idOptOut").checked;
+    document.getElementById("idList").style.display = optedOut ? "none" : "";
+    updateIdAddBtn();
+}
+
+function changeTowels(delta){
+    const next = towels + delta;
+    if(next < 0 || next > towelMax) return;
+    towels = next;
+    document.getElementById("towelCount").textContent = towels;
+    document.getElementById("towelMinus").disabled = towels <= 0;
+    document.getElementById("towelPlus").disabled = towels >= towelMax;
+    renderPriceList();
+}
+
+function renderPriceList(){
+    const b = booking;
+    const towelCost = towels * TOWEL_RATE;
+    let rows = (b.lines || []).map(([label, amt]) =>
+        `<div class="price-row"><span>${label}</span><span>${peso(amt)}</span></div>`).join("");
+    if(towels) rows += `<div class="price-row"><span>Towel rent (${towels} × ${peso(TOWEL_RATE)})</span><span>${peso(towelCost)}</span></div>`;
+    rows += `<div class="price-row"><span>Security deposit</span><span>${peso(b.deposit)}</span></div>`;
+    const total = b.total + towelCost;
+    rows += `<div class="price-row price-total"><span>Total</span><span>${peso(total)}</span></div>`;
+    rows += `<div class="price-row"><span>Downpayment</span><span>${peso(b.downpayment)}</span></div>`;
+    rows += `<div class="price-row price-balance"><span>Balance on arrival</span><span>${peso(total - b.downpayment)}</span></div>`;
+    document.getElementById("priceList").innerHTML = rows;
+}
+
+function onConfirm(e){
+    e.preventDefault();
+    const b = booking;
+    const pax = paxCount();
+
+    const guestDetails = [];
+    const parsed = [];
+    for(let i = 1; i <= pax; i++){
+        const first = document.getElementById(`g${i}first`).value.trim();
+        const last = document.getElementById(`g${i}last`).value.trim();
+        const ageRaw = document.getElementById(`g${i}age`).value;
+        if(!first || !last){ alert(`Please enter the first and last name of Guest ${i}.`); return; }
+        if(ageRaw === "" || isNaN(Number(ageRaw))){ alert(`Please enter the age of Guest ${i}.`); return; }
+        const age = Number(ageRaw);
+        parsed.push({ first, last, age });
+        guestDetails.push({ name: `${first} ${last}`, age: age });
+    }
+
+    // minors must be accompanied by an adult (18+):
+    //  • kids 0–14   → any adult will do (last name may differ)
+    //  • teens 15–17 → need an adult who shares their last name
+    const norm = s => s.trim().toLowerCase();
+    const adults = parsed.filter(g => g.age >= 18);
+    for(const g of parsed){
+        if(g.age >= 18) continue;
+        if(g.age >= 15){
+            const hasGuardian = adults.some(a => norm(a.last) === norm(g.last));
+            if(!hasGuardian){
+                alert(`${g.first} ${g.last} (age ${g.age}) must be accompanied by an adult (18+) with the same last name.`);
+                return;
+            }
+        } else {
+            if(adults.length === 0){
+                alert(`${g.first} ${g.last} (age ${g.age}) is a child and must be accompanied by an adult (18+).`);
+                return;
+            }
+        }
+    }
+
+    const mobile = document.getElementById("mobile").value.trim();
+    if(!mobile){ alert("Please enter your mobile number."); return; }
+
+    const towelCost = towels * TOWEL_RATE;
+    const total = b.total + towelCost;
+    const lines = (b.lines || []).slice();
+    if(towels) lines.push([`Towel rent (${towels} × ${peso(TOWEL_RATE)})`, towelCost]);
+
+    const confirmed = Object.assign({}, b, {
+        guestDetails: guestDetails,
+        facebook: document.getElementById("fbLink").value.trim(),
+        contact: mobile,
+        email: document.getElementById("email").value.trim(),
+        method: document.getElementById("method").value,
+        notes: document.getElementById("notes").value.trim(),
+        towels: towels,
+        lines: lines,
+        total: total,
+        balance: total - b.downpayment,
+        ids: Object.values(idPhotos).filter(Boolean),
+        idOptOut: document.getElementById("idOptOut").checked
+    });
+
+    // keep the pending booking so the guest can navigate back without losing details
+    localStorage.setItem("shph_confirmed_booking", JSON.stringify(confirmed));
+    window.location.href = "payment.html";
+}
+
+// restore previously entered details when returning from the payment page
+function prefillFromConfirmed(){
+    const cRaw = localStorage.getItem("shph_confirmed_booking");
+    if(!cRaw) return;
+    let c;
+    try { c = JSON.parse(cRaw); } catch(e){ return; }
+    if(c.haven !== booking.haven || c.checkinDate !== booking.checkinDate) return;
+
+    (c.guestDetails || []).forEach((gd, idx) => {
+        const parts = (gd.name || "").trim().split(/\s+/);
+        const first = parts.shift() || "";
+        const last = parts.join(" ");
+        const fn = document.getElementById(`g${idx + 1}first`);
+        const ln = document.getElementById(`g${idx + 1}last`);
+        const a = document.getElementById(`g${idx + 1}age`);
+        if(fn) fn.value = first;
+        if(ln) ln.value = last;
+        if(a && gd.age != null) a.value = gd.age;
+    });
+    const set = (id, val) => { const el = document.getElementById(id); if(el && val) el.value = val; };
+    set("fbLink", c.facebook);
+    set("mobile", c.contact);
+    set("email", c.email);
+    set("method", c.method);
+    set("notes", c.notes);
+
+    // restore uploaded IDs / opt-out choice
+    const optOut = document.getElementById("idOptOut");
+    if(optOut){ optOut.checked = !!c.idOptOut; }
+    if(Array.isArray(c.ids) && c.ids.length){
+        const list = document.getElementById("idList");
+        list.innerHTML = "";
+        for(const k in idPhotos) delete idPhotos[k];
+        c.ids.slice(0, idMax).forEach(src => {
+            const rid = idSeq++;
+            list.insertAdjacentHTML("beforeend", idRowHtml(rid));
+            idPhotos[rid] = src;
+            const img = document.getElementById("idThumb" + rid);
+            if(img){ img.src = src; img.style.display = "block"; }
+        });
+    }
+    toggleIdOptOut();
+
+    if(c.towels){
+        towels = Math.min(c.towels, towelMax);
+        document.getElementById("towelCount").textContent = towels;
+        document.getElementById("towelMinus").disabled = towels <= 0;
+        document.getElementById("towelPlus").disabled = towels >= towelMax;
+        renderPriceList();
+    }
+}
+</script>
+
+</body>
+</html>

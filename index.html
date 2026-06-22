@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Staycation Haven PH</title>
+    <link rel="icon" href="images/logo.png">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+    <a class="logo" href="index.html"><img class="logo-img" src="images/logo.png" alt="" onerror="this.remove()"> Staycation Haven PH</a>
+
+    <nav>
+        <a href="index.html">Home</a>
+        <a href="havens.html">Havens</a>
+        <a href="#">Promos</a>
+        <a href="#">Contact</a>
+    </nav>
+</header>
+
+<section class="hero">
+
+    <h1>Come Stay With Us</h1>
+    <p>Mplace Tower D, Panay Ave Quezon City</p>
+    <p>Comfortable • Affordable • Memorable</p>
+
+    <div class="search-box">
+
+    <div class="search-item">
+        <span class="label">CHECK-IN</span>
+        <span class="value date-display empty" id="checkinValue" onclick="openCalendar()">dd/mm/yyyy</span>
+    </div>
+
+    <div class="search-item">
+        <span class="label">CHECK-OUT</span>
+        <span class="value date-display empty" id="checkoutValue" onclick="openCalendar()">dd/mm/yyyy</span>
+    </div>
+
+    <div class="search-item guest-selector">
+
+        <div class="guest-trigger" onclick="toggleGuests()">
+            <span class="label">WHO</span>
+            <span class="value" id="guestSummary">1 Adult</span>
+        </div>
+
+        <div class="guest-popup">
+
+            <div class="guest-row">
+
+                <div>
+                    <strong>Adults</strong><br>
+                    <small>Ages 18+</small>
+                </div>
+
+                <div>
+                    <button type="button" onclick="changeCount('adults',-1)">−</button>
+                    <span id="adults">1</span>
+                    <button type="button" onclick="changeCount('adults',1)">+</button>
+                </div>
+
+            </div>
+
+            <hr>
+
+            <div class="guest-row">
+
+                <div>
+                    <strong>Children</strong><br>
+                    <small>Ages 0-13</small>
+                </div>
+
+                <div>
+                    <button type="button" onclick="changeCount('children',-1)">−</button>
+                    <span id="children">0</span>
+                    <button type="button" onclick="changeCount('children',1)">+</button>
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="search-item">
+        <span class="label">HOURS OF STAY</span>
+        <select id="searchHours">
+            <option value="">Any</option>
+            <option value="6">6 hours</option>
+            <option value="10">10 hours</option>
+            <option value="21">21 hours</option>
+        </select>
+    </div>
+
+    <button onclick="checkAvailability()">
+        Check Availability
+    </button>
+
+</div>
+
+<div class="calendar-popup" id="calendarPopup" hidden>
+    <div class="cal-top">
+        <div class="cal-heading">
+            <h3>Select dates</h3>
+            <p>Add your travel dates for exact pricing</p>
+        </div>
+        <div class="cal-fields">
+            <div class="cal-field" id="calFieldIn">
+                <span class="cell-label">CHECK-IN</span>
+                <span class="cal-field-value ph" id="calInValue">MM/DD/YYYY</span>
+                <button type="button" class="cal-clear-x" id="calClearX" onclick="clearDates()">✕</button>
+            </div>
+            <div class="cal-field" id="calFieldOut">
+                <span class="cell-label">CHECKOUT</span>
+                <span class="cal-field-value ph" id="calOutValue">MM/DD/YYYY</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="cal-months">
+        <button type="button" class="cal-nav cal-prev" id="calPrev" onclick="changeMonth(-1)">‹</button>
+        <div class="cal-month" id="calMonth0"></div>
+        <div class="cal-month" id="calMonth1"></div>
+        <button type="button" class="cal-nav cal-next" onclick="changeMonth(1)">›</button>
+    </div>
+
+    <div class="cal-footer">
+        <span class="cal-kbd" aria-hidden="true">⌨</span>
+        <div class="cal-actions">
+            <button type="button" class="cal-text-btn" onclick="clearDates()">Clear dates</button>
+            <button type="button" class="cal-close-btn" onclick="closeCalendar()">Close</button>
+        </div>
+    </div>
+</div>
+
+</section>
+
+<section class="featured" id="results"></section>
+
+<section class="featured" id="our-havens">
+
+    <h2>Our Havens</h2>
+
+    <div class="cards" id="cards"></div>
+
+</section>
+
+<section class="amenities">
+
+    <h2>What Guests Love</h2>
+
+    <div class="amenity-grid">
+        <div>📶 Fast WiFi</div>
+        <div>📺 Netflix</div>
+        <div>❄️ Air Conditioning</div>
+        <div>🚗 Parking</div>
+        <div>🍳 Kitchen</div>
+        <div>🛏️ Comfortable Beds</div>
+    </div>
+
+</section>
+
+<footer>
+    <p>© 2026 Staycation Haven PH. All Rights Reserved.</p>
+</footer>
+
+<script src="havens-data.js"></script>
+<script>
+// Render the haven cards from the shared data (managed in the Admin Dashboard)
+(function renderCards() {
+    const cards = loadHavens().map(h => `
+        <a class="card" href="havens.html?id=${h.id}">
+            <img src="${h.image}" alt="${h.name}">
+            <h3>${h.name}</h3>
+            <p>${h.description}</p>
+        </a>
+    `).join("");
+    document.getElementById("cards").innerHTML = cards;
+})();
+</script>
+<script src="script.js"></script>
+<script>
+/* ---------- homepage two-month date picker ---------- */
+(function(){
+    let selStart = null, selEnd = null, viewDate = null;
+
+    function isoToDate(iso){ return new Date(iso + "T00:00:00"); }
+    function dateToIso(d){
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, "0");
+        const day = String(d.getDate()).padStart(2, "0");
+        return `${y}-${m}-${day}`;
+    }
+    function todayIso(){ return dateToIso(new Date()); }
+
+    window.openCalendar = function(){
+        const pop = document.getElementById("calendarPopup");
+        if(pop.hasAttribute("hidden")){
+            if(!viewDate){ const t = new Date(); viewDate = new Date(t.getFullYear(), t.getMonth(), 1); }
+            renderCalendar();
+            pop.removeAttribute("hidden");
+        } else {
+            pop.setAttribute("hidden", "");
+        }
+    };
+    window.closeCalendar = function(){ document.getElementById("calendarPopup").setAttribute("hidden", ""); };
+
+    window.changeMonth = function(delta){
+        const cand = new Date(viewDate.getFullYear(), viewDate.getMonth() + delta, 1);
+        const now = new Date();
+        const minMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        if(cand < minMonth) return;
+        viewDate = cand;
+        renderCalendar();
+    };
+
+    function renderCalendar(){
+        const m0 = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1);
+        const m1 = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1);
+        renderMonth(document.getElementById("calMonth0"), m0);
+        renderMonth(document.getElementById("calMonth1"), m1);
+        const now = new Date();
+        document.getElementById("calPrev").disabled =
+            m0.getFullYear() === now.getFullYear() && m0.getMonth() === now.getMonth();
+        updateFields();
+    }
+
+    function renderMonth(container, monthDate){
+        const year = monthDate.getFullYear(), month = monthDate.getMonth();
+        const title = monthDate.toLocaleString("en-US", { month:"long", year:"numeric" });
+        const startWeekday = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const tIso = todayIso();
+        let cells = "";
+        for(let i = 0; i < startWeekday; i++) cells += `<span class="cal-day empty"></span>`;
+        for(let day = 1; day <= daysInMonth; day++){
+            const iso = dateToIso(new Date(year, month, day));
+            const past = iso < tIso;
+            let cls = "cal-day";
+            if(past) cls += " disabled";
+            if(iso === selStart || iso === selEnd) cls += " selected";
+            else if(selStart && selEnd && iso > selStart && iso < selEnd) cls += " in-range";
+            if(past) cells += `<span class="${cls}">${day}</span>`;
+            else cells += `<button type="button" class="${cls}" onclick="pickDate('${iso}')">${day}</button>`;
+        }
+        container.innerHTML =
+            `<div class="cal-month-title">${title}</div>` +
+            `<div class="cal-weekdays"><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div>` +
+            `<div class="cal-grid">${cells}</div>`;
+    }
+
+    window.pickDate = function(iso){
+        if(!selStart || (selStart && selEnd)) { selStart = iso; selEnd = null; }
+        else if(iso <= selStart) { selStart = iso; selEnd = null; }
+        else { selEnd = iso; }
+        renderCalendar();
+    };
+
+    window.clearDates = function(){ selStart = null; selEnd = null; renderCalendar(); };
+
+    window.getStayDates = function(){ return { start: selStart, end: selEnd }; };
+
+    function fmtSlash(iso){ const d = isoToDate(iso); return `${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()}`; }
+    function fmtField(iso){ return isoToDate(iso).toLocaleDateString("en-GB"); } // dd/mm/yyyy
+
+    function updateFields(){
+        const inV = document.getElementById("calInValue"), outV = document.getElementById("calOutValue");
+        inV.textContent = selStart ? fmtSlash(selStart) : "MM/DD/YYYY";
+        outV.textContent = selEnd ? fmtSlash(selEnd) : "MM/DD/YYYY";
+        inV.classList.toggle("ph", !selStart);
+        outV.classList.toggle("ph", !selEnd);
+        const pickingCheckout = selStart && !selEnd;
+        document.getElementById("calFieldIn").classList.toggle("active", !pickingCheckout);
+        document.getElementById("calFieldOut").classList.toggle("active", pickingCheckout);
+        document.getElementById("calClearX").style.visibility = (selStart || selEnd) ? "visible" : "hidden";
+
+        const ci = document.getElementById("checkinValue"), co = document.getElementById("checkoutValue");
+        ci.textContent = selStart ? fmtField(selStart) : "dd/mm/yyyy";
+        co.textContent = selEnd ? fmtField(selEnd) : "dd/mm/yyyy";
+        ci.classList.toggle("empty", !selStart);
+        co.classList.toggle("empty", !selEnd);
+    }
+
+    // close when clicking outside
+    document.addEventListener("click", function(e){
+        const pop = document.getElementById("calendarPopup");
+        if(!pop || pop.hasAttribute("hidden")) return;
+        if(pop.contains(e.target) || e.target.closest(".date-display")) return;
+        pop.setAttribute("hidden", "");
+    });
+})();
+</script>
+
+</body>
+</html>

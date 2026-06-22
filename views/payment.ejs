@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<%- include('partials/seed') %>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment | Staycation Haven PH</title>
+    <link rel="icon" href="images/logo.png">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .booknow-wrap{ max-width:1000px; margin:40px auto; padding:0 20px; }
+        .booknow-wrap h1{ margin-bottom:20px; }
+
+        .booknow-grid{
+            display:grid;
+            grid-template-columns:1fr 360px;
+            gap:40px;
+            align-items:start;
+        }
+        @media(max-width:760px){ .booknow-grid{ grid-template-columns:1fr; } }
+
+        .booking-form,
+        .summary-card,
+        .empty-state,
+        .booknow-success{
+            background:#fff;
+            padding:24px;
+            border-radius:16px;
+            box-shadow:0 5px 15px rgba(0,0,0,.06);
+        }
+        .summary-card{ border:1px solid #e6e6e6; box-shadow:0 6px 20px rgba(0,0,0,.08); }
+        .booking-form h2, .summary-card h2{ margin:0 0 16px; }
+
+        .pay-amount{ font-size:34px; font-weight:bold; color:#b8923a; margin:6px 0 2px; }
+        .pay-sub{ color:#666; margin:0 0 20px; }
+        .pay-method{
+            background:#faf7f8;
+            border:1px solid #eee;
+            border-radius:10px;
+            padding:14px;
+            margin-bottom:18px;
+        }
+        .pay-label{ font-size:11px; font-weight:bold; letter-spacing:.4px; color:#717171; }
+        .pay-details{ font-size:15px; margin-top:4px; color:#222; line-height:1.4; }
+        .pay-note{ font-size:13px; color:#777; margin-top:16px; line-height:1.5; }
+        .pay-intro{ margin:0 0 4px; font-size:15px; }
+        .pay-screenshot{ margin:0 0 14px; font-size:12px; font-weight:bold; color:#c1123e; letter-spacing:.3px; }
+        .pay-acct{ padding:10px 0; }
+        .pay-acct + .pay-acct{ border-top:1px solid #eee; }
+        .pay-qr{ display:block; width:200px; max-width:100%; margin-top:12px; border:1px solid #eee; border-radius:10px; }
+        .pay-warn{ margin:14px 0 0; font-size:13px; color:#444; }
+        .confirm-btn{ width:100%; font-size:16px; font-weight:bold; }
+
+        .sum-row{
+            display:flex;
+            justify-content:space-between;
+            gap:12px;
+            padding:7px 0;
+            font-size:14px;
+            color:#555;
+        }
+        .sum-row strong{ color:#222; text-align:right; }
+        .price-list{ margin-top:14px; border-top:1px solid #e6e6e6; padding-top:6px; }
+
+        .empty-state, .booknow-success{ padding:34px; line-height:1.6; }
+        .booknow-success h2{ margin-top:0; }
+        .home-link{
+            display:inline-block;
+            margin-top:18px;
+            background:#b8923a;
+            color:#fff;
+            padding:12px 26px;
+            border-radius:40px;
+            text-decoration:none;
+            font-weight:bold;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <a class="logo" href="index.html"><img class="logo-img" src="images/logo.png" alt="" onerror="this.remove()"> Staycation Haven PH</a>
+    <nav>
+        <a href="index.html">Home</a>
+        <a href="havens.html">Havens</a>
+        <a href="#">Promos</a>
+        <a href="#">Contact</a>
+    </nav>
+</header>
+
+<section class="booknow-wrap">
+    <a class="back-link" href="booknow.html">← Back</a>
+    <h1>Payment</h1>
+    <div id="payment-content"><!-- filled by JS --></div>
+</section>
+
+<footer>
+    <p>© 2026 Staycation Haven PH. All Rights Reserved.</p>
+</footer>
+
+<script src="site-settings.js"></script>
+<script>
+function peso(n){ return "₱" + Number(n).toLocaleString("en-PH"); }
+function fmtDate(iso){
+    if(!iso) return "";
+    const d = new Date(iso + "T00:00:00");
+    return d.toLocaleDateString("en-US", { weekday:"short", month:"short", day:"numeric", year:"numeric" });
+}
+
+const PAY = loadSettings().payment;
+const container = document.getElementById("payment-content");
+
+// --- final slot-aware double-booking guard (point of no return) ---
+function pAddOneDay(iso){
+    const d = new Date(iso + "T00:00:00");
+    d.setDate(d.getDate() + 1);
+    const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, "0"), day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+}
+function pEndExcl(checkin, checkout){ return checkout > checkin ? checkout : pAddOneDay(checkin); }
+function pSameHaven(a, b){ return String(a || "").trim().toLowerCase() === String(b || "").trim().toLowerCase(); }
+
+// time-aware conflict guard, mirroring the haven page (2-hour cleaning gap)
+const PAY_CLEAN_BUFFER = 120;
+const PAY_HAVEN_TIMES = {
+    "Haven 1":{in:"12:00 NN"}, "Haven 2":{in:"12:00 NN"}, "Haven 3":{in:"12:00 NN"},
+    "Haven 4":{in:"3:00 PM"}, "Haven 5":{in:"3:00 PM"}, "Haven 7":{in:"3:00 PM"},
+    "Haven 8":{in:"6:00 PM"}, "Casa Bienca":{in:"6:00 PM"}
+};
+function pParseTime(str){
+    const m = String(str).match(/^(\d{1,2}):(\d{2})\s*(AM|PM|NN|MN)$/i);
+    if(!m) return null;
+    let h = Number(m[1]); const min = Number(m[2]); const suf = m[3].toUpperCase();
+    if(suf === "NN") h = 12; else if(suf === "MN") h = 0; else if(suf === "PM") h = (h % 12) + 12; else h = h % 12;
+    return h * 60 + min;
+}
+function pDayIndex(iso){ return Math.round((new Date(iso + "T00:00:00") - new Date("2000-01-01T00:00:00")) / 86400000); }
+function pCheckinMin(timeStr){ const m = pParseTime(timeStr); if(m == null) return null; return m === 0 ? 1440 : m; }
+function pStartMin(x){
+    if(x.checkinTime){ const m = pCheckinMin(x.checkinTime); if(m != null) return m; }
+    const h = Number(x.stayHours) || 21;
+    if(h === 6) return pParseTime(x.slot === "evening" ? "7:00 PM" : "8:00 AM");
+    if(h === 21){ const t = PAY_HAVEN_TIMES[x.haven]; return t ? pParseTime(t.in) : pParseTime("12:00 NN"); }
+    return pParseTime("8:00 AM");
+}
+function pAbsInterval(x){
+    const s = pDayIndex(x.checkin) * 1440 + (pStartMin(x) || 0);
+    return { s, e: s + ((Number(x.stayHours) || 21) + (Number(x.extend) || 0)) * 60 };
+}
+function bookingConflicts(arr, b){
+    const cs = b.checkinDate, ce = pEndExcl(b.checkinDate, b.checkoutDate || b.checkinDate);
+    const isMulti = (b.nights && b.nights >= 2) ||
+        (b.checkoutDate && pDayIndex(b.checkoutDate) - pDayIndex(b.checkinDate) >= 2);
+    if(isMulti){
+        // multi-night needs whole days → any overlap blocks
+        return arr.some(x => pSameHaven(x.haven, b.haven) && cs < pEndExcl(x.checkin, x.checkout) && x.checkin < ce);
+    }
+    const sMin = b.checkinTime ? pCheckinMin(b.checkinTime) : pStartMin(b);
+    const candS = pDayIndex(b.checkinDate) * 1440 + (sMin != null ? sMin : 0);
+    const candE = candS + ((Number(b.stayHours) || 21) + (Number(b.addons && b.addons.hours) || 0)) * 60;
+    return arr.some(x => {
+        if(!pSameHaven(x.haven, b.haven)) return false;
+        const { s, e } = pAbsInterval(x);
+        return candS < e + PAY_CLEAN_BUFFER && s - PAY_CLEAN_BUFFER < candE;
+    });
+}
+
+// push the paid booking into the dashboard calendar (shph_bookings_v3); returns false if it would double-book
+function addToCalendar(b){
+    const KEY = "shph_bookings_v3";
+    let arr;
+    try { arr = JSON.parse(localStorage.getItem(KEY)) || []; } catch(e){ arr = []; }
+
+    // avoid duplicates if the button is somehow clicked twice
+    const dup = arr.some(x => x.source === "website" && x.haven === b.haven &&
+        x.checkin === b.checkinDate && x.contact === (b.contact || ""));
+    if(dup) return true;
+
+    // refuse to write a booking that clashes with an existing one
+    if(bookingConflicts(arr, b)) return false;
+
+    const nextId = arr.reduce((m, x) => Math.max(m, Number(x.id) || 0), 0) + 1;
+    const guests = (b.guestDetails || []).map(g => ({ name: g.name, age: g.age != null ? g.age : 18 }));
+
+    arr.push({
+        id: nextId,
+        haven: b.haven,
+        contact: b.contact || "",
+        guests: guests.length ? guests : [{ name: "Guest", age: 18 }],
+        checkin: b.checkinDate,
+        checkout: b.checkoutDate || b.checkinDate,
+        checkinTime: b.checkinTime || "",
+        stayHours: b.stayHours || 21,
+        slot: b.slot || "",
+        swimpass: (b.addons && b.addons.pool) || 0,
+        towels: b.towels || 0,
+        extend: (b.addons && b.addons.hours) || 0,
+        holiday: false,
+        method: b.method || "",
+        deposit: b.deposit || 0,
+        total: b.total || 0,
+        downpayment: b.downpayment || 0,
+        notes: [
+            b.notes,
+            b.facebook ? "FB: " + b.facebook : "",
+            "Website booking"
+        ].filter(Boolean).join(" · "),
+        source: "website"
+    });
+    localStorage.setItem(KEY, JSON.stringify(arr));
+    return true;
+}
+const raw = localStorage.getItem("shph_confirmed_booking");
+
+if(!raw){
+    container.innerHTML =
+        `<div class="empty-state">
+            <h2>Nothing to pay yet</h2>
+            <p>Complete a booking first to reach the payment step.</p>
+            <a class="home-link" href="index.html#our-havens">Browse havens</a>
+        </div>`;
+} else {
+    renderPayment(JSON.parse(raw));
+}
+
+function renderPayment(b){
+    // price breakdown
+    let priceRows = (b.lines || []).map(([label, amt]) =>
+        `<div class="price-row"><span>${label}</span><span>${peso(amt)}</span></div>`).join("");
+    priceRows += `<div class="price-row"><span>Security deposit</span><span>${peso(b.deposit)}</span></div>`;
+    priceRows += `<div class="price-row price-total"><span>Total</span><span>${peso(b.total)}</span></div>`;
+    priceRows += `<div class="price-row"><span>Downpayment</span><span>${peso(b.downpayment)}</span></div>`;
+    priceRows += `<div class="price-row price-balance"><span>Balance on arrival</span><span>${peso(b.balance)}</span></div>`;
+
+    const guestNames = (b.guestDetails || []).map(g => g.name + (g.age != null ? ` (${g.age})` : "")).join(", ");
+
+    // show only the account for the payment method the guest picked
+    const isCash = b.method === "Cash on arrival";
+    const m = (PAY.methods || []).find(x => x.name === b.method);
+
+    let acctHtml;
+    if (isCash || !m) {
+        acctHtml = `<div class="pay-acct">
+                        <div class="pay-details">${PAY.cashNote}</div>
+                    </div>`;
+    } else {
+        const qrHtml = m.qr ? `<img class="pay-qr" src="${m.qr}" alt="${m.name} QR code">` : "";
+        acctHtml = `<div class="pay-acct">
+                        <div class="pay-label">${m.name.toUpperCase()}</div>
+                        <div class="pay-details">${m.number}<br>${m.account}</div>
+                        ${qrHtml}
+                    </div>`;
+    }
+
+    const payMethodHtml = isCash
+        ? `<div class="pay-method">
+                <p class="pay-intro">You chose <strong>Cash on arrival</strong>. 😊</p>
+                ${acctHtml}
+                <p class="pay-warn">${PAY.warnNote}</p>
+           </div>`
+        : `<div class="pay-method">
+                <p class="pay-intro">${PAY.intro}</p>
+                <p class="pay-screenshot">${PAY.screenshotNote}</p>
+                ${acctHtml}
+                <p class="pay-warn">${PAY.warnNote}</p>
+           </div>`;
+
+    container.innerHTML = `
+        <div class="booknow-grid">
+            <div class="form-col">
+                <div class="booking-form">
+                    <h2>Pay your downpayment</h2>
+                    <p class="pay-amount">${peso(b.downpayment)}</p>
+                    <p class="pay-sub">to reserve <strong>${b.haven}</strong> on ${fmtDate(b.checkinDate)}</p>
+
+                    ${payMethodHtml}
+
+                    <button class="confirm-btn" id="paidBtn">${isCash ? "Confirm reservation" : "I've completed payment"}</button>
+
+                    <p class="pay-note">
+                        Balance of <strong>${peso(b.balance)}</strong> is payable on arrival.
+                        The <strong>${peso(b.deposit)}</strong> security deposit is refundable the day after
+                        check-out, as long as there's no violation, damage, or lost item in the unit.
+                    </p>
+                </div>
+            </div>
+
+            <aside class="summary-col">
+                <div class="summary-card">
+                    <h2>Booking summary</h2>
+                    <div class="sum-row"><span>Haven</span><strong>${b.haven}</strong></div>
+                    <div class="sum-row"><span>Check-in</span><strong>${fmtDate(b.checkinDate)}${b.checkinTime ? " · " + b.checkinTime : ""}</strong></div>
+                    <div class="sum-row"><span>Check-out</span><strong>${b.checkoutTime || fmtDate(b.checkoutDate)}</strong></div>
+                    <div class="sum-row"><span>Stay</span><strong>${b.stayLabel || "—"}</strong></div>
+                    ${guestNames ? `<div class="sum-row"><span>Guests</span><strong>${guestNames}</strong></div>` : ""}
+                    ${b.contact ? `<div class="sum-row"><span>Contact</span><strong>${b.contact}</strong></div>` : ""}
+                    <div class="price-list">${priceRows}</div>
+                </div>
+            </aside>
+        </div>
+    `;
+
+    document.getElementById("paidBtn").addEventListener("click", function(){
+        if(!addToCalendar(b)){
+            container.innerHTML = `
+                <div class="booknow-success">
+                    <h2>😔 That slot was just booked</h2>
+                    <p>Sorry, <strong>${b.haven}</strong> on <strong>${fmtDate(b.checkinDate)}</strong>
+                       (${b.checkinTime || "your time"}) was just reserved by someone else.</p>
+                    <p>Please go back and pick a different date or time slot. No payment has been recorded.</p>
+                    <a class="home-link" href="havens.html${b.havenId ? "?id=" + b.havenId : ""}">Pick another time</a>
+                </div>`;
+            window.scrollTo(0, 0);
+            return;
+        }
+        localStorage.removeItem("shph_confirmed_booking");
+        localStorage.removeItem("shph_pending_booking");
+        container.innerHTML = `
+            <div class="booknow-success">
+                <h2>✅ Payment received!</h2>
+                <p>Thank you! Your reservation for <strong>${b.haven}</strong> on
+                   <strong>${fmtDate(b.checkinDate)}</strong> is confirmed.</p>
+                <p>We'll message a confirmation to <strong>${b.contact || "your number"}</strong>.
+                   See you at your staycation! 🏠</p>
+                <a class="home-link" href="index.html">Back to home</a>
+            </div>`;
+        window.scrollTo(0, 0);
+    });
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Login - Staycation Haven PH</title>
+
+    <style>
+
+        *{
+            margin:0;
+            padding:0;
+            box-sizing:border-box;
+            font-family:Arial,sans-serif;
+        }
+
+        body{
+            background:#f5f5f5;
+            display:flex;
+            justify-content:center;
+            align-items:center;
+            height:100vh;
+        }
+
+        .login-box{
+            background:white;
+            padding:40px;
+            border-radius:20px;
+            width:400px;
+            box-shadow:0 10px 30px rgba(0,0,0,.1);
+        }
+
+        h1{
+            text-align:center;
+            margin-bottom:30px;
+        }
+
+        input{
+            width:100%;
+            padding:15px;
+            margin-bottom:15px;
+            border:1px solid #ddd;
+            border-radius:10px;
+        }
+
+        button{
+            width:100%;
+            padding:15px;
+            border:none;
+            background:#ff385c;
+            color:white;
+            border-radius:10px;
+            cursor:pointer;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="login-box">
+
+        <h1>Admin Login</h1>
+
+        <input type="text" id="username" placeholder="Username" onkeydown="if(event.key==='Enter') login()">
+
+        <input type="password" id="password" placeholder="Password" onkeydown="if(event.key==='Enter') login()">
+
+        <button onclick="login()">Login</button>
+
+    </div>
+
+<script>
+
+function login(){
+
+    const username = document.getElementById("username").value.trim();
+    const password = document.getElementById("password").value;
+
+    let users = [];
+    try { users = JSON.parse(localStorage.getItem("shph_users")) || []; } catch(e){}
+
+    const match = users.find(u =>
+        (u.name || "").toLowerCase() === username.toLowerCase() && u.password === password);
+
+    if(match){
+        localStorage.setItem("shph_current_user", match.name);
+        logLogin(match.name);
+        window.location.href = "dashboard.html";
+    }
+    else if(users.length === 0 && username !== "" && password === "1234"){
+        // before any users are set up, allow the default admin password
+        localStorage.setItem("shph_current_user", username);
+        logLogin(username);
+        window.location.href = "dashboard.html";
+    }
+    else{
+        alert("Invalid Login");
+    }
+
+}
+// record the sign-in into the shared activity log
+function logLogin(name){
+    let log = [];
+    try { log = JSON.parse(localStorage.getItem("shph_activity_log")) || []; } catch(e){}
+    log.push({ user: name, action: "logged in", at: new Date().toISOString() });
+    localStorage.setItem("shph_activity_log", JSON.stringify(log.slice(-500)));
+}
+
+</script>
+
+</body>
+</html>

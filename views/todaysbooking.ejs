@@ -1,0 +1,1227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<%- include('partials/seed') %>
+
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Today's Booking — Staycation Haven PH</title>
+<style>
+  *{ box-sizing:border-box; }
+  body{ margin:0; font-family:"Segoe UI", Arial, sans-serif; color:#1f1f1f; background:#f1f2f4; }
+  .wrap{ max-width:1200px; margin:0 auto; padding:24px 20px 60px; }
+
+  /* sidebar — matches dashboard.html */
+  .sidebar{ position:fixed; top:0; left:0; width:220px; height:100vh; background:#1a1a1a; color:#fff; padding:24px 0; overflow-y:auto; z-index:30; }
+  .sidebar .brand{ font-size:16px; font-weight:bold; padding:0 22px 22px; border-bottom:1px solid #2c2c2c; margin-bottom:14px; line-height:1.3; }
+  .sidebar .brand-logo{ height:34px; vertical-align:middle; margin-right:6px; }
+  .sidebar .nav-item{ display:flex; align-items:center; gap:12px; padding:13px 22px; font-size:14px; color:#cfcfcf; cursor:pointer; border-left:3px solid transparent; transition:all .15s ease; }
+  .sidebar .nav-item:hover{ background:#262626; color:#fff; }
+  .sidebar .nav-item.active{ background:#262626; color:#fff; border-left-color:#ff385c; font-weight:bold; }
+  .sidebar .nav-item .ico{ font-size:17px; width:20px; text-align:center; }
+  .sidebar.perms-pending .nav-item{ display:none !important; }  /* hide until access is checked (no flash) */
+  .main{ margin-left:220px; }
+
+  @media (max-width:760px){
+    .sidebar{ position:static; width:auto; height:auto; display:flex; flex-wrap:wrap; padding:10px; }
+    .sidebar .brand{ width:100%; border:none; padding:8px 12px; margin-bottom:6px; }
+    .sidebar .nav-item{ border-left:none; border-radius:8px; padding:9px 12px; }
+    .sidebar .nav-item.active{ border-left:none; }
+    .main{ margin-left:0; }
+  }
+  @media (max-width:600px){
+    .wrap{ padding:16px 12px 50px; }
+    .app-header h1{ font-size:18px; }
+    .app-header .title-logo{ height:26px; }
+    .topbar{ flex-direction:column; align-items:flex-start; }
+    .view-tabs{ flex-wrap:wrap; }
+    .view-tab{ padding:8px 11px; font-size:12px; }
+    .panel{ padding:14px; border-radius:12px; }
+    .panel-head h2{ font-size:16px; }
+    .cards{ gap:10px; }
+    .number{ font-size:24px; } .number.money{ font-size:19px; }
+    table{ font-size:12px; }
+    th, td{ padding:8px 7px; }
+    .bk-grid{ grid-template-columns:1fr; }     /* stack add-booking fields */
+    .modal{ padding:20px; }
+    .modal-wide{ width:100%; }
+    .modal-actions{ flex-wrap:wrap; }
+    .modal-actions .btn{ flex:1; }
+  }
+
+  .app-header{ display:flex; align-items:center; justify-content:space-between; gap:15px; flex-wrap:wrap; margin-bottom:25px; }
+  .app-header h1{ font-size:26px; margin:0; display:flex; align-items:center; gap:8px; }
+  .app-header .title-logo{ height:34px; vertical-align:middle; }
+  .header-actions{ display:flex; align-items:center; gap:10px; }
+
+  .topbar{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:18px; }
+  .topbar .title{ display:flex; align-items:center; gap:12px; }
+  .topbar h1{ font-size:24px; margin:0; }
+  .btn{ border:none; border-radius:8px; padding:9px 16px; font-size:13px; font-weight:600; cursor:pointer; background:#ff385c; color:#fff; }
+  .btn.secondary{ background:#fff; color:#444; border:1px solid #ddd; }
+  .btn:hover{ opacity:.92; }
+  .view-tabs{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .view-tab{ border:1px solid #ddd; background:#fff; color:#555; font-size:13px; font-weight:600; padding:9px 14px; border-radius:8px; cursor:pointer; }
+  .view-tab:hover{ background:#f7f7f8; }
+  .view-tab.active{ background:#ff385c; color:#fff; border-color:#ff385c; }
+
+  .cards{ display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:16px; margin-bottom:22px; }
+  .card{ background:#fff; border-radius:14px; padding:18px 20px; box-shadow:0 4px 14px rgba(0,0,0,.05); }
+  .card h3{ font-size:13px; color:#777; font-weight:normal; margin:0 0 8px; }
+  .number{ font-size:28px; font-weight:bold; color:#ff385c; }
+  .number.money{ font-size:22px; }
+  .number.blue{ color:#2b6cb0; }
+
+  .panel{ background:#fff; border-radius:14px; padding:18px 20px; box-shadow:0 4px 14px rgba(0,0,0,.05); margin-bottom:22px; }
+  .panel-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+  .panel-head h2{ font-size:18px; margin:0; }
+
+  .mop-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:12px; }
+  .mop-item{ background:#f7f7f8; border-radius:10px; padding:12px 14px; display:flex; flex-direction:column; gap:4px; }
+  .mop-label{ font-size:12px; color:#777; }
+  .mop-val{ font-size:18px; font-weight:700; color:#1f1f1f; }
+
+  table{ width:100%; border-collapse:collapse; font-size:13px; }
+  th, td{ text-align:left; padding:11px 10px; border-bottom:1px solid #f0f0f0; vertical-align:top; }
+  th{ color:#888; font-weight:bold; font-size:12px; text-transform:uppercase; letter-spacing:.3px; }
+
+  .status{ display:inline-block; font-size:11px; font-weight:700; padding:3px 9px; border-radius:20px; text-transform:lowercase; }
+  .status.paid{ background:#e3f5ea; color:#2e7d4f; }
+  .status.partial{ background:#fff4d6; color:#9a7700; }
+  .status.unpaid{ background:#fde3e7; color:#c0283d; }
+
+  .btn-paid{ border:none; background:#2e9e5b; color:#fff; padding:7px 16px; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer; }
+  .btn-paid:hover{ opacity:.9; }
+  .paid-tag{ color:#2e7d4f; font-size:12px; font-weight:700; }
+  .edit-pay{ color:#2b6cb0; cursor:pointer; font-size:12px; margin-left:10px; }
+  .edit-pay:hover{ text-decoration:underline; }
+  .pay-list-title{ font-size:12px; font-weight:700; color:#888; margin:12px 0 6px; }
+  .pay-list-item{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px; border:1px solid #eee; border-radius:8px; margin-bottom:6px; font-size:13px; }
+  .pay-list-item.active{ border-color:#ff385c; background:#fff5f7; }
+  .pay-list-item .pli-main{ cursor:pointer; flex:1; }
+  .pay-list-item .pli-del{ color:#c0283d; cursor:pointer; font-size:12px; }
+  .muted{ color:#999; font-size:12px; }
+
+  /* payment popup */
+  .overlay{ position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; align-items:center; justify-content:center; z-index:60; }
+  .overlay.show{ display:flex; }
+  .modal{ background:#fff; border-radius:16px; padding:24px 26px; width:400px; max-width:92vw; box-shadow:0 20px 50px rgba(0,0,0,.25); }
+  .modal h3{ margin:0 0 14px; font-size:19px; }
+  .modal label{ display:block; font-size:12px; color:#777; margin:14px 0 5px; font-weight:600; }
+  .modal select, .modal input[type=file], .modal input[type=number], .modal input[type=date], .modal input[type=text]{ width:100%; padding:10px; border:1px solid #d9d9d9; border-radius:8px; font-family:inherit; font-size:14px; background:#fafafa; }
+  .modal select:focus, .modal input:focus{ outline:none; border-color:#ff385c; background:#fff; }
+  .pay-info{ background:#f7f7f8; border-radius:10px; padding:12px 14px; font-size:14px; line-height:1.5; }
+  .pay-preview{ width:150px; height:150px; object-fit:cover; margin-top:10px; border-radius:8px; display:none; border:1px solid #eee; cursor:zoom-in; }
+  .modal-actions{ display:flex; justify-content:flex-end; gap:10px; margin-top:20px; }
+  /* full-size proof viewer */
+  .img-lightbox{ position:fixed; inset:0; background:rgba(0,0,0,.85); display:none; align-items:center; justify-content:center; z-index:120; cursor:zoom-out; }
+  .img-lightbox.show{ display:flex; }
+  .img-lightbox img{ max-width:92vw; max-height:92vh; border-radius:8px; }
+
+  /* add-booking modal */
+  .modal-wide{ width:560px; max-height:90vh; overflow-y:auto; }
+  .bk-grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .bk-field{ display:flex; flex-direction:column; }
+  .bk-field.full{ grid-column:1 / -1; }
+  .bk-field label{ font-size:12px; color:#777; margin:0 0 5px; font-weight:600; }
+  .bk-field input, .bk-field select, .bk-field textarea{
+    width:100%; padding:10px; border:1px solid #d9d9d9; border-radius:8px;
+    font-family:inherit; font-size:14px; background:#fafafa;
+  }
+  .bk-field input:focus, .bk-field select:focus, .bk-field textarea:focus{ outline:none; border-color:#ff385c; background:#fff; }
+  .bk-field input[readonly]{ background:#f0f0f0; color:#555; }
+  .guest-row{ display:flex; gap:8px; margin-bottom:8px; align-items:center; }
+  .guest-row input.gname{ flex:1; }
+  .guest-row input.gage{ width:90px; }
+  .guest-row .gdel{ color:#d63a4f; cursor:pointer; font-size:18px; border:none; background:none; }
+  .add-guest{ background:#fff; color:#444; border:1px solid #ddd; }
+  .breakdown{ font-size:11px; color:#999; margin-top:6px; line-height:1.5; }
+  .check-label{ display:flex; align-items:center; gap:8px; font-size:13px; color:#555; font-weight:normal; }
+  .empty{ text-align:center; color:#aaa; padding:30px; }
+  .scroll{ overflow-x:auto; }
+  @media(max-width:760px){ .cards{ grid-template-columns:repeat(2,1fr); } }
+</style>
+</head>
+<body>
+<!-- sidebar navigation (mirrors dashboard.html) -->
+<div class="sidebar perms-pending">
+  <div class="brand"><img src="images/logo.png" alt="" class="brand-logo" onerror="this.remove()"> Staycation<br>Haven PH</div>
+  <div class="nav-item active" data-page="today"><span class="ico">📋</span> Today's Booking</div>
+  <div class="nav-item" data-page="finance" onclick="goPage('finance')"><span class="ico">💰</span> Finance</div>
+  <div class="nav-item" data-page="analytics" onclick="goPage('analytics')"><span class="ico">📊</span> Analytics</div>
+  <div class="nav-item" data-page="calendar" onclick="goPage('calendar')"><span class="ico">📅</span> Calendar/Bookings</div>
+  <div class="nav-item" data-page="havens" onclick="goPage('havens')"><span class="ico">🏡</span> Havens</div>
+  <div class="nav-item" data-page="booking" onclick="goPage('booking')"><span class="ico">🧮</span> Rates and Add Ons</div>
+  <div class="nav-item" data-page="payments" onclick="goPage('payments')"><span class="ico">💳</span> Payments</div>
+  <div class="nav-item" data-page="cleaners" onclick="goPage('cleaners')"><span class="ico">🧹</span> Housekeeping</div>
+  <div class="nav-item" data-page="payroll" onclick="goPage('payroll')"><span class="ico">🧾</span> Payroll</div>
+  <div class="nav-item" data-page="bills" onclick="goPage('bills')"><span class="ico">💵</span> Bills</div>
+  <div class="nav-item" data-page="assist" onclick="goPage('assist')"><span class="ico">💬</span> Assist</div>
+  <div class="nav-item" data-page="users" onclick="goPage('users')"><span class="ico">👥</span> Users</div>
+  <div class="nav-item" data-page="employees" onclick="goPage('employees')"><span class="ico">👤</span> Employees</div>
+  <div class="nav-item" data-page="log" onclick="goPage('log')"><span class="ico">📜</span> Log</div>
+</div>
+
+<div class="main">
+<div class="wrap">
+  <!-- app header (mirrors dashboard.html) -->
+  <div class="app-header">
+    <h1><img src="images/logo.png" alt="" class="title-logo" onerror="this.remove()"> Staycation Haven PH — Dashboard</h1>
+    <div class="header-actions">
+      <span class="muted" id="currentUserLabel" style="font-size:13px;"></span>
+      <button class="btn" id="addBookingBtn" onclick="openAdd()">+ Add Booking</button>
+      <button class="btn secondary" onclick="logout()">Logout</button>
+    </div>
+  </div>
+
+  <div class="topbar">
+    <div class="title">
+      <h2 style="font-size:20px; margin:0;">Today's Booking <span class="muted" id="todayDateLabel" style="font-size:14px;"></span></h2>
+    </div>
+    <div class="view-tabs">
+      <button class="view-tab" data-view="yesterday" onclick="setView('yesterday')">Yesterday</button>
+      <button class="view-tab active" data-view="today" onclick="setView('today')">Today</button>
+      <button class="view-tab" data-view="tomorrow" onclick="setView('tomorrow')">Tomorrow</button>
+      <button class="view-tab" data-view="week" onclick="setView('week')">This week</button>
+      <button class="view-tab" data-view="month" onclick="setView('month')">This month</button>
+      <button class="btn secondary" onclick="renderToday()">↻ Refresh</button>
+    </div>
+  </div>
+
+  <div class="cards" id="todayCards"></div>
+
+  <div class="panel">
+    <div class="panel-head"><h2 id="mopHeading">💵 Collected today by payment method</h2></div>
+    <div class="mop-grid" id="mopGrid"></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h2>⬇️ <span id="arriveHeading">Arriving today</span> <span class="muted" id="todayArriveCount"></span></h2></div>
+    <div class="scroll">
+      <table>
+        <thead><tr>
+          <th>Haven</th><th>Guests</th><th>Check-in</th><th>Check-out</th>
+          <th>Stay</th><th>Add-ons</th><th>To collect</th><th>Status</th><th></th>
+        </tr></thead>
+        <tbody id="todayArriveBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h2>🏠 <span id="stayHeading">In-house &amp; departing today</span> <span class="muted" id="todayStayCount"></span></h2></div>
+    <div class="scroll">
+      <table>
+        <thead><tr>
+          <th>Haven</th><th>Guests</th><th>Check-in</th><th>Check-out</th>
+          <th>Stay</th><th>Add-ons</th><th>Balance</th><th>Status</th><th></th>
+        </tr></thead>
+        <tbody id="todayStayBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+</div><!-- /main -->
+
+<!-- add booking popup (saves to the same data the dashboard Calendar/Bookings uses) -->
+<div class="overlay" id="addOverlay">
+  <div class="modal modal-wide">
+    <h3>Add Booking</h3>
+    <div class="bk-grid">
+      <div class="bk-field full">
+        <label>Haven</label>
+        <select id="a_haven" onchange="aRecalc()"></select>
+      </div>
+      <div class="bk-field full">
+        <label>Guests <span class="muted">(max 5 pax — up to 4 adults &amp; 2 kids aged 0–13)</span></label>
+        <div id="aGuestList"></div>
+        <button type="button" class="btn add-guest" onclick="aAddGuest()">+ Add guest</button>
+        <div class="breakdown">1st guest must be 18+. 2nd guest may be a minor only if a family member (same last name). Base rate covers 2 pax; extra pax aged 5+ is ₱300/head.</div>
+      </div>
+      <div class="bk-field full">
+        <label>Contact number</label>
+        <input type="text" id="a_contact" placeholder="09xx xxx xxxx">
+      </div>
+      <div class="bk-field">
+        <label>Check-in</label>
+        <input type="date" id="a_checkin" onchange="aOnCheckinChange()">
+      </div>
+      <div class="bk-field">
+        <label>Check-out <span class="muted">(auto)</span></label>
+        <input type="date" id="a_checkout" readonly>
+      </div>
+      <div class="bk-field">
+        <label>Time of stay</label>
+        <select id="a_stay" onchange="aRecompute()"></select>
+      </div>
+      <div class="bk-field">
+        <label>Extend hr <span class="muted">(₱150/hr)</span></label>
+        <input type="number" id="a_extend" value="0" min="0" oninput="aRecompute()">
+      </div>
+      <div class="bk-field">
+        <label>Check-in time</label>
+        <select id="a_checkinTime" onchange="aTimeSelChange()"></select>
+        <input type="time" id="a_checkinTimeCustom" style="display:none; margin-top:6px;" onchange="aRecompute()">
+      </div>
+      <div class="bk-field">
+        <label>Check-out time <span class="muted">(auto)</span></label>
+        <input type="text" id="a_checkoutTime" readonly>
+      </div>
+      <div class="bk-field">
+        <label>Swimpass qty</label>
+        <input type="number" id="a_swimpass" value="0" min="0" oninput="aRecalc()">
+      </div>
+      <div class="bk-field">
+        <label>Towels qty <span class="muted">(₱50 each)</span></label>
+        <input type="number" id="a_towels" value="0" min="0" oninput="aRecalc()">
+      </div>
+      <div class="bk-field full">
+        <label class="check-label"><input type="checkbox" id="a_holiday" onchange="aRecalc()"> Holiday rate <span class="muted">(swimpass ₱300/pax instead of ₱150)</span></label>
+      </div>
+      <div class="bk-field full">
+        <label>Payment method</label>
+        <select id="a_method">
+          <option>GCash</option><option>Maya</option><option>BDO</option>
+          <option>Cash</option><option>Maribank</option><option>Other bank</option>
+        </select>
+      </div>
+      <div class="bk-field">
+        <label>Security deposit (₱)</label>
+        <input type="number" id="a_deposit" value="1000" min="0" oninput="aRecalc()">
+      </div>
+      <div class="bk-field">
+        <label>Downpayment (₱)</label>
+        <input type="number" id="a_down" value="0" min="0" oninput="aRecalc()">
+      </div>
+      <div class="bk-field full">
+        <label>Total amount payable (₱) <span class="muted">— auto-calculated</span></label>
+        <input type="number" id="a_total" readonly>
+        <div class="breakdown" id="a_breakdown"></div>
+      </div>
+      <div class="bk-field full">
+        <label>Balance upon check-in (₱)</label>
+        <input type="text" id="a_balance" readonly>
+      </div>
+      <div class="bk-field full">
+        <label>Notes</label>
+        <textarea id="a_notes" rows="2" placeholder="Special requests, late checkout, etc."></textarea>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn secondary" onclick="closeAdd()">Cancel</button>
+      <button class="btn" onclick="saveNewBooking()">Save Booking</button>
+    </div>
+  </div>
+</div>
+
+<!-- payment / collection popup -->
+<div class="overlay" id="payOverlay">
+  <div class="modal">
+    <h3 id="payTitle">Record Payment</h3>
+    <div class="pay-info" id="payInfo"></div>
+
+    <div id="payList"></div>
+
+    <label for="payFor">Payment for</label>
+    <select id="payFor">
+      <option value="Balance">Balance</option>
+      <option value="Add Ons">Add Ons</option>
+    </select>
+
+    <label for="payAmount">Amount collected (₱)</label>
+    <input type="number" id="payAmount" min="0" placeholder="0">
+
+    <label for="payDate">Date collected</label>
+    <input type="date" id="payDate">
+
+    <label for="payMop">MOP (Mode of Payment)</label>
+    <select id="payMop">
+      <option value="Cash">Cash</option>
+      <option value="GCash">GCash</option>
+      <option value="BDO">BDO</option>
+      <option value="Maya">Maya</option>
+      <option value="Maribank">Maribank</option>
+      <option value="Others">Others</option>
+    </select>
+
+    <label for="payFile">Proof of Payment (photo)</label>
+    <input type="file" id="payFile" accept="image/*" onchange="onProofChange(this)">
+    <img id="payPreview" class="pay-preview" alt="proof" onclick="openProofImg(this.src)">
+
+    <div class="modal-actions">
+      <button class="btn secondary" id="paySaveAddBtn" onclick="savePay(true)" style="display:none; margin-right:auto;">+ Add another payment</button>
+      <button class="btn secondary" id="payAddBtn" onclick="addFollowUpPayment()" style="display:none; margin-right:auto;">+ Add payment</button>
+      <button class="btn secondary" id="payDelBtn" onclick="deletePaymentEntry()" style="display:none; color:#c0283d; border-color:#f3c2cb;">Delete</button>
+      <button class="btn secondary" onclick="closePay()">Cancel</button>
+      <button class="btn" id="paySaveBtn" onclick="savePay()">Save Payment</button>
+    </div>
+  </div>
+</div>
+
+<!-- late add-ons (pool pass / towels) added to an existing booking's bill -->
+<div class="overlay" id="addonOverlay">
+  <div class="modal">
+    <h3>➕ Add-ons to Bill</h3>
+    <div class="pay-info" id="addonInfo"></div>
+
+    <label for="addonPool">Add pool passes</label>
+    <input type="number" id="addonPool" min="0" value="0" oninput="addonRecalc()">
+
+    <label for="addonTowels">Add towels</label>
+    <input type="number" id="addonTowels" min="0" value="0" oninput="addonRecalc()">
+
+    <label class="check-label" style="margin-top:12px;"><input type="checkbox" id="addonHoliday" onchange="addonRecalc()"> Holiday pool rate (₱300/pass)</label>
+
+    <div class="pay-info" id="addonTotalInfo" style="margin-top:12px;"></div>
+
+    <div class="modal-actions">
+      <button class="btn secondary" onclick="closeAddon()">Cancel</button>
+      <button class="btn" onclick="saveAddon()">Add to Bill</button>
+    </div>
+  </div>
+</div>
+
+<!-- full-size proof image viewer -->
+<div class="img-lightbox" id="imgLightbox" onclick="this.classList.remove('show')">
+  <img id="imgLightboxImg" alt="proof of payment">
+</div>
+
+<script>
+  // shares the dashboard's data — same localStorage key
+  const KEY = "shph_bookings_v3";
+  const HAVEN_TIMES = {
+    "Haven 1":{in:"12:00 NN"}, "Haven 2":{in:"12:00 NN"}, "Haven 3":{in:"12:00 NN"},
+    "Haven 4":{in:"3:00 PM"}, "Haven 5":{in:"3:00 PM"}, "Haven 7":{in:"3:00 PM"},
+    "Haven 8":{in:"6:00 PM"}, "Casa Bienca":{in:"6:00 PM"}
+  };
+
+  /* ---------- date helpers ---------- */
+  function today(){ const d = new Date(); d.setHours(0,0,0,0); return d; }
+  function addDays(date, n){ const d = new Date(date); d.setDate(d.getDate()+n); return d; }
+  function iso(date){
+    const y = date.getFullYear();
+    const m = String(date.getMonth()+1).padStart(2,"0");
+    const d = String(date.getDate()).padStart(2,"0");
+    return `${y}-${m}-${d}`;
+  }
+  function fmt(dateStr){
+    const d = new Date(dateStr + "T00:00:00");
+    return d.toLocaleDateString("en-PH", {month:"short", day:"numeric"});
+  }
+  function peso(n){ return "₱" + Number(n).toLocaleString("en-PH"); }
+
+  /* ---------- check-in / check-out times ---------- */
+  function parseTimeMin(str){
+    const m = String(str).match(/^(\d{1,2}):(\d{2})\s*(AM|PM|NN|MN)$/i);
+    if(!m) return null;
+    let h = Number(m[1]); const min = Number(m[2]); const suf = m[3].toUpperCase();
+    if(suf === "NN") h = 12; else if(suf === "MN") h = 0; else if(suf === "PM") h = (h % 12) + 12; else h = h % 12;
+    return h * 60 + min;
+  }
+  function minToTime(min){
+    min = ((min % 1440) + 1440) % 1440;
+    const h = Math.floor(min / 60), mm = String(min % 60).padStart(2, "0");
+    if(h === 0) return `12:${mm} MN`;
+    if(h === 12) return `12:${mm} NN`;
+    return `${h > 12 ? h - 12 : h}:${mm} ${h < 12 ? "AM" : "PM"}`;
+  }
+  function bookingCheckinMin(b){
+    if(b.checkinTime){ const m = parseTimeMin(b.checkinTime); if(m != null) return m === 0 ? 1440 : m; }
+    const h = Number(b.stayHours) || 21;
+    if(h === 6) return parseTimeMin(b.slot === "evening" ? "7:00 PM" : "8:00 AM");
+    if(h === 21){ const t = HAVEN_TIMES[b.haven]; return t ? parseTimeMin(t.in) : parseTimeMin("12:00 NN"); }
+    return parseTimeMin("8:00 AM");
+  }
+  function checkinTimeStr(b){ return minToTime(bookingCheckinMin(b)); }
+  function checkoutTimeStr(b){
+    return minToTime(bookingCheckinMin(b) + ((Number(b.stayHours) || 21) + (Number(b.extend) || 0)) * 60);
+  }
+  function endExcl(b){
+    return b.checkout > b.checkin ? b.checkout : iso(addDays(new Date(b.checkin + "T00:00:00"), 1));
+  }
+
+  /* ---------- booking helpers ---------- */
+  // total collected AFTER booking (via the Paid button) — kept separate from the downpayment
+  function collectedSum(b){ return (b.payments || []).reduce((s,p) => s + (Number(p.amount) || 0), 0); }
+  // everything the customer has paid so far = original downpayment + later collections
+  function paidOf(b){ return Number(b.downpayment || 0) + collectedSum(b); }
+  function balanceOf(b){ return Math.max(0, Number(b.total || 0) - paidOf(b)); }
+  function statusOf(b){
+    const paid = paidOf(b);
+    if(paid >= b.total && b.total > 0) return "paid";
+    if(paid > 0) return "partial";
+    return "unpaid";
+  }
+  function guestSummary(b){ return (b.guests || []).map(g => `${g.name} (${g.age})`).join("<br>"); }
+  function addonsCell(b){
+    const bits = [];
+    if(b.swimpass > 0) bits.push(`🏊 ${b.swimpass}`);
+    if(b.towels   > 0) bits.push(`🧺 ${b.towels}`);
+    if(b.extend   > 0) bits.push(`⏱ +${b.extend}h`);
+    return bits.length ? bits.join(" · ") : '<span class="muted">—</span>';
+  }
+  function todayInfo(b, t){
+    const dayUse = !(b.checkout > b.checkin);
+    const arrives  = b.checkin === t;
+    const departs  = dayUse ? b.checkin === t : b.checkout === t;
+    const staying  = b.checkin <= t && t < endExcl(b);
+    return { arrives, departs, staying, relevant: arrives || departs || staying };
+  }
+  function todayRow(b, amountCol){
+    const st = statusOf(b);
+    const hasPayment = b.payments && b.payments.length;
+    const updateLink = ` <span class="edit-pay" onclick="openPay(${b.id}, true)">Update payment</span>`;
+    // action follows the real status: fully paid → ✓ Paid; otherwise → Paid button to collect
+    const payCell = (st === "paid")
+      ? `<span class="paid-tag">✓ Paid</span>${IS_ADMIN ? updateLink : ""}`
+      : `<button class="btn-paid" onclick="openPay(${b.id})">Paid</button>${(IS_ADMIN && hasPayment) ? updateLink : ""}`;
+    const over = paidOf(b) - Number(b.total || 0);   // excess payment, if any
+    const amtCell = amountCol > 0
+        ? peso(amountCol)
+        : (over > 0 ? `<span style="color:#2e9e5b; font-weight:700;">+${peso(over)} over</span>` : '<span class="muted">—</span>');
+    const addonLink = canAddBooking() ? ` <span class="edit-pay" onclick="openAddon(${b.id})">+ Add-ons</span>` : "";
+    return `<tr>
+        <td><strong>${b.haven}</strong></td>
+        <td>${guestSummary(b)}<br><span class="muted">${b.contact||""}</span></td>
+        <td>${fmt(b.checkin)}<br><span class="muted">${checkinTimeStr(b)}</span></td>
+        <td>${fmt(b.checkout)}<br><span class="muted">${checkoutTimeStr(b)}</span></td>
+        <td>${b.stayHours ? b.stayHours + "h" + (Number(b.stayHours)===6 && b.slot ? "<br><span class='muted'>"+(b.slot==="morning"?"AM":"PM")+"</span>" : "") : "—"}</td>
+        <td>${addonsCell(b)}</td>
+        <td>${amtCell}</td>
+        <td><span class="status ${st}">${st}</span></td>
+        <td>${payCell}${addonLink}</td>
+    </tr>`;
+  }
+
+  /* ---------- data ---------- */
+  function loadBookings(){
+    try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch(e){ return []; }
+  }
+  let bookings = loadBookings();
+
+  /* ---------- render ---------- */
+  let currentView = "today"; // today | tomorrow | week | month
+
+  // [start, end) iso date range for the chosen view
+  function viewRange(){
+    const t0 = today();
+    if(currentView === "yesterday"){ const d = addDays(t0, -1); return { start: iso(d), end: iso(t0) }; }
+    if(currentView === "tomorrow"){ const d = addDays(t0, 1); return { start: iso(d), end: iso(addDays(d, 1)) }; }
+    if(currentView === "week"){ const s = addDays(t0, -t0.getDay()); return { start: iso(s), end: iso(addDays(s, 7)) }; }
+    if(currentView === "month"){ const s = new Date(t0.getFullYear(), t0.getMonth(), 1); const e = new Date(t0.getFullYear(), t0.getMonth() + 1, 1); return { start: iso(s), end: iso(e) }; }
+    return { start: iso(t0), end: iso(addDays(t0, 1)) };
+  }
+  // classify a booking against a date range [start, end)
+  function rangeInfo(b, start, end){
+    const dayUse = !(b.checkout > b.checkin);
+    const arrives = b.checkin >= start && b.checkin < end;
+    const departDate = dayUse ? b.checkin : b.checkout;
+    const departs = departDate >= start && departDate < end;
+    const overlaps = b.checkin < end && endExcl(b) > start;
+    return { arrives, departs, staying: overlaps, relevant: arrives || departs || overlaps };
+  }
+  function setView(v){
+    currentView = v;
+    localStorage.setItem("shph_today_view", v);   // remember across refreshes
+    document.querySelectorAll(".view-tab").forEach(t => t.classList.toggle("active", t.dataset.view === v));
+    renderToday();
+  }
+
+  function renderToday(){
+    bookings = loadBookings();
+    const { start, end } = viewRange();
+    const single = (currentView === "today" || currentView === "tomorrow" || currentView === "yesterday");
+    const suffix = currentView === "today" ? "today" : currentView === "tomorrow" ? "tomorrow"
+                 : currentView === "yesterday" ? "yesterday"
+                 : currentView === "week" ? "this week" : "this month";
+
+    const lastDay = iso(addDays(new Date(end + "T00:00:00"), -1));
+    document.getElementById("todayDateLabel").textContent = single
+      ? "— " + new Date(start + "T00:00:00").toLocaleDateString("en-PH", { weekday:"long", month:"long", day:"numeric", year:"numeric" })
+      : "— " + fmt(start) + " – " + fmt(lastDay);
+
+    const tagged = bookings.map(b => ({ b, info: rangeInfo(b, start, end) })).filter(x => x.info.relevant);
+    const arrivals = tagged.filter(x => x.info.arrives).map(x => x.b)
+      .sort((a,c) => (a.checkin||"").localeCompare(c.checkin||"") || bookingCheckinMin(a) - bookingCheckinMin(c));
+    const others = tagged.filter(x => !x.info.arrives).map(x => x.b)
+      .sort((a,c) => (a.checkout||"").localeCompare(c.checkout||"") || checkoutTimeStr(a).localeCompare(checkoutTimeStr(c)));
+
+    const departCount = tagged.filter(x => x.info.departs).length;
+    const inHouseCount = tagged.filter(x => x.info.staying).length;
+    const toCollect = arrivals.reduce((s,b) => s + balanceOf(b), 0);
+
+    // money collected from guests CHECKING IN within the range, totalled per MOP
+    // (downpayment via its method + every collection recorded via the "Paid" button)
+    const MOPS = ["Cash", "GCash", "BDO", "Maya", "Maribank", "Others"];
+    const byMop = {}; MOPS.forEach(m => byMop[m] = 0);
+    const bucket = (mop, amt) => { byMop[MOPS.includes(mop) ? mop : "Others"] += amt; };
+    let collected = 0;
+    bookings.forEach(b => {
+      const checkinInRange = (b.checkin >= start && b.checkin < end);
+      // downpayment counts for guests checking in within the range
+      if(checkinInRange){
+        const dp = Number(b.downpayment) || 0;
+        if(dp > 0){ collected += dp; bucket(b.method, dp); }
+      }
+      (b.payments || []).forEach(p => {
+        const amt = Number(p.amount) || 0;
+        const payDay = iso(new Date(p.at));
+        // add-ons count on the day they were actually purchased; room/balance follows check-in day
+        const inRange = (p.category === "Add Ons")
+          ? (payDay >= start && payDay < end)
+          : checkinInRange;
+        if(inRange){ collected += amt; bucket(p.mop, amt); }
+      });
+    });
+
+    const cards = [
+      ["Arriving " + suffix,  arrivals.length, ""],
+      ["Departing " + suffix, departCount, ""],
+      [currentView === "today" ? "In-house now" : "In-house", inHouseCount, ""],
+      ["To collect " + suffix, peso(toCollect), "money"],
+      ["Collected " + suffix,  peso(collected), "money blue"]
+    ];
+    document.getElementById("todayCards").innerHTML = cards.map(c =>
+      `<div class="card"><h3>${c[0]}</h3><div class="number ${c[2]}">${c[1]}</div></div>`).join("");
+
+    document.getElementById("mopHeading").textContent = "💵 Collected " + suffix + " by payment method";
+    document.getElementById("arriveHeading").textContent = "Arriving " + suffix;
+    document.getElementById("stayHeading").innerHTML = "In-house &amp; departing " + suffix;
+
+    document.getElementById("mopGrid").innerHTML = MOPS.map(m =>
+      `<div class="mop-item"><span class="mop-label">${m}</span><span class="mop-val">${peso(byMop[m])}</span></div>`).join("");
+
+    document.getElementById("todayArriveBody").innerHTML = arrivals.length
+      ? arrivals.map(b => todayRow(b, balanceOf(b))).join("")
+      : `<tr><td colspan="9" class="empty">No arrivals ${suffix}.</td></tr>`;
+    document.getElementById("todayArriveCount").textContent = arrivals.length ? `(${arrivals.length})` : "";
+
+    document.getElementById("todayStayBody").innerHTML = others.length
+      ? others.map(b => todayRow(b, balanceOf(b))).join("")
+      : `<tr><td colspan="9" class="empty">Nobody else in-house or departing ${suffix}.</td></tr>`;
+    document.getElementById("todayStayCount").textContent = others.length ? `(${others.length})` : "";
+  }
+
+  // jump to another dashboard page — remember it so dashboard.html opens there
+  function goPage(page){
+    localStorage.setItem("shph_dashboard_page", page);
+    window.location.href = "dashboard.html";
+  }
+  function currentUser(){ return localStorage.getItem("shph_current_user") || "Admin"; }
+  function logout(){ logActivity("logged out"); localStorage.removeItem("shph_current_user"); window.location.href = "admin.html"; }
+  // shared activity log (viewable on the dashboard's Log page)
+  function logActivity(action){
+    try {
+      let log = [];
+      try { log = JSON.parse(localStorage.getItem("shph_activity_log")) || []; } catch(e){}
+      log.push({ user: currentUser(), action, at: new Date().toISOString() });
+      localStorage.setItem("shph_activity_log", JSON.stringify(log.slice(-500)));
+    } catch(e){ /* never let logging break an action (e.g. storage full) */ }
+  }
+  // is the logged-in user an administrator? (unknown / direct access = treated as admin)
+  function isAdmin(){
+    try {
+      const users = JSON.parse(localStorage.getItem("shph_users")) || [];
+      const u = users.find(x => x.name === currentUser());
+      return u ? !!u.admin : true;
+    } catch(e){ return true; }
+  }
+  let IS_ADMIN = isAdmin();
+
+  /* ---------- access control (mirrors dashboard.html) ---------- */
+  const PAGE_KEYS = ["today","finance","analytics","calendar","havens","booking","payments","cleaners","employees","log","payroll","bills","assist","users"];
+  function currentUserObj(){
+    try {
+      const users = JSON.parse(localStorage.getItem("shph_users")) || [];
+      return users.find(u => (u.name || "").toLowerCase() === currentUser().toLowerCase()) || null;
+    } catch(e){ return null; }
+  }
+  function currentPerms(){
+    const u = currentUserObj();
+    if(!u) return PAGE_KEYS;       // direct access (no login) = full
+    if(u.admin) return PAGE_KEYS;
+    return u.perms || [];
+  }
+  // only admins and CSRs may create bookings
+  function canAddBooking(){
+    if(IS_ADMIN) return true;
+    try {
+      const st = JSON.parse(localStorage.getItem("shph_staff_v1")) || [];
+      const un = currentUser().trim().toLowerCase();
+      const owns = s => {
+        const sn = (s.name || "").trim().toLowerCase();
+        return sn === un || sn.startsWith(un + " ") || sn.split(/\s+/)[0] === un;
+      };
+      return st.filter(owns).some(s => s.role === "CSR");
+    } catch(e){ return false; }
+  }
+  function applyPerms(){
+    const admin = IS_ADMIN;
+    const perms = currentPerms();
+    // not allowed to view Today's Booking → bounce to the dashboard (it routes to an allowed page)
+    if(!admin && !perms.includes("today")){ window.location.href = "dashboard.html"; return; }
+    // hide sidebar items the user can't access
+    document.querySelectorAll(".sidebar .nav-item").forEach(n => {
+      const pg = n.dataset.page;
+      if(!pg) return;
+      const ok = (pg === "users") ? admin : (admin || perms.includes(pg));
+      n.style.display = ok ? "flex" : "none";
+    });
+    document.querySelector(".sidebar").classList.remove("perms-pending");  // reveal now that it's filtered
+    const ab = document.getElementById("addBookingBtn");
+    if(ab) ab.style.display = canAddBooking() ? "" : "none";   // only admin/CSR can add bookings
+  }
+
+  /* ---------- payment / collection popup ---------- */
+  let payBookingId = null, payProof = null, payEditing = false, payEditIndex = -1;
+
+  // list of all payments made for this booking
+  function renderPayList(b){
+    const el = document.getElementById("payList");
+    const pays = (b && b.payments) || [];
+    const dp = Number(b && b.downpayment) || 0;
+    const count = pays.length + (dp > 0 ? 1 : 0);
+    if(!count){ el.innerHTML = ""; return; }
+    let html = `<div class="pay-list-title">Payments made (${count})</div>`;
+    if(dp > 0){
+      html += `<div class="pay-list-item">
+          <span class="pli-main"><strong>${peso(dp)}</strong> · Downpayment · ${b.method || "—"}
+            <span class="muted"> — upfront (edit in booking)</span></span>
+        </div>`;
+    }
+    html += pays.map((p, i) => `
+        <div class="pay-list-item ${i === payEditIndex ? "active" : ""}">
+          <span class="pli-main" onclick="loadPayInto(${i})">
+            <strong>${peso(p.amount)}</strong> · ${p.category || "Balance"} · ${p.mop}
+            <span class="muted"> — ${new Date(p.at).toLocaleString("en-PH", {month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})}${p.by ? " · " + p.by : ""}</span>
+          </span>
+          <span class="pli-del" onclick="deletePaymentAt(${i})">Delete</span>
+        </div>`).join("");
+    el.innerHTML = html;
+  }
+  // fill the form from a payment (p = null → blank new entry)
+  function fillPayForm(b, p){
+    const prev = document.getElementById("payPreview");
+    document.getElementById("payFile").value = "";
+    if(p){
+      document.getElementById("payAmount").value = Number(p.amount) || 0;
+      document.getElementById("payMop").value = p.mop || "Cash";
+      document.getElementById("payFor").value = p.category || "Balance";
+      document.getElementById("payDate").value = p.at ? iso(new Date(p.at)) : iso(today());
+      payProof = p.proof || null;
+      if(payProof){ prev.src = payProof; prev.style.display = "block"; } else { prev.src = ""; prev.style.display = "none"; }
+    } else {
+      document.getElementById("payAmount").value = balanceOf(b);
+      document.getElementById("payMop").selectedIndex = 0;
+      document.getElementById("payFor").value = "Balance";
+      document.getElementById("payDate").value = iso(today());
+      payProof = null; prev.src = ""; prev.style.display = "none";
+    }
+  }
+  function updatePayButtons(editingExisting){
+    document.getElementById("payDelBtn").style.display = editingExisting ? "inline-block" : "none";
+    document.getElementById("payAddBtn").style.display = editingExisting ? "inline-block" : "none";  // "+ Add payment" = new entry
+    document.getElementById("paySaveAddBtn").style.display = editingExisting ? "none" : "inline-block";
+    document.getElementById("paySaveBtn").textContent = editingExisting ? "Update Payment" : "Save Payment";
+  }
+  // the chosen collection date (with current time-of-day) so late inputs land on the right day
+  function payAtFromInput(){
+    const d = document.getElementById("payDate").value;
+    const now = new Date();
+    if(!d) return now.toISOString();
+    const dt = new Date(d + "T00:00:00");
+    dt.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
+    return dt.toISOString();
+  }
+  function payInfoLine(b){
+    const guest = (b.guests && b.guests[0] && b.guests[0].name) || "";
+    return `<strong>${b.haven}</strong> — ${guest}<br>Collected: <strong>${peso(collectedSum(b))}</strong> · Balance: <strong>${peso(balanceOf(b))}</strong>`;
+  }
+
+  function openPay(id, edit){
+    payBookingId = id; payProof = null;
+    const b = bookings.find(x => x.id === id);
+    if(!b) return;
+    const pays = b.payments || [];
+    document.getElementById("payInfo").innerHTML = payInfoLine(b);
+    if(edit && pays.length){
+      payEditIndex = pays.length - 1; payEditing = true;
+      document.getElementById("payTitle").textContent = "Edit Payment";
+      fillPayForm(b, pays[payEditIndex]);
+      updatePayButtons(true);
+    } else {
+      payEditIndex = -1; payEditing = false;
+      document.getElementById("payTitle").textContent = "Record Payment";
+      fillPayForm(b, null);
+      updatePayButtons(false);
+    }
+    renderPayList(b);
+    document.getElementById("payOverlay").classList.add("show");
+  }
+  // click a payment in the list to edit it
+  function loadPayInto(index){
+    const b = bookings.find(x => x.id === payBookingId);
+    if(!b || !b.payments || !b.payments[index]) return;
+    payEditIndex = index; payEditing = true;
+    document.getElementById("payTitle").textContent = "Edit Payment";
+    fillPayForm(b, b.payments[index]);
+    updatePayButtons(true);
+    renderPayList(b);
+  }
+  // delete a specific payment by index
+  function deletePaymentAt(index){
+    if(payBookingId == null) return;
+    const data = loadBookings();
+    const b = data.find(x => x.id === payBookingId);
+    if(!b || !b.payments || !b.payments[index]){ return; }
+    const p = b.payments[index];
+    if(!confirm(`Delete this ${p.category || "Balance"} payment of ${peso(p.amount)}? This cannot be undone.`)) return;
+    b.payments.splice(index, 1);
+    if(!(b.payments || []).some(x => x.category === "Add Ons")) delete b.addonProof;
+    try { localStorage.setItem(KEY, JSON.stringify(data)); }
+    catch(e){ alert("Couldn't save the change — browser storage may be full."); return; }
+    logActivity(`deleted ${p.category || "Balance"} payment — ${b.haven} · ${peso(p.amount)} (${p.mop})`);
+    bookings = data;
+    renderToday();
+    if(b.payments.length) openPay(payBookingId, true);   // reopen showing remaining
+    else closePay();
+  }
+  // Delete button (deletes the payment currently in the form)
+  function deletePaymentEntry(){
+    if(payEditIndex >= 0) deletePaymentAt(payEditIndex);
+    else closePay();
+  }
+  // "+ Add payment" — switch to a blank new entry without leaving the popup
+  function addFollowUpPayment(){
+    const b = bookings.find(x => x.id === payBookingId);
+    if(!b) return;
+    payEditing = false; payEditIndex = -1;
+    document.getElementById("payTitle").textContent = "Record Payment";
+    fillPayForm(b, null);
+    document.getElementById("payFor").value = "Add Ons";   // follow-ups are usually add-ons
+    updatePayButtons(false);
+    renderPayList(b);
+  }
+  function closePay(){
+    payBookingId = null; payProof = null; payEditing = false; payEditIndex = -1;
+    document.getElementById("payOverlay").classList.remove("show");
+  }
+  // shrink + compress an image to keep localStorage small
+  function resizeImage(file, cb){
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const max = 1000;
+        let w = img.width, h = img.height;
+        if(w > max || h > max){ const r = Math.min(max / w, max / h); w = Math.round(w * r); h = Math.round(h * r); }
+        const canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+        cb(canvas.toDataURL("image/jpeg", 0.7));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+  function onProofChange(input){
+    const f = input.files[0];
+    if(!f){ payProof = null; return; }
+    resizeImage(f, dataUrl => {
+      payProof = dataUrl;
+      const prev = document.getElementById("payPreview");
+      prev.src = payProof; prev.style.display = "block";
+    });
+  }
+  function savePay(again){
+    const bookingId = payBookingId;
+    if(payBookingId == null) return;
+    if(!payProof){ alert("Please upload a photo of the proof of payment."); return; }
+    const mop = document.getElementById("payMop").value;
+    const category = document.getElementById("payFor").value; // "Balance" or "Add Ons"
+    const amount = Number(document.getElementById("payAmount").value) || 0;
+    if(amount <= 0){ alert("Please enter the amount collected."); return; }
+    // always work off the freshest data in storage
+    bookings = loadBookings();
+    const b = bookings.find(x => x.id === payBookingId);
+    if(!b) return;
+    b.payments = b.payments || [];
+
+    if(payEditing && payEditIndex >= 0 && b.payments[payEditIndex]){
+      // update the selected collection in place — does NOT touch the customer's downpayment
+      const p = b.payments[payEditIndex];
+      p.amount = amount;
+      p.mop = mop;
+      p.category = category;
+      p.proof = payProof;
+      p.at = payAtFromInput();   // collection date (editable for late inputs)
+      p.editedAt = new Date().toISOString();
+      p.editedBy = currentUser();
+      logActivity(`edited ${category} payment — ${b.haven} · ${peso(amount)} (${mop})`);
+    } else {
+      // record a new collection (may be partial) — tracked separately from the downpayment
+      b.payments.push({
+        amount,
+        mop,
+        category,
+        proof: payProof,
+        at: payAtFromInput(),   // collection date (editable for late inputs)
+        by: currentUser()
+      });
+      logActivity(`uploaded ${category} payment — ${b.haven} · ${peso(amount)} (${mop})`);
+    }
+    // each payment carries its own category, so it shows in the right section on the dashboard
+    try { localStorage.setItem(KEY, JSON.stringify(bookings)); }
+    catch(e){ alert("Couldn't save — browser storage is full. Older proof photos may need to be removed."); return; }
+    renderToday();
+    if(again){
+      // keep the popup open and start a fresh entry for the same booking
+      openPay(bookingId, false);
+    } else {
+      closePay();
+    }
+  }
+  function openProofImg(src){
+    if(!src) return;
+    document.getElementById("imgLightboxImg").src = src;
+    document.getElementById("imgLightbox").classList.add("show");
+  }
+  // close when clicking the dark backdrop
+  document.getElementById("payOverlay").addEventListener("click", e => {
+    if(e.target.id === "payOverlay") closePay();
+  });
+  function goBack(){
+    if(window.opener && !window.opener.closed){ window.close(); }
+    else { window.location.href = "dashboard.html"; }
+  }
+
+  /* ---------- late add-ons (pool pass / towels) added to an existing booking ---------- */
+  let addonBookingId = null;
+  const TOWEL_RATE = 50, POOL_RATE = 150, POOL_RATE_HOLIDAY = 300;
+  function openAddon(id){
+    if(!canAddBooking()){ alert("Only an administrator or CSR can add to a bill."); return; }
+    addonBookingId = id;
+    const b = bookings.find(x => x.id === id);
+    if(!b) return;
+    const guest = (b.guests && b.guests[0] && b.guests[0].name) || "";
+    document.getElementById("addonInfo").innerHTML =
+      `<strong>${b.haven}</strong> — ${guest}<br>Current: 🏊 ${Number(b.swimpass)||0} · 🧺 ${Number(b.towels)||0} · Balance: <strong>${peso(balanceOf(b))}</strong>`;
+    document.getElementById("addonPool").value = 0;
+    document.getElementById("addonTowels").value = 0;
+    document.getElementById("addonHoliday").checked = !!b.holiday;
+    addonRecalc();
+    document.getElementById("addonOverlay").classList.add("show");
+  }
+  function addonAddedAmount(){
+    const pool = Number(document.getElementById("addonPool").value) || 0;
+    const tow  = Number(document.getElementById("addonTowels").value) || 0;
+    const poolRate = document.getElementById("addonHoliday").checked ? POOL_RATE_HOLIDAY : POOL_RATE;
+    return { pool, tow, added: pool * poolRate + tow * TOWEL_RATE };
+  }
+  function addonRecalc(){
+    const { added } = addonAddedAmount();
+    document.getElementById("addonTotalInfo").innerHTML = `Added to bill: <strong>${peso(added)}</strong>`;
+  }
+  function closeAddon(){ addonBookingId = null; document.getElementById("addonOverlay").classList.remove("show"); }
+  function saveAddon(){
+    if(addonBookingId == null) return;
+    const { pool, tow, added } = addonAddedAmount();
+    if(pool <= 0 && tow <= 0){ alert("Enter pool passes or towels to add."); return; }
+    bookings = loadBookings();
+    const b = bookings.find(x => x.id === addonBookingId);
+    if(!b) return;
+    b.swimpass = (Number(b.swimpass) || 0) + pool;
+    b.towels   = (Number(b.towels) || 0) + tow;
+    b.total    = (Number(b.total) || 0) + added;   // add the late charge to the bill
+    // record the late request
+    b.addonLog = b.addonLog || [];
+    b.addonLog.push({ pool, towels: tow, amount: added, at: new Date().toISOString(), by: currentUser() });
+    try { localStorage.setItem(KEY, JSON.stringify(bookings)); }
+    catch(e){ alert("Couldn't save — storage may be full."); return; }
+    const parts = [];
+    if(pool) parts.push(`🏊 ${pool} pool pass${pool > 1 ? "es" : ""}`);
+    if(tow) parts.push(`🧺 ${tow} towel${tow > 1 ? "s" : ""}`);
+    logActivity(`added late add-ons — ${b.haven}: ${parts.join(", ")} (${peso(added)})`);
+    closeAddon();
+    renderToday();
+    alert(`Added ${peso(added)} to the bill. The balance has been updated.`);
+  }
+  document.getElementById("addonOverlay").addEventListener("click", e => { if(e.target.id === "addonOverlay") closeAddon(); });
+
+  /* ---------- pool pass sales ---------- */
+  const POOL_KEY = "shph_poolpass_v1";
+  function loadPool(){ try { return JSON.parse(localStorage.getItem(POOL_KEY)) || []; } catch(e){ return []; } }
+  function savePoolData(arr){ try { localStorage.setItem(POOL_KEY, JSON.stringify(arr)); } catch(e){ alert("Couldn't save — storage full."); } }
+  function poolRecalc(){
+    const qty = Number(document.getElementById("poolQty").value) || 0;
+    const price = Number(document.getElementById("poolPrice").value) || 0;
+    document.getElementById("poolTotalInfo").innerHTML = `Total: <strong>${peso(qty * price)}</strong>`;
+  }
+  function openPool(){
+    document.getElementById("poolName").value = "";
+    document.getElementById("poolQty").value = 1;
+    document.getElementById("poolPrice").value = 150;
+    document.getElementById("poolMop").selectedIndex = 0;
+    poolRecalc();
+    document.getElementById("poolOverlay").classList.add("show");
+  }
+  function closePool(){ document.getElementById("poolOverlay").classList.remove("show"); }
+  function savePoolPass(){
+    const qty = Number(document.getElementById("poolQty").value) || 0;
+    const price = Number(document.getElementById("poolPrice").value) || 0;
+    if(qty <= 0){ alert("Enter the number of passes."); return; }
+    const arr = loadPool();
+    arr.push({ qty, price, amount: qty * price, mop: document.getElementById("poolMop").value,
+               name: document.getElementById("poolName").value.trim(), by: currentUser(), at: new Date().toISOString() });
+    savePoolData(arr);
+    logActivity(`sold ${qty} pool pass${qty > 1 ? "es" : ""} — ${peso(qty * price)}`);
+    closePool();
+    renderToday();
+  }
+  function deletePoolPass(idx){
+    const arr = loadPool();
+    if(idx < 0 || idx >= arr.length) return;
+    if(!confirm(`Delete this pool pass sale of ${peso(arr[idx].amount)}?`)) return;
+    const removed = arr.splice(idx, 1)[0];
+    savePoolData(arr);
+    logActivity(`deleted pool pass sale — ${peso(removed.amount)}`);
+    renderToday();
+  }
+  function renderPool(start, end){
+    const all = loadPool();
+    // index map so delete targets the right entry after filtering
+    const rows = all.map((p, i) => ({ p, i })).filter(({ p }) => { const d = iso(new Date(p.at)); return d >= start && d < end; });
+    const qtyTotal = rows.reduce((s, { p }) => s + (Number(p.qty) || 0), 0);
+    const amtTotal = rows.reduce((s, { p }) => s + (Number(p.amount) || 0), 0);
+    const scopeEl = document.getElementById("poolScope");
+    if(scopeEl) scopeEl.textContent = "— sold this period";
+    document.getElementById("poolCards").innerHTML =
+      `<div class="card"><h3>Passes sold</h3><div class="number">🏊 ${qtyTotal}</div></div>` +
+      `<div class="card"><h3>Pool pass income</h3><div class="number money">${peso(amtTotal)}</div></div>`;
+    document.getElementById("poolBody").innerHTML = rows.length ? rows.map(({ p, i }) => `
+        <tr>
+          <td>${new Date(p.at).toLocaleTimeString("en-PH", { hour:"numeric", minute:"2-digit" })}</td>
+          <td>${p.name ? escTxt(p.name) : '<span class="muted">Walk-in</span>'}</td>
+          <td>${p.qty}</td>
+          <td>${p.mop}</td>
+          <td>${peso(p.amount)}</td>
+          <td>${p.by || "—"}</td>
+          <td>${IS_ADMIN ? `<span class="edit-pay" style="color:#c0283d;" onclick="deletePoolPass(${i})">Delete</span>` : ""}</td>
+        </tr>`).join("") : `<tr><td colspan="7" class="empty">No pool passes sold this period.</td></tr>`;
+  }
+  function escTxt(s){ return String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c])); }
+
+  /* ---------- add booking (saves to the shared Calendar/Bookings data) ---------- */
+  const HAVENS = ["Haven 1","Haven 2","Haven 3","Haven 4","Haven 5","Haven 7","Haven 8","Casa Bienca"];
+  const PRICING = { stay6:999, stay10:1599, stay21Weekday:1799, stay21Weekend:2099, swimRegular:150, swimHoliday:300,
+    towel:50, extendPerHr:150, deposit:1000, baseIncludedPax:2, addPax:300, addPaxMinAge:5, maxPax:5, maxAdults:4, maxKids:2, kidMaxAge:13 };
+  const STAY_OPTIONS = [[6,"6 hrs — ₱999"],[10,"10 hrs — ₱1,599"],[21,"21 hrs — ₱1,799 / ₱2,099 (Fri–Sat)"]];
+
+  function billablePax(g){ return (g||[]).filter(x => x.age != null && Number(x.age) >= PRICING.addPaxMinAge).length; }
+  function addPaxFee(g){ return Math.max(0, billablePax(g) - PRICING.baseIncludedPax) * PRICING.addPax; }
+  function lastName(name){ const p = (name||"").trim().split(/\s+/); return p.length ? p[p.length-1].toLowerCase() : ""; }
+  function baseRate(stayHours, checkinIso){
+    stayHours = Number(stayHours);
+    if(stayHours === 6) return PRICING.stay6;
+    if(stayHours === 10) return PRICING.stay10;
+    if(stayHours === 21){ const wd = new Date(checkinIso + "T00:00:00").getDay(); return (wd === 5 || wd === 6) ? PRICING.stay21Weekend : PRICING.stay21Weekday; }
+    return 0;
+  }
+  function computeTotal(b){
+    const base = baseRate(b.stayHours, b.checkin);
+    const pax  = addPaxFee(b.guests);
+    const swim = (Number(b.swimpass) || 0) * (b.holiday ? PRICING.swimHoliday : PRICING.swimRegular);
+    const tow  = (Number(b.towels) || 0) * PRICING.towel;
+    const ext  = (Number(b.extend) || 0) * PRICING.extendPerHr;
+    const dep  = (b.deposit === undefined ? PRICING.deposit : Number(b.deposit)) || 0;
+    return base + pax + swim + tow + ext + dep;
+  }
+  function findConflict(cand, excludeId){
+    const cs = cand.checkin, ce = endExcl(cand);
+    return bookings.find(b => {
+      if(b.id === excludeId) return false;
+      if(b.haven !== cand.haven) return false;
+      const overlap = cs < endExcl(b) && b.checkin < ce;
+      if(!overlap) return false;
+      if(Number(b.stayHours) !== 6 || Number(cand.stayHours) !== 6) return true;
+      return b.slot === cand.slot;
+    }) || null;
+  }
+  function dashCheckinMin(timeStr){ const m = parseTimeMin(timeStr); if(m == null) return 480; return m === 0 ? 1440 : m; }
+
+  function aFillCheckinTimes(){
+    let html = ""; for(let h = 0; h < 24; h++){ const t = minToTime(h * 60); html += `<option value="${t}">${t}</option>`; }
+    html += `<option value="__custom__">Custom time…</option>`;
+    document.getElementById("a_checkinTime").innerHTML = html;
+  }
+  // toggle the free time input when "Custom time…" is picked
+  function aTimeSelChange(){
+    const custom = document.getElementById("a_checkinTimeCustom");
+    custom.style.display = document.getElementById("a_checkinTime").value === "__custom__" ? "block" : "none";
+    aRecompute();
+  }
+  // the effective check-in time string (handles the custom HH:MM input)
+  function aCheckinTimeValue(){
+    const sel = document.getElementById("a_checkinTime");
+    if(sel.value === "__custom__"){
+      const v = document.getElementById("a_checkinTimeCustom").value; // "HH:MM" 24h
+      if(!v) return "8:00 AM";
+      const [h, m] = v.split(":").map(Number);
+      return minToTime(h * 60 + m);
+    }
+    return sel.value;
+  }
+  function aUpdateStayOptions(keep){
+    const sel = document.getElementById("a_stay");
+    const ci = document.getElementById("a_checkin").value;
+    const wd = ci ? new Date(ci + "T00:00:00").getDay() : 1;
+    const opts = (wd === 6) ? STAY_OPTIONS.filter(o => o[0] === 21) : STAY_OPTIONS;
+    const want = String(keep != null ? keep : sel.value);
+    sel.innerHTML = opts.map(o => `<option value="${o[0]}">${o[1]}</option>`).join("");
+    sel.value = opts.some(o => String(o[0]) === want) ? want : String(opts[0][0]);
+  }
+  function aGuestRow(g){
+    g = g || { name:"", age:"" };
+    const age = (g.age !== "" && g.age != null) ? g.age : "";
+    return `<div class="guest-row">
+      <input class="gname" placeholder="Full name" value="${g.name||""}">
+      <input class="gage" type="number" min="0" placeholder="Age" value="${age}">
+      <button type="button" class="gdel" onclick="this.parentNode.remove(); aRecalc();">×</button>
+    </div>`;
+  }
+  function aBindGuestInputs(){ document.querySelectorAll("#aGuestList input").forEach(inp => { inp.oninput = aRecalc; }); }
+  function aRenderGuests(list){
+    document.getElementById("aGuestList").innerHTML = (list && list.length ? list : [{name:"",age:""}]).map(aGuestRow).join("");
+    aBindGuestInputs();
+  }
+  function aAddGuest(){ document.getElementById("aGuestList").insertAdjacentHTML("beforeend", aGuestRow()); aBindGuestInputs(); }
+  function aReadGuests(){
+    return [...document.querySelectorAll("#aGuestList .guest-row")].map(r => ({
+      name: r.querySelector(".gname").value.trim(),
+      age: r.querySelector(".gage").value === "" ? null : Number(r.querySelector(".gage").value)
+    })).filter(g => g.name !== "");
+  }
+  function aRecompute(){
+    const ci = document.getElementById("a_checkin").value;
+    const t = aCheckinTimeValue();
+    const hours = Number(document.getElementById("a_stay").value) || 0;
+    const ext = Number(document.getElementById("a_extend").value) || 0;
+    if(ci && t){
+      const total = dashCheckinMin(t) + (hours + ext) * 60;
+      const co = addDays(new Date(ci + "T00:00:00"), Math.floor(total / 1440));
+      document.getElementById("a_checkout").value = iso(co);
+      document.getElementById("a_checkoutTime").value = minToTime(total);
+    }
+    aRecalc();
+  }
+  function aOnCheckinChange(){ aUpdateStayOptions(); aRecompute(); }
+  function aRecalc(){
+    const b = {
+      checkin: document.getElementById("a_checkin").value,
+      stayHours: Number(document.getElementById("a_stay").value),
+      guests: aReadGuests(),
+      swimpass: Number(document.getElementById("a_swimpass").value) || 0,
+      towels: Number(document.getElementById("a_towels").value) || 0,
+      extend: Number(document.getElementById("a_extend").value) || 0,
+      holiday: document.getElementById("a_holiday").checked,
+      deposit: Number(document.getElementById("a_deposit").value) || 0
+    };
+    const total = computeTotal(b);
+    document.getElementById("a_total").value = total;
+    const down = Number(document.getElementById("a_down").value) || 0;
+    document.getElementById("a_balance").value = peso(Math.max(0, total - down));
+    const base = baseRate(b.stayHours, b.checkin);
+    const swimRate = b.holiday ? PRICING.swimHoliday : PRICING.swimRegular;
+    document.getElementById("a_breakdown").innerHTML =
+      `Base for 2 pax (${b.stayHours}h): ${peso(base)} · Extra pax: ${peso(addPaxFee(b.guests))}` +
+      ` · Swimpass ${b.swimpass}×${peso(swimRate)}: ${peso(b.swimpass*swimRate)}` +
+      ` · Towels ${b.towels}×₱50: ${peso(b.towels*PRICING.towel)}` +
+      ` · Extend ${b.extend}h×₱150: ${peso(b.extend*PRICING.extendPerHr)} · Deposit: ${peso(b.deposit)}`;
+  }
+  function openAdd(){
+    if(!canAddBooking()){ alert("Only an administrator or CSR can add a booking."); return; }
+    bookings = loadBookings();
+    document.getElementById("a_haven").innerHTML = HAVENS.map(h => `<option>${h}</option>`).join("");
+    aFillCheckinTimes();
+    aRenderGuests([{name:"",age:""}]);
+    document.getElementById("a_contact").value = "";
+    document.getElementById("a_checkin").value = iso(today());
+    aUpdateStayOptions(6);
+    document.getElementById("a_checkinTime").value = "8:00 AM";
+    document.getElementById("a_checkinTimeCustom").value = "";
+    document.getElementById("a_checkinTimeCustom").style.display = "none";
+    document.getElementById("a_extend").value = 0;
+    document.getElementById("a_swimpass").value = 0;
+    document.getElementById("a_towels").value = 0;
+    document.getElementById("a_holiday").checked = false;
+    document.getElementById("a_method").selectedIndex = 0;
+    document.getElementById("a_deposit").value = PRICING.deposit;
+    document.getElementById("a_down").value = 0;
+    document.getElementById("a_notes").value = "";
+    aRecompute();
+    document.getElementById("addOverlay").classList.add("show");
+  }
+  function closeAdd(){ document.getElementById("addOverlay").classList.remove("show"); }
+  function saveNewBooking(){
+    bookings = loadBookings();
+    const guests = aReadGuests();
+    const checkin = document.getElementById("a_checkin").value;
+    const checkout = document.getElementById("a_checkout").value;
+    if(guests.length === 0){ alert("Please enter at least one guest name."); return; }
+    for(let i=0;i<guests.length;i++){ const g = guests[i]; if(g.age == null || isNaN(g.age) || g.age < 0){ alert(`Please enter a valid age for ${g.name || ("guest "+(i+1))}.`); return; } }
+    if(guests[0].age < 18){ alert("The first guest (primary booker) must be 18 years old and above."); return; }
+    if(guests.length >= 2 && guests[1].age < 18 && lastName(guests[1].name) !== lastName(guests[0].name)){ alert("The second guest is a minor and must be a family member (same last name) of the first guest."); return; }
+    const kids = guests.filter(g => g.age <= PRICING.kidMaxAge).length;
+    const adults = guests.length - kids;
+    if(guests.length > PRICING.maxPax){ alert(`Maximum of ${PRICING.maxPax} pax per unit.`); return; }
+    if(adults > PRICING.maxAdults){ alert(`Maximum of ${PRICING.maxAdults} adults per unit.`); return; }
+    if(kids > PRICING.maxKids){ alert(`Maximum of ${PRICING.maxKids} kids (0–13 yrs) per unit.`); return; }
+    if(!checkin || !checkout || checkout < checkin){ alert("Please enter a valid check-in and check-out date."); return; }
+    const stayHours = Number(document.getElementById("a_stay").value);
+    if(new Date(checkin + "T00:00:00").getDay() === 6 && stayHours !== 21){ alert("Saturday check-ins are 21 hours only."); return; }
+    const checkinTime = aCheckinTimeValue();
+    const data = {
+      haven: document.getElementById("a_haven").value,
+      guests, contact: document.getElementById("a_contact").value.trim(),
+      checkin, checkout, stayHours, checkinTime,
+      slot: stayHours === 6 ? (dashCheckinMin(checkinTime) <= 720 ? "morning" : "evening") : null,
+      swimpass: Number(document.getElementById("a_swimpass").value) || 0,
+      towels: Number(document.getElementById("a_towels").value) || 0,
+      extend: Number(document.getElementById("a_extend").value) || 0,
+      holiday: document.getElementById("a_holiday").checked,
+      deposit: Number(document.getElementById("a_deposit").value) || 0,
+      method: document.getElementById("a_method").value,
+      downpayment: Number(document.getElementById("a_down").value) || 0,
+      notes: document.getElementById("a_notes").value.trim()
+    };
+    data.total = computeTotal(data);
+    if(!data.haven){ alert("Please choose a haven."); return; }
+    const clash = findConflict(data, null);
+    if(clash){ alert(`${data.haven} is already booked for those dates by ${(clash.guests && clash.guests[0] && clash.guests[0].name) || "another guest"}.`); return; }
+    const newId = bookings.length ? Math.max(...bookings.map(b => b.id)) + 1 : 1;
+    bookings.push({ id:newId, ...data });
+    localStorage.setItem(KEY, JSON.stringify(bookings));
+    const gName = (data.guests[0] && data.guests[0].name) || "";
+    logActivity(`added booking — ${data.haven} (${gName})`);
+    closeAdd();
+    renderToday();
+    alert("Booking saved. It now appears in Calendar/Bookings.");
+  }
+  document.getElementById("addOverlay").addEventListener("click", e => { if(e.target.id === "addOverlay") closeAdd(); });
+
+  document.getElementById("currentUserLabel").textContent = "Logged in as " + currentUser();
+  applyPerms();
+  // restore the last-selected view (Yesterday/Today/Tomorrow/Week/Month) across refreshes
+  (function restoreView(){
+    const saved = localStorage.getItem("shph_today_view");
+    const valid = ["yesterday","today","tomorrow","week","month"];
+    if(saved && valid.includes(saved)) currentView = saved;
+    document.querySelectorAll(".view-tab").forEach(t => t.classList.toggle("active", t.dataset.view === currentView));
+  })();
+  renderToday();
+
+  // keep this page in sync when bookings are changed in another tab (e.g. the dashboard)
+  window.addEventListener("storage", e => { if(e.key === KEY) renderToday(); });
+</script>
+</body>
+</html>
