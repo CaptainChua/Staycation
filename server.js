@@ -37,15 +37,17 @@ app.use("/api", (req, res, next) => {
 const apiRouter = express.Router();
 
 // bulk import: { key: value, ... } → save every known shared key at once
-apiRouter.post("/import", (req, res) => {
+apiRouter.post("/import", async (req, res) => {
   const body = req.body || {};
   const imported = {};
+  const writes = [];
   for (const key of Object.keys(body)) {
     if (store.isShared(key) && body[key] != null) {
-      store.set(key, body[key]);
+      writes.push(store.set(key, body[key]));
       imported[key] = Array.isArray(body[key]) ? body[key].length : "saved";
     }
   }
+  await Promise.all(writes);
   res.json({ ok: true, imported });
 });
 
@@ -59,16 +61,16 @@ apiRouter.get("/kv/:key", (req, res) => {
 });
 
 // write one key (body is the raw JSON value the browser stored)
-apiRouter.put("/kv/:key", (req, res) => {
+apiRouter.put("/kv/:key", async (req, res) => {
   if (!store.isShared(req.params.key)) return res.status(403).json({ error: "key not shared" });
-  store.set(req.params.key, req.body);
+  await store.set(req.params.key, req.body);
   res.json({ ok: true });
 });
 
 // delete one key (resets it)
-apiRouter.delete("/kv/:key", (req, res) => {
+apiRouter.delete("/kv/:key", async (req, res) => {
   if (!store.isShared(req.params.key)) return res.status(403).json({ error: "key not shared" });
-  store.remove(req.params.key);
+  await store.remove(req.params.key);
   res.json({ ok: true });
 });
 
@@ -107,6 +109,14 @@ app.get("/", renderPage("index"));
 app.use(express.static(path.join(__dirname, "public")));
 app.use("/images", express.static(path.join(__dirname, "images")));
 
-app.listen(PORT, () => {
-  console.log(`Staycation Haven PH running →  http://localhost:${PORT}`);
-});
+// Load the data backend (Firestore or local JSON file) before serving.
+store.init()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`Staycation Haven PH running →  http://localhost:${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error("Failed to initialise data store:", err);
+    process.exit(1);
+  });
