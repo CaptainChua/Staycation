@@ -1181,6 +1181,13 @@ tbody tr:hover{ background:#fafafa; }
                 <label>9–14 days<input type="number" id="s_dp3"></label>
             </div>
         </div>
+
+        <div class="settings-section">
+            <h3>Promos</h3>
+            <div class="custom-addons-head">Promotions <span class="muted">— title, optional code &amp; discount; only “active” ones show on the website</span></div>
+            <div id="promoList"></div>
+            <button class="btn secondary" onclick="addPromo()" style="margin-top:8px;">+ Add promo</button>
+        </div>
     </div>
 </div><!-- /page-booking -->
 
@@ -5196,6 +5203,13 @@ function fillBookingSettings(){
 
     customAddons = (s.customAddons || []).map(a => ({ name:a.name, price:Number(a.price)||0, perPax: !!a.perPax }));
     renderCustomAddons();
+
+    promos = (s.promos || []).map(p => ({
+        title: p.title || "", desc: p.desc || "",
+        discount: Number(p.discount) || 0, type: p.type === "amount" ? "amount" : "percent",
+        code: p.code || "", active: p.active !== false
+    }));
+    renderPromos();
 }
 
 /* ---------- custom add-ons editor ---------- */
@@ -5231,6 +5245,50 @@ function deleteCustomAddon(i){
     renderCustomAddons();
 }
 
+/* ---------- promos editor ---------- */
+let promos = [];
+
+function renderPromos(){
+    const list = document.getElementById("promoList");
+    if(!list) return;
+    list.innerHTML = promos.map((p, i) => `
+        <div class="promo-edit-row" data-pi="${i}" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px;">
+            <input type="text" data-pf="title" placeholder="Promo title" value="${escAttr(p.title || "")}" style="flex:1 1 160px;">
+            <input type="text" data-pf="desc" placeholder="Short description" value="${escAttr(p.desc || "")}" style="flex:2 1 220px;">
+            <input type="number" data-pf="discount" placeholder="0" value="${p.discount || 0}" style="width:90px;">
+            <select data-pf="type" style="width:90px;">
+                <option value="percent" ${p.type !== "amount" ? "selected" : ""}>% off</option>
+                <option value="amount" ${p.type === "amount" ? "selected" : ""}>₱ off</option>
+            </select>
+            <input type="text" data-pf="code" placeholder="CODE (optional)" value="${escAttr(p.code || "")}" style="width:140px;">
+            <label class="opt-check"><input type="checkbox" data-pf="active" ${p.active !== false ? "checked" : ""}> active</label>
+            <button type="button" class="addon-del" onclick="deletePromo(${i})">🗑</button>
+        </div>`).join("");
+}
+
+function collectPromos(){
+    promos = Array.from(document.querySelectorAll(".promo-edit-row")).map(row => ({
+        title: row.querySelector('[data-pf="title"]').value.trim(),
+        desc: row.querySelector('[data-pf="desc"]').value.trim(),
+        discount: Number(row.querySelector('[data-pf="discount"]').value) || 0,
+        type: row.querySelector('[data-pf="type"]').value,
+        code: row.querySelector('[data-pf="code"]').value.trim(),
+        active: row.querySelector('[data-pf="active"]').checked
+    })).filter(p => p.title);
+}
+
+function addPromo(){
+    collectPromos();
+    promos.push({ title: "", desc: "", discount: 0, type: "percent", code: "", active: true });
+    renderPromos();
+}
+
+function deletePromo(i){
+    collectPromos();
+    promos.splice(i, 1);
+    renderPromos();
+}
+
 function saveBookingSettings(){
     const s = loadSettings();
     collectCustomAddons();
@@ -5261,8 +5319,10 @@ function saveBookingSettings(){
     s.downpayment[2].amount = getNum("s_dp2");
     s.downpayment[3].amount = getNum("s_dp3");
     s.customAddons = customAddons;
+    collectPromos();
+    s.promos = promos;
     saveSettings(s);
-    alert("Saved! Rates and add-ons now apply to the website booking form.");
+    alert("Saved! Rates, add-ons and promos now apply to the website.");
 }
 
 function resetBookingSettings(){
@@ -5272,6 +5332,7 @@ function resetBookingSettings(){
     s.pricing = d.pricing;
     s.downpayment = d.downpayment;
     s.customAddons = d.customAddons;
+    s.promos = d.promos || [];
     saveSettings(s);
     fillBookingSettings();
 }

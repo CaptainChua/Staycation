@@ -175,6 +175,10 @@ const TOWEL_MAX_PER_PAX = SETTINGS.pricing.towelMaxPerPax;
 let booking = null;
 let towels = 0;
 let towelMax = 0;
+// valid-ID upload state (declared up here so the initial renderBooking() call,
+// which runs before the code below, doesn't hit a temporal-dead-zone error)
+let idSeq = 0, idMax = 6;
+const idPhotos = {};
 
 const container = document.getElementById("booknow-content");
 const raw = localStorage.getItem("shph_pending_booking");
@@ -309,8 +313,6 @@ function renderBooking(){
 }
 
 /* ---------- valid ID uploads ---------- */
-let idSeq = 0, idMax = 6;
-const idPhotos = {};
 function idRowHtml(rid){
     return `<div class="id-row" data-rid="${rid}">
         <input type="file" accept="image/*" onchange="onIdChange(this, ${rid})">

@@ -34,6 +34,8 @@ const DEFAULT_SETTINGS = {
     },
     // extra add-ons the owner can offer (beyond pool pass / hours / towels)
     customAddons: [],          // [{ name, price, perPax }]
+    // promotions shown on the website ([{ title, desc, discount, type, code, active }])
+    promos: [],
     downpayment: [
         { maxDays: 2,  amount: 500 },    // 1–2 days
         { maxDays: 4,  amount: 1000 },   // 3–4 days
