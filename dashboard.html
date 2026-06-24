@@ -880,34 +880,217 @@ tbody tr:hover{ background:#fafafa; }
 .brand-logo{ height:26px; width:auto; vertical-align:middle; margin-right:6px; }
 .title-logo{ height:34px; width:auto; vertical-align:middle; margin-right:8px; }
 </style>
+
+<!-- ============================================================
+     "WARM HOSPITALITY" THEME  — global re-skin layer
+     Remaps the dashboard's design tokens (accent #ff385c, dark
+     sidebar, grey bg) to the cream / terracotta / gold palette
+     across every page. Loaded last so it wins the cascade.
+     Semantic colours (paid-green, unpaid-red) are left intact.
+     ============================================================ -->
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Mulish:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style id="hv-theme">
+  :root{
+    --hv-cream:#f6f2ec; --hv-card:#ffffff; --hv-ink:#2f2a25; --hv-muted:#9a8f86;
+    --hv-gold:#b8923a; --hv-terra:#bd6e3f; --hv-terra-d:#a85f33; --hv-line:#ece4d8;
+    --hv-sidebar:#2a2421; --hv-sidebar-2:#3a322c; --hv-sidebar-mut:#9b8f84;
+    --hv-serif:'Playfair Display',Georgia,serif;
+  }
+
+  /* ---- canvas ---- */
+  body{ background:var(--hv-cream); color:var(--hv-ink); }
+
+  /* ---- sidebar ---- */
+  .sidebar{ background:var(--hv-sidebar); color:#d9cfc5; }
+  .sidebar .brand{ border-bottom-color:#403730; color:#fff; }
+  .sidebar .nav-item{ color:#cabdb1; border-left-color:transparent; margin:1px 8px; border-radius:9px; padding-left:14px; }
+  .sidebar .nav-item:hover{ background:var(--hv-sidebar-2); color:#fff; }
+  .sidebar .nav-item.active{ background:var(--hv-sidebar-2); color:#fff; border-left-color:var(--hv-terra); }
+
+  /* ---- headings → serif ---- */
+  .topbar h1, .panel-head h2, .modal h2{ font-family:var(--hv-serif); color:var(--hv-ink); font-weight:700; }
+
+  /* ---- buttons ---- */
+  .btn{ background:var(--hv-terra); border-radius:10px; font-weight:600; }
+  .btn:hover{ opacity:1; background:var(--hv-terra-d); }
+  .btn.secondary{ background:#fff; color:var(--hv-ink); border:1px solid var(--hv-line); }
+  .btn.secondary:hover{ background:#fff; border-color:var(--hv-terra); color:var(--hv-terra); }
+
+  /* ---- panels & cards ---- */
+  .panel{ border:1px solid var(--hv-line); border-radius:18px; box-shadow:0 6px 20px rgba(80,60,30,.06); }
+  .card{ border:1px solid var(--hv-line); border-radius:16px; box-shadow:0 6px 20px rgba(80,60,30,.06); }
+  .card h3{ color:var(--hv-muted); }
+  .number{ color:var(--hv-terra); }
+  .ha-card{ border-color:var(--hv-line); background:#fffdfa; border-radius:14px; }
+  .ha-stat{ border-color:var(--hv-line); }
+
+  /* ---- tables ---- */
+  th{ color:var(--hv-muted); }
+  th, td{ border-bottom-color:var(--hv-line); }
+  tbody tr:hover{ background:#faf6ee; }
+
+  /* ---- inputs ---- */
+  .field input, .field select, .field textarea,
+  .filters select, .filters input,
+  .cal-nav select{
+    border:1px solid var(--hv-line); border-radius:10px; background:#faf7f2; color:var(--hv-ink);
+  }
+  .field input:focus, .field select:focus, .field textarea:focus,
+  .filters select:focus, .filters input:focus{ outline:none; border-color:var(--hv-terra); }
+  .field label{ color:var(--hv-muted); }
+
+  /* ---- modal ---- */
+  .modal{ border-radius:20px; border:1px solid var(--hv-line); }
+
+  /* ---- assorted accents (was hot-pink #ff385c) ---- */
+  .bk-tab.active{ color:var(--hv-terra); border-bottom-color:var(--hv-terra); }
+  .date-pill:hover{ color:var(--hv-terra); border-color:var(--hv-terra); box-shadow:0 4px 12px rgba(189,110,63,.18); }
+  .date-pill:hover::after{ color:var(--hv-terra); }
+  .dp-day.sel .n{ background:var(--hv-terra); }
+  .tl-head.weekend{ color:var(--hv-terra); }
+  .tl-head.is-today{ background:#f3e4d6; color:var(--hv-terra-d); }
+  .tl-cell.is-today{ background:#faf1e8; }
+  .ha-peak{ color:var(--hv-terra); }
+  .page-btn.active{ background:var(--hv-terra); border-color:var(--hv-terra); }
+</style>
+
+<!-- ===== Airbnb-style typeface (Manrope — a free stand-in for Airbnb Cereal) ===== -->
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style id="hv-font">
+  :root{ --hv-serif:'Manrope',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; }
+  *{ font-family:'Manrope',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; }
+  /* headings keep a touch more weight now that they're sans, not serif */
+  .topbar h1, .panel-head h2, .modal h2, #page-havens .hv-head h1, #page-havens .hv-cardbody h3,
+  #page-havens .hv-drhead h2{ font-weight:800; letter-spacing:-.02em; }
+</style>
+
+<!-- ===== icon-chip summary cards + status dots (mockup look) ===== -->
+<style id="hv-cards">
+  .card .card-top{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+  .card .card-label{ font-size:11px; letter-spacing:.6px; text-transform:uppercase; color:var(--hv-muted); font-weight:700; }
+  .card .card-ico{ display:flex; align-items:center; justify-content:center; flex:none; }
+  .card .card-ico svg{ width:21px; height:21px; fill:none; stroke:var(--hv-terra); stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+  .card .card-top + .number{ font-family:'Playfair Display',Georgia,serif; font-size:30px; font-weight:700; margin-top:10px; color:var(--hv-ink); }
+  .card .number.money{ color:var(--hv-terra); }
+
+  /* status pills get a leading dot; Edit action in terracotta */
+  .status::before{ content:""; display:inline-block; width:7px; height:7px; border-radius:50%;
+    margin-right:6px; vertical-align:middle; background:currentColor; }
+  .edit{ color:var(--hv-terra-d); }
+  .bal-due{ color:var(--hv-gold); font-weight:700; }
+  .bal-clear{ color:#2e7d4f; font-weight:700; }
+
+  /* breadcrumb top bar — full-width, sticky (escapes the body's 30px padding) */
+  #appTopbar{ margin:-30px -30px 26px -30px; padding:15px 28px; background:#fff;
+    border-bottom:1px solid var(--hv-line); position:sticky; top:0; z-index:25;
+    display:flex; align-items:center; gap:14px; }
+  #appTopbar .crumb{ font-size:14px; color:var(--hv-muted); }
+  #appTopbar .crumb b{ color:var(--hv-ink); font-weight:700; }
+  #appTopbar .header-actions{ margin-left:auto; display:flex; align-items:center; gap:10px; }
+  #appTopbar .who{ font-size:13px; color:var(--hv-muted); }
+  #appTopbar .who b{ color:var(--hv-ink); font-weight:700; }
+  #appTopbar .topbar-avatar{ width:38px; height:38px; border-radius:50%; background:#efe7da; color:#8a6f4f;
+    display:flex; align-items:center; justify-content:center; font-weight:800; font-size:14px; flex:none; }
+  @media (max-width:760px){ #appTopbar{ margin:-30px -15px 18px -15px; } }
+  @media (max-width:600px){ #appTopbar{ margin:-14px -14px 16px -14px; flex-wrap:wrap; } }
+
+  /* calendar: serif panel titles + mockup nav pills */
+  #page-calendar .panel-head h2{ font-family:'Playfair Display',Georgia,serif; font-weight:700; }
+  #page-calendar .cal-nav .btn.secondary{ border-radius:10px; padding:9px 15px; }
+  #page-calendar .cal-nav .cal-today{ background:var(--hv-ink); color:#fff; border-color:var(--hv-ink); }
+  #page-calendar .cal-nav .cal-today:hover{ background:var(--hv-ink); opacity:.92; }
+  #page-calendar .cal-nav button svg{ width:15px; height:15px; vertical-align:-2px; margin-right:5px;
+    stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+  #page-calendar .date-pill::before{ content:none; }
+  #page-calendar .date-pill .cal-ico{ width:15px; height:15px; stroke:currentColor; fill:none; stroke-width:1.8;
+    stroke-linecap:round; stroke-linejoin:round; margin-right:3px; vertical-align:-2px; }
+
+  /* hourly timeline — visible warm grid lines + hour axis */
+  #page-calendar .tl-cell{ border-right:1px solid var(--hv-line); border-bottom:1px solid var(--hv-line); }
+  #page-calendar .tl-head{ border-bottom:1px solid var(--hv-line); background:#fff; }
+  #page-calendar .tl-head.tl-hr{ text-align:left; color:var(--hv-muted); font-weight:600; font-size:12px;
+    padding:6px 0 8px 3px; border-right:none; }
+  #page-calendar .tl-haven{ background:#fff; color:var(--hv-ink); font-weight:600; border-right:1px solid var(--hv-line); }
+  #page-calendar .tl-dot{ display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:8px; vertical-align:middle; }
+  #page-calendar .tl-daylabel{ text-align:right; font-size:12.5px; color:var(--hv-muted); margin:0 0 4px; font-weight:600; }
+  #page-calendar .bar{ border-radius:8px; font-size:12px; font-weight:600; }
+</style>
+
+<!-- ===== uniform serif headings + metric numbers across every page ===== -->
+<style id="hv-uniform">
+  .panel-head h2, .page > .topbar h2{ font-family:'Playfair Display',Georgia,serif; font-weight:700; color:var(--hv-ink); }
+  .page > .topbar h2{ font-size:26px !important; }
+  .page > .topbar h2 .muted{ font-family:'Mulish',sans-serif; font-size:15px; font-weight:500; }
+  .number{ font-family:'Playfair Display',Georgia,serif; }
+</style>
 </head>
 <body>
 
+<style id="hv-sidebar">
+  .sidebar{ padding:18px 12px; }
+  .sidebar .brand{
+    display:flex; align-items:center; gap:11px; padding:6px 6px 18px; margin-bottom:6px;
+    border-bottom:1px solid #403730; line-height:1.15;
+  }
+  .sidebar .brand .hv-logo{
+    width:38px; height:38px; border-radius:10px; background:var(--hv-terra); color:#fff;
+    display:flex; align-items:center; justify-content:center; flex:none;
+    font-family:var(--hv-serif); font-size:20px; font-weight:700;
+  }
+  .sidebar .brand .hv-brandtext{ font-size:14.5px; font-weight:700; color:#fff; letter-spacing:.3px; }
+  .sidebar .brand .hv-brandtext small{ display:block; font-size:10px; font-weight:600; letter-spacing:2px; color:var(--hv-sidebar-mut); }
+  .sidebar .nav-group{
+    font-size:10px; letter-spacing:1.6px; color:#6f6258; font-weight:700;
+    margin:16px 12px 6px; text-transform:uppercase;
+  }
+  .sidebar .nav-item{
+    gap:11px; padding:9px 12px; margin:1px 4px; border-radius:9px;
+    border-left:none; font-size:13.5px; font-weight:500; color:#cabdb1;
+  }
+  .sidebar .nav-item:hover{ background:#352d28; color:#fff; }
+  .sidebar .nav-item.active{ background:var(--hv-sidebar-2); color:#fff; border-left:none; font-weight:600; }
+  .sidebar .nav-item .ico{ width:18px; height:18px; display:flex; align-items:center; justify-content:center; font-size:0; }
+  .sidebar .nav-item svg{ width:18px; height:18px; stroke:currentColor; fill:none; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
+  .sidebar.perms-pending .nav-group{ display:none; }
+</style>
+
 <!-- sidebar navigation -->
 <div class="sidebar perms-pending">
-    <div class="brand"><img src="images/logo.png" alt="" class="brand-logo" onerror="this.remove()"> Staycation<br>Haven PH</div>
-    <div class="nav-item active" data-page="today" onclick="window.location.href='todaysbooking.html'"><span class="ico">📋</span> Today's Booking</div>
-    <div class="nav-item" data-page="finance" onclick="showPage('finance')"><span class="ico">💰</span> Finance</div>
-    <div class="nav-item" data-page="analytics" onclick="showPage('analytics')"><span class="ico">📊</span> Analytics</div>
-    <div class="nav-item" data-page="calendar" onclick="showPage('calendar')"><span class="ico">📅</span> Calendar/Bookings</div>
-    <div class="nav-item" data-page="havens" onclick="showPage('havens')"><span class="ico">🏡</span> Havens</div>
-    <div class="nav-item" data-page="booking" onclick="showPage('booking')"><span class="ico">🧮</span> Rates and Add Ons</div>
-    <div class="nav-item" data-page="payments" onclick="showPage('payments')"><span class="ico">💳</span> Payments</div>
-    <div class="nav-item" data-page="cleaners" onclick="showPage('cleaners')"><span class="ico">🧹</span> Housekeeping</div>
-    <div class="nav-item" data-page="payroll" onclick="showPage('payroll')"><span class="ico">🧾</span> Payroll</div>
-    <div class="nav-item" data-page="bills" onclick="showPage('bills')"><span class="ico">💵</span> Bills</div>
-    <div class="nav-item" data-page="assist" onclick="showPage('assist')"><span class="ico">💬</span> Assist</div>
-    <div class="nav-item" data-page="users" onclick="showPage('users')"><span class="ico">👥</span> Users</div>
-    <div class="nav-item" data-page="employees" onclick="showPage('employees')"><span class="ico">👤</span> Employees</div>
-    <div class="nav-item" data-page="log" onclick="showPage('log')"><span class="ico">📜</span> Log</div>
+    <div class="brand">
+        <span class="hv-logo">S</span>
+        <span class="hv-brandtext">Staycation<small>HAVEN PH</small></span>
+    </div>
+
+    <div class="nav-group">Main</div>
+    <div class="nav-item active" data-page="today" onclick="window.location.href='todaysbooking.html'"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/><path d="m9 15 2 2 4-4"/></svg></span> Today's Booking</div>
+    <div class="nav-item" data-page="calendar" onclick="showPage('calendar')"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg></span> Calendar/Bookings</div>
+
+    <div class="nav-group">Property</div>
+    <div class="nav-item" data-page="havens" onclick="showPage('havens')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M3 21V9l9-6 9 6v12"/><path d="M9 21v-6h6v6"/></svg></span> Havens</div>
+    <div class="nav-item" data-page="booking" onclick="showPage('booking')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M3.5 12.5 11 5a2 2 0 0 1 1.4-.6H19a1 1 0 0 1 1 1v6.6a2 2 0 0 1-.6 1.4l-7.5 7.5a2 2 0 0 1-2.8 0l-5.6-5.6a2 2 0 0 1 0-2.8Z"/><circle cx="15.4" cy="8.6" r="1.2"/></svg></span> Rates and Add Ons</div>
+    <div class="nav-item" data-page="cleaners" onclick="showPage('cleaners')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M18.5 3.5 11 11"/><path d="M8.5 11h6.2l-1.1 6.4A3 3 0 0 1 10.7 20H8a3.5 3.5 0 0 1-3.4-4.3c1.6-.2 3-1.4 3.9-3.2Z"/></svg></span> Housekeeping</div>
+
+    <div class="nav-group">Finance</div>
+    <div class="nav-item" data-page="finance" onclick="showPage('finance')"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.4"/></svg></span> Finance</div>
+    <div class="nav-item" data-page="payments" onclick="showPage('payments')"><span class="ico"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg></span> Payments</div>
+    <div class="nav-item" data-page="payroll" onclick="showPage('payroll')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M5 3h14v18l-3-2-2 2-2-2-2 2-3-2V3Z"/><path d="M9 8h6M9 12h6"/></svg></span> Payroll</div>
+    <div class="nav-item" data-page="bills" onclick="showPage('bills')"><span class="ico"><svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg></span> Bills</div>
+    <div class="nav-item" data-page="analytics" onclick="showPage('analytics')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M4 20V4M4 20h16"/><path d="M8 17v-5M13 17V8M18 17v-9"/></svg></span> Analytics</div>
+
+    <div class="nav-group">Team</div>
+    <div class="nav-item" data-page="users" onclick="showPage('users')"><span class="ico"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 5.2a3.5 3.5 0 0 1 0 6.6M21.5 20a6.5 6.5 0 0 0-5-6.3"/></svg></span> Users</div>
+    <div class="nav-item" data-page="employees" onclick="showPage('employees')"><span class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20a8 8 0 0 1 16 0"/></svg></span> Employees</div>
+    <div class="nav-item" data-page="assist" onclick="showPage('assist')"><span class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 0 1 4 1.8c0 1.7-2.5 1.7-2.5 3.7M12 18h.01"/></svg></span> Assist</div>
+    <div class="nav-item" data-page="log" onclick="showPage('log')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5z"/><path d="M9 9h5M9 13h6M9 17h4"/></svg></span> Log</div>
 </div>
 
-<div class="topbar">
-    <h1><img src="images/logo.png" alt="" class="title-logo" onerror="this.remove()"> Staycation Haven PH — Dashboard</h1>
-    <div style="display:flex; align-items:center; gap:10px;">
-        <span class="muted" id="currentUserLabel" style="font-size:13px;"></span>
-        <button class="btn" id="addBookingBtn" onclick="openModal()">+ Add Booking</button>
+<div class="topbar" id="appTopbar">
+    <div class="crumb"><span id="crumbGroup">Main</span> / <b id="crumbPage">Today's Booking</b></div>
+    <div class="header-actions">
+        <span class="who" id="currentUserLabel"></span>
+        <button class="btn" id="addBookingBtn" onclick="openModal()">+ Add booking</button>
         <button class="btn secondary" onclick="logout()">Logout</button>
+        <div class="topbar-avatar" id="hvAvatar">A</div>
     </div>
 </div>
 
@@ -961,6 +1144,7 @@ tbody tr:hover{ background:#fafafa; }
                 <option value="today">Today</option>
                 <option value="week" selected>This week</option>
                 <option value="month">This month</option>
+                <option value="year">This year</option>
                 <option value="">Custom range</option>
             </select>
             <label class="fin-date">From <input type="date" id="finFrom" onclick="this.showPicker && this.showPicker()"></label>
@@ -986,28 +1170,105 @@ tbody tr:hover{ background:#fafafa; }
 
 <!-- ===== Analytics (whole business) ===== -->
 <div class="page" id="page-analytics">
-    <div class="topbar" style="margin-bottom:18px;">
-        <h2 style="font-size:20px;">Business Analytics <span class="muted" id="anScope"></span></h2>
-        <div class="filters">
-            <select id="anMonth" onchange="renderAnalytics()"></select>
+
+<style>
+  #page-analytics .an-head{ display:flex; align-items:flex-end; gap:18px; flex-wrap:wrap; margin-bottom:22px; }
+  #page-analytics .an-head h1{ font-family:'Playfair Display',Georgia,serif; font-size:28px; font-weight:700; margin:0; color:var(--hv-ink); }
+  #page-analytics .an-head p{ margin:4px 0 0; color:var(--hv-muted); font-size:13.5px; }
+  #page-analytics .an-period{ margin-left:auto; border:1px solid var(--hv-line); border-radius:10px; background:#fff; padding:9px 14px; font-size:13px; font-weight:600; color:var(--hv-ink); }
+
+  #page-analytics .an-kpis{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:20px; margin-bottom:18px; }
+  #page-analytics .an-mini{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:20px; margin-bottom:22px; }
+  @media(max-width:1100px){ #page-analytics .an-kpis, #page-analytics .an-mini{ grid-template-columns:repeat(2,minmax(0,1fr)); } }
+  @media(max-width:560px){ #page-analytics .an-kpis, #page-analytics .an-mini{ grid-template-columns:1fr; } }
+
+  #page-analytics .kpi{ background:#fff; border:1px solid var(--hv-line); border-radius:16px; padding:18px 20px; box-shadow:0 6px 20px rgba(80,60,30,.05); }
+  #page-analytics .kpi .top{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+  #page-analytics .kpi .lbl{ font-size:11px; letter-spacing:.5px; text-transform:uppercase; color:var(--hv-muted); font-weight:700; }
+  #page-analytics .val{ font-family:'Playfair Display',Georgia,serif; font-size:30px; font-weight:700; margin:12px 0 10px; }
+  #page-analytics .delta{ display:inline-flex; align-items:center; gap:7px; font-size:12px; color:var(--hv-muted); }
+  #page-analytics .delta .pct{ background:#e7f3ec; color:#2e7d4f; border-radius:20px; padding:2px 9px; font-weight:700; }
+  #page-analytics .delta .pct.down{ background:#fde3e7; color:#c0283d; }
+
+  #page-analytics .ico{ width:34px; height:34px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex:none; }
+  #page-analytics .ico svg{ width:18px; height:18px; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+  #page-analytics .ic-green{ background:#e7f3ec; } #page-analytics .ic-green svg{ stroke:#3f9e6a; }
+  #page-analytics .ic-terra{ background:#f6e7da; } #page-analytics .ic-terra svg{ stroke:var(--hv-terra); }
+  #page-analytics .ic-dark{  background:#efe7df; } #page-analytics .ic-dark svg{ stroke:#6f5b48; }
+  #page-analytics .ic-gold{  background:#f5ecd6; } #page-analytics .ic-gold svg{ stroke:var(--hv-gold); }
+  #page-analytics .ic-purple{background:#efe6f5; } #page-analytics .ic-purple svg{ stroke:#9a3db8; }
+
+  #page-analytics .mini{ display:flex; align-items:center; gap:12px; background:#fff; border:1px solid var(--hv-line); border-radius:14px; padding:13px 16px; box-shadow:0 6px 20px rgba(80,60,30,.04); }
+  #page-analytics .mini .ico svg{ width:17px; height:17px; }
+  #page-analytics .mini .lbl{ font-size:10.5px; letter-spacing:.4px; text-transform:uppercase; color:var(--hv-muted); font-weight:700; }
+  #page-analytics .mini .mval{ font-size:17px; font-weight:800; color:var(--hv-ink); margin-top:2px; }
+
+  #page-analytics .panel-head h2{ font-family:'Playfair Display',Georgia,serif; font-weight:700; }
+  #page-analytics .an-two{ display:grid; grid-template-columns:1fr 1fr; gap:22px; }
+  @media(max-width:1000px){ #page-analytics .an-two{ grid-template-columns:1fr; } }
+
+  /* grouped bar chart */
+  #page-analytics .chart{ display:flex; align-items:flex-end; gap:10px; height:280px; padding:8px 2px 0; }
+  #page-analytics .chart .col{ flex:1; display:flex; flex-direction:column; align-items:center; height:100%; }
+  #page-analytics .chart .bars{ display:flex; align-items:flex-end; gap:5px; flex:1; }
+  #page-analytics .chart .bar{ width:11px; border-radius:5px 5px 0 0; min-height:2px; }
+  #page-analytics .chart .bar.inc{ background:#5aa873; }
+  #page-analytics .chart .bar.exp{ background:#bd6e3f; }
+  #page-analytics .chart .mlabel{ font-size:11px; color:var(--hv-muted); margin-top:8px; }
+  #page-analytics .chart-legend{ display:flex; align-items:center; gap:14px; font-size:12px; color:var(--hv-muted); }
+  #page-analytics .chart-legend .k{ display:inline-flex; align-items:center; gap:6px; }
+  #page-analytics .chart-legend .sw{ width:10px; height:10px; border-radius:3px; }
+  #page-analytics .chart-net{ display:inline-flex; align-items:center; gap:6px; background:#e7f3ec; color:#2e7d4f; border-radius:20px; padding:4px 12px; font-weight:700; font-size:12px; }
+
+  /* horizontal bars */
+  #page-analytics .hbar-row{ margin-bottom:14px; }
+  #page-analytics .hbar-top{ display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; gap:10px; }
+  #page-analytics .hbar-name{ display:inline-flex; align-items:center; gap:8px; font-weight:600; font-size:13.5px; color:var(--hv-ink); }
+  #page-analytics .hbar-dot{ width:9px; height:9px; border-radius:50%; flex:none; }
+  #page-analytics .hbar-val{ font-size:13px; font-weight:700; color:var(--hv-ink); white-space:nowrap; }
+  #page-analytics .hbar-val .muted{ color:var(--hv-muted); font-weight:500; }
+  #page-analytics .hbar-track{ height:9px; background:#f0e7d8; border-radius:6px; overflow:hidden; }
+  #page-analytics .hbar-fill{ height:100%; border-radius:6px; }
+
+  /* stacked expenses */
+  #page-analytics .stack{ display:flex; height:14px; border-radius:8px; overflow:hidden; margin-bottom:12px; background:#f0e7d8; }
+  #page-analytics .stack .seg-bills{ background:#bd6e3f; } #page-analytics .stack .seg-pay{ background:#9a3db8; }
+  #page-analytics .stack-legend{ display:flex; flex-wrap:wrap; gap:18px; font-size:12.5px; color:var(--hv-muted); margin-bottom:20px; }
+  #page-analytics .stack-legend b{ color:var(--hv-ink); }
+  #page-analytics .stack-legend .k{ display:inline-flex; align-items:center; gap:7px; }
+  #page-analytics .stack-legend .sw{ width:10px; height:10px; border-radius:3px; }
+  #page-analytics .sub-h{ font-size:10.5px; letter-spacing:.4px; text-transform:uppercase; color:var(--hv-muted); font-weight:700; margin:4px 0 14px; }
+</style>
+
+    <div class="an-head">
+        <div>
+            <h1>Business Analytics</h1>
+            <p id="anScope">All units combined — bookings, bills / payables, and payroll · last 12 months</p>
         </div>
-    </div>
-    <p class="muted" style="margin:-6px 0 16px;">All units combined — income from bookings, bills/payables, and payroll.</p>
-    <div class="cards" id="anCards" style="grid-template-columns:repeat(4,1fr);"></div>
-
-    <div class="panel">
-        <div class="panel-head"><h2>Income vs Expenses</h2></div>
-        <div id="anIncomeExpense"></div>
+        <select id="anMonth" class="an-period" onchange="renderAnalytics()">
+            <option value="12m" selected>Last 12 months</option>
+            <option value="ytd">This year</option>
+            <option value="all">All time</option>
+        </select>
     </div>
 
-    <div class="panel">
-        <div class="panel-head"><h2>Collected revenue per haven</h2></div>
-        <div id="anHavenRevenue"></div>
-    </div>
+    <div class="an-kpis" id="anCards"></div>
+    <div class="an-mini" id="anMini"></div>
 
     <div class="panel">
-        <div class="panel-head"><h2>Bills per haven / category</h2></div>
-        <div id="anHavenBills"></div>
+        <div class="panel-head"><h2>Revenue vs expenses</h2><div id="anChartLegend"></div></div>
+        <div id="anChart"></div>
+    </div>
+
+    <div class="an-two">
+        <div class="panel">
+            <div class="panel-head"><h2>Revenue by haven</h2></div>
+            <div id="anHavenRevenue"></div>
+        </div>
+        <div class="panel">
+            <div class="panel-head"><h2>Expenses</h2></div>
+            <div id="anExpenses"></div>
+        </div>
     </div>
 </div>
 
@@ -1024,7 +1285,7 @@ tbody tr:hover{ background:#fafafa; }
         <div class="cal-nav">
             <button class="btn secondary" onclick="shiftWeek(-1)">‹ Prev</button>
             <div class="dp-wrap">
-                <span id="rangeLabel" class="date-pill" onclick="openDatePicker(event)" title="Click to pick a date"></span>
+                <span class="date-pill" onclick="openDatePicker(event)" title="Click to pick a date"><svg class="cal-ico" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg><span id="rangeLabel"></span></span>
                 <div class="dp-popup" id="dpPopup" onclick="event.stopPropagation()">
                     <div class="dp-head">
                         <button type="button" onclick="pickerNav(-1)">‹</button>
@@ -1040,12 +1301,13 @@ tbody tr:hover{ background:#fafafa; }
                 </div>
             </div>
             <button class="btn secondary" onclick="shiftWeek(1)">Next ›</button>
-            <button class="btn secondary" onclick="showToday()">Today</button>
-            <button class="btn secondary" onclick="showThisMonth()">This Month</button>
-            <button class="btn secondary" onclick="openDatePicker(event)">📅 Custom range</button>
+            <button class="btn secondary cal-today" onclick="showToday()">Today</button>
+            <button class="btn secondary" onclick="showThisMonth()">This month</button>
+            <button class="btn secondary" onclick="openDatePicker(event)"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>Custom range</button>
             <select id="calHavenFilter" onchange="setCalHaven(this.value)" title="Show one haven"></select>
         </div>
     </div>
+    <div class="tl-daylabel" id="tlDayLabel"></div>
     <div class="timeline">
         <div class="tl-grid" id="timeline"></div>
     </div>
@@ -1096,137 +1358,331 @@ tbody tr:hover{ background:#fafafa; }
 <!-- ===== Havens ===== -->
 <div class="page" id="page-havens">
 
-<!-- haven listings manager -->
-<div class="panel">
-    <div class="panel-head">
-        <h2>Haven Listings <span class="muted">— shown on the website</span></h2>
-        <div>
-            <button class="btn secondary" onclick="addListing()">+ Add Haven</button>
-            <button class="btn" onclick="saveListings()">💾 Save Listings</button>
-            <button class="btn secondary" onclick="resetListings()">↺ Reset</button>
+<!-- ============ Havens — "Warm Hospitality" redesign ============ -->
+<style>
+  #page-havens{ --hv-cream:#f6f2ec; --hv-card:#fff; --hv-ink:#2f2a25; --hv-muted:#9a8f86;
+    --hv-gold:#b8923a; --hv-terra:#bd6e3f; --hv-terra-d:#a85f33; --hv-line:#ece4d8; --hv-live:#3f9e6a;
+    --hv-serif:'Manrope',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; }
+  #page-havens .hv-head{ display:flex; align-items:flex-end; gap:20px; flex-wrap:wrap; margin-bottom:22px; }
+  #page-havens .hv-head h1{ font-family:var(--hv-serif); font-size:28px; font-weight:700; color:var(--hv-ink); margin:0; }
+  #page-havens .hv-head p{ color:var(--hv-muted); font-size:13.5px; margin:4px 0 0; }
+  #page-havens .hv-tools{ margin-left:auto; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  #page-havens .hv-tools select{ padding:9px 12px; border:1px solid var(--hv-line); border-radius:10px; font-size:13px; background:#faf7f2; font-family:inherit; color:var(--hv-ink); }
+  #page-havens .hv-btn{ border:none; border-radius:10px; padding:10px 16px; font-size:13.5px; font-weight:600; cursor:pointer; font-family:inherit; display:inline-flex; align-items:center; gap:7px; }
+  #page-havens .hv-btn.primary{ background:var(--hv-terra); color:#fff; } #page-havens .hv-btn.primary:hover{ background:var(--hv-terra-d); }
+  #page-havens .hv-btn.ghost{ background:#fff; color:var(--hv-ink); border:1px solid var(--hv-line); }
+
+  #page-havens .hv-grid{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:22px; }
+  @media(max-width:1200px){ #page-havens .hv-grid{ grid-template-columns:repeat(3,minmax(0,1fr)); } }
+  @media(max-width:860px){ #page-havens .hv-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); } }
+  @media(max-width:560px){ #page-havens .hv-grid{ grid-template-columns:1fr; } }
+  #page-havens .hv-card{ background:var(--hv-card); border:1px solid var(--hv-line); border-radius:18px; overflow:hidden; transition:.15s; }
+  #page-havens .hv-card:hover{ box-shadow:0 10px 26px rgba(80,60,30,.10); transform:translateY(-2px); }
+  #page-havens .hv-card.drag-over{ outline:2px dashed var(--hv-terra); outline-offset:3px; }
+  #page-havens .hv-photo{ position:relative; height:172px; background:repeating-linear-gradient(135deg,#efe6d7,#efe6d7 13px,#e7dcc9 13px,#e7dcc9 26px); }
+  #page-havens .hv-photo img{ width:100%; height:100%; object-fit:cover; display:block; }
+  #page-havens .hv-badge{ position:absolute; top:12px; left:12px; background:#fff; border-radius:20px; padding:5px 11px 5px 9px; font-size:11.5px; font-weight:700; display:flex; align-items:center; gap:6px; box-shadow:0 2px 6px rgba(0,0,0,.08); color:var(--hv-ink); }
+  #page-havens .hv-badge i{ width:7px; height:7px; border-radius:50%; background:var(--hv-live); display:inline-block; }
+  #page-havens .hv-grip{ position:absolute; top:12px; right:12px; width:30px; height:30px; border-radius:50%; background:#fff; box-shadow:0 2px 6px rgba(0,0,0,.08); display:flex; align-items:center; justify-content:center; color:#8a8078; font-weight:700; cursor:grab; user-select:none; }
+  #page-havens .hv-grip:active{ cursor:grabbing; }
+  #page-havens .hv-cardbody{ padding:16px 17px 17px; }
+  #page-havens .hv-cardbody h3{ font-family:var(--hv-serif); font-size:18.5px; font-weight:600; color:var(--hv-ink); margin:0; }
+  #page-havens .hv-amen{ display:flex; gap:13px; margin-top:13px; min-height:21px; flex-wrap:wrap; }
+  #page-havens .amenity-ico{ width:21px; height:21px; stroke:var(--hv-gold); fill:none; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; }
+  #page-havens .hv-foot{ display:flex; align-items:flex-end; justify-content:space-between; gap:10px; margin-top:16px; padding-top:14px; border-top:1px solid var(--hv-line); }
+  #page-havens .hv-price b{ font-size:16px; font-family:var(--hv-serif); font-weight:700; color:var(--hv-ink); }
+  #page-havens .hv-edit{ border:1px solid var(--hv-line); background:#fff; border-radius:9px; padding:8px 15px; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; color:var(--hv-ink); white-space:nowrap; }
+  #page-havens .hv-edit:hover{ border-color:var(--hv-terra); color:var(--hv-terra); }
+  #page-havens .listing-pager{ display:flex; gap:12px; align-items:center; justify-content:center; margin-top:22px; }
+
+  /* drawer */
+  #page-havens .hv-scrim{ position:fixed; inset:0; background:rgba(40,32,26,.42); opacity:0; visibility:hidden; transition:.2s; z-index:1400; }
+  #page-havens .hv-scrim.open{ opacity:1; visibility:visible; }
+  #page-havens .hv-drawer{ position:fixed; top:0; right:0; height:100%; width:560px; max-width:94vw; background:#fff; box-shadow:-12px 0 40px rgba(40,30,20,.18); transform:translateX(100%); transition:transform .25s ease; z-index:1500; display:flex; flex-direction:column; }
+  #page-havens .hv-drawer.open{ transform:none; }
+  #page-havens .hv-drhead{ padding:22px 26px 16px; border-bottom:1px solid var(--hv-line); display:flex; align-items:flex-start; }
+  #page-havens .hv-lbl{ font-size:10.5px; letter-spacing:2px; color:var(--hv-terra); font-weight:700; text-transform:uppercase; }
+  #page-havens .hv-drhead h2{ font-family:var(--hv-serif); font-size:23px; font-weight:700; margin-top:3px; color:var(--hv-ink); }
+  #page-havens .hv-drx{ margin-left:auto; width:34px; height:34px; border:1px solid var(--hv-line); border-radius:9px; background:#fff; cursor:pointer; font-size:15px; color:#8a8078; }
+  #page-havens .hv-drbody{ padding:20px 26px; overflow-y:auto; flex:1; }
+  #page-havens .hv-fl{ display:block; font-size:11px; letter-spacing:1.2px; text-transform:uppercase; color:var(--hv-muted); margin:18px 0 7px; font-weight:600; }
+  #page-havens .hv-mainimg{ height:170px; border-radius:14px; margin-top:4px; background:#faf4ec repeating-linear-gradient(135deg,#efe6d7,#efe6d7 13px,#e7dcc9 13px,#e7dcc9 26px); background-size:cover; background-position:center; border:1px solid var(--hv-line); }
+  #page-havens .hv-gallery{ display:flex; flex-direction:column; gap:8px; }
+  #page-havens .hv-grow{ display:flex; gap:8px; }
+  #page-havens .hv-gx, #page-havens .hv-pill{ border:1px solid var(--hv-line); background:#fff; border-radius:9px; cursor:pointer; font-family:inherit; }
+  #page-havens .hv-gx{ width:38px; flex:none; color:#b6a692; font-size:14px; }
+  #page-havens .hv-pill{ margin-top:8px; padding:9px 15px; font-size:13px; font-weight:600; color:var(--hv-ink); display:inline-flex; gap:6px; align-items:center; }
+  #page-havens .hv-two{ display:grid; grid-template-columns:1fr 200px; gap:16px; }
+  #page-havens .hv-fld{ width:100%; padding:11px 13px; border:1px solid var(--hv-line); border-radius:10px; font-size:14px; font-family:inherit; background:#faf7f2; color:var(--hv-ink); }
+  #page-havens textarea.hv-fld{ resize:vertical; min-height:74px; }
+  #page-havens .hv-chips{ display:flex; flex-wrap:wrap; gap:9px; }
+  #page-havens .hv-chip{ background:#f3ece1; border-radius:20px; padding:7px 12px; font-size:13px; font-weight:600; display:flex; align-items:center; gap:7px; color:var(--hv-ink); }
+  #page-havens .hv-chip .amenity-ico{ width:16px; height:16px; }
+  #page-havens .hv-chip x{ color:#b6a692; cursor:pointer; font-style:normal; }
+  #page-havens .hv-addamen{ display:flex; gap:9px; margin-top:10px; }
+  #page-havens .hv-muted{ color:var(--hv-muted); font-size:13px; }
+  #page-havens .hv-drfoot{ padding:16px 26px; border-top:1px solid var(--hv-line); display:flex; align-items:center; gap:12px; }
+  #page-havens .hv-pill.danger{ color:#b91c1c; border-color:#f3d6d6; margin:0; }
+  @media(max-width:720px){ #page-havens .hv-two{ grid-template-columns:1fr; } }
+</style>
+
+<div class="hv-head">
+    <div>
+        <h1>Havens</h1>
+        <p id="hvCount">— listings · shown on staycationhaven.ph</p>
+    </div>
+    <div class="hv-tools">
+        <select id="listingPageSelect" onchange="setListingPageSize(Number(this.value))" title="Show per page">
+            <option value="1">1 per page</option>
+            <option value="2">2 per page</option>
+            <option value="3">3 per page</option>
+            <option value="9" selected>View all (max 9)</option>
+        </select>
+        <button class="hv-btn ghost" onclick="resetListings()">↺ Reset</button>
+        <button class="hv-btn ghost" onclick="saveListings()">💾 Save all</button>
+        <button class="hv-btn primary" onclick="addListing()">+ Add haven</button>
+    </div>
+</div>
+
+<div class="hv-grid" id="hvGrid"></div>
+<div id="listingPager" class="listing-pager"></div>
+
+<!-- edit drawer -->
+<div class="hv-scrim" id="hvScrim" onclick="closeHaven()"></div>
+<aside class="hv-drawer" id="hvDrawer">
+    <div class="hv-drhead">
+        <div><div class="hv-lbl">Editing haven</div><h2 id="hvDrName">Haven</h2></div>
+        <button class="hv-drx" onclick="closeHaven()">✕</button>
+    </div>
+    <div class="hv-drbody">
+        <label class="hv-fl">Main image URL</label>
+        <input class="hv-fld" id="hvImg" placeholder="https://…" oninput="hvPreviewImg(this.value)">
+        <div class="hv-mainimg" id="hvMainImg"></div>
+
+        <label class="hv-fl">Photo gallery</label>
+        <div class="hv-gallery" id="hvGallery"></div>
+        <button class="hv-pill" onclick="hvAddGallery()">＋ Add photo</button>
+
+        <div class="hv-two">
+            <div><label class="hv-fl">Name</label><input class="hv-fld" id="hvName"></div>
+            <div><label class="hv-fl">Price</label><input class="hv-fld" id="hvPrice" placeholder="₱0 / night"></div>
+        </div>
+
+        <label class="hv-fl">Description</label>
+        <textarea class="hv-fld" id="hvDesc"></textarea>
+
+        <label class="hv-fl">Amenities</label>
+        <div class="hv-chips" id="hvChips"></div>
+        <div class="hv-addamen">
+            <input class="hv-fld" id="hvAmenInput" placeholder="e.g. 📶 Fast WiFi"
+                   onkeydown="if(event.key==='Enter'){event.preventDefault();hvAddAmen();}">
+            <button class="hv-pill" onclick="hvAddAmen()">Add</button>
         </div>
     </div>
-    <p class="muted" style="margin-bottom:16px;">
-        These control the haven cards on the Home page and each Haven detail page.
-        Edit the picture, price and details below, then click <b>Save Listings</b>.
-    </p>
-    <div class="listing-toolbar" id="listingToolbar">
-        <label class="muted" for="listingPageSelect">Show per page:</label>
-        <select id="listingPageSelect" onchange="setListingPageSize(Number(this.value))">
-            <option value="1">1 unit</option>
-            <option value="2">2 units</option>
-            <option value="3">3 units</option>
-            <option value="9" selected>View all (max 9 per page)</option>
-        </select>
+    <div class="hv-drfoot">
+        <button class="hv-pill danger" onclick="hvDeleteFromDrawer()">🗑 Delete</button>
+        <span style="flex:1"></span>
+        <button class="hv-pill" onclick="closeHaven()">Cancel</button>
+        <button class="hv-btn primary" onclick="saveHaven()">Save changes</button>
     </div>
-    <div id="listingList" class="listing-grid"></div>
-    <div id="listingPager" class="listing-pager"></div>
-</div>
+</aside>
 
 </div><!-- /page-havens -->
 
 <!-- ===== Booking & Rates ===== -->
 <div class="page" id="page-booking">
-    <div class="panel">
-        <div class="panel-head">
-            <h2>Rates and Add Ons <span class="muted">— used by the website booking form</span></h2>
-            <div>
-                <button class="btn" onclick="saveBookingSettings()">💾 Save</button>
-                <button class="btn secondary" onclick="resetBookingSettings()">↺ Reset</button>
-            </div>
+
+<style>
+  #page-booking .rates-head{ display:flex; align-items:flex-end; gap:18px; flex-wrap:wrap; margin-bottom:22px; }
+  #page-booking .rates-head h1{ font-size:28px; font-weight:800; letter-spacing:-.02em; margin:0; color:var(--hv-ink); }
+  #page-booking .rates-head p{ margin:4px 0 0; color:var(--hv-muted); font-size:13.5px; }
+  #page-booking .rates-head .tools{ margin-left:auto; display:flex; gap:10px; }
+
+  #page-booking .rcard{ background:#fff; border:1px solid var(--hv-line); border-radius:18px;
+    padding:22px 24px; margin-bottom:22px; box-shadow:0 6px 20px rgba(80,60,30,.05); }
+  #page-booking .rcard > h3{ font-size:16px; font-weight:800; color:var(--hv-ink);
+    display:flex; align-items:center; gap:9px; margin:0 0 18px; }
+  #page-booking .rcard > h3 .unit{ color:var(--hv-muted); font-weight:600; font-size:13px; }
+  #page-booking .sec-ico{ display:inline-flex; }
+  #page-booking .sec-ico svg{ width:18px; height:18px; stroke:var(--hv-terra); fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+
+  #page-booking .settings-form{ display:grid; grid-template-columns:repeat(auto-fit,minmax(185px,1fr)); gap:16px; }
+  #page-booking .settings-form label{ display:flex; flex-direction:column; gap:7px;
+    font-size:13px; color:var(--hv-muted); font-weight:600; }
+  #page-booking .settings-form input[type=number]{ width:100%; padding:11px 13px; border:1px solid var(--hv-line);
+    border-radius:10px; background:#faf7f2; color:var(--hv-ink); font-size:14px; font-weight:600; }
+  #page-booking .settings-form input[type=number]:focus,
+  #page-booking .addon-edit-row input:focus{ outline:none; border-color:var(--hv-terra); }
+
+  #page-booking .peso{ position:relative; display:block; }
+  #page-booking .peso::before{ content:"₱"; position:absolute; left:13px; top:50%; transform:translateY(-50%);
+    color:var(--hv-muted); font-size:14px; pointer-events:none; }
+  #page-booking .peso input{ padding-left:26px !important; }
+
+  #page-booking input[type=checkbox]{ accent-color:var(--hv-terra); width:18px; height:18px; }
+  #page-booking .opt-row{ display:flex; align-items:center; gap:20px; flex-wrap:wrap; margin-top:20px; padding-top:18px; border-top:1px solid var(--hv-line); }
+  #page-booking .opt-row > .muted{ font-size:13px; }
+  #page-booking .opt-check{ display:flex; align-items:center; gap:8px; font-size:13.5px; color:var(--hv-ink); font-weight:600; cursor:pointer; }
+
+  #page-booking .custom-addons-head{ font-size:13px; color:var(--hv-muted); font-weight:700; margin:22px 0 12px; line-height:1.5; }
+  #page-booking .custom-addons-head .muted{ display:block; font-weight:500; }
+  #page-booking .addon-edit-row{ display:flex; gap:10px; align-items:center; margin-bottom:10px; }
+  #page-booking .addon-edit-row input[data-af="name"]{ flex:1; min-width:0; padding:11px 13px; border:1px solid var(--hv-line); border-radius:10px; background:#faf7f2; font-size:14px; }
+  #page-booking .addon-edit-row .peso{ width:140px; flex:none; }
+  #page-booking .addon-edit-row input[data-af="price"]{ width:100%; padding:11px 13px; border:1px solid var(--hv-line); border-radius:10px; background:#faf7f2; font-size:14px; font-weight:600; }
+  #page-booking .addon-del{ border:1px solid var(--hv-line); background:#fff; border-radius:10px; width:44px; height:44px; flex:none; cursor:pointer; color:#b91c1c; display:flex; align-items:center; justify-content:center; }
+  #page-booking .addon-del:hover{ border-color:#e6b8b8; background:#fdf3f3; }
+  #page-booking .addon-del svg{ width:17px; height:17px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+</style>
+
+    <div class="rates-head">
+        <div>
+            <h1>Rates &amp; Add-ons</h1>
+            <p>Used by the website booking form</p>
+        </div>
+        <div class="tools">
+            <button class="btn secondary" onclick="resetBookingSettings()">↺ Reset</button>
+            <button class="btn" onclick="saveBookingSettings()">💾 Save</button>
+        </div>
+    </div>
+
+    <div class="rcard">
+        <h3><span class="sec-ico"><svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg></span>Stay rates <span class="unit">(₱)</span></h3>
+        <div class="settings-form">
+            <label>6 hours<span class="peso"><input type="number" id="s_stay6"></span></label>
+            <label>10 hours<span class="peso"><input type="number" id="s_stay10"></span></label>
+            <label>21 hours · Sun–Thu<span class="peso"><input type="number" id="s_stay21Weekday"></span></label>
+            <label>21 hours · Fri/Sat<span class="peso"><input type="number" id="s_stay21Weekend"></span></label>
+            <label>3+ nights · Sun–Thu (per night)<span class="peso"><input type="number" id="s_longWeekday"></span></label>
+            <label>3+ nights · Fri/Sat (per night)<span class="peso"><input type="number" id="s_longWeekend"></span></label>
+            <label>Holiday · per night<span class="peso"><input type="number" id="s_holidayNight"></span></label>
+            <label>Holiday · day-use (6–10h)<span class="peso"><input type="number" id="s_holidayDayUse"></span></label>
+        </div>
+        <div class="opt-row">
+            <span class="muted">Offer on website</span>
+            <label class="opt-check"><input type="checkbox" id="s_offer6"> 6 hours</label>
+            <label class="opt-check"><input type="checkbox" id="s_offer10"> 10 hours</label>
+            <label class="opt-check"><input type="checkbox" id="s_offer21"> 21 hours / overnight</label>
+        </div>
+    </div>
+
+    <div class="rcard">
+        <h3><span class="sec-ico"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 5.2a3.5 3.5 0 0 1 0 6.6M21.5 20a6.5 6.5 0 0 0-5-6.3"/></svg></span>Guests &amp; deposit</h3>
+        <div class="settings-form">
+            <label>Security deposit (₱)<span class="peso"><input type="number" id="s_deposit"></span></label>
+            <label>Pax included in rate<input type="number" id="s_includedPax"></label>
+            <label>Extra pax, each (₱)<span class="peso"><input type="number" id="s_addPax"></span></label>
+            <label>Max booking (days)<input type="number" id="s_maxDays"></label>
+        </div>
+    </div>
+
+    <div class="rcard">
+        <h3><span class="sec-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg></span>Add-ons <span class="unit">(₱)</span></h3>
+        <div class="settings-form">
+            <label>Pool pass · regular<span class="peso"><input type="number" id="s_poolRegular"></span></label>
+            <label>Pool pass · holiday<span class="peso"><input type="number" id="s_poolHoliday"></span></label>
+            <label>Additional hour<span class="peso"><input type="number" id="s_extraHour"></span></label>
+            <label>Towel rent, each<span class="peso"><input type="number" id="s_towelRate"></span></label>
+            <label>Towels per pax (max)<input type="number" id="s_towelMaxPerPax"></label>
         </div>
 
-        <div class="settings-section">
-            <h3>Stay rates (₱)</h3>
-            <div class="settings-form">
-                <label>6 hours<input type="number" id="s_stay6"></label>
-                <label>10 hours<input type="number" id="s_stay10"></label>
-                <label>21 hours · Sun–Thu<input type="number" id="s_stay21Weekday"></label>
-                <label>21 hours · Fri/Sat<input type="number" id="s_stay21Weekend"></label>
-                <label>3+ nights · Sun–Thu (per night)<input type="number" id="s_longWeekday"></label>
-                <label>3+ nights · Fri/Sat (per night)<input type="number" id="s_longWeekend"></label>
-                <label>Holiday · per night<input type="number" id="s_holidayNight"></label>
-                <label>Holiday · day-use (6–10h)<input type="number" id="s_holidayDayUse"></label>
-            </div>
-            <div class="opt-row">
-                <span class="muted">Offer on website:</span>
-                <label class="opt-check"><input type="checkbox" id="s_offer6"> 6 hours</label>
-                <label class="opt-check"><input type="checkbox" id="s_offer10"> 10 hours</label>
-                <label class="opt-check"><input type="checkbox" id="s_offer21"> 21 hours / overnight</label>
-            </div>
-        </div>
+        <div class="custom-addons-head">Other add-ons <span class="muted">Shown on the website booking form</span></div>
+        <div id="customAddonList"></div>
+        <button class="btn secondary" onclick="addCustomAddon()" style="margin-top:8px;">+ Add add-on</button>
+    </div>
 
-        <div class="settings-section">
-            <h3>Guests &amp; deposit</h3>
-            <div class="settings-form">
-                <label>Security deposit (₱)<input type="number" id="s_deposit"></label>
-                <label>Pax included in rate<input type="number" id="s_includedPax"></label>
-                <label>Extra pax, each (₱)<input type="number" id="s_addPax"></label>
-                <label>Max booking (days)<input type="number" id="s_maxDays"></label>
-            </div>
+    <div class="rcard">
+        <h3><span class="sec-ico"><svg viewBox="0 0 24 24"><path d="M4 11a6 6 0 0 1 6-6h3a6 6 0 0 1 6 6v3a2 2 0 0 1-2 2l-1 2h-3l-1-2h-1a6 6 0 0 1-6-5Z"/><path d="M16 10h.5M4 11H3"/></svg></span>Downpayment tiers <span class="unit">(₱)</span></h3>
+        <div class="settings-form">
+            <label>1–2 days<span class="peso"><input type="number" id="s_dp0"></span></label>
+            <label>3–4 days<span class="peso"><input type="number" id="s_dp1"></span></label>
+            <label>5–8 days<span class="peso"><input type="number" id="s_dp2"></span></label>
+            <label>9–14 days<span class="peso"><input type="number" id="s_dp3"></span></label>
         </div>
+    </div>
 
-        <div class="settings-section">
-            <h3>Add-ons (₱)</h3>
-            <div class="settings-form">
-                <label>Pool pass · regular<input type="number" id="s_poolRegular"></label>
-                <label>Pool pass · holiday<input type="number" id="s_poolHoliday"></label>
-                <label>Additional hour<input type="number" id="s_extraHour"></label>
-                <label>Towel rent, each<input type="number" id="s_towelRate"></label>
-                <label>Towels per pax (max)<input type="number" id="s_towelMaxPerPax"></label>
-            </div>
-
-            <div class="custom-addons-head">Other add-ons <span class="muted">— shown on the website booking form</span></div>
-            <div id="customAddonList"></div>
-            <button class="btn secondary" onclick="addCustomAddon()" style="margin-top:8px;">+ Add add-on</button>
-        </div>
-
-        <div class="settings-section">
-            <h3>Downpayment tiers (₱)</h3>
-            <div class="settings-form">
-                <label>1–2 days<input type="number" id="s_dp0"></label>
-                <label>3–4 days<input type="number" id="s_dp1"></label>
-                <label>5–8 days<input type="number" id="s_dp2"></label>
-                <label>9–14 days<input type="number" id="s_dp3"></label>
-            </div>
-        </div>
-
-        <div class="settings-section">
-            <h3>Promos</h3>
-            <div class="custom-addons-head">Promotions <span class="muted">— title, optional code &amp; discount; only “active” ones show on the website</span></div>
-            <div id="promoList"></div>
-            <button class="btn secondary" onclick="addPromo()" style="margin-top:8px;">+ Add promo</button>
-        </div>
+    <div class="rcard">
+        <h3><span class="sec-ico"><svg viewBox="0 0 24 24"><path d="M3.5 12.5 11 5a2 2 0 0 1 1.4-.6H19a1 1 0 0 1 1 1v6.6a2 2 0 0 1-.6 1.4l-7.5 7.5a2 2 0 0 1-2.8 0l-5.6-5.6a2 2 0 0 1 0-2.8Z"/><circle cx="15.4" cy="8.6" r="1.2"/></svg></span>Promos</h3>
+        <div class="custom-addons-head">Promotions <span class="muted">Title, optional code &amp; discount — only “active” ones show on the website</span></div>
+        <div id="promoList"></div>
+        <button class="btn secondary" onclick="addPromo()" style="margin-top:8px;">+ Add promo</button>
     </div>
 </div><!-- /page-booking -->
 
 <!-- ===== Payments ===== -->
 <div class="page" id="page-payments">
-    <div class="panel">
-        <div class="panel-head">
-            <h2>Payment Details <span class="muted">— shown on the website payment page</span></h2>
-            <div>
-                <button class="btn" onclick="savePaymentSettings()">💾 Save</button>
-                <button class="btn secondary" onclick="resetPaymentSettings()">↺ Reset</button>
-            </div>
-        </div>
 
-        <div class="settings-section">
-            <h3>Messages</h3>
-            <div class="settings-form">
-                <label class="full">Intro message<input type="text" id="p_intro"></label>
-                <label class="full">Screenshot reminder<input type="text" id="p_screenshot"></label>
-                <label class="full">Warning note<input type="text" id="p_warn"></label>
-                <label class="full">Cash-on-arrival note<input type="text" id="p_cash"></label>
-            </div>
-        </div>
+<style>
+  #page-payments .pay-head{ display:flex; align-items:flex-end; gap:18px; flex-wrap:wrap; margin-bottom:22px; }
+  #page-payments .pay-head h1{ font-family:'Playfair Display',Georgia,serif; font-size:28px; font-weight:700; margin:0; color:var(--hv-ink); }
+  #page-payments .pay-head p{ margin:4px 0 0; color:var(--hv-muted); font-size:13.5px; }
+  #page-payments .pay-head .tools{ margin-left:auto; display:flex; gap:10px; }
 
-        <div class="settings-section">
-            <h3>Payment methods <span class="muted">— guests choose one of these; add as many as you like</span></h3>
-            <div id="methodList"></div>
-            <button class="btn secondary" onclick="addMethod()" style="margin-top:14px;">+ Add payment method</button>
-            <p class="muted" style="margin-top:10px;">Add the account details (and a QR image if you have one), then click <b>Save</b> above.</p>
+  #page-payments .rcard{ background:#fff; border:1px solid var(--hv-line); border-radius:18px;
+    padding:22px 24px; margin-bottom:22px; box-shadow:0 6px 20px rgba(80,60,30,.05); }
+  #page-payments .rcard > h3{ font-size:16px; font-weight:800; color:var(--hv-ink);
+    display:flex; align-items:center; gap:9px; margin:0 0 6px; }
+  #page-payments .sec-ico{ display:inline-flex; }
+  #page-payments .sec-ico svg{ width:18px; height:18px; stroke:var(--hv-terra); fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+  #page-payments .rcard .sub{ color:var(--hv-muted); font-size:13px; margin:0 0 18px; }
+
+  #page-payments .settings-form{ display:grid; grid-template-columns:1fr; gap:16px; }
+  #page-payments .settings-form label{ display:flex; flex-direction:column; gap:7px; font-size:13px; color:var(--hv-muted); font-weight:600; }
+  #page-payments .settings-form input{ width:100%; padding:11px 13px; border:1px solid var(--hv-line);
+    border-radius:10px; background:#faf7f2; color:var(--hv-ink); font-size:14px; }
+  #page-payments .settings-form input:focus{ outline:none; border-color:var(--hv-terra); }
+
+  #page-payments .method-grid{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; margin-bottom:14px; }
+  @media(max-width:900px){ #page-payments .method-grid{ grid-template-columns:1fr; } }
+  #page-payments .method-card{ border:1px solid var(--hv-line); border-radius:14px; padding:16px 18px; background:#fffdfa; }
+  #page-payments .mc-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:14px; }
+  #page-payments .mc-badge{ display:inline-flex; align-items:center; gap:7px; background:#f3ece1; border-radius:9px;
+    padding:7px 12px; font-weight:700; font-size:14px; color:var(--hv-ink); }
+  #page-payments .mc-badge svg{ width:16px; height:16px; stroke:var(--hv-terra); fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+  #page-payments .mc-remove{ display:inline-flex; align-items:center; gap:6px; border:none; background:none;
+    color:#b91c1c; font-weight:600; font-size:13px; cursor:pointer; font-family:inherit; }
+  #page-payments .mc-remove svg{ width:15px; height:15px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+  #page-payments .mc-fields{ grid-template-columns:repeat(3,minmax(0,1fr)); }
+  @media(max-width:600px){ #page-payments .mc-fields{ grid-template-columns:1fr; } }
+  #page-payments .mc-qrlabel{ display:block; font-size:13px; color:var(--hv-muted); font-weight:600; margin:16px 0 8px; }
+  #page-payments .mc-qrlabel .opt{ font-weight:500; }
+  #page-payments .mc-qr{ display:flex; gap:14px; align-items:flex-start; }
+  #page-payments .qr-box{ width:108px; height:108px; flex:none; border-radius:12px; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:6px; cursor:pointer; border:1.5px dashed #d8c9b3;
+    background:#faf7f2; color:var(--hv-muted); font-size:11px; font-weight:600; overflow:hidden; text-align:center; }
+  #page-payments .qr-box svg{ width:26px; height:26px; stroke:currentColor; fill:none; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; }
+  #page-payments .qr-box.has{ border:1px solid #bfe3cb; background:#eef7f0; color:#2e7d4f; }
+  #page-payments .qr-side{ flex:1; min-width:0; }
+  #page-payments .qr-help{ color:var(--hv-muted); font-size:13px; line-height:1.5; margin:0; }
+  #page-payments .qr-remove{ border:none; background:none; color:#b91c1c; font-size:12px; cursor:pointer; font-family:inherit; margin-top:8px; padding:0; }
+</style>
+
+    <div class="pay-head">
+        <div>
+            <h1>Payment Details</h1>
+            <p>Shown on the website payment page</p>
         </div>
+        <div class="tools">
+            <button class="btn secondary" onclick="resetPaymentSettings()">↺ Reset</button>
+            <button class="btn" onclick="savePaymentSettings()">💾 Save</button>
+        </div>
+    </div>
+
+    <div class="rcard">
+        <h3><span class="sec-ico"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4V5Z"/><path d="M8 9h8M8 12h5"/></svg></span>Messages</h3>
+        <div class="settings-form">
+            <label>Intro message<input type="text" id="p_intro"></label>
+            <label>Screenshot reminder<input type="text" id="p_screenshot"></label>
+            <label>Warning note<input type="text" id="p_warn"></label>
+            <label>Cash-on-arrival note<input type="text" id="p_cash"></label>
+        </div>
+    </div>
+
+    <div class="rcard">
+        <h3><span class="sec-ico"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg></span>Payment methods</h3>
+        <p class="sub">Guests choose one of these · add as many as you like</p>
+        <div id="methodList" class="method-grid"></div>
+        <button class="btn secondary" onclick="addMethod()">+ Add payment method</button>
     </div>
 </div><!-- /page-payments -->
 
@@ -1366,17 +1822,64 @@ tbody tr:hover{ background:#fafafa; }
 <!-- ===== Bills ===== -->
 <div class="page" id="page-bills">
 
+<style>
+  #page-bills .soa-head h1{ font-family:'Playfair Display',Georgia,serif; font-size:28px; font-weight:700; margin:0 0 22px; color:var(--hv-ink); }
+  #page-bills .soa-head h1 .muted{ font-family:'Mulish',sans-serif; font-size:15px; font-weight:500; color:var(--hv-muted); }
+
+  #page-bills .cards{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:20px; margin-bottom:24px; }
+  @media(max-width:1000px){ #page-bills .cards{ grid-template-columns:repeat(2,minmax(0,1fr)); } }
+  @media(max-width:560px){ #page-bills .cards{ grid-template-columns:1fr; } }
+  #page-bills .bcard{ background:#fff; border:1px solid var(--hv-line); border-radius:16px; padding:18px 20px; box-shadow:0 6px 20px rgba(80,60,30,.05); }
+  #page-bills .bcard .card-top{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+  #page-bills .bcard .card-label{ font-size:11px; letter-spacing:.5px; text-transform:uppercase; color:var(--hv-muted); font-weight:700; }
+  #page-bills .bcard .card-ico{ width:34px; height:34px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex:none; }
+  #page-bills .bcard .card-ico svg{ width:18px; height:18px; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+  #page-bills .bcard .num{ font-family:'Playfair Display',Georgia,serif; font-size:30px; font-weight:700; margin-top:12px; }
+  #page-bills .chip-gold{ background:#f5ecd6; } #page-bills .chip-gold svg{ stroke:var(--hv-gold); }
+  #page-bills .chip-terra{ background:#f6e7da; } #page-bills .chip-terra svg{ stroke:var(--hv-terra); }
+  #page-bills .chip-green{ background:#e7f3ec; } #page-bills .chip-green svg{ stroke:#3f9e6a; }
+
+  #page-bills .panel-head h2{ font-family:'Playfair Display',Georgia,serif; font-weight:700; }
+  #page-bills .filters select{ border:1px solid var(--hv-line); border-radius:10px; background:#fff; padding:9px 13px; font-size:13px; color:var(--hv-ink); }
+
+  #page-bills .bills-grid{ display:flex; flex-direction:column; gap:18px; }
+  #page-bills .bills-haven{ border:1px solid var(--hv-line); border-radius:14px; overflow:hidden; }
+  #page-bills .bh-head{ display:flex; align-items:center; gap:10px; background:#faf6ee; padding:12px 16px; border-bottom:1px solid var(--hv-line); }
+  #page-bills .bh-dot{ width:9px; height:9px; border-radius:50%; flex:none; }
+  #page-bills .bh-name{ font-weight:700; color:var(--hv-ink); }
+  #page-bills .bh-count{ background:#f0e7d8; color:#8a7a63; border-radius:20px; padding:2px 10px; font-size:12px; font-weight:600; }
+  #page-bills .bh-due{ margin-left:auto; color:var(--hv-muted); font-size:13px; }
+  #page-bills .bh-due b{ color:var(--hv-ink); }
+  #page-bills .bills-table{ width:100%; border-collapse:collapse; }
+  #page-bills .bills-table th{ text-align:left; color:var(--hv-muted); font-size:11px; letter-spacing:.4px; text-transform:uppercase; font-weight:700; padding:11px 16px; }
+  #page-bills .bills-table td{ border-top:1px solid var(--hv-line); padding:13px 16px; vertical-align:middle; color:var(--hv-ink); }
+  #page-bills .bills-table tbody tr:first-child td{ border-top:none; }
+  #page-bills .col-actions{ text-align:right; white-space:nowrap; }
+  #page-bills .biller{ display:inline-flex; align-items:center; gap:9px; font-weight:600; }
+  #page-bills .biller svg{ width:17px; height:17px; stroke:var(--hv-terra); fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+  #page-bills .status{ display:inline-flex; align-items:center; gap:6px; font-size:11.5px; font-weight:700; padding:4px 11px; border-radius:20px; }
+  #page-bills .status::before{ content:""; width:7px; height:7px; border-radius:50%; background:currentColor; }
+  #page-bills .status.unpaid{ background:#f6e7da; color:var(--hv-terra-d); }
+  #page-bills .status.paid{ background:#e7f3ec; color:#2e7d4f; }
+  #page-bills .status.overdue{ background:#fde3e7; color:#c0283d; }
+  #page-bills .act{ font-size:13px; font-weight:600; cursor:pointer; margin-left:16px; }
+  #page-bills .act.markpaid{ color:#2e7d4f; display:inline-flex; align-items:center; gap:5px; }
+  #page-bills .act.markpaid svg{ width:15px; height:15px; stroke:currentColor; fill:none; stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round; }
+  #page-bills .act.edit{ color:var(--hv-terra-d); }
+  #page-bills .act.del{ color:#c0283d; }
+</style>
+
     <!-- statement of account -->
-    <div class="topbar" style="margin-bottom:18px;">
-        <h2 style="font-size:20px;">Statement of Account <span class="muted" id="billsScopeLabel"></span></h2>
+    <div class="soa-head">
+        <h1>Statement of Account <span class="muted" id="billsScopeLabel"></span></h1>
     </div>
-    <div class="cards" id="billsCards" style="grid-template-columns:repeat(4,1fr);"></div>
+    <div class="cards" id="billsCards"></div>
 
     <!-- bills table -->
     <div class="panel">
         <div class="panel-head">
             <h2>Bills &amp; Payables</h2>
-            <button class="btn" onclick="openBillModal()">+ Add Bill</button>
+            <button class="btn" onclick="openBillModal()">+ Add bill</button>
         </div>
         <div class="filters" style="margin-bottom:16px;">
             <select id="billFilterHaven" onchange="renderBills()"></select>
@@ -1388,7 +1891,7 @@ tbody tr:hover{ background:#fafafa; }
                 <option value="paid">Paid</option>
             </select>
         </div>
-        <div id="billsContainer" style="overflow-x:auto;"></div>
+        <div id="billsContainer"></div>
     </div>
 </div>
 
@@ -1763,22 +2266,40 @@ tbody tr:hover{ background:#fafafa; }
 
 <script src="havens-data.js"></script>
 <script src="site-settings.js"></script>
+<script src="amenity-icons.js"></script>
 <script>
 /* ---------- config ---------- */
-const HAVENS = ["Haven 1", "Haven 2", "Haven 3", "Haven 4", "Haven 5", "Haven 7", "Haven 8", "Casa Bienca"];
-// per-haven calendar colors: am = pastel, pm = slightly darker pastel
+// haven list is derived from the real haven listings so the calendar always
+// matches what's on the Havens page (no hardcoded names that drift out of sync)
+function havenNames(){
+    try {
+        const hv = loadHavens();
+        if(Array.isArray(hv) && hv.length) return hv.map(h => h.name).filter(Boolean);
+    } catch(e){}
+    return ["Haven 1","Haven 2","Haven 3","Haven 4","Haven 5","Haven 7","Haven 8","CasaBienca","CasaSiesta"];
+}
+let HAVENS = havenNames();
+// per-haven calendar colors: am = pastel, pm = slightly darker pastel.
+// Any haven not listed here falls back to a generated pastel (see havenColor).
 const HAVEN_COLORS = {
-    "Haven 1":     { am:"#d9bdf5", pm:"#b98ee6" }, // pastel purple
-    "Haven 2":     { am:"#fde68a", pm:"#ecca4e" }, // pastel yellow
-    "Haven 3":     { am:"#bcbcbc", pm:"#8c8c8c" }, // pastel black (gray)
-    "Haven 4":     { am:"#bcf3cf", pm:"#84dca0" }, // pastel green
-    "Haven 5":     { am:"#bcd0fb", pm:"#7ea6f4" }, // pastel royal blue
-    "Haven 7":     { am:"#aef0f7", pm:"#66d8e8" }, // pastel cyan
-    "Haven 8":     { am:"#fcd0e7", pm:"#f5a3d0" }, // pastel pink
-    "Casa Bienca": { am:"#cdff8f", pm:"#a8ec5c" }  // pastel neon green
+    "Haven 1":    { am:"#d9bdf5", pm:"#b98ee6" }, // pastel purple
+    "Haven 2":    { am:"#fde68a", pm:"#ecca4e" }, // pastel yellow
+    "Haven 3":    { am:"#bcbcbc", pm:"#8c8c8c" }, // pastel black (gray)
+    "Haven 4":    { am:"#bcf3cf", pm:"#84dca0" }, // pastel green
+    "Haven 5":    { am:"#bcd0fb", pm:"#7ea6f4" }, // pastel royal blue
+    "Haven 7":    { am:"#aef0f7", pm:"#66d8e8" }, // pastel cyan
+    "Haven 8":    { am:"#fcd0e7", pm:"#f5a3d0" }, // pastel pink
+    "CasaBienca": { am:"#cdff8f", pm:"#a8ec5c" }, // pastel neon green
+    "CasaSiesta": { am:"#ffd2a8", pm:"#f5ab68" }  // pastel orange
 };
+// deterministic pastel for any haven without an explicit color
+function havenPastel(name){
+    let h = 0; for(let i=0;i<name.length;i++) h = (h*31 + name.charCodeAt(i)) % 360;
+    return { am:`hsl(${h} 70% 80%)`, pm:`hsl(${h} 60% 66%)` };
+}
+function havenColors(name){ return HAVEN_COLORS[name] || (HAVEN_COLORS[name] = havenPastel(name)); }
 function havenColor(b){
-    const c = HAVEN_COLORS[b.haven] || { am:"#dddddd", pm:"#bbbbbb" };
+    const c = havenColors(b.haven);
     return b.slot === "evening" ? c.pm : c.am;
 }
 const STATUS_COLOR = { paid:"#2e9e5b", partial:"#e0a800", unpaid:"#d63a4f" };
@@ -2081,6 +2602,7 @@ function renderToday(){
 /* ---------- summary cards ---------- */
 // the cards reflect whatever date window the calendar is showing
 function renderSummary(){
+    HAVENS = havenNames();                                  // stay in sync with the Havens page
     const startIso = iso(rangeStart);
     const endIso = iso(addDays(rangeStart, viewDays)); // exclusive
     const todayIso = iso(today());
@@ -2104,18 +2626,26 @@ function renderSummary(){
         : fmt(startIso) + "–" + fmt(iso(addDays(rangeStart, viewDays-1))));
     const occLabel = isToday ? "" : ` (${period})`;
 
+    const SVG = {
+        arrive:'<svg viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="m10 17 5-5-5-5"/><path d="M15 12H3"/></svg>',
+        depart:'<svg viewBox="0 0 24 24"><path d="M9 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>',
+        bed:'<svg viewBox="0 0 24 24"><path d="M2 20v-7a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v7"/><path d="M2 16h20"/><path d="M6 11V8.5A1.5 1.5 0 0 1 7.5 7h3A1.5 1.5 0 0 1 12 8.5V11"/></svg>',
+        door:'<svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"/><path d="M14 12h.01"/></svg>',
+        cash:'<svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg>',
+        clock:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>'
+    };
     const cards = [
-        [isToday ? "Today's Check-ins"  : `Check-ins · ${period}`, checkins, ""],
-        [isToday ? "Today's Check-outs" : `Check-outs · ${period}`, checkouts, ""],
-        [`Occupied Havens${occLabel}`, occupied, ""],
-        [`Available Havens${occLabel}`, available, ""],
-        [isToday ? "Collected Today" : `Collected · ${period}`, peso(revenue), "money"],
-        [isToday ? "Pending Today"   : `Pending · ${period}`, peso(pending), "money"]
+        [isToday ? "Today's Check-ins"  : `Check-ins · ${period}`, checkins, SVG.arrive, false],
+        [isToday ? "Today's Check-outs" : `Check-outs · ${period}`, checkouts, SVG.depart, false],
+        [`Occupied Havens${occLabel}`, occupied, SVG.bed, false],
+        [`Available Havens${occLabel}`, available, SVG.door, false],
+        [isToday ? "Collected Today" : `Collected · ${period}`, peso(revenue), SVG.cash, true],
+        [isToday ? "Pending Today"   : `Pending · ${period}`, peso(pending), SVG.clock, true]
     ];
     const cardsHtml = cards.map(c => `
         <div class="card">
-            <h3>${c[0]}</h3>
-            <div class="number ${c[2]}">${c[1]}</div>
+            <div class="card-top"><span class="card-label">${c[0]}</span><span class="card-ico">${c[2]}</span></div>
+            <div class="number${c[3] ? " money" : ""}">${c[1]}</div>
         </div>`).join("");
     document.getElementById("summaryCards").innerHTML = cardsHtml;
     const calCards = document.getElementById("summaryCardsCal");
@@ -2251,6 +2781,11 @@ function finQuickChange(){
         const end   = new Date(t.getFullYear(), t.getMonth() + 1, 0);
         finSetRange(iso(start), iso(end));
     }
+    else if(v === "year"){
+        const start = new Date(t.getFullYear(), 0, 1);
+        const end   = new Date(t.getFullYear(), 11, 31);
+        finSetRange(iso(start), iso(end));
+    }
     // "Custom range" -> let the user edit From/To, then click Apply
 }
 // which preset (if any) a From/To window matches — keeps the dropdown in sync
@@ -2261,6 +2796,9 @@ function matchQuick(fromIso, toIso){
     const mStart = new Date(t.getFullYear(), t.getMonth(), 1);
     const mEnd   = new Date(t.getFullYear(), t.getMonth() + 1, 0);
     if(fromIso === iso(mStart) && toIso === iso(mEnd)) return "month";
+    const yStart = new Date(t.getFullYear(), 0, 1);
+    const yEnd   = new Date(t.getFullYear(), 11, 31);
+    if(fromIso === iso(yStart) && toIso === iso(yEnd)) return "year";
     return ""; // custom
 }
 function finApply(){
@@ -2274,7 +2812,71 @@ function finApply(){
 }
 
 /* ---------- calendar timeline ---------- */
+function tlHourShort(h){ const ap = h < 12 ? "a" : "p"; let hh = h % 12; if(hh === 0) hh = 12; return hh + ap; }
+
+// single-day view → hourly timeline (6am–10pm) with bars placed by check-in/out time
+function renderTimelineHours(){
+    const grid = document.getElementById("timeline");
+    const HS = 6, HE = 22, HOURS = HE - HS;          // 6am … 10pm
+    const day = rangeStart, dayIso = iso(day);
+    const rl = document.getElementById("rangeLabel"); if(rl) rl.textContent = fmt(dayIso);
+    const dl = document.getElementById("tlDayLabel");
+    if(dl) dl.textContent = day.toLocaleDateString("en-PH", { weekday:"long", month:"long", day:"numeric" });
+
+    grid.style.gridTemplateColumns = `140px repeat(${HOURS}, 1fr)`;
+
+    let html = `<div class="tl-haven tl-head">Haven</div>`;
+    for(let h = HS; h < HE; h++)
+        html += `<div class="tl-cell tl-head tl-hr">${(h - HS) % 2 === 0 ? tlHourShort(h) : ""}</div>`;
+
+    const havenRows = calHaven ? HAVENS.filter(h => h === calHaven) : HAVENS;
+    havenRows.forEach(haven => {
+        const dot = havenColors(haven).am;
+        html += `<div class="tl-haven"><span class="tl-dot" style="background:${dot}"></span>${haven}</div>`;
+        for(let h = HS; h < HE; h++) html += `<div class="tl-cell tl-hr" data-h="${haven}" data-hr="${h}"></div>`;
+    });
+    grid.innerHTML = html;
+
+    const winStart = HS * 60, winEnd = HE * 60;
+    bookings.forEach(b => {
+        if(!HAVENS.includes(b.haven)) return;
+        const coIso = b.checkout > b.checkin ? b.checkout : iso(addDays(new Date(b.checkin + "T00:00:00"), 1));
+        if(!(b.checkin <= dayIso && dayIso < coIso)) return;            // active this day?
+
+        const ciMin = bookingCheckinMin(b);
+        const durMin = ((Number(b.stayHours) || 21) + (Number(b.extend) || 0)) * 60;
+        const dDiff = daysBetween(b.checkin, dayIso);                   // 0 = same day
+        const startMin = dDiff === 0 ? ciMin : 0;
+        const endMin = ciMin + durMin - dDiff * 1440;
+        const s = Math.max(winStart, Math.min(winEnd, startMin));
+        const e = Math.max(winStart, Math.min(winEnd, endMin));
+        if(e <= s) return;
+
+        const firstCell = grid.querySelector(`.tl-cell[data-h="${cssEscape(b.haven)}"][data-hr="${HS}"]`);
+        if(!firstCell) return;
+        const hourW = firstCell.offsetWidth, rowTop = firstCell.offsetTop, cellH = firstCell.offsetHeight;
+
+        const bar = document.createElement("div");
+        bar.className = "bar";
+        bar.style.background = havenColor(b);
+        bar.style.color = "#222";
+        bar.style.borderLeft = "5px solid " + (STATUS_COLOR[statusOf(b)] || "#999");
+        bar.textContent = primaryName(b) + (b.slot ? " (" + (b.slot === "morning" ? "AM" : "PM") + ")" : "");
+        bar.title = `${guestNames(b)} • ${checkinTimeStr(b)}→${checkoutTimeStr(b)} • ${peso(paidOf(b))}/${peso(b.total)}`;
+        bar.onclick = () => openModal(b.id);
+        bar.style.left = (firstCell.offsetLeft + ((s - winStart) / 60) * hourW + 2) + "px";
+        bar.style.width = Math.max(10, ((e - s) / 60) * hourW - 4) + "px";
+        bar.style.top = (rowTop + 7) + "px";
+        bar.style.height = (cellH - 14) + "px";
+        bar.style.bottom = "auto";
+        grid.appendChild(bar);
+    });
+}
+
 function renderTimeline(){
+    HAVENS = havenNames();                                  // stay in sync with the Havens page
+    if(viewDays === 1){ renderTimelineHours(); return; }   // hourly single-day view
+    const dl = document.getElementById("tlDayLabel"); if(dl) dl.textContent = "";
     const grid = document.getElementById("timeline");
     const dates = [];
     for(let i=0;i<viewDays;i++) dates.push(addDays(rangeStart, i));
@@ -2610,11 +3212,11 @@ function renderTable(){
             <td>${fmt(b.checkin)}<br><span class="muted">${checkinTimeStr(b)}</span></td>
             <td>${fmt(b.checkout)}<br><span class="muted">${checkoutTimeStr(b)}</span></td>
             <td>${b.stayHours ? b.stayHours + "h" + (Number(b.stayHours)===6 && b.slot ? "<br><span class='muted'>"+(b.slot==="morning"?"AM":"PM")+"</span>" : "") : "—"}</td>
-            <td>${b.swimpass>0 ? `<span class="tag yes">${b.swimpass}</span>` : '<span class="tag no">—</span>'}</td>
-            <td>${b.towels>0 ? `<span class="tag yes">${b.towels}</span>` : '<span class="tag no">—</span>'}</td>
-            <td>${b.extend>0 ? `<span class="tag yes">+${b.extend}h</span>` : '<span class="tag no">—</span>'}</td>
+            <td>${b.swimpass>0 ? b.swimpass : '<span class="muted">—</span>'}</td>
+            <td>${b.towels>0 ? b.towels : '<span class="muted">—</span>'}</td>
+            <td>${b.extend>0 ? "+"+b.extend+"h" : '<span class="muted">—</span>'}</td>
             <td>${peso(b.downpayment)}</td>
-            <td>${balance>0 ? peso(balance) : '<span class="muted">—</span>'}</td>
+            <td>${balance>0 ? `<span class="bal-due">${peso(balance)}</span>` : '<span class="bal-clear">₱0</span>'}</td>
             <td><span class="status ${st}">${st}</span></td>
             <td class="actions">
                 <span class="edit" onclick="openModal(${b.id})">Edit</span>
@@ -3153,6 +3755,18 @@ function showPage(page){
     document.querySelectorAll(".sidebar .nav-item").forEach(n =>
         n.classList.toggle("active", n.dataset.page === page));
     localStorage.setItem("shph_dashboard_page", page);   // remember across refreshes
+    // breadcrumb in the top bar
+    const CRUMB = {
+        today:["Main","Today's Booking"], calendar:["Main","Calendar & Bookings"],
+        havens:["Property","Havens"], booking:["Property","Rates & Add-ons"], cleaners:["Property","Housekeeping"],
+        finance:["Finance","Finance"], payments:["Finance","Payments"], payroll:["Finance","Payroll"],
+        bills:["Finance","Bills"], analytics:["Finance","Analytics"],
+        users:["Team","Users"], employees:["Team","Employees"], assist:["Team","Assist"], log:["Team","Log"]
+    };
+    const cr = CRUMB[page] || ["Main", page];
+    const cg = document.getElementById("crumbGroup"), cp = document.getElementById("crumbPage");
+    if(cg) cg.textContent = cr[0];
+    if(cp) cp.textContent = cr[1];
     // the timeline needs the element visible to measure cell widths
     if(page === "today") renderToday();
     if(page === "calendar") renderTimeline();
@@ -3208,7 +3822,7 @@ function fillHavenSelectors(){
 
 function renderLegend(){
     const havens = HAVENS.map(h => {
-        const c = HAVEN_COLORS[h];
+        const c = havenColors(h);
         return `<span><span class="dot" style="background:${c.am}"></span>${h}</span>`;
     }).join("");
     document.getElementById("legend").innerHTML = havens +
@@ -3267,29 +3881,41 @@ function fillBillSelectors(){
 // a bill is overdue if it's unpaid and the due date has passed
 function billOverdue(b){ return !b.paid && b.due && b.due < iso(today()); }
 
+// icon for a biller, guessed from its name
+function billerIcon(type){
+    const t = (type || "").toLowerCase();
+    if(/meralco|electric|power|veco|light|kuryente/.test(t))
+        return '<svg viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z"/></svg>';
+    if(/maynilad|manila water|water|tubig|prime/.test(t))
+        return '<svg viewBox="0 0 24 24"><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11Z"/></svg>';
+    if(/converge|pldt|globe|sky|internet|wifi|fiber|dito|smart/.test(t))
+        return '<svg viewBox="0 0 24 24"><path d="M2.5 9.5a14 14 0 0 1 19 0M5.5 13a9.5 9.5 0 0 1 13 0M8.5 16.5a5 5 0 0 1 7 0"/><circle cx="12" cy="20" r=".9" style="fill:currentColor;stroke:none"/></svg>';
+    if(/rent|lease|amilyar|tax|hoa|assoc/.test(t))
+        return '<svg viewBox="0 0 24 24"><path d="M3 21V9l9-6 9 6v12"/><path d="M9 21v-6h6v6"/></svg>';
+    return '<svg viewBox="0 0 24 24"><path d="M6 2h9l4 4v16H6z"/><path d="M14 2v5h5M9 13h6M9 17h4"/></svg>';
+}
+
 // one haven's bills as a Biller / Amount / Due Date / Status table
 function billTableHtml(rows){
     const body = rows.map(b => {
         const overdue = billOverdue(b);
-        const st = b.paid ? "paid" : "unpaid";
+        const st = overdue ? "overdue" : (b.paid ? "paid" : "unpaid");
+        const stLabel = overdue ? "Overdue" : (b.paid ? "Paid" : "Unpaid");
         return `<tr>
-            <td><strong>${b.type}</strong></td>
-            <td>${peso(b.amount || 0)}</td>
-            <td>${b.due ? fmt(b.due) : '<span class="muted">—</span>'}${overdue ? ' <span class="muted" style="color:#c0283d;font-weight:bold;">(Overdue)</span>' : ''}</td>
-            <td><span class="status ${st}">${st}</span></td>
+            <td><span class="biller">${billerIcon(b.type)}${b.type}</span></td>
+            <td><strong>${peso(b.amount || 0)}</strong></td>
+            <td>${b.due ? fmt(b.due) : '<span class="muted">—</span>'}</td>
+            <td><span class="status ${st}">${stLabel}</span></td>
             <td class="col-actions">
-                <span class="edit" onclick="toggleBillPaid(${b.id})">${b.paid ? "Mark unpaid" : "Mark paid"}</span>
-                <span class="edit" onclick="openBillModal(${b.id})">Edit</span>
-                <span class="del" onclick="deleteBill(${b.id})">Delete</span>
+                ${b.paid ? "" : `<span class="act markpaid" onclick="toggleBillPaid(${b.id})"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg>Mark paid</span>`}
+                <span class="act edit" onclick="openBillModal(${b.id})">Edit</span>
+                <span class="act del" onclick="deleteBill(${b.id})">Delete</span>
             </td>
         </tr>`;
     }).join("");
     return `<table class="bills-table">
-        <colgroup>
-            <col style="width:22%"><col style="width:14%"><col style="width:18%"><col style="width:13%"><col style="width:33%">
-        </colgroup>
         <thead>
-            <tr><th>Biller</th><th>Amount</th><th>Due Date</th><th>Status</th><th class="col-actions"></th></tr>
+            <tr><th>Biller</th><th>Amount</th><th>Due date</th><th>Status</th><th class="col-actions">Actions</th></tr>
         </thead>
         <tbody>${body}</tbody>
     </table>`;
@@ -3336,8 +3962,15 @@ function renderBills(){
                 .filter(b => b.haven === h)
                 .sort((a, b) => (a.due || "").localeCompare(b.due || ""));
             if(rows.length === 0) return "";
+            const due = rows.filter(b => !b.paid).reduce((s, b) => s + Number(b.amount || 0), 0);
+            const dot = havenColors(h).am;
             return `<div class="bills-haven">
-                <div class="bills-haven-title">${h}</div>
+                <div class="bh-head">
+                    <span class="bh-dot" style="background:${dot}"></span>
+                    <span class="bh-name">${h}</span>
+                    <span class="bh-count">${rows.length} bill${rows.length > 1 ? "s" : ""}</span>
+                    <span class="bh-due">Due <b>${peso(due)}</b></span>
+                </div>
                 ${billTableHtml(rows)}
             </div>`;
         }).join("");
@@ -3369,16 +4002,20 @@ function renderBillsStatement(haven, month){
     if(month){ const [y, m] = month.split("-"); scopeBits.push(MONTHS[Number(m) - 1] + " " + y); }
     document.getElementById("billsScopeLabel").textContent = "— " + scopeBits.join(" · ");
 
+    const ICO_WALLET = '<svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 9h14a2 2 0 0 1 0 4H3"/><path d="M17 11h.01"/></svg>';
+    const ICO_HOUR  = '<svg viewBox="0 0 24 24"><path d="M6 3h12M6 21h12M7 3c0 5 5 6 5 9s-5 4-5 9M17 3c0 5-5 6-5 9s5 4 5 9"/></svg>';
+    const ICO_COLL  = '<svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg>';
+    const ICO_DOWN  = '<svg viewBox="0 0 24 24"><path d="m3 7 7 7 4-4 7 7"/><path d="M21 17v-4h-4"/></svg>';
     const cards = [
-        ["Total Payables", peso(totalPayables), "#ff385c"],
-        ["Pending (unpaid)", peso(pending), "#c0283d"],
-        ["Money Earned (collected)", peso(earned), "#2e7d4f"],
-        [net >= 0 ? "Net after pending" : "Short by", peso(Math.abs(net)), net >= 0 ? "#2e7d4f" : "#c0283d"]
+        ["Total payables",            peso(totalPayables), "var(--hv-terra-d)", "chip-gold",  ICO_WALLET],
+        ["Pending (unpaid)",          peso(pending),       "var(--hv-terra-d)", "chip-terra", ICO_HOUR],
+        ["Money earned (collected)",  peso(earned),        "#2e7d4f",           "chip-green", ICO_COLL],
+        [net >= 0 ? "Net after pending" : "Short by", peso(Math.abs(net)), net >= 0 ? "#2e7d4f" : "var(--hv-terra-d)", "chip-terra", ICO_DOWN]
     ];
     document.getElementById("billsCards").innerHTML = cards.map(c => `
-        <div class="card">
-            <h3>${c[0]}</h3>
-            <div class="number money" style="color:${c[2]};">${c[1]}</div>
+        <div class="bcard">
+            <div class="card-top"><span class="card-label">${c[0]}</span><span class="card-ico ${c[3]}">${c[4]}</span></div>
+            <div class="num" style="color:${c[2]};">${c[1]}</div>
         </div>`).join("");
 }
 
@@ -4014,7 +4651,7 @@ function renderPayroll(){
     const cards = [
         ["Total Gross Pay", peso2(gross), "#2e7d4f"],
         ["Total Benefits / Deductions", peso2(ded), "#c0283d"],
-        ["Total Net Pay", peso2(net), "#ff385c"]
+        ["Total Net Pay", peso2(net), "#bd6e3f"]
     ];
     document.getElementById("payrollCards").innerHTML = cards.map(c => `
         <div class="card"><h3>${c[0]}</h3><div class="number money" style="color:${c[2]};">${c[1]}</div></div>`).join("");
@@ -4555,73 +5192,161 @@ function populateAnalyticsMonths(){
         list.map(ym => `<option value="${ym}">${monthLabel(ym)}</option>`).join("");
     sel.value = list.includes(prev) ? prev : "";
 }
-function renderAnalytics(){
-    populateAnalyticsMonths();
-    const month = document.getElementById("anMonth").value;
-    const inMonth = d => !month || (d && d.slice(0, 7) === month);
-
-    // income from bookings
-    const bk = bookings.filter(b => inMonth(b.checkin));
-    const grossRevenue = bk.reduce((s, b) => s + Number(b.total || 0), 0);
-    const collected    = bk.reduce((s, b) => s + paidOf(b), 0);
-    const receivables  = bk.reduce((s, b) => s + balanceOf(b), 0);
-
-    // bills / payables
-    const bl = bills.filter(b => inMonth(b.due));
-    const billsTotal   = bl.reduce((s, b) => s + Number(b.amount || 0), 0);
-    const billsPaid    = bl.filter(b => b.paid).reduce((s, b) => s + Number(b.amount || 0), 0);
-    const billsPending = billsTotal - billsPaid;
-
-    // payroll
-    const payrollGross = staff.reduce((s, st) => s + staffGross(st, month), 0);
-    const payrollDed   = staff.reduce((s, st) => s + staffDeductions(st, month), 0);
-
-    const expenses  = billsTotal + payrollGross;
-    const netProfit = collected - expenses;     // cash in (collected) − money out
-
-    document.getElementById("anScope").textContent = "— " + (month ? monthLabel(month) : "all time") + " · all units";
-
-    const cards = [
-        ["Collected (revenue in)", peso(Math.round(collected)), "#2e7d4f"],
-        ["Receivables (pending)", peso(Math.round(receivables)), "#e0a800"],
-        ["Total Bills", peso(Math.round(billsTotal)), "#c0283d"],
-        ["Bills Pending", peso(Math.round(billsPending)), "#c0283d"],
-        ["Payroll (gross)", peso(Math.round(payrollGross)), "#9a3db8"],
-        ["Total Expenses", peso(Math.round(expenses)), "#c0283d"],
-        ["Bookings", bk.length, "#ff385c"],
-        [netProfit >= 0 ? "Net Profit" : "Net Loss", peso(Math.round(Math.abs(netProfit))), netProfit >= 0 ? "#2e7d4f" : "#c0283d"]
-    ];
-    document.getElementById("anCards").innerHTML = cards.map(c => `
-        <div class="card"><h3>${c[0]}</h3><div class="number money" style="color:${c[2]};">${c[1]}</div></div>`).join("");
-
-    document.getElementById("anIncomeExpense").innerHTML =
-        moneyBars([
-            { label:"Income (collected)", value: Math.round(collected),  color:"#2e9e5b" },
-            { label:"Bills",              value: Math.round(billsTotal),  color:"#d63a4f" },
-            { label:"Payroll",            value: Math.round(payrollGross), color:"#9a3db8" }
-        ]) +
-        `<div class="pay-totals" style="margin-top:14px;border-top:1px solid #eee;padding-top:12px;">
-            <span>Income: <b style="color:#2e7d4f;">${peso(Math.round(collected))}</b></span>
-            <span>Expenses: <b style="color:#c0283d;">${peso(Math.round(expenses))}</b></span>
-            <span>Net: <b style="color:${netProfit >= 0 ? "#2e7d4f" : "#c0283d"};">${peso(Math.round(netProfit))}</b></span>
-            <span class="muted">Gross booking value: ${peso(Math.round(grossRevenue))}</span>
+const AN_ICO = {
+    trendUp:'<svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 7-7"/><path d="M21 8v5h-5"/></svg>',
+    trendDown:'<svg viewBox="0 0 24 24"><path d="M3 7l6 6 4-4 7 7"/><path d="M21 16v-5h-5"/></svg>',
+    piggy:'<svg viewBox="0 0 24 24"><path d="M4 11a6 6 0 0 1 6-6h3a6 6 0 0 1 6 6v3a2 2 0 0 1-2 2l-1 2h-3l-1-2h-1a6 6 0 0 1-6-5Z"/><path d="M16 10h.5M4 11H3"/></svg>',
+    cal:'<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>',
+    hour:'<svg viewBox="0 0 24 24"><path d="M6 3h12M6 21h12M7 3c0 5 5 6 5 9s-5 4-5 9M17 3c0 5-5 6-5 9s5 4 5 9"/></svg>',
+    receipt:'<svg viewBox="0 0 24 24"><path d="M5 3h14v18l-3-2-2 2-2-2-2 2-3-2V3Z"/><path d="M9 8h6M9 12h6"/></svg>',
+    badge:'<svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><circle cx="12" cy="9" r="2.5"/><path d="M8 16a4 4 0 0 1 8 0"/></svg>'
+};
+function anMonthsBetween(fromYm, toYm){
+    const out = []; let [y, m] = fromYm.split("-").map(Number);
+    const [ty, tm] = toYm.split("-").map(Number);
+    while(y < ty || (y === ty && m <= tm)){
+        out.push(`${y}-${String(m).padStart(2, "0")}`);
+        if(++m > 12){ m = 1; y++; }
+        if(out.length > 600) break;
+    }
+    return out;
+}
+function anHBars(items, total){
+    const max = Math.max(1, ...items.map(i => i.value));
+    return items.map(i => {
+        const pct = total ? Math.round(i.value / total * 100) : 0;
+        return `<div class="hbar-row">
+            <div class="hbar-top">
+                <span class="hbar-name"><span class="hbar-dot" style="background:${i.color}"></span>${i.label}</span>
+                <span class="hbar-val">${peso(i.value)}${total ? ` <span class="muted">· ${pct}%</span>` : ""}</span>
+            </div>
+            <div class="hbar-track"><div class="hbar-fill" style="width:${Math.round(i.value / max * 100)}%;background:${i.color}"></div></div>
         </div>`;
+    }).join("");
+}
+function anDelta(d){
+    if(d == null || !isFinite(d)) return `<div class="delta"><span class="muted">— vs last month</span></div>`;
+    const up = d >= 0;
+    return `<div class="delta"><span class="pct${up ? "" : " down"}">${up ? "↑ +" : "↓ "}${d}%</span><span>vs last month</span></div>`;
+}
 
+function renderAnalytics(){
+    HAVENS = havenNames();
+    const period = (document.getElementById("anMonth") || {}).value || "12m";
+    const t = today();
+
+    // money collected in a calendar month "YYYY-MM"
+    const incOf = ym => bookings.filter(b => b.checkin && b.checkin.slice(0,7) === ym).reduce((s,b) => s + paidOf(b), 0);
+    const billsOf = ym => bills.filter(b => b.due && b.due.slice(0,7) === ym).reduce((s,b) => s + Number(b.amount||0), 0);
+    const payOf  = ym => staff.reduce((s,st) => s + staffGross(st, ym), 0);
+    const bkCntOf = ym => bookings.filter(b => b.checkin && b.checkin.slice(0,7) === ym).length;
+
+    // trailing-12-month series (always shown in the chart)
+    const series = [];
+    for(let i = 11; i >= 0; i--){
+        const d = new Date(t.getFullYear(), t.getMonth() - i, 1);
+        const ym = iso(d).slice(0,7);
+        series.push({ label: MONTHS[d.getMonth()].slice(0,3), ym, inc: incOf(ym), exp: billsOf(ym) + payOf(ym), bk: bkCntOf(ym) });
+    }
+    const cur = series[11], prev = series[10] || { inc:0, exp:0, bk:0 };
+    const pct = (a, b) => b ? Math.round((a - b) / b * 1000) / 10 : null;
+
+    // scope window for the cards
+    let fromYm, toYm, scopeText;
+    if(period === "all"){
+        const ms = [...bookings.map(b => b.checkin), ...bills.map(b => b.due)].filter(Boolean).map(d => d.slice(0,7)).sort();
+        fromYm = ms[0] || iso(t).slice(0,7); toYm = iso(t).slice(0,7); scopeText = "all time";
+    } else if(period === "ytd"){
+        fromYm = t.getFullYear() + "-01"; toYm = iso(t).slice(0,7); scopeText = "this year";
+    } else {
+        fromYm = series[0].ym; toYm = series[11].ym; scopeText = "last 12 months";
+    }
+    const months = anMonthsBetween(fromYm, toYm);
+    const inWin = d => d && d.slice(0,7) >= fromYm && d.slice(0,7) <= toYm;
+
+    const bk = bookings.filter(b => inWin(b.checkin));
+    const bl = bills.filter(b => inWin(b.due));
+    const collected   = Math.round(bk.reduce((s,b) => s + paidOf(b), 0));
+    const receivables = Math.round(bk.reduce((s,b) => s + balanceOf(b), 0));
+    const billsTotal  = Math.round(bl.reduce((s,b) => s + Number(b.amount||0), 0));
+    const billsPaid   = bl.filter(b => b.paid).reduce((s,b) => s + Number(b.amount||0), 0);
+    const billsPending = Math.round(billsTotal - billsPaid);
+    const payrollGross = Math.round(months.reduce((s,ym) => s + payOf(ym), 0));
+    const expenses  = billsTotal + payrollGross;
+    const netProfit = collected - expenses;
+
+    document.getElementById("anScope").textContent =
+        `All units combined — bookings, bills / payables, and payroll · ${scopeText}`;
+
+    // ---- big KPI cards ----
+    const kpis = [
+        ["Collected (revenue in)", peso(collected), "#2e7d4f", AN_ICO.trendUp, "ic-green", pct(cur.inc, prev.inc)],
+        ["Net profit", peso(netProfit), netProfit >= 0 ? "#2e7d4f" : "#c0283d", AN_ICO.piggy, "ic-green", pct(cur.inc - cur.exp, prev.inc - prev.exp)],
+        ["Total expenses", peso(expenses), "var(--hv-terra-d)", AN_ICO.trendDown, "ic-terra", pct(cur.exp, prev.exp)],
+        ["Bookings", bk.length, "var(--hv-ink)", AN_ICO.cal, "ic-dark", pct(cur.bk, prev.bk)]
+    ];
+    document.getElementById("anCards").innerHTML = kpis.map(k => `
+        <div class="kpi">
+            <div class="top"><span class="lbl">${k[0]}</span><span class="ico ${k[4]}">${k[3]}</span></div>
+            <div class="val" style="color:${k[2]}">${k[1]}</div>
+            ${anDelta(k[5])}
+        </div>`).join("");
+
+    // ---- compact cards ----
+    const minis = [
+        ["Receivables (pending)", peso(receivables), AN_ICO.hour, "ic-gold"],
+        ["Total bills", peso(billsTotal), AN_ICO.receipt, "ic-terra"],
+        ["Bills pending", peso(billsPending), AN_ICO.receipt, "ic-terra"],
+        ["Payroll (gross)", peso(payrollGross), AN_ICO.badge, "ic-purple"]
+    ];
+    document.getElementById("anMini").innerHTML = minis.map(m => `
+        <div class="mini"><span class="ico ${m[3]}">${m[2]}</span>
+            <div><div class="lbl">${m[0]}</div><div class="mval">${m[1]}</div></div>
+        </div>`).join("");
+
+    // ---- revenue vs expenses chart (trailing 12 months) ----
+    const maxV = Math.max(1, ...series.map(s => Math.max(s.inc, s.exp)));
+    document.getElementById("anChart").innerHTML = `<div class="chart">${series.map(s => `
+        <div class="col">
+            <div class="bars">
+                <div class="bar inc" style="height:${Math.round(s.inc / maxV * 100)}%" title="Income ${peso(Math.round(s.inc))}"></div>
+                <div class="bar exp" style="height:${Math.round(s.exp / maxV * 100)}%" title="Expenses ${peso(Math.round(s.exp))}"></div>
+            </div>
+            <div class="mlabel">${s.label}</div>
+        </div>`).join("")}</div>`;
+    const dNet = pct(cur.inc - cur.exp, prev.inc - prev.exp);
+    document.getElementById("anChartLegend").innerHTML = `<div class="chart-legend">
+        <span class="k"><span class="sw" style="background:#5aa873"></span>Income</span>
+        <span class="k"><span class="sw" style="background:#bd6e3f"></span>Expenses</span>
+        <span class="chart-net">↗ Net ${peso(netProfit)}${dNet != null ? ` · ${dNet >= 0 ? "+" : ""}${dNet}%` : ""}</span>
+    </div>`;
+
+    // ---- revenue by haven ----
     const havenRev = HAVENS.map(h => ({
         label: h,
-        value: Math.round(bk.filter(b => b.haven === h).reduce((s, b) => s + paidOf(b), 0)),
-        color: (HAVEN_COLORS[h] || { am:"#cccccc" }).am
-    }));
-    document.getElementById("anHavenRevenue").innerHTML = moneyBars(havenRev);
+        value: Math.round(bk.filter(b => b.haven === h).reduce((s,b) => s + paidOf(b), 0)),
+        color: havenColors(h).am
+    })).filter(x => x.value > 0).sort((a,b) => b.value - a.value);
+    document.getElementById("anHavenRevenue").innerHTML =
+        havenRev.length ? anHBars(havenRev, havenRev.reduce((s,x) => s + x.value, 0)) : `<p class="muted">No revenue yet.</p>`;
 
-    // bills per haven + the extra expense categories (Pia, OTHERS)
+    // ---- expenses: bills vs payroll + bills by haven ----
+    const expTotal = (billsTotal + payrollGross) || 1;
+    const billsW = Math.round(billsTotal / expTotal * 100), payW = 100 - billsW;
     const billCats = (typeof BILL_HAVENS !== "undefined") ? BILL_HAVENS : HAVENS;
     const havenBills = billCats.map(h => ({
         label: h,
-        value: Math.round(bl.filter(b => b.haven === h).reduce((s, b) => s + Number(b.amount || 0), 0)),
-        color: (HAVEN_COLORS[h] || { am:"#bbbbbb" }).am
-    }));
-    document.getElementById("anHavenBills").innerHTML = moneyBars(havenBills);
+        value: Math.round(bl.filter(b => b.haven === h).reduce((s,b) => s + Number(b.amount||0), 0)),
+        color: havenColors(h).am
+    })).filter(x => x.value > 0).sort((a,b) => b.value - a.value);
+    document.getElementById("anExpenses").innerHTML = `
+        <div class="stack"><div class="seg-bills" style="width:${billsW}%"></div><div class="seg-pay" style="width:${payW}%"></div></div>
+        <div class="stack-legend">
+            <span class="k"><span class="sw" style="background:#bd6e3f"></span>Bills <b>${peso(billsTotal)}</b> · ${billsW}%</span>
+            <span class="k"><span class="sw" style="background:#9a3db8"></span>Payroll <b>${peso(payrollGross)}</b> · ${payW}%</span>
+        </div>
+        <div class="sub-h">Bills by haven / category</div>
+        ${havenBills.length ? anHBars(havenBills, havenBills.reduce((s,x) => s + x.value, 0)) : `<p class="muted">No bills yet.</p>`}`;
 }
 renderAnalytics();
 
@@ -5034,14 +5759,12 @@ let listingPage = 0;
 function listingTotalPages(){ return Math.max(1, Math.ceil(listings.length / listingPageSize)); }
 
 function setListingPageSize(size){
-    collectListings();
     listingPageSize = size;
     listingPage = 0;
     renderListings();
 }
 
 function gotoListingPage(delta){
-    collectListings();
     const pages = listingTotalPages();
     listingPage = Math.min(pages - 1, Math.max(0, listingPage + delta));
     renderListings();
@@ -5052,9 +5775,15 @@ function renderListingPager(){
     if(listings.length <= listingPageSize){ pager.innerHTML = ""; return; }
     const pages = listingTotalPages();
     pager.innerHTML =
-        `<button class="btn secondary" onclick="gotoListingPage(-1)" ${listingPage === 0 ? "disabled" : ""}>‹ Prev</button>` +
-        `<span class="muted">Page ${listingPage + 1} of ${pages}</span>` +
-        `<button class="btn secondary" onclick="gotoListingPage(1)" ${listingPage >= pages - 1 ? "disabled" : ""}>Next ›</button>`;
+        `<button class="hv-btn ghost" onclick="gotoListingPage(-1)" ${listingPage === 0 ? "disabled" : ""}>‹ Prev</button>` +
+        `<span class="hv-muted">Page ${listingPage + 1} of ${pages}</span>` +
+        `<button class="hv-btn ghost" onclick="gotoListingPage(1)" ${listingPage >= pages - 1 ? "disabled" : ""}>Next ›</button>`;
+}
+
+// gold amenity icons for the card (amenityIcon/amenityLabel come from amenity-icons.js)
+function hvAmenIcons(amenities){
+    return (amenities || []).slice(0, 5).map(a =>
+        `<span title="${escAttr(amenityLabel(a))}">${amenityIcon(a)}</span>`).join("");
 }
 
 function renderListings(){
@@ -5063,60 +5792,128 @@ function renderListings(){
     const start = listingPage * listingPageSize;
     const end = Math.min(start + listingPageSize, listings.length);
 
+    const countEl = document.getElementById("hvCount");
+    if(countEl) countEl.textContent =
+        `${listings.length} listing${listings.length === 1 ? "" : "s"} · shown on staycationhaven.ph`;
+
     let html = "";
     for(let i = start; i < end; i++){
         const h = listings[i];
-        const gallery = h.gallery || [];
-        const galleryInputs = gallery.map(galleryRowHtml).join("");
+        const photo = h.image
+            ? `<img src="${escAttr(h.image)}" alt="" onerror="this.remove()">`
+            : "";
         html += `
-        <div class="listing-card" data-index="${i}"
+        <div class="hv-card" data-index="${i}" draggable="true"
+             ondragstart="onDragStart(event, ${i})" ondragend="onDragEnd(event)"
              ondragover="onDragOver(event)" ondragenter="onDragEnter(event)"
              ondragleave="onDragLeave(event)" ondrop="onDrop(event, ${i})">
-            <div class="drag-handle" draggable="true" ondragstart="onDragStart(event, ${i})" ondragend="onDragEnd(event)">⠿ Drag to reorder</div>
-            <img src="${escAttr(h.image)}" alt="preview" onerror="this.style.opacity=.25">
-            <label>Name
-                <input type="text" data-field="name" value="${escAttr(h.name)}">
-            </label>
-            <label>Main image URL
-                <input type="text" data-field="image" value="${escAttr(h.image)}"
-                       oninput="previewListing(${i}, this.value)">
-            </label>
-            <label>Photos</label>
-            <div class="gallery-list">${galleryInputs}</div>
-            <button type="button" class="btn secondary add-photo-btn" onclick="addPhotoInput(this)">+ Add photo</button>
-            <label>Price
-                <input type="text" data-field="price" value="${escAttr(h.price)}">
-            </label>
-            <label>Description
-                <textarea data-field="description" rows="2">${escHtml(h.description)}</textarea>
-            </label>
-            <label>Amenities (separate with commas)
-                <textarea data-field="amenities" rows="2">${escHtml(h.amenities.join(", "))}</textarea>
-            </label>
-            <button class="btn save-one-btn" onclick="saveOneListing(${i})">💾 Save this haven</button>
-            <button class="delete-btn" onclick="deleteListing(${i})">🗑 Delete this haven</button>
+            <div class="hv-photo">${photo}
+                <span class="hv-badge"><i></i>Live</span>
+                <span class="hv-grip" title="Drag to reorder">⠿</span>
+            </div>
+            <div class="hv-cardbody">
+                <h3>${escHtml(h.name)}</h3>
+                <div class="hv-amen">${hvAmenIcons(h.amenities)}</div>
+                <div class="hv-foot">
+                    <div class="hv-price"><b>${escHtml(h.price || "—")}</b></div>
+                    <button class="hv-edit" onclick="openHaven(${i})">✎ Edit</button>
+                </div>
+            </div>
         </div>`;
     }
-    document.getElementById("listingList").innerHTML = html;
+    document.getElementById("hvGrid").innerHTML = html;
     renderListingPager();
 }
 
-function previewListing(i, url){
-    const img = document.querySelector(`.listing-card[data-index="${i}"] img`);
-    if(img){ img.src = url; img.style.opacity = 1; }
+/* ---------- edit drawer ---------- */
+let hvEditIndex = -1;
+let hvDraftGallery = [];
+let hvDraftAmen = [];
+
+function openHaven(i){
+    const h = listings[i];
+    if(!h) return;
+    hvEditIndex = i;
+    document.getElementById("hvDrName").textContent = h.name || "Haven";
+    document.getElementById("hvName").value = h.name || "";
+    document.getElementById("hvPrice").value = h.price || "";
+    document.getElementById("hvDesc").value = h.description || "";
+    document.getElementById("hvImg").value = h.image || "";
+    hvPreviewImg(h.image || "");
+    hvDraftGallery = (h.gallery || []).slice();
+    hvDraftAmen = (h.amenities || []).slice();
+    hvRenderGallery();
+    hvRenderChips();
+    document.getElementById("hvScrim").classList.add("open");
+    document.getElementById("hvDrawer").classList.add("open");
 }
 
-// one photo-URL row (used both on render and when adding a new one)
-function galleryRowHtml(url){
-    return `<div class="gallery-row">
-        <input type="text" data-gallery placeholder="Photo URL" value="${escAttr(url || "")}">
-        <button type="button" class="gallery-del" onclick="this.closest('.gallery-row').remove()" title="Remove">×</button>
-    </div>`;
+function closeHaven(){
+    document.getElementById("hvScrim").classList.remove("open");
+    document.getElementById("hvDrawer").classList.remove("open");
+    hvEditIndex = -1;
 }
-function addPhotoInput(btn){
-    const list = btn.parentNode.querySelector(".gallery-list");
-    list.insertAdjacentHTML("beforeend", galleryRowHtml(""));
-    list.lastElementChild.querySelector("input").focus();
+
+function hvPreviewImg(url){
+    const box = document.getElementById("hvMainImg");
+    box.style.backgroundImage = url ? `url("${String(url).replace(/"/g, "%22")}")` : "";
+}
+
+function hvRenderGallery(){
+    document.getElementById("hvGallery").innerHTML = hvDraftGallery.map((u, idx) =>
+        `<div class="hv-grow">
+            <input class="hv-fld" value="${escAttr(u)}" placeholder="Photo URL" oninput="hvDraftGallery[${idx}]=this.value">
+            <button class="hv-gx" onclick="hvDelGallery(${idx})" title="Remove">✕</button>
+        </div>`).join("");
+}
+function hvAddGallery(){ hvDraftGallery.push(""); hvRenderGallery(); }
+function hvDelGallery(idx){ hvDraftGallery.splice(idx, 1); hvRenderGallery(); }
+
+function hvRenderChips(){
+    document.getElementById("hvChips").innerHTML = hvDraftAmen.length
+        ? hvDraftAmen.map((a, idx) =>
+            `<span class="hv-chip">${amenityIcon(a)}<span>${escHtml(amenityLabel(a))}</span><x onclick="hvDelAmen(${idx})">✕</x></span>`).join("")
+        : '<span class="hv-muted">No amenities yet — add one below.</span>';
+}
+function hvAddAmen(){
+    const inp = document.getElementById("hvAmenInput");
+    const v = inp.value.trim();
+    if(!v) return;
+    hvDraftAmen.push(v);
+    inp.value = "";
+    hvRenderChips();
+    inp.focus();
+}
+function hvDelAmen(idx){ hvDraftAmen.splice(idx, 1); hvRenderChips(); }
+
+function saveHaven(){
+    if(hvEditIndex < 0) return;
+    const i = hvEditIndex;
+    listings[i] = {
+        id: listings[i].id,
+        name: document.getElementById("hvName").value.trim() || "Untitled Haven",
+        image: document.getElementById("hvImg").value.trim(),
+        gallery: hvDraftGallery.map(s => s.trim()).filter(Boolean),
+        price: document.getElementById("hvPrice").value.trim(),
+        description: document.getElementById("hvDesc").value,
+        amenities: hvDraftAmen.map(s => s.trim()).filter(Boolean)
+    };
+    saveHavens(listings);                                   // persist → Firestore
+    logActivity(`edited haven listing — ${listings[i].name}`);
+    closeHaven();
+    renderListings();
+}
+
+function hvDeleteFromDrawer(){
+    if(hvEditIndex < 0) return;
+    const i = hvEditIndex;
+    if(!confirm(`Delete "${listings[i].name}"? This removes it from the website.`)) return;
+    const name = listings[i].name;
+    listings.splice(i, 1);
+    saveHavens(listings);
+    logActivity(`deleted haven listing — ${name}`);
+    closeHaven();
+    renderListings();
 }
 
 /* ---------- drag to reorder havens ---------- */
@@ -5128,7 +5925,7 @@ function onDragStart(e, i){
 }
 function onDragEnd(){
     dragSrcIndex = null;
-    document.querySelectorAll(".listing-card.drag-over").forEach(c => c.classList.remove("drag-over"));
+    document.querySelectorAll(".hv-card.drag-over").forEach(c => c.classList.remove("drag-over"));
 }
 function onDragOver(e){ e.preventDefault(); e.dataTransfer.dropEffect = "move"; }
 function onDragEnter(e){ if(dragSrcIndex !== null) e.currentTarget.classList.add("drag-over"); }
@@ -5137,7 +5934,6 @@ function onDrop(e, targetIndex){
     e.preventDefault();
     e.currentTarget.classList.remove("drag-over");
     if(dragSrcIndex === null || dragSrcIndex === targetIndex) return;
-    collectListings();                                  // keep any edits before reordering
     const moved = listings.splice(dragSrcIndex, 1)[0];
     listings.splice(targetIndex, 0, moved);
     dragSrcIndex = null;
@@ -5145,62 +5941,26 @@ function onDrop(e, targetIndex){
     saveHavens(listings);                               // persist the new order
 }
 
-// read inputs back into the listings array
-function collectListings(){
-    document.querySelectorAll(".listing-card").forEach(card => {
-        const i = Number(card.dataset.index);
-        const get = f => card.querySelector(`[data-field="${f}"]`).value;
-        const gallery = Array.from(card.querySelectorAll("[data-gallery]"))
-            .map(el => el.value.trim()).filter(Boolean);
-        listings[i] = {
-            id: listings[i].id,
-            name: get("name"),
-            image: get("image"),
-            gallery: gallery,
-            price: get("price"),
-            description: get("description"),
-            amenities: get("amenities").split(",").map(a => a.trim()).filter(Boolean)
-        };
-    });
-}
-
 function saveListings(){
-    collectListings();
     saveHavens(listings);
-    alert("Listings saved! They now show on the Home page and haven detail pages.");
-}
-
-// save just one haven's card
-function saveOneListing(i){
-    collectListings();
-    saveHavens(listings);
-    logActivity(`edited haven listing — ${listings[i].name}`);
-    alert(`"${listings[i].name}" saved! It now shows on the website.`);
+    alert("All listings saved! They now show on the Home page and haven detail pages.");
 }
 
 function addListing(){
-    collectListings();
     const nextId = listings.reduce((m, h) => Math.max(m, h.id), 0) + 1;
     listings.push({
         id: nextId,
         name: "New Haven",
-        image: "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=1200",
+        image: "",
         gallery: [],
         price: "₱0 / night",
         description: "Describe this haven...",
         amenities: ["📶 Fast WiFi"]
     });
+    saveHavens(listings);
     listingPage = listingTotalPages() - 1;   // jump to the page with the new haven
     renderListings();
-}
-
-function deleteListing(i){
-    if(!confirm("Delete this haven listing?")) return;
-    collectListings();
-    const name = listings[i] ? listings[i].name : "";
-    listings.splice(i, 1);
-    logActivity(`deleted haven listing — ${name}`);
-    renderListings();
+    openHaven(listings.length - 1);          // open it for editing right away
 }
 
 function resetListings(){
@@ -5264,9 +6024,9 @@ function renderCustomAddons(){
     document.getElementById("customAddonList").innerHTML = customAddons.map((a, i) => `
         <div class="addon-edit-row" data-ai="${i}">
             <input type="text" data-af="name" placeholder="Add-on name" value="${escAttr(a.name || "")}">
-            <input type="number" data-af="price" placeholder="₱ price" value="${a.price || 0}">
+            <span class="peso"><input type="number" data-af="price" placeholder="price" value="${a.price || 0}"></span>
             <label class="opt-check"><input type="checkbox" data-af="perPax" ${a.perPax ? "checked" : ""}> per pax</label>
-            <button type="button" class="addon-del" onclick="deleteCustomAddon(${i})">🗑</button>
+            <button type="button" class="addon-del" onclick="deleteCustomAddon(${i})" title="Delete"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg></button>
         </div>`).join("");
 }
 
@@ -5384,21 +6144,44 @@ function resetBookingSettings(){
 
 let paymentMethods = [];   // working copy of the editable methods
 
+const PM_ICONS = {
+    phone:'<svg viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2.5"/><path d="M11 18h2"/></svg>',
+    bank:'<svg viewBox="0 0 24 24"><path d="M3 21h18M5 21V10M19 21V10M9 21v-7M15 21v-7M3 10l9-6 9 6"/></svg>',
+    card:'<svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>',
+    qr:'<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3M21 14v.01M21 21v-3M14 21h3"/></svg>',
+    img:'<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m5 18 5-4 4 3 3-2 4 3"/><path d="M19 2v4M21 4h-4"/></svg>',
+    trash:'<svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>'
+};
+function methodIcon(name){
+    const n = (name || "").toLowerCase();
+    if(/bdo|bpi|bank|metrobank|unionbank|landbank|security ?bank|rcbc|chinabank|eastwest/.test(n)) return PM_ICONS.bank;
+    if(/gcash|maya|paymaya|wallet|grabpay|coins/.test(n)) return PM_ICONS.phone;
+    return PM_ICONS.card;
+}
 function renderMethods(){
     document.getElementById("methodList").innerHTML = paymentMethods.map((m, i) => `
         <div class="method-card" data-mi="${i}">
-            <div class="settings-form">
+            <div class="mc-head">
+                <span class="mc-badge">${methodIcon(m.name)}${escHtml(m.name || "Method")}</span>
+                <button type="button" class="mc-remove" onclick="deleteMethod(${i})">${PM_ICONS.trash}Remove</button>
+            </div>
+            <div class="settings-form mc-fields">
                 <label>Method name<input type="text" data-mf="name" value="${escAttr(m.name || "")}"></label>
                 <label>Number / account no.<input type="text" data-mf="number" value="${escAttr(m.number || "")}"></label>
                 <label>Account name<input type="text" data-mf="account" value="${escAttr(m.account || "")}"></label>
             </div>
-            <div class="method-qr">
-                <span class="muted">QR code (optional)</span>
-                <img class="qr-preview" id="mqr_${i}" alt="" src="${escAttr(m.qr || "")}" style="display:${m.qr ? "block" : "none"};">
-                <input type="file" accept="image/*" onchange="onMethodQrUpload(${i}, this)">
-                <button type="button" class="btn secondary" id="mqrrm_${i}" onclick="removeMethodQr(${i})" style="display:${m.qr ? "inline-block" : "none"}; margin-top:8px; padding:7px 12px; font-size:12px;">Remove QR</button>
+            <label class="mc-qrlabel">QR code <span class="opt">(optional)</span></label>
+            <div class="mc-qr">
+                <label class="qr-box${m.qr ? " has" : ""}" id="qrbox_${i}" title="Upload QR image">
+                    <input type="file" accept="image/*" onchange="onMethodQrUpload(${i}, this)" hidden>
+                    <span class="qr-ico">${m.qr ? PM_ICONS.qr : PM_ICONS.img}</span>
+                    <span class="qr-text">${m.qr ? "QR added" : "Add QR"}</span>
+                </label>
+                <div class="qr-side">
+                    <p class="qr-help">Upload the QR shown to guests on the payment page. PNG or JPG, square works best.</p>
+                    <button type="button" class="qr-remove" id="mqrrm_${i}" onclick="removeMethodQr(${i})" style="display:${m.qr ? "inline" : "none"};">Remove QR</button>
+                </div>
             </div>
-            <button type="button" class="delete-btn" onclick="deleteMethod(${i})">🗑 Remove this method</button>
         </div>
     `).join("");
 }
@@ -5422,20 +6205,28 @@ function onMethodQrUpload(i, input){
     const reader = new FileReader();
     reader.onload = e => {
         paymentMethods[i].qr = e.target.result;
-        const img = document.getElementById("mqr_" + i);
-        img.src = e.target.result;
-        img.style.display = "block";
-        document.getElementById("mqrrm_" + i).style.display = "inline-block";
+        const box = document.getElementById("qrbox_" + i);
+        if(box){
+            box.classList.add("has");
+            box.querySelector(".qr-text").textContent = "QR added";
+            box.querySelector(".qr-ico").innerHTML = PM_ICONS.qr;
+        }
+        const rm = document.getElementById("mqrrm_" + i);
+        if(rm) rm.style.display = "inline";
     };
     reader.readAsDataURL(file);
 }
 
 function removeMethodQr(i){
     paymentMethods[i].qr = "";
-    const img = document.getElementById("mqr_" + i);
-    img.removeAttribute("src");
-    img.style.display = "none";
-    document.getElementById("mqrrm_" + i).style.display = "none";
+    const box = document.getElementById("qrbox_" + i);
+    if(box){
+        box.classList.remove("has");
+        box.querySelector(".qr-text").textContent = "Add QR";
+        box.querySelector(".qr-ico").innerHTML = PM_ICONS.img;
+    }
+    const rm = document.getElementById("mqrrm_" + i);
+    if(rm) rm.style.display = "none";
 }
 
 function addMethod(){

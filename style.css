@@ -174,6 +174,22 @@ button{
     padding:20px;
     border-radius:15px;
     text-align:center;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:10px;
+}
+
+/* brand-gold line icon used on amenity lists */
+.amenity-ico{
+    width:30px;
+    height:30px;
+    stroke:#b8923a;
+    stroke-width:1.7;
+    fill:none;
+    stroke-linecap:round;
+    stroke-linejoin:round;
+    flex:none;
 }
 
 footer{
@@ -211,7 +227,7 @@ footer{
     .featured,
     .amenities{ padding:48px 18px; }
 
-    .haven-photo{ height:260px; }
+    .haven-photo{ max-height:360px; }
 
     .guest-popup{
         width:100%;
@@ -304,7 +320,7 @@ footer{
 
 .haven-detail{
     width:100%;
-    max-width:900px;
+    max-width:1200px;        /* match the site width (header, search bar, results) */
     margin:40px auto;
     padding:0 20px;
 }
@@ -319,8 +335,10 @@ footer{
 
 .haven-photo{
     width:100%;
-    height:400px;
-    object-fit:cover;
+    height:auto;            /* grow to the photo's natural shape */
+    max-height:620px;       /* but never taller than this */
+    object-fit:contain;     /* show the WHOLE photo, no cropping */
+    background:#f2f2f2;      /* subtle fill behind letterboxed photos */
     border-radius:20px;
     margin-bottom:14px;
     cursor:zoom-in;
@@ -380,8 +398,13 @@ footer{
 .haven-thumb:hover{
     border-color:#b8923a;
 }
+.haven-thumb.active{
+    border-color:#b8923a;
+    box-shadow:0 0 0 1px #b8923a;
+}
 
 .haven-detail h1{
+    font-size:26px;
     margin-bottom:10px;
 }
 
@@ -397,7 +420,7 @@ footer{
 }
 
 .haven-price{
-    font-size:22px;
+    font-size:18px;
     font-weight:bold;
     color:#b8923a;
     margin-bottom:20px;
@@ -438,7 +461,11 @@ footer{
     padding:15px;
     border-radius:12px;
     box-shadow:0 3px 10px rgba(0,0,0,.06);
+    display:flex;
+    align-items:center;
+    gap:10px;
 }
+.haven-amenities li .amenity-ico{ width:24px; height:24px; }
 
 .book-btn{
     font-size:16px;

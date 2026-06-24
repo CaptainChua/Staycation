@@ -29,6 +29,7 @@
 -->
 <script src="havens-data.js"></script>
 <script src="site-settings.js"></script>
+<script src="amenity-icons.js"></script>
 
 <section class="haven-detail">
     <a class="back-link" id="backLink" href="havens.html">← Back to all havens</a>
@@ -52,6 +53,13 @@
 function openLightbox(src){
     document.getElementById("lightboxImg").src = src;
     document.getElementById("photoLightbox").removeAttribute("hidden");
+}
+// clicking a thumbnail swaps it into the big main photo
+function setMainPhoto(el){
+    const main = document.getElementById("havenPhoto");
+    if(main) main.src = el.src;
+    document.querySelectorAll(".haven-thumb").forEach(t => t.classList.remove("active"));
+    el.classList.add("active");
 }
 function closeLightbox(){
     document.getElementById("photoLightbox").setAttribute("hidden", "");
@@ -97,8 +105,8 @@ function renderHaven() {
     const gallery = haven.gallery || [];
     const photos = [haven.image, ...gallery].filter(Boolean);
     const thumbs = photos.length > 1
-        ? `<div class="haven-thumbs">${photos.map(src =>
-              `<img class="haven-thumb" src="${src}" alt="" onclick="openLightbox(this.src)">`).join("")}</div>`
+        ? `<div class="haven-thumbs">${photos.map((src, i) =>
+              `<img class="haven-thumb${i === 0 ? " active" : ""}" src="${src}" alt="" onclick="setMainPhoto(this)">`).join("")}</div>`
         : "";
 
     const customAddonRows = CUSTOM_ADDONS.map((a, i) => `
@@ -127,7 +135,7 @@ function renderHaven() {
                 <hr class="haven-divider">
                 <h3>What this place offers</h3>
                 <ul class="haven-amenities">
-                    ${haven.amenities.map(a => `<li>${a}</li>`).join("")}
+                    ${haven.amenities.map(a => `<li>${amenityIcon(a)}<span>${amenityLabel(a)}</span></li>`).join("")}
                 </ul>
                 <button class="book-btn" onclick="alert('Booking request sent for ${haven.name}!')">Book This Haven</button>
             </div>

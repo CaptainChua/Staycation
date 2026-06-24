@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Today's Booking — Staycation Haven PH</title>
+<link rel="icon" href="images/logo.png">
 <style>
   *{ box-sizing:border-box; }
   body{ margin:0; font-family:"Segoe UI", Arial, sans-serif; color:#1f1f1f; background:#f1f2f4; }
@@ -139,49 +140,167 @@
   .scroll{ overflow-x:auto; }
   @media(max-width:760px){ .cards{ grid-template-columns:repeat(2,1fr); } }
 </style>
+
+<!-- ===== "Warm Hospitality" theme + Airbnb-style font + new sidebar (matches dashboard) ===== -->
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style id="hv-port">
+  :root{
+    --hv-cream:#f6f2ec; --hv-ink:#2f2a25; --hv-muted:#9a8f86; --hv-gold:#b8923a;
+    --hv-terra:#bd6e3f; --hv-terra-d:#a85f33; --hv-line:#ece4d8;
+    --hv-sidebar:#2a2421; --hv-sidebar-2:#3a322c; --hv-sidebar-mut:#9b8f84;
+  }
+  *{ font-family:'Manrope',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; }
+  body{ background:var(--hv-cream); color:var(--hv-ink); }
+
+  /* ---- sidebar redesign ---- */
+  .sidebar{ background:var(--hv-sidebar); color:#d9cfc5; padding:18px 12px; }
+  .sidebar .brand{ display:flex; align-items:center; gap:11px; padding:6px 6px 18px; margin-bottom:6px;
+    border-bottom:1px solid #403730; line-height:1.15; font-size:initial; font-weight:normal; }
+  .sidebar .brand .hv-logo{ width:38px; height:38px; border-radius:10px; background:var(--hv-terra); color:#fff;
+    display:flex; align-items:center; justify-content:center; flex:none; font-size:20px; font-weight:800; }
+  .sidebar .brand .hv-brandtext{ font-size:14.5px; font-weight:700; color:#fff; letter-spacing:.3px; }
+  .sidebar .brand .hv-brandtext small{ display:block; font-size:10px; font-weight:600; letter-spacing:2px; color:var(--hv-sidebar-mut); }
+  .sidebar .nav-group{ font-size:10px; letter-spacing:1.6px; color:#6f6258; font-weight:700; margin:16px 12px 6px; text-transform:uppercase; }
+  .sidebar .nav-item{ gap:11px; padding:9px 12px; margin:1px 4px; border-radius:9px; border-left:none;
+    font-size:13.5px; font-weight:500; color:#cabdb1; }
+  .sidebar .nav-item:hover{ background:#352d28; color:#fff; }
+  .sidebar .nav-item.active{ background:var(--hv-sidebar-2); color:#fff; border-left:none; font-weight:600; }
+  .sidebar .nav-item .ico{ width:18px; height:18px; display:flex; align-items:center; justify-content:center; font-size:0; }
+  .sidebar .nav-item svg{ width:18px; height:18px; stroke:currentColor; fill:none; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
+  .sidebar.perms-pending .nav-group{ display:none; }
+
+  /* ---- components ---- */
+  .btn{ background:var(--hv-terra); border-radius:10px; }
+  .btn:hover{ background:var(--hv-terra-d); }
+  .btn.secondary, .btn.ghost{ background:#fff; color:var(--hv-ink); border:1px solid var(--hv-line); }
+  .card, .panel{ border:1px solid var(--hv-line); box-shadow:0 6px 20px rgba(80,60,30,.06); border-radius:16px; }
+  .number{ color:var(--hv-terra); }
+  .view-tab.active{ background:var(--hv-ink); color:#fff; border-color:var(--hv-ink); }
+  .pay-list-item.active{ border-color:var(--hv-terra); background:#faf1e8; }
+  th{ color:var(--hv-muted); }
+  th, td{ border-bottom-color:var(--hv-line); }
+  tbody tr:hover{ background:#faf6ee; }
+  .modal select:focus, .modal input:focus,
+  .bk-field input:focus, .bk-field select:focus, .bk-field textarea:focus{ border-color:var(--hv-terra); }
+</style>
+
+<!-- ===== exact mockup layout for Today's Booking ===== -->
+<style id="hv-tb-layout">
+  /* full-width breadcrumb top bar */
+  .appbar{ display:flex; align-items:center; gap:14px; background:#fff; border-bottom:1px solid var(--hv-line);
+    padding:15px 28px; position:sticky; top:0; z-index:25; }
+  .appbar .crumb{ font-size:14px; color:var(--hv-muted); }
+  .appbar .crumb a{ color:var(--hv-muted); cursor:pointer; text-decoration:none; }
+  .appbar .crumb a:hover{ color:var(--hv-terra); }
+  .appbar .crumb b{ color:var(--hv-ink); font-weight:700; }
+  .appbar .spacer{ flex:1; }
+  .appbar .who{ font-size:13px; color:var(--hv-muted); }
+  .appbar .who b{ color:var(--hv-ink); font-weight:700; }
+  .appbar .avatar{ width:38px; height:38px; border-radius:50%; background:#efe7da; color:#8a6f4f;
+    display:flex; align-items:center; justify-content:center; font-weight:800; font-size:14px; flex:none; }
+  .wrap{ max-width:1280px; }
+
+  /* page-title row */
+  .topbar{ align-items:flex-end; margin:6px 0 22px; }
+  .topbar .title h1{ font-size:30px; font-weight:800; letter-spacing:-.02em; margin:0; color:var(--hv-ink); }
+  .topbar .title p{ margin:4px 0 0; color:var(--hv-muted); font-size:13.5px; }
+  .head-tools{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .seg{ display:flex; background:#fff; border:1px solid var(--hv-line); border-radius:10px; overflow:hidden; }
+  .seg .view-tab{ border:none; border-radius:0; background:none; color:var(--hv-muted); font-weight:600; padding:8px 15px; }
+  .seg .view-tab:hover{ background:#faf6ee; }
+  .seg .view-tab.active{ background:var(--hv-ink); color:#fff; }
+
+  /* summary cards with icon chips + sub-labels */
+  .cards{ grid-template-columns:repeat(auto-fit, minmax(210px,1fr)); }
+  .card{ padding:18px 18px 16px; }
+  .card .card-top{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+  .card .card-label{ font-size:11px; letter-spacing:.6px; text-transform:uppercase; color:var(--hv-muted); font-weight:700; }
+  .card .card-ico{ width:34px; height:34px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex:none; }
+  .card .card-ico svg{ width:18px; height:18px; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+  .card .number{ font-size:30px; font-weight:800; margin-top:10px; color:var(--hv-ink); }
+  .card .card-sub{ font-size:12px; color:var(--hv-muted); margin-top:6px; }
+  .ico-green{ background:#e7f3ec; } .ico-green svg{ stroke:#3f9e6a; }
+  .ico-terra{ background:#f6e7da; } .ico-terra svg{ stroke:var(--hv-terra); }
+  .ico-brown{ background:#efe7df; } .ico-brown svg{ stroke:#6f5b48; }
+  .ico-gold{ background:#f5ecd6; } .ico-gold svg{ stroke:var(--hv-gold); }
+
+  /* payment-method boxes */
+  .mop-grid{ grid-template-columns:repeat(auto-fit, minmax(150px,1fr)); }
+  .mop-item{ background:#faf6ee; border:1px solid var(--hv-line); border-radius:12px; padding:13px 15px; }
+  .mop-label{ color:var(--hv-muted); font-size:12px; }
+  .mop-val{ font-size:19px; font-weight:800; color:var(--hv-ink); }
+
+  /* status pills (mockup variants) */
+  .status{ text-transform:none; padding:4px 11px 4px 9px; }
+  .status::before{ content:""; display:inline-block; width:7px; height:7px; border-radius:50%;
+    margin-right:6px; vertical-align:middle; background:currentColor; }
+  .status.confirmed{ background:#f6ecd9; color:#9a7700; }
+  .status.inhouse{ background:#e7f3ec; color:#2e7d4f; }
+  .status.departing{ background:#f6e7da; color:var(--hv-terra-d); }
+  .status.paid{ background:#e3f5ea; color:#2e7d4f; }
+
+  .panel-head h2{ font-size:17px; font-weight:800; display:flex; align-items:center; gap:9px; }
+  .panel-head h2 .sec-ico{ display:inline-flex; align-items:center; }
+  .panel-head h2 .sec-ico svg{ width:18px; height:18px; stroke:var(--hv-terra); fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+  .addon{ display:inline-flex; align-items:center; gap:4px; margin-right:11px; white-space:nowrap; font-weight:600; }
+  .addon-ico{ width:15px; height:15px; stroke:var(--hv-gold); fill:none; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
+</style>
 </head>
 <body>
 <!-- sidebar navigation (mirrors dashboard.html) -->
 <div class="sidebar perms-pending">
-  <div class="brand"><img src="images/logo.png" alt="" class="brand-logo" onerror="this.remove()"> Staycation<br>Haven PH</div>
-  <div class="nav-item active" data-page="today"><span class="ico">📋</span> Today's Booking</div>
-  <div class="nav-item" data-page="finance" onclick="goPage('finance')"><span class="ico">💰</span> Finance</div>
-  <div class="nav-item" data-page="analytics" onclick="goPage('analytics')"><span class="ico">📊</span> Analytics</div>
-  <div class="nav-item" data-page="calendar" onclick="goPage('calendar')"><span class="ico">📅</span> Calendar/Bookings</div>
-  <div class="nav-item" data-page="havens" onclick="goPage('havens')"><span class="ico">🏡</span> Havens</div>
-  <div class="nav-item" data-page="booking" onclick="goPage('booking')"><span class="ico">🧮</span> Rates and Add Ons</div>
-  <div class="nav-item" data-page="payments" onclick="goPage('payments')"><span class="ico">💳</span> Payments</div>
-  <div class="nav-item" data-page="cleaners" onclick="goPage('cleaners')"><span class="ico">🧹</span> Housekeeping</div>
-  <div class="nav-item" data-page="payroll" onclick="goPage('payroll')"><span class="ico">🧾</span> Payroll</div>
-  <div class="nav-item" data-page="bills" onclick="goPage('bills')"><span class="ico">💵</span> Bills</div>
-  <div class="nav-item" data-page="assist" onclick="goPage('assist')"><span class="ico">💬</span> Assist</div>
-  <div class="nav-item" data-page="users" onclick="goPage('users')"><span class="ico">👥</span> Users</div>
-  <div class="nav-item" data-page="employees" onclick="goPage('employees')"><span class="ico">👤</span> Employees</div>
-  <div class="nav-item" data-page="log" onclick="goPage('log')"><span class="ico">📜</span> Log</div>
+  <div class="brand">
+    <span class="hv-logo">S</span>
+    <span class="hv-brandtext">Staycation<small>HAVEN PH</small></span>
+  </div>
+
+  <div class="nav-group">Main</div>
+  <div class="nav-item active" data-page="today"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/><path d="m9 15 2 2 4-4"/></svg></span> Today's Booking</div>
+  <div class="nav-item" data-page="calendar" onclick="goPage('calendar')"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg></span> Calendar/Bookings</div>
+
+  <div class="nav-group">Property</div>
+  <div class="nav-item" data-page="havens" onclick="goPage('havens')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M3 21V9l9-6 9 6v12"/><path d="M9 21v-6h6v6"/></svg></span> Havens</div>
+  <div class="nav-item" data-page="booking" onclick="goPage('booking')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M3.5 12.5 11 5a2 2 0 0 1 1.4-.6H19a1 1 0 0 1 1 1v6.6a2 2 0 0 1-.6 1.4l-7.5 7.5a2 2 0 0 1-2.8 0l-5.6-5.6a2 2 0 0 1 0-2.8Z"/><circle cx="15.4" cy="8.6" r="1.2"/></svg></span> Rates and Add Ons</div>
+  <div class="nav-item" data-page="cleaners" onclick="goPage('cleaners')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M18.5 3.5 11 11"/><path d="M8.5 11h6.2l-1.1 6.4A3 3 0 0 1 10.7 20H8a3.5 3.5 0 0 1-3.4-4.3c1.6-.2 3-1.4 3.9-3.2Z"/></svg></span> Housekeeping</div>
+
+  <div class="nav-group">Finance</div>
+  <div class="nav-item" data-page="finance" onclick="goPage('finance')"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.4"/></svg></span> Finance</div>
+  <div class="nav-item" data-page="payments" onclick="goPage('payments')"><span class="ico"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg></span> Payments</div>
+  <div class="nav-item" data-page="payroll" onclick="goPage('payroll')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M5 3h14v18l-3-2-2 2-2-2-2 2-3-2V3Z"/><path d="M9 8h6M9 12h6"/></svg></span> Payroll</div>
+  <div class="nav-item" data-page="bills" onclick="goPage('bills')"><span class="ico"><svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg></span> Bills</div>
+  <div class="nav-item" data-page="analytics" onclick="goPage('analytics')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M4 20V4M4 20h16"/><path d="M8 17v-5M13 17V8M18 17v-9"/></svg></span> Analytics</div>
+
+  <div class="nav-group">Team</div>
+  <div class="nav-item" data-page="users" onclick="goPage('users')"><span class="ico"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 5.2a3.5 3.5 0 0 1 0 6.6M21.5 20a6.5 6.5 0 0 0-5-6.3"/></svg></span> Users</div>
+  <div class="nav-item" data-page="employees" onclick="goPage('employees')"><span class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20a8 8 0 0 1 16 0"/></svg></span> Employees</div>
+  <div class="nav-item" data-page="assist" onclick="goPage('assist')"><span class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 0 1 4 1.8c0 1.7-2.5 1.7-2.5 3.7M12 18h.01"/></svg></span> Assist</div>
+  <div class="nav-item" data-page="log" onclick="goPage('log')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5z"/><path d="M9 9h5M9 13h6M9 17h4"/></svg></span> Log</div>
 </div>
 
 <div class="main">
-<div class="wrap">
-  <!-- app header (mirrors dashboard.html) -->
-  <div class="app-header">
-    <h1><img src="images/logo.png" alt="" class="title-logo" onerror="this.remove()"> Staycation Haven PH — Dashboard</h1>
-    <div class="header-actions">
-      <span class="muted" id="currentUserLabel" style="font-size:13px;"></span>
-      <button class="btn" id="addBookingBtn" onclick="openAdd()">+ Add Booking</button>
-      <button class="btn secondary" onclick="logout()">Logout</button>
-    </div>
+  <!-- full-width breadcrumb top bar -->
+  <div class="appbar">
+    <div class="crumb"><a onclick="window.location.href='dashboard.html'">Dashboard</a> / <b>Today's Booking</b></div>
+    <div class="spacer"></div>
+    <span class="who" id="currentUserLabel"></span>
+    <button class="btn" id="addBookingBtn" onclick="openAdd()">+ Add booking</button>
+    <button class="btn secondary" onclick="logout()">Logout</button>
+    <div class="avatar" id="hvAvatar">A</div>
   </div>
 
+<div class="wrap">
   <div class="topbar">
     <div class="title">
-      <h2 style="font-size:20px; margin:0;">Today's Booking <span class="muted" id="todayDateLabel" style="font-size:14px;"></span></h2>
+      <h1>Today's Booking</h1>
+      <p id="todayDateLabel"></p>
     </div>
-    <div class="view-tabs">
-      <button class="view-tab" data-view="yesterday" onclick="setView('yesterday')">Yesterday</button>
-      <button class="view-tab active" data-view="today" onclick="setView('today')">Today</button>
-      <button class="view-tab" data-view="tomorrow" onclick="setView('tomorrow')">Tomorrow</button>
-      <button class="view-tab" data-view="week" onclick="setView('week')">This week</button>
-      <button class="view-tab" data-view="month" onclick="setView('month')">This month</button>
+    <div class="head-tools">
+      <div class="seg">
+        <button class="view-tab" data-view="yesterday" onclick="setView('yesterday')">Yesterday</button>
+        <button class="view-tab active" data-view="today" onclick="setView('today')">Today</button>
+        <button class="view-tab" data-view="tomorrow" onclick="setView('tomorrow')">Tomorrow</button>
+        <button class="view-tab" data-view="week" onclick="setView('week')">This week</button>
+      </div>
       <button class="btn secondary" onclick="renderToday()">↻ Refresh</button>
     </div>
   </div>
@@ -189,12 +308,12 @@
   <div class="cards" id="todayCards"></div>
 
   <div class="panel">
-    <div class="panel-head"><h2 id="mopHeading">💵 Collected today by payment method</h2></div>
+    <div class="panel-head"><h2><span class="sec-ico"><svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg></span><span id="mopHeading">Collected today by payment method</span></h2></div>
     <div class="mop-grid" id="mopGrid"></div>
   </div>
 
   <div class="panel">
-    <div class="panel-head"><h2>⬇️ <span id="arriveHeading">Arriving today</span> <span class="muted" id="todayArriveCount"></span></h2></div>
+    <div class="panel-head"><h2><span class="sec-ico"><svg viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="m10 17 5-5-5-5"/><path d="M15 12H3"/></svg></span><span id="arriveHeading">Arriving today</span> <span class="muted" id="todayArriveCount"></span></h2></div>
     <div class="scroll">
       <table>
         <thead><tr>
@@ -207,7 +326,7 @@
   </div>
 
   <div class="panel">
-    <div class="panel-head"><h2>🏠 <span id="stayHeading">In-house &amp; departing today</span> <span class="muted" id="todayStayCount"></span></h2></div>
+    <div class="panel-head"><h2><span class="sec-ico"><svg viewBox="0 0 24 24"><path d="M3 21V9l9-6 9 6v12"/><path d="M9 21v-6h6v6"/></svg></span><span id="stayHeading">In-house &amp; departing today</span> <span class="muted" id="todayStayCount"></span></h2></div>
     <div class="scroll">
       <table>
         <thead><tr>
@@ -452,11 +571,15 @@
   }
   function guestSummary(b){ return (b.guests || []).map(g => `${g.name} (${g.age})`).join("<br>"); }
   function addonsCell(b){
+    const ico = s => `<svg class="addon-ico" viewBox="0 0 24 24">${s}</svg>`;
+    const POOL  = '<path d="M2 16c1.5 0 1.5 1 3 1s1.5-1 3-1 1.5 1 3 1 1.5-1 3-1 1.5 1 3 1 1.5-1 3-1"/><path d="M2 20c1.5 0 1.5 1 3 1s1.5-1 3-1 1.5 1 3 1 1.5-1 3-1 1.5 1 3 1 1.5-1 3-1"/><path d="M8 13V6a2 2 0 0 1 4 0"/>';
+    const TOWEL = '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3v18"/>';
+    const CLOCK = '<circle cx="12" cy="12" r="9"/><path d="M12 7.5v5l3 2"/>';
     const bits = [];
-    if(b.swimpass > 0) bits.push(`🏊 ${b.swimpass}`);
-    if(b.towels   > 0) bits.push(`🧺 ${b.towels}`);
-    if(b.extend   > 0) bits.push(`⏱ +${b.extend}h`);
-    return bits.length ? bits.join(" · ") : '<span class="muted">—</span>';
+    if(b.swimpass > 0) bits.push(`<span class="addon">${ico(POOL)}${b.swimpass}</span>`);
+    if(b.towels   > 0) bits.push(`<span class="addon">${ico(TOWEL)}${b.towels}</span>`);
+    if(b.extend   > 0) bits.push(`<span class="addon">${ico(CLOCK)}+${b.extend}h</span>`);
+    return bits.length ? bits.join(" ") : '<span class="muted">—</span>';
   }
   function todayInfo(b, t){
     const dayUse = !(b.checkout > b.checkin);
@@ -465,7 +588,7 @@
     const staying  = b.checkin <= t && t < endExcl(b);
     return { arrives, departs, staying, relevant: arrives || departs || staying };
   }
-  function todayRow(b, amountCol){
+  function todayRow(b, amountCol, statusHtml){
     const st = statusOf(b);
     const hasPayment = b.payments && b.payments.length;
     const updateLink = ` <span class="edit-pay" onclick="openPay(${b.id}, true)">Update payment</span>`;
@@ -486,7 +609,7 @@
         <td>${b.stayHours ? b.stayHours + "h" + (Number(b.stayHours)===6 && b.slot ? "<br><span class='muted'>"+(b.slot==="morning"?"AM":"PM")+"</span>" : "") : "—"}</td>
         <td>${addonsCell(b)}</td>
         <td>${amtCell}</td>
-        <td><span class="status ${st}">${st}</span></td>
+        <td>${statusHtml || `<span class="status ${st}">${st}</span>`}</td>
         <td>${payCell}${addonLink}</td>
     </tr>`;
   }
@@ -535,8 +658,8 @@
 
     const lastDay = iso(addDays(new Date(end + "T00:00:00"), -1));
     document.getElementById("todayDateLabel").textContent = single
-      ? "— " + new Date(start + "T00:00:00").toLocaleDateString("en-PH", { weekday:"long", month:"long", day:"numeric", year:"numeric" })
-      : "— " + fmt(start) + " – " + fmt(lastDay);
+      ? new Date(start + "T00:00:00").toLocaleDateString("en-PH", { weekday:"long", month:"long", day:"numeric", year:"numeric" })
+      : fmt(start) + " – " + fmt(lastDay);
 
     const tagged = bookings.map(b => ({ b, info: rangeInfo(b, start, end) })).filter(x => x.info.relevant);
     const arrivals = tagged.filter(x => x.info.arrives).map(x => x.b)
@@ -572,30 +695,54 @@
       });
     });
 
+    // extra figures for the card sub-labels
+    const inHouseGuests = tagged.filter(x => x.info.staying)
+      .reduce((s, x) => s + ((x.b.guests || []).length || 0), 0);
+    const balancesOpen = arrivals.filter(b => balanceOf(b) > 0).length;
+    const nextArr = arrivals.length ? checkinTimeStr(arrivals[0]) : "";
+
+    const ICON = {
+      arrive:'<svg viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="m10 17 5-5-5-5"/><path d="M15 12H3"/></svg>',
+      depart:'<svg viewBox="0 0 24 24"><path d="M9 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>',
+      bed:'<svg viewBox="0 0 24 24"><path d="M2 20v-7a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v7"/><path d="M2 16h20"/><path d="M6 11V8.5A1.5 1.5 0 0 1 7.5 7h3A1.5 1.5 0 0 1 12 8.5V11"/></svg>',
+      clock:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+      cash:'<svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg>'
+    };
     const cards = [
-      ["Arriving " + suffix,  arrivals.length, ""],
-      ["Departing " + suffix, departCount, ""],
-      [currentView === "today" ? "In-house now" : "In-house", inHouseCount, ""],
-      ["To collect " + suffix, peso(toCollect), "money"],
-      ["Collected " + suffix,  peso(collected), "money blue"]
+      { label:"Arriving " + suffix,  val:arrivals.length, ico:ICON.arrive, chip:"ico-green", sub: nextArr ? "Next at " + nextArr : "" },
+      { label:"Departing " + suffix, val:departCount,     ico:ICON.depart, chip:"ico-terra", sub: departCount ? departCount + " checkout" + (departCount > 1 ? "s" : "") : "" },
+      { label:(currentView === "today" ? "In-house now" : "In-house"), val:inHouseCount, ico:ICON.bed, chip:"ico-brown", sub: inHouseGuests ? inHouseGuests + " guests total" : "" },
+      { label:"To collect " + suffix, val:peso(toCollect), ico:ICON.clock, chip:"ico-gold", sub: balancesOpen ? balancesOpen + " balance" + (balancesOpen > 1 ? "s" : "") + " open" : "" },
+      { label:"Collected " + suffix,  val:peso(collected), ico:ICON.cash,  chip:"ico-green", sub:"" }
     ];
     document.getElementById("todayCards").innerHTML = cards.map(c =>
-      `<div class="card"><h3>${c[0]}</h3><div class="number ${c[2]}">${c[1]}</div></div>`).join("");
+      `<div class="card">
+        <div class="card-top"><span class="card-label">${c.label}</span><span class="card-ico ${c.chip}">${c.ico}</span></div>
+        <div class="number">${c.val}</div>
+        ${c.sub ? `<div class="card-sub">${c.sub}</div>` : ""}
+      </div>`).join("");
 
-    document.getElementById("mopHeading").textContent = "💵 Collected " + suffix + " by payment method";
+    document.getElementById("mopHeading").textContent = "Collected " + suffix + " by payment method";
     document.getElementById("arriveHeading").textContent = "Arriving " + suffix;
     document.getElementById("stayHeading").innerHTML = "In-house &amp; departing " + suffix;
 
     document.getElementById("mopGrid").innerHTML = MOPS.map(m =>
       `<div class="mop-item"><span class="mop-label">${m}</span><span class="mop-val">${peso(byMop[m])}</span></div>`).join("");
 
+    const arrivePill = b => statusOf(b) === "paid"
+      ? '<span class="status paid">Paid</span>'
+      : '<span class="status confirmed">Confirmed</span>';
+    const stayPill = b => rangeInfo(b, start, end).departs
+      ? '<span class="status departing">Departing</span>'
+      : '<span class="status inhouse">In-house</span>';
+
     document.getElementById("todayArriveBody").innerHTML = arrivals.length
-      ? arrivals.map(b => todayRow(b, balanceOf(b))).join("")
+      ? arrivals.map(b => todayRow(b, balanceOf(b), arrivePill(b))).join("")
       : `<tr><td colspan="9" class="empty">No arrivals ${suffix}.</td></tr>`;
     document.getElementById("todayArriveCount").textContent = arrivals.length ? `(${arrivals.length})` : "";
 
     document.getElementById("todayStayBody").innerHTML = others.length
-      ? others.map(b => todayRow(b, balanceOf(b))).join("")
+      ? others.map(b => todayRow(b, balanceOf(b), stayPill(b))).join("")
       : `<tr><td colspan="9" class="empty">Nobody else in-house or departing ${suffix}.</td></tr>`;
     document.getElementById("todayStayCount").textContent = others.length ? `(${others.length})` : "";
   }
@@ -903,7 +1050,7 @@
     if(!b) return;
     const guest = (b.guests && b.guests[0] && b.guests[0].name) || "";
     document.getElementById("addonInfo").innerHTML =
-      `<strong>${b.haven}</strong> — ${guest}<br>Current: 🏊 ${Number(b.swimpass)||0} · 🧺 ${Number(b.towels)||0} · Balance: <strong>${peso(balanceOf(b))}</strong>`;
+      `<strong>${b.haven}</strong> — ${guest}<br>Current: <span class="addon"><svg class="addon-ico" viewBox="0 0 24 24"><path d="M2 16c1.5 0 1.5 1 3 1s1.5-1 3-1 1.5 1 3 1 1.5-1 3-1 1.5 1 3 1 1.5-1 3-1"/><path d="M2 20c1.5 0 1.5 1 3 1s1.5-1 3-1 1.5 1 3 1 1.5-1 3-1 1.5 1 3 1 1.5-1 3-1"/><path d="M8 13V6a2 2 0 0 1 4 0"/></svg>${Number(b.swimpass)||0}</span> <span class="addon"><svg class="addon-ico" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3v18"/></svg>${Number(b.towels)||0}</span> · Balance: <strong>${peso(balanceOf(b))}</strong>`;
     document.getElementById("addonPool").value = 0;
     document.getElementById("addonTowels").value = 0;
     document.getElementById("addonHoliday").checked = !!b.holiday;
@@ -937,8 +1084,8 @@
     try { localStorage.setItem(KEY, JSON.stringify(bookings)); }
     catch(e){ alert("Couldn't save — storage may be full."); return; }
     const parts = [];
-    if(pool) parts.push(`🏊 ${pool} pool pass${pool > 1 ? "es" : ""}`);
-    if(tow) parts.push(`🧺 ${tow} towel${tow > 1 ? "s" : ""}`);
+    if(pool) parts.push(`${pool} pool pass${pool > 1 ? "es" : ""}`);
+    if(tow) parts.push(`${tow} towel${tow > 1 ? "s" : ""}`);
     logActivity(`added late add-ons — ${b.haven}: ${parts.join(", ")} (${peso(added)})`);
     closeAddon();
     renderToday();
@@ -994,7 +1141,7 @@
     const scopeEl = document.getElementById("poolScope");
     if(scopeEl) scopeEl.textContent = "— sold this period";
     document.getElementById("poolCards").innerHTML =
-      `<div class="card"><h3>Passes sold</h3><div class="number">🏊 ${qtyTotal}</div></div>` +
+      `<div class="card"><h3>Passes sold</h3><div class="number"><svg class="addon-ico" viewBox="0 0 24 24" style="width:22px;height:22px;vertical-align:-2px"><path d="M2 16c1.5 0 1.5 1 3 1s1.5-1 3-1 1.5 1 3 1 1.5-1 3-1 1.5 1 3 1 1.5-1 3-1"/><path d="M2 20c1.5 0 1.5 1 3 1s1.5-1 3-1 1.5 1 3 1 1.5-1 3-1 1.5 1 3 1 1.5-1 3-1"/><path d="M8 13V6a2 2 0 0 1 4 0"/></svg> ${qtyTotal}</div></div>` +
       `<div class="card"><h3>Pool pass income</h3><div class="number money">${peso(amtTotal)}</div></div>`;
     document.getElementById("poolBody").innerHTML = rows.length ? rows.map(({ p, i }) => `
         <tr>

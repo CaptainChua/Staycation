@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Staycation Haven PH — Brand Kit</title>
+<style>
+  :root{ --gold:#b8923a; --gold2:#9c7a2e; --ink:#2a2a2a; }
+  *{ box-sizing:border-box; }
+  body{ font-family:"Segoe UI",system-ui,Arial,sans-serif; color:var(--ink); margin:0; background:#fafafa; }
+  header{ text-align:center; padding:48px 20px 24px; }
+  header h1{ margin:0 0 6px; font-size:26px; letter-spacing:.5px; }
+  header p{ margin:0; color:#888; font-size:14px; }
+  .swatch{ display:inline-flex; align-items:center; gap:10px; margin-top:16px; font-size:13px; color:#777; }
+  .swatch i{ width:22px; height:22px; border-radius:6px; display:inline-block; }
+  section{ max-width:980px; margin:0 auto; padding:24px 20px 8px; }
+  h2{ font-size:15px; text-transform:uppercase; letter-spacing:1.5px; color:#aaa; border-bottom:1px solid #eee; padding-bottom:10px; }
+
+  /* ICON GRID */
+  .icons{ display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:14px; margin-top:18px; }
+  .icon-card{ background:#fff; border:1px solid #eee; border-radius:14px; padding:18px 12px; text-align:center; transition:.12s; }
+  .icon-card:hover{ box-shadow:0 6px 18px rgba(0,0,0,.07); transform:translateY(-2px); }
+  .icon-card svg{ width:34px; height:34px; stroke:var(--gold); stroke-width:1.7; fill:none; stroke-linecap:round; stroke-linejoin:round; }
+  .icon-card span{ display:block; margin-top:10px; font-size:13px; color:#555; }
+
+  /* LOGO CONCEPTS */
+  .logos{ display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:18px; margin-top:18px; }
+  .logo-card{ background:#fff; border:1px solid #eee; border-radius:16px; padding:26px; text-align:center; }
+  .logo-card.dark{ background:#23201b; border-color:#23201b; color:#e9e2d3; }
+  .logo-card h3{ font-size:13px; color:#aaa; text-transform:uppercase; letter-spacing:1px; margin:0 0 18px; font-weight:600; }
+  .logo-card.dark h3{ color:#8a7f68; }
+  .logo-row{ display:flex; align-items:center; justify-content:center; gap:14px; min-height:96px; }
+  .brandword{ text-align:left; line-height:1.05; }
+  .brandword b{ display:block; font-size:21px; letter-spacing:1px; color:var(--ink); font-weight:800; }
+  .brandword.light b{ color:#f3ecdc; }
+  .brandword small{ font-size:9.5px; letter-spacing:3px; color:var(--gold); text-transform:uppercase; }
+  footer{ text-align:center; color:#bbb; font-size:12px; padding:40px 20px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Staycation Haven PH — Brand Kit</h1>
+  <p>Clean line icons &amp; logo concepts in your brand gold. Pick the ones you like.</p>
+  <div class="swatch"><i style="background:#b8923a"></i> Brand Gold #b8923a <i style="background:#9c7a2e;margin-left:14px"></i> Deep Gold #9c7a2e</div>
+</header>
+
+<!-- ============ AMENITY ICONS ============ -->
+<section>
+  <h2>Amenity Icons</h2>
+  <div class="icons">
+
+    <div class="icon-card">
+      <svg viewBox="0 0 24 24"><path d="M2.5 9.5a14 14 0 0 1 19 0"/><path d="M5.5 13a9.5 9.5 0 0 1 13 0"/><path d="M8.5 16.5a5 5 0 0 1 7 0"/><circle cx="12" cy="20" r=".6" fill="#b8923a" stroke="none"/></svg>
+      <span>Fast WiFi</span>
+    </div>
+
+    <div class="icon-card">
+      <svg viewBox="0 0 24 24"><path d="M3 13h18"/><path d="M4 13a8 8 0 0 1 16 0"/><path d="M4 17h16"/><path d="M8 9c0-1.5 1-2 1-3.2S8 4 8 4"/><path d="M12 9c0-1.5 1-2 1-3.2S12 4 12 4"/><path d="M16 9c0-1.5 1-2 1-3.2S16 4 16 4"/></svg>
+      <span>Pool</span>
+    </div>
+
+    <div class="icon-card">
+      <svg viewBox="0 0 24 24"><rect x="4" y="9" width="16" height="11" rx="2"/><path d="M3 9h18"/><path d="M12 6v3"/><path d="M4 13H2"/><path d="M22 13h-2"/></svg>
+      <span>Kitchen</span>
+    </div>
+
+    <div class="icon-card">
+      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
+      <span>TV / Netflix</span>
+    </div>
+
+    <div class="icon-card">
+      <svg viewBox="0 0 24 24"><path d="M12 3v18"/><path d="M3.8 7.5 20.2 16.5"/><path d="M20.2 7.5 3.8 16.5"/><path d="M12 6.5 9.5 4.5M12 6.5l2.5-2M12 17.5 9.5 19.5M12 17.5l2.5 2M4.6 9.6 5 6.8M4.6 9.6 1.9 9.2M19.4 14.4l-.4 2.8M19.4 14.4l2.7.4M19.4 9.6 22 9.2M19.4 9.6 19 6.8M4.6 14.4 1.9 14.8M4.6 14.4 5 17.2"/></svg>
+      <span>Air Conditioning</span>
+    </div>
+
+    <div class="icon-card">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M9.2 17V7h3.4a2.7 2.7 0 0 1 0 5.4H9.2"/></svg>
+      <span>Parking</span>
+    </div>
+
+    <div class="icon-card">
+      <svg viewBox="0 0 24 24"><path d="M2 20v-7a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v7"/><path d="M2 16h20"/><path d="M6 11V8.5A1.5 1.5 0 0 1 7.5 7h3A1.5 1.5 0 0 1 12 8.5V11"/><path d="M3 20v1.5"/><path d="M21 20v1.5"/></svg>
+      <span>Comfy Beds</span>
+    </div>
+
+    <div class="icon-card">
+      <svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 7h16"/><circle cx="12" cy="14" r="4"/><circle cx="12" cy="14" r="1.3"/><path d="M7 5h.01"/></svg>
+      <span>Washer</span>
+    </div>
+
+    <div class="icon-card">
+      <svg viewBox="0 0 24 24"><rect x="3" y="5" width="14" height="10" rx="1.5"/><path d="M2 19h20"/><path d="M19 9h2a1 1 0 0 1 1 1v5"/></svg>
+      <span>Workspace</span>
+    </div>
+
+    <div class="icon-card">
+      <svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M12 3v18"/><path d="M8 9 8 7l-1.5 0M8 7 6.5 7M8 9 9.5 9M8 9 6.5 9"/><path d="m8 8.2 0-1.5"/><path d="M16 15v2l1.5 0M16 17l-1.5 0"/><path d="m8.6 8-1.2-1.2M8.6 8 7.4 9.2"/><path d="M15.4 16l1.2 1.2M15.4 16l1.2-1.2"/></svg>
+      <span>Elevator</span>
+    </div>
+
+    <div class="icon-card">
+      <svg viewBox="0 0 24 24"><path d="M3 21V8h18v13"/><path d="M3 12h18"/><path d="M7 12v9"/><path d="M11 12v9"/><path d="M15 12v9"/><path d="M19 12v9"/><path d="M4 8 12 3l8 5"/></svg>
+      <span>Patio / Balcony</span>
+    </div>
+
+    <div class="icon-card">
+      <svg viewBox="0 0 24 24"><path d="M17 8h1a4 4 0 0 1 0 8h-1"/><path d="M3 8h14v6a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><path d="M6 2v2.5M10 2v2.5M14 2v2.5"/></svg>
+      <span>Coffee / Kitchenette</span>
+    </div>
+
+  </div>
+</section>
+
+<!-- ============ LOGO CONCEPTS ============ -->
+<section>
+  <h2>Logo Concepts</h2>
+  <div class="logos">
+
+    <!-- A: House + S monogram -->
+    <div class="logo-card">
+      <h3>A · House &amp; S Monogram</h3>
+      <div class="logo-row">
+        <svg width="84" height="84" viewBox="0 0 64 64" fill="none">
+          <path d="M10 30 32 11l22 19" stroke="#b8923a" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M15 28v22a2 2 0 0 0 2 2h30a2 2 0 0 0 2-2V28" stroke="#b8923a" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M39 33.5c0-2.6-2.6-4-7-4s-7 1.6-7 4.2 3 3.4 7 4 7 1.7 7 4.4-2.8 4.4-7 4.4-7-1.5-7-4.2" stroke="#9c7a2e" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <div class="brandword"><b>STAYCATION<br>HAVEN</b><small>Quezon City · PH</small></div>
+      </div>
+    </div>
+
+    <!-- B: Rounded badge monogram SH -->
+    <div class="logo-card">
+      <h3>B · SH Badge</h3>
+      <div class="logo-row">
+        <svg width="84" height="84" viewBox="0 0 64 64" fill="none">
+          <rect x="4" y="4" width="56" height="56" rx="16" stroke="#b8923a" stroke-width="3"/>
+          <path d="M37 23c0-2.4-2.4-3.7-6.4-3.7S24 20.8 24 23.2s2.8 3.1 6.4 3.7 6.4 1.6 6.4 4-2.6 4-6.4 4-6.4-1.4-6.4-3.9" stroke="#b8923a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M26 40v8M26 44h8M34 40v8" stroke="#9c7a2e" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <div class="brandword"><b>STAYCATION<br>HAVEN PH</b><small>Comfortable · Affordable</small></div>
+      </div>
+    </div>
+
+    <!-- C: Refined S inside a circle (dark) -->
+    <div class="logo-card dark">
+      <h3>C · Gold S Seal (dark)</h3>
+      <div class="logo-row">
+        <svg width="84" height="84" viewBox="0 0 64 64" fill="none">
+          <circle cx="32" cy="32" r="28" stroke="#b8923a" stroke-width="2.4"/>
+          <circle cx="32" cy="32" r="22" stroke="#b8923a" stroke-width="1" opacity=".5"/>
+          <path d="M41 24c0-3.2-3.4-5-9-5s-9 2.1-9 5.4 3.8 4.3 9 5 9 2.1 9 5.4-3.6 5.2-9 5.2-9-1.9-9-5.1" stroke="#b8923a" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <div class="brandword light"><b>STAYCATION<br>HAVEN</b><small>Est. 2026</small></div>
+      </div>
+    </div>
+
+    <!-- D: Roofline wordmark -->
+    <div class="logo-card">
+      <h3>D · Roofline Mark</h3>
+      <div class="logo-row">
+        <svg width="120" height="84" viewBox="0 0 120 84" fill="none">
+          <path d="M14 40 60 12l46 28" stroke="#b8923a" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+          <text x="60" y="58" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="20" font-weight="800" fill="#2a2a2a" letter-spacing="2">SH</text>
+          <text x="60" y="72" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="8" font-weight="600" fill="#b8923a" letter-spacing="4">STAYCATION HAVEN</text>
+        </svg>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<footer>Open at <b>localhost:3000/brand-kit.html</b> · tell me which icons &amp; logo to use, and I'll add them to the website + dashboard.</footer>
+
+</body>
+</html>

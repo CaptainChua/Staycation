@@ -20,7 +20,7 @@ const PAGES = [
   "admin", "dashboard", "todaysbooking", "Nicole", "payroll"
 ];
 
-const ASSETS = ["style.css", "havens-data.js", "site-settings.js", "script.js", "db.js"];
+const ASSETS = ["style.css", "havens-data.js", "site-settings.js", "script.js", "db.js", "amenity-icons.js"];
 
 const SEED_INCLUDE = "\n<%- include('partials/seed') %>\n";
 
