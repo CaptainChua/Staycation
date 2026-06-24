@@ -157,6 +157,7 @@ body{ background:#f5f5f5; color:#222; padding:30px 30px 30px 250px; }
 
 /* calendar timeline */
 .cal-nav{ display:flex; gap:8px; align-items:center; }
+.cal-nav select{ padding:9px 11px; border:1px solid #ddd; border-radius:9px; font-size:13px; background:#fff; color:#444; cursor:pointer; }
 .date-pill{
     display:inline-flex;
     align-items:center;
@@ -365,6 +366,15 @@ body{ background:#f5f5f5; color:#222; padding:30px 30px 30px 250px; }
 .bar.paid{ background:#2e9e5b; }
 .bar.partial{ background:#e0a800; }
 .bar.unpaid{ background:#d63a4f; }
+/* month view: bar shows a stay-shape glyph (★ 6h · ■ 10h · ● 21h) instead of the name */
+.bar.bar-shape{
+    justify-content:center;
+    padding:0 2px;
+    font-size:13px;
+    line-height:1;
+    letter-spacing:1px;
+    color:#3a2b50;
+}
 
 .legend{ display:flex; gap:16px; font-size:12px; color:#666; margin-top:14px; flex-wrap:wrap; }
 .dot{ display:inline-block; width:11px; height:11px; border-radius:3px; margin-right:5px; vertical-align:middle; }
@@ -1030,11 +1040,10 @@ tbody tr:hover{ background:#fafafa; }
                 </div>
             </div>
             <button class="btn secondary" onclick="shiftWeek(1)">Next ›</button>
-            <button class="btn secondary" onclick="showYesterday()">Yesterday</button>
             <button class="btn secondary" onclick="showToday()">Today</button>
-            <button class="btn secondary" onclick="showTomorrow()">Tomorrow</button>
-            <button class="btn secondary" onclick="showWeek()">Week</button>
+            <button class="btn secondary" onclick="showThisMonth()">This Month</button>
             <button class="btn secondary" onclick="openDatePicker(event)">📅 Custom range</button>
+            <select id="calHavenFilter" onchange="setCalHaven(this.value)" title="Show one haven"></select>
         </div>
     </div>
     <div class="timeline">
@@ -1976,9 +1985,17 @@ function seedData(){
 let bookings = load();
 let rangeStart = today();
 let viewMode = "week";   // "today" | "week" | "custom" — remembered across refreshes
+let calHaven = "";       // calendar haven filter ("" = all havens)
 
 /* ---------- guest helpers ---------- */
 function primaryName(b){ return (b.guests && b.guests[0] && b.guests[0].name) || "(no name)"; }
+// month-view glyph for a booking's stay length: 6h = star, 10h = square, 21h = circle
+function stayShape(b){
+    const h = Number(b.stayHours) || 21;
+    if(h === 6)  return "★";
+    if(h === 10) return "■";
+    return "●"; // 21h / overnight (and any other length)
+}
 function guestNames(b){ return (b.guests || []).map(g => g.name).join(", "); }
 function guestSummary(b){
     return (b.guests || []).map(g => `${g.name} (${g.age})`).join("<br>");
@@ -2284,8 +2301,9 @@ function renderTimeline(){
         </div>`;
     });
 
-    // one row per haven
-    HAVENS.forEach(haven => {
+    // one row per haven (optionally filtered to a single haven)
+    const havenRows = calHaven ? HAVENS.filter(h => h === calHaven) : HAVENS;
+    havenRows.forEach(haven => {
         html += `<div class="tl-haven">${haven}</div>`;
         // empty cells across the window (bars get absolutely positioned into a relative wrapper per row)
         for(let i=0;i<viewDays;i++){
@@ -2319,7 +2337,13 @@ function renderTimeline(){
         bar.style.background = havenColor(b);
         bar.style.color = "#222";
         bar.style.borderLeft = "5px solid " + (STATUS_COLOR[statusOf(b)] || "#999");
-        bar.textContent = primaryName(b) + (b.slot ? " (" + (b.slot==="morning"?"AM":"PM") + ")" : "");
+        if(viewMode === "month"){
+            // This Month view: show a colored stay-shape instead of the guest name
+            bar.textContent = stayShape(b);
+            bar.classList.add("bar-shape");
+        } else {
+            bar.textContent = primaryName(b) + (b.slot ? " (" + (b.slot==="morning"?"AM":"PM") + ")" : "");
+        }
         bar.title = `${guestNames(b)} • ${fmt(b.checkin)}${b.checkout>b.checkin?"→"+fmt(b.checkout):""}` +
             `${b.slot ? " • " + slotLabel(b.slot) : ""} • ${peso(paidOf(b))}/${peso(b.total)}`;
         bar.onclick = () => openModal(b.id);
@@ -2373,6 +2397,19 @@ function showTomorrow(){
     viewMode = "custom"; viewDays = 1; filterToWindow = true;
     rangeStart = addDays(today(), 1); renderSummary(); renderTimeline(); renderTable();
 }
+function setCalHaven(v){
+    calHaven = v;
+    renderTimeline(); // only the calendar rows change; table keeps its own haven filter
+}
+function showThisMonth(){
+    closePicker();
+    const t = today();
+    viewMode = "month";
+    rangeStart = new Date(t.getFullYear(), t.getMonth(), 1);        // 1st of this month
+    viewDays = new Date(t.getFullYear(), t.getMonth() + 1, 0).getDate(); // days in this month
+    filterToWindow = true;
+    renderSummary(); renderTimeline(); renderTable();
+}
 
 /* ---------- remember the calendar view across refreshes ---------- */
 const VIEW_KEY = "shph_dashboard_view";
@@ -2386,6 +2423,12 @@ function restoreView(){
     viewMode = v.mode || "week";
     if(viewMode === "today"){ viewDays = 1; filterToWindow = true; rangeStart = today(); }
     else if(viewMode === "week"){ viewDays = DAYS; filterToWindow = false; rangeStart = today(); }
+    else if(viewMode === "month"){
+        const t = today();
+        rangeStart = new Date(t.getFullYear(), t.getMonth(), 1);
+        viewDays = new Date(t.getFullYear(), t.getMonth() + 1, 0).getDate();
+        filterToWindow = true;
+    }
     else if(v.start){ rangeStart = new Date(v.start + "T00:00:00"); viewDays = Number(v.viewDays) || DAYS; filterToWindow = !!v.filterToWindow; }
 }
 
@@ -3156,6 +3199,8 @@ function fillHavenSelectors(){
     const opts = HAVENS.map(h => `<option>${h}</option>`).join("");
     document.getElementById("f_haven").innerHTML = opts;
     document.getElementById("filterHaven").innerHTML =
+        `<option value="">All havens</option>` + opts;
+    document.getElementById("calHavenFilter").innerHTML =
         `<option value="">All havens</option>` + opts;
     document.getElementById("finHaven").innerHTML =
         `<option value="">All havens</option>` + opts;

@@ -121,9 +121,11 @@ button{
 
 .cards{
     display:grid;
-    grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));
+    grid-template-columns:repeat(3, 1fr); /* 3 havens per row on desktop */
     gap:25px;
 }
+@media(max-width:900px){ .cards{ grid-template-columns:repeat(2, 1fr); } } /* tablet: 2 per row */
+@media(max-width:520px){ .cards{ grid-template-columns:1fr; } }            /* phone: 1 per row */
 
 .card{
     background:white;
