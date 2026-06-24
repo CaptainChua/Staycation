@@ -38,17 +38,27 @@
             border-radius:10px;
             padding:14px;
             margin-bottom:18px;
+            text-align:center;
         }
-        .pay-label{ font-size:11px; font-weight:bold; letter-spacing:.4px; color:#717171; }
-        .pay-details{ font-size:15px; margin-top:4px; color:#222; line-height:1.4; }
+        .pay-label{ font-size:12px; font-weight:bold; letter-spacing:.5px; color:#717171; }
+        .pay-details{ font-size:18px; font-weight:600; margin-top:6px; color:#1f1f1f; line-height:1.5; }
         .pay-note{ font-size:13px; color:#777; margin-top:16px; line-height:1.5; }
-        .pay-intro{ margin:0 0 4px; font-size:15px; }
-        .pay-screenshot{ margin:0 0 14px; font-size:12px; font-weight:bold; color:#c1123e; letter-spacing:.3px; }
-        .pay-acct{ padding:10px 0; }
-        .pay-acct + .pay-acct{ border-top:1px solid #eee; }
-        .pay-qr{ display:block; width:200px; max-width:100%; margin-top:12px; border:1px solid #eee; border-radius:10px; }
-        .pay-warn{ margin:14px 0 0; font-size:13px; color:#444; }
+        .pay-intro{ margin:14px 0 4px; font-size:15px; }
+        .pay-screenshot{ margin:0 0 8px; font-size:12px; font-weight:bold; color:#c1123e; letter-spacing:.3px; }
+        .pay-acct{ padding:4px 0 12px; border-bottom:1px solid #eee; text-align:center; }
+        .pay-qr{ display:block; width:230px; max-width:100%; margin:16px auto; border:1px solid #eee; border-radius:10px; }
+        .pay-warn{ margin:10px 0 0; font-size:13px; color:#444; }
         .confirm-btn{ width:100%; font-size:16px; font-weight:bold; }
+        .confirm-btn:disabled{ opacity:.5; cursor:not-allowed; }
+        .pay-upload{ margin:0 0 16px; }
+        .pay-upload-label{ font-size:13px; font-weight:bold; color:#444; margin-bottom:8px; }
+        .pay-upload-label .req{ color:#c1123e; }
+        .pay-upload-box{ display:flex; align-items:center; justify-content:center;
+            cursor:pointer; color:#9a8f86; font-size:14px; font-weight:600; text-align:center; padding:6px 0; }
+        .pay-upload-box img{ max-width:100%; max-height:240px; border-radius:8px; }
+        .pay-upload-btn{ display:inline-flex; align-items:center; gap:8px; background:#b8923a; color:#fff;
+            padding:12px 24px; border-radius:40px; font-size:14px; font-weight:bold; cursor:pointer; }
+        .pay-upload-box:hover .pay-upload-btn{ background:#a37f2f; }
 
         .sum-row{
             display:flex;
@@ -63,6 +73,16 @@
 
         .empty-state, .booknow-success{ padding:34px; line-height:1.6; }
         .booknow-success h2{ margin-top:0; }
+        .booknow-success{ text-align:center; }
+        #payTitle{ display:flex; justify-content:space-between; align-items:baseline; gap:16px; flex-wrap:wrap; }
+        .booking-no{ font-size:18px; font-weight:bold; color:#b8923a; white-space:nowrap; }
+        .confirm-recap{ background:#faf7f2; border:1px solid #eee; border-radius:12px; padding:14px 18px; margin:18px auto; max-width:440px; text-align:left; }
+        .cr-row{ display:flex; justify-content:space-between; gap:12px; padding:7px 0; font-size:14px; color:#555; }
+        .cr-row strong{ color:#222; text-align:right; }
+        .cr-row.cr-total{ border-top:1px solid #e6e6e6; margin-top:4px; padding-top:11px; font-size:15px; }
+        .confirm-msg{ font-size:15px; color:#222; margin:6px 0 6px; }
+        .fb-link{ display:inline-block; color:#1877f2; font-weight:bold; text-decoration:none; margin-bottom:10px; }
+        .fb-link:hover{ text-decoration:underline; }
         .home-link{
             display:inline-block;
             margin-top:18px;
@@ -89,7 +109,7 @@
 
 <section class="booknow-wrap">
     <a class="back-link" href="booknow.html">← Back</a>
-    <h1>Payment</h1>
+    <h1 id="payTitle">Payment</h1>
     <div id="payment-content"><!-- filled by JS --></div>
 </section>
 
@@ -165,32 +185,57 @@ function bookingConflicts(arr, b){
 }
 
 // push the paid booking into the dashboard calendar (shph_bookings_v3); returns false if it would double-book
-function addToCalendar(b){
+// downscale an uploaded screenshot to keep storage light, return a JPEG data URL
+function payResizeImage(file, cb){
+    const reader = new FileReader();
+    reader.onload = function(e){
+        const img = new Image();
+        img.onload = function(){
+            const MAX = 1200;
+            let w = img.width, h = img.height;
+            if(w > MAX || h > MAX){ const r = Math.min(MAX / w, MAX / h); w = Math.round(w * r); h = Math.round(h * r); }
+            const c = document.createElement("canvas");
+            c.width = w; c.height = h;
+            c.getContext("2d").drawImage(img, 0, 0, w, h);
+            try { cb(c.toDataURL("image/jpeg", 0.85)); }
+            catch(err){ cb(e.target.result); }   // fallback to the raw data URL
+        };
+        img.onerror = function(){ cb(e.target.result); };
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+
+function addToCalendar(b, proof){
     const KEY = "shph_bookings_v3";
     let arr;
     try { arr = JSON.parse(localStorage.getItem(KEY)) || []; } catch(e){ arr = []; }
 
     // avoid duplicates if the button is somehow clicked twice
-    const dup = arr.some(x => x.source === "website" && x.haven === b.haven &&
+    const dupB = arr.find(x => x.source === "website" && x.haven === b.haven &&
         x.checkin === b.checkinDate && x.contact === (b.contact || ""));
-    if(dup) return true;
+    if(dupB) return dupB.id;
 
     // refuse to write a booking that clashes with an existing one
     if(bookingConflicts(arr, b)) return false;
 
     const nextId = arr.reduce((m, x) => Math.max(m, Number(x.id) || 0), 0) + 1;
     const guests = (b.guestDetails || []).map(g => ({ name: g.name, age: g.age != null ? g.age : 18 }));
+    // derive stay hours / slot from the summary so the calendar bar lands correctly
+    const stayHours = Number(b.stayHours) || parseInt(b.stayLabel, 10) || 21;
+    const slot = b.slot || (stayHours === 6 ? (/pm/i.test(b.checkinTime || "") ? "evening" : "morning") : "");
 
     arr.push({
         id: nextId,
+        bookingNo: "SH-" + String(nextId).padStart(4, "0"),
         haven: b.haven,
         contact: b.contact || "",
         guests: guests.length ? guests : [{ name: "Guest", age: 18 }],
         checkin: b.checkinDate,
         checkout: b.checkoutDate || b.checkinDate,
         checkinTime: b.checkinTime || "",
-        stayHours: b.stayHours || 21,
-        slot: b.slot || "",
+        stayHours: stayHours,
+        slot: slot,
         swimpass: (b.addons && b.addons.pool) || 0,
         towels: b.towels || 0,
         extend: (b.addons && b.addons.hours) || 0,
@@ -199,6 +244,8 @@ function addToCalendar(b){
         deposit: b.deposit || 0,
         total: b.total || 0,
         downpayment: b.downpayment || 0,
+        downProof: proof || null,          // guest's uploaded payment screenshot
+        email: b.email || "",
         notes: [
             b.notes,
             b.facebook ? "FB: " + b.facebook : "",
@@ -207,7 +254,7 @@ function addToCalendar(b){
         source: "website"
     });
     localStorage.setItem(KEY, JSON.stringify(arr));
-    return true;
+    return nextId;
 }
 const raw = localStorage.getItem("shph_confirmed_booking");
 
@@ -237,30 +284,31 @@ function renderPayment(b){
     const isCash = b.method === "Cash on arrival";
     const m = (PAY.methods || []).find(x => x.name === b.method);
 
-    let acctHtml;
+    let acctHtml, qrHtml = "";
     if (isCash || !m) {
         acctHtml = `<div class="pay-acct">
                         <div class="pay-details">${PAY.cashNote}</div>
                     </div>`;
     } else {
-        const qrHtml = m.qr ? `<img class="pay-qr" src="${m.qr}" alt="${m.name} QR code">` : "";
         acctHtml = `<div class="pay-acct">
                         <div class="pay-label">${m.name.toUpperCase()}</div>
                         <div class="pay-details">${m.number}<br>${m.account}</div>
-                        ${qrHtml}
                     </div>`;
+        qrHtml = m.qr ? `<img class="pay-qr" src="${m.qr}" alt="${m.name} QR code">` : "";
     }
 
+    // account details on top (bigger) · QR photo centered in the middle · notes below
     const payMethodHtml = isCash
         ? `<div class="pay-method">
-                <p class="pay-intro">You chose <strong>Cash on arrival</strong>. 😊</p>
                 ${acctHtml}
+                <p class="pay-intro">You chose <strong>Cash on arrival</strong>. 😊</p>
                 <p class="pay-warn">${PAY.warnNote}</p>
            </div>`
         : `<div class="pay-method">
+                ${acctHtml}
+                ${qrHtml}
                 <p class="pay-intro">${PAY.intro}</p>
                 <p class="pay-screenshot">${PAY.screenshotNote}</p>
-                ${acctHtml}
                 <p class="pay-warn">${PAY.warnNote}</p>
            </div>`;
 
@@ -274,7 +322,17 @@ function renderPayment(b){
 
                     ${payMethodHtml}
 
-                    <button class="confirm-btn" id="paidBtn">${isCash ? "Confirm reservation" : "I've completed payment"}</button>
+                    ${isCash ? "" : `
+                    <div class="pay-upload">
+                        <div class="pay-upload-label">Upload your payment screenshot <span class="req">*</span></div>
+                        <label class="pay-upload-box" id="proofBox">
+                            <input type="file" id="payProof" accept="image/*" hidden>
+                            <span id="proofPlaceholder" class="pay-upload-btn">📷 Upload a photo</span>
+                            <img id="proofPreview" alt="" style="display:none;">
+                        </label>
+                    </div>`}
+
+                    <button class="confirm-btn" id="paidBtn"${isCash ? "" : " disabled"}>${isCash ? "Confirm reservation" : "I've completed payment"}</button>
 
                     <p class="pay-note">
                         Balance of <strong>${peso(b.balance)}</strong> is payable on arrival.
@@ -299,8 +357,30 @@ function renderPayment(b){
         </div>
     `;
 
+    // payment screenshot is required for online methods before completing
+    let proofData = null;
+    const proofInput = document.getElementById("payProof");
+    if(proofInput){
+        proofInput.addEventListener("change", function(){
+            const f = this.files[0];
+            if(!f) return;
+            payResizeImage(f, function(url){
+                proofData = url;
+                const img = document.getElementById("proofPreview");
+                img.src = url; img.style.display = "block";
+                document.getElementById("proofPlaceholder").style.display = "none";
+                document.getElementById("paidBtn").disabled = false;
+            });
+        });
+    }
+
     document.getElementById("paidBtn").addEventListener("click", function(){
-        if(!addToCalendar(b)){
+        if(!isCash && !proofData){
+            alert("Please upload a screenshot of your payment before completing.");
+            return;
+        }
+        const bookingNo = addToCalendar(b, proofData);
+        if(!bookingNo){
             container.innerHTML = `
                 <div class="booknow-success">
                     <h2>😔 That slot was just booked</h2>
@@ -314,13 +394,32 @@ function renderPayment(b){
         }
         localStorage.removeItem("shph_confirmed_booking");
         localStorage.removeItem("shph_pending_booking");
+        const code = "SH-" + String(bookingNo).padStart(4, "0");
+        const title = document.getElementById("payTitle");
+        if(title) title.innerHTML = `Thank you for Booking with us! <span class="booking-no">${code}</span>`;
         container.innerHTML = `
             <div class="booknow-success">
-                <h2>✅ Payment received!</h2>
-                <p>Thank you! Your reservation for <strong>${b.haven}</strong> on
-                   <strong>${fmtDate(b.checkinDate)}</strong> is confirmed.</p>
-                <p>We'll message a confirmation to <strong>${b.contact || "your number"}</strong>.
-                   See you at your staycation! 🏠</p>
+                <h2>⏰ We are now reviewing your payment</h2>
+                <p>Thank you! Your reservation for <strong>${b.haven}</strong> has been received.</p>
+
+                <div class="confirm-recap">
+                    <div class="cr-row"><span>Booking number</span><strong>${code}</strong></div>
+                    <div class="cr-row"><span>Haven</span><strong>${b.haven}</strong></div>
+                    <div class="cr-row"><span>Check-in</span><strong>${fmtDate(b.checkinDate)}${b.checkinTime ? " · " + b.checkinTime : ""}</strong></div>
+                    <div class="cr-row"><span>Check-out</span><strong>${b.checkoutTime || fmtDate(b.checkoutDate)}</strong></div>
+                    <div class="cr-row"><span>Stay</span><strong>${b.stayLabel || "—"}</strong></div>
+                    ${guestNames ? `<div class="cr-row"><span>Guests</span><strong>${guestNames}</strong></div>` : ""}
+                    ${b.contact ? `<div class="cr-row"><span>Contact</span><strong>${b.contact}</strong></div>` : ""}
+                    <div class="cr-row cr-total"><span>Total</span><strong>${peso(b.total)}</strong></div>
+                    <div class="cr-row"><span>Downpayment</span><strong>${peso(b.downpayment)}</strong></div>
+                    <div class="cr-row"><span>Balance on arrival</span><strong>${peso(b.balance)}</strong></div>
+                </div>
+
+                <p class="confirm-msg">Please message us with your booking number <strong>${code}</strong> to confirm your booking :)</p>
+                <a class="fb-link" href="https://www.facebook.com/staycationhavenph" target="_blank" rel="noopener">facebook.com/staycationhavenph</a>
+
+                <p>We'll message a confirmation to <strong>${b.contact || "your number"}</strong> once your
+                   payment is verified. See you at your staycation! 🏠</p>
                 <a class="home-link" href="index.html">Back to home</a>
             </div>`;
         window.scrollTo(0, 0);

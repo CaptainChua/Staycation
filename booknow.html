@@ -136,6 +136,17 @@
             text-decoration:none;
             font-weight:bold;
         }
+        /* custom "uh-oh!" notice (replaces the native alert title) */
+        .uhoh-overlay{ position:fixed; inset:0; background:rgba(40,32,26,.45); display:none;
+            align-items:center; justify-content:center; z-index:1000; padding:20px; }
+        .uhoh-overlay.show{ display:flex; }
+        .uhoh-modal{ background:#fff; border-radius:16px; padding:26px 28px; max-width:420px; width:100%;
+            box-shadow:0 20px 50px rgba(0,0,0,.25); text-align:center; }
+        .uhoh-title{ font-size:22px; font-weight:800; color:#bd6e3f; margin-bottom:10px; }
+        .uhoh-msg{ font-size:15px; color:#333; line-height:1.5; margin:0 0 20px; }
+        .uhoh-ok{ background:#bd6e3f; color:#fff; border:none; border-radius:30px; padding:11px 34px;
+            font-size:15px; font-weight:bold; cursor:pointer; }
+        .uhoh-ok:hover{ background:#a85f33; }
     </style>
 </head>
 <body>
@@ -155,6 +166,15 @@
     <h1>Complete your booking</h1>
     <div id="booknow-content"><!-- filled by JS --></div>
 </section>
+
+<!-- custom notice popup -->
+<div class="uhoh-overlay" id="uhohOverlay" onclick="if(event.target===this)this.classList.remove('show')">
+    <div class="uhoh-modal">
+        <div class="uhoh-title">uh-oh!</div>
+        <p class="uhoh-msg" id="uhohMsg"></p>
+        <button type="button" class="uhoh-ok" onclick="document.getElementById('uhohOverlay').classList.remove('show')">OK</button>
+    </div>
+</div>
 
 <footer>
     <p>© 2026 Staycation Haven PH. All Rights Reserved.</p>
@@ -181,6 +201,12 @@ let idSeq = 0, idMax = 6;
 const idPhotos = {};
 
 const container = document.getElementById("booknow-content");
+
+// custom notice (shows "uh-oh!" instead of the browser's "localhost says")
+function uhOh(msg){
+    document.getElementById("uhohMsg").textContent = msg;
+    document.getElementById("uhohOverlay").classList.add("show");
+}
 const raw = localStorage.getItem("shph_pending_booking");
 
 if(!raw){
@@ -412,8 +438,8 @@ function onConfirm(e){
         const first = document.getElementById(`g${i}first`).value.trim();
         const last = document.getElementById(`g${i}last`).value.trim();
         const ageRaw = document.getElementById(`g${i}age`).value;
-        if(!first || !last){ alert(`Please enter the first and last name of Guest ${i}.`); return; }
-        if(ageRaw === "" || isNaN(Number(ageRaw))){ alert(`Please enter the age of Guest ${i}.`); return; }
+        if(!first || !last){ uhOh(`Please enter the first and last name of Guest ${i}.`); return; }
+        if(ageRaw === "" || isNaN(Number(ageRaw))){ uhOh(`Please enter the age of Guest ${i}.`); return; }
         const age = Number(ageRaw);
         parsed.push({ first, last, age });
         guestDetails.push({ name: `${first} ${last}`, age: age });
@@ -429,19 +455,27 @@ function onConfirm(e){
         if(g.age >= 15){
             const hasGuardian = adults.some(a => norm(a.last) === norm(g.last));
             if(!hasGuardian){
-                alert(`${g.first} ${g.last} (age ${g.age}) must be accompanied by an adult (18+) with the same last name.`);
+                uhOh(`${g.first} ${g.last} (age ${g.age}) must be accompanied by an adult (18+) with the same last name.`);
                 return;
             }
         } else {
             if(adults.length === 0){
-                alert(`${g.first} ${g.last} (age ${g.age}) is a child and must be accompanied by an adult (18+).`);
+                uhOh(`${g.first} ${g.last} (age ${g.age}) is a child and must be accompanied by an adult (18+).`);
                 return;
             }
         }
     }
 
     const mobile = document.getElementById("mobile").value.trim();
-    if(!mobile){ alert("Please enter your mobile number."); return; }
+    if(!mobile){ uhOh("Please enter your mobile number."); return; }
+
+    // valid IDs: either upload at least one, OR tick "send on Facebook instead" — one is required
+    const idList = Object.values(idPhotos).filter(Boolean);
+    const idOptOut = document.getElementById("idOptOut").checked;
+    if(idList.length === 0 && !idOptOut){
+        uhOh("Please upload at least one valid ID, or tick “I will send it on your Facebook page instead.”");
+        return;
+    }
 
     const towelCost = towels * TOWEL_RATE;
     const total = b.total + towelCost;
@@ -459,8 +493,8 @@ function onConfirm(e){
         lines: lines,
         total: total,
         balance: total - b.downpayment,
-        ids: Object.values(idPhotos).filter(Boolean),
-        idOptOut: document.getElementById("idOptOut").checked
+        ids: idList,
+        idOptOut: idOptOut
     });
 
     // keep the pending booking so the guest can navigate back without losing details

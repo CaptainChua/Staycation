@@ -132,7 +132,7 @@
   .bk-field input:focus, .bk-field select:focus, .bk-field textarea:focus{ outline:none; border-color:#ff385c; background:#fff; }
   .bk-field input[readonly]{ background:#f0f0f0; color:#555; }
   .guest-row{ display:flex; gap:8px; margin-bottom:8px; align-items:center; }
-  .guest-row input.gname{ flex:1; }
+  .guest-row input.gfirst, .guest-row input.glast{ flex:1; min-width:0; }
   .guest-row input.gage{ width:90px; }
   .guest-row .gdel{ color:#d63a4f; cursor:pointer; font-size:18px; border:none; background:none; }
   .add-guest{ background:#fff; color:#444; border:1px solid #ddd; }
@@ -163,13 +163,16 @@
   .sidebar .brand .hv-brandtext{ font-size:14.5px; font-weight:700; color:#fff; letter-spacing:.3px; }
   .sidebar .brand .hv-brandtext small{ display:block; font-size:10px; font-weight:600; letter-spacing:2px; color:var(--hv-sidebar-mut); }
   .sidebar .nav-group{ font-size:10px; letter-spacing:1.6px; color:#6f6258; font-weight:700; margin:16px 12px 6px; text-transform:uppercase; }
-  .sidebar .nav-item{ gap:11px; padding:9px 12px; margin:1px 4px; border-radius:9px; border-left:none;
+  .sidebar .nav-item{ gap:11px; padding:9px 12px; margin:1px 4px; border-radius:9px; border-left:none; white-space:nowrap;
     font-size:13.5px; font-weight:500; color:#cabdb1; }
   .sidebar .nav-item:hover{ background:#352d28; color:#fff; }
   .sidebar .nav-item.active{ background:var(--hv-sidebar-2); color:#fff; border-left:none; font-weight:600; }
   .sidebar .nav-item .ico{ width:18px; height:18px; display:flex; align-items:center; justify-content:center; font-size:0; }
   .sidebar .nav-item svg{ width:18px; height:18px; stroke:currentColor; fill:none; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
   .sidebar.perms-pending .nav-group{ display:none; }
+  .nav-badge{ display:inline-flex; align-items:center; justify-content:center; min-width:19px; height:19px; padding:0 5px; margin-left:auto; background:var(--hv-terra); color:#fff; border-radius:20px; font-size:11px; font-weight:700; }
+  .nav-badge:empty{ display:none; }
+  .sidebar .brand img.hv-logo{ object-fit:contain; background:#fff; padding:3px; }
 
   /* ---- components ---- */
   .btn{ background:var(--hv-terra); border-radius:10px; }
@@ -252,17 +255,18 @@
 <!-- sidebar navigation (mirrors dashboard.html) -->
 <div class="sidebar perms-pending">
   <div class="brand">
-    <span class="hv-logo">S</span>
+    <img class="hv-logo" src="images/logo.png" alt="Staycation Haven PH" onerror="this.outerHTML='&lt;span class=\'hv-logo\'&gt;S&lt;/span&gt;'">
     <span class="hv-brandtext">Staycation<small>HAVEN PH</small></span>
   </div>
 
   <div class="nav-group">Main</div>
   <div class="nav-item active" data-page="today"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/><path d="m9 15 2 2 4-4"/></svg></span> Today's Booking</div>
   <div class="nav-item" data-page="calendar" onclick="goPage('calendar')"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg></span> Calendar/Bookings</div>
+  <div class="nav-item" data-page="approval" onclick="goPage('approval')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M20 12V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6"/><path d="M9 9h6M9 13h3"/><path d="m15 18 2 2 4-4"/></svg></span> Booking Approval <span class="nav-badge" id="approvalBadge"></span></div>
 
   <div class="nav-group">Property</div>
   <div class="nav-item" data-page="havens" onclick="goPage('havens')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M3 21V9l9-6 9 6v12"/><path d="M9 21v-6h6v6"/></svg></span> Havens</div>
-  <div class="nav-item" data-page="booking" onclick="goPage('booking')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M3.5 12.5 11 5a2 2 0 0 1 1.4-.6H19a1 1 0 0 1 1 1v6.6a2 2 0 0 1-.6 1.4l-7.5 7.5a2 2 0 0 1-2.8 0l-5.6-5.6a2 2 0 0 1 0-2.8Z"/><circle cx="15.4" cy="8.6" r="1.2"/></svg></span> Rates and Add Ons</div>
+  <div class="nav-item" data-page="booking" onclick="goPage('booking')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M3.5 12.5 11 5a2 2 0 0 1 1.4-.6H19a1 1 0 0 1 1 1v6.6a2 2 0 0 1-.6 1.4l-7.5 7.5a2 2 0 0 1-2.8 0l-5.6-5.6a2 2 0 0 1 0-2.8Z"/><circle cx="15.4" cy="8.6" r="1.2"/></svg></span> Rates &amp; Add-ons</div>
   <div class="nav-item" data-page="cleaners" onclick="goPage('cleaners')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M18.5 3.5 11 11"/><path d="M8.5 11h6.2l-1.1 6.4A3 3 0 0 1 10.7 20H8a3.5 3.5 0 0 1-3.4-4.3c1.6-.2 3-1.4 3.9-3.2Z"/></svg></span> Housekeeping</div>
 
   <div class="nav-group">Finance</div>
@@ -652,6 +656,8 @@
 
   function renderToday(){
     bookings = loadBookings();
+    const _ab = document.getElementById("approvalBadge");
+    if(_ab){ const n = bookings.filter(b => b.approved !== true).length; _ab.textContent = n ? String(n) : ""; }
     const { start, end } = viewRange();
     const single = (currentView === "today" || currentView === "tomorrow" || currentView === "yesterday");
     const suffix = currentView === "today" ? "today" : currentView === "tomorrow" ? "tomorrow"
@@ -1230,8 +1236,14 @@
   function aGuestRow(g){
     g = g || { name:"", age:"" };
     const age = (g.age !== "" && g.age != null) ? g.age : "";
+    const nm = (g.name || "").trim();
+    const sp = nm.lastIndexOf(" ");
+    const first = sp > 0 ? nm.slice(0, sp) : nm;
+    const last  = sp > 0 ? nm.slice(sp + 1) : "";
+    const esc = s => String(s).replace(/"/g, "&quot;");
     return `<div class="guest-row">
-      <input class="gname" placeholder="Full name" value="${g.name||""}">
+      <input class="gfirst" placeholder="First name" value="${esc(first)}">
+      <input class="glast" placeholder="Last name" value="${esc(last)}">
       <input class="gage" type="number" min="0" placeholder="Age" value="${age}">
       <button type="button" class="gdel" onclick="this.parentNode.remove(); aRecalc();">×</button>
     </div>`;
@@ -1243,10 +1255,14 @@
   }
   function aAddGuest(){ document.getElementById("aGuestList").insertAdjacentHTML("beforeend", aGuestRow()); aBindGuestInputs(); }
   function aReadGuests(){
-    return [...document.querySelectorAll("#aGuestList .guest-row")].map(r => ({
-      name: r.querySelector(".gname").value.trim(),
-      age: r.querySelector(".gage").value === "" ? null : Number(r.querySelector(".gage").value)
-    })).filter(g => g.name !== "");
+    return [...document.querySelectorAll("#aGuestList .guest-row")].map(r => {
+      const first = (r.querySelector(".gfirst").value || "").trim();
+      const last  = (r.querySelector(".glast").value || "").trim();
+      return {
+        name: (first + " " + last).trim(),
+        age: r.querySelector(".gage").value === "" ? null : Number(r.querySelector(".gage").value)
+      };
+    }).filter(g => g.name !== "");
   }
   function aRecompute(){
     const ci = document.getElementById("a_checkin").value;

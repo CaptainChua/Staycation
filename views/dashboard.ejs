@@ -224,6 +224,9 @@ body{ background:#f5f5f5; color:#222; padding:30px 30px 30px 250px; }
    doesn't overflow the page edge (default .dp-popup is centered) */
 #cleanDpPopup{ left:auto; right:0; transform:none; }
 #cleanDpPopup::before{ left:auto; right:30px; transform:rotate(45deg); }
+/* assist date picker — keep it inside the panel */
+#asDpPopup{ left:auto; right:0; transform:none; top:46px; }
+#asDpPopup::before{ left:auto; right:30px; transform:rotate(45deg); }
 /* bill due-date picker — keep it inside the modal */
 #b_due_popup{ left:auto; right:0; transform:none; top:48px; }
 #b_due_popup::before{ left:auto; right:30px; transform:rotate(45deg); }
@@ -1039,6 +1042,7 @@ tbody tr:hover{ background:#fafafa; }
     display:flex; align-items:center; justify-content:center; flex:none;
     font-family:var(--hv-serif); font-size:20px; font-weight:700;
   }
+  .sidebar .brand img.hv-logo{ object-fit:contain; background:#fff; padding:3px; }
   .sidebar .brand .hv-brandtext{ font-size:14.5px; font-weight:700; color:#fff; letter-spacing:.3px; }
   .sidebar .brand .hv-brandtext small{ display:block; font-size:10px; font-weight:600; letter-spacing:2px; color:var(--hv-sidebar-mut); }
   .sidebar .nav-group{
@@ -1046,7 +1050,7 @@ tbody tr:hover{ background:#fafafa; }
     margin:16px 12px 6px; text-transform:uppercase;
   }
   .sidebar .nav-item{
-    gap:11px; padding:9px 12px; margin:1px 4px; border-radius:9px;
+    gap:11px; padding:9px 12px; margin:1px 4px; border-radius:9px; white-space:nowrap;
     border-left:none; font-size:13.5px; font-weight:500; color:#cabdb1;
   }
   .sidebar .nav-item:hover{ background:#352d28; color:#fff; }
@@ -1059,17 +1063,18 @@ tbody tr:hover{ background:#fafafa; }
 <!-- sidebar navigation -->
 <div class="sidebar perms-pending">
     <div class="brand">
-        <span class="hv-logo">S</span>
+        <img class="hv-logo" src="images/logo.png" alt="Staycation Haven PH" onerror="this.outerHTML='&lt;span class=\'hv-logo\'&gt;S&lt;/span&gt;'">
         <span class="hv-brandtext">Staycation<small>HAVEN PH</small></span>
     </div>
 
     <div class="nav-group">Main</div>
     <div class="nav-item active" data-page="today" onclick="window.location.href='todaysbooking.html'"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/><path d="m9 15 2 2 4-4"/></svg></span> Today's Booking</div>
     <div class="nav-item" data-page="calendar" onclick="showPage('calendar')"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg></span> Calendar/Bookings</div>
+    <div class="nav-item" data-page="approval" onclick="showPage('approval')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M20 12V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6"/><path d="M9 9h6M9 13h3"/><path d="m15 18 2 2 4-4"/></svg></span> Booking Approval <span class="nav-badge" id="approvalBadge"></span></div>
 
     <div class="nav-group">Property</div>
     <div class="nav-item" data-page="havens" onclick="showPage('havens')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M3 21V9l9-6 9 6v12"/><path d="M9 21v-6h6v6"/></svg></span> Havens</div>
-    <div class="nav-item" data-page="booking" onclick="showPage('booking')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M3.5 12.5 11 5a2 2 0 0 1 1.4-.6H19a1 1 0 0 1 1 1v6.6a2 2 0 0 1-.6 1.4l-7.5 7.5a2 2 0 0 1-2.8 0l-5.6-5.6a2 2 0 0 1 0-2.8Z"/><circle cx="15.4" cy="8.6" r="1.2"/></svg></span> Rates and Add Ons</div>
+    <div class="nav-item" data-page="booking" onclick="showPage('booking')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M3.5 12.5 11 5a2 2 0 0 1 1.4-.6H19a1 1 0 0 1 1 1v6.6a2 2 0 0 1-.6 1.4l-7.5 7.5a2 2 0 0 1-2.8 0l-5.6-5.6a2 2 0 0 1 0-2.8Z"/><circle cx="15.4" cy="8.6" r="1.2"/></svg></span> Rates &amp; Add-ons</div>
     <div class="nav-item" data-page="cleaners" onclick="showPage('cleaners')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M18.5 3.5 11 11"/><path d="M8.5 11h6.2l-1.1 6.4A3 3 0 0 1 10.7 20H8a3.5 3.5 0 0 1-3.4-4.3c1.6-.2 3-1.4 3.9-3.2Z"/></svg></span> Housekeeping</div>
 
     <div class="nav-group">Finance</div>
@@ -1094,6 +1099,86 @@ tbody tr:hover{ background:#fafafa; }
         <button class="btn secondary" onclick="logout()">Logout</button>
         <div class="topbar-avatar" id="hvAvatar">A</div>
     </div>
+</div>
+
+<!-- ===== Booking Approval ===== -->
+<div class="page" id="page-approval">
+<style>
+  #page-approval .ap-empty{ background:#fff; border:1px solid var(--hv-line); border-radius:16px; text-align:center; color:var(--hv-muted); padding:40px; box-shadow:0 6px 20px rgba(80,60,30,.05); }
+  #page-approval .ap-card{ padding:0; overflow:hidden; }
+  #page-approval .ap-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:14px; flex-wrap:wrap; padding:18px 22px; background:#faf6ee; border-bottom:1px solid var(--hv-line); }
+  #page-approval .ap-head h3{ font-family:'Playfair Display',Georgia,serif; font-size:19px; font-weight:700; margin:0; color:var(--hv-ink); display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  #page-approval .ap-src{ font-family:'Mulish',sans-serif; font-size:11px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; padding:3px 9px; border-radius:20px; }
+  #page-approval .ap-src.web{ background:#e7eef6; color:#2b6cb0; }
+  #page-approval .ap-src.manual{ background:#f3ece1; color:#8a6f4f; }
+  #page-approval .ap-sub{ color:var(--hv-muted); font-size:13px; margin-top:4px; }
+  #page-approval .ap-actions{ display:flex; gap:10px; }
+  #page-approval .ap-del{ color:#b91c1c; border-color:#f0d4d4; }
+  #page-approval .ap-del:hover{ background:#fdf3f3; border-color:#e6b8b8; }
+  #page-approval .ap-body{ display:grid; grid-template-columns:1fr 280px; gap:24px; padding:20px 22px; }
+  @media(max-width:820px){ #page-approval .ap-body{ grid-template-columns:1fr; } }
+  #page-approval .ap-row{ display:flex; justify-content:space-between; gap:14px; padding:8px 0; border-bottom:1px solid var(--hv-line); font-size:14px; color:var(--hv-muted); }
+  #page-approval .ap-row:last-child{ border-bottom:none; }
+  #page-approval .ap-row b{ color:var(--hv-ink); text-align:right; }
+  #page-approval .ap-proof-label{ font-size:11px; letter-spacing:.4px; text-transform:uppercase; color:var(--hv-muted); font-weight:700; margin-bottom:8px; }
+  #page-approval .ap-proof{ width:100%; max-height:300px; object-fit:contain; border:1px solid var(--hv-line); border-radius:12px; background:#faf7f2; cursor:zoom-in; display:block; }
+  #page-approval .ap-noproof{ border:1.5px dashed #e0d3bf; border-radius:12px; padding:30px 14px; text-align:center; color:#b89a78; font-size:13px; font-weight:600; background:#faf7f2; }
+  #page-approval .ap-status{ display:inline-flex; align-items:center; gap:6px; font-size:11.5px; font-weight:700; padding:4px 11px; border-radius:20px; }
+  #page-approval .ap-status::before{ content:""; width:7px; height:7px; border-radius:50%; background:currentColor; }
+  #page-approval .ap-status.paid{ background:#e7f3ec; color:#2e7d4f; }
+  #page-approval .ap-status.partial{ background:#f6ecd9; color:#9a7700; }
+  #page-approval .ap-status.unpaid{ background:#fde3e7; color:#c0283d; }
+  #page-approval .ap-toolbar{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:18px; }
+  #page-approval .ap-seg{ display:flex; background:#fff; border:1px solid var(--hv-line); border-radius:10px; overflow:hidden; }
+  #page-approval .ap-seg button{ border:none; background:none; padding:9px 16px; font-size:13px; font-weight:600; color:var(--hv-muted); cursor:pointer; font-family:inherit; }
+  #page-approval .ap-seg button:hover{ background:#faf6ee; }
+  #page-approval .ap-seg button.active{ background:var(--hv-ink); color:#fff; }
+  #page-approval .ap-range{ display:inline-flex; align-items:center; font-size:13px; }
+  #page-approval .date-pill{ min-width:150px; }
+  #page-approval #apDpPopup{ left:auto; right:0; transform:none; top:48px; }
+  #page-approval #apDpPopup::before{ left:auto; right:30px; transform:rotate(45deg); }
+  #page-approval .ap-flag{ font-family:'Mulish',sans-serif; font-size:11px; font-weight:700; padding:3px 10px; border-radius:20px; }
+  #page-approval .ap-flag.approved{ background:#e7f3ec; color:#2e7d4f; }
+  #page-approval .ap-flag.pending{ background:#f6ecd9; color:#9a7700; }
+  .nav-badge{ display:inline-flex; align-items:center; justify-content:center; min-width:19px; height:19px; padding:0 5px; margin-left:auto; background:var(--hv-terra); color:#fff; border-radius:20px; font-size:11px; font-weight:700; }
+  .nav-badge:empty{ display:none; }
+</style>
+    <div class="topbar" style="margin-bottom:6px;">
+        <h2 style="font-size:20px;">Booking Approval <span class="muted" id="approvalScope" style="font-size:14px;"></span></h2>
+    </div>
+    <p class="muted" style="margin:0 0 16px;">New reservations from the website and the dashboard land here. Check the payment screenshot, then <b>Approve</b> it — or <b>Delete</b> the reservation if the proof isn't legit. Approved bookings stay here too, and you can <b>Revert</b> one if you approved it by mistake.</p>
+    <div class="ap-toolbar">
+        <div class="ap-seg" id="apStatusSeg">
+            <button type="button" data-st="all" class="active" onclick="setApStatus('all')">All</button>
+            <button type="button" data-st="pending" onclick="setApStatus('pending')">Pending</button>
+            <button type="button" data-st="approved" onclick="setApStatus('approved')">Approved</button>
+        </div>
+        <div class="ap-seg" id="apDateSeg">
+            <button type="button" data-dt="all" class="active" onclick="setApDate('all')">All dates</button>
+            <button type="button" data-dt="today" onclick="setApDate('today')">Today</button>
+            <button type="button" data-dt="yesterday" onclick="setApDate('yesterday')">Yesterday</button>
+            <button type="button" data-dt="range" onclick="setApDate('range')">Date range</button>
+        </div>
+        <span class="ap-range" id="apRange" style="display:none;">
+            <div class="dp-wrap">
+                <span class="date-pill" id="apRangeLabel" onclick="openApPicker(event)" title="Pick a date range">Pick dates</span>
+                <div class="dp-popup" id="apDpPopup" onclick="event.stopPropagation()">
+                    <div class="dp-head">
+                        <button type="button" onclick="apPickerNav(-1)">‹</button>
+                        <span id="apDpTitle"></span>
+                        <button type="button" onclick="apPickerNav(1)">›</button>
+                    </div>
+                    <div class="dp-grid" id="apDpGrid"></div>
+                    <div class="dp-hint" id="apDpHint"></div>
+                    <div class="dp-foot">
+                        <span onclick="apDpClear()">Clear</span>
+                        <span onclick="apDpToday()">Today</span>
+                    </div>
+                </div>
+            </div>
+        </span>
+    </div>
+    <div id="approvalList"></div>
 </div>
 
 <!-- ===== Today's Booking ===== -->
@@ -1210,10 +1295,10 @@ tbody tr:hover{ background:#fafafa; }
   @media(max-width:1000px){ #page-analytics .an-two{ grid-template-columns:1fr; } }
 
   /* grouped bar chart */
-  #page-analytics .chart{ display:flex; align-items:flex-end; gap:10px; height:280px; padding:8px 2px 0; }
-  #page-analytics .chart .col{ flex:1; display:flex; flex-direction:column; align-items:center; height:100%; }
-  #page-analytics .chart .bars{ display:flex; align-items:flex-end; gap:5px; flex:1; }
-  #page-analytics .chart .bar{ width:11px; border-radius:5px 5px 0 0; min-height:2px; }
+  #page-analytics .chart{ display:flex; align-items:flex-end; gap:10px; padding:8px 4px 0; overflow:hidden; }
+  #page-analytics .chart .col{ flex:1 1 0; min-width:0; display:flex; flex-direction:column; align-items:center; }
+  #page-analytics .chart .bars{ display:flex; align-items:flex-end; justify-content:center; gap:5px; height:240px; width:100%; }
+  #page-analytics .chart .bar{ position:static; top:auto; bottom:auto; padding:0; width:11px; flex:none; border-radius:5px 5px 0 0; min-height:2px; color:inherit; }
   #page-analytics .chart .bar.inc{ background:#5aa873; }
   #page-analytics .chart .bar.exp{ background:#bd6e3f; }
   #page-analytics .chart .mlabel{ font-size:11px; color:var(--hv-muted); margin-top:8px; }
@@ -1902,9 +1987,21 @@ tbody tr:hover{ background:#fafafa; }
     <div class="panel">
         <div class="panel-head">
             <h2>🧺 Towels to place per haven</h2>
-            <label class="fin-date">Date
-                <input type="date" id="assistDate" onchange="renderAssist()" onclick="this.showPicker && this.showPicker()">
-            </label>
+            <div class="fin-date" style="display:flex; align-items:center; gap:8px;">Date
+                <div class="dp-wrap" style="position:relative;">
+                    <span class="date-pill" id="assistDateLabel" onclick="openAssistPicker(event)" title="Pick a date">Pick a date</span>
+                    <input type="hidden" id="assistDate">
+                    <div class="dp-popup" id="asDpPopup" onclick="event.stopPropagation()">
+                        <div class="dp-head">
+                            <button type="button" onclick="asPickerNav(-1)">‹</button>
+                            <span id="asDpTitle"></span>
+                            <button type="button" onclick="asPickerNav(1)">›</button>
+                        </div>
+                        <div class="dp-grid" id="asDpGrid"></div>
+                        <div class="dp-foot"><span onclick="asDpToday()">Today</span></div>
+                    </div>
+                </div>
+            </div>
         </div>
         <p class="muted" style="margin-bottom:14px;">How many towels to set up in each haven for the guests arriving / staying on the selected date.</p>
         <div style="overflow-x:auto;">
@@ -2308,7 +2405,7 @@ const STATUS_COLOR = { paid:"#2e9e5b", partial:"#e0a800", unpaid:"#d63a4f" };
 const DAYS = 7; // days shown in calendar (week view)
 let viewDays = DAYS; // current number of days shown (1 = today only)
 let filterToWindow = false; // when true, the bookings table is limited to the shown date window
-const MAX_RANGE = 7; // max selectable days in the date picker
+const MAX_RANGE = 30; // max selectable days in the date picker
 let pendingStart = null; // iso of first click while choosing a range
 let hoverIso = null;     // iso of hovered day (for live range preview)
 const KEY = "shph_bookings_v3"; // bumped: pricing-based totals + deposit/holiday fields
@@ -3257,6 +3354,219 @@ function deleteBooking(id){
     renderAll();
 }
 
+/* ---------- Booking Approval (verify payment, then approve or delete) ---------- */
+function pendingBookings(){ return bookings.filter(b => b.approved !== true); }
+
+function updateApprovalBadge(){
+    const badge = document.getElementById("approvalBadge");
+    if(!badge) return;
+    const n = pendingBookings().length;
+    badge.textContent = n ? String(n) : "";
+}
+
+function apViewProof(src){
+    document.getElementById("imgLightboxImg").src = src;
+    document.getElementById("imgLightbox").classList.add("show");
+}
+
+let apStatus = "all";   // all | pending | approved
+let apDate = "all";     // all | today | yesterday | range
+function setApStatus(st){
+    apStatus = st;
+    document.querySelectorAll("#apStatusSeg button").forEach(x => x.classList.toggle("active", x.dataset.st === st));
+    renderApproval();
+}
+function setApDate(dt){
+    apDate = dt;
+    document.querySelectorAll("#apDateSeg button").forEach(x => x.classList.toggle("active", x.dataset.dt === dt));
+    const r = document.getElementById("apRange");
+    if(r) r.style.display = dt === "range" ? "inline-flex" : "none";
+    renderApproval();
+}
+
+function renderApproval(){
+    updateApprovalBadge();
+    let list = bookings.slice();
+    if(apStatus === "pending")  list = list.filter(b => b.approved !== true);
+    else if(apStatus === "approved") list = list.filter(b => b.approved === true);
+    if(apDate === "today")        list = list.filter(b => b.checkin === iso(today()));
+    else if(apDate === "yesterday") list = list.filter(b => b.checkin === iso(addDays(today(), -1)));
+    else if(apDate === "range" && apRangeStart){
+        list = list.filter(b => b.checkin >= apRangeStart && b.checkin <= (apRangeEnd || apRangeStart));
+    }
+    list.sort((a, b) => (b.id || 0) - (a.id || 0));
+
+    const scope = document.getElementById("approvalScope");
+    const pendN = pendingBookings().length;
+    if(scope) scope.textContent = pendN ? `— ${pendN} awaiting review` : "— all clear";
+
+    const el = document.getElementById("approvalList");
+    if(!list.length){
+        el.innerHTML = `<div class="ap-empty"><div style="font-size:30px;margin-bottom:8px;">✅</div>No bookings match this filter.</div>`;
+        return;
+    }
+    el.innerHTML = list.map(b => {
+        const web = b.source === "website";
+        const st = statusOf(b);
+        const stLabel = st === "paid" ? "Fully paid" : st === "partial" ? "Downpayment paid" : "No payment";
+        const stayTxt = (b.stayHours ? b.stayHours + "h" : "—") +
+            (Number(b.stayHours) === 6 && b.slot ? " · " + (b.slot === "morning" ? "AM" : "PM") : "");
+        const proof = b.downProof
+            ? `<img class="ap-proof" src="${b.downProof}" alt="Payment screenshot" onclick="apViewProof(this.src)">`
+            : `<div class="ap-noproof">No payment screenshot uploaded</div>`;
+        const flag = b.approved
+            ? `<span class="ap-flag approved">✓ Approved</span>`
+            : `<span class="ap-flag pending">Pending</span>`;
+        const actions = b.approved
+            ? `<button class="btn secondary" onclick="revertApproval(${b.id})">↺ Revert to pending</button>
+               <button class="btn secondary ap-del" onclick="rejectBooking(${b.id})">🗑 Delete</button>`
+            : `<button class="btn" onclick="approveBooking(${b.id})">✓ Approve</button>
+               <button class="btn secondary ap-del" onclick="rejectBooking(${b.id})">🗑 Delete</button>`;
+        return `<div class="panel ap-card">
+            <div class="ap-head">
+                <div>
+                    <h3>${b.haven} <span class="ap-src ${web ? "web" : "manual"}">${web ? "Website" : "Manual"}</span> ${flag} <span class="ap-status ${st}">${stLabel}</span></h3>
+                    <div class="ap-sub">${primaryName(b)}${b.contact ? " · " + b.contact : ""}${b.bookingNo ? " · " + b.bookingNo : ""}</div>
+                </div>
+                <div class="ap-actions">${actions}</div>
+            </div>
+            <div class="ap-body">
+                <div class="ap-info">
+                    <div class="ap-row"><span>Guests</span><b>${guestSummary(b)}</b></div>
+                    <div class="ap-row"><span>Check-in</span><b>${fmt(b.checkin)} · ${checkinTimeStr(b)}</b></div>
+                    <div class="ap-row"><span>Check-out</span><b>${fmt(b.checkout)} · ${checkoutTimeStr(b)}</b></div>
+                    <div class="ap-row"><span>Stay</span><b>${stayTxt}</b></div>
+                    <div class="ap-row"><span>Payment method</span><b>${b.method || "—"}</b></div>
+                    <div class="ap-row"><span>Total</span><b>${peso(b.total || 0)}</b></div>
+                    <div class="ap-row"><span>Downpayment</span><b>${peso(b.downpayment || 0)}</b></div>
+                    <div class="ap-row"><span>Balance on arrival</span><b>${peso(balanceOf(b))}</b></div>
+                </div>
+                <div class="ap-proof-col">
+                    <div class="ap-proof-label">Payment screenshot</div>
+                    ${proof}
+                </div>
+            </div>
+        </div>`;
+    }).join("");
+}
+
+function approveBooking(id){
+    const b = bookings.find(x => x.id === id);
+    if(!b) return;
+    b.approved = true;
+    save(bookings);
+    logActivity(`approved booking — ${b.haven} (${primaryName(b)})`);
+    renderApproval();
+    renderAll();
+}
+
+function revertApproval(id){
+    const b = bookings.find(x => x.id === id);
+    if(!b) return;
+    b.approved = false;
+    save(bookings);
+    logActivity(`reverted approval — ${b.haven} (${primaryName(b)})`);
+    renderApproval();
+    renderAll();
+}
+
+/* ---------- Booking Approval: custom date-range picker (matches the calendar's) ---------- */
+let apRangeStart = null, apRangeEnd = null;   // applied range (iso)
+let apDpMonth = null, apDpPending = null, apDpHover = null;
+
+function openApPicker(e){
+    if(e) e.stopPropagation();
+    const pop = document.getElementById("apDpPopup");
+    if(pop.classList.contains("show")){ closeApPicker(); return; }
+    apDpPending = null; apDpHover = null;
+    const base = apRangeStart ? new Date(apRangeStart + "T00:00:00") : today();
+    apDpMonth = new Date(base.getFullYear(), base.getMonth(), 1);
+    apRenderPicker();
+    pop.classList.add("show");
+}
+function closeApPicker(){ apDpPending = null; apDpHover = null; const p = document.getElementById("apDpPopup"); if(p) p.classList.remove("show"); }
+function apPickerNav(dir){ apDpMonth = new Date(apDpMonth.getFullYear(), apDpMonth.getMonth() + dir, 1); apRenderPicker(); }
+
+function apHighlightRange(){
+    if(apDpPending){
+        let end = (apDpHover && apDpHover >= apDpPending) ? apDpHover : apDpPending;
+        if(daysBetween(apDpPending, end) > MAX_RANGE - 1) end = iso(addDays(new Date(apDpPending + "T00:00:00"), MAX_RANGE - 1));
+        return { start: apDpPending, end };
+    }
+    if(apRangeStart) return { start: apRangeStart, end: apRangeEnd || apRangeStart };
+    return { start: null, end: null };
+}
+function apRenderPicker(){
+    const y = apDpMonth.getFullYear(), m = apDpMonth.getMonth();
+    document.getElementById("apDpTitle").textContent = MONTHS[m] + " " + y;
+    const startDay = new Date(y, m, 1).getDay();
+    const daysInMonth = new Date(y, m + 1, 0).getDate();
+    const todayIso = iso(today());
+    let html = "";
+    ["Su","Mo","Tu","We","Th","Fr","Sa"].forEach(d => html += `<div class="dp-wd">${d}</div>`);
+    for(let i = 0; i < startDay; i++) html += `<div class="dp-day empty"></div>`;
+    for(let d = 1; d <= daysInMonth; d++){
+        const cellIso = iso(new Date(y, m, d));
+        let cls = "dp-day"; if(cellIso === todayIso) cls += " today";
+        html += `<div class="${cls}" data-iso="${cellIso}" onclick="apPickDay('${cellIso}')" onmouseover="apHoverDay('${cellIso}')"><span class="n">${d}</span></div>`;
+    }
+    document.getElementById("apDpGrid").innerHTML = html;
+    apUpdateHighlight();
+}
+function apUpdateHighlight(){
+    const { start, end } = apHighlightRange();
+    document.querySelectorAll("#apDpGrid .dp-day").forEach(cell => {
+        cell.classList.remove("sel","range-start","range-end","in-range");
+        const ci = cell.dataset.iso; if(!ci || !start) return;
+        if(ci === start && ci === end) cell.classList.add("sel");
+        else if(ci === start) cell.classList.add("sel","range-start");
+        else if(ci === end) cell.classList.add("sel","range-end");
+        else if(ci > start && ci < end) cell.classList.add("in-range");
+    });
+    document.getElementById("apDpHint").textContent = apDpPending
+        ? "Now click an end date (max " + MAX_RANGE + " days), or the same day for a single date"
+        : "Click a date, then an end date for a range (max " + MAX_RANGE + " days)";
+}
+function apPickDay(cellIso){
+    if(!apDpPending){ apDpPending = cellIso; apDpHover = cellIso; apUpdateHighlight(); return; }
+    if(cellIso < apDpPending){ apDpPending = cellIso; apUpdateHighlight(); return; }
+    let endIso = cellIso;
+    if(daysBetween(apDpPending, endIso) > MAX_RANGE - 1) endIso = iso(addDays(new Date(apDpPending + "T00:00:00"), MAX_RANGE - 1));
+    apApplyRange(apDpPending, endIso);
+}
+function apHoverDay(cellIso){ if(!apDpPending) return; apDpHover = cellIso; apUpdateHighlight(); }
+function apApplyRange(startIso, endIso){
+    apRangeStart = startIso; apRangeEnd = endIso;
+    closeApPicker();
+    apUpdateRangeLabel();
+    renderApproval();
+}
+function apUpdateRangeLabel(){
+    const lbl = document.getElementById("apRangeLabel");
+    if(!lbl) return;
+    lbl.textContent = apRangeStart
+        ? (apRangeStart === apRangeEnd ? fmt(apRangeStart) : fmt(apRangeStart) + " – " + fmt(apRangeEnd))
+        : "Pick dates";
+}
+function apDpToday(){ apApplyRange(iso(today()), iso(today())); }
+function apDpClear(){ apRangeStart = null; apRangeEnd = null; closeApPicker(); apUpdateRangeLabel(); renderApproval(); }
+// close the approval picker on outside click
+document.addEventListener("click", e => {
+    const pop = document.getElementById("apDpPopup");
+    if(pop && pop.classList.contains("show") && !e.target.closest(".dp-wrap")) closeApPicker();
+});
+
+function rejectBooking(id){
+    const b = bookings.find(x => x.id === id);
+    if(!b) return;
+    if(!confirm(`Delete this reserved booking for ${b.haven} (${primaryName(b)})? This frees the slot and can't be undone.`)) return;
+    logActivity(`deleted unapproved booking — ${b.haven} (${primaryName(b)})`);
+    bookings = bookings.filter(x => x.id !== id);
+    save(bookings);
+    renderApproval();
+    renderAll();
+}
+
 /* ---------- modal / add / edit ---------- */
 let editingId = null;
 
@@ -3759,7 +4069,7 @@ function showPage(page){
     localStorage.setItem("shph_dashboard_page", page);   // remember across refreshes
     // breadcrumb in the top bar
     const CRUMB = {
-        today:["Main","Today's Booking"], calendar:["Main","Calendar & Bookings"],
+        today:["Main","Today's Booking"], calendar:["Main","Calendar & Bookings"], approval:["Main","Booking Approval"],
         havens:["Property","Havens"], booking:["Property","Rates & Add-ons"], cleaners:["Property","Housekeeping"],
         finance:["Finance","Finance"], payments:["Finance","Payments"], payroll:["Finance","Payroll"],
         bills:["Finance","Bills"], analytics:["Finance","Analytics"],
@@ -3771,6 +4081,7 @@ function showPage(page){
     if(cp) cp.textContent = cr[1];
     // the timeline needs the element visible to measure cell widths
     if(page === "today") renderToday();
+    if(page === "approval") renderApproval();
     if(page === "calendar") renderTimeline();
     if(page === "analytics" && typeof renderAnalytics === "function") renderAnalytics();
     if(page === "users" && typeof renderUsers === "function") renderUsers();
@@ -3784,6 +4095,7 @@ function renderAssist(){
     const inp = document.getElementById("assistDate");
     if(!inp) return;
     if(!inp.value) inp.value = iso(today());
+    if(typeof asUpdateLabel === "function") asUpdateLabel();
     const d = inp.value;
     // bookings active on the date (guest is in-house) — that's where towels need to be set up
     const list = bookings
@@ -3809,6 +4121,54 @@ function renderAssist(){
         `<div class="card"><h3>Occupied havens</h3><div class="number">${list.length}</div></div>` +
         `<div class="card"><h3>Total towels to place</h3><div class="number">🧺 ${totalTowels}</div></div>`;
 }
+
+/* ---------- Assist: custom single-date picker (matches the other tabs) ---------- */
+let asDpMonth = null;
+function openAssistPicker(e){
+    if(e) e.stopPropagation();
+    const pop = document.getElementById("asDpPopup");
+    if(pop.classList.contains("show")){ closeAssistPicker(); return; }
+    const cur = document.getElementById("assistDate").value || iso(today());
+    const base = new Date(cur + "T00:00:00");
+    asDpMonth = new Date(base.getFullYear(), base.getMonth(), 1);
+    asRenderPicker();
+    pop.classList.add("show");
+}
+function closeAssistPicker(){ const p = document.getElementById("asDpPopup"); if(p) p.classList.remove("show"); }
+function asPickerNav(dir){ asDpMonth = new Date(asDpMonth.getFullYear(), asDpMonth.getMonth() + dir, 1); asRenderPicker(); }
+function asRenderPicker(){
+    const y = asDpMonth.getFullYear(), m = asDpMonth.getMonth();
+    document.getElementById("asDpTitle").textContent = MONTHS[m] + " " + y;
+    const startDay = new Date(y, m, 1).getDay(), dim = new Date(y, m + 1, 0).getDate();
+    const sel = document.getElementById("assistDate").value, todayIso = iso(today());
+    let html = "";
+    ["Su","Mo","Tu","We","Th","Fr","Sa"].forEach(d => html += `<div class="dp-wd">${d}</div>`);
+    for(let i = 0; i < startDay; i++) html += `<div class="dp-day empty"></div>`;
+    for(let d = 1; d <= dim; d++){
+        const ci = iso(new Date(y, m, d));
+        let cls = "dp-day";
+        if(ci === todayIso) cls += " today";
+        if(ci === sel) cls += " sel";
+        html += `<div class="${cls}" onclick="asPickDay('${ci}')"><span class="n">${d}</span></div>`;
+    }
+    document.getElementById("asDpGrid").innerHTML = html;
+}
+function asPickDay(ci){
+    document.getElementById("assistDate").value = ci;
+    asUpdateLabel();
+    closeAssistPicker();
+    renderAssist();
+}
+function asUpdateLabel(){
+    const lbl = document.getElementById("assistDateLabel");
+    const v = document.getElementById("assistDate").value;
+    if(lbl) lbl.textContent = v ? fmt(v) : "Pick a date";
+}
+function asDpToday(){ asPickDay(iso(today())); }
+document.addEventListener("click", e => {
+    const pop = document.getElementById("asDpPopup");
+    if(pop && pop.classList.contains("show") && !e.target.closest(".dp-wrap")) closeAssistPicker();
+});
 
 /* ---------- init ---------- */
 function fillHavenSelectors(){
@@ -3837,6 +4197,7 @@ function renderAll(){
     renderSummary();
     renderTimeline();
     renderTable();
+    if(typeof updateApprovalBadge === "function") updateApprovalBadge();
 }
 
 fillHavenSelectors();
@@ -6283,11 +6644,12 @@ fillPaymentSettings();
 const USERS_KEY = "shph_users";
 const DASH_PAGES = [
     { key:"today",     label:"Today's Booking" },
+    { key:"approval",  label:"Booking Approval" },
     { key:"finance",   label:"Finance" },
     { key:"analytics", label:"Analytics" },
     { key:"calendar",  label:"Calendar/Bookings" },
     { key:"havens",    label:"Havens" },
-    { key:"booking",   label:"Rates and Add Ons" },
+    { key:"booking",   label:"Rates &amp; Add-ons" },
     { key:"payments",  label:"Payments" },
     { key:"cleaners",  label:"Housekeeping" },
     { key:"employees", label:"Employees" },
