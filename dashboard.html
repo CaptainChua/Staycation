@@ -631,6 +631,7 @@ tbody tr:hover{ background:#fafafa; }
     padding:28px;
     width:560px;
     max-width:100%;
+    position:relative;
 }
 .modal h2{ margin-bottom:18px; }
 .form-grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
@@ -647,26 +648,84 @@ tbody tr:hover{ background:#fafafa; }
 .modal-actions{ display:flex; justify-content:flex-end; gap:10px; margin-top:22px; }
 
 /* booking modal tabs + proof of payment page */
+.modal-x{ position:absolute; top:16px; right:16px; width:30px; height:30px; border-radius:8px; background:#f3ede4; color:#7a6a55; font-size:14px; line-height:30px; text-align:center; cursor:pointer; transition:background .12s; }
+.modal-x:hover{ background:#e8ded0; }
+.modal-eyebrow{ font-size:11px; font-weight:700; letter-spacing:1.2px; color:#bd6e3f; text-transform:uppercase; margin-bottom:2px; }
+.modal-eyebrow:empty{ display:none; }
 .bk-tabs{ display:flex; gap:6px; margin:6px 0 18px; border-bottom:1px solid #eee; }
 .bk-tab{ padding:9px 14px; font-size:13px; font-weight:600; color:#888; cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; }
 .bk-tab:hover{ color:#444; }
-.bk-tab.active{ color:#ff385c; border-bottom-color:#ff385c; }
-#bkPage2{ display:grid; grid-template-columns:repeat(auto-fit, minmax(190px, 1fr)); gap:18px; }
-.proof-summary{ grid-column:1 / -1; display:flex; flex-wrap:wrap; gap:10px; background:#f7f7f8; border-radius:12px; padding:14px 16px; }
-.proof-summary .ps-item{ flex:1 1 120px; }
-.proof-summary .ps-label{ display:block; font-size:11px; color:#999; text-transform:uppercase; letter-spacing:.3px; margin-bottom:3px; }
-.proof-summary .ps-val{ font-size:16px; font-weight:700; color:#1f1f1f; }
-.proof-summary .ps-val.bal{ color:#d63a4f; }
-.proof-summary .ps-val.paid{ color:#2e9e5b; }
-.proof-del{ display:inline-block; margin-top:6px; font-size:12px; color:#c0283d; cursor:pointer; }
+.bk-tab.active{ color:#bd6e3f; border-bottom-color:#bd6e3f; }
+/* ===== Proof of Payment tab (warm theme) ===== */
+#bkPage2{ display:grid; grid-template-columns:1fr 1fr; gap:16px 22px; }
+.proof-summary{ grid-column:1 / -1; display:grid; grid-template-columns:repeat(3,1fr); gap:16px 10px; background:#faf3ea; border:1px solid #f0e2cf; border-radius:14px; padding:16px 18px; }
+.proof-summary .ps-item{ min-width:0; }
+.proof-summary .ps-label{ display:block; font-size:10.5px; color:#a3937e; text-transform:uppercase; letter-spacing:.5px; font-weight:700; margin-bottom:4px; }
+.proof-summary .ps-val{ font-size:17px; font-weight:700; color:#33291f; }
+.proof-summary .ps-val.bal{ color:#bd6e3f; }
+.proof-summary .ps-val.paid{ color:#3f9e6a; }
+.proof-block{ min-width:0; }
+.proof-block-wide{ grid-column:1 / -1; }
+.proof-block h3{ font-family:'Playfair Display',Georgia,serif; font-size:18px; font-weight:700; color:#33291f; margin:2px 0 10px; }
+.proof-del{ display:inline-block; margin-top:8px; font-size:12px; color:#c0283d; cursor:pointer; }
 .proof-del:hover{ text-decoration:underline; }
-.proof-block h3{ font-size:15px; margin:0 0 8px; }
-.proof-meta{ font-size:12px; color:#555; background:#f7f7f8; border-radius:8px; padding:9px 12px; margin-bottom:8px; line-height:1.5; }
-.proof-img{ width:150px; height:150px; object-fit:cover; border-radius:10px; border:1px solid #eee; display:block; margin-bottom:8px; cursor:zoom-in; transition:transform .1s; }
+.proof-meta{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; font-size:13px; color:#6f5b46; background:#faf6ef; border:1px solid #efe6d8; border-radius:11px; padding:12px 14px; margin-bottom:10px; line-height:1.5; }
+.proof-meta strong{ color:#33291f; }
+.proof-img{ width:140px; height:140px; object-fit:cover; border-radius:11px; border:1px solid #efe6d8; display:block; margin-bottom:10px; cursor:zoom-in; transition:transform .1s; }
 .proof-img:hover{ transform:scale(1.02); }
-.proof-empty{ font-size:13px; color:#aaa; padding:8px 0; }
-.proof-upload{ display:inline-block; font-size:12px; color:#2b6cb0; cursor:pointer; }
-.proof-upload input{ display:block; margin-top:6px; font-size:12px; }
+.proof-empty{ font-size:13px; color:#9b8a76; padding:6px 0; }
+/* styled upload card */
+.proof-upload{ display:flex; align-items:center; gap:12px; border:1.5px dashed #d9b48f; border-radius:12px; padding:12px 14px; cursor:pointer; background:#fff; transition:background .12s,border-color .12s; }
+.proof-upload:hover{ background:#fdf7ef; border-color:#bd6e3f; }
+.proof-upload.drag{ background:#fbeede; border-color:#bd6e3f; }
+.proof-upload input{ display:none; }
+.proof-upload .pu-ico{ flex:none; width:38px; height:38px; border-radius:10px; background:#bd6e3f; color:#fff; display:flex; align-items:center; justify-content:center; }
+.proof-upload .pu-ico svg{ width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:2; }
+.proof-upload .pu-body{ min-width:0; }
+.proof-upload .pu-body b{ display:block; font-size:13px; color:#bd6e3f; font-weight:700; }
+.proof-upload .pu-name{ display:block; font-size:12px; color:#9b8a76; margin-top:1px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+/* ===== IDs tab ===== */
+.id-panel{ --idterra:#bd6e3f; --idline:#ece4d8; }
+.id-head{ display:flex; align-items:baseline; justify-content:space-between; margin:2px 0 12px; }
+.id-head h3{ font-family:'Playfair Display',Georgia,serif; font-size:19px; font-weight:700; color:#33291f; margin:0; }
+.id-count{ font-size:13px; font-weight:700; color:var(--idterra); }
+.id-info{ display:flex; gap:10px; align-items:flex-start; background:#faf3ea; border:1px solid #f0e2cf; border-radius:12px; padding:12px 14px; margin-bottom:18px; font-size:13px; color:#6f5b46; line-height:1.5; }
+.id-info-ico{ flex:none; color:var(--idterra); margin-top:1px; }
+.id-info-ico svg{ width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:1.8; }
+.id-info strong{ color:#4a3a2a; }
+.id-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:18px; }
+.id-slot{ position:relative; aspect-ratio:1/1; border-radius:14px; overflow:hidden; }
+/* filled */
+.id-slot.filled{ background-size:cover; background-position:center; box-shadow:0 4px 14px rgba(80,60,30,.12); }
+.id-slot.filled::after{ content:""; position:absolute; inset:0; background:linear-gradient(to top, rgba(0,0,0,.55), rgba(0,0,0,0) 45%); }
+.id-slot .id-check{ position:absolute; top:8px; right:8px; z-index:2; width:24px; height:24px; border-radius:50%; background:#3f9e6a; color:#fff; display:flex; align-items:center; justify-content:center; font-size:13px; box-shadow:0 1px 4px rgba(0,0,0,.3); }
+.id-slot .id-name{ position:absolute; left:10px; bottom:9px; z-index:2; color:#fff; font-size:12px; font-weight:600; text-shadow:0 1px 3px rgba(0,0,0,.5); }
+.id-slot .id-zoom{ position:absolute; inset:0; z-index:2; cursor:zoom-in; }
+.id-slot .id-del{ position:absolute; top:8px; left:8px; z-index:3; width:22px; height:22px; border-radius:50%; background:rgba(192,40,61,.92); color:#fff; font-size:12px; line-height:22px; text-align:center; cursor:pointer; opacity:0; transition:opacity .12s; }
+.id-slot.filled:hover .id-del{ opacity:1; }
+/* add */
+.id-slot.add{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; border:2px dashed #d9b48f; background:#fff; cursor:pointer; transition:background .12s,border-color .12s; }
+.id-slot.add:hover{ background:#fdf7ef; border-color:var(--idterra); }
+.id-slot.add .id-plus{ font-size:24px; line-height:1; color:var(--idterra); font-weight:400; }
+.id-slot.add .id-add-label{ font-size:13px; font-weight:700; color:var(--idterra); }
+.id-slot.add .id-choose{ margin-top:4px; font-size:11px; font-weight:600; color:#6f5b46; background:#fff; border:1px solid #e0d3c0; border-radius:7px; padding:4px 10px; }
+.id-slot.add .id-hint{ margin-top:5px; font-size:10px; color:#b6a692; }
+.id-grid.drag .id-slot.add{ background:#fbeede; border-color:var(--idterra); }
+.id-grid.drag .id-slot.add .id-plus{ transform:scale(1.15); }
+/* empty */
+.id-slot.empty{ display:flex; align-items:center; justify-content:center; background:#f8f3ec; border:1px solid var(--idline); color:#c2b29c; font-size:13px; }
+/* opt-out card */
+.id-optout{ display:flex; gap:12px; align-items:flex-start; border:1px solid var(--idline); border-radius:14px; padding:14px 16px; cursor:pointer; }
+.id-optout input{ width:18px; height:18px; margin-top:1px; accent-color:var(--idterra); flex:none; }
+.id-optout-txt b{ display:block; font-size:13px; color:#33291f; }
+.id-optout-txt small{ display:block; font-size:12px; color:#9b8a76; margin-top:2px; }
+.id-grid.disabled{ opacity:.45; pointer-events:none; }
+/* tab count + active accent (terracotta to match the panel) */
+.bk-tab-count{ display:inline-block; min-width:17px; padding:0 5px; margin-left:3px; font-size:11px; line-height:17px; text-align:center; border-radius:9px; background:#eee; color:#666; }
+.bk-tab.active .bk-tab-count{ background:#bd6e3f; color:#fff; }
+/* footer status note */
+.modal-foot-note{ margin-right:auto; align-self:center; font-size:12px; color:#7a6a55; }
+.modal-foot-note .dot{ display:inline-block; width:7px; height:7px; border-radius:50%; background:#3f9e6a; margin-right:6px; vertical-align:middle; }
 /* full-size image viewer */
 .img-lightbox{ position:fixed; inset:0; background:rgba(0,0,0,.85); display:none; align-items:center; justify-content:center; z-index:120; cursor:zoom-out; }
 .img-lightbox.show{ display:flex; }
@@ -675,10 +734,16 @@ tbody tr:hover{ background:#fafafa; }
 
 /* guest rows in the form */
 .guest-row-edit{ display:flex; gap:8px; margin-bottom:8px; align-items:center; }
-.guest-row-edit .g-first{ flex:2; }
-.guest-row-edit .g-last{ flex:2; }
-.guest-row-edit .g-age{ flex:1; }
+.guest-row-edit .g-first{ flex:1; min-width:0; }
+.guest-row-edit .g-last{ flex:1; min-width:0; }
+.guest-row-edit .g-age{ flex:0 0 90px; width:90px; }
 .guest-row-edit input{ padding:10px; border:1px solid #ddd; border-radius:9px; font-size:13px; }
+.seg-row{ display:flex; gap:8px; align-items:center; margin-bottom:8px; }
+.seg-row .seg-haven{ flex:1.3; min-width:0; }
+.seg-row .seg-checkin, .seg-row .seg-checkout{ flex:1; min-width:0; }
+.seg-row .seg-arrow{ color:#b6a692; flex:none; }
+.seg-row input, .seg-row select{ padding:10px; border:1px solid #ddd; border-radius:9px; font-size:13px; font-family:inherit; background:#fafafa; }
+.seg-row .seg-remove{ flex:none; cursor:pointer; color:#c0283d; font-size:13px; }
 .g-remove{
     color:#c0283d;
     cursor:pointer;
@@ -1069,7 +1134,11 @@ tbody tr:hover{ background:#fafafa; }
     <div class="nav-group">Main</div>
     <div class="nav-item active" data-page="today" onclick="window.location.href='todaysbooking.html'"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/><path d="m9 15 2 2 4-4"/></svg></span> Today's Booking</div>
     <div class="nav-item" data-page="calendar" onclick="showPage('calendar')"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg></span> Calendar/Bookings</div>
+
+    <div class="nav-group">Front Desk</div>
     <div class="nav-item" data-page="approval" onclick="showPage('approval')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M20 12V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6"/><path d="M9 9h6M9 13h3"/><path d="m15 18 2 2 4-4"/></svg></span> Booking Approval <span class="nav-badge" id="approvalBadge"></span></div>
+    <div class="nav-item" data-page="paymentapproval" onclick="showPage('paymentapproval')"><span class="ico"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="m14 16 1.6 1.6L19 14"/></svg></span> Payment Approval <span class="nav-badge" id="paymentApprovalBadge"></span></div>
+    <div class="nav-item" data-page="deposit" onclick="showPage('deposit')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v5c0 5 3.4 8.3 8 10 4.6-1.7 8-5 8-10V6Z"/><path d="m9 12 2 2 4-4"/></svg></span> Security Deposit</div>
 
     <div class="nav-group">Property</div>
     <div class="nav-item" data-page="havens" onclick="showPage('havens')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M3 21V9l9-6 9 6v12"/><path d="M9 21v-6h6v6"/></svg></span> Havens</div>
@@ -1178,6 +1247,79 @@ tbody tr:hover{ background:#fafafa; }
         </span>
     </div>
     <div id="approvalList"></div>
+</div>
+
+<!-- ===== Payment Approval (balance / add-on collections made today) ===== -->
+<div class="page" id="page-paymentapproval">
+<style>
+  #page-paymentapproval .ap-empty{ background:#fff; border:1px solid var(--hv-line); border-radius:16px; text-align:center; color:var(--hv-muted); padding:40px; box-shadow:0 6px 20px rgba(80,60,30,.05); }
+  #page-paymentapproval .ap-card{ padding:0; overflow:hidden; }
+  #page-paymentapproval .ap-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:14px; flex-wrap:wrap; padding:18px 22px; background:#faf6ee; border-bottom:1px solid var(--hv-line); }
+  #page-paymentapproval .ap-head h3{ font-family:'Playfair Display',Georgia,serif; font-size:19px; font-weight:700; margin:0; color:var(--hv-ink); display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  #page-paymentapproval .ap-cat{ font-family:'Mulish',sans-serif; font-size:11px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; padding:3px 9px; border-radius:20px; }
+  #page-paymentapproval .ap-cat.balance{ background:#e7eef6; color:#2b6cb0; }
+  #page-paymentapproval .ap-cat.addon{ background:#efe7f6; color:#7a52a8; }
+  #page-paymentapproval .ap-sub{ color:var(--hv-muted); font-size:13px; margin-top:4px; }
+  #page-paymentapproval .ap-actions{ display:flex; gap:10px; }
+  #page-paymentapproval .ap-del{ color:#b91c1c; border-color:#f0d4d4; }
+  #page-paymentapproval .ap-del:hover{ background:#fdf3f3; border-color:#e6b8b8; }
+  #page-paymentapproval .ap-body{ display:grid; grid-template-columns:1fr 280px; gap:24px; padding:20px 22px; }
+  @media(max-width:820px){ #page-paymentapproval .ap-body{ grid-template-columns:1fr; } }
+  #page-paymentapproval .ap-row{ display:flex; justify-content:space-between; gap:14px; padding:8px 0; border-bottom:1px solid var(--hv-line); font-size:14px; color:var(--hv-muted); }
+  #page-paymentapproval .ap-row:last-child{ border-bottom:none; }
+  #page-paymentapproval .ap-row b{ color:var(--hv-ink); text-align:right; }
+  #page-paymentapproval .ap-proof-label{ font-size:11px; letter-spacing:.4px; text-transform:uppercase; color:var(--hv-muted); font-weight:700; margin-bottom:8px; }
+  #page-paymentapproval .ap-proof{ width:100%; max-height:300px; object-fit:contain; border:1px solid var(--hv-line); border-radius:12px; background:#faf7f2; cursor:zoom-in; display:block; }
+  #page-paymentapproval .ap-noproof{ border:1.5px dashed #e0d3bf; border-radius:12px; padding:30px 14px; text-align:center; color:#b89a78; font-size:13px; font-weight:600; background:#faf7f2; }
+  #page-paymentapproval .ap-toolbar{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:18px; }
+  #page-paymentapproval .ap-seg{ display:flex; background:#fff; border:1px solid var(--hv-line); border-radius:10px; overflow:hidden; }
+  #page-paymentapproval .ap-seg button{ border:none; background:none; padding:9px 16px; font-size:13px; font-weight:600; color:var(--hv-muted); cursor:pointer; font-family:inherit; }
+  #page-paymentapproval .ap-seg button:hover{ background:#faf6ee; }
+  #page-paymentapproval .ap-seg button.active{ background:var(--hv-ink); color:#fff; }
+  #page-paymentapproval .ap-flag{ font-family:'Mulish',sans-serif; font-size:11px; font-weight:700; padding:3px 10px; border-radius:20px; }
+  #page-paymentapproval .ap-flag.approved{ background:#e7f3ec; color:#2e7d4f; }
+  #page-paymentapproval .ap-flag.pending{ background:#f6ecd9; color:#9a7700; }
+  #page-paymentapproval .ap-range{ display:inline-flex; align-items:center; font-size:13px; }
+  #page-paymentapproval .date-pill{ min-width:150px; }
+  #page-paymentapproval #ppDpPopup{ left:auto; right:0; transform:none; top:48px; }
+  #page-paymentapproval #ppDpPopup::before{ left:auto; right:30px; transform:rotate(45deg); }
+</style>
+    <div class="topbar" style="margin-bottom:6px;">
+        <h2 style="font-size:20px;">Payment Approval <span class="muted" id="paymentApprovalScope" style="font-size:14px;"></span></h2>
+    </div>
+    <p class="muted" style="margin:0 0 16px;">Balance and add-on payments land here (showing <b>Today</b> by default — switch the date filter for other days). Check the payment screenshot, then <b>Approve</b> it — or <b>Delete</b> the collection if the proof isn't legit. New <b>bookings</b> (website or manual) are reviewed on <b>Booking Approval</b> instead.</p>
+    <div class="ap-toolbar">
+        <div class="ap-seg" id="paStatusSeg">
+            <button type="button" data-st="all" class="active" onclick="setPaStatus('all')">All</button>
+            <button type="button" data-st="pending" onclick="setPaStatus('pending')">Pending</button>
+            <button type="button" data-st="approved" onclick="setPaStatus('approved')">Approved</button>
+        </div>
+        <div class="ap-seg" id="paDateSeg">
+            <button type="button" data-dt="all" onclick="setPaDate('all')">All dates</button>
+            <button type="button" data-dt="today" class="active" onclick="setPaDate('today')">Today</button>
+            <button type="button" data-dt="yesterday" onclick="setPaDate('yesterday')">Yesterday</button>
+            <button type="button" data-dt="range" onclick="setPaDate('range')">Date range</button>
+        </div>
+        <span class="ap-range" id="paRange" style="display:none;">
+            <div class="dp-wrap">
+                <span class="date-pill" id="ppRangeLabel" onclick="openPpPicker(event)" title="Pick a date range">Pick dates</span>
+                <div class="dp-popup" id="ppDpPopup" onclick="event.stopPropagation()">
+                    <div class="dp-head">
+                        <button type="button" onclick="ppPickerNav(-1)">‹</button>
+                        <span id="ppDpTitle"></span>
+                        <button type="button" onclick="ppPickerNav(1)">›</button>
+                    </div>
+                    <div class="dp-grid" id="ppDpGrid"></div>
+                    <div class="dp-hint" id="ppDpHint"></div>
+                    <div class="dp-foot">
+                        <span onclick="ppDpClear()">Clear</span>
+                        <span onclick="ppDpToday()">Today</span>
+                    </div>
+                </div>
+            </div>
+        </span>
+    </div>
+    <div id="paymentApprovalList"></div>
 </div>
 
 <!-- ===== Today's Booking ===== -->
@@ -1331,12 +1473,44 @@ tbody tr:hover{ background:#fafafa; }
             <h1>Business Analytics</h1>
             <p id="anScope">All units combined — bookings, bills / payables, and payroll · last 12 months</p>
         </div>
-        <select id="anMonth" class="an-period" onchange="renderAnalytics()">
-            <option value="12m" selected>Last 12 months</option>
-            <option value="ytd">This year</option>
-            <option value="all">All time</option>
-        </select>
+        <div class="an-period-wrap">
+            <div class="an-seg" id="anSeg">
+                <button type="button" data-p="day" onclick="setAnPeriod('day')">Daily</button>
+                <button type="button" data-p="week" onclick="setAnPeriod('week')">Weekly</button>
+                <button type="button" data-p="month" class="active" onclick="setAnPeriod('month')">Monthly</button>
+                <button type="button" data-p="year" onclick="setAnPeriod('year')">Yearly</button>
+                <button type="button" data-p="custom" onclick="setAnPeriod('custom')">Custom</button>
+            </div>
+            <span class="an-range" id="anRange" style="display:none;">
+                <div class="dp-wrap">
+                    <span class="date-pill" id="anRangeLabel" onclick="openAnPicker(event)" title="Pick a date range">Pick dates</span>
+                    <div class="dp-popup" id="anDpPopup" onclick="event.stopPropagation()">
+                        <div class="dp-head">
+                            <button type="button" onclick="anPickerNav(-1)">‹</button>
+                            <span id="anDpTitle"></span>
+                            <button type="button" onclick="anPickerNav(1)">›</button>
+                        </div>
+                        <div class="dp-grid" id="anDpGrid"></div>
+                        <div class="dp-hint" id="anDpHint"></div>
+                        <div class="dp-foot">
+                            <span onclick="anDpClear()">Clear</span>
+                            <span onclick="anDpToday()">Today</span>
+                        </div>
+                    </div>
+                </div>
+            </span>
+        </div>
     </div>
+    <style>
+      #page-analytics .an-period-wrap{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+      #page-analytics .an-seg{ display:flex; background:#fff; border:1px solid var(--hv-line); border-radius:10px; overflow:hidden; }
+      #page-analytics .an-seg button{ border:none; background:none; padding:9px 15px; font-size:13px; font-weight:600; color:var(--hv-muted); cursor:pointer; font-family:inherit; }
+      #page-analytics .an-seg button:hover{ background:#faf6ee; }
+      #page-analytics .an-seg button.active{ background:var(--hv-ink); color:#fff; }
+      #page-analytics .an-range .date-pill{ min-width:150px; }
+      #page-analytics #anDpPopup{ left:auto; right:0; transform:none; top:48px; }
+      #page-analytics #anDpPopup::before{ left:auto; right:30px; transform:rotate(45deg); }
+    </style>
 
     <div class="an-kpis" id="anCards"></div>
     <div class="an-mini" id="anMini"></div>
@@ -2025,19 +2199,114 @@ tbody tr:hover{ background:#fafafa; }
     </div>
 </div>
 
+<!-- ===== Security Deposit ===== -->
+<div class="page" id="page-deposit">
+<style>
+  #page-deposit .dep-toolbar{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
+  #page-deposit .seg{ display:flex; background:#fff; border:1px solid var(--hv-line); border-radius:10px; overflow:hidden; }
+  #page-deposit .seg button{ border:none; background:none; padding:9px 16px; font-size:13px; font-weight:600; color:var(--hv-muted); cursor:pointer; font-family:inherit; }
+  #page-deposit .seg button:hover{ background:#faf6ee; }
+  #page-deposit .seg button.active{ background:var(--hv-ink); color:#fff; }
+  #page-deposit #sdDpPopup{ left:auto; right:0; transform:none; top:46px; }
+  #page-deposit #sdDpPopup::before{ left:auto; right:30px; transform:rotate(45deg); }
+  #page-deposit .dep-status{ display:inline-flex; align-items:center; gap:6px; font-size:11.5px; font-weight:700; padding:4px 11px; border-radius:20px; }
+  #page-deposit .dep-status.held{ background:#f6ecd9; color:#9a7700; }
+  #page-deposit .dep-status.returned{ background:#e7f3ec; color:#2e7d4f; }
+  #page-deposit .dep-amt{ font-weight:700; color:var(--hv-ink); }
+  #page-deposit .dep-cell{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  #page-deposit .dep-cell .btn{ padding:6px 12px; font-size:12px; }
+</style>
+    <div class="panel">
+        <div class="panel-head">
+            <h2><span class="sec-ico"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v5c0 5 3.4 8.3 8 10 4.6-1.7 8-5 8-10V6Z"/><path d="m9 12 2 2 4-4"/></svg></span>Security Deposit</h2>
+            <div class="fin-date" style="display:flex; align-items:center; gap:8px;">Date
+                <div class="dp-wrap" style="position:relative;">
+                    <span class="date-pill" id="depositDateLabel" onclick="openDepPicker(event)" title="Pick a date">Pick a date</span>
+                    <input type="hidden" id="depositDate">
+                    <div class="dp-popup" id="sdDpPopup" onclick="event.stopPropagation()">
+                        <div class="dp-head">
+                            <button type="button" onclick="sdPickerNav(-1)">‹</button>
+                            <span id="sdDpTitle"></span>
+                            <button type="button" onclick="sdPickerNav(1)">›</button>
+                        </div>
+                        <div class="dp-grid" id="sdDpGrid"></div>
+                        <div class="dp-foot"><span onclick="sdDpToday()">Today</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <p class="muted" style="margin:0 0 14px;">Guests who <b>checked out</b> on the selected day and the security deposit to return. Use the quick filters, or pick any date.</p>
+        <div class="dep-toolbar">
+            <div class="seg" id="depSeg">
+                <button type="button" data-d="yesterday" onclick="setDepQuick('yesterday')">Yesterday</button>
+                <button type="button" data-d="today" class="active" onclick="setDepQuick('today')">Today</button>
+            </div>
+        </div>
+        <div style="overflow-x:auto;">
+            <table class="clean-summary-table">
+                <thead><tr><th>Haven</th><th>Guest</th><th>Contact</th><th>Check-out</th><th>Deposit</th><th>Status</th></tr></thead>
+                <tbody id="depositBody"></tbody>
+            </table>
+        </div>
+        <div class="cards" id="depositTotal" style="margin-top:16px;"></div>
+    </div>
+</div>
+
+<!-- Security Deposit refund-proof modal -->
+<div class="overlay" id="depOverlay">
+    <div class="modal" style="width:440px;">
+        <span class="modal-x" onclick="closeDepReturn()" title="Close">✕</span>
+        <div class="modal-eyebrow" id="depRetEyebrow"></div>
+        <h2 id="depRetTitle" style="margin-bottom:14px;">Return Security Deposit</h2>
+        <div class="proof-meta" id="depRetInfo" style="display:block;"></div>
+        <p class="muted" style="margin:14px 0 6px; font-weight:700; color:var(--hv-ink);">MOP <span style="color:var(--hv-muted); font-weight:500;">(Mode of refund)</span></p>
+        <select id="depMop" class="dep-mop">
+            <option value="Cash">Cash</option>
+            <option value="GCash">GCash</option>
+            <option value="Other Bank">Other Bank</option>
+        </select>
+        <p class="muted" style="margin:14px 0 6px; font-weight:700; color:var(--hv-ink);">Proof of refund <span style="color:var(--hv-muted); font-weight:500;">(photo — required)</span></p>
+        <label class="proof-upload" id="depUploadCard" data-proof="depret">
+            <span class="pu-ico"><svg viewBox="0 0 24 24"><path d="M12 16V5"/><path d="m7 10 5-5 5 5"/><path d="M5 19h14"/></svg></span>
+            <span class="pu-body"><b>Choose file</b><small class="pu-name" id="depProofName">No file chosen</small></span>
+            <input type="file" id="depProofFile" accept="image/*" onchange="onDepProofChange(this)">
+        </label>
+        <div class="muted" style="margin-top:6px;">You can also drag &amp; drop or paste an image.</div>
+        <img id="depProofPreview" class="proof-img" alt="refund proof" style="display:none; margin-top:12px;" onclick="openProofImg(this.src)">
+        <div class="modal-actions">
+            <button class="btn secondary" id="depUndoBtn" style="display:none; margin-right:auto; color:#c0283d; border-color:#f0d4d4;" onclick="undoFromModal()">↺ Undo return</button>
+            <button class="btn secondary" onclick="closeDepReturn()">Cancel</button>
+            <button class="btn" id="depConfirmBtn" onclick="confirmDepReturn()" disabled>Mark returned</button>
+        </div>
+    </div>
+</div>
+<style>
+  #depConfirmBtn:disabled{ opacity:.45; cursor:not-allowed; }
+  #depOverlay select.dep-mop{ width:100%; padding:11px 13px; border:1px solid var(--hv-line); border-radius:11px; font-size:14px; font-family:inherit; color:var(--hv-ink); background:#faf6ef; }
+  #depOverlay select.dep-mop:focus{ outline:none; border-color:var(--hv-terra); background:#fff; }
+</style>
+
 <!-- Add booking modal -->
 <div class="overlay" id="overlay">
     <div class="modal">
+        <span class="modal-x" onclick="closeModal()" title="Close">✕</span>
+        <div class="modal-eyebrow" id="bkEyebrow"></div>
         <h2 id="modalTitle">Add Booking</h2>
         <div class="bk-tabs">
             <span class="bk-tab active" id="bkTab1" onclick="bkGoPage(1)">Booking Details</span>
             <span class="bk-tab" id="bkTab2" onclick="bkGoPage(2)">Proof of Payment</span>
+            <span class="bk-tab" id="bkTab3" onclick="bkGoPage(3)">IDs <span class="bk-tab-count" id="bkIdCount"></span></span>
         </div>
         <div id="bkPage1">
         <div class="form-grid">
             <div class="field full">
                 <label>Haven</label>
                 <select id="f_haven" onchange="updateSlotOptions()"></select>
+            </div>
+
+            <div class="field full">
+                <label>Facebook Name</label>
+                <input type="text" id="f_fbName" placeholder="Name on Facebook / Messenger">
             </div>
 
             <div class="field full">
@@ -2082,6 +2351,13 @@ tbody tr:hover{ background:#fafafa; }
             <div class="field">
                 <label>Check-out time <span class="muted">(auto)</span></label>
                 <input type="text" id="f_checkoutTime" readonly>
+            </div>
+
+            <div class="field full">
+                <label>Additional havens <span class="muted">(multi-haven stay — each becomes a linked booking)</span></label>
+                <div id="segList"></div>
+                <button type="button" class="btn secondary add-guest" onclick="addSegRow()">+ Add another haven</button>
+                <div class="breakdown">Use this when the guest moves havens during their stay (e.g. Haven 8 on Jun 27–28, then Haven 7 on Jun 28–29). Each row is saved as its own overnight booking, priced on its own, and linked to this reservation.</div>
             </div>
 
             <div class="field">
@@ -2143,8 +2419,9 @@ tbody tr:hover{ background:#fafafa; }
                 <h3>Downpayment</h3>
                 <div class="proof-meta" id="downMeta"></div>
                 <img id="downProofImg" class="proof-img" alt="downpayment proof" style="display:none;" onclick="openProofImg(this.src)">
-                <div class="proof-empty" id="downProofEmpty">No proof uploaded.</div>
-                <label class="proof-upload">Upload downpayment proof
+                <label class="proof-upload" data-proof="down">
+                    <span class="pu-ico"><svg viewBox="0 0 24 24"><path d="M12 16V5"/><path d="m7 10 5-5 5 5"/><path d="M5 19h14"/></svg></span>
+                    <span class="pu-body"><b>Upload downpayment proof</b><small class="pu-name" id="downProofName">No file chosen</small></span>
                     <input type="file" id="downProofFile" accept="image/*" onchange="onDownProofChange(this)">
                 </label>
             </div>
@@ -2152,19 +2429,43 @@ tbody tr:hover{ background:#fafafa; }
                 <h3>Balance</h3>
                 <div id="balProofList"></div>
             </div>
-            <div class="proof-block">
+            <div class="proof-block proof-block-wide">
                 <h3>Add Ons</h3>
                 <div class="proof-meta" id="addonMeta"></div>
                 <img id="addonProofImg" class="proof-img" alt="add-ons proof" style="display:none;" onclick="openProofImg(this.src)">
-                <div class="proof-empty" id="addonProofEmpty">No proof uploaded.</div>
-                <label class="proof-upload">Upload add-ons proof
+                <label class="proof-upload" data-proof="addon">
+                    <span class="pu-ico"><svg viewBox="0 0 24 24"><path d="M12 16V5"/><path d="m7 10 5-5 5 5"/><path d="M5 19h14"/></svg></span>
+                    <span class="pu-body"><b>Upload add-ons proof</b><small class="pu-name" id="addonProofName">No file chosen</small></span>
                     <input type="file" id="addonProofFile" accept="image/*" onchange="onAddonProofChange(this)">
                 </label>
                 <span class="proof-del" id="addonDel" style="display:none;" onclick="deleteCollection('Add Ons')">Delete this collection</span>
             </div>
         </div>
 
+        <div id="bkPage3" style="display:none;">
+            <div class="id-panel">
+                <div class="id-head">
+                    <h3>Valid IDs</h3>
+                    <span class="id-count" id="bkIdCount">0 / 6</span>
+                </div>
+                <div class="id-info">
+                    <span class="id-info-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><circle cx="12" cy="8" r=".9" style="fill:currentColor;stroke:none"/></svg></span>
+                    <span>Upload a clear photo of each guest's valid ID for verification. A maximum of <strong>6 IDs</strong> can be added per booking. You can also <strong>drag &amp; drop</strong> or <strong>paste</strong> an image.</span>
+                </div>
+                <div class="id-grid" id="idGrid"></div>
+                <label class="id-optout">
+                    <input type="checkbox" id="f_idOptOut" onchange="renderIdGrid()">
+                    <span class="id-optout-txt">
+                        <b>Guest will send IDs via Facebook instead</b>
+                        <small>Skip uploads — verification handled in Messenger.</small>
+                    </span>
+                </label>
+            </div>
+            <input type="file" id="idFileInput" accept="image/*" multiple onchange="onIdFileChange(this)" style="display:none;">
+        </div>
+
         <div class="modal-actions">
+            <span class="modal-foot-note" id="bkFootNote"></span>
             <button class="btn secondary" onclick="closeModal()">Cancel</button>
             <button class="btn" onclick="saveBooking()">Save Booking</button>
         </div>
@@ -2513,6 +2814,24 @@ function findConflict(cand, excludeId){
 function slotLabel(slot){
     return slot === "morning" ? "AM (8AM–12NN)" : slot === "evening" ? "PM (7PM–12MN)" : "";
 }
+// ADMIN-side conflict check: based on the actual time window (check-in time + duration),
+// not a whole-day block — so a short 6h booking can sit in a haven's free hours even when a
+// later/longer booking exists the same day. The public site keeps its own strict day rules.
+function bookingInterval(b){
+    const midnightMin = Math.round(new Date(b.checkin + "T00:00:00").getTime() / 60000);
+    const start = midnightMin + bookingCheckinMin(b);
+    const dur = ((Number(b.stayHours) || 21) + (Number(b.extend) || 0)) * 60;
+    return { start, end: start + dur };
+}
+function findConflictAdmin(cand, excludeId){
+    const ci = bookingInterval(cand);
+    return bookings.find(b => {
+        if(b.id === excludeId) return false;
+        if(b.haven !== cand.haven) return false;
+        const bi = bookingInterval(b);
+        return ci.start < bi.end && bi.start < ci.end;   // real overlap of time windows only
+    }) || null;
+}
 function baseRate(stayHours, checkinIso){
     stayHours = Number(stayHours);
     if(stayHours === 6) return PRICING.stay6;
@@ -2560,6 +2879,8 @@ function collectedSum(b){ return (b.payments || []).reduce((s,p) => s + (Number(
 // total the customer has paid = original downpayment + later collections
 function paidOf(b){ return Number(b.downpayment || 0) + collectedSum(b); }
 function balanceOf(b){ return Math.max(0, Number(b.total || 0) - paidOf(b)); }
+// revenue actually kept = everything paid, minus a security deposit that's been returned to the guest
+function netCollectedOf(b){ return paidOf(b) - (b.depositReturned ? Number(b.deposit || 0) : 0); }
 function statusOf(b){
     const paid = paidOf(b);
     if(paid >= b.total && b.total > 0) return "paid";
@@ -2715,7 +3036,7 @@ function renderSummary(){
     );
     const occupied = HAVENS.filter(h => occHavens.has(h)).length;
     const available = HAVENS.length - occupied;
-    const revenue = bookings.filter(inWindow).reduce((s,b) => s + paidOf(b), 0);
+    const revenue = bookings.filter(inWindow).reduce((s,b) => s + netCollectedOf(b), 0);
     const pending = bookings.filter(inWindow).reduce((s,b) => s + balanceOf(b), 0);
 
     // period label for the card titles
@@ -2912,14 +3233,42 @@ function finApply(){
 /* ---------- calendar timeline ---------- */
 function tlHourShort(h){ const ap = h < 12 ? "a" : "p"; let hh = h % 12; if(hh === 0) hh = 12; return hh + ap; }
 
-// single-day view → hourly timeline (6am–10pm) with bars placed by check-in/out time
+// single-day view → hourly timeline; the hour window auto-fits the day's bookings
+// (starts at the earliest check-in, ends at the latest check-out; empty hours are hidden)
 function renderTimelineHours(){
     const grid = document.getElementById("timeline");
-    const HS = 6, HE = 22, HOURS = HE - HS;          // 6am … 10pm
     const day = rangeStart, dayIso = iso(day);
     const rl = document.getElementById("rangeLabel"); if(rl) rl.textContent = fmt(dayIso);
     const dl = document.getElementById("tlDayLabel");
     if(dl) dl.textContent = day.toLocaleDateString("en-PH", { weekday:"long", month:"long", day:"numeric" });
+
+    // collect the bookings active on this day, with their start/end minute within the day
+    const dayBookings = [];
+    bookings.forEach(b => {
+        if(!HAVENS.includes(b.haven)) return;
+        const coIso = b.checkout > b.checkin ? b.checkout : iso(addDays(new Date(b.checkin + "T00:00:00"), 1));
+        if(!(b.checkin <= dayIso && dayIso < coIso)) return;            // active this day?
+        const ciMin = bookingCheckinMin(b);
+        const durMin = ((Number(b.stayHours) || 21) + (Number(b.extend) || 0)) * 60;
+        const dDiff = daysBetween(b.checkin, dayIso);                   // 0 = same day
+        const startMin = Math.max(0, dDiff === 0 ? ciMin : 0);
+        const endMin = Math.min(1440, ciMin + durMin - dDiff * 1440);
+        if(endMin <= startMin) return;
+        dayBookings.push({ b, startMin, endMin });
+    });
+
+    // derive the visible hour window: floor(earliest start) … ceil(latest end)
+    let HS = 0, HE = 24;
+    if(dayBookings.length){
+        const minStart = Math.min(...dayBookings.map(x => x.startMin));
+        const maxEnd   = Math.max(...dayBookings.map(x => x.endMin));
+        HS = Math.max(0, Math.floor(minStart / 60));
+        HE = Math.min(24, Math.ceil(maxEnd / 60));
+    } else {
+        HS = 6; HE = 22;                                               // sensible default when nothing booked
+    }
+    if(HE - HS < 2){ HE = Math.min(24, HS + 2); }                      // keep at least a 2-hour span
+    const HOURS = HE - HS;
 
     grid.style.gridTemplateColumns = `140px repeat(${HOURS}, 1fr)`;
 
@@ -2936,16 +3285,7 @@ function renderTimelineHours(){
     grid.innerHTML = html;
 
     const winStart = HS * 60, winEnd = HE * 60;
-    bookings.forEach(b => {
-        if(!HAVENS.includes(b.haven)) return;
-        const coIso = b.checkout > b.checkin ? b.checkout : iso(addDays(new Date(b.checkin + "T00:00:00"), 1));
-        if(!(b.checkin <= dayIso && dayIso < coIso)) return;            // active this day?
-
-        const ciMin = bookingCheckinMin(b);
-        const durMin = ((Number(b.stayHours) || 21) + (Number(b.extend) || 0)) * 60;
-        const dDiff = daysBetween(b.checkin, dayIso);                   // 0 = same day
-        const startMin = dDiff === 0 ? ciMin : 0;
-        const endMin = ciMin + durMin - dDiff * 1440;
+    dayBookings.forEach(({ b, startMin, endMin }) => {
         const s = Math.max(winStart, Math.min(winEnd, startMin));
         const e = Math.max(winStart, Math.min(winEnd, endMin));
         if(e <= s) return;
@@ -2959,7 +3299,7 @@ function renderTimelineHours(){
         bar.style.background = havenColor(b);
         bar.style.color = "#222";
         bar.style.borderLeft = "5px solid " + (STATUS_COLOR[statusOf(b)] || "#999");
-        bar.textContent = primaryName(b) + (b.slot ? " (" + (b.slot === "morning" ? "AM" : "PM") + ")" : "");
+        bar.textContent = (b.fbName || primaryName(b)) + (b.slot ? " (" + (b.slot === "morning" ? "AM" : "PM") + ")" : "");
         bar.title = `${guestNames(b)} • ${checkinTimeStr(b)}→${checkoutTimeStr(b)} • ${peso(paidOf(b))}/${peso(b.total)}`;
         bar.onclick = () => openModal(b.id);
         bar.style.left = (firstCell.offsetLeft + ((s - winStart) / 60) * hourW + 2) + "px";
@@ -3042,7 +3382,7 @@ function renderTimeline(){
             bar.textContent = stayShape(b);
             bar.classList.add("bar-shape");
         } else {
-            bar.textContent = primaryName(b) + (b.slot ? " (" + (b.slot==="morning"?"AM":"PM") + ")" : "");
+            bar.textContent = (b.fbName || primaryName(b)) + (b.slot ? " (" + (b.slot==="morning"?"AM":"PM") + ")" : "");
         }
         bar.title = `${guestNames(b)} • ${fmt(b.checkin)}${b.checkout>b.checkin?"→"+fmt(b.checkout):""}` +
             `${b.slot ? " • " + slotLabel(b.slot) : ""} • ${peso(paidOf(b))}/${peso(b.total)}`;
@@ -3566,6 +3906,224 @@ function rejectBooking(id){
     renderAll();
 }
 
+/* ============================================================
+   PAYMENT APPROVAL — balance / add-on collections made TODAY
+   (downpayments + new bookings are handled on Booking Approval)
+   ============================================================ */
+// flatten every booking's payment collected today into {b, idx, p} rows
+// every booking's payment (with its date) — flattened into {b, idx, p} rows
+function paymentRowsAll(){
+    const rows = [];
+    bookings.forEach(b => {
+        (b.payments || []).forEach((p, idx) => {
+            if(p && p.at) rows.push({ b, idx, p });
+        });
+    });
+    return rows;
+}
+function paymentRowsToday(){
+    const todayIso = iso(today());
+    return paymentRowsAll().filter(r => iso(new Date(r.p.at)) === todayIso);
+}
+function pendingPaymentsToday(){ return paymentRowsToday().filter(r => r.p.approved !== true); }
+function updatePaymentApprovalBadge(){
+    const badge = document.getElementById("paymentApprovalBadge");
+    if(!badge) return;
+    const n = pendingPaymentsToday().length;
+    badge.textContent = n ? String(n) : "";
+}
+
+let paStatus = "all";    // all | pending | approved
+let paDate = "today";    // all | today | yesterday | range
+function setPaStatus(st){
+    paStatus = st;
+    document.querySelectorAll("#paStatusSeg button").forEach(x => x.classList.toggle("active", x.dataset.st === st));
+    renderPaymentApproval();
+}
+function setPaDate(dt){
+    paDate = dt;
+    document.querySelectorAll("#paDateSeg button").forEach(x => x.classList.toggle("active", x.dataset.dt === dt));
+    const r = document.getElementById("paRange");
+    if(r) r.style.display = dt === "range" ? "inline-flex" : "none";
+    renderPaymentApproval();
+}
+function renderPaymentApproval(){
+    updatePaymentApprovalBadge();
+    let rows = paymentRowsAll();
+    if(paStatus === "pending")       rows = rows.filter(r => r.p.approved !== true);
+    else if(paStatus === "approved") rows = rows.filter(r => r.p.approved === true);
+    const dOf = r => iso(new Date(r.p.at));
+    if(paDate === "today")          rows = rows.filter(r => dOf(r) === iso(today()));
+    else if(paDate === "yesterday") rows = rows.filter(r => dOf(r) === iso(addDays(today(), -1)));
+    else if(paDate === "range" && ppRangeStart){
+        rows = rows.filter(r => { const d = dOf(r); return d >= ppRangeStart && d <= (ppRangeEnd || ppRangeStart); });
+    }
+    rows.sort((a, b) => new Date(b.p.at) - new Date(a.p.at));   // newest first
+
+    const scope = document.getElementById("paymentApprovalScope");
+    const pendN = pendingPaymentsToday().length;
+    if(scope) scope.textContent = pendN ? `— ${pendN} awaiting review today` : "— all clear today";
+
+    const el = document.getElementById("paymentApprovalList");
+    if(!rows.length){
+        el.innerHTML = `<div class="ap-empty"><div style="font-size:30px;margin-bottom:8px;">✅</div>No payments match this filter.</div>`;
+        return;
+    }
+    el.innerHTML = rows.map(({ b, idx, p }) => {
+        const cat = (p.category === "Add Ons") ? "addon" : "balance";
+        const catLabel = p.category || "Balance";
+        const proof = p.proof
+            ? `<img class="ap-proof" src="${p.proof}" alt="Payment screenshot" onclick="apViewProof(this.src)">`
+            : `<div class="ap-noproof">No payment screenshot uploaded</div>`;
+        const flag = p.approved
+            ? `<span class="ap-flag approved">✓ Approved</span>`
+            : `<span class="ap-flag pending">Pending</span>`;
+        const when = new Date(p.at).toLocaleString("en-PH", { month:"short", day:"numeric", hour:"numeric", minute:"2-digit" });
+        const actions = p.approved
+            ? `<button class="btn secondary" onclick="revertPayment(${b.id},${idx})">↺ Revert to pending</button>
+               <button class="btn secondary ap-del" onclick="deletePaymentRow(${b.id},${idx})">🗑 Delete</button>`
+            : `<button class="btn" onclick="approvePayment(${b.id},${idx})">✓ Approve</button>
+               <button class="btn secondary ap-del" onclick="deletePaymentRow(${b.id},${idx})">🗑 Delete</button>`;
+        return `<div class="panel ap-card">
+            <div class="ap-head">
+                <div>
+                    <h3>${b.haven} <span class="ap-cat ${cat}">${catLabel}</span> ${flag}</h3>
+                    <div class="ap-sub">${primaryName(b)}${b.contact ? " · " + b.contact : ""}${b.bookingNo ? " · " + b.bookingNo : ""}</div>
+                </div>
+                <div class="ap-actions">${actions}</div>
+            </div>
+            <div class="ap-body">
+                <div class="ap-info">
+                    <div class="ap-row"><span>Amount collected</span><b>${peso(p.amount || 0)}</b></div>
+                    <div class="ap-row"><span>For</span><b>${catLabel}</b></div>
+                    <div class="ap-row"><span>Mode of payment</span><b>${p.mop || "—"}</b></div>
+                    <div class="ap-row"><span>Collected</span><b>${when}</b></div>
+                    <div class="ap-row"><span>Recorded by</span><b>${p.by || "—"}</b></div>
+                    <div class="ap-row"><span>Booking total</span><b>${peso(b.total || 0)}</b></div>
+                    <div class="ap-row"><span>Balance remaining</span><b>${peso(balanceOf(b))}</b></div>
+                </div>
+                <div class="ap-proof-col">
+                    <div class="ap-proof-label">Payment screenshot</div>
+                    ${proof}
+                </div>
+            </div>
+        </div>`;
+    }).join("");
+}
+function approvePayment(bookingId, idx){
+    const b = bookings.find(x => x.id === bookingId);
+    if(!b || !b.payments || !b.payments[idx]) return;
+    b.payments[idx].approved = true;
+    save(bookings);
+    logActivity(`approved payment — ${b.haven} · ${peso(b.payments[idx].amount)} (${b.payments[idx].category || "Balance"})`);
+    renderPaymentApproval();
+    renderAll();
+}
+function revertPayment(bookingId, idx){
+    const b = bookings.find(x => x.id === bookingId);
+    if(!b || !b.payments || !b.payments[idx]) return;
+    b.payments[idx].approved = false;
+    save(bookings);
+    logActivity(`reverted payment approval — ${b.haven} · ${peso(b.payments[idx].amount)}`);
+    renderPaymentApproval();
+    renderAll();
+}
+function deletePaymentRow(bookingId, idx){
+    const b = bookings.find(x => x.id === bookingId);
+    if(!b || !b.payments || !b.payments[idx]) return;
+    const p = b.payments[idx];
+    if(!confirm(`Delete this ${p.category || "Balance"} payment of ${peso(p.amount)}? This cannot be undone.`)) return;
+    b.payments.splice(idx, 1);
+    if(!(b.payments || []).some(x => x.category === "Add Ons")) delete b.addonProof;
+    save(bookings);
+    logActivity(`deleted ${p.category || "Balance"} payment — ${b.haven} · ${peso(p.amount)} (${p.mop})`);
+    renderPaymentApproval();
+    renderAll();
+}
+
+/* ---------- Payment Approval: custom date-range picker (matches the calendar's) ---------- */
+let ppRangeStart = null, ppRangeEnd = null;
+let ppDpMonth = null, ppDpPending = null, ppDpHover = null;
+function openPpPicker(e){
+    if(e) e.stopPropagation();
+    const pop = document.getElementById("ppDpPopup");
+    if(pop.classList.contains("show")){ closePpPicker(); return; }
+    ppDpPending = null; ppDpHover = null;
+    const base = ppRangeStart ? new Date(ppRangeStart + "T00:00:00") : today();
+    ppDpMonth = new Date(base.getFullYear(), base.getMonth(), 1);
+    ppRenderPicker();
+    pop.classList.add("show");
+}
+function closePpPicker(){ ppDpPending = null; ppDpHover = null; const p = document.getElementById("ppDpPopup"); if(p) p.classList.remove("show"); }
+function ppPickerNav(dir){ ppDpMonth = new Date(ppDpMonth.getFullYear(), ppDpMonth.getMonth() + dir, 1); ppRenderPicker(); }
+function ppHighlightRange(){
+    if(ppDpPending){
+        let end = (ppDpHover && ppDpHover >= ppDpPending) ? ppDpHover : ppDpPending;
+        if(daysBetween(ppDpPending, end) > MAX_RANGE - 1) end = iso(addDays(new Date(ppDpPending + "T00:00:00"), MAX_RANGE - 1));
+        return { start: ppDpPending, end };
+    }
+    if(ppRangeStart) return { start: ppRangeStart, end: ppRangeEnd || ppRangeStart };
+    return { start: null, end: null };
+}
+function ppRenderPicker(){
+    const y = ppDpMonth.getFullYear(), m = ppDpMonth.getMonth();
+    document.getElementById("ppDpTitle").textContent = MONTHS[m] + " " + y;
+    const startDay = new Date(y, m, 1).getDay();
+    const daysInMonth = new Date(y, m + 1, 0).getDate();
+    const todayIso = iso(today());
+    let html = "";
+    ["Su","Mo","Tu","We","Th","Fr","Sa"].forEach(d => html += `<div class="dp-wd">${d}</div>`);
+    for(let i = 0; i < startDay; i++) html += `<div class="dp-day empty"></div>`;
+    for(let d = 1; d <= daysInMonth; d++){
+        const cellIso = iso(new Date(y, m, d));
+        let cls = "dp-day"; if(cellIso === todayIso) cls += " today";
+        html += `<div class="${cls}" data-iso="${cellIso}" onclick="ppPickDay('${cellIso}')" onmouseover="ppHoverDay('${cellIso}')"><span class="n">${d}</span></div>`;
+    }
+    document.getElementById("ppDpGrid").innerHTML = html;
+    ppUpdateHighlight();
+}
+function ppUpdateHighlight(){
+    const { start, end } = ppHighlightRange();
+    document.querySelectorAll("#ppDpGrid .dp-day").forEach(cell => {
+        cell.classList.remove("sel","range-start","range-end","in-range");
+        const ci = cell.dataset.iso; if(!ci || !start) return;
+        if(ci === start && ci === end) cell.classList.add("sel");
+        else if(ci === start) cell.classList.add("sel","range-start");
+        else if(ci === end) cell.classList.add("sel","range-end");
+        else if(ci > start && ci < end) cell.classList.add("in-range");
+    });
+    document.getElementById("ppDpHint").textContent = ppDpPending
+        ? "Now click an end date (max " + MAX_RANGE + " days), or the same day for a single date"
+        : "Click a date, then an end date for a range (max " + MAX_RANGE + " days)";
+}
+function ppPickDay(cellIso){
+    if(!ppDpPending){ ppDpPending = cellIso; ppDpHover = cellIso; ppUpdateHighlight(); return; }
+    if(cellIso < ppDpPending){ ppDpPending = cellIso; ppUpdateHighlight(); return; }
+    let endIso = cellIso;
+    if(daysBetween(ppDpPending, endIso) > MAX_RANGE - 1) endIso = iso(addDays(new Date(ppDpPending + "T00:00:00"), MAX_RANGE - 1));
+    ppApplyRange(ppDpPending, endIso);
+}
+function ppHoverDay(cellIso){ if(!ppDpPending) return; ppDpHover = cellIso; ppUpdateHighlight(); }
+function ppApplyRange(startIso, endIso){
+    ppRangeStart = startIso; ppRangeEnd = endIso;
+    closePpPicker();
+    ppUpdateRangeLabel();
+    renderPaymentApproval();
+}
+function ppUpdateRangeLabel(){
+    const lbl = document.getElementById("ppRangeLabel");
+    if(!lbl) return;
+    lbl.textContent = ppRangeStart
+        ? (ppRangeStart === ppRangeEnd ? fmt(ppRangeStart) : fmt(ppRangeStart) + " – " + fmt(ppRangeEnd))
+        : "Pick dates";
+}
+function ppDpToday(){ ppApplyRange(iso(today()), iso(today())); }
+function ppDpClear(){ ppRangeStart = null; ppRangeEnd = null; closePpPicker(); ppUpdateRangeLabel(); renderPaymentApproval(); }
+document.addEventListener("click", e => {
+    const pop = document.getElementById("ppDpPopup");
+    if(pop && pop.classList.contains("show") && !e.target.closest(".dp-wrap")) closePpPicker();
+});
+
 /* ---------- modal / add / edit ---------- */
 let editingId = null;
 
@@ -3602,6 +4160,52 @@ function removeGuestRow(el){
         recalc();
     }
 }
+/* ---------- additional havens (multi-haven stay) ---------- */
+function segRowHtml(seg){
+    seg = seg || { haven:"", checkin:"", checkout:"" };
+    const opts = HAVENS.map(h => `<option ${h === seg.haven ? "selected" : ""}>${h}</option>`).join("");
+    return `<div class="seg-row">
+        <select class="seg-haven">${opts}</select>
+        <input type="date" class="seg-checkin" value="${seg.checkin || ""}" onchange="segAutoCheckout(this)">
+        <span class="seg-arrow">→</span>
+        <input type="date" class="seg-checkout" value="${seg.checkout || ""}">
+        <span class="seg-remove" onclick="removeSegRow(this)" title="Remove">✕</span>
+    </div>`;
+}
+function clearSegRows(){ const l = document.getElementById("segList"); if(l) l.innerHTML = ""; }
+function addSegRow(){
+    const list = document.getElementById("segList");
+    // default this segment to continue from the latest date already in the stay
+    let lastDate = document.getElementById("f_checkout").value;
+    const rows = list.querySelectorAll(".seg-row");
+    if(rows.length){
+        const lc = rows[rows.length - 1].querySelector(".seg-checkout").value;
+        if(lc) lastDate = lc;
+    }
+    const ci = lastDate || iso(today());
+    const co = iso(addDays(new Date(ci + "T00:00:00"), 1));
+    // default to a haven not already used in this stay
+    const used = new Set([document.getElementById("f_haven").value, ...[...rows].map(r => r.querySelector(".seg-haven").value)]);
+    const nextHaven = HAVENS.find(h => !used.has(h)) || HAVENS[0];
+    list.insertAdjacentHTML("beforeend", segRowHtml({ haven:nextHaven, checkin:ci, checkout:co }));
+}
+function removeSegRow(el){ el.closest(".seg-row").remove(); }
+// when a segment check-in changes, keep its check-out at least the next day
+function segAutoCheckout(input){
+    const row = input.closest(".seg-row");
+    const co = row.querySelector(".seg-checkout");
+    if(!co.value || co.value <= input.value){
+        co.value = iso(addDays(new Date(input.value + "T00:00:00"), 1));
+    }
+}
+function readSegs(){
+    return [...document.querySelectorAll("#segList .seg-row")].map(r => ({
+        haven: r.querySelector(".seg-haven").value,
+        checkin: r.querySelector(".seg-checkin").value,
+        checkout: r.querySelector(".seg-checkout").value
+    })).filter(s => s.haven && s.checkin && s.checkout);
+}
+
 function readGuests(){
     return [...document.querySelectorAll("#guestList .guest-row-edit")].map(r => {
         const ageRaw = r.querySelector(".g-age").value.trim();
@@ -3615,6 +4219,7 @@ function readGuests(){
 }
 
 // limit time-of-stay options by check-in day: Sat = 21h only; Sun–Fri = 6/10/21h
+// (admins are exempt — they may book 6h/10h on Saturdays too, e.g. for a free morning slot)
 const STAY_OPTIONS = [
     [6,  "6 hrs — ₱999"],
     [10, "10 hrs — ₱1,599"],
@@ -3624,7 +4229,7 @@ function updateStayOptions(keep){
     const sel = document.getElementById("f_stay");
     const checkin = document.getElementById("f_checkin").value;
     const wd = checkin ? new Date(checkin + "T00:00:00").getDay() : 1; // 6 = Saturday
-    const opts = (wd === 6) ? STAY_OPTIONS.filter(o => o[0] === 21) : STAY_OPTIONS;
+    const opts = (wd === 6 && !isAdminUser()) ? STAY_OPTIONS.filter(o => o[0] === 21) : STAY_OPTIONS;
     const want = String(keep != null ? keep : sel.value);
     sel.innerHTML = opts.map(o => `<option value="${o[0]}">${o[1]}</option>`).join("");
     sel.value = opts.some(o => String(o[0]) === want) ? want : String(opts[0][0]);
@@ -3697,30 +4302,24 @@ function onStayChange(){
 function onTimeChange(){ onStayChange(); }
 function onExtendChange(){ recomputeDashCheckout(); recalc(); }
 
-// which 6-hour slots (AM/PM) are still free for a haven on the chosen dates
-function freeSlotsFor(haven, checkin, checkout){
-    return ["morning", "evening"].filter(slot =>
-        !findConflict({ haven, checkin, checkout, stayHours: 6, slot }, editingId));
-}
-
-// show only havens that have room for the chosen stay; for 6h that means
-// at least ONE free slot (so a haven with only a morning booking still shows)
+// show every haven whose chosen TIME WINDOW is free (admin time-based check).
+// So a haven with a 3pm booking still shows for an 8am–2pm 6h booking.
 function updateHavenOptions(){
     const sel = document.getElementById("f_haven");
     const current = sel.value;
     const checkin = document.getElementById("f_checkin").value;
-    const checkout = document.getElementById("f_checkout").value;
     const stayHours = Number(document.getElementById("f_stay").value);
+    const extend = Number(document.getElementById("f_extend").value) || 0;
+    const checkinTime = dashCheckinTimeValue();
 
     let list = HAVENS;
-    if(checkin && checkout){
-        list = (stayHours === 6)
-            ? HAVENS.filter(h => freeSlotsFor(h, checkin, checkout).length > 0)
-            : HAVENS.filter(h => !findConflict({ haven:h, checkin, checkout, stayHours, slot:null }, editingId));
+    if(checkin && checkinTime){
+        list = HAVENS.filter(h =>
+            !findConflictAdmin({ haven:h, checkin, stayHours, extend, checkinTime, slot:null }, editingId));
     }
     sel.innerHTML = list.length
         ? list.map(h => `<option>${h}</option>`).join("")
-        : `<option value="">${stayHours === 6 ? "— Both time slots are booked on every haven —" : "— No haven available for these dates —"}</option>`;
+        : `<option value="">— No haven is free at that time —</option>`;
     if(list.includes(current)) sel.value = current;
     updateSlotOptions();
 }
@@ -3776,7 +4375,9 @@ function openModal(id){
         const b = bookings.find(x => x.id === editingId);
         if(!b) return;
         document.getElementById("modalTitle").textContent = "Edit Booking";
+        document.getElementById("bkEyebrow").textContent = "Reservation #" + b.id;
         setField("f_haven", b.haven);
+        setField("f_fbName", b.fbName || "");
         renderGuestRows(b.guests);
         setField("f_contact", b.contact || "");
         setField("f_checkin", b.checkin);
@@ -3792,9 +4393,12 @@ function openModal(id){
         setField("f_down", b.downpayment || 0);
         setField("f_notes", b.notes || "");
         renderProofPage(b);
+        renderIdPage(b);
     } else {
         document.getElementById("modalTitle").textContent = "Add Booking";
+        document.getElementById("bkEyebrow").textContent = "New Reservation";
         document.getElementById("f_haven").selectedIndex = 0;
+        setField("f_fbName", "");
         renderGuestRows([{name:"",age:""}]);
         setField("f_contact", "");
         setField("f_checkin", iso(today()));
@@ -3810,7 +4414,9 @@ function openModal(id){
         setField("f_down", 0);
         setField("f_notes", "");
         renderProofPage(null);
+        renderIdPage(null);
     }
+    clearSegRows();   // multi-haven rows start empty; add them to extend the stay
     bkGoPage(1);
     onStayChange();
     document.getElementById("overlay").classList.add("show");
@@ -3821,42 +4427,173 @@ function closeModal(){
 }
 
 /* ---------- booking modal: page 2 (proof of payment) ---------- */
-let downProofData = null, addonProofData = null, balProofData = null;
+let downProofData = null, addonProofData = null, balProofData = null, balProofDirty = false;
 function bkGoPage(n){
     document.getElementById("bkPage1").style.display = n === 1 ? "" : "none";
     document.getElementById("bkPage2").style.display = n === 2 ? "" : "none";
+    document.getElementById("bkPage3").style.display = n === 3 ? "" : "none";
     document.getElementById("bkTab1").classList.toggle("active", n === 1);
     document.getElementById("bkTab2").classList.toggle("active", n === 2);
+    document.getElementById("bkTab3").classList.toggle("active", n === 3);
+    const note = document.getElementById("bkFootNote");
+    if(note){ if(n === 3) updateIdFootNote(); else note.innerHTML = ""; }
 }
-function onDownProofChange(input){
-    const f = input.files[0];
-    if(!f) return;
-    resizeImage(f, dataUrl => {
-        downProofData = dataUrl;
-        const img = document.getElementById("downProofImg");
-        img.src = dataUrl; img.style.display = "block";
-        document.getElementById("downProofEmpty").style.display = "none";
-    });
+
+/* ---------- booking modal: page 3 (guest IDs) ---------- */
+let idsData = [];
+const ID_MAX = 6;
+function renderIdPage(b){
+    idsData = (b && Array.isArray(b.ids)) ? b.ids.slice() : [];
+    document.getElementById("f_idOptOut").checked = b ? !!b.idOptOut : false;
+    renderIdGrid();
 }
-function onAddonProofChange(input){
-    const f = input.files[0];
-    if(!f) return;
-    resizeImage(f, dataUrl => {
-        addonProofData = dataUrl;
-        const img = document.getElementById("addonProofImg");
-        img.src = dataUrl; img.style.display = "block";
-        document.getElementById("addonProofEmpty").style.display = "none";
-    });
+// label an ID by its matching guest (e.g. "J. Mercado"), falling back to "ID n"
+function idGuestLabel(i){
+    try{
+        const g = readGuests()[i];
+        if(g && g.name){
+            const parts = g.name.trim().split(/\s+/).filter(Boolean);
+            if(parts.length >= 2) return parts[0][0].toUpperCase() + ". " + parts[parts.length - 1];
+            return g.name;
+        }
+    }catch(e){}
+    return "ID " + (i + 1);
 }
-function onBalProofChange(input){
-    const f = input.files[0];
-    if(!f) return;
+function renderIdGrid(){
+    const grid = document.getElementById("idGrid");
+    const optedOut = document.getElementById("f_idOptOut").checked;
+    let html = "";
+    for(let i = 0; i < ID_MAX; i++){
+        if(i < idsData.length){
+            const bg = String(idsData[i]).replace(/"/g, "%22");
+            html += `<div class="id-slot filled" style="background-image:url('${bg}')">
+                <span class="id-check"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 4.5 4.5L19 7"/></svg></span>
+                <span class="id-del" title="Remove" onclick="event.stopPropagation();removeId(${i})">✕</span>
+                <span class="id-name">${idGuestLabel(i)}</span>
+                <span class="id-zoom" onclick="openProofImg('${bg}')"></span>
+            </div>`;
+        } else if(i === idsData.length){
+            // the first empty slot is the uploader
+            html += `<div class="id-slot add" onclick="document.getElementById('idFileInput').click()">
+                <span class="id-plus">+</span>
+                <span class="id-add-label">Add ID photo</span>
+                <span class="id-choose">Choose file</span>
+                <span class="id-hint">or drop / paste</span>
+            </div>`;
+        } else {
+            html += `<div class="id-slot empty"><span>Empty</span></div>`;
+        }
+    }
+    grid.innerHTML = html;
+    grid.classList.toggle("disabled", optedOut);
+
+    // drag & drop onto the grid (overwrites prior handlers, so no duplicates)
+    grid.ondragover = e => { e.preventDefault(); grid.classList.add("drag"); };
+    grid.ondragleave = e => { if(!grid.contains(e.relatedTarget)) grid.classList.remove("drag"); };
+    grid.ondrop = e => {
+        e.preventDefault();
+        grid.classList.remove("drag");
+        if(optedOut) return;
+        const files = e.dataTransfer && e.dataTransfer.files;
+        if(files && files.length) addIdsFromFiles(files);
+    };
+
+    document.getElementById("bkIdCount").textContent = `${idsData.length} / ${ID_MAX}`;
+    updateIdFootNote();
+}
+function updateIdFootNote(){
+    const note = document.getElementById("bkFootNote");
+    if(!note) return;
+    note.innerHTML = `<span class="dot"></span>${idsData.length} of ${ID_MAX} IDs uploaded`;
+}
+// add one or more image files (from picker, drag-drop, or paste), respecting the cap
+function addIdsFromFiles(files){
+    if(document.getElementById("f_idOptOut").checked){
+        alert('Untick "Guest will send IDs via Facebook instead" to upload IDs.');
+        return;
+    }
+    const imgs = [...files].filter(f => f && /^image\//.test(f.type));
+    if(!imgs.length) return;
+    const room = ID_MAX - idsData.length;
+    if(room <= 0){ alert(`Maximum of ${ID_MAX} IDs.`); return; }
+    if(imgs.length > room) alert(`Only ${room} more ID${room === 1 ? "" : "s"} can be added.`);
+    imgs.slice(0, room).forEach(f => resizeImage(f, dataUrl => {
+        idsData.push(dataUrl);
+        renderIdGrid();
+    }));
+}
+function onIdFileChange(input){
+    if(input.files && input.files.length) addIdsFromFiles(input.files);
+    input.value = "";
+}
+function removeId(i){
+    idsData.splice(i, 1);
+    renderIdGrid();
+}
+// paste an image (Ctrl/Cmd+V) while the IDs or Proof of Payment tab is open
+document.addEventListener("paste", e => {
+    const overlay = document.getElementById("overlay");
+    if(!overlay || !overlay.classList.contains("show")) return;
+    const page2 = document.getElementById("bkPage2");
+    const page3 = document.getElementById("bkPage3");
+    const onIds   = page3 && page3.style.display !== "none";
+    const onProof = page2 && page2.style.display !== "none";
+    if(!onIds && !onProof) return;
+    const items = (e.clipboardData && e.clipboardData.items) || [];
+    const files = [];
+    for(const it of items){
+        if(it.kind === "file" && /^image\//.test(it.type)){
+            const f = it.getAsFile();
+            if(f) files.push(f);
+        }
+    }
+    if(!files.length) return;
+    e.preventDefault();
+    if(onIds) addIdsFromFiles(files);
+    else applyProofFile(proofHoverType || "down", files[0]);   // last hovered card wins
+});
+function setProofName(id, f){
+    const el = document.getElementById(id);
+    if(el) el.textContent = f ? (f.name || "Photo attached") : "No file chosen";
+}
+const PROOF_CFG = {
+    down:  { nameId:"downProofName",  imgId:"downProofImg"  },
+    addon: { nameId:"addonProofName", imgId:"addonProofImg" },
+    bal:   { nameId:"balProofName",   imgId:"balProofImg"   }
+};
+// shared core: accept an image File from the picker, a drop, or a paste
+function applyProofFile(type, f){
+    const cfg = PROOF_CFG[type];
+    if(!cfg || !f || !/^image\//.test(f.type)) return;
+    setProofName(cfg.nameId, f);
     resizeImage(f, dataUrl => {
-        balProofData = dataUrl;
-        const img = document.getElementById("balProofImg");
+        if(type === "down")  downProofData = dataUrl;
+        if(type === "addon") addonProofData = dataUrl;
+        if(type === "bal"){ balProofData = dataUrl; balProofDirty = true; }
+        const img = document.getElementById(cfg.imgId);
         if(img){ img.src = dataUrl; img.style.display = "block"; }
     });
 }
+function onDownProofChange(input){ if(input.files[0]) applyProofFile("down", input.files[0]); }
+function onAddonProofChange(input){ if(input.files[0]) applyProofFile("addon", input.files[0]); }
+function onBalProofChange(input){ if(input.files[0]) applyProofFile("bal", input.files[0]); }
+
+// drag & drop onto any proof-upload card (delegated; bal card is re-rendered)
+let proofHoverType = "down";   // remembered for paste target
+(function initProofDnd(){
+    const page = document.getElementById("bkPage2");
+    if(!page) return;
+    const cardOf = e => e.target && e.target.closest && e.target.closest(".proof-upload");
+    page.addEventListener("mouseover", e => { const c = cardOf(e); if(c && c.dataset.proof) proofHoverType = c.dataset.proof; });
+    page.addEventListener("dragover", e => { const c = cardOf(e); if(!c) return; e.preventDefault(); c.classList.add("drag"); });
+    page.addEventListener("dragleave", e => { const c = cardOf(e); if(c && !c.contains(e.relatedTarget)) c.classList.remove("drag"); });
+    page.addEventListener("drop", e => {
+        const c = cardOf(e); if(!c) return;
+        e.preventDefault(); c.classList.remove("drag");
+        const files = e.dataTransfer && e.dataTransfer.files;
+        if(c.dataset.proof && files && files.length) applyProofFile(c.dataset.proof, files[0]);
+    });
+})();
 function renderProofPage(b){
     // payment summary — total, what's been paid (downpayment + collections), and balance
     const sTotal = b ? Number(b.total || 0) : (Number(document.getElementById("f_total").value) || 0);
@@ -3877,32 +4614,44 @@ function renderProofPage(b){
     const down = b ? (Number(b.downpayment) || 0) : (Number(document.getElementById("f_down").value) || 0);
     const method = (b && b.method) || document.getElementById("f_method").value || "—";
     document.getElementById("downMeta").innerHTML =
-        `Amount: <strong>${peso(down)}</strong> · Method: ${method}`;
+        `<span>Amount <strong>${peso(down)}</strong></span><span>Method <strong>${method}</strong></span>`;
     const dImg = document.getElementById("downProofImg");
-    const dEmpty = document.getElementById("downProofEmpty");
     document.getElementById("downProofFile").value = "";
-    if(downProofData){ dImg.src = downProofData; dImg.style.display = "block"; dEmpty.style.display = "none"; }
-    else { dImg.src = ""; dImg.style.display = "none"; dEmpty.style.display = "block"; }
+    document.getElementById("downProofName").textContent = downProofData ? "Photo attached ✓" : "No file chosen";
+    if(downProofData){ dImg.src = downProofData; dImg.style.display = "block"; }
+    else { dImg.src = ""; dImg.style.display = "none"; }
 
     // split collections by category so each shows in the right section
     const pays = (b && b.payments) || [];
     const balPays   = pays.filter(p => (p.category || "Balance") !== "Add Ons");
     const addonPays = pays.filter(p => p.category === "Add Ons");
 
-    // balance collection (show the latest Balance payment)
-    balProofData = null;
+    // balance section — always offers an upload card (manual channel: b.balanceProof),
+    // and when a Balance collection exists it also shows/replaces that collection's proof
+    balProofData = (b && b.balanceProof) || null;
+    balProofDirty = false;
     const list = document.getElementById("balProofList");
+    const balManual = balProofData;
+    let balMeta, balShown, balDel = "";
     if(balPays.length){
         const p = balPays[balPays.length - 1];
         const more = balPays.length > 1 ? ` <span class="muted">(+${balPays.length - 1} earlier)</span>` : "";
-        list.innerHTML =
-            `<div class="proof-meta">Collected <strong>${peso(p.amount)}</strong> via ${p.mop}${more}<br>${new Date(p.at).toLocaleString("en-PH")} · by ${p.by || "—"}</div>` +
-            `<img id="balProofImg" class="proof-img" src="${p.proof || ""}" style="${p.proof ? "" : "display:none;"}" onclick="openProofImg(this.src)">` +
-            `<label class="proof-upload">${p.proof ? "Replace" : "Upload"} balance proof<input type="file" accept="image/*" onchange="onBalProofChange(this)"></label>` +
-            `<span class="proof-del" onclick="deleteCollection('Balance')">Delete this collection</span>`;
+        balMeta = `<span>Collected <strong>${peso(p.amount)}</strong> via ${p.mop}${more}</span><span>${new Date(p.at).toLocaleString("en-PH")} · by ${p.by || "—"}</span>`;
+        balShown = p.proof || balManual;
+        balDel = `<span class="proof-del" onclick="deleteCollection('Balance')">Delete this collection</span>`;
     } else {
-        list.innerHTML = `<div class="proof-empty">No balance payment recorded yet. Collect it from Today's Booking.</div>`;
+        balMeta = `No balance payment recorded yet. Collect it from <strong>Today's Booking</strong>.`;
+        balShown = balManual;
     }
+    list.innerHTML =
+        `<div class="proof-meta">${balMeta}</div>` +
+        `<img id="balProofImg" class="proof-img" src="${balShown || ""}" style="${balShown ? "" : "display:none;"}" onclick="openProofImg(this.src)">` +
+        `<label class="proof-upload" data-proof="bal">` +
+            `<span class="pu-ico"><svg viewBox="0 0 24 24"><path d="M12 16V5"/><path d="m7 10 5-5 5 5"/><path d="M5 19h14"/></svg></span>` +
+            `<span class="pu-body"><b>Upload balance proof</b><small class="pu-name" id="balProofName">${balShown ? "Photo attached ✓" : "No file chosen"}</small></span>` +
+            `<input type="file" accept="image/*" onchange="onBalProofChange(this)">` +
+        `</label>` +
+        balDel;
 
     // add-ons section: amount summary + latest Add Ons collection (or a manual upload)
     const swimpass = b ? (Number(b.swimpass) || 0) : (Number(document.getElementById("f_swimpass").value) || 0);
@@ -3915,17 +4664,17 @@ function renderProofPage(b){
     addonProofData = (b && b.addonProof) || null;   // manual-upload channel only (persisted on save)
     // show the latest Add Ons collection's proof if any, otherwise the manual upload
     const addonShown = (latestAddonPay && latestAddonPay.proof) ? latestAddonPay.proof : addonProofData;
-    let addonMeta = `Swimpass ${swimpass} · Towels ${towels} · Extend ${extend}h<br>Total: <strong>${peso(addonTotal)}</strong>`;
+    let addonMeta = `<span>Swimpass ${swimpass} · Towels ${towels} · Extend ${extend}h</span><span>Total <strong>${peso(addonTotal)}</strong></span>`;
     if(latestAddonPay){
         const more = addonPays.length > 1 ? ` <span class="muted">(+${addonPays.length - 1} earlier)</span>` : "";
-        addonMeta += `<br>Collected <strong>${peso(latestAddonPay.amount)}</strong> via ${latestAddonPay.mop}${more} · by ${latestAddonPay.by || "—"}`;
+        addonMeta += `<span style="flex-basis:100%">Collected <strong>${peso(latestAddonPay.amount)}</strong> via ${latestAddonPay.mop}${more} · by ${latestAddonPay.by || "—"}</span>`;
     }
     document.getElementById("addonMeta").innerHTML = addonMeta;
     const aImg = document.getElementById("addonProofImg");
-    const aEmpty = document.getElementById("addonProofEmpty");
     document.getElementById("addonProofFile").value = "";
-    if(addonShown){ aImg.src = addonShown; aImg.style.display = "block"; aEmpty.style.display = "none"; }
-    else { aImg.src = ""; aImg.style.display = "none"; aEmpty.style.display = "block"; }
+    document.getElementById("addonProofName").textContent = addonShown ? "Photo attached ✓" : "No file chosen";
+    if(addonShown){ aImg.src = addonShown; aImg.style.display = "block"; }
+    else { aImg.src = ""; aImg.style.display = "none"; }
     document.getElementById("addonDel").style.display = latestAddonPay ? "inline-block" : "none";
 }
 // remove the latest collection of a given category from the booking being edited
@@ -3991,16 +4740,17 @@ function saveBooking(){
         alert("Please enter a valid check-in and check-out date.");
         return;
     }
-    // Saturday check-ins are 21 hours only
+    // Saturday check-ins are 21 hours only — admins are exempt (may book 6h/10h too)
     const checkinWd = new Date(checkin + "T00:00:00").getDay();
     const stayHours = Number(document.getElementById("f_stay").value);
-    if(checkinWd === 6 && stayHours !== 21){
+    if(checkinWd === 6 && stayHours !== 21 && !isAdminUser()){
         alert("Saturday check-ins are 21 hours only.");
         return;
     }
 
     const data = {
         haven: document.getElementById("f_haven").value,
+        fbName: document.getElementById("f_fbName").value.trim(),
         guests,
         contact: document.getElementById("f_contact").value.trim(),
         checkin, checkout,
@@ -4016,7 +4766,10 @@ function saveBooking(){
         downpayment: Number(document.getElementById("f_down").value) || 0,
         notes: document.getElementById("f_notes").value.trim(),
         downProof: downProofData || null,
-        addonProof: addonProofData || null
+        addonProof: addonProofData || null,
+        balanceProof: balProofData || null,
+        ids: idsData.slice(),
+        idOptOut: document.getElementById("f_idOptOut").checked
     };
     data.total = computeTotal(data); // auto-calculated from pricing rules
 
@@ -4025,19 +4778,66 @@ function saveBooking(){
         return;
     }
 
-    // double-booking guard
-    const clash = findConflict(data, editingId);
+    // double-booking guard — time-window based (admin can slot a 6h booking into free hours)
+    const clash = findConflictAdmin(data, editingId);
     if(clash){
-        const both6 = Number(clash.stayHours) === 6 && stayHours === 6;
         alert(
-            `${data.haven} is already booked for these dates by ${primaryName(clash)} ` +
-            `(${fmt(clash.checkin)}${clash.checkout > clash.checkin ? "–" + fmt(clash.checkout) : ""}` +
-            `${clash.slot ? ", " + slotLabel(clash.slot) : ""}).\n\n` +
-            (both6
-                ? "That 6-hour time slot is taken — choose the other slot, or a different haven/date."
-                : "A 10- or 21-hour booking occupies the unit for those dates, so it can't be double-booked.")
+            `${data.haven} is already booked at that time by ${primaryName(clash)} ` +
+            `(${fmt(clash.checkin)} · ${checkinTimeStr(clash)}–${checkoutTimeStr(clash)}).\n\n` +
+            `Choose a check-in time that doesn't overlap, or a different haven/date.`
         );
         return;
+    }
+
+    // ----- additional havens (multi-haven stay): each becomes a linked overnight booking -----
+    const overlapClash = (a, c) => {
+        if(a.haven !== c.haven) return false;
+        const ai = bookingInterval(a), ci = bookingInterval(c);
+        return ci.start < ai.end && ai.start < ci.end;   // real time-window overlap
+    };
+    const segDatas = [];
+    for(const seg of readSegs()){
+        if(!seg.checkout || seg.checkout <= seg.checkin){
+            alert(`The additional haven "${seg.haven}" needs a valid check-in and a later check-out date.`);
+            return;
+        }
+        const sd = {
+            haven: seg.haven,
+            fbName: data.fbName,
+            guests: data.guests,
+            contact: data.contact,
+            checkin: seg.checkin,
+            checkout: seg.checkout,
+            stayHours: 21,             // a haven-night is an overnight stay
+            checkinTime: "2:00 PM",
+            slot: null,
+            swimpass: 0, towels: 0, extend: 0,
+            holiday: data.holiday,
+            deposit: 0,                // security deposit is charged once, on the primary
+            method: data.method,
+            downpayment: 0,
+            notes: data.notes,
+            downProof: null, addonProof: null, balanceProof: null,
+            ids: data.ids, idOptOut: data.idOptOut,
+            source: data.source
+        };
+        sd.total = computeTotal(sd);
+        // can't clash with existing bookings (except the one being edited), the primary, or earlier segments
+        const clashSeg = bookings.find(b => b.id !== editingId && overlapClash(b, sd))
+            || (overlapClash(data, sd) ? data : null)
+            || segDatas.find(s => overlapClash(s, sd));
+        if(clashSeg){
+            alert(`${sd.haven} is already booked for ${fmt(sd.checkin)}–${fmt(sd.checkout)}. Pick a different haven or dates for that segment.`);
+            return;
+        }
+        segDatas.push(sd);
+    }
+    // a shared group id ties all havens of this single stay together
+    let groupId = null;
+    if(segDatas.length){
+        const pb = editingId ? bookings.find(b => b.id === editingId) : null;
+        groupId = (pb && pb.groupId) || ("g" + Date.now());
+        data.groupId = groupId;
     }
 
     if(editingId){
@@ -4045,7 +4845,7 @@ function saveBooking(){
         if(idx !== -1){
             bookings[idx] = { ...bookings[idx], ...data };
             // replace the latest BALANCE collection's proof photo if a new one was chosen
-            if(balProofData){
+            if(balProofDirty && balProofData){
                 const pays = bookings[idx].payments || [];
                 let target = null;
                 for(let k = pays.length - 1; k >= 0; k--){ if((pays[k].category || "Balance") !== "Add Ons"){ target = pays[k]; break; } }
@@ -4061,6 +4861,12 @@ function saveBooking(){
         const newId = bookings.length ? Math.max(...bookings.map(b => b.id)) + 1 : 1;
         bookings.push({ id:newId, ...data });
         logActivity(`added booking — ${data.haven} (${primaryName(data)})`);
+    }
+    // append the linked haven segments as their own bookings
+    if(segDatas.length){
+        let nextId = bookings.length ? Math.max(...bookings.map(b => b.id)) : 0;
+        segDatas.forEach(sd => { nextId += 1; bookings.push({ id: nextId, ...sd, groupId }); });
+        logActivity(`linked ${segDatas.length} more haven(s) to this stay — ${segDatas.map(s => s.haven).join(", ")}`);
     }
     save(bookings);
     closeModal();
@@ -4079,7 +4885,7 @@ function showPage(page){
     localStorage.setItem("shph_dashboard_page", page);   // remember across refreshes
     // breadcrumb in the top bar
     const CRUMB = {
-        today:["Main","Today's Booking"], calendar:["Main","Calendar & Bookings"], approval:["Main","Booking Approval"],
+        today:["Main","Today's Booking"], calendar:["Main","Calendar & Bookings"], approval:["Front Desk","Booking Approval"], paymentapproval:["Front Desk","Payment Approval"], deposit:["Front Desk","Security Deposit"],
         havens:["Property","Havens"], booking:["Property","Rates & Add-ons"], cleaners:["Property","Housekeeping"],
         finance:["Finance","Finance"], payments:["Finance","Payments"], payroll:["Finance","Payroll"],
         bills:["Finance","Bills"], analytics:["Finance","Analytics"],
@@ -4092,6 +4898,8 @@ function showPage(page){
     // the timeline needs the element visible to measure cell widths
     if(page === "today") renderToday();
     if(page === "approval") renderApproval();
+    if(page === "paymentapproval") renderPaymentApproval();
+    if(page === "deposit") renderDeposit();
     if(page === "calendar") renderTimeline();
     if(page === "analytics" && typeof renderAnalytics === "function") renderAnalytics();
     if(page === "users" && typeof renderUsers === "function") renderUsers();
@@ -4180,6 +4988,200 @@ document.addEventListener("click", e => {
     if(pop && pop.classList.contains("show") && !e.target.closest(".dp-wrap")) closeAssistPicker();
 });
 
+/* ---------- Security Deposit: check-outs + deposit to return on a date ---------- */
+function renderDeposit(){
+    const inp = document.getElementById("depositDate");
+    if(!inp) return;
+    if(!inp.value) inp.value = iso(today());
+    sdUpdateLabel();
+    const d = inp.value;
+    // keep the Yesterday/Today segment in sync with the chosen date
+    const todayIso = iso(today()), ydayIso = iso(addDays(today(), -1));
+    document.querySelectorAll("#depSeg button").forEach(x => {
+        const dv = x.dataset.d === "today" ? todayIso : ydayIso;
+        x.classList.toggle("active", d === dv);
+    });
+
+    const list = bookings.filter(b => b.checkout === d).sort((a, b) => a.haven.localeCompare(b.haven));
+    const body = document.getElementById("depositBody");
+    body.innerHTML = list.length ? list.map(b => {
+        const dot = (HAVEN_COLORS[b.haven] || { am:"#ccc" }).am;
+        const dep = Number(b.deposit || 0);
+        const returned = !!b.depositReturned;
+        let statusCell;
+        if(dep > 0){
+            if(returned){
+                const mopTxt = b.depositMop ? " · " + b.depositMop : "";
+                const pill = `<span class="dep-status returned" style="cursor:pointer;" onclick="openDepReturn(${b.id})" title="View / manage refund">✓ Returned${mopTxt}</span>`;
+                statusCell = `<div class="dep-cell">${pill}<button class="btn secondary" onclick="undoDeposit(${b.id})">↺ Undo</button></div>`;
+            } else {
+                statusCell = `<div class="dep-cell"><span class="dep-status held">To return</span><button class="btn" onclick="openDepReturn(${b.id})">Mark returned</button></div>`;
+            }
+        } else {
+            statusCell = `<span class="muted">No deposit</span>`;
+        }
+        return `<tr>
+            <td><span class="dot" style="background:${dot}"></span>${b.haven}</td>
+            <td>${primaryName(b)}${b.fbName ? `<br><span class="muted">FB: ${b.fbName}</span>` : ""}</td>
+            <td>${b.contact || "—"}</td>
+            <td>${fmt(b.checkout)} · <span class="muted">${checkoutTimeStr(b)}</span></td>
+            <td class="dep-amt">${dep > 0 ? peso(dep) : "—"}</td>
+            <td>${statusCell}</td>
+        </tr>`;
+    }).join("") : `<tr><td colspan="6" class="empty">No check-outs on this date.</td></tr>`;
+
+    const toReturn = list.reduce((s, b) => s + (b.depositReturned ? 0 : Number(b.deposit || 0)), 0);
+    document.getElementById("depositTotal").innerHTML =
+        `<div class="card"><h3>Check-outs</h3><div class="number">${list.length}</div></div>` +
+        `<div class="card"><h3>Deposit still to return</h3><div class="number money">${peso(toReturn)}</div></div>`;
+}
+function setDepQuick(which){
+    document.getElementById("depositDate").value = which === "today" ? iso(today()) : iso(addDays(today(), -1));
+    renderDeposit();
+}
+// undo a return — clears the proof so re-marking requires a fresh photo
+function undoDeposit(id){
+    const b = bookings.find(x => x.id === id);
+    if(!b) return;
+    b.depositReturned = false;
+    delete b.depositProof; delete b.depositReturnedAt; delete b.depositReturnedBy;
+    save(bookings);
+    logActivity(`un-returned security deposit — ${b.haven} (${primaryName(b)})`);
+    renderDeposit();
+}
+function viewDepProof(id){ const b = bookings.find(x => x.id === id); if(b && b.depositProof) openProofImg(b.depositProof); }
+
+/* ----- Security Deposit: refund-proof modal (proof required to mark returned) ----- */
+let depReturnId = null, depProofData = null;
+function openDepReturn(id){
+    const b = bookings.find(x => x.id === id);
+    if(!b) return;
+    const returned = !!b.depositReturned;
+    depReturnId = id;
+    depProofData = b.depositProof || null;   // keep existing proof when managing a returned one
+    document.getElementById("depRetEyebrow").textContent = "Reservation #" + id;
+    document.getElementById("depRetTitle").textContent = returned ? "Manage Security Deposit" : "Return Security Deposit";
+    document.getElementById("depRetInfo").innerHTML =
+        `<strong>${b.haven}</strong> — ${primaryName(b)}<br>Deposit to return: <strong>${peso(b.deposit || 0)}</strong>`;
+    document.getElementById("depMop").value = b.depositMop || "Cash";
+    document.getElementById("depProofName").textContent = depProofData ? "Photo attached ✓" : "No file chosen";
+    document.getElementById("depProofFile").value = "";
+    const prev = document.getElementById("depProofPreview");
+    if(depProofData){ prev.src = depProofData; prev.style.display = "block"; }
+    else { prev.src = ""; prev.style.display = "none"; }
+    const confirmBtn = document.getElementById("depConfirmBtn");
+    confirmBtn.disabled = !depProofData;
+    confirmBtn.textContent = returned ? "Update" : "Mark returned";
+    document.getElementById("depUndoBtn").style.display = returned ? "inline-block" : "none";
+    document.getElementById("depOverlay").classList.add("show");
+}
+function undoFromModal(){
+    const id = depReturnId;
+    closeDepReturn();
+    if(id != null) undoDeposit(id);
+}
+function closeDepReturn(){
+    depReturnId = null; depProofData = null;
+    document.getElementById("depOverlay").classList.remove("show");
+}
+function applyDepProof(f){
+    if(!f || !/^image\//.test(f.type)) return;
+    document.getElementById("depProofName").textContent = f.name || "Photo attached";
+    resizeImage(f, dataUrl => {
+        depProofData = dataUrl;
+        const prev = document.getElementById("depProofPreview");
+        prev.src = dataUrl; prev.style.display = "block";
+        document.getElementById("depConfirmBtn").disabled = false;
+    });
+}
+function onDepProofChange(input){ if(input.files[0]) applyDepProof(input.files[0]); }
+function confirmDepReturn(){
+    if(depReturnId == null) return;
+    if(!depProofData){ alert("Please attach a photo of the refunded security deposit first."); return; }
+    const b = bookings.find(x => x.id === depReturnId);
+    if(!b) return;
+    b.depositReturned = true;
+    b.depositProof = depProofData;
+    b.depositMop = document.getElementById("depMop").value;
+    b.depositReturnedAt = new Date().toISOString();
+    b.depositReturnedBy = currentUser();
+    save(bookings);
+    logActivity(`returned security deposit — ${b.haven} (${primaryName(b)}) · ${peso(b.deposit || 0)} via ${b.depositMop}`);
+    closeDepReturn();
+    renderDeposit();
+}
+// drag & drop onto the refund-proof card
+(function initDepDnd(){
+    const card = document.getElementById("depUploadCard");
+    if(!card) return;
+    card.addEventListener("dragover", e => { e.preventDefault(); card.classList.add("drag"); });
+    card.addEventListener("dragleave", e => { if(!card.contains(e.relatedTarget)) card.classList.remove("drag"); });
+    card.addEventListener("drop", e => {
+        e.preventDefault(); card.classList.remove("drag");
+        const f = e.dataTransfer && e.dataTransfer.files;
+        if(f && f.length) applyDepProof(f[0]);
+    });
+})();
+// paste an image while the refund modal is open
+document.addEventListener("paste", e => {
+    const ov = document.getElementById("depOverlay");
+    if(!ov || !ov.classList.contains("show")) return;
+    const items = (e.clipboardData && e.clipboardData.items) || [];
+    for(const it of items){
+        if(it.kind === "file" && /^image\//.test(it.type)){
+            const f = it.getAsFile();
+            if(f){ e.preventDefault(); applyDepProof(f); return; }
+        }
+    }
+});
+/* Security Deposit: custom single-date picker (matches the other tabs) */
+let sdDpMonth = null;
+function openDepPicker(e){
+    if(e) e.stopPropagation();
+    const pop = document.getElementById("sdDpPopup");
+    if(pop.classList.contains("show")){ closeDepPicker(); return; }
+    const cur = document.getElementById("depositDate").value || iso(today());
+    const base = new Date(cur + "T00:00:00");
+    sdDpMonth = new Date(base.getFullYear(), base.getMonth(), 1);
+    sdRenderPicker();
+    pop.classList.add("show");
+}
+function closeDepPicker(){ const p = document.getElementById("sdDpPopup"); if(p) p.classList.remove("show"); }
+function sdPickerNav(dir){ sdDpMonth = new Date(sdDpMonth.getFullYear(), sdDpMonth.getMonth() + dir, 1); sdRenderPicker(); }
+function sdRenderPicker(){
+    const y = sdDpMonth.getFullYear(), m = sdDpMonth.getMonth();
+    document.getElementById("sdDpTitle").textContent = MONTHS[m] + " " + y;
+    const startDay = new Date(y, m, 1).getDay(), dim = new Date(y, m + 1, 0).getDate();
+    const sel = document.getElementById("depositDate").value, todayIso = iso(today());
+    let html = "";
+    ["Su","Mo","Tu","We","Th","Fr","Sa"].forEach(d => html += `<div class="dp-wd">${d}</div>`);
+    for(let i = 0; i < startDay; i++) html += `<div class="dp-day empty"></div>`;
+    for(let d = 1; d <= dim; d++){
+        const ci = iso(new Date(y, m, d));
+        let cls = "dp-day";
+        if(ci === todayIso) cls += " today";
+        if(ci === sel) cls += " sel";
+        html += `<div class="${cls}" onclick="sdPickDay('${ci}')"><span class="n">${d}</span></div>`;
+    }
+    document.getElementById("sdDpGrid").innerHTML = html;
+}
+function sdPickDay(ci){
+    document.getElementById("depositDate").value = ci;
+    sdUpdateLabel();
+    closeDepPicker();
+    renderDeposit();
+}
+function sdUpdateLabel(){
+    const lbl = document.getElementById("depositDateLabel");
+    const v = document.getElementById("depositDate").value;
+    if(lbl) lbl.textContent = v ? fmt(v) : "Pick a date";
+}
+function sdDpToday(){ sdPickDay(iso(today())); }
+document.addEventListener("click", e => {
+    const pop = document.getElementById("sdDpPopup");
+    if(pop && pop.classList.contains("show") && !e.target.closest(".dp-wrap")) closeDepPicker();
+});
+
 /* ---------- init ---------- */
 function fillHavenSelectors(){
     const opts = HAVENS.map(h => `<option>${h}</option>`).join("");
@@ -4208,6 +5210,7 @@ function renderAll(){
     renderTimeline();
     renderTable();
     if(typeof updateApprovalBadge === "function") updateApprovalBadge();
+    if(typeof updatePaymentApprovalBadge === "function") updatePaymentApprovalBadge();
 }
 
 fillHavenSelectors();
@@ -5603,13 +6606,13 @@ function anDelta(d){
     return `<div class="delta"><span class="pct${up ? "" : " down"}">${up ? "↑ +" : "↓ "}${d}%</span><span>vs last month</span></div>`;
 }
 
+let anPeriod = "month";   // day | week | month | year | custom
 function renderAnalytics(){
     HAVENS = havenNames();
-    const period = (document.getElementById("anMonth") || {}).value || "12m";
     const t = today();
 
     // money collected in a calendar month "YYYY-MM"
-    const incOf = ym => bookings.filter(b => b.checkin && b.checkin.slice(0,7) === ym).reduce((s,b) => s + paidOf(b), 0);
+    const incOf = ym => bookings.filter(b => b.checkin && b.checkin.slice(0,7) === ym).reduce((s,b) => s + netCollectedOf(b), 0);
     const billsOf = ym => bills.filter(b => b.due && b.due.slice(0,7) === ym).reduce((s,b) => s + Number(b.amount||0), 0);
     const payOf  = ym => staff.reduce((s,st) => s + staffGross(st, ym), 0);
     const bkCntOf = ym => bookings.filter(b => b.checkin && b.checkin.slice(0,7) === ym).length;
@@ -5624,22 +6627,22 @@ function renderAnalytics(){
     const cur = series[11], prev = series[10] || { inc:0, exp:0, bk:0 };
     const pct = (a, b) => b ? Math.round((a - b) / b * 1000) / 10 : null;
 
-    // scope window for the cards
-    let fromYm, toYm, scopeText;
-    if(period === "all"){
-        const ms = [...bookings.map(b => b.checkin), ...bills.map(b => b.due)].filter(Boolean).map(d => d.slice(0,7)).sort();
-        fromYm = ms[0] || iso(t).slice(0,7); toYm = iso(t).slice(0,7); scopeText = "all time";
-    } else if(period === "ytd"){
-        fromYm = t.getFullYear() + "-01"; toYm = iso(t).slice(0,7); scopeText = "this year";
-    } else {
-        fromYm = series[0].ym; toYm = series[11].ym; scopeText = "last 12 months";
-    }
-    const months = anMonthsBetween(fromYm, toYm);
-    const inWin = d => d && d.slice(0,7) >= fromYm && d.slice(0,7) <= toYm;
+    // scope window for the cards (day-level so Daily/Weekly work precisely)
+    const tIso = iso(t);
+    let startIso, endIso, scopeText;
+    if(anPeriod === "day"){ startIso = endIso = tIso; scopeText = "today · " + fmt(tIso); }
+    else if(anPeriod === "week"){ startIso = iso(addDays(t, -6)); endIso = tIso; scopeText = "last 7 days"; }
+    else if(anPeriod === "year"){ startIso = t.getFullYear() + "-01-01"; endIso = tIso; scopeText = "this year"; }
+    else if(anPeriod === "custom" && anRangeStart){
+        startIso = anRangeStart; endIso = anRangeEnd || anRangeStart;
+        scopeText = fmt(startIso) + (startIso === endIso ? "" : " – " + fmt(endIso));
+    } else { startIso = iso(new Date(t.getFullYear(), t.getMonth(), 1)); endIso = tIso; scopeText = "this month"; }   // monthly (default)
+    const months = anMonthsBetween(startIso.slice(0,7), endIso.slice(0,7));
+    const inWin = d => d && d >= startIso && d <= endIso;
 
     const bk = bookings.filter(b => inWin(b.checkin));
     const bl = bills.filter(b => inWin(b.due));
-    const collected   = Math.round(bk.reduce((s,b) => s + paidOf(b), 0));
+    const collected   = Math.round(bk.reduce((s,b) => s + netCollectedOf(b), 0));
     const receivables = Math.round(bk.reduce((s,b) => s + balanceOf(b), 0));
     const billsTotal  = Math.round(bl.reduce((s,b) => s + Number(b.amount||0), 0));
     const billsPaid   = bl.filter(b => b.paid).reduce((s,b) => s + Number(b.amount||0), 0);
@@ -5697,7 +6700,7 @@ function renderAnalytics(){
     // ---- revenue by haven ----
     const havenRev = HAVENS.map(h => ({
         label: h,
-        value: Math.round(bk.filter(b => b.haven === h).reduce((s,b) => s + paidOf(b), 0)),
+        value: Math.round(bk.filter(b => b.haven === h).reduce((s,b) => s + netCollectedOf(b), 0)),
         color: havenColors(h).am
     })).filter(x => x.value > 0).sort((a,b) => b.value - a.value);
     document.getElementById("anHavenRevenue").innerHTML =
@@ -5721,6 +6724,99 @@ function renderAnalytics(){
         <div class="sub-h">Bills by haven / category</div>
         ${havenBills.length ? anHBars(havenBills, havenBills.reduce((s,x) => s + x.value, 0)) : `<p class="muted">No bills yet.</p>`}`;
 }
+function setAnPeriod(p){
+    anPeriod = p;
+    document.querySelectorAll("#anSeg button").forEach(x => x.classList.toggle("active", x.dataset.p === p));
+    const r = document.getElementById("anRange");
+    if(r) r.style.display = p === "custom" ? "inline-flex" : "none";
+    renderAnalytics();
+}
+
+/* ---------- Analytics: custom date-range picker (up to a year) ---------- */
+const AN_MAX_RANGE = 366;
+let anRangeStart = null, anRangeEnd = null;
+let anDpMonth = null, anDpPending = null, anDpHover = null;
+function openAnPicker(e){
+    if(e) e.stopPropagation();
+    const pop = document.getElementById("anDpPopup");
+    if(pop.classList.contains("show")){ closeAnPicker(); return; }
+    anDpPending = null; anDpHover = null;
+    const base = anRangeStart ? new Date(anRangeStart + "T00:00:00") : today();
+    anDpMonth = new Date(base.getFullYear(), base.getMonth(), 1);
+    anRenderPicker();
+    pop.classList.add("show");
+}
+function closeAnPicker(){ anDpPending = null; anDpHover = null; const p = document.getElementById("anDpPopup"); if(p) p.classList.remove("show"); }
+function anPickerNav(dir){ anDpMonth = new Date(anDpMonth.getFullYear(), anDpMonth.getMonth() + dir, 1); anRenderPicker(); }
+function anHighlightRange(){
+    if(anDpPending){
+        let end = (anDpHover && anDpHover >= anDpPending) ? anDpHover : anDpPending;
+        if(daysBetween(anDpPending, end) > AN_MAX_RANGE - 1) end = iso(addDays(new Date(anDpPending + "T00:00:00"), AN_MAX_RANGE - 1));
+        return { start: anDpPending, end };
+    }
+    if(anRangeStart) return { start: anRangeStart, end: anRangeEnd || anRangeStart };
+    return { start: null, end: null };
+}
+function anRenderPicker(){
+    const y = anDpMonth.getFullYear(), m = anDpMonth.getMonth();
+    document.getElementById("anDpTitle").textContent = MONTHS[m] + " " + y;
+    const startDay = new Date(y, m, 1).getDay();
+    const daysInMonth = new Date(y, m + 1, 0).getDate();
+    const todayIso = iso(today());
+    let html = "";
+    ["Su","Mo","Tu","We","Th","Fr","Sa"].forEach(d => html += `<div class="dp-wd">${d}</div>`);
+    for(let i = 0; i < startDay; i++) html += `<div class="dp-day empty"></div>`;
+    for(let d = 1; d <= daysInMonth; d++){
+        const cellIso = iso(new Date(y, m, d));
+        let cls = "dp-day"; if(cellIso === todayIso) cls += " today";
+        html += `<div class="${cls}" data-iso="${cellIso}" onclick="anPickDay('${cellIso}')" onmouseover="anHoverDay('${cellIso}')"><span class="n">${d}</span></div>`;
+    }
+    document.getElementById("anDpGrid").innerHTML = html;
+    anUpdateHighlight();
+}
+function anUpdateHighlight(){
+    const { start, end } = anHighlightRange();
+    document.querySelectorAll("#anDpGrid .dp-day").forEach(cell => {
+        cell.classList.remove("sel","range-start","range-end","in-range");
+        const ci = cell.dataset.iso; if(!ci || !start) return;
+        if(ci === start && ci === end) cell.classList.add("sel");
+        else if(ci === start) cell.classList.add("sel","range-start");
+        else if(ci === end) cell.classList.add("sel","range-end");
+        else if(ci > start && ci < end) cell.classList.add("in-range");
+    });
+    document.getElementById("anDpHint").textContent = anDpPending
+        ? "Now click an end date (up to a year), or the same day for a single date"
+        : "Click a start date, then an end date for a range";
+}
+function anPickDay(cellIso){
+    if(!anDpPending){ anDpPending = cellIso; anDpHover = cellIso; anUpdateHighlight(); return; }
+    if(cellIso < anDpPending){ anDpPending = cellIso; anUpdateHighlight(); return; }
+    let endIso = cellIso;
+    if(daysBetween(anDpPending, endIso) > AN_MAX_RANGE - 1) endIso = iso(addDays(new Date(anDpPending + "T00:00:00"), AN_MAX_RANGE - 1));
+    anApplyRange(anDpPending, endIso);
+}
+function anHoverDay(cellIso){ if(!anDpPending) return; anDpHover = cellIso; anUpdateHighlight(); }
+function anApplyRange(startIso, endIso){
+    anRangeStart = startIso; anRangeEnd = endIso;
+    anPeriod = "custom";
+    document.querySelectorAll("#anSeg button").forEach(x => x.classList.toggle("active", x.dataset.p === "custom"));
+    closeAnPicker();
+    anUpdateRangeLabel();
+    renderAnalytics();
+}
+function anUpdateRangeLabel(){
+    const lbl = document.getElementById("anRangeLabel");
+    if(!lbl) return;
+    lbl.textContent = anRangeStart
+        ? (anRangeStart === anRangeEnd ? fmt(anRangeStart) : fmt(anRangeStart) + " – " + fmt(anRangeEnd))
+        : "Pick dates";
+}
+function anDpToday(){ anApplyRange(iso(today()), iso(today())); }
+function anDpClear(){ anRangeStart = null; anRangeEnd = null; closeAnPicker(); anUpdateRangeLabel(); renderAnalytics(); }
+document.addEventListener("click", e => {
+    const pop = document.getElementById("anDpPopup");
+    if(pop && pop.classList.contains("show") && !e.target.closest(".dp-wrap")) closeAnPicker();
+});
 renderAnalytics();
 
 /* ---------- cleaners / housekeeping ---------- */
@@ -6655,6 +7751,8 @@ const USERS_KEY = "shph_users";
 const DASH_PAGES = [
     { key:"today",     label:"Today's Booking" },
     { key:"approval",  label:"Booking Approval" },
+    { key:"paymentapproval", label:"Payment Approval" },
+    { key:"deposit",   label:"Security Deposit" },
     { key:"finance",   label:"Finance" },
     { key:"analytics", label:"Analytics" },
     { key:"calendar",  label:"Calendar/Bookings" },

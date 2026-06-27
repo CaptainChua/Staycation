@@ -96,23 +96,60 @@
   .paid-tag{ color:#2e7d4f; font-size:12px; font-weight:700; }
   .edit-pay{ color:#2b6cb0; cursor:pointer; font-size:12px; margin-left:10px; }
   .edit-pay:hover{ text-decoration:underline; }
-  .pay-list-title{ font-size:12px; font-weight:700; color:#888; margin:12px 0 6px; }
-  .pay-list-item{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px; border:1px solid #eee; border-radius:8px; margin-bottom:6px; font-size:13px; }
-  .pay-list-item.active{ border-color:#ff385c; background:#fff5f7; }
-  .pay-list-item .pli-main{ cursor:pointer; flex:1; }
-  .pay-list-item .pli-del{ color:#c0283d; cursor:pointer; font-size:12px; }
   .muted{ color:#999; font-size:12px; }
+  .hv-dot{ display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:7px; vertical-align:middle; }
 
   /* payment popup */
   .overlay{ position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; align-items:center; justify-content:center; z-index:60; }
   .overlay.show{ display:flex; }
-  .modal{ background:#fff; border-radius:16px; padding:24px 26px; width:400px; max-width:92vw; box-shadow:0 20px 50px rgba(0,0,0,.25); }
-  .modal h3{ margin:0 0 14px; font-size:19px; }
-  .modal label{ display:block; font-size:12px; color:#777; margin:14px 0 5px; font-weight:600; }
-  .modal select, .modal input[type=file], .modal input[type=number], .modal input[type=date], .modal input[type=text]{ width:100%; padding:10px; border:1px solid #d9d9d9; border-radius:8px; font-family:inherit; font-size:14px; background:#fafafa; }
-  .modal select:focus, .modal input:focus{ outline:none; border-color:#ff385c; background:#fff; }
-  .pay-info{ background:#f7f7f8; border-radius:10px; padding:12px 14px; font-size:14px; line-height:1.5; }
-  .pay-preview{ width:150px; height:150px; object-fit:cover; margin-top:10px; border-radius:8px; display:none; border:1px solid #eee; cursor:zoom-in; }
+  .modal{ position:relative; background:#fff; border-radius:18px; padding:24px 26px; width:420px; max-width:92vw; box-shadow:0 20px 50px rgba(0,0,0,.25); }
+  .modal-x{ position:absolute; top:15px; right:15px; width:30px; height:30px; border-radius:8px; background:#f3ede4; color:#7a6a55; font-size:13px; line-height:30px; text-align:center; cursor:pointer; transition:background .12s; }
+  .modal-x:hover{ background:#e8ded0; }
+  .modal-eyebrow{ font-size:11px; font-weight:700; letter-spacing:1.2px; color:var(--hv-terra); text-transform:uppercase; margin-bottom:3px; }
+  .modal-eyebrow:empty{ display:none; }
+  .modal h3{ margin:0 0 14px; font-size:22px; font-family:'Playfair Display',Georgia,serif; font-weight:700; color:var(--hv-ink); }
+  .modal label{ display:block; font-size:12.5px; color:var(--hv-ink); margin:16px 0 6px; font-weight:700; }
+  .modal label .lbl-muted{ color:var(--hv-muted); font-weight:500; }
+  .modal select, .modal input[type=number], .modal input[type=date], .modal input[type=text]{ width:100%; padding:11px 13px; border:1px solid var(--hv-line); border-radius:11px; font-family:inherit; font-size:14px; color:var(--hv-ink); background-color:var(--hv-cream); }
+  .modal select{ appearance:none; -webkit-appearance:none; padding-right:34px;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23bd6e3f' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position:right 12px center; background-size:13px; }
+  .modal select:focus, .modal input:focus{ outline:none; border-color:var(--hv-terra); background-color:#fff; }
+  /* warm summary panel */
+  .pay-info{ background:#faf3ea; border:1px solid #f0e2cf; border-radius:14px; padding:14px 16px; }
+  .pay-info .pi-head{ font-size:15px; color:var(--hv-ink); }
+  .pay-info .pi-head strong{ font-weight:700; }
+  .pay-info .pi-guest{ color:var(--hv-muted); }
+  .pay-info .pi-stats{ display:flex; margin:12px 0 12px; }
+  .pay-info .pi-stat{ flex:1; display:flex; flex-direction:column; gap:3px; }
+  .pay-info .pi-stat + .pi-stat{ border-left:1px solid #ecdcc8; padding-left:18px; }
+  .pay-info .pi-label{ font-size:10.5px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; color:#a3937e; }
+  .pay-info .pi-val{ font-size:19px; font-weight:700; }
+  .pay-info .pi-val.paid{ color:#3f9e6a; }
+  .pay-info .pi-val.bal{ color:var(--hv-terra); }
+  .pay-info .pi-bar{ height:7px; border-radius:4px; background:#ecdcc8; overflow:hidden; }
+  .pay-info .pi-bar span{ display:block; height:100%; background:#3f9e6a; border-radius:4px; transition:width .2s; }
+  /* payments-made list */
+  .pay-list-title{ font-size:13px; font-weight:700; color:var(--hv-muted); margin:16px 0 8px; }
+  .pay-list-title .plt-count{ color:var(--hv-terra); }
+  .pay-list-item{ display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid var(--hv-line); border-radius:11px; margin-bottom:8px; font-size:13px; background:#fff; }
+  .pay-list-item.active{ border-color:var(--hv-terra); background:#faf1e8; }
+  .pay-list-item .pli-check{ flex:none; width:28px; height:28px; border-radius:8px; background:#e7f3ec; color:#3f9e6a; display:flex; align-items:center; justify-content:center; }
+  .pay-list-item .pli-check svg{ width:14px; height:14px; fill:none; stroke:currentColor; stroke-width:3; }
+  .pay-list-item .pli-main{ cursor:pointer; flex:1; min-width:0; color:var(--hv-ink); }
+  .pay-list-item .pli-main strong{ font-weight:700; }
+  .pay-list-item .pli-main small{ display:block; color:var(--hv-muted); font-size:12px; margin-top:1px; }
+  .pay-list-item .pli-del{ color:#c0283d; cursor:pointer; font-size:12px; flex:none; }
+  /* styled proof upload card */
+  .pay-upload{ display:flex !important; align-items:center; gap:12px; border:1.5px dashed #d9b48f; border-radius:12px; padding:12px 14px; cursor:pointer; background:#fff; transition:background .12s,border-color .12s; }
+  .pay-upload:hover, .pay-upload.drag{ background:#fdf7ef; border-color:var(--hv-terra); }
+  .pay-upload input{ display:none; }
+  .pay-upload .pu-ico{ flex:none; width:38px; height:38px; border-radius:10px; background:var(--hv-terra); color:#fff; display:flex; align-items:center; justify-content:center; }
+  .pay-upload .pu-ico svg{ width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:2; }
+  .pay-upload .pu-body{ min-width:0; }
+  .pay-upload .pu-body b{ display:block; font-size:13px; color:var(--hv-terra); font-weight:700; }
+  .pay-upload .pu-name{ display:block; font-size:12px; color:var(--hv-muted); margin-top:1px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .pay-preview{ width:140px; height:140px; object-fit:cover; margin-top:10px; border-radius:11px; display:none; border:1px solid var(--hv-line); cursor:zoom-in; }
   .modal-actions{ display:flex; justify-content:flex-end; gap:10px; margin-top:20px; }
   /* full-size proof viewer */
   .img-lightbox{ position:fixed; inset:0; background:rgba(0,0,0,.85); display:none; align-items:center; justify-content:center; z-index:120; cursor:zoom-out; }
@@ -262,7 +299,11 @@
   <div class="nav-group">Main</div>
   <div class="nav-item active" data-page="today"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/><path d="m9 15 2 2 4-4"/></svg></span> Today's Booking</div>
   <div class="nav-item" data-page="calendar" onclick="goPage('calendar')"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg></span> Calendar/Bookings</div>
+
+  <div class="nav-group">Front Desk</div>
   <div class="nav-item" data-page="approval" onclick="goPage('approval')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M20 12V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6"/><path d="M9 9h6M9 13h3"/><path d="m15 18 2 2 4-4"/></svg></span> Booking Approval <span class="nav-badge" id="approvalBadge"></span></div>
+  <div class="nav-item" data-page="paymentapproval" onclick="goPage('paymentapproval')"><span class="ico"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="m14 16 1.6 1.6L19 14"/></svg></span> Payment Approval <span class="nav-badge" id="paymentApprovalBadge"></span></div>
+  <div class="nav-item" data-page="deposit" onclick="goPage('deposit')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v5c0 5 3.4 8.3 8 10 4.6-1.7 8-5 8-10V6Z"/><path d="m9 12 2 2 4-4"/></svg></span> Security Deposit</div>
 
   <div class="nav-group">Property</div>
   <div class="nav-item" data-page="havens" onclick="goPage('havens')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M3 21V9l9-6 9 6v12"/><path d="M9 21v-6h6v6"/></svg></span> Havens</div>
@@ -440,6 +481,8 @@
 <!-- payment / collection popup -->
 <div class="overlay" id="payOverlay">
   <div class="modal">
+    <span class="modal-x" onclick="closePay()" title="Close">✕</span>
+    <div class="modal-eyebrow" id="payEyebrow"></div>
     <h3 id="payTitle">Record Payment</h3>
     <div class="pay-info" id="payInfo"></div>
 
@@ -451,13 +494,13 @@
       <option value="Add Ons">Add Ons</option>
     </select>
 
-    <label for="payAmount">Amount collected (₱)</label>
+    <label for="payAmount">Amount collected <span class="lbl-muted">(₱)</span></label>
     <input type="number" id="payAmount" min="0" placeholder="0">
 
     <label for="payDate">Date collected</label>
     <input type="date" id="payDate">
 
-    <label for="payMop">MOP (Mode of Payment)</label>
+    <label for="payMop">MOP <span class="lbl-muted">(Mode of Payment)</span></label>
     <select id="payMop">
       <option value="Cash">Cash</option>
       <option value="GCash">GCash</option>
@@ -467,8 +510,12 @@
       <option value="Others">Others</option>
     </select>
 
-    <label for="payFile">Proof of Payment (photo)</label>
-    <input type="file" id="payFile" accept="image/*" onchange="onProofChange(this)">
+    <label>Proof of Payment <span class="lbl-muted">(photo)</span></label>
+    <label class="pay-upload">
+      <span class="pu-ico"><svg viewBox="0 0 24 24"><path d="M12 16V5"/><path d="m7 10 5-5 5 5"/><path d="M5 19h14"/></svg></span>
+      <span class="pu-body"><b>Choose file</b><small class="pu-name" id="payFileName">No file chosen</small></span>
+      <input type="file" id="payFile" accept="image/*" onchange="onProofChange(this)">
+    </label>
     <img id="payPreview" class="pay-preview" alt="proof" onclick="openProofImg(this.src)">
 
     <div class="modal-actions">
@@ -532,6 +579,30 @@
     return d.toLocaleDateString("en-PH", {month:"short", day:"numeric"});
   }
   function peso(n){ return "₱" + Number(n).toLocaleString("en-PH"); }
+
+  /* ---------- haven colour scheme (matches the calendar legend) ---------- */
+  const HAVEN_COLORS = {
+    "Haven 1":    { am:"#d9bdf5", pm:"#b98ee6" },
+    "Haven 2":    { am:"#fde68a", pm:"#ecca4e" },
+    "Haven 3":    { am:"#bcbcbc", pm:"#8c8c8c" },
+    "Haven 4":    { am:"#bcf3cf", pm:"#84dca0" },
+    "Haven 5":    { am:"#bcd0fb", pm:"#7ea6f4" },
+    "Haven 7":    { am:"#aef0f7", pm:"#66d8e8" },
+    "Haven 8":    { am:"#fcd0e7", pm:"#f5a3d0" },
+    "CasaBienca": { am:"#cdff8f", pm:"#a8ec5c" },
+    "CasaSiesta": { am:"#ffd2a8", pm:"#f5ab68" }
+  };
+  function havenPastel(name){
+    let h = 0; for(let i=0;i<name.length;i++) h = (h*31 + name.charCodeAt(i)) % 360;
+    return { am:`hsl(${h} 70% 80%)`, pm:`hsl(${h} 60% 66%)` };
+  }
+  function havenColors(name){ return HAVEN_COLORS[name] || (HAVEN_COLORS[name] = havenPastel(name)); }
+  // a darker, text-legible shade of the haven's colour
+  function havenInk(name){
+    const c = havenColors(name);
+    // CSS color-mix darkens the pastel for readable text while staying on-scheme
+    return `color-mix(in srgb, ${c.pm} 78%, #2f2a25)`;
+  }
 
   /* ---------- check-in / check-out times ---------- */
   function parseTimeMin(str){
@@ -608,7 +679,7 @@
         : (over > 0 ? `<span style="color:#2e9e5b; font-weight:700;">+${peso(over)} over</span>` : '<span class="muted">—</span>');
     const addonLink = canAddBooking() ? ` <span class="edit-pay" onclick="openAddon(${b.id})">+ Add-ons</span>` : "";
     return `<tr>
-        <td><strong>${b.haven}</strong></td>
+        <td><strong style="color:${havenInk(b.haven)};"><span class="hv-dot" style="background:${havenColors(b.haven).pm};"></span>${b.haven}</strong></td>
         <td>${guestSummary(b)}<br><span class="muted">${b.contact||""}</span></td>
         <td>${fmt(b.checkin)}<br><span class="muted">${checkinTimeStr(b)}</span></td>
         <td>${fmt(b.checkout)}<br><span class="muted">${checkoutTimeStr(b)}</span></td>
@@ -658,6 +729,13 @@
     bookings = loadBookings();
     const _ab = document.getElementById("approvalBadge");
     if(_ab){ const n = bookings.filter(b => b.approved !== true).length; _ab.textContent = n ? String(n) : ""; }
+    const _pab = document.getElementById("paymentApprovalBadge");
+    if(_pab){
+      const todayIso = iso(today());
+      let pn = 0;
+      bookings.forEach(b => (b.payments || []).forEach(p => { if(p && p.at && iso(new Date(p.at)) === todayIso && p.approved !== true) pn++; }));
+      _pab.textContent = pn ? String(pn) : "";
+    }
     const { start, end } = viewRange();
     const single = (currentView === "today" || currentView === "tomorrow" || currentView === "yesterday");
     const suffix = currentView === "today" ? "today" : currentView === "tomorrow" ? "tomorrow"
@@ -828,6 +906,14 @@
   /* ---------- payment / collection popup ---------- */
   let payBookingId = null, payProof = null, payEditing = false, payEditIndex = -1;
 
+  // show the downpayment's uploaded proof photo (recorded on the booking) in the lightbox
+  function viewDownProof(id){
+    const b = bookings.find(x => x.id === id);
+    if(b && b.downProof) openProofImg(b.downProof);
+    else uhOhNoProof();
+  }
+  function uhOhNoProof(){ alert("No downpayment proof was uploaded for this booking."); }
+
   // list of all payments made for this booking
   function renderPayList(b){
     const el = document.getElementById("payList");
@@ -835,18 +921,23 @@
     const dp = Number(b && b.downpayment) || 0;
     const count = pays.length + (dp > 0 ? 1 : 0);
     if(!count){ el.innerHTML = ""; return; }
-    let html = `<div class="pay-list-title">Payments made (${count})</div>`;
+    const check = `<span class="pli-check"><svg viewBox="0 0 24 24"><path d="m5 12 4.5 4.5L19 7"/></svg></span>`;
+    let html = `<div class="pay-list-title">Payments made <span class="plt-count">(${count})</span></div>`;
     if(dp > 0){
+      const hasProof = !!b.downProof;
       html += `<div class="pay-list-item">
-          <span class="pli-main"><strong>${peso(dp)}</strong> · Downpayment · ${b.method || "—"}
-            <span class="muted"> — upfront (edit in booking)</span></span>
+          ${check}
+          <span class="pli-main" ${hasProof ? `onclick="viewDownProof(${b.id})" style="cursor:zoom-in;"` : ""}><strong>${peso(dp)}</strong> · Downpayment · ${b.method || "—"}
+            <small>upfront (edit in booking)${hasProof ? " · tap to view proof" : ""}</small></span>
+          ${hasProof ? `<span class="pli-del" style="color:#2b6cb0;" onclick="viewDownProof(${b.id})">View</span>` : ""}
         </div>`;
     }
     html += pays.map((p, i) => `
         <div class="pay-list-item ${i === payEditIndex ? "active" : ""}">
+          ${check}
           <span class="pli-main" onclick="loadPayInto(${i})">
             <strong>${peso(p.amount)}</strong> · ${p.category || "Balance"} · ${p.mop}
-            <span class="muted"> — ${new Date(p.at).toLocaleString("en-PH", {month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})}${p.by ? " · " + p.by : ""}</span>
+            <small>${new Date(p.at).toLocaleString("en-PH", {month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})}${p.by ? " · " + p.by : ""}</small>
           </span>
           <span class="pli-del" onclick="deletePaymentAt(${i})">Delete</span>
         </div>`).join("");
@@ -856,12 +947,14 @@
   function fillPayForm(b, p){
     const prev = document.getElementById("payPreview");
     document.getElementById("payFile").value = "";
+    const nameEl = document.getElementById("payFileName");
     if(p){
       document.getElementById("payAmount").value = Number(p.amount) || 0;
       document.getElementById("payMop").value = p.mop || "Cash";
       document.getElementById("payFor").value = p.category || "Balance";
       document.getElementById("payDate").value = p.at ? iso(new Date(p.at)) : iso(today());
       payProof = p.proof || null;
+      if(nameEl) nameEl.textContent = payProof ? "Photo attached ✓" : "No file chosen";
       if(payProof){ prev.src = payProof; prev.style.display = "block"; } else { prev.src = ""; prev.style.display = "none"; }
     } else {
       document.getElementById("payAmount").value = balanceOf(b);
@@ -869,6 +962,7 @@
       document.getElementById("payFor").value = "Balance";
       document.getElementById("payDate").value = iso(today());
       payProof = null; prev.src = ""; prev.style.display = "none";
+      if(nameEl) nameEl.textContent = "No file chosen";
     }
   }
   function updatePayButtons(editingExisting){
@@ -888,7 +982,17 @@
   }
   function payInfoLine(b){
     const guest = (b.guests && b.guests[0] && b.guests[0].name) || "";
-    return `<strong>${b.haven}</strong> — ${guest}<br>Collected: <strong>${peso(collectedSum(b))}</strong> · Balance: <strong>${peso(balanceOf(b))}</strong>`;
+    const collected = paidOf(b);          // total received = downpayment + later collections
+    const balance = balanceOf(b);
+    const total = Number(b.total || 0) || (collected + balance);
+    const pct = total > 0 ? Math.max(0, Math.min(100, Math.round(collected / total * 100))) : 0;
+    return `
+      <div class="pi-head"><strong>${b.haven}</strong> <span class="pi-guest">— ${guest}</span></div>
+      <div class="pi-stats">
+        <div class="pi-stat"><span class="pi-label">Collected</span><span class="pi-val paid">${peso(collected)}</span></div>
+        <div class="pi-stat"><span class="pi-label">Balance</span><span class="pi-val bal">${peso(balance)}</span></div>
+      </div>
+      <div class="pi-bar"><span style="width:${pct}%"></span></div>`;
   }
 
   function openPay(id, edit){
@@ -896,6 +1000,7 @@
     const b = bookings.find(x => x.id === id);
     if(!b) return;
     const pays = b.payments || [];
+    document.getElementById("payEyebrow").textContent = "Reservation #" + b.id;
     document.getElementById("payInfo").innerHTML = payInfoLine(b);
     if(edit && pays.length){
       payEditIndex = pays.length - 1; payEditing = true;
@@ -977,15 +1082,45 @@
     };
     reader.readAsDataURL(file);
   }
-  function onProofChange(input){
-    const f = input.files[0];
-    if(!f){ payProof = null; return; }
+  // shared: accept an image File from the picker, a drop, or a paste
+  function applyPayProofFile(f){
+    if(!f || !/^image\//.test(f.type)) return;
+    const nameEl = document.getElementById("payFileName");
+    if(nameEl) nameEl.textContent = f.name || "Photo attached";
     resizeImage(f, dataUrl => {
       payProof = dataUrl;
       const prev = document.getElementById("payPreview");
       prev.src = payProof; prev.style.display = "block";
     });
   }
+  function onProofChange(input){
+    if(input.files[0]) applyPayProofFile(input.files[0]);
+    else payProof = null;
+  }
+  // drag & drop onto the upload card
+  (function initPayProofDnd(){
+    const card = document.querySelector("#payOverlay .pay-upload");
+    if(!card) return;
+    card.addEventListener("dragover", e => { e.preventDefault(); card.classList.add("drag"); });
+    card.addEventListener("dragleave", e => { if(!card.contains(e.relatedTarget)) card.classList.remove("drag"); });
+    card.addEventListener("drop", e => {
+      e.preventDefault(); card.classList.remove("drag");
+      const files = e.dataTransfer && e.dataTransfer.files;
+      if(files && files.length) applyPayProofFile(files[0]);
+    });
+  })();
+  // paste an image (Ctrl/Cmd+V) while the Record Payment popup is open
+  document.addEventListener("paste", e => {
+    const ov = document.getElementById("payOverlay");
+    if(!ov || !ov.classList.contains("show")) return;
+    const items = (e.clipboardData && e.clipboardData.items) || [];
+    for(const it of items){
+      if(it.kind === "file" && /^image\//.test(it.type)){
+        const f = it.getAsFile();
+        if(f){ e.preventDefault(); applyPayProofFile(f); return; }
+      }
+    }
+  });
   function savePay(again){
     const bookingId = payBookingId;
     if(payBookingId == null) return;

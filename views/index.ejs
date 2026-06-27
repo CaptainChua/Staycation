@@ -283,6 +283,27 @@
         co.textContent = selEnd ? fmtField(selEnd) : "dd/mm/yyyy";
         ci.classList.toggle("empty", !selStart);
         co.classList.toggle("empty", !selEnd);
+
+        updateStayHours();
+    }
+
+    // When the stay spans 2+ nights, inject a "N nights" option and auto-select it.
+    function updateStayHours(){
+        const sel = document.getElementById("searchHours");
+        if(!sel) return;
+        const prev = sel.querySelector("option[data-nights]");
+        if(prev) prev.remove();
+        if(selStart && selEnd){
+            const nights = Math.round((isoToDate(selEnd) - isoToDate(selStart)) / 86400000);
+            if(nights >= 2){
+                const opt = document.createElement("option");
+                opt.value = "nights:" + nights;
+                opt.textContent = nights + " nights";
+                opt.setAttribute("data-nights", nights);
+                sel.appendChild(opt);
+                sel.value = opt.value;
+            }
+        }
     }
 
     // close when clicking outside
