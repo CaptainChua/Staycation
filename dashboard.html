@@ -2453,10 +2453,13 @@ tbody tr:hover{ background:#fafafa; }
             </div>
 
             <div class="field full">
-                <label>Additional havens <span class="muted">(multi-haven stay — each becomes a linked booking)</span></label>
+                <label>More nights / havens <span class="muted">(multi-night or multi-haven stay — each becomes a linked booking)</span></label>
                 <div id="segList"></div>
-                <button type="button" class="btn secondary add-guest" onclick="addSegRow()">+ Add another haven</button>
-                <div class="breakdown">Use this when the guest moves havens during their stay (e.g. Haven 8 on Jun 27–28, then Haven 7 on Jun 28–29). Each row is saved as its own overnight booking, priced on its own, and linked to this reservation.</div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <button type="button" class="btn secondary add-guest" style="flex:1 1 180px;" onclick="addNightRow()">+ Add another night</button>
+                    <button type="button" class="btn secondary add-guest" style="flex:1 1 180px;" onclick="addSegRow()">+ Add another haven</button>
+                </div>
+                <div class="breakdown"><b>Add another night</b> = same haven, next date (e.g. guest staying Jun 28–30 → one night Jun 28–29 + add a night Jun 29–30). <b>Add another haven</b> = guest moves to a different haven. Each row is saved as its own overnight booking, priced on its own, and linked to this reservation.</div>
             </div>
 
             <div class="field">
@@ -4292,6 +4295,21 @@ function addSegRow(){
     const used = new Set([document.getElementById("f_haven").value, ...[...rows].map(r => r.querySelector(".seg-haven").value)]);
     const nextHaven = HAVENS.find(h => !used.has(h)) || HAVENS[0];
     list.insertAdjacentHTML("beforeend", segRowHtml({ haven:nextHaven, checkin:ci, checkout:co }));
+}
+// another NIGHT in the SAME haven (multi-night stay): keep the last haven, continue the dates
+function addNightRow(){
+    const list = document.getElementById("segList");
+    let lastDate = document.getElementById("f_checkout").value;
+    let lastHaven = document.getElementById("f_haven").value;
+    const rows = list.querySelectorAll(".seg-row");
+    if(rows.length){
+        const last = rows[rows.length - 1];
+        const lc = last.querySelector(".seg-checkout").value; if(lc) lastDate = lc;
+        const lh = last.querySelector(".seg-haven").value;    if(lh) lastHaven = lh;
+    }
+    const ci = lastDate || iso(today());
+    const co = iso(addDays(new Date(ci + "T00:00:00"), 1));
+    list.insertAdjacentHTML("beforeend", segRowHtml({ haven:lastHaven, checkin:ci, checkout:co }));
 }
 function removeSegRow(el){ el.closest(".seg-row").remove(); }
 // when a segment check-in changes, keep its check-out at least the next day
