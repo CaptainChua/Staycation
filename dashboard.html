@@ -675,7 +675,8 @@ tbody tr:hover{ background:#fafafa; }
 
 /* guest rows in the form */
 .guest-row-edit{ display:flex; gap:8px; margin-bottom:8px; align-items:center; }
-.guest-row-edit .g-name{ flex:2; }
+.guest-row-edit .g-first{ flex:2; }
+.guest-row-edit .g-last{ flex:2; }
 .guest-row-edit .g-age{ flex:1; }
 .guest-row-edit input{ padding:10px; border:1px solid #ddd; border-radius:9px; font-size:13px; }
 .g-remove{
@@ -3571,9 +3572,18 @@ let editingId = null;
 function setField(id, val){ document.getElementById(id).value = val; }
 
 // guest rows
+function splitGuestName(name){
+    const parts = (name || "").trim().split(/\s+/).filter(Boolean);
+    if(parts.length === 0) return { first:"", last:"" };
+    if(parts.length === 1) return { first:parts[0], last:"" };
+    return { first: parts.slice(0, -1).join(" "), last: parts[parts.length - 1] };
+}
 function guestRowHtml(name, age){
+    const n = splitGuestName(name);
+    const esc = s => (s||"").replace(/"/g,'&quot;');
     return `<div class="guest-row-edit">
-        <input class="g-name" type="text" placeholder="Guest name" value="${(name||"").replace(/"/g,'&quot;')}" oninput="recalc()">
+        <input class="g-first" type="text" placeholder="First name" value="${esc(n.first)}" oninput="recalc()">
+        <input class="g-last" type="text" placeholder="Last name" value="${esc(n.last)}" oninput="recalc()">
         <input class="g-age" type="number" min="0" placeholder="Age" value="${age===0?0:(age||"")}" oninput="recalc()">
         <span class="g-remove" onclick="removeGuestRow(this)" title="Remove">✕</span>
     </div>`;
@@ -3595,8 +3605,10 @@ function removeGuestRow(el){
 function readGuests(){
     return [...document.querySelectorAll("#guestList .guest-row-edit")].map(r => {
         const ageRaw = r.querySelector(".g-age").value.trim();
+        const first = r.querySelector(".g-first").value.trim();
+        const last  = r.querySelector(".g-last").value.trim();
         return {
-            name: r.querySelector(".g-name").value.trim(),
+            name: (first + " " + last).trim(),
             age: ageRaw === "" ? null : Number(ageRaw)
         };
     }).filter(g => g.name);
