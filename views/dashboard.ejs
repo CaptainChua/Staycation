@@ -1126,25 +1126,50 @@ tbody tr:hover{ background:#fafafa; }
   .sidebar.perms-pending .nav-group{ display:none; }
 </style>
 
-<!-- ===== Clean mobile navigation drawer (desktop is untouched) ===== -->
+<!-- ===== Mobile top bar + page dropdown (desktop is untouched) ===== -->
 <style>
-  .mobile-menu-btn{ display:none; position:fixed; top:12px; left:12px; z-index:50; width:44px; height:44px; border:none; border-radius:10px; background:#2a2421; color:#fff; align-items:center; justify-content:center; box-shadow:0 3px 10px rgba(0,0,0,.25); cursor:pointer; }
-  .mobile-menu-btn svg{ width:22px; height:22px; stroke:#fff; fill:none; stroke-width:2; stroke-linecap:round; }
-  .sidebar-backdrop{ display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:39; }
+  .m-topbar{ display:none; }
+  .m-navsearch{ display:none; width:calc(100% - 8px); margin:4px 4px 10px; padding:10px 13px; border:none; border-radius:10px; background:rgba(255,255,255,.08); color:#fff; font-size:14px; font-family:inherit; }
+  .m-navsearch::placeholder{ color:#9b8f84; }
+  .sidebar-backdrop{ display:none; position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:44; }
   @media (max-width:760px){
-    body{ padding:66px 14px 28px 14px !important; }
-    .sidebar{ position:fixed !important; left:0; top:0; width:264px !important; height:100vh !important; display:block !important; transform:translateX(-100%); transition:transform .25s ease; margin:0 !important; padding:18px 0 !important; overflow-y:auto; z-index:40; }
-    .sidebar.open{ transform:translateX(0); box-shadow:0 0 50px rgba(0,0,0,.55); }
-    .sidebar .brand{ width:auto !important; }
-    .sidebar .nav-item{ width:auto !important; border-radius:0 !important; }
-    .mobile-menu-btn{ display:flex; }
-    body.nav-open .mobile-menu-btn{ display:none; }
+    body{ padding:70px 12px 28px 12px !important; }
+    .m-topbar{ display:flex; align-items:center; gap:10px; position:fixed; top:0; left:0; right:0; height:60px; padding:9px 12px; background:#2a2421; z-index:46; }
+    .m-logo{ width:42px; height:42px; border-radius:11px; background:#fff; display:flex; align-items:center; justify-content:center; flex:none; overflow:hidden; font-weight:800; color:#bd6e3f; }
+    .m-logo img{ width:100%; height:100%; object-fit:contain; padding:4px; }
+    .m-pagepick{ flex:1; min-width:0; display:flex; align-items:center; gap:9px; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.13); border-radius:12px; padding:6px 12px; color:#fff; cursor:pointer; font-family:inherit; }
+    .m-pp-ico{ flex:none; width:20px; height:20px; }
+    .m-pp-ico svg{ width:20px; height:20px; stroke:#d2935f; fill:none; stroke-width:1.8; }
+    .m-pp-text{ flex:1; min-width:0; text-align:left; }
+    .m-pp-eyebrow{ display:block; font-size:9px; letter-spacing:1.3px; color:#b9a999; text-transform:uppercase; line-height:1.2; }
+    .m-pp-name{ display:block; font-size:14px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.3; }
+    .m-pp-caret{ flex:none; width:18px; height:18px; stroke:#c9b9ab; fill:none; stroke-width:2; transition:transform .2s; }
+    body.nav-open .m-pp-caret{ transform:rotate(180deg); }
+    .m-add{ flex:none; width:44px; height:44px; border:none; border-radius:12px; background:#bd6e3f; color:#fff; font-size:26px; line-height:1; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+    .sidebar{ position:fixed !important; top:64px; left:10px; right:10px; width:auto !important; height:auto !important; max-height:calc(100vh - 80px); overflow-y:auto; display:block !important; border-radius:16px; margin:0 !important; padding:8px 8px 12px !important; z-index:45; box-shadow:0 18px 50px rgba(0,0,0,.5); transform:translateY(-10px); opacity:0; pointer-events:none; transition:opacity .18s ease, transform .18s ease; }
+    .sidebar.open{ transform:translateY(0); opacity:1; pointer-events:auto; }
+    .sidebar .brand{ display:none !important; }
+    .m-navsearch{ display:block; }
+    .sidebar .nav-group{ display:block !important; }
+    .sidebar .nav-item{ width:auto !important; border-radius:10px !important; }
+    .sidebar .nav-item.active{ background:rgba(189,110,63,.20) !important; color:#fff !important; }
+    .sidebar .nav-item.active::after{ content:""; margin-left:auto; flex:none; width:18px; height:18px; background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23d2935f' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12 5 5 9-9'/%3E%3C/svg%3E") center/contain no-repeat; }
     .sidebar-backdrop.show{ display:block; }
+    /* the new top bar replaces the breadcrumb + add-booking, so hide those on mobile */
+    #appTopbar .crumb{ display:none; }
+    #appTopbar #addBookingBtn{ display:none; }
+    #appTopbar{ justify-content:flex-end; }
   }
 </style>
-<button class="mobile-menu-btn" id="mobileMenuBtn" onclick="toggleSidebar()" aria-label="Menu">
-  <svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
-</button>
+<div class="m-topbar" id="mTopbar">
+  <span class="m-logo"><img src="images/logo.png" alt="S" onerror="this.parentNode.textContent='S'"></span>
+  <button class="m-pagepick" onclick="toggleSidebar()">
+    <span class="m-pp-ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/><path d="m9 15 2 2 4-4"/></svg></span>
+    <span class="m-pp-text"><span class="m-pp-eyebrow">Current Page</span><span class="m-pp-name" id="mCurrentPage">Dashboard</span></span>
+    <svg class="m-pp-caret" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
+  </button>
+  <button class="m-add" onclick="openModal()" aria-label="Add booking">+</button>
+</div>
 <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeSidebar()"></div>
 <script>
   function toggleSidebar(){
@@ -1153,13 +1178,27 @@ tbody tr:hover{ background:#fafafa; }
     var open=sb.classList.toggle('open');
     if(bd) bd.classList.toggle('show', open);
     document.body.classList.toggle('nav-open', open);
+    if(!open){ var s=document.getElementById('mNavSearch'); if(s){ s.value=''; filterNav(''); } }
   }
   function closeSidebar(){
     var sb=document.querySelector('.sidebar'); if(sb) sb.classList.remove('open');
     var bd=document.getElementById('sidebarBackdrop'); if(bd) bd.classList.remove('show');
     document.body.classList.remove('nav-open');
   }
-  // tapping a menu item closes the drawer so the content is visible
+  function filterNav(q){
+    q=(q||'').toLowerCase().trim();
+    document.querySelectorAll('.sidebar .nav-item').forEach(function(it){
+      it.style.display = (!q || it.textContent.toLowerCase().indexOf(q)!==-1) ? '' : 'none';
+    });
+    document.querySelectorAll('.sidebar .nav-group').forEach(function(g){
+      var sib=g.nextElementSibling, any=false;
+      while(sib && !(sib.classList && sib.classList.contains('nav-group'))){
+        if(sib.classList && sib.classList.contains('nav-item') && sib.style.display!=='none'){ any=true; break; }
+        sib=sib.nextElementSibling;
+      }
+      g.style.display = (!q || any) ? '' : 'none';
+    });
+  }
   document.addEventListener('click', function(e){
     if(window.innerWidth<=760 && e.target.closest && e.target.closest('.sidebar .nav-item')) closeSidebar();
   });
@@ -1171,6 +1210,7 @@ tbody tr:hover{ background:#fafafa; }
         <img class="hv-logo" src="images/logo.png" alt="Staycation Haven PH" onerror="this.outerHTML='&lt;span class=\'hv-logo\'&gt;S&lt;/span&gt;'">
         <span class="hv-brandtext">Staycation<small>HAVEN PH</small></span>
     </div>
+    <input type="text" class="m-navsearch" id="mNavSearch" placeholder="Jump to a page…" oninput="filterNav(this.value)" autocomplete="off">
 
     <div class="nav-group">Main</div>
     <div class="nav-item active" data-page="today" onclick="window.location.href='todaysbooking.html'"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/><path d="m9 15 2 2 4-4"/></svg></span> Today's Booking</div>
@@ -4961,6 +5001,8 @@ function showPage(page){
     const cg = document.getElementById("crumbGroup"), cp = document.getElementById("crumbPage");
     if(cg) cg.textContent = cr[0];
     if(cp) cp.textContent = cr[1];
+    const mcp = document.getElementById("mCurrentPage");   // mobile top-bar page name
+    if(mcp) mcp.textContent = cr[1];
     // the timeline needs the element visible to measure cell widths
     if(page === "today") renderToday();
     if(page === "approval") renderApproval();
