@@ -2259,6 +2259,22 @@ tbody tr:hover{ background:#fafafa; }
         <div class="modal-eyebrow" id="depRetEyebrow"></div>
         <h2 id="depRetTitle" style="margin-bottom:14px;">Return Security Deposit</h2>
         <div class="proof-meta" id="depRetInfo" style="display:block;"></div>
+        <p class="muted" style="margin:14px 0 6px; font-weight:700; color:var(--hv-ink);">Deduction <span style="color:var(--hv-muted); font-weight:500;">(if any)</span></p>
+        <select id="depDeduct" class="dep-mop" onchange="depRecalcRefund()">
+            <option value="">None — full refund</option>
+            <option value="Damage">Damage</option>
+            <option value="Smoking">Smoking</option>
+            <option value="Others">Others</option>
+        </select>
+        <div id="depDeductRow" style="display:none;">
+            <p class="muted" style="margin:12px 0 6px; font-weight:700; color:var(--hv-ink);">Amount to deduct / cost <span style="color:var(--hv-muted); font-weight:500;">(₱)</span></p>
+            <input type="number" id="depDeductAmt" class="dep-num" min="0" value="0" oninput="depRecalcRefund()">
+            <div id="depOthersRow" style="display:none;">
+                <p class="muted" style="margin:12px 0 6px; font-weight:700; color:var(--hv-ink);">Note</p>
+                <input type="text" id="depDeductNote" class="dep-num" placeholder="Describe the deduction">
+            </div>
+        </div>
+        <div class="dep-refund" id="depRefundBox">Amount to refund <strong id="depRefundVal">₱0</strong></div>
         <p class="muted" style="margin:14px 0 6px; font-weight:700; color:var(--hv-ink);">MOP <span style="color:var(--hv-muted); font-weight:500;">(Mode of refund)</span></p>
         <select id="depMop" class="dep-mop">
             <option value="Cash">Cash</option>
@@ -2284,6 +2300,10 @@ tbody tr:hover{ background:#fafafa; }
   #depConfirmBtn:disabled{ opacity:.45; cursor:not-allowed; }
   #depOverlay select.dep-mop{ width:100%; padding:11px 13px; border:1px solid var(--hv-line); border-radius:11px; font-size:14px; font-family:inherit; color:var(--hv-ink); background:#faf6ef; }
   #depOverlay select.dep-mop:focus{ outline:none; border-color:var(--hv-terra); background:#fff; }
+  #depOverlay input.dep-num{ width:100%; padding:11px 13px; border:1px solid var(--hv-line); border-radius:11px; font-size:14px; font-family:inherit; color:var(--hv-ink); background:#faf6ef; }
+  #depOverlay input.dep-num:focus{ outline:none; border-color:var(--hv-terra); background:#fff; }
+  #depOverlay .dep-refund{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:14px; padding:12px 14px; background:#e7f3ec; border:1px solid #cfe8d8; border-radius:12px; font-size:13px; color:#2e7d4f; font-weight:600; }
+  #depOverlay .dep-refund strong{ font-size:18px; color:#2e7d4f; }
 </style>
 
 <!-- Add booking modal -->
@@ -2880,7 +2900,12 @@ function collectedSum(b){ return (b.payments || []).reduce((s,p) => s + (Number(
 function paidOf(b){ return Number(b.downpayment || 0) + collectedSum(b); }
 function balanceOf(b){ return Math.max(0, Number(b.total || 0) - paidOf(b)); }
 // revenue actually kept = everything paid, minus a security deposit that's been returned to the guest
-function netCollectedOf(b){ return paidOf(b) - (b.depositReturned ? Number(b.deposit || 0) : 0); }
+function netCollectedOf(b){
+    if(!b.depositReturned) return paidOf(b);
+    // only the amount actually refunded leaves revenue; any deduction (damage/smoking) is kept
+    const refund = (b.depositRefundAmount != null) ? Number(b.depositRefundAmount) : Number(b.deposit || 0);
+    return paidOf(b) - refund;
+}
 function statusOf(b){
     const paid = paidOf(b);
     if(paid >= b.total && b.total > 0) return "paid";
@@ -5025,7 +5050,9 @@ function renderDeposit(){
             <td>${primaryName(b)}${b.fbName ? `<br><span class="muted">FB: ${b.fbName}</span>` : ""}</td>
             <td>${b.contact || "—"}</td>
             <td>${fmt(b.checkout)} · <span class="muted">${checkoutTimeStr(b)}</span></td>
-            <td class="dep-amt">${dep > 0 ? peso(dep) : "—"}</td>
+            <td class="dep-amt">${dep > 0 ? peso(dep) : "—"}${(dep > 0 && returned && Number(b.depositDeductAmount) > 0)
+                ? `<br><span class="muted" style="font-weight:500;">Refunded ${peso(b.depositRefundAmount)} · −${peso(b.depositDeductAmount)} ${b.depositDeductReason}</span>`
+                : ""}</td>
             <td>${statusCell}</td>
         </tr>`;
     }).join("") : `<tr><td colspan="6" class="empty">No check-outs on this date.</td></tr>`;
@@ -5045,6 +5072,7 @@ function undoDeposit(id){
     if(!b) return;
     b.depositReturned = false;
     delete b.depositProof; delete b.depositReturnedAt; delete b.depositReturnedBy;
+    delete b.depositDeductReason; delete b.depositDeductAmount; delete b.depositDeductNote; delete b.depositRefundAmount;
     save(bookings);
     logActivity(`un-returned security deposit — ${b.haven} (${primaryName(b)})`);
     renderDeposit();
@@ -5052,18 +5080,33 @@ function undoDeposit(id){
 function viewDepProof(id){ const b = bookings.find(x => x.id === id); if(b && b.depositProof) openProofImg(b.depositProof); }
 
 /* ----- Security Deposit: refund-proof modal (proof required to mark returned) ----- */
-let depReturnId = null, depProofData = null;
+let depReturnId = null, depProofData = null, depCurrentDeposit = 0;
+// recompute "amount to refund" = deposit − deduction, and toggle the deduction fields
+function depRecalcRefund(){
+    const reason = document.getElementById("depDeduct").value;
+    document.getElementById("depDeductRow").style.display = reason ? "block" : "none";
+    document.getElementById("depOthersRow").style.display = reason === "Others" ? "block" : "none";
+    const cost = reason ? (Number(document.getElementById("depDeductAmt").value) || 0) : 0;
+    const refund = Math.max(0, depCurrentDeposit - cost);
+    document.getElementById("depRefundVal").textContent = peso(refund);
+    return refund;
+}
 function openDepReturn(id){
     const b = bookings.find(x => x.id === id);
     if(!b) return;
     const returned = !!b.depositReturned;
     depReturnId = id;
+    depCurrentDeposit = Number(b.deposit || 0);
     depProofData = b.depositProof || null;   // keep existing proof when managing a returned one
     document.getElementById("depRetEyebrow").textContent = "Reservation #" + id;
     document.getElementById("depRetTitle").textContent = returned ? "Manage Security Deposit" : "Return Security Deposit";
     document.getElementById("depRetInfo").innerHTML =
-        `<strong>${b.haven}</strong> — ${primaryName(b)}<br>Deposit to return: <strong>${peso(b.deposit || 0)}</strong>`;
+        `<strong>${b.haven}</strong> — ${primaryName(b)}<br>Deposit held: <strong>${peso(b.deposit || 0)}</strong>`;
     document.getElementById("depMop").value = b.depositMop || "Cash";
+    document.getElementById("depDeduct").value = b.depositDeductReason || "";
+    document.getElementById("depDeductAmt").value = (b.depositDeductAmount != null) ? b.depositDeductAmount : 0;
+    document.getElementById("depDeductNote").value = b.depositDeductNote || "";
+    depRecalcRefund();
     document.getElementById("depProofName").textContent = depProofData ? "Photo attached ✓" : "No file chosen";
     document.getElementById("depProofFile").value = "";
     const prev = document.getElementById("depProofPreview");
@@ -5100,13 +5143,21 @@ function confirmDepReturn(){
     if(!depProofData){ alert("Please attach a photo of the refunded security deposit first."); return; }
     const b = bookings.find(x => x.id === depReturnId);
     if(!b) return;
+    const reason = document.getElementById("depDeduct").value;
+    const cost = reason ? (Number(document.getElementById("depDeductAmt").value) || 0) : 0;
+    const refund = Math.max(0, Number(b.deposit || 0) - cost);
     b.depositReturned = true;
     b.depositProof = depProofData;
     b.depositMop = document.getElementById("depMop").value;
+    b.depositDeductReason = reason || "";
+    b.depositDeductAmount = cost;
+    b.depositDeductNote = reason === "Others" ? document.getElementById("depDeductNote").value.trim() : "";
+    b.depositRefundAmount = refund;
     b.depositReturnedAt = new Date().toISOString();
     b.depositReturnedBy = currentUser();
     save(bookings);
-    logActivity(`returned security deposit — ${b.haven} (${primaryName(b)}) · ${peso(b.deposit || 0)} via ${b.depositMop}`);
+    const dedTxt = cost > 0 ? ` (−${peso(cost)} ${reason})` : "";
+    logActivity(`returned security deposit — ${b.haven} (${primaryName(b)}) · refunded ${peso(refund)}${dedTxt} via ${b.depositMop}`);
     closeDepReturn();
     renderDeposit();
 }

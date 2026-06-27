@@ -1,0 +1,9 @@
+{
+  "version": 2,
+  "buildCommand": "node tools/build-views.js",
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/index" },
+    { "source": "/images/(.*)", "destination": "/api/index" },
+    { "source": "/((?!_next|favicon.ico).*)", "destination": "/api/index" }
+  ]
+}

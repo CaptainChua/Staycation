@@ -24,6 +24,18 @@ app.set("views", path.join(__dirname, "views"));
 
 app.use(express.json({ limit: "25mb" })); // QR images are base64 data URLs → allow large bodies
 
+// On serverless hosts (e.g. Vercel) there is no long-lived process, so make sure
+// the data store is initialised before the first request. The promise is cached,
+// so init() actually runs only once per warm instance.
+let _storeReady = null;
+function ensureStore() {
+  if (!_storeReady) _storeReady = store.init();
+  return _storeReady;
+}
+app.use((req, res, next) => {
+  ensureStore().then(() => next()).catch(next);
+});
+
 // Allow the old file:// page (and any device) to push data to the API.
 app.use("/api", (req, res, next) => {
   res.set("Access-Control-Allow-Origin", "*");
@@ -109,14 +121,20 @@ app.get("/", renderPage("index"));
 app.use(express.static(path.join(__dirname, "public")));
 app.use("/images", express.static(path.join(__dirname, "images")));
 
-// Load the data backend (Firestore or local JSON file) before serving.
-store.init()
-  .then(() => {
-    app.listen(PORT, () => {
-      console.log(`Staycation Haven PH running →  http://localhost:${PORT}`);
+// Run a normal long-lived server only when started directly (local / VPS).
+// On Vercel the app is imported as a serverless handler instead (see api/index.js),
+// so we must NOT call app.listen there.
+if (require.main === module) {
+  ensureStore()
+    .then(() => {
+      app.listen(PORT, () => {
+        console.log(`Staycation Haven PH running →  http://localhost:${PORT}`);
+      });
+    })
+    .catch((err) => {
+      console.error("Failed to initialise data store:", err);
+      process.exit(1);
     });
-  })
-  .catch((err) => {
-    console.error("Failed to initialise data store:", err);
-    process.exit(1);
-  });
+}
+
+module.exports = app;
