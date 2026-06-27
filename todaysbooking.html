@@ -319,6 +319,25 @@
     .appbar #addBookingBtn{ display:none; }
     .appbar{ justify-content:flex-end; }
   }
+  /* ===== Booking lists become cards on mobile (Arriving / In-house) ===== */
+  @media (max-width:760px){
+    .scroll{ overflow:visible !important; }
+    .scroll table, .scroll thead, .scroll tbody, .scroll tr, .scroll td{ display:block; }
+    .scroll thead{ display:none; }
+    .scroll tbody tr{ position:relative; display:flex; flex-wrap:wrap; align-items:flex-start; background:#fff; border:1px solid var(--hv-line); border-radius:14px; padding:14px 16px; margin-bottom:12px; box-shadow:0 4px 14px rgba(80,60,30,.05); }
+    .scroll tbody td{ border:none !important; padding:0 !important; }
+    .scroll tbody td:nth-child(1){ flex:0 0 100%; font-size:16px; padding-right:84px !important; margin-bottom:7px; }
+    .scroll tbody td:nth-child(8){ position:absolute; top:14px; right:16px; }
+    .scroll tbody td:nth-child(2){ flex:0 0 100%; padding-bottom:12px !important; margin-bottom:12px; border-bottom:1px solid var(--hv-line) !important; }
+    .scroll tbody td:nth-child(3), .scroll tbody td:nth-child(4), .scroll tbody td:nth-child(5){ flex:0 0 33.33%; font-size:13px; color:var(--hv-ink); }
+    .scroll tbody td:nth-child(3)::before{ content:"CHECK-IN"; }
+    .scroll tbody td:nth-child(4)::before{ content:"CHECK-OUT"; }
+    .scroll tbody td:nth-child(5)::before{ content:"STAY"; }
+    .scroll tbody td:nth-child(3)::before, .scroll tbody td:nth-child(4)::before, .scroll tbody td:nth-child(5)::before{ display:block; font-size:10px; letter-spacing:.5px; color:var(--hv-muted); font-weight:700; margin-bottom:3px; }
+    .scroll tbody td:nth-child(6), .scroll tbody td:nth-child(7){ display:none; }
+    .scroll tbody td:nth-child(9){ flex:0 0 100%; margin-top:14px; display:flex; gap:12px; justify-content:flex-end; align-items:center; flex-wrap:wrap; }
+    .scroll tbody td.empty{ flex:0 0 100%; text-align:center; padding:18px 0 !important; }
+  }
 </style>
 </head>
 <body>
