@@ -4528,6 +4528,11 @@ function openModal(id){
 function closeModal(){
     editingId = null;
     document.getElementById("overlay").classList.remove("show");
+    // if this modal was opened from Today's Booking, go back there afterwards
+    try{
+        const ret = localStorage.getItem("shph_add_return");
+        if(ret){ localStorage.removeItem("shph_add_return"); window.location.href = ret; }
+    }catch(e){}
 }
 
 /* ---------- booking modal: page 2 (proof of payment) ---------- */
@@ -8034,6 +8039,14 @@ document.getElementById("currentUserLabel").textContent = "Logged in as " + curr
 const savedPage = localStorage.getItem("shph_dashboard_page");
 if(savedPage && document.getElementById("page-" + savedPage)) showPage(savedPage);
 applyPermissions();
+
+// opened here from Today's Booking's "+ Add booking" → show the unified modal
+try{
+    if(localStorage.getItem("shph_open_add") === "1"){
+        localStorage.removeItem("shph_open_add");
+        setTimeout(function(){ if(typeof openModal === "function") openModal(); }, 60);
+    }
+}catch(e){}
 </script>
 
 </body>

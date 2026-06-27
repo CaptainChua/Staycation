@@ -1533,26 +1533,13 @@
   }
   function openAdd(){
     if(!canAddBooking()){ alert("Only an administrator or CSR can add a booking."); return; }
-    bookings = loadBookings();
-    document.getElementById("a_haven").innerHTML = HAVENS.map(h => `<option>${h}</option>`).join("");
-    aFillCheckinTimes();
-    aRenderGuests([{name:"",age:""}]);
-    document.getElementById("a_contact").value = "";
-    document.getElementById("a_checkin").value = iso(today());
-    aUpdateStayOptions(6);
-    document.getElementById("a_checkinTime").value = "8:00 AM";
-    document.getElementById("a_checkinTimeCustom").value = "";
-    document.getElementById("a_checkinTimeCustom").style.display = "none";
-    document.getElementById("a_extend").value = 0;
-    document.getElementById("a_swimpass").value = 0;
-    document.getElementById("a_towels").value = 0;
-    document.getElementById("a_holiday").checked = false;
-    document.getElementById("a_method").selectedIndex = 0;
-    document.getElementById("a_deposit").value = PRICING.deposit;
-    document.getElementById("a_down").value = 0;
-    document.getElementById("a_notes").value = "";
-    aRecompute();
-    document.getElementById("addOverlay").classList.add("show");
+    // Use the ONE unified Add Booking modal that lives on the dashboard, then
+    // come straight back to Today's Booking once it's saved or cancelled.
+    try{
+      localStorage.setItem("shph_open_add", "1");
+      localStorage.setItem("shph_add_return", "todaysbooking.html");
+    }catch(e){}
+    window.location.href = "dashboard.html";
   }
   function closeAdd(){ document.getElementById("addOverlay").classList.remove("show"); }
   function saveNewBooking(){
