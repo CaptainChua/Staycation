@@ -2427,8 +2427,8 @@ tbody tr:hover{ background:#fafafa; }
                 <input type="date" id="f_checkin" onchange="onCheckinChange()">
             </div>
             <div class="field">
-                <label>Check-out <span class="muted">(auto)</span></label>
-                <input type="date" id="f_checkout" readonly>
+                <label id="f_checkoutLabel">Check-out <span class="muted">(auto)</span></label>
+                <input type="date" id="f_checkout" onchange="onCheckoutEdited()" readonly>
             </div>
 
             <div class="field">
@@ -2455,13 +2455,10 @@ tbody tr:hover{ background:#fafafa; }
             </div>
 
             <div class="field full">
-                <label>More nights / havens <span class="muted">(multi-night or multi-haven stay — each becomes a linked booking)</span></label>
+                <label>Additional havens <span class="muted">(multi-haven stay — each becomes a linked booking)</span></label>
                 <div id="segList"></div>
-                <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                    <button type="button" class="btn secondary add-guest" style="flex:1 1 180px;" onclick="addNightRow()">+ Add another night</button>
-                    <button type="button" class="btn secondary add-guest" style="flex:1 1 180px;" onclick="addSegRow()">+ Add another haven</button>
-                </div>
-                <div class="breakdown"><b>Add another night</b> = same haven, next date (e.g. guest staying Jun 28–30 → one night Jun 28–29 + add a night Jun 29–30). <b>Add another haven</b> = guest moves to a different haven. Each row is saved as its own overnight booking, priced on its own, and linked to this reservation.</div>
+                <button type="button" class="btn secondary add-guest" onclick="addSegRow()">+ Add another haven</button>
+                <div class="breakdown">Use this when the guest moves to a <b>different</b> haven during their stay (e.g. Haven 8 on Jun 27–28, then Haven 7 on Jun 28–29). For multiple nights in the <b>same</b> haven, choose <b>Multiple nights</b> in Time of stay instead. Each row is saved as its own overnight booking, priced on its own, and linked to this reservation.</div>
             </div>
 
             <div class="field">
@@ -2924,6 +2921,13 @@ function slotLabel(slot){
 function bookingInterval(b){
     const midnightMin = Math.round(new Date(b.checkin + "T00:00:00").getTime() / 60000);
     const start = midnightMin + bookingCheckinMin(b);
+    // overnight stays (incl. multi-night) are occupied until the check-out date's morning,
+    // so a 2-night booking blocks every night — not just the first 21h window
+    if(Number(b.stayHours) === 21 && b.checkout && b.checkout > b.checkin){
+        const coMidnight = Math.round(new Date(b.checkout + "T00:00:00").getTime() / 60000);
+        const checkoutMin = (bookingCheckinMin(b) + (21 + (Number(b.extend) || 0)) * 60) % 1440;
+        return { start, end: coMidnight + checkoutMin };
+    }
     const dur = ((Number(b.stayHours) || 21) + (Number(b.extend) || 0)) * 60;
     return { start, end: start + dur };
 }
@@ -2936,18 +2940,38 @@ function findConflictAdmin(cand, excludeId){
         return ci.start < bi.end && bi.start < ci.end;   // real overlap of time windows only
     }) || null;
 }
-function baseRate(stayHours, checkinIso){
+// nights of an overnight stay (>=1) from the check-in/out dates
+function stayNights(checkin, checkout){
+    if(!checkin || !checkout) return 1;
+    return Math.max(1, daysBetween(checkin, checkout));
+}
+// overnight base across one or more nights; the "3+ nights" long-stay rate kicks in at 3 nights
+function overnightBase(checkin, checkout){
+    const nights = stayNights(checkin, checkout);
+    const longStay = nights >= 3;
+    let sum = 0;
+    const d = new Date(checkin + "T00:00:00");
+    for(let i = 0; i < nights; i++){
+        const wd = d.getDay();                       // 0 Sun .. 6 Sat
+        const weekend = (wd === 5 || wd === 6);      // Fri / Sat
+        sum += longStay ? (weekend ? PRICING.longWeekend : PRICING.longWeekday)
+                        : (weekend ? PRICING.stay21Weekend : PRICING.stay21Weekday);
+        d.setDate(d.getDate() + 1);
+    }
+    return sum;
+}
+function baseRate(stayHours, checkinIso, checkoutIso){
     stayHours = Number(stayHours);
     if(stayHours === 6) return PRICING.stay6;
     if(stayHours === 10) return PRICING.stay10;
     if(stayHours === 21){
-        const wd = new Date(checkinIso + "T00:00:00").getDay(); // 0 Sun .. 6 Sat
-        return (wd === 5 || wd === 6) ? PRICING.stay21Weekend : PRICING.stay21Weekday;
+        const co = checkoutIso || iso(addDays(new Date(checkinIso + "T00:00:00"), 1));
+        return overnightBase(checkinIso, co);        // 1 night = single overnight rate
     }
     return 0;
 }
 function computeTotal(b){
-    const base = baseRate(b.stayHours, b.checkin);
+    const base = baseRate(b.stayHours, b.checkin, b.checkout);
     const pax  = addPaxFee(b.guests);
     const swim = (Number(b.swimpass) || 0) * (b.holiday ? PRICING.swimHoliday : PRICING.swimRegular);
     const tow  = (Number(b.towels) || 0) * PRICING.towel;
@@ -3358,7 +3382,9 @@ function renderTimelineHours(){
         const coIso = b.checkout > b.checkin ? b.checkout : iso(addDays(new Date(b.checkin + "T00:00:00"), 1));
         if(!(b.checkin <= dayIso && dayIso < coIso)) return;            // active this day?
         const ciMin = bookingCheckinMin(b);
-        const durMin = ((Number(b.stayHours) || 21) + (Number(b.extend) || 0)) * 60;
+        // multi-night overnight stays occupy the full span up to the check-out morning
+        const iv = bookingInterval(b);
+        const durMin = iv.end - iv.start;
         const dDiff = daysBetween(b.checkin, dayIso);                   // 0 = same day
         const startMin = Math.max(0, dDiff === 0 ? ciMin : 0);
         const endMin = Math.min(1440, ciMin + durMin - dDiff * 1440);
@@ -4298,21 +4324,6 @@ function addSegRow(){
     const nextHaven = HAVENS.find(h => !used.has(h)) || HAVENS[0];
     list.insertAdjacentHTML("beforeend", segRowHtml({ haven:nextHaven, checkin:ci, checkout:co }));
 }
-// another NIGHT in the SAME haven (multi-night stay): keep the last haven, continue the dates
-function addNightRow(){
-    const list = document.getElementById("segList");
-    let lastDate = document.getElementById("f_checkout").value;
-    let lastHaven = document.getElementById("f_haven").value;
-    const rows = list.querySelectorAll(".seg-row");
-    if(rows.length){
-        const last = rows[rows.length - 1];
-        const lc = last.querySelector(".seg-checkout").value; if(lc) lastDate = lc;
-        const lh = last.querySelector(".seg-haven").value;    if(lh) lastHaven = lh;
-    }
-    const ci = lastDate || iso(today());
-    const co = iso(addDays(new Date(ci + "T00:00:00"), 1));
-    list.insertAdjacentHTML("beforeend", segRowHtml({ haven:lastHaven, checkin:ci, checkout:co }));
-}
 function removeSegRow(el){ el.closest(".seg-row").remove(); }
 // when a segment check-in changes, keep its check-out at least the next day
 function segAutoCheckout(input){
@@ -4347,13 +4358,14 @@ function readGuests(){
 const STAY_OPTIONS = [
     [6,  "6 hrs — ₱999"],
     [10, "10 hrs — ₱1,599"],
-    [21, "21 hrs — ₱1,799 / ₱2,099 (Fri–Sat)"]
+    [21, "21 hrs — ₱1,799 / ₱2,099 (Fri–Sat)"],
+    ["multi", "Multiple nights — set check-out date"]
 ];
 function updateStayOptions(keep){
     const sel = document.getElementById("f_stay");
     const checkin = document.getElementById("f_checkin").value;
     const wd = checkin ? new Date(checkin + "T00:00:00").getDay() : 1; // 6 = Saturday
-    const opts = (wd === 6 && !isAdminUser()) ? STAY_OPTIONS.filter(o => o[0] === 21) : STAY_OPTIONS;
+    const opts = (wd === 6 && !isAdminUser()) ? STAY_OPTIONS.filter(o => o[0] === 21 || o[0] === "multi") : STAY_OPTIONS;
     const want = String(keep != null ? keep : sel.value);
     sel.innerHTML = opts.map(o => `<option value="${o[0]}">${o[1]}</option>`).join("");
     sel.value = opts.some(o => String(o[0]) === want) ? want : String(opts[0][0]);
@@ -4405,20 +4417,48 @@ function setDashCheckinTime(timeStr){
     }
 }
 
+function stayIsMulti(){ return document.getElementById("f_stay").value === "multi"; }
+// when "Multiple nights" is chosen, let the user pick the check-out date directly
+function setCheckoutEditable(on){
+    const co = document.getElementById("f_checkout");
+    const lbl = document.getElementById("f_checkoutLabel");
+    if(on){
+        co.removeAttribute("readonly");
+        co.style.background = "#fff";
+        co.style.cursor = "text";
+        if(lbl) lbl.innerHTML = 'Check-out <span class="muted">(pick the date)</span>';
+    } else {
+        co.setAttribute("readonly", "readonly");
+        co.style.background = "";
+        co.style.cursor = "";
+        if(lbl) lbl.innerHTML = 'Check-out <span class="muted">(auto)</span>';
+    }
+}
 // derive check-out date + time from check-in date/time + stay length (+ extend)
 function recomputeDashCheckout(){
     const ci = document.getElementById("f_checkin").value;
     const t = dashCheckinTimeValue();
-    const hours = Number(document.getElementById("f_stay").value) || 0;
+    const stayVal = document.getElementById("f_stay").value;
     const ext = Number(document.getElementById("f_extend").value) || 0;
     if(!ci || !t) return;
+    if(stayVal === "multi"){
+        // multi-night: keep the user's check-out (default to 2 nights), show the overnight check-out time
+        const coEl = document.getElementById("f_checkout");
+        if(!coEl.value || coEl.value <= ci) coEl.value = iso(addDays(new Date(ci + "T00:00:00"), 2));
+        document.getElementById("f_checkoutTime").value = minToTime(dashCheckinMin(t) + (21 + ext) * 60);
+        return;
+    }
+    const hours = Number(stayVal) || 0;
     const total = dashCheckinMin(t) + (hours + ext) * 60;
     const co = addDays(new Date(ci + "T00:00:00"), Math.floor(total / 1440));
     document.getElementById("f_checkout").value = iso(co);
     document.getElementById("f_checkoutTime").value = minToTime(total);
 }
+// user edited the check-out date (only possible on multi-night stays)
+function onCheckoutEdited(){ recalc(); updateHavenOptions(); }
 
 function onStayChange(){
+    setCheckoutEditable(stayIsMulti());
     recomputeDashCheckout();
     recalc();
     updateHavenOptions();
@@ -4432,14 +4472,16 @@ function updateHavenOptions(){
     const sel = document.getElementById("f_haven");
     const current = sel.value;
     const checkin = document.getElementById("f_checkin").value;
-    const stayHours = Number(document.getElementById("f_stay").value);
+    const checkout = document.getElementById("f_checkout").value;
+    const stayVal = document.getElementById("f_stay").value;
+    const stayHours = stayVal === "multi" ? 21 : Number(stayVal);
     const extend = Number(document.getElementById("f_extend").value) || 0;
     const checkinTime = dashCheckinTimeValue();
 
     let list = HAVENS;
     if(checkin && checkinTime){
         list = HAVENS.filter(h =>
-            !findConflictAdmin({ haven:h, checkin, stayHours, extend, checkinTime, slot:null }, editingId));
+            !findConflictAdmin({ haven:h, checkin, checkout, stayHours, extend, checkinTime, slot:null }, editingId));
     }
     sel.innerHTML = list.length
         ? list.map(h => `<option>${h}</option>`).join("")
@@ -4453,8 +4495,11 @@ function updateSlotOptions(){ /* no-op */ }
 
 // auto-calculate total payable from the pricing rules, then balance
 function recalc(){
+    const stayVal = document.getElementById("f_stay").value;
+    const stayHours = stayVal === "multi" ? 21 : (Number(stayVal) || 0);
+    const checkout = document.getElementById("f_checkout").value;
     const b = {
-        stayHours: document.getElementById("f_stay").value,
+        stayHours: stayHours,
         checkin: document.getElementById("f_checkin").value,
         swimpass: document.getElementById("f_swimpass").value,
         towels: document.getElementById("f_towels").value,
@@ -4463,7 +4508,8 @@ function recalc(){
         deposit: document.getElementById("f_deposit").value
     };
     const guests = readGuests();
-    const base = baseRate(b.stayHours, b.checkin);
+    const base = baseRate(stayHours, b.checkin, checkout);
+    const nights = stayHours === 21 ? stayNights(b.checkin, checkout) : 0;
     const extraHeads = Math.max(0, billablePax(guests) - PRICING.baseIncludedPax);
     const pax  = extraHeads * PRICING.addPax;
     const swimRate = b.holiday ? PRICING.swimHoliday : PRICING.swimRegular;
@@ -4478,8 +4524,11 @@ function recalc(){
     const collected = editingId ? collectedSum(bookings.find(x => x.id === editingId) || {}) : 0;
     document.getElementById("f_balance").value = peso(Math.max(0, total - down - collected));
 
+    const baseLabel = stayHours === 21
+        ? `Base for 2 pax (${nights} night${nights > 1 ? "s" : ""}${nights >= 3 ? ", long-stay rate" : ""})`
+        : `Base for 2 pax (${stayHours}h)`;
     document.getElementById("f_breakdown").innerHTML =
-        `Base for 2 pax (${b.stayHours}h${Number(b.stayHours)===21 ? (base===PRICING.stay21Weekend?", Fri–Sat":", Sun–Thu") : ""}): ${peso(base)}` +
+        `${baseLabel}: ${peso(base)}` +
         ` · Extra pax ${extraHeads}×₱300: ${peso(pax)}` +
         ` · Swimpass ${Number(b.swimpass)||0}×${peso(swimRate)}: ${peso(swim)}` +
         ` · Towels ${Number(b.towels)||0}×₱50: ${peso(tow)}` +
@@ -4507,6 +4556,10 @@ function openModal(id){
         setField("f_checkin", b.checkin);
         setField("f_checkout", b.checkout);
         updateStayOptions(b.stayHours || 6);
+        // an overnight booking spanning 2+ nights → show as "Multiple nights" with an editable check-out
+        if(Number(b.stayHours) === 21 && stayNights(b.checkin, b.checkout) > 1){
+            document.getElementById("f_stay").value = "multi";
+        }
         setDashCheckinTime(checkinTimeStr(b));
         setField("f_swimpass", b.swimpass || 0);
         setField("f_towels", b.towels || 0);
@@ -4869,9 +4922,16 @@ function saveBooking(){
         alert("Please enter a valid check-in and check-out date.");
         return;
     }
+    // "Multiple nights" is stored as a 21h overnight stay spanning several days
+    const stayVal = document.getElementById("f_stay").value;
+    const isMulti = stayVal === "multi";
+    const stayHours = isMulti ? 21 : Number(stayVal);
+    if(isMulti && stayNights(checkin, checkout) < 1){
+        alert("For multiple nights, the check-out date must be at least one day after check-in.");
+        return;
+    }
     // Saturday check-ins are 21 hours only — admins are exempt (may book 6h/10h too)
     const checkinWd = new Date(checkin + "T00:00:00").getDay();
-    const stayHours = Number(document.getElementById("f_stay").value);
     if(checkinWd === 6 && stayHours !== 21 && !isAdminUser()){
         alert("Saturday check-ins are 21 hours only.");
         return;
