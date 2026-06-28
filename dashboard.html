@@ -5206,7 +5206,7 @@ function addIdsFromFiles(files){
     const room = ID_MAX - idsData.length;
     if(room <= 0){ alert(`Maximum of ${ID_MAX} IDs.`); return; }
     if(imgs.length > room) alert(`Only ${room} more ID${room === 1 ? "" : "s"} can be added.`);
-    imgs.slice(0, room).forEach(f => compressImageTo(f, ID_MAX_BYTES, dataUrl => {
+    imgs.slice(0, room).forEach(f => compressImageTo(f, idMaxBytes, dataUrl => {
         if(!dataUrl) return;
         idsData.push(dataUrl);
         renderIdGrid();
@@ -5776,7 +5776,7 @@ function gfAddIdPhotos(ev){
     const files = Array.from(ev.target.files || []);
     files.forEach(file => {
         if(!/^image\//.test(file.type)) return;
-        compressImageTo(file, ID_MAX_BYTES, dataUrl => {   // shrink to ~2MB to save storage
+        compressImageTo(file, idMaxBytes, dataUrl => {   // shrink to ~2MB to save storage
             if(!dataUrl) return;
             gfIdPhotos.push(dataUrl);
             gfRenderIds();
@@ -8202,7 +8202,11 @@ function resizeImage(file, cb){
 // Compress an image so the stored file stays under maxBytes — keeps IDs legible
 // while saving storage. Steps resolution/quality down until it fits. Returns a
 // JPEG data URL (or null if the file isn't a readable image).
-const ID_MAX_BYTES = 2 * 1024 * 1024;   // ~2 MB cap for ID photos
+// Cap for ID photos. Until Cloud Storage is active we must fit the 1MB Firestore
+// fallback, so default to ~0.9MB (no photo is lost). Once /api/health reports
+// Storage is on, bump to 2MB for better quality — auto-upgrades, no redeploy.
+let idMaxBytes = 950 * 1024;
+fetch("/api/health").then(r => r.json()).then(h => { if(h && h.imageStorage) idMaxBytes = 2 * 1024 * 1024; }).catch(() => {});
 function compressImageTo(file, maxBytes, cb){
     const reader = new FileReader();
     reader.onload = e => {
