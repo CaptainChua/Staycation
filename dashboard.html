@@ -8704,6 +8704,7 @@ function renderUsers(){
     el.innerHTML = users.map(u => {
         const access = u.admin ? "All pages + Users (administrator)"
             : ((u.perms && u.perms.length) ? u.perms.map(pageLabel).join(", ") : "No pages");
+        const actCount = userActivityEntries(u.name).length;
         return `<div class="pay-staff">
             <div class="pay-staff-head">
                 <div>
@@ -8711,12 +8712,38 @@ function renderUsers(){
                     <div class="muted">${access}</div>
                 </div>
                 <div class="pay-staff-actions">
+                    <span class="edit" onclick="toggleUserActivity(${u.id}, '${escAttr(u.name).replace(/'/g, "\\'")}')">Activity${actCount ? " (" + actCount + ")" : ""}</span>
                     <span class="edit" onclick="openUserModal(${u.id})">Edit</span>
                     <span class="del" onclick="deleteUser(${u.id})">Delete</span>
                 </div>
             </div>
+            <div class="user-activity" id="userActivity_${u.id}" style="display:none; margin-top:10px; border-top:1px solid #eee; padding-top:8px;"></div>
         </div>`;
     }).join("");
+}
+// every activity-log entry recorded by this user (admins-only view; the Users
+// page is already restricted to administrators)
+function userActivityEntries(name){
+    let log = [];
+    try { log = JSON.parse(localStorage.getItem(ACTIVITY_KEY)) || []; } catch(e){}
+    const lname = (name || "").toLowerCase();
+    return log.filter(e => (e.user || "").toLowerCase() === lname);
+}
+// show / hide a single user's activity log under their card
+function toggleUserActivity(id, name){
+    const box = document.getElementById("userActivity_" + id);
+    if(!box) return;
+    if(box.style.display !== "none"){ box.style.display = "none"; return; }
+    const entries = userActivityEntries(name).slice().reverse().slice(0, 200);
+    box.innerHTML = entries.length
+        ? `<div class="muted" style="margin-bottom:6px;">${entries.length} action${entries.length === 1 ? "" : "s"} by ${escHtml(name)}</div>`
+          + `<div style="max-height:300px; overflow-y:auto;">` + entries.map(e =>
+            `<div class="log-row">
+                <span class="log-when">${new Date(e.at).toLocaleString("en-PH")}</span>
+                <span class="log-action">${escHtml(e.action || "")}</span>
+             </div>`).join("") + `</div>`
+        : `<div class="muted" style="padding:6px 2px;">No activity recorded for ${escHtml(name)} yet.</div>`;
+    box.style.display = "";
 }
 function fillUserPerms(selected){
     document.getElementById("u_perms").innerHTML = `<div class="opt-row">` + DASH_PAGES.map(p =>
