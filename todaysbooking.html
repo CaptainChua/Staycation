@@ -338,6 +338,24 @@
     .scroll tbody td:nth-child(9){ flex:0 0 100%; margin-top:14px; display:flex; gap:12px; justify-content:flex-end; align-items:center; flex-wrap:wrap; }
     .scroll tbody td.empty{ flex:0 0 100%; text-align:center; padding:18px 0 !important; }
   }
+  /* ===== Compact mobile header + 2-column cards (match the clean layout) ===== */
+  .user-pill{ display:contents; }   /* desktop: behaves exactly as before */
+  @media (max-width:760px){
+    /* 2-column summary cards (override the warm-theme auto-fit that forced 1 column) */
+    .cards{ grid-template-columns:repeat(2,1fr) !important; gap:10px !important; }
+    .cards .card:nth-child(5){ grid-column:1 / -1; }   /* "Collected" spans full width */
+    /* smaller title so it doesn't blow up into a giant wrapping block */
+    .topbar .title h1{ font-size:22px !important; line-height:1.15; }
+    .topbar .title p{ font-size:12px; }
+    /* hide "Logged in as Admin" text and the Refresh button on mobile */
+    .appbar .who{ display:none !important; }
+    .head-tools > .btn.secondary{ display:none !important; }
+    /* clean dark "[A] Logout" pill */
+    .appbar{ padding:8px 14px !important; }
+    .user-pill{ display:flex !important; align-items:center; gap:6px; background:#2a2421; border-radius:24px; padding:4px; }
+    .user-pill .avatar{ order:-1; width:32px !important; height:32px !important; background:var(--hv-terra) !important; color:#fff !important; font-size:13px; }
+    .user-pill .btn.secondary{ display:inline-flex !important; align-items:center; background:transparent !important; border:none !important; color:#fff !important; padding:2px 12px 2px 2px !important; font-weight:600; font-size:13px; box-shadow:none !important; }
+  }
 </style>
 </head>
 <body>
@@ -426,8 +444,10 @@
     <div class="spacer"></div>
     <span class="who" id="currentUserLabel"></span>
     <button class="btn" id="addBookingBtn" onclick="openAdd()">+ Add booking</button>
-    <button class="btn secondary" onclick="logout()">Logout</button>
-    <div class="avatar" id="hvAvatar">A</div>
+    <div class="user-pill">
+      <button class="btn secondary" onclick="logout()">Logout</button>
+      <div class="avatar" id="hvAvatar">A</div>
+    </div>
   </div>
 
 <div class="wrap">
