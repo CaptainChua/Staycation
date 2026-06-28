@@ -693,6 +693,9 @@ tr.row-cancelled td:nth-child(2){ text-decoration:line-through; }
 .proof-img{ width:140px; height:140px; object-fit:cover; border-radius:11px; border:1px solid #efe6d8; display:block; margin-bottom:10px; cursor:zoom-in; transition:transform .1s; }
 .proof-img:hover{ transform:scale(1.02); }
 .proof-empty{ font-size:13px; color:#9b8a76; padding:6px 0; }
+/* one card per payment collection (Cash, GCash, …) */
+.proof-collection{ border:1px solid #efe6d8; border-radius:14px; padding:14px; margin-bottom:14px; background:#fffdfa; }
+.proof-collection:last-child{ margin-bottom:0; }
 /* styled upload card */
 .proof-upload{ display:flex; align-items:center; gap:12px; border:1.5px dashed #d9b48f; border-radius:12px; padding:12px 14px; cursor:pointer; background:#fff; transition:background .12s,border-color .12s; }
 .proof-upload:hover{ background:#fdf7ef; border-color:#bd6e3f; }
@@ -2729,6 +2732,11 @@ input.gf-ov:focus{ outline:none; background:#fff7cc; }
                 <input type="number" id="f_down" value="0" min="0" oninput="recalc()">
             </div>
             <div class="field full">
+                <label>Discount (₱)</label>
+                <button type="button" class="btn secondary" id="f_discountBtn" onclick="showDiscount()">＋ Add discount</button>
+                <input type="number" id="f_discount" value="0" min="0" oninput="recalc()" placeholder="0" style="display:none;">
+            </div>
+            <div class="field full">
                 <label>Total amount payable (₱) <span class="muted">— auto-calculated</span></label>
                 <input type="number" id="f_total" readonly>
                 <div class="breakdown" id="f_breakdown"></div>
@@ -3247,7 +3255,7 @@ function computeTotal(b){
     const tow  = (Number(b.towels) || 0) * PRICING.towel;
     const ext  = (Number(b.extend) || 0) * PRICING.extendPerHr;
     const dep  = (b.deposit === undefined ? PRICING.deposit : Number(b.deposit)) || 0;
-    return base + pax + swim + tow + ext + dep;
+    return Math.max(0, base + pax + swim + tow + ext + dep - (Number(b.discount) || 0));
 }
 
 /* ---------- data ---------- */
@@ -4332,6 +4340,7 @@ function viewBooking(id){
         <div class="vb-sec">Payment details</div>
         <div class="vb-grid">
             <span class="k">Total</span><span class="v">${peso(total)}</span>
+            ${Number(b.discount) > 0 ? `<span class="k">Discount</span><span class="v">−${peso(b.discount)}</span>` : ""}
             <span class="k">Downpayment</span><span class="v">${peso(down)}</span>
             <span class="k">Collected (balance)</span><span class="v">${peso(coll)}</span>
             <span class="k">Total paid</span><span class="v">${peso(paid)}</span>
@@ -5116,7 +5125,8 @@ function recalc(){
     const tow  = (Number(b.towels) || 0) * PRICING.towel;
     const ext  = (Number(b.extend) || 0) * PRICING.extendPerHr;
     const dep  = Number(b.deposit) || 0;
-    const total = base + pax + swim + tow + ext + dep;
+    const discount = Number(document.getElementById("f_discount").value) || 0;
+    const total = Math.max(0, base + pax + swim + tow + ext + dep - discount);
 
     document.getElementById("f_total").value = total;
     const down = Number(document.getElementById("f_down").value) || 0;
@@ -5132,7 +5142,22 @@ function recalc(){
         ` · Swimpass ${Number(b.swimpass)||0}×${peso(swimRate)}: ${peso(swim)}` +
         ` · Towels ${Number(b.towels)||0}×₱50: ${peso(tow)}` +
         ` · Extend ${Number(b.extend)||0}h×₱150: ${peso(ext)}` +
-        ` · Deposit: ${peso(dep)}`;
+        ` · Deposit: ${peso(dep)}` +
+        (discount > 0 ? ` · Discount: −${peso(discount)}` : "");
+}
+// reveal the discount input when the "+ Add discount" button is clicked
+function showDiscount(){
+    document.getElementById("f_discountBtn").style.display = "none";
+    const inp = document.getElementById("f_discount");
+    inp.style.display = ""; inp.focus();
+}
+// set the discount field state (shown with a value, or collapsed to the button)
+function setDiscountField(amount){
+    const inp = document.getElementById("f_discount"), btn = document.getElementById("f_discountBtn");
+    inp.value = Number(amount) || 0;
+    const has = Number(amount) > 0;
+    inp.style.display = has ? "" : "none";
+    btn.style.display = has ? "none" : "";
 }
 
 // open as "Add" when no id is passed, or "Edit" (pre-filled) when an id is given
@@ -5165,6 +5190,7 @@ function openModal(id){
         setField("f_extend", b.extend || 0);
         document.getElementById("f_holiday").checked = !!b.holiday;
         setField("f_deposit", b.deposit === undefined ? PRICING.deposit : b.deposit);
+        setDiscountField(b.discount || 0);
         setField("f_method", b.method || "GCash");
         setField("f_down", b.downpayment || 0);
         setField("f_notes", b.notes || "");
@@ -5186,6 +5212,7 @@ function openModal(id){
         setField("f_extend", 0);
         document.getElementById("f_holiday").checked = false;
         setField("f_deposit", PRICING.deposit);
+        setDiscountField(0);
         setField("f_method", "GCash");
         setField("f_down", 0);
         setField("f_notes", "");
@@ -5413,27 +5440,35 @@ function renderProofPage(b){
     balProofData = (b && b.balanceProof) || null;
     balProofDirty = false;
     const list = document.getElementById("balProofList");
-    const balManual = balProofData;
-    let balMeta, balShown, balDel = "";
+    const UP_ICO = `<svg viewBox="0 0 24 24"><path d="M12 16V5"/><path d="m7 10 5-5 5 5"/><path d="M5 19h14"/></svg>`;
     if(balPays.length){
-        const p = balPays[balPays.length - 1];
-        const more = balPays.length > 1 ? ` <span class="muted">(+${balPays.length - 1} earlier)</span>` : "";
-        balMeta = `<span>Collected <strong>${peso(p.amount)}</strong> via ${p.mop}${more}</span><span>${new Date(p.at).toLocaleString("en-PH")} · by ${p.by || "—"}</span>`;
-        balShown = p.proof || balManual;
-        balDel = `<span class="proof-del" onclick="deleteCollection('Balance')">Delete this collection</span>`;
+        // one card PER balance collection (e.g. Cash + GCash) — each with its own
+        // photo, a Replace photo option, and a Delete-this-collection option.
+        list.innerHTML = balPays.map(p => {
+            const gi = pays.indexOf(p);   // index in the full payments array
+            return `<div class="proof-collection">
+                <div class="proof-meta"><span>Collected <strong>${peso(p.amount)}</strong> via ${escHtml(p.mop || "—")}</span><span>${p.at ? new Date(p.at).toLocaleString("en-PH") : ""} · by ${escHtml(p.by || "—")}</span></div>
+                ${p.proof ? `<img class="proof-img" src="${p.proof}" onclick="openProofImg(this.src)">` : `<div class="proof-empty">No photo for this collection.</div>`}
+                <label class="proof-upload">
+                    <span class="pu-ico">${UP_ICO}</span>
+                    <span class="pu-body"><b>${p.proof ? "Replace" : "Upload"} photo</b><small class="pu-name">${p.proof ? "Photo attached ✓" : "No file chosen"}</small></span>
+                    <input type="file" accept="image/*" onchange="replaceCollectionProof(${gi}, this)">
+                </label>
+                <span class="proof-del" onclick="deleteCollectionAt(${gi})">Delete this collection</span>
+            </div>`;
+        }).join("");
     } else {
-        balMeta = `No balance payment recorded yet. Collect it from <strong>Today's Booking</strong>.`;
-        balShown = balManual;
+        // no collections yet → manual upload channel (saved on Save Booking)
+        const balShown = balProofData;
+        list.innerHTML =
+            `<div class="proof-meta">No balance payment recorded yet. Collect it from <strong>Today's Booking</strong>.</div>` +
+            `<img id="balProofImg" class="proof-img" src="${balShown || ""}" style="${balShown ? "" : "display:none;"}" onclick="openProofImg(this.src)">` +
+            `<label class="proof-upload" data-proof="bal">` +
+                `<span class="pu-ico">${UP_ICO}</span>` +
+                `<span class="pu-body"><b>Upload balance proof</b><small class="pu-name" id="balProofName">${balShown ? "Photo attached ✓" : "No file chosen"}</small></span>` +
+                `<input type="file" accept="image/*" onchange="onBalProofChange(this)">` +
+            `</label>`;
     }
-    list.innerHTML =
-        `<div class="proof-meta">${balMeta}</div>` +
-        `<img id="balProofImg" class="proof-img" src="${balShown || ""}" style="${balShown ? "" : "display:none;"}" onclick="openProofImg(this.src)">` +
-        `<label class="proof-upload" data-proof="bal">` +
-            `<span class="pu-ico"><svg viewBox="0 0 24 24"><path d="M12 16V5"/><path d="m7 10 5-5 5 5"/><path d="M5 19h14"/></svg></span>` +
-            `<span class="pu-body"><b>Upload balance proof</b><small class="pu-name" id="balProofName">${balShown ? "Photo attached ✓" : "No file chosen"}</small></span>` +
-            `<input type="file" accept="image/*" onchange="onBalProofChange(this)">` +
-        `</label>` +
-        balDel;
 
     // add-ons section: amount summary + latest Add Ons collection (or a manual upload)
     const swimpass = b ? (Number(b.swimpass) || 0) : (Number(document.getElementById("f_swimpass").value) || 0);
@@ -5458,6 +5493,41 @@ function renderProofPage(b){
     if(addonShown){ aImg.src = addonShown; aImg.style.display = "block"; }
     else { aImg.src = ""; aImg.style.display = "none"; }
     document.getElementById("addonDel").style.display = latestAddonPay ? "inline-block" : "none";
+}
+// replace one collection's photo (by its index in the payments array) — saves now
+function replaceCollectionProof(idx, input){
+    if(editingId == null) return;
+    const f = input.files && input.files[0];
+    if(!f || !/^image\//.test(f.type)) return;
+    const bIdx = bookings.findIndex(x => x.id === editingId);
+    if(bIdx === -1) return;
+    const pays = bookings[bIdx].payments || [];
+    if(!pays[idx]) return;
+    resizeImage(f, dataUrl => {
+        pays[idx].proof = dataUrl;
+        save(bookings);
+        confirmBookingSaved(editingId);
+        logActivity(`replaced payment photo — ${bookings[bIdx].haven} · ${peso(pays[idx].amount)} (${pays[idx].category || "Balance"})`);
+        renderProofPage(bookings[bIdx]);
+        renderAll();
+    });
+    input.value = "";
+}
+// delete one specific collection (by its index) — its whole record incl. photo
+function deleteCollectionAt(idx){
+    if(editingId == null) return;
+    const bIdx = bookings.findIndex(x => x.id === editingId);
+    if(bIdx === -1) return;
+    const pays = bookings[bIdx].payments || [];
+    if(!pays[idx]) return;
+    const cat = pays[idx].category || "Balance";
+    if(!confirm(`Delete this ${cat} collection of ${peso(pays[idx].amount)}? This removes the payment and its photo. This cannot be undone.`)) return;
+    const removed = pays.splice(idx, 1)[0];
+    save(bookings);
+    confirmBookingSaved(editingId);
+    logActivity(`deleted ${cat} collection — ${bookings[bIdx].haven} · ${peso(removed.amount)}`);
+    renderProofPage(bookings[bIdx]);
+    renderAll();
 }
 // remove the latest collection of a given category from the booking being edited
 function deleteCollection(category){
@@ -5557,6 +5627,7 @@ function saveBooking(){
         extend: Number(document.getElementById("f_extend").value) || 0,
         holiday: document.getElementById("f_holiday").checked,
         deposit: Number(document.getElementById("f_deposit").value) || 0,
+        discount: Number(document.getElementById("f_discount").value) || 0,
         method: document.getElementById("f_method").value,
         downpayment: Number(document.getElementById("f_down").value) || 0,
         notes: document.getElementById("f_notes").value.trim(),
