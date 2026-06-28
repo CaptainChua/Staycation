@@ -2421,7 +2421,7 @@ tbody tr:hover{ background:#fafafa; }
         <div class="form-grid">
             <div class="field full">
                 <label>Haven</label>
-                <select id="f_haven" onchange="updateSlotOptions()"></select>
+                <select id="f_haven" onchange="onHavenChange()"></select>
             </div>
 
             <div class="field full">
@@ -4608,9 +4608,9 @@ function onStayChange(){
 function onTimeChange(){ onStayChange(); }
 function onExtendChange(){ recomputeDashCheckout(); recalc(); }
 
-// the time a haven becomes free for `cand` = latest clashing booking's check-out + cleaning gap,
-// or "" if nothing clashes. Used to label busy havens in the dropdown.
-function havenFreeAtStr(haven, cand){
+// the minute-of-day a haven becomes free for `cand` = latest clashing check-out + cleaning gap,
+// or null if nothing clashes. Used to label/snap busy havens in the dropdown.
+function havenFreeAtMin(haven, cand){
     const ci = bookingInterval(cand);
     let latest = null, latestEnd = null;
     bookings.forEach(b => {
@@ -4621,14 +4621,16 @@ function havenFreeAtStr(haven, cand){
             if(latestEnd == null || bi.end > latestEnd){ latestEnd = bi.end; latest = b; }
         }
     });
-    if(!latest) return "";
+    if(!latest) return null;
     // free-at = the clashing booking's LOCAL check-out time-of-day + cleaning gap.
     // (bookingInterval.end is absolute epoch minutes, so % 1440 would be timezone-shifted)
     const dur = ((Number(latest.stayHours) || 21) + (Number(latest.extend) || 0)) * 60;
-    return minToTime(bookingCheckinMin(latest) + dur + CLEANING_GAP_MIN);
+    const m = bookingCheckinMin(latest) + dur + CLEANING_GAP_MIN;
+    return ((m % 1440) + 1440) % 1440;
 }
-// List EVERY haven. Free havens are selectable; ones busy for the chosen time window are shown
-// disabled with the time they free up (after the 2h cleaning gap) — so havens never just vanish.
+// List EVERY haven. Free havens are selectable as-is; a haven that's busy for the chosen time
+// is still selectable but labelled "free from HH:MM" — picking it snaps the check-in time to
+// when it frees up (see onHavenChange), so the booking goes straight through.
 function updateHavenOptions(){
     const sel = document.getElementById("f_haven");
     const current = sel.value;
@@ -4644,8 +4646,9 @@ function updateHavenOptions(){
         const cand = { haven:h, checkin, checkout, stayHours, extend, checkinTime, slot:null };
         const clash = (checkin && checkinTime) ? findConflictAdmin(cand, editingId) : null;
         if(clash){
-            const freeStr = havenFreeAtStr(h, cand);
-            html += `<option value="" disabled>${h} — occupied${freeStr ? " until " + freeStr : ""}</option>`;
+            const freeMin = havenFreeAtMin(h, cand);
+            const freeStr = freeMin != null ? minToTime(freeMin) : "";
+            html += `<option value="${h}" data-freemin="${freeMin}">${h} — free from ${freeStr}</option>`;
         } else {
             if(firstFree == null) firstFree = h;
             if(h === current) currentStillFree = true;
@@ -4655,6 +4658,18 @@ function updateHavenOptions(){
     sel.innerHTML = html || `<option value="">— No haven —</option>`;
     sel.value = currentStillFree ? current : (firstFree || "");
     updateSlotOptions();
+}
+// when a haven is picked that's busy at the current time, snap the check-in time to when it frees
+function onHavenChange(){
+    const sel = document.getElementById("f_haven");
+    const opt = sel.options[sel.selectedIndex];
+    const fm = opt && opt.dataset ? Number(opt.dataset.freemin) : NaN;
+    if(opt && opt.dataset && opt.dataset.freemin != null && opt.dataset.freemin !== "" && !isNaN(fm)){
+        setDashCheckinTime(minToTime(Math.max(fm, EARLIEST_CHECKIN_MIN)));   // book from when it frees
+        onStayChange();   // recompute check-out/totals and re-validate the haven list
+    } else {
+        updateSlotOptions();
+    }
 }
 
 // slot is now derived from the explicit check-in time (no separate slot picker)
