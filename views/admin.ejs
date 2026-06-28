@@ -89,10 +89,16 @@ function login(){
         logLogin(match.name);
         window.location.href = "dashboard.html";
     }
-    else if(users.length === 0 && username !== "" && password === "1234"){
-        // before any users are set up, allow the default admin password
-        localStorage.setItem("shph_current_user", username);
-        logLogin(username);
+    else if(!users.some(u => u.admin) && username !== "" && password === "1234"){
+        // recovery: no administrator account exists (fresh setup, or the list was wiped).
+        // re-create the default admin so login keeps working — added to any existing users,
+        // and mirrored to the server so it persists.
+        const nextId = (users.reduce((m, u) => Math.max(m, Number(u.id) || 0), 0) || 0) + 1;
+        const adminUser = { id: nextId, name: username, password: "1234", admin: true, perms: [] };
+        users.push(adminUser);
+        localStorage.setItem("shph_users", JSON.stringify(users));
+        localStorage.setItem("shph_current_user", adminUser.name);
+        logLogin(adminUser.name);
         window.location.href = "dashboard.html";
     }
     else{

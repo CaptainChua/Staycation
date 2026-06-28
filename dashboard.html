@@ -8310,11 +8310,17 @@ const DASH_PAGES = [
 ];
 function pageLabel(key){ const p = DASH_PAGES.find(x => x.key === key); return p ? p.label : key; }
 function loadUsers(){
+    let arr = null;
     const raw = localStorage.getItem(USERS_KEY);
-    if(raw){ try { return JSON.parse(raw); } catch(e){} }
-    const seed = [{ id:1, name:"admin", password:"1234", admin:true, perms: DASH_PAGES.map(p => p.key) }];
-    localStorage.setItem(USERS_KEY, JSON.stringify(seed));
-    return seed;
+    if(raw){ try { arr = JSON.parse(raw); } catch(e){} }
+    if(!Array.isArray(arr)) arr = [];
+    // self-heal: there must always be at least one administrator, otherwise no one can log in
+    if(!arr.some(u => u.admin)){
+        const nextId = (arr.reduce((m, u) => Math.max(m, Number(u.id) || 0), 0) || 0) + 1;
+        arr.push({ id: nextId, name:"admin", password:"1234", admin:true, perms: DASH_PAGES.map(p => p.key) });
+        localStorage.setItem(USERS_KEY, JSON.stringify(arr));
+    }
+    return arr;
 }
 let users = loadUsers();
 function persistUsers(){ localStorage.setItem(USERS_KEY, JSON.stringify(users)); }
