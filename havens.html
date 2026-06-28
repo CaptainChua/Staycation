@@ -695,7 +695,7 @@ function bookingAbsInterval(b){
 // cached bookings for the current haven (refreshed in computeUnavailable)
 let havenBookingsCache = null;
 function currentHavenBookings(){
-    if(!havenBookingsCache) havenBookingsCache = loadBookings().filter(b => sameHaven(b.haven, currentHavenName));
+    if(!havenBookingsCache) havenBookingsCache = loadBookings().filter(b => !b.cancelled && sameHaven(b.haven, currentHavenName));
     return havenBookingsCache;
 }
 // does candidate [candS, candE] clash with an existing booking (+ cleaning buffer)?
@@ -870,7 +870,7 @@ function sameHaven(a, b) {
 
 // days touched by ANY booking — used to block multi-night ranges (which need whole days)
 function computeUnavailable() {
-    havenBookingsCache = loadBookings().filter(b => sameHaven(b.haven, currentHavenName));
+    havenBookingsCache = loadBookings().filter(b => !b.cancelled && sameHaven(b.haven, currentHavenName));
     unavailableSet = new Set();
     havenBookingsCache.forEach(b => {
         let d = isoToDate(b.checkin);
@@ -897,6 +897,7 @@ function slotConflict(checkinIso, checkoutIso, stayHours, slot) {
     const cs = checkinIso;
     const ce = endExclusive(checkinIso, checkoutIso);
     return loadBookings().some(b => {
+        if (b.cancelled) return false;   // cancelled → haven is free
         if (!sameHaven(b.haven, currentHavenName)) return false;
         const overlap = cs < endExclusive(b.checkin, b.checkout) && b.checkin < ce;
         if (!overlap) return false;

@@ -615,11 +615,19 @@ tbody tr:hover{ background:#fafafa; }
 .status.paid{ background:#e3f5ea; color:#2e7d4f; }
 .status.partial{ background:#fff4d6; color:#9a7700; }
 .status.unpaid{ background:#fde3e7; color:#c0283d; }
+.status.cancelled{ background:#ececec; color:#777; }
 .actions{ white-space:nowrap; }
 .edit{ color:#2b6cb0; cursor:pointer; font-size:12px; margin-right:10px; }
 .edit:hover{ text-decoration:underline; }
 .del{ color:#c0283d; cursor:pointer; font-size:12px; }
 .del:hover{ text-decoration:underline; }
+.cancel{ color:#9a7700; cursor:pointer; font-size:12px; margin-right:10px; }
+.cancel:hover{ text-decoration:underline; }
+.reinstate{ color:#2e7d4f; cursor:pointer; font-size:12px; margin-right:10px; }
+.reinstate:hover{ text-decoration:underline; }
+/* a cancelled booking row is greyed and struck through, but still shows (DP kept) */
+tr.row-cancelled td{ color:#9a9a9a; }
+tr.row-cancelled td:nth-child(2){ text-decoration:line-through; }
 .muted{ color:#999; font-size:12px; }
 
 /* modal */
@@ -1685,6 +1693,7 @@ tbody tr:hover{ background:#fafafa; }
                 <option value="paid">Paid</option>
                 <option value="partial">Partial</option>
                 <option value="unpaid">Unpaid</option>
+                <option value="cancelled">Cancelled</option>
             </select>
             <input type="text" id="filterSearch" placeholder="Search guest name..." oninput="resetBookingsPage()">
         </div>
@@ -2948,6 +2957,7 @@ function findConflict(cand, excludeId){
     const cs = cand.checkin, ce = endExcl(cand);
     return bookings.find(b => {
         if(b.id === excludeId) return false;
+        if(b.cancelled) return false;            // cancelled bookings free up the haven
         if(b.haven !== cand.haven) return false;
         const overlap = cs < endExcl(b) && b.checkin < ce; // half-open: back-to-back is OK
         if(!overlap) return false;
@@ -2989,6 +2999,7 @@ function findConflictAdmin(cand, excludeId){
     const ci = bookingInterval(cand);
     return bookings.find(b => {
         if(b.id === excludeId) return false;
+        if(b.cancelled) return false;            // cancelled bookings free up the haven
         if(b.haven !== cand.haven) return false;
         return intervalsClash(ci, bookingInterval(b));   // overlap incl. the 2h cleaning gap
     }) || null;
@@ -3059,7 +3070,9 @@ function migrate(b){
 function collectedSum(b){ return (b.payments || []).reduce((s,p) => s + (Number(p.amount) || 0), 0); }
 // total the customer has paid = original downpayment + later collections
 function paidOf(b){ return Number(b.downpayment || 0) + collectedSum(b); }
-function balanceOf(b){ return Math.max(0, Number(b.total || 0) - paidOf(b)); }
+// a cancelled booking owes nothing more — the non-refundable downpayment stays as revenue,
+// but the remaining balance is no longer due
+function balanceOf(b){ if(b.cancelled) return 0; return Math.max(0, Number(b.total || 0) - paidOf(b)); }
 // revenue actually kept = everything paid, minus a security deposit that's been returned to the guest
 function netCollectedOf(b){
     if(!b.depositReturned) return paidOf(b);
@@ -3068,6 +3081,7 @@ function netCollectedOf(b){
     return paidOf(b) - refund;
 }
 function statusOf(b){
+    if(b.cancelled) return "cancelled";
     const paid = paidOf(b);
     if(paid >= b.total && b.total > 0) return "paid";
     if(paid > 0) return "partial";
@@ -3168,7 +3182,7 @@ function renderToday(){
     const lbl = document.getElementById("todayDateLabel");
     if(lbl) lbl.textContent = "— " + new Date(t + "T00:00:00").toLocaleDateString("en-PH", { weekday:"long", month:"long", day:"numeric", year:"numeric" });
 
-    const tagged = bookings.map(b => ({ b, info: todayInfo(b, t) })).filter(x => x.info.relevant);
+    const tagged = bookings.filter(b => !b.cancelled).map(b => ({ b, info: todayInfo(b, t) })).filter(x => x.info.relevant);
     const arrivals = tagged.filter(x => x.info.arrives).map(x => x.b)
         .sort((a,c) => bookingCheckinMin(a) - bookingCheckinMin(c));
     // in-house + departing, excluding pure arrivals already shown above
@@ -3214,14 +3228,17 @@ function renderSummary(){
     const isToday = (viewDays === 1 && startIso === todayIso);
 
     const inWindow = b => b.checkin >= startIso && b.checkin < endIso;
-    const checkins  = bookings.filter(inWindow).length;
-    const checkouts = bookings.filter(b => b.checkout >= startIso && b.checkout < endIso).length;
-    // occupied = havens with a booking overlapping the window
+    // cancelled bookings free the haven, so they don't count as check-ins/outs or occupancy…
+    const live = b => !b.cancelled;
+    const checkins  = bookings.filter(b => live(b) && inWindow(b)).length;
+    const checkouts = bookings.filter(b => live(b) && b.checkout >= startIso && b.checkout < endIso).length;
+    // occupied = havens with a (live) booking overlapping the window
     const occHavens = new Set(
-        bookings.filter(b => b.checkin < endIso && endExcl(b) > startIso).map(b => b.haven)
+        bookings.filter(b => live(b) && b.checkin < endIso && endExcl(b) > startIso).map(b => b.haven)
     );
     const occupied = HAVENS.filter(h => occHavens.has(h)).length;
     const available = HAVENS.length - occupied;
+    // …but their non-refundable downpayment stays in revenue (balanceOf is 0 once cancelled)
     const revenue = bookings.filter(inWindow).reduce((s,b) => s + netCollectedOf(b), 0);
     const pending = bookings.filter(inWindow).reduce((s,b) => s + balanceOf(b), 0);
 
@@ -3434,6 +3451,7 @@ function renderTimelineHours(){
     // when each haven is occupied (and the cleaning gap before it can be re-booked).
     const dayBookings = [];
     bookings.forEach(b => {
+        if(b.cancelled) return;                                        // cancelled → haven is free
         if(!HAVENS.includes(b.haven)) return;
         const coIso = b.checkout > b.checkin ? b.checkout : iso(addDays(new Date(b.checkin + "T00:00:00"), 1));
         if(!(b.checkin <= dayIso && dayIso <= coIso)) return;          // active this day (incl. the check-out morning)
@@ -3578,6 +3596,7 @@ function renderTimeline(){
     const rangeStartIso = iso(rangeStart);
     const rangeEndIso = iso(addDays(rangeStart, viewDays)); // exclusive
     bookings.forEach(b => {
+        if(b.cancelled) return;                                        // cancelled → not shown / haven free
         if(!HAVENS.includes(b.haven)) return;
         // exclusive end day for display; same-day (6h) bookings occupy 1 day
         const coIso = b.checkout > b.checkin ? b.checkout : iso(addDays(new Date(b.checkin + "T00:00:00"), 1));
@@ -3864,7 +3883,7 @@ function renderTable(){
     tbody.innerHTML = pageRows.map(b => {
         const balance = balanceOf(b);
         const st = statusOf(b);
-        return `<tr>
+        return `<tr class="${b.cancelled ? "row-cancelled" : ""}">
             <td><strong>${b.haven}</strong></td>
             <td>${guestSummary(b)}<br><span class="muted">${b.contact||""}</span></td>
             <td>${fmt(b.checkin)}<br><span class="muted">${checkinTimeStr(b)}</span></td>
@@ -3878,6 +3897,9 @@ function renderTable(){
             <td><span class="status ${st}">${st}</span></td>
             <td class="actions">
                 <span class="edit" onclick="openModal(${b.id})">Edit</span>
+                ${b.cancelled
+                    ? `<span class="reinstate" onclick="reinstateBooking(${b.id})">Reinstate</span>`
+                    : `<span class="cancel" onclick="cancelBooking(${b.id})">Cancel</span>`}
                 <span class="del" onclick="deleteBooking(${b.id})">Delete</span>
             </td>
         </tr>`;
@@ -3910,6 +3932,40 @@ function deleteBooking(id){
     if(b) logActivity(`deleted booking — ${b.haven} (${primaryName(b)})`);
     bookings = bookings.filter(b => b.id !== id);
     save(bookings);
+    renderAll();
+}
+
+// cancel a booking: the guest backed out, so free the haven — but the downpayment is
+// non-refundable, so the record stays and its collected money remains in Finance.
+function cancelBooking(id){
+    const b = bookings.find(x => x.id === id);
+    if(!b) return;
+    const kept = paidOf(b);   // non-refundable: downpayment + anything already collected
+    if(!confirm(`Cancel this booking for ${primaryName(b)} (${b.haven})?\n\n`
+        + `• The haven is freed for new bookings.\n`
+        + `• The ${peso(kept)} already paid is non-refundable and stays in Finance.\n`
+        + `• The remaining balance is no longer due.`)) return;
+    b.cancelled = true;
+    b.cancelledAt = new Date().toISOString();
+    save(bookings);
+    logActivity(`cancelled booking — ${b.haven} (${primaryName(b)}); kept ${peso(kept)} non-refundable`);
+    renderAll();
+}
+
+// undo a cancellation, but only if the haven/time hasn't since been taken by another booking
+function reinstateBooking(id){
+    const b = bookings.find(x => x.id === id);
+    if(!b) return;
+    const clash = findConflictAdmin(b, id);
+    if(clash){
+        alert(`Can't reinstate — ${b.haven} is now booked by ${primaryName(clash)} at that time. `
+            + `Edit the dates/time first, then reinstate.`);
+        return;
+    }
+    delete b.cancelled;
+    delete b.cancelledAt;
+    save(bookings);
+    logActivity(`reinstated booking — ${b.haven} (${primaryName(b)})`);
     renderAll();
 }
 
@@ -4615,6 +4671,7 @@ function havenFreeAtMin(haven, cand){
     let latest = null, latestEnd = null;
     bookings.forEach(b => {
         if(b.id === editingId) return;
+        if(b.cancelled) return;
         if(b.haven !== haven) return;
         const bi = bookingInterval(b);   // absolute minutes — fine for comparing/clashing
         if(ci.start < bi.end + CLEANING_GAP_MIN && bi.start < ci.end + CLEANING_GAP_MIN){
@@ -5295,7 +5352,7 @@ function renderAssist(){
     const d = inp.value;
     // bookings active on the date (guest is in-house) — that's where towels need to be set up
     const list = bookings
-        .filter(b => b.checkin <= d && d < endExcl(b))
+        .filter(b => !b.cancelled && b.checkin <= d && d < endExcl(b))
         .sort((a, b) => a.haven.localeCompare(b.haven));
     const body = document.getElementById("assistBody");
     body.innerHTML = list.length ? list.map(b => {

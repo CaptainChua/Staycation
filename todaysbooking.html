@@ -891,7 +891,7 @@
       ? new Date(start + "T00:00:00").toLocaleDateString("en-PH", { weekday:"long", month:"long", day:"numeric", year:"numeric" })
       : fmt(start) + " – " + fmt(lastDay);
 
-    const tagged = bookings.map(b => ({ b, info: rangeInfo(b, start, end) })).filter(x => x.info.relevant);
+    const tagged = bookings.filter(b => !b.cancelled).map(b => ({ b, info: rangeInfo(b, start, end) })).filter(x => x.info.relevant);
     const arrivals = tagged.filter(x => x.info.arrives).map(x => x.b)
       .sort((a,c) => (a.checkin||"").localeCompare(c.checkin||"") || bookingCheckinMin(a) - bookingCheckinMin(c));
     const others = tagged.filter(x => !x.info.arrives).map(x => x.b)
@@ -1472,6 +1472,7 @@
     const cs = cand.checkin, ce = endExcl(cand);
     return bookings.find(b => {
       if(b.id === excludeId) return false;
+      if(b.cancelled) return false;   // cancelled → haven is free
       if(b.haven !== cand.haven) return false;
       const overlap = cs < endExcl(b) && b.checkin < ce;
       if(!overlap) return false;
