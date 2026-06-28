@@ -717,13 +717,25 @@ function rawTimesForHours(hours, checkinIso){
     }
     return FLEX_TIMES;   // 10h
 }
-// the check-in times that actually fit (no clash, cleaning gap respected)
+// for a same-day (today) booking the guest needs at least 2 hours' lead time so staff can
+// process the guest form and clean the room — e.g. if it's 9:00 AM now, the earliest
+// selectable check-in is 11:00 AM. Returns the earliest allowed check-in minute-of-day for
+// `checkinIso`, or null when the date isn't today (future dates have no lead-time floor).
+const BOOKING_LEAD_MIN = 120; // 2 hours
+function earliestLeadMin(checkinIso){
+    const now = new Date();
+    if(checkinIso !== dateToIso(now)) return null;
+    return now.getHours() * 60 + now.getMinutes() + BOOKING_LEAD_MIN;
+}
+// the check-in times that actually fit (no clash, cleaning gap respected, 2h lead time for today)
 function freeCheckinTimes(hours, checkinIso, extend){
     extend = extend || 0;
     const base = dayIndex(checkinIso) * 1440;
+    const leadMin = earliestLeadMin(checkinIso);
     return rawTimesForHours(hours, checkinIso).filter(tStr => {
         const sMin = checkinMinOf(tStr);
         if(sMin == null) return false;
+        if(leadMin != null && sMin < leadMin) return false;   // same-day: need 2h lead time
         const s = base + sMin;
         const e = s + (hours + extend) * 60;
         return !intervalConflicts(s, e);
@@ -1124,6 +1136,14 @@ function bookNow() {
     } else {
         const sMin = checkinMinOf(document.getElementById("checkinTime").value);
         if (sMin == null) { syncBooking(); return; }
+        // same-day bookings need at least 2 hours' lead time (form processing + room cleaning)
+        const leadMin = earliestLeadMin(selStart);
+        if (leadMin != null && sMin < leadMin) {
+            alert("For a same-day booking, please choose a check-in time at least 2 hours from now so we can prepare your room.");
+            computeUnavailable();
+            syncBooking();
+            return;
+        }
         const candS = dayIndex(selStart) * 1440 + sMin;
         const candE = candS + (stayHours + addons.hours) * 60;
         clash = intervalConflicts(candS, candE);

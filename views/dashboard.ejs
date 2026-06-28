@@ -2888,7 +2888,7 @@ function minToTime(min){
 function bookingCheckinMin(b){
     if(b.checkinTime){ const m = parseTimeMin(b.checkinTime); if(m != null) return m === 0 ? 1440 : m; }
     const h = Number(b.stayHours) || 21;
-    if(h === 6) return parseTimeMin(b.slot === "evening" ? "7:00 PM" : "8:00 AM");
+    if(h === 6) return parseTimeMin(b.slot === "evening" ? "7:00 PM" : "9:00 AM");
     if(h === 21){ const t = DASH_HAVEN_TIMES[b.haven]; return t ? parseTimeMin(t.in) : parseTimeMin("12:00 NN"); }
     return parseTimeMin("8:00 AM");
 }
@@ -2966,13 +2966,23 @@ function bookingInterval(b){
     const dur = ((Number(b.stayHours) || 21) + (Number(b.extend) || 0)) * 60;
     return { start, end: start + dur };
 }
+// minimum turnaround/cleaning gap required between two stays in the same haven.
+// e.g. if a guest checks out at 8:00 AM, the next check-in can only be 10:00 AM or later.
+const CLEANING_GAP_MIN = 120; // 2 hours
+// the property opens for check-ins at 9:00 AM. A same-day check-out pushes the next
+// check-in even later via CLEANING_GAP_MIN; this floor covers havens that have been
+// vacant since an earlier day (you still can't check a guest in before 9 AM).
+const EARLIEST_CHECKIN_MIN = 540; // 9:00 AM
+// do two booking time-windows clash, including the required cleaning gap between them?
+function intervalsClash(ai, bi){
+    return ai.start < bi.end + CLEANING_GAP_MIN && bi.start < ai.end + CLEANING_GAP_MIN;
+}
 function findConflictAdmin(cand, excludeId){
     const ci = bookingInterval(cand);
     return bookings.find(b => {
         if(b.id === excludeId) return false;
         if(b.haven !== cand.haven) return false;
-        const bi = bookingInterval(b);
-        return ci.start < bi.end && bi.start < ci.end;   // real overlap of time windows only
+        return intervalsClash(ci, bookingInterval(b));   // overlap incl. the 2h cleaning gap
     }) || null;
 }
 // nights of an overnight stay (>=1) from the check-in/out dates
@@ -4410,15 +4420,15 @@ function onCheckinChange(){
     onStayChange();
 }
 
-// populate the check-in time options (hourly, 12 MN … 11 PM)
+// populate the check-in time options (hourly, 9 AM … 11 PM — earliest check-in is 9 AM)
 function fillCheckinTimes(){
     const sel = document.getElementById("f_checkinTime");
     let html = "";
-    for(let h = 0; h < 24; h++){ const t = minToTime(h * 60); html += `<option value="${t}">${t}</option>`; }
+    for(let h = 9; h < 24; h++){ const t = minToTime(h * 60); html += `<option value="${t}">${t}</option>`; }
     html += `<option value="__custom__">Custom time…</option>`;
     sel.innerHTML = html;
 }
-function dashCheckinMin(timeStr){ const m = parseTimeMin(timeStr); if(m == null) return 480; return m === 0 ? 1440 : m; }
+function dashCheckinMin(timeStr){ const m = parseTimeMin(timeStr); if(m == null) return 540; return m === 0 ? 1440 : m; }
 // toggle the free time input when "Custom time…" is picked
 function onCheckinTimeSelChange(){
     const custom = document.getElementById("f_checkinTimeCustom");
@@ -4430,7 +4440,7 @@ function dashCheckinTimeValue(){
     const sel = document.getElementById("f_checkinTime");
     if(sel.value === "__custom__"){
         const v = document.getElementById("f_checkinTimeCustom").value; // "HH:MM" 24h
-        if(!v) return "8:00 AM";
+        if(!v) return "9:00 AM";
         const [h, m] = v.split(":").map(Number);
         return minToTime(h * 60 + m);
     }
@@ -4673,7 +4683,7 @@ function openModal(id){
         setField("f_checkin", iso(today()));
         setField("f_checkout", iso(addDays(today(),1)));
         updateStayOptions(6);
-        setDashCheckinTime("8:00 AM");
+        setDashCheckinTime("9:00 AM");
         setField("f_swimpass", 0);
         setField("f_towels", 0);
         setField("f_extend", 0);
@@ -5028,6 +5038,12 @@ function saveBooking(){
         alert("Saturday check-ins are 21 hours only.");
         return;
     }
+    // earliest check-in is 9:00 AM (a same-day check-out pushes it later via the 2h cleaning gap)
+    const ciMin = parseTimeMin(dashCheckinTimeValue());
+    if(ciMin != null && ciMin < EARLIEST_CHECKIN_MIN){
+        alert("The earliest check-in time is 9:00 AM.");
+        return;
+    }
 
     const data = {
         haven: document.getElementById("f_haven").value,
@@ -5065,7 +5081,7 @@ function saveBooking(){
         alert(
             `${data.haven} is already booked at that time by ${primaryName(clash)} ` +
             `(${fmt(clash.checkin)} · ${checkinTimeStr(clash)}–${checkoutTimeStr(clash)}).\n\n` +
-            `Choose a check-in time that doesn't overlap, or a different haven/date.`
+            `Leave at least a 2-hour cleaning gap — pick a check-in time at least 2 hours after that check-out, or a different haven/date.`
         );
         return;
     }
@@ -5073,8 +5089,7 @@ function saveBooking(){
     // ----- additional havens (multi-haven stay): each becomes a linked overnight booking -----
     const overlapClash = (a, c) => {
         if(a.haven !== c.haven) return false;
-        const ai = bookingInterval(a), ci = bookingInterval(c);
-        return ci.start < ai.end && ai.start < ci.end;   // real time-window overlap
+        return intervalsClash(bookingInterval(a), bookingInterval(c));   // incl. the 2h cleaning gap
     };
     const segDatas = [];
     for(const seg of readSegs()){
