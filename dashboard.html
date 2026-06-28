@@ -8590,11 +8590,13 @@ function loadUsers(){
     const raw = localStorage.getItem(USERS_KEY);
     if(raw){ try { arr = JSON.parse(raw); } catch(e){} }
     if(!Array.isArray(arr)) arr = [];
-    // self-heal: there must always be at least one administrator, otherwise no one can log in
+    // self-heal (IN MEMORY ONLY): make sure this session always has an admin so the
+    // UI works, but NEVER write/mirror it to the server here — a stale/empty local
+    // copy (e.g. right after a cold start) would otherwise overwrite the real user
+    // list on the server and wipe everyone. Persisting the admin is admin.html's job.
     if(!arr.some(u => u.admin)){
         const nextId = (arr.reduce((m, u) => Math.max(m, Number(u.id) || 0), 0) || 0) + 1;
         arr.push({ id: nextId, name:"admin", password:"1234", admin:true, perms: DASH_PAGES.map(p => p.key) });
-        localStorage.setItem(USERS_KEY, JSON.stringify(arr));
     }
     return arr;
 }

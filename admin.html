@@ -71,13 +71,26 @@
 
 <script>
 
-function login(){
+async function login(){
 
     const username = document.getElementById("username").value.trim();
     const password = document.getElementById("password").value;
 
-    let users = [];
-    try { users = JSON.parse(localStorage.getItem("shph_users")) || []; } catch(e){}
+    // Pull the AUTHORITATIVE user list straight from the shared server first.
+    // A stale or empty local copy (e.g. right after a serverless cold start)
+    // must never drive the "recovery" below — otherwise logging in would
+    // overwrite real users on the server with a lone admin. Only fall back to
+    // localStorage if the server is genuinely unreachable.
+    let users = null;
+    try {
+        const res = await fetch("/api/kv/shph_users", { cache: "no-store" });
+        if(res.ok){ const j = await res.json(); if(Array.isArray(j)) users = j; }
+    } catch(e){ /* offline */ }
+    if(users === null){
+        try { users = JSON.parse(localStorage.getItem("shph_users")) || []; } catch(e){ users = []; }
+    } else {
+        try { localStorage.setItem("shph_users", JSON.stringify(users)); } catch(e){}
+    }
 
     const match = users.find(u =>
         (u.name || "").toLowerCase() === username.toLowerCase() && u.password === password);
@@ -88,13 +101,19 @@ function login(){
         window.location.href = "dashboard.html";
     }
     else if(!users.some(u => u.admin) && username !== "" && password === "1234"){
-        // recovery: no administrator account exists (fresh setup, or the list was wiped).
-        // re-create the default admin so login keeps working — added to any existing users,
-        // and mirrored to the server so it persists.
+        // genuine fresh setup: the SERVER confirms no administrator exists.
+        // create the default admin (added to any existing users) and make sure
+        // it reaches the server BEFORE navigating away.
         const nextId = (users.reduce((m, u) => Math.max(m, Number(u.id) || 0), 0) || 0) + 1;
         const adminUser = { id: nextId, name: username, password: "1234", admin: true, perms: [] };
         users.push(adminUser);
-        localStorage.setItem("shph_users", JSON.stringify(users));
+        try { localStorage.setItem("shph_users", JSON.stringify(users)); } catch(e){}
+        try {
+            await fetch("/api/kv/shph_users", {
+                method: "PUT", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(users)
+            });
+        } catch(e){ /* localStorage still holds it */ }
         localStorage.setItem("shph_current_user", adminUser.name);
         logLogin(adminUser.name);
         window.location.href = "dashboard.html";
