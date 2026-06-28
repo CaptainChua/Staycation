@@ -177,6 +177,15 @@
   .check-label{ display:flex; align-items:center; gap:8px; font-size:13px; color:#555; font-weight:normal; }
   .empty{ text-align:center; color:#aaa; padding:30px; }
   .scroll{ overflow-x:auto; }
+  /* activity log rows */
+  .log-list{ display:flex; flex-direction:column; }
+  .log-row{ display:grid; grid-template-columns:190px 150px 1fr; gap:12px; align-items:baseline;
+            padding:9px 4px; border-bottom:1px solid #f0ede8; font-size:13px; }
+  .log-row:last-child{ border-bottom:none; }
+  .log-when{ color:#999; font-size:12px; white-space:nowrap; }
+  .log-user{ font-weight:700; color:var(--hv-terra-d, #b5651d); }
+  .log-action{ color:#444; }
+  @media(max-width:760px){ .log-row{ grid-template-columns:1fr; gap:2px; } }
   @media(max-width:760px){ .cards{ grid-template-columns:repeat(2,1fr); } }
 </style>
 
@@ -530,6 +539,17 @@
       </table>
     </div>
   </div>
+
+  <!-- activity log — visible to admins only -->
+  <div class="panel" id="logPanel" style="display:none;">
+    <div class="panel-head">
+      <h2><span class="sec-ico"><svg viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5z"/><path d="M9 9h5M9 13h6M9 17h4"/></svg></span>Activity log <span class="muted" id="logCount"></span></h2>
+      <button class="btn secondary" onclick="renderTodayLog()">↻ Refresh</button>
+    </div>
+    <div class="scroll" style="max-height:340px; overflow-y:auto;">
+      <div id="todayLogList" class="log-list"></div>
+    </div>
+  </div>
 </div>
 </div><!-- /main -->
 
@@ -864,6 +884,29 @@
     const overlaps = b.checkin < end && endExcl(b) > start;
     return { arrives, departs, staying: overlaps, relevant: arrives || departs || overlaps };
   }
+
+  // activity log shown below the booking lists — ADMINS ONLY
+  function renderTodayLog(){
+    const panel = document.getElementById("logPanel");
+    if(!panel) return;
+    if(!IS_ADMIN){ panel.style.display = "none"; return; }   // hide for non-admins
+    panel.style.display = "";
+    let log = [];
+    try { log = JSON.parse(localStorage.getItem("shph_activity_log")) || []; } catch(e){}
+    const cnt = document.getElementById("logCount");
+    if(cnt) cnt.textContent = log.length ? "(" + log.length + ")" : "";
+    const el = document.getElementById("todayLogList");
+    if(!el) return;
+    if(!log.length){ el.innerHTML = '<div class="muted" style="padding:14px 4px;">No activity logged yet.</div>'; return; }
+    const esc = s => String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    el.innerHTML = log.slice().reverse().slice(0, 200).map(e =>
+      `<div class="log-row">
+         <span class="log-when">${new Date(e.at).toLocaleString("en-PH")}</span>
+         <span class="log-user">${esc(e.user || "—")}</span>
+         <span class="log-action">${esc(e.action || "")}</span>
+       </div>`).join("");
+  }
+
   function setView(v){
     currentView = v;
     localStorage.setItem("shph_today_view", v);   // remember across refreshes
@@ -1660,9 +1703,13 @@
     document.querySelectorAll(".view-tab").forEach(t => t.classList.toggle("active", t.dataset.view === currentView));
   })();
   renderToday();
+  renderTodayLog();   // admin-only activity log below the lists
 
   // keep this page in sync when bookings are changed in another tab (e.g. the dashboard)
-  window.addEventListener("storage", e => { if(e.key === KEY) renderToday(); });
+  window.addEventListener("storage", e => {
+    if(e.key === KEY) renderToday();
+    if(e.key === "shph_activity_log") renderTodayLog();
+  });
 </script>
 </body>
 </html>
