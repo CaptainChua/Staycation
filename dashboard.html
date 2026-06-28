@@ -2609,6 +2609,7 @@ input.gf-ov:focus{ outline:none; background:#fff7cc; }
             <span class="bk-tab active" id="bkTab1" onclick="bkGoPage(1)">Booking Details</span>
             <span class="bk-tab" id="bkTab2" onclick="bkGoPage(2)">Proof of Payment</span>
             <span class="bk-tab" id="bkTab3" onclick="bkGoPage(3)">IDs <span class="bk-tab-count" id="bkIdCount"></span></span>
+            <span class="bk-tab" id="bkTab4" onclick="bkGoPage(4)">PDF</span>
         </div>
         <div id="bkPage1">
         <div class="form-grid">
@@ -2802,6 +2803,97 @@ input.gf-ov:focus{ outline:none; background:#fff7cc; }
                 </label>
             </div>
             <input type="file" id="idFileInput" accept="image/*" multiple onchange="onIdFileChange(this)" style="display:none;">
+        </div>
+
+        <!-- ===== PDF tab: booking confirmation (viewable + downloadable) ===== -->
+        <style>
+          #bkPage4 .bkc-bar{ display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:12px; flex-wrap:wrap; }
+          #bkPage4 .bkc-wrap{ overflow:auto; max-height:64vh; background:#e7e3dc; padding:16px; border-radius:14px; }
+          /* the confirmation document — matched to the PDF design */
+          #bkConfirm{ width:760px; margin:0 auto; background:#fff; color:#2b2622; font-family:'Mulish',-apple-system,Segoe UI,Arial,sans-serif; font-size:13px; line-height:1.45; box-shadow:0 8px 30px rgba(0,0,0,.14); }
+          #bkConfirm .pf{ font-family:'Playfair Display',Georgia,serif; }
+          #bkConfirm .hd{ background:#1c1b1a; color:#fff; padding:30px 40px 26px; }
+          #bkConfirm .hd-top{ display:flex; justify-content:space-between; align-items:flex-start; }
+          #bkConfirm .brand{ display:flex; align-items:center; gap:13px; }
+          #bkConfirm .logo{ width:46px; height:46px; border-radius:12px; background:#fff; color:#c0683a; font-family:'Playfair Display',serif; font-weight:800; font-size:25px; display:flex; align-items:center; justify-content:center; }
+          #bkConfirm .brand b{ font-size:18px; font-weight:800; letter-spacing:.2px; display:block; }
+          #bkConfirm .brand small{ font-size:9.5px; letter-spacing:2.5px; color:#9a948c; }
+          #bkConfirm .pill{ border:1px solid #2f8f57; color:#5cc585; border-radius:30px; padding:6px 14px; font-size:11px; font-weight:700; letter-spacing:.6px; white-space:nowrap; }
+          #bkConfirm .pill .dot{ color:#2f8f57; }
+          #bkConfirm .hd-mid{ display:flex; justify-content:space-between; align-items:flex-end; margin-top:30px; }
+          #bkConfirm .eyebrow{ color:#c0683a; font-size:11px; font-weight:800; letter-spacing:2.5px; }
+          #bkConfirm .resno{ font-size:38px; font-weight:800; margin-top:8px; line-height:1; }
+          #bkConfirm .issued{ text-align:right; }
+          #bkConfirm .issued .l{ color:#9a948c; font-size:10px; letter-spacing:1.8px; font-weight:700; }
+          #bkConfirm .issued .v{ font-size:13px; margin-top:5px; }
+          /* date band */
+          #bkConfirm .band{ background:#f1eae0; display:flex; align-items:center; gap:18px; padding:20px 40px; }
+          #bkConfirm .band .col{ flex:1; }
+          #bkConfirm .band .lbl{ color:#a39a8c; font-size:10px; letter-spacing:1.6px; font-weight:800; }
+          #bkConfirm .band .big{ font-size:21px; font-weight:800; margin-top:5px; color:#2b2622; }
+          #bkConfirm .band .sub{ color:#8c8378; font-size:12px; margin-top:2px; }
+          #bkConfirm .band .arrow{ flex:0 0 auto; text-align:center; color:#c0683a; }
+          #bkConfirm .band .arrow .a{ font-size:20px; line-height:1; }
+          #bkConfirm .band .arrow .n{ color:#8c8378; font-size:11px; font-weight:700; margin-top:3px; white-space:nowrap; }
+          #bkConfirm .band .haven{ color:#c0683a; }
+          /* body */
+          #bkConfirm .body{ padding:30px 40px 34px; }
+          #bkConfirm .two{ display:flex; gap:34px; }
+          #bkConfirm .two > div{ flex:1; min-width:0; }
+          #bkConfirm .sec-lbl{ color:#c0683a; font-size:11px; font-weight:800; letter-spacing:1.6px; margin-bottom:9px; }
+          #bkConfirm .bookby b{ font-size:19px; font-weight:800; }
+          #bkConfirm .bookby .ln{ color:#6f675d; font-size:12.5px; margin-top:5px; }
+          #bkConfirm .party .big{ font-size:19px; font-weight:800; }
+          #bkConfirm .party .big span{ color:#8c8378; font-weight:600; font-size:13px; }
+          #bkConfirm .party .sub{ color:#8c8378; font-size:12.5px; margin-top:4px; }
+          #bkConfirm table.glist{ width:100%; border-collapse:collapse; margin-top:6px; }
+          #bkConfirm .glist th{ background:#f6f1ea; color:#a39a8c; font-size:10px; letter-spacing:1px; text-transform:uppercase; font-weight:800; text-align:left; padding:9px 14px; }
+          #bkConfirm .glist th.r, #bkConfirm .glist td.r{ text-align:right; }
+          #bkConfirm .glist td{ padding:11px 14px; border-bottom:1px solid #efe9e0; font-size:13.5px; }
+          #bkConfirm .glist td.num{ color:#c0683a; font-weight:800; width:36px; }
+          #bkConfirm .glist tr:last-child td{ border-bottom:none; }
+          #bkConfirm .divider{ border:none; border-top:1px solid #efe9e0; margin:26px 0; }
+          /* inclusions */
+          #bkConfirm .inc{ display:flex; align-items:center; gap:13px; background:#faf7f2; border:1px solid #f0e9df; border-radius:13px; padding:13px 15px; margin-bottom:11px; }
+          #bkConfirm .inc.zero{ opacity:.5; }
+          #bkConfirm .inc .ico{ width:38px; height:38px; border-radius:10px; background:#f1e7db; color:#c0683a; flex:none; display:flex; align-items:center; justify-content:center; }
+          #bkConfirm .inc .ico svg{ width:19px; height:19px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+          #bkConfirm .inc .t{ flex:1; min-width:0; }
+          #bkConfirm .inc .t b{ font-size:13.5px; font-weight:800; }
+          #bkConfirm .inc .t small{ display:block; color:#8c8378; font-size:11.5px; margin-top:1px; }
+          #bkConfirm .inc .amt{ font-weight:800; font-size:14px; white-space:nowrap; }
+          /* payment summary */
+          #bkConfirm .psum{ border:1px solid #efe9e0; border-radius:14px; overflow:hidden; }
+          #bkConfirm .psum .row{ display:flex; justify-content:space-between; gap:10px; padding:13px 17px; border-bottom:1px solid #f1ece4; font-size:13.5px; }
+          #bkConfirm .psum .row.zero{ color:#b3a99c; }
+          #bkConfirm .psum .row b{ font-weight:800; }
+          #bkConfirm .psum .row.disc{ color:#2f8f57; }
+          #bkConfirm .psum .row.disc b{ color:#2f8f57; }
+          #bkConfirm .psum .total{ background:#1c1b1a; color:#fff; display:flex; justify-content:space-between; align-items:center; padding:16px 17px; }
+          #bkConfirm .psum .total .l{ font-weight:800; font-size:14px; }
+          #bkConfirm .psum .total .v{ font-family:'Playfair Display',serif; font-weight:800; font-size:21px; }
+          #bkConfirm .paybox{ display:flex; gap:12px; margin-top:12px; }
+          #bkConfirm .paybox .b{ flex:1; border-radius:13px; padding:13px 15px; }
+          #bkConfirm .paybox .b.dp{ background:#e7f3ec; }
+          #bkConfirm .paybox .b.bal{ background:#fbeadd; }
+          #bkConfirm .paybox .l{ font-size:10px; font-weight:800; letter-spacing:1px; }
+          #bkConfirm .paybox .dp .l{ color:#2f8f57; }
+          #bkConfirm .paybox .bal .l{ color:#c0683a; }
+          #bkConfirm .paybox .v{ font-family:'Playfair Display',serif; font-weight:800; font-size:21px; margin-top:5px; }
+          #bkConfirm .paybox .dp .v{ color:#2f8f57; }
+          #bkConfirm .paybox .bal .v{ color:#c0683a; }
+          /* notes + footer */
+          #bkConfirm .notes{ background:#faf7f2; border:1px solid #f0e9df; border-radius:13px; padding:16px 18px; margin-top:26px; }
+          #bkConfirm .notes .l{ color:#c0683a; font-size:11px; font-weight:800; letter-spacing:1.4px; margin-bottom:7px; }
+          #bkConfirm .notes p{ color:#6f675d; font-size:12.5px; margin:0; }
+          #bkConfirm .foot{ display:flex; justify-content:space-between; gap:10px; padding:18px 40px 24px; color:#a39a8c; font-size:11px; border-top:1px solid #efe9e0; }
+        </style>
+        <div id="bkPage4" style="display:none;">
+            <div class="bkc-bar">
+                <div class="muted" style="font-size:13px;">Booking confirmation — preview below. Download a PDF to send to the guest.</div>
+                <button type="button" class="btn" onclick="downloadConfirmation()">⬇ Download PDF</button>
+            </div>
+            <div class="bkc-wrap"><div id="bkConfirm"></div></div>
         </div>
 
         <div class="modal-actions">
@@ -5240,11 +5332,179 @@ function bkGoPage(n){
     document.getElementById("bkPage1").style.display = n === 1 ? "" : "none";
     document.getElementById("bkPage2").style.display = n === 2 ? "" : "none";
     document.getElementById("bkPage3").style.display = n === 3 ? "" : "none";
+    document.getElementById("bkPage4").style.display = n === 4 ? "" : "none";
     document.getElementById("bkTab1").classList.toggle("active", n === 1);
     document.getElementById("bkTab2").classList.toggle("active", n === 2);
     document.getElementById("bkTab3").classList.toggle("active", n === 3);
+    document.getElementById("bkTab4").classList.toggle("active", n === 4);
+    if(n === 4) renderConfirmation();
     const note = document.getElementById("bkFootNote");
     if(note){ if(n === 3) updateIdFootNote(); else note.innerHTML = ""; }
+}
+
+// split a full name into first + last (last word = last name)
+function splitName(full){
+    const parts = String(full || "").trim().split(/\s+/).filter(Boolean);
+    if(parts.length <= 1) return { first: parts[0] || "", last: "" };
+    const last = parts.pop();
+    return { first: parts.join(" "), last };
+}
+
+// build the booking-confirmation document (matches the PDF design) from the
+// current form state so it always reflects what's on screen
+function renderConfirmation(){
+    const el = document.getElementById("bkConfirm");
+    if(!el) return;
+    const g = id => document.getElementById(id);
+    const stayVal = g("f_stay").value;
+    const stayH = stayVal === "multi" ? 21 : (Number(stayVal) || 0);
+    const checkin = g("f_checkin").value;
+    const checkout = g("f_checkout").value || iso(addDays(new Date(checkin + "T00:00:00"), 1));
+    const guests = readGuests();
+    const b = {
+        haven: g("f_haven").value, fbName: g("f_fbName").value.trim(), contact: g("f_contact").value.trim(),
+        guests, checkin, checkout, stayHours: stayH, checkinTime: dashCheckinTimeValue(),
+        slot: stayH === 6 ? (dashCheckinMin(dashCheckinTimeValue()) <= 720 ? "morning" : "evening") : null,
+        swimpass: Number(g("f_swimpass").value) || 0, towels: Number(g("f_towels").value) || 0,
+        extend: Number(g("f_extend").value) || 0, holiday: g("f_holiday").checked
+    };
+    const dep = Number(g("f_deposit").value) || 0;
+    const discount = Number(g("f_discount").value) || 0;
+    const method = g("f_method").value || "GCash";
+    const down = Number(g("f_down").value) || 0;
+    const saved = editingId ? bookings.find(x => x.id === editingId) : null;
+    const collected = saved ? collectedSum(saved) : 0;
+
+    const base = baseRate(stayH, checkin, checkout);
+    const nights = stayH === 21 ? stayNights(checkin, checkout) : 0;
+    const extraHeads = Math.max(0, billablePax(guests) - PRICING.baseIncludedPax);
+    const pax = extraHeads * PRICING.addPax;
+    const swimRate = b.holiday ? PRICING.swimHoliday : PRICING.swimRegular;
+    const swim = b.swimpass * swimRate, tow = b.towels * PRICING.towel, ext = b.extend * PRICING.extendPerHr;
+    const total = Math.max(0, base + pax + swim + tow + ext + dep - discount);
+    const balance = Math.max(0, total - down - collected);
+
+    const isON = stayH === 21;
+    const stayType = isON ? (nights > 1 ? "Multiple-night stay" : "Overnight stay") : (stayH ? stayH + "-hour day use" : "Day use");
+    const nightsBadge = isON ? (nights + " night" + (nights > 1 ? "s" : "")) : "Day use";
+    const longDate = d => d ? new Date(d + "T00:00:00").toLocaleDateString("en-PH", { month:"short", day:"numeric", year:"numeric" }) : "—";
+    const issued = new Date().toLocaleDateString("en-PH", { month:"long", day:"numeric", year:"numeric" });
+    const bookedBy = b.fbName || primaryName(b);
+
+    const ICO = {
+        bed:`<svg viewBox="0 0 24 24"><path d="M2 17v-5a2 2 0 0 1 2-2h12a4 4 0 0 1 4 4v3"/><path d="M2 17h20M2 13h7"/><path d="M6 10V8a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v2"/></svg>`,
+        guest:`<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M19 8v6M16 11h6"/></svg>`,
+        swim:`<svg viewBox="0 0 24 24"><path d="M2 16c1.5 0 1.5-1 3-1s1.5 1 3 1 1.5-1 3-1 1.5 1 3 1 1.5-1 3-1 1.5 1 3 1"/><path d="M2 20c1.5 0 1.5-1 3-1s1.5 1 3 1 1.5-1 3-1 1.5 1 3 1 1.5-1 3-1 1.5 1 3 1"/><circle cx="14" cy="6" r="1.6"/><path d="M7 14l4-4 3 2"/></svg>`,
+        towel:`<svg viewBox="0 0 24 24"><path d="M6 4h12v16H8a2 2 0 0 1-2-2V4Z"/><path d="M6 8H4v8a2 2 0 0 0 2 2"/></svg>`,
+        clock:`<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>`
+    };
+    const inc = (icon, title, sub, amount) =>
+        `<div class="inc${amount <= 0 ? " zero" : ""}"><span class="ico">${icon}</span><span class="t"><b>${title}</b><small>${sub}</small></span><span class="amt">${peso(amount)}</span></div>`;
+    const ps = (label, val, cls) => `<div class="row${cls ? " " + cls : ""}"><span>${label}</span><b>${val}</b></div>`;
+
+    const guestRows = guests.map((gst, i) => {
+        const nm = splitName(gst.name);
+        return `<tr><td class="num">${i + 1}</td><td>${escHtml(nm.first)}</td><td>${escHtml(nm.last)}</td><td class="r">${gst.age != null && gst.age !== "" ? gst.age : ""}</td></tr>`;
+    }).join("") || `<tr><td colspan="4" style="color:#a39a8c;">No guests listed.</td></tr>`;
+
+    el.innerHTML = `
+    <div class="hd">
+        <div class="hd-top">
+            <div class="brand">
+                <span class="logo">S</span>
+                <span><b>Staycation Haven PH</b><small>PRIVATE STAYCATION RENTALS</small></span>
+            </div>
+            <span class="pill"><span class="dot">●</span> CONFIRMED</span>
+        </div>
+        <div class="hd-mid">
+            <div>
+                <div class="eyebrow">BOOKING CONFIRMATION</div>
+                <div class="resno pf">Reservation #${editingId || ""}</div>
+            </div>
+            <div class="issued"><div class="l">ISSUED</div><div class="v">${issued}</div></div>
+        </div>
+    </div>
+    <div class="band">
+        <div class="col"><div class="lbl">CHECK-IN</div><div class="big pf">${longDate(checkin)}</div><div class="sub">${checkinTimeStr(b)}</div></div>
+        <div class="arrow"><div class="a">→</div><div class="n">${nightsBadge}</div></div>
+        <div class="col"><div class="lbl">CHECK-OUT</div><div class="big pf">${longDate(checkout)}</div><div class="sub">${checkoutTimeStr(b)}</div></div>
+        <div class="col"><div class="lbl">HAVEN</div><div class="big pf haven">${escHtml(b.haven)}</div><div class="sub">${stayType}</div></div>
+    </div>
+    <div class="body">
+        <div class="two">
+            <div class="bookby">
+                <div class="sec-lbl">BOOKED BY</div>
+                <b>${escHtml(bookedBy)}</b>
+                <div class="ln">📞 ${escHtml(b.contact || "—")}</div>
+                ${b.fbName ? `<div class="ln">💬 Facebook: ${escHtml(b.fbName)}</div>` : ""}
+            </div>
+            <div class="party">
+                <div class="sec-lbl">PARTY SIZE</div>
+                <div class="big pf">${guests.length} guest${guests.length === 1 ? "" : "s"} <span>· max ${PRICING.maxPax} pax</span></div>
+                <div class="sub">Up to ${PRICING.maxAdults} adults &amp; ${PRICING.maxKids} kids (0–${PRICING.kidMaxAge})</div>
+            </div>
+        </div>
+        <div style="margin-top:22px;">
+            <div class="sec-lbl">GUEST LIST</div>
+            <table class="glist"><thead><tr><th>#</th><th>First name</th><th>Last name</th><th class="r">Age</th></tr></thead><tbody>${guestRows}</tbody></table>
+        </div>
+        <hr class="divider">
+        <div class="two">
+            <div>
+                <div class="sec-lbl">INCLUSIONS &amp; ADD-ONS</div>
+                ${inc(ICO.bed, isON ? "Overnight stay · " + nights + " night" + (nights > 1 ? "s" : "") : stayType, "Base rate for " + PRICING.baseIncludedPax + " pax", base)}
+                ${inc(ICO.guest, "Extra guest", extraHeads + " pax × " + peso(PRICING.addPax), pax)}
+                ${inc(ICO.swim, "Swimpass", b.swimpass + " × " + peso(swimRate), swim)}
+                ${inc(ICO.towel, "Towels", b.towels + " × " + peso(PRICING.towel), tow)}
+                ${inc(ICO.clock, "Extended hours", b.extend + " hr × " + peso(PRICING.extendPerHr), ext)}
+            </div>
+            <div>
+                <div class="sec-lbl">PAYMENT SUMMARY</div>
+                <div class="psum">
+                    ${ps("Base rate (" + PRICING.baseIncludedPax + " pax" + (isON ? " · " + nights + " night" + (nights > 1 ? "s" : "") : "") + ")", peso(base))}
+                    ${ps("Extra pax (" + extraHeads + " × " + peso(PRICING.addPax) + ")", peso(pax), pax <= 0 ? "zero" : "")}
+                    ${ps("Swimpass (" + b.swimpass + " × " + peso(swimRate) + ")", peso(swim), swim <= 0 ? "zero" : "")}
+                    ${ps("Towels / Extend", peso(tow + ext), (tow + ext) <= 0 ? "zero" : "")}
+                    ${ps("Security deposit (refundable)", peso(dep))}
+                    ${discount > 0 ? ps("Discount", "− " + peso(discount), "disc") : ""}
+                    <div class="total"><span class="l">Total amount payable</span><span class="v">${peso(total)}</span></div>
+                </div>
+                <div class="paybox">
+                    <div class="b dp"><div class="l">DOWNPAYMENT · ${escHtml((method || "").toUpperCase())}</div><div class="v">${peso(down)}</div></div>
+                    <div class="b bal"><div class="l">BALANCE ON CHECK-IN</div><div class="v">${peso(balance)}</div></div>
+                </div>
+            </div>
+        </div>
+        <div class="notes">
+            <div class="l">NOTES</div>
+            <p>Balance will be collected upon arrival. A refundable security deposit of ${peso(dep)} is collected on arrival. Standard check-in ${checkinTimeStr(b)}, check-out ${checkoutTimeStr(b)}. Please present a valid ID for each guest upon arrival.</p>
+        </div>
+    </div>
+    <div class="foot">
+        <span>Thank you for booking with Staycation Haven PH · This confirmation is your proof of reservation.</span>
+        <span>staycationhaven.ph</span>
+    </div>`;
+}
+
+// download the confirmation as a PDF (lazy-loads the generator from a CDN)
+function downloadConfirmation(){
+    renderConfirmation();
+    const el = document.getElementById("bkConfirm");
+    if(!el) return;
+    const w = el.offsetWidth, h = el.offsetHeight;
+    const fname = "Booking-Confirmation-" + (editingId || "new") + ".pdf";
+    const go = () => html2pdf().set({
+        margin: 0, filename: fname,
+        image: { type:"jpeg", quality:0.98 },
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff" },
+        jsPDF: { unit:"px", format:[w, h], orientation: "portrait" }
+    }).from(el).save();
+    if(window.html2pdf) return go();
+    const s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.2/dist/html2pdf.bundle.min.js";
+    s.onload = go;
+    s.onerror = () => alert("Couldn't load the PDF tool. Use your browser's Print (Ctrl+P) → Save as PDF on this tab instead.");
+    document.body.appendChild(s);
 }
 
 /* ---------- booking modal: page 3 (guest IDs) ---------- */
