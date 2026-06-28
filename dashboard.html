@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dashboard - Staycation Haven PH</title>
@@ -1242,6 +1243,7 @@ tr.row-cancelled td:nth-child(2){ text-decoration:line-through; }
     <div class="nav-group">Main</div>
     <div class="nav-item active" data-page="today" onclick="window.location.href='todaysbooking.html'"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/><path d="m9 15 2 2 4-4"/></svg></span> Today's Booking</div>
     <div class="nav-item" data-page="calendar" onclick="showPage('calendar')"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg></span> Calendar/Bookings</div>
+    <div class="nav-item" data-page="guestform" onclick="showPage('guestform')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M5 3h11l3 3v15H5z"/><path d="M9 8h6M9 12h6M9 16h4"/><circle cx="12" cy="2.5" r="0"/></svg></span> Guest Form</div>
 
     <div class="nav-group">Front Desk</div>
     <div class="nav-item" data-page="approval" onclick="showPage('approval')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M20 12V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6"/><path d="M9 9h6M9 13h3"/><path d="m15 18 2 2 4-4"/></svg></span> Booking Approval <span class="nav-badge" id="approvalBadge"></span></div>
@@ -1468,6 +1470,89 @@ tr.row-cancelled td:nth-child(2){ text-decoration:line-through; }
         </div>
     </div>
 </div><!-- /page-today -->
+
+<!-- ===== Guest Form (overlay on the original M Place form image) ===== -->
+<style>
+#gfToolbar{ display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; margin-bottom:18px; }
+#gfToolbar .field{ min-width:160px; }
+.gf-doc{ display:flex; flex-direction:column; align-items:center; gap:24px; }
+.gf-page{
+    position:relative; width:840px; max-width:100%;
+    container-type:inline-size;                      /* lets fonts scale via cqw */
+    box-shadow:0 6px 24px rgba(0,0,0,.12); border:1px solid #e6e6e6; background:#fff;
+}
+.gf-bg{ display:block; width:100%; height:auto; }   /* the scanned form fills the page */
+/* a value typed onto a blank of the scanned form */
+.gf-ov{
+    position:absolute; transform:translateY(-50%);   /* top = vertical centre of the blank */
+    border:none; background:transparent; color:#000; padding:0; margin:0;
+    font-family:"Times New Roman", Georgia, serif; font-size:1.6cqw; line-height:1.05;
+    white-space:nowrap; overflow:hidden; box-sizing:border-box;
+}
+input.gf-ov:focus{ outline:none; background:#fff7cc; }
+.gf-ov.sign{ font-family:"Segoe Script","Brush Script MT",cursive; font-size:2.3cqw; color:#0b1f63; }
+.gf-ov.big{ font-family:Arial, sans-serif; font-weight:800; font-size:2.4cqw; }
+/* page-2 IDs overlay */
+.gf-ids{ position:absolute; left:6%; right:6%; top:8%; display:flex; flex-direction:column; align-items:center; gap:2.2cqw; }
+.gf-idphoto{ position:relative; width:100%; display:flex; justify-content:center; }
+.gf-idphoto img{ max-width:90%; max-height:40cqw; object-fit:contain; border:1px solid #bbb; }
+.gf-idphoto .gf-rm{ position:absolute; top:4px; right:7%; }
+@media print{
+    @page{ size:A4; margin:0; }
+    body{ padding:0 !important; background:#fff !important; }
+    .sidebar, #appTopbar, #gfToolbar, .m-topbar, .mobile-only, .gfToolbar-inline{ display:none !important; }
+    .page{ display:none !important; }
+    #page-guestform.active{ display:block !important; }
+    .gf-doc{ gap:0; }
+    .gf-page{ box-shadow:none; border:none; width:100%; page-break-after:always; }
+    .gf-page:last-child{ page-break-after:auto; }
+    input.gf-ov:focus{ background:transparent; }
+    .gf-idphoto .gf-rm{ display:none !important; }
+}
+</style>
+<div class="page" id="page-guestform">
+    <div class="topbar" style="margin-bottom:14px;">
+        <h2 style="font-size:20px;">Guest Form <span class="muted" style="font-size:13px;">— M Place Guest Move-In Clearance</span></h2>
+        <div style="display:flex; gap:8px;">
+            <button class="btn secondary" onclick="window.print()">🖨 Print</button>
+        </div>
+    </div>
+
+    <!-- toolbar: pick a booking to auto-fill the form -->
+    <div id="gfToolbar">
+        <div class="field">
+            <label>Haven</label>
+            <select id="gf_haven" onchange="gfHavenChanged()"></select>
+        </div>
+        <div class="field">
+            <label>Check-in date</label>
+            <input type="date" id="gf_date">
+        </div>
+        <button class="btn" onclick="gfLoadBooking()">Load booking</button>
+        <button class="btn secondary" onclick="gfClear()">Clear</button>
+        <span class="muted" id="gf_pickMsg" style="align-self:center;"></span>
+    </div>
+
+    <!-- the printable document: the original form image + overlaid fields -->
+    <div class="gf-doc" id="gfDoc">
+        <!-- PAGE 1 — the form -->
+        <div class="gf-page" id="gfPage1">
+            <img class="gf-bg" src="images/guest-form-1.png" alt="Guest Move-In Clearance Form">
+            <!-- overlay inputs injected here by gfBuildOverlay() -->
+        </div>
+
+        <!-- PAGE 2 — guest IDs -->
+        <div class="gf-page" id="gfPage2">
+            <img class="gf-bg" src="images/guest-form-id.png" alt="Unit IDs page">
+            <input class="gf-ov big" id="gff_unit2" style="left:16%; top:3.6%; width:40%;" readonly>
+            <div class="gfToolbar-inline" style="position:absolute; top:4.2%; right:4%; text-align:right;">
+                <input type="file" id="gf_idFiles" accept="image/*" multiple onchange="gfAddIdPhotos(event)">
+                <div class="muted" style="font-size:11px; margin-top:3px;">IDs print on this page</div>
+            </div>
+            <div class="gf-ids" id="gf_idGallery"></div>
+        </div>
+    </div>
+</div><!-- /page-guestform -->
 
 <!-- ===== Finance ===== -->
 <div class="page" id="page-finance">
@@ -5408,7 +5493,7 @@ function showPage(page){
     localStorage.setItem("shph_dashboard_page", page);   // remember across refreshes
     // breadcrumb in the top bar
     const CRUMB = {
-        today:["Main","Today's Booking"], calendar:["Main","Calendar & Bookings"], approval:["Front Desk","Booking Approval"], paymentapproval:["Front Desk","Payment Approval"], deposit:["Front Desk","Security Deposit"],
+        today:["Main","Today's Booking"], calendar:["Main","Calendar & Bookings"], guestform:["Main","Guest Form"], approval:["Front Desk","Booking Approval"], paymentapproval:["Front Desk","Payment Approval"], deposit:["Front Desk","Security Deposit"],
         havens:["Property","Havens"], booking:["Property","Rates & Add-ons"], cleaners:["Property","Housekeeping"],
         finance:["Finance","Finance"], payments:["Finance","Payments"], payroll:["Finance","Payroll"],
         bills:["Finance","Bills"], analytics:["Finance","Analytics"],
@@ -5426,12 +5511,191 @@ function showPage(page){
     if(page === "paymentapproval") renderPaymentApproval();
     if(page === "deposit") renderDeposit();
     if(page === "calendar") renderTimeline();
+    if(page === "guestform") renderGuestForm();
     if(page === "analytics" && typeof renderAnalytics === "function") renderAnalytics();
     if(page === "users" && typeof renderUsers === "function") renderUsers();
     if(page === "employees" && typeof renderEmployees === "function") renderEmployees();
     if(page === "log" && typeof renderLog === "function") renderLog();
     if(page === "assist" && typeof renderAssist === "function") renderAssist();
 }
+
+/* ---------- Guest Form (overlay on the original M Place form image) ---------- */
+let gfIdPhotos = [];                  // data-URL photos of the guests' IDs (page 2)
+const GF_OWNER_DEFAULT = "Pia Carla Salamat";
+const GF_UNITS_KEY = "shph_guestform_units";   // remembers Unit No. & Tower per haven
+
+// where each value sits on the scanned form, as % of the image
+// (left = from left edge, top = vertical centre of the blank). Tweak to nudge.
+const GF_OV = [
+    { id:"gff_date",      left:13,  top:9.4,  width:13 },
+    { id:"gff_owner",     left:23,  top:11.4, width:24 },
+    { id:"gff_unit",      left:22,  top:13.4, width:20, change:"gfSaveUnit()" },
+    { id:"gff_contact",   left:23,  top:15.4, width:20 },
+    { id:"gff_movein",    left:73,  top:11.4, width:16 },
+    { id:"gff_moveout",   left:74,  top:13.4, width:15 },
+    { id:"gff_days",      left:72,  top:15.4, width:17 },
+    { id:"gff_ownerSign", left:62,  top:70.5, width:20, cls:"sign" }
+];
+const GF_ROW_TOP = 23.7, GF_ROW_STEP = 1.95;   // guest table: row-1 centre + per-row step (%)
+const GF_NAME = { left:16,   width:40 };
+const GF_AGE  = { left:59.5, width:6  };
+
+// inject the overlay inputs onto page 1 (once)
+function gfBuildOverlay(){
+    const page = document.getElementById("gfPage1");
+    if(!page || page.dataset.built) return;
+    let html = "";
+    GF_OV.forEach(f => {
+        const cls = "gf-ov" + (f.cls ? " " + f.cls : "");
+        const ch  = f.change ? ` onchange="${f.change}"` : "";
+        html += `<input class="${cls}" id="${f.id}" style="left:${f.left}%; top:${f.top}%; width:${f.width}%;"${ch}>`;
+    });
+    for(let i = 0; i < 5; i++){
+        const top = GF_ROW_TOP + i * GF_ROW_STEP;
+        html += `<input class="gf-ov" id="gff_name_${i+1}" style="left:${GF_NAME.left}%; top:${top}%; width:${GF_NAME.width}%;">`;
+        html += `<input class="gf-ov" id="gff_age_${i+1}"  style="left:${GF_AGE.left}%; top:${top}%; width:${GF_AGE.width}%; text-align:center;">`;
+    }
+    page.insertAdjacentHTML("beforeend", html);
+    page.dataset.built = "1";
+}
+
+function gfLoadUnits(){
+    try { return JSON.parse(localStorage.getItem(GF_UNITS_KEY)) || {}; } catch(e){ return {}; }
+}
+function gfSaveUnits(map){ localStorage.setItem(GF_UNITS_KEY, JSON.stringify(map)); }
+
+// remember the typed Unit No. & Tower for the currently selected haven
+function gfSaveUnit(){
+    const haven = document.getElementById("gf_haven").value;
+    const unit  = document.getElementById("gff_unit").value.trim();
+    if(!haven) return;
+    const map = gfLoadUnits();
+    if(unit) map[haven] = unit; else delete map[haven];
+    gfSaveUnits(map);
+    gfSetUnit2(unit);
+}
+
+// the page-2 "UNIT #:" shows just the unit number (first token of "2602 Tower D")
+function gfSetUnit2(unitStr){
+    const el = document.getElementById("gff_unit2");
+    if(el) el.value = (unitStr || "").trim().split(/\s+/)[0] || "";
+}
+
+// prefill the 5 guest name/age slots from the booking's guest list
+function gfRenderGuestRows(guests){
+    for(let i = 0; i < 5; i++){
+        const g = (guests && guests[i]) || {};
+        const n = document.getElementById(`gff_name_${i+1}`);
+        const a = document.getElementById(`gff_age_${i+1}`);
+        if(n) n.value = g.name || "";
+        if(a) a.value = (g.age != null && g.age !== "") ? g.age : "";
+    }
+}
+
+// init when the page opens: build overlay, populate haven dropdown, defaults
+function renderGuestForm(){
+    gfBuildOverlay();
+    const sel = document.getElementById("gf_haven");
+    if(sel && !sel.options.length) sel.innerHTML = HAVENS.map(h => `<option>${escHtml(h)}</option>`).join("");
+    const dt = document.getElementById("gf_date");
+    if(dt && !dt.value) dt.value = iso(today());
+    const owner = document.getElementById("gff_owner");
+    if(owner && !owner.value) owner.value = GF_OWNER_DEFAULT;
+    const sign = document.getElementById("gff_ownerSign");
+    if(sign && !sign.value) sign.value = GF_OWNER_DEFAULT;
+    gfHavenChanged();         // prefill the remembered unit for the current haven
+    gfRenderIds();
+}
+
+// when the haven dropdown changes, pull its remembered Unit No. & Tower
+function gfHavenChanged(){
+    const haven = document.getElementById("gf_haven").value;
+    const unit  = gfLoadUnits()[haven] || "";
+    document.getElementById("gff_unit").value = unit;
+    gfSetUnit2(unit);
+}
+
+// "No. of Days" on a move-in/out form = whole days between the two dates
+function gfDays(b){
+    if(!b.checkin) return "";
+    const co = b.checkout && b.checkout > b.checkin ? b.checkout
+             : iso(addDays(new Date(b.checkin + "T00:00:00"), 1));
+    return Math.max(1, daysBetween(b.checkin, co));
+}
+
+// dates on the form read like "JUNE 28"
+function gfDate(dateStr){
+    if(!dateStr) return "";
+    return new Date(dateStr + "T00:00:00")
+        .toLocaleDateString("en-PH", { month:"long", day:"numeric" }).toUpperCase();
+}
+
+// find the booking for the picked haven + date and fill the form
+function gfLoadBooking(){
+    const haven = document.getElementById("gf_haven").value;
+    const date  = document.getElementById("gf_date").value;
+    const msg   = document.getElementById("gf_pickMsg");
+    if(!date){ if(msg) msg.textContent = "Pick a check-in date first."; return; }
+    // a booking covers the date when checkin <= date < checkout (or same-day day-use)
+    const match = bookings.find(b => !b.cancelled && b.haven === haven &&
+        b.checkin <= date && date < endExcl(b));
+    if(!match){
+        if(msg) msg.textContent = `No booking for ${haven} on ${fmt(date)}.`;
+        return;
+    }
+    if(msg) msg.textContent = `Loaded ${primaryName(match)} · ${fmt(match.checkin)}.`;
+    gfFill(match);
+}
+
+function gfFill(b){
+    const set = (id, v) => { const el = document.getElementById(id); if(el) el.value = v ?? ""; };
+    set("gff_owner", GF_OWNER_DEFAULT);
+    set("gff_ownerSign", GF_OWNER_DEFAULT);
+    // Unit No. & Tower comes from the haven's remembered value, not the booking
+    const unit = gfLoadUnits()[b.haven] || "";
+    set("gff_unit", unit);
+    gfSetUnit2(unit);
+    set("gff_contact", b.contact);
+    set("gff_movein", gfDate(b.checkin));
+    set("gff_moveout", b.checkout ? gfDate(b.checkout) : gfDate(iso(addDays(new Date(b.checkin + "T00:00:00"), 1))));
+    set("gff_days", gfDays(b));
+    gfRenderGuestRows(b.guests || []);
+}
+
+// reset the form back to blanks (keeps remembered unit numbers)
+function gfClear(){
+    ["gff_date","gff_unit","gff_contact","gff_movein","gff_moveout","gff_days"]
+        .forEach(id => { const el = document.getElementById(id); if(el) el.value = ""; });
+    const owner = document.getElementById("gff_owner"); if(owner) owner.value = GF_OWNER_DEFAULT;
+    const sign  = document.getElementById("gff_ownerSign"); if(sign) sign.value = GF_OWNER_DEFAULT;
+    gfRenderGuestRows([]);
+    gfIdPhotos = []; gfRenderIds();
+    gfSetUnit2("");
+    const msg = document.getElementById("gf_pickMsg"); if(msg) msg.textContent = "";
+}
+
+// add ID photos → store as data URLs and show them on page 2
+function gfAddIdPhotos(ev){
+    const files = Array.from(ev.target.files || []);
+    files.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = e => { gfIdPhotos.push(e.target.result); gfRenderIds(); };
+        reader.readAsDataURL(file);
+    });
+    ev.target.value = "";   // allow re-selecting the same file
+}
+
+function gfRenderIds(){
+    const box = document.getElementById("gf_idGallery");
+    if(!box) return;
+    box.innerHTML = gfIdPhotos.map((src, i) =>
+        `<div class="gf-idphoto">
+            <img src="${src}" alt="Guest ID">
+            <button class="btn secondary gf-rm" onclick="gfRemoveId(${i})">✕ remove</button>
+        </div>`).join("");
+}
+
+function gfRemoveId(i){ gfIdPhotos.splice(i, 1); gfRenderIds(); }
 
 /* ---------- Assist: towels to place per haven ---------- */
 function renderAssist(){
@@ -8309,6 +8573,7 @@ const DASH_PAGES = [
     { key:"finance",   label:"Finance" },
     { key:"analytics", label:"Analytics" },
     { key:"calendar",  label:"Calendar/Bookings" },
+    { key:"guestform", label:"Guest Form" },
     { key:"havens",    label:"Havens" },
     { key:"booking",   label:"Rates &amp; Add-ons" },
     { key:"payments",  label:"Payments" },
