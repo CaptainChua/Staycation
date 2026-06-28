@@ -817,8 +817,8 @@
     const updateLink = ` <span class="edit-pay" onclick="openPay(${b.id}, true)">Update payment</span>`;
     // action follows the real status: fully paid → ✓ Paid; otherwise → Paid button to collect
     const payCell = (st === "paid")
-      ? `<span class="paid-tag">✓ Paid</span>${IS_ADMIN ? updateLink : ""}`
-      : `<button class="btn-paid" onclick="openPay(${b.id})">Paid</button>${(IS_ADMIN && hasPayment) ? updateLink : ""}`;
+      ? `<span class="paid-tag">✓ Paid</span>${updateLink}`
+      : `<button class="btn-paid" onclick="openPay(${b.id})">Paid</button>${hasPayment ? updateLink : ""}`;
     const over = paidOf(b) - Number(b.total || 0);   // excess payment, if any
     const amtCell = amountCol > 0
         ? peso(amountCol)
@@ -1440,7 +1440,7 @@
           <td>${p.mop}</td>
           <td>${peso(p.amount)}</td>
           <td>${p.by || "—"}</td>
-          <td>${IS_ADMIN ? `<span class="edit-pay" style="color:#c0283d;" onclick="deletePoolPass(${i})">Delete</span>` : ""}</td>
+          <td><span class="edit-pay" style="color:#c0283d;" onclick="deletePoolPass(${i})">Delete</span></td>
         </tr>`).join("") : `<tr><td colspan="7" class="empty">No pool passes sold this period.</td></tr>`;
   }
   function escTxt(s){ return String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c])); }
