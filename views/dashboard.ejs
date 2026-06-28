@@ -1472,57 +1472,32 @@ tr.row-cancelled td:nth-child(2){ text-decoration:line-through; }
     </div>
 </div><!-- /page-today -->
 
-<!-- ===== Guest Form (M Place Guest Move-In Clearance) ===== -->
+<!-- ===== Guest Form (overlay on the original M Place form image) ===== -->
 <style>
-/* ---- Guest Form: on-screen toolbar ---- */
 #gfToolbar{ display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; margin-bottom:18px; }
 #gfToolbar .field{ min-width:160px; }
-/* ---- the printable A4 document ---- */
 .gf-doc{ display:flex; flex-direction:column; align-items:center; gap:24px; }
 .gf-page{
-    background:#fff; color:#000; width:794px; min-height:1123px;   /* ~A4 at 96dpi */
-    padding:48px 60px; box-sizing:border-box;
-    box-shadow:0 6px 24px rgba(0,0,0,.12); border:1px solid #e6e6e6;
-    font-family:"Times New Roman", Georgia, serif; font-size:14px; line-height:1.35;
+    position:relative; width:840px; max-width:100%;
+    container-type:inline-size;                      /* lets fonts scale via cqw */
+    box-shadow:0 6px 24px rgba(0,0,0,.12); border:1px solid #e6e6e6; background:#fff;
 }
-.gf-logo{ text-align:center; font-weight:800; letter-spacing:.5px; }
-.gf-logo .mp{ color:#1f9d3c; font-size:26px; }
-.gf-logo .mp small{ color:#444; font-size:13px; font-weight:600; display:block; letter-spacing:2px; }
-.gf-title{ text-align:center; font-weight:800; font-size:19px; letter-spacing:.5px; margin:6px 0 22px; }
-.gf-row{ display:flex; justify-content:space-between; gap:40px; }
-.gf-fld{ display:flex; align-items:baseline; gap:6px; margin:7px 0; flex:1; }
-.gf-fld > span{ white-space:nowrap; font-weight:600; }
-.gf-in{ border:none; border-bottom:1px solid #000; background:transparent; font:inherit;
-        padding:0 4px 1px; flex:1; min-width:40px; color:#000; }
-.gf-in:focus{ outline:none; background:#fffbe6; }
-.gf-sec{ font-weight:700; margin:16px 0 6px; }
-table.gf-guests{ width:100%; border-collapse:collapse; }
-table.gf-guests th, table.gf-guests td{ border:1px solid #000; padding:4px 6px; }
-table.gf-guests th{ font-weight:700; }
-table.gf-guests th.no, table.gf-guests td.no{ width:34px; text-align:center; }
-table.gf-guests th.age, table.gf-guests td.age{ width:70px; }
-table.gf-guests th.rem, table.gf-guests td.rem{ width:200px; }
-table.gf-guests .red{ color:#c0392b; }
-table.gf-guests .cellin{ border:none; width:100%; background:transparent; font:inherit; padding:2px; }
-table.gf-guests .cellin:focus{ outline:none; background:#fffbe6; }
-.gf-terms{ font-size:12.5px; font-style:italic; }
-.gf-terms ul{ margin:6px 0 0 18px; padding:0; }
-.gf-terms li{ margin:5px 0; }
-.gf-cert{ font-size:11.5px; font-style:italic; text-align:justify; margin-top:8px; }
-.gf-sign{ display:flex; justify-content:flex-end; margin-top:18px; }
-.gf-signbox{ text-align:center; }
-.gf-signline{ border-bottom:1px solid #000; width:280px; height:30px; }
-.gf-foot{ display:flex; justify-content:space-between; gap:40px; margin-top:30px; font-size:12.5px; }
-.gf-foot .lbl{ font-weight:700; }
-.gf-greenmist{ text-align:center; margin-top:34px; color:#1f9d3c; font-weight:800; letter-spacing:1px; }
-.gf-greenmist small{ display:block; color:#555; font-size:10px; letter-spacing:2px; }
-/* page 2 */
-.gf-unit-hd{ font-family:Arial, sans-serif; font-weight:800; font-size:30px; margin-bottom:18px; }
-.gf-ids{ display:flex; flex-direction:column; align-items:center; gap:18px; }
-.gf-ids img{ max-width:540px; max-height:360px; object-fit:contain; border:1px solid #ccc; }
-.gf-idphoto{ position:relative; }
-.gf-idphoto .gf-rm{ position:absolute; top:6px; right:6px; }
-/* ---- print: only the document, nothing else ---- */
+.gf-bg{ display:block; width:100%; height:auto; }   /* the scanned form fills the page */
+/* a value typed onto a blank of the scanned form */
+.gf-ov{
+    position:absolute; transform:translateY(-50%);   /* top = vertical centre of the blank */
+    border:none; background:transparent; color:#000; padding:0; margin:0;
+    font-family:"Times New Roman", Georgia, serif; font-size:1.6cqw; line-height:1.05;
+    white-space:nowrap; overflow:hidden; box-sizing:border-box;
+}
+input.gf-ov:focus{ outline:none; background:#fff7cc; }
+.gf-ov.sign{ font-family:"Segoe Script","Brush Script MT",cursive; font-size:2.3cqw; color:#0b1f63; }
+.gf-ov.big{ font-family:Arial, sans-serif; font-weight:800; font-size:2.4cqw; }
+/* page-2 IDs overlay */
+.gf-ids{ position:absolute; left:6%; right:6%; top:8%; display:flex; flex-direction:column; align-items:center; gap:2.2cqw; }
+.gf-idphoto{ position:relative; width:100%; display:flex; justify-content:center; }
+.gf-idphoto img{ max-width:90%; max-height:40cqw; object-fit:contain; border:1px solid #bbb; }
+.gf-idphoto .gf-rm{ position:absolute; top:4px; right:7%; }
 @media print{
     @page{ size:A4; margin:0; }
     body{ padding:0 !important; background:#fff !important; }
@@ -1530,10 +1505,9 @@ table.gf-guests .cellin:focus{ outline:none; background:#fffbe6; }
     .page{ display:none !important; }
     #page-guestform.active{ display:block !important; }
     .gf-doc{ gap:0; }
-    .gf-page{ box-shadow:none; border:none; width:100%; min-height:100vh;
-              padding:14mm 16mm; page-break-after:always; }
+    .gf-page{ box-shadow:none; border:none; width:100%; page-break-after:always; }
     .gf-page:last-child{ page-break-after:auto; }
-    .gf-in:focus, .cellin:focus{ background:transparent; }
+    input.gf-ov:focus{ background:transparent; }
     .gf-idphoto .gf-rm{ display:none !important; }
 }
 </style>
@@ -1560,95 +1534,21 @@ table.gf-guests .cellin:focus{ outline:none; background:#fffbe6; }
         <span class="muted" id="gf_pickMsg" style="align-self:center;"></span>
     </div>
 
-    <!-- the printable document -->
+    <!-- the printable document: the original form image + overlaid fields -->
     <div class="gf-doc" id="gfDoc">
         <!-- PAGE 1 — the form -->
-        <div class="gf-page">
-            <div class="gf-logo"><span class="mp">M PLACE <small>@ SOUTH TRIANGLE</small></span></div>
-            <div class="gf-title">GUEST MOVE IN CLEARANCE FORM</div>
-
-            <div class="gf-fld"><span>Date:</span><input class="gf-in" id="gff_date"></div>
-            <div class="gf-row">
-                <div class="gf-fld"><span>Unit Owner's Name:</span><input class="gf-in" id="gff_owner"></div>
-                <div class="gf-fld"><span>Move In Date:</span><input class="gf-in" id="gff_movein"></div>
-            </div>
-            <div class="gf-row">
-                <div class="gf-fld"><span>Unit No. &amp; Tower:</span><input class="gf-in" id="gff_unit" onchange="gfSaveUnit()"></div>
-                <div class="gf-fld"><span>Move Out Date:</span><input class="gf-in" id="gff_moveout"></div>
-            </div>
-            <div class="gf-row">
-                <div class="gf-fld"><span>Contact Number: #</span><input class="gf-in" id="gff_contact"></div>
-                <div class="gf-fld"><span>No. of Days:</span><input class="gf-in" id="gff_days"></div>
-            </div>
-
-            <div class="gf-sec">List of Guest/s:</div>
-            <table class="gf-guests">
-                <thead><tr>
-                    <th class="no">No.</th>
-                    <th>NAME of Guests/Visitor<br><span style="font-weight:400; font-size:10.5px; font-style:italic;">(All names must be indicated below, regardless of the age. Only guests listed on this form can move in the unit.)</span></th>
-                    <th class="age red">AGE</th>
-                    <th class="rem red">Remarks</th>
-                </tr></thead>
-                <tbody id="gff_guestRows"><!-- 5 rows injected by JS --></tbody>
-            </table>
-
-            <div class="gf-sec">Terms &amp; Conditions:</div>
-            <div class="gf-terms"><ul>
-                <li>We hereby acknowledge to follow and comply with the governing House Rules, Master Deed, and Restrictions, By Laws, Articles of Incorporations and other relevant Guidelines to avoid property and personal risks as well as inconvenience as a consequence of violation/s of the provisions. Only Unit Owners / SPA are allowed to sign the guest form. This form should be attached with a photocopy of the ID of the guests.</li>
-                <li>No attachment of the valid ID of the guest, the form will not be signed.</li>
-                <li>For guests who wish to use the pool (regardless of age), there is a charge of 150.00/pax for regular rate &amp; 300.00/pax for holiday rate.</li>
-                <li>To enhance the security of the community, short term leasing is highly discouraged.</li>
-                <li>Maximum number of guest/visitors strictly depends on the sq. meter of the unit:
-                    <ul style="list-style:none; margin-left:10px;">
-                        <li>20 sq.m – 4 pax</li><li>24 sq.m – 4 pax</li>
-                        <li>40 sq.m – 5 pax</li><li>60 sq.m – 8 pax</li>
-                    </ul>
-                </li>
-            </ul></div>
-
-            <div class="gf-sec">Requirements to be attached:</div>
-            <div style="font-weight:600;">☑ Attached Photocopy of Guest/s valid I.D</div>
-
-            <div class="gf-cert">
-                I certify that I am the person named on this form and that the data/information I have provided is true and correct. I hereby give my full consent to the Condominium Corporation to collect, record, organize, store, update, use, consolidate, block, erase or otherwise process information, whether personal sensitive or privileged pertaining to myself which will be used for the purpose of identity verification, processing &amp; enforcing compliance with the Condominium Corporation's House Rules and Master Deed with Deed of Restriction, sending property related announcements and notices, billing statements, reminders and demand letters for association dues, water dues, and other assessments, providing relevant product and promotional information, sending surveys or feedback forms for the improvement of property management services.
-                <br><br>
-                I certify and warrant that I have secured the consent of those individuals whose personal data I submitted through this Form. I agree and understand that the personal data I have submitted will be processed pursuant to Condominium Corporation's privacy policies and practices. I hereby undertake to assume all issues that my tenant will incur or create, including penalties for their violations.
-                <br><br>
-                Should my tenant commit any illegal acts, I undertake to cooperate with the condominium corporation or law enforcement in any effort to prosecute my tenant.
-            </div>
-
-            <div class="gf-sign">
-                <div class="gf-signbox">
-                    <div style="text-align:right; font-style:italic; margin-bottom:2px;">Acknowledged by:</div>
-                    <div class="gf-signline" id="gff_ownerSign"></div>
-                    <div style="font-weight:700;">Unit Owner / SPA Name &amp; Signature</div>
-                </div>
-            </div>
-
-            <div class="gf-foot">
-                <div>
-                    <div class="lbl">Checked by:</div><div style="height:26px;"></div>
-                    <div>Administrative Assistant</div>
-                    <div class="lbl" style="margin-top:14px;">Approved By:</div><div style="height:26px;"></div>
-                    <div>Complex Property Manager</div>
-                </div>
-                <div>
-                    <div class="lbl">Checked By:</div><div style="height:26px;"></div>
-                    <div>Billing &amp; Collection Assistant</div>
-                    <div class="lbl" style="margin-top:14px;">Received By: S.G ____________</div><div style="height:6px;"></div>
-                    <div>Security Guard on duty</div>
-                </div>
-            </div>
-
-            <div class="gf-greenmist">GREENMIST<small>PROPERTY MANAGEMENT CORP.</small></div>
+        <div class="gf-page" id="gfPage1">
+            <img class="gf-bg" src="images/guest-form-1.png" alt="Guest Move-In Clearance Form">
+            <!-- overlay inputs injected here by gfBuildOverlay() -->
         </div>
 
         <!-- PAGE 2 — guest IDs -->
-        <div class="gf-page">
-            <div class="gf-unit-hd">UNIT #: <span id="gff_unit2">____</span></div>
-            <div style="margin:10px 0 16px;" class="gfToolbar-inline">
+        <div class="gf-page" id="gfPage2">
+            <img class="gf-bg" src="images/guest-form-id.png" alt="Unit IDs page">
+            <input class="gf-ov big" id="gff_unit2" style="left:16%; top:3.6%; width:40%;" readonly>
+            <div class="gfToolbar-inline" style="position:absolute; top:4.2%; right:4%; text-align:right;">
                 <input type="file" id="gf_idFiles" accept="image/*" multiple onchange="gfAddIdPhotos(event)">
-                <div class="muted" style="font-size:12px; margin-top:4px;">Attach photos of the guests' valid IDs — they print on this page.</div>
+                <div class="muted" style="font-size:11px; margin-top:3px;">IDs print on this page</div>
             </div>
             <div class="gf-ids" id="gf_idGallery"></div>
         </div>
@@ -5620,10 +5520,45 @@ function showPage(page){
     if(page === "assist" && typeof renderAssist === "function") renderAssist();
 }
 
-/* ---------- Guest Form (M Place Guest Move-In Clearance) ---------- */
+/* ---------- Guest Form (overlay on the original M Place form image) ---------- */
 let gfIdPhotos = [];                  // data-URL photos of the guests' IDs (page 2)
 const GF_OWNER_DEFAULT = "Pia Carla Salamat";
 const GF_UNITS_KEY = "shph_guestform_units";   // remembers Unit No. & Tower per haven
+
+// where each value sits on the scanned form, as % of the image
+// (left = from left edge, top = vertical centre of the blank). Tweak to nudge.
+const GF_OV = [
+    { id:"gff_date",      left:13,  top:9.4,  width:13 },
+    { id:"gff_owner",     left:23,  top:11.4, width:24 },
+    { id:"gff_unit",      left:22,  top:13.4, width:20, change:"gfSaveUnit()" },
+    { id:"gff_contact",   left:23,  top:15.4, width:20 },
+    { id:"gff_movein",    left:73,  top:11.4, width:16 },
+    { id:"gff_moveout",   left:74,  top:13.4, width:15 },
+    { id:"gff_days",      left:72,  top:15.4, width:17 },
+    { id:"gff_ownerSign", left:62,  top:70.5, width:20, cls:"sign" }
+];
+const GF_ROW_TOP = 23.7, GF_ROW_STEP = 1.95;   // guest table: row-1 centre + per-row step (%)
+const GF_NAME = { left:16,   width:40 };
+const GF_AGE  = { left:59.5, width:6  };
+
+// inject the overlay inputs onto page 1 (once)
+function gfBuildOverlay(){
+    const page = document.getElementById("gfPage1");
+    if(!page || page.dataset.built) return;
+    let html = "";
+    GF_OV.forEach(f => {
+        const cls = "gf-ov" + (f.cls ? " " + f.cls : "");
+        const ch  = f.change ? ` onchange="${f.change}"` : "";
+        html += `<input class="${cls}" id="${f.id}" style="left:${f.left}%; top:${f.top}%; width:${f.width}%;"${ch}>`;
+    });
+    for(let i = 0; i < 5; i++){
+        const top = GF_ROW_TOP + i * GF_ROW_STEP;
+        html += `<input class="gf-ov" id="gff_name_${i+1}" style="left:${GF_NAME.left}%; top:${top}%; width:${GF_NAME.width}%;">`;
+        html += `<input class="gf-ov" id="gff_age_${i+1}"  style="left:${GF_AGE.left}%; top:${top}%; width:${GF_AGE.width}%; text-align:center;">`;
+    }
+    page.insertAdjacentHTML("beforeend", html);
+    page.dataset.built = "1";
+}
 
 function gfLoadUnits(){
     try { return JSON.parse(localStorage.getItem(GF_UNITS_KEY)) || {}; } catch(e){ return {}; }
@@ -5641,31 +5576,26 @@ function gfSaveUnit(){
     gfSetUnit2(unit);
 }
 
-// the page-2 "UNIT #:" header shows just the unit number (first token of "2602 Tower D")
+// the page-2 "UNIT #:" shows just the unit number (first token of "2602 Tower D")
 function gfSetUnit2(unitStr){
     const el = document.getElementById("gff_unit2");
-    if(el) el.textContent = (unitStr || "").trim().split(/\s+/)[0] || "____";
+    if(el) el.value = (unitStr || "").trim().split(/\s+/)[0] || "";
 }
 
-// build the 5 guest rows; prefill names/ages from the booking's guest list
+// prefill the 5 guest name/age slots from the booking's guest list
 function gfRenderGuestRows(guests){
-    const body = document.getElementById("gff_guestRows");
-    if(!body) return;
-    let html = "";
     for(let i = 0; i < 5; i++){
         const g = (guests && guests[i]) || {};
-        html += `<tr>
-            <td class="no">${i + 1}</td>
-            <td><input class="cellin" value="${escAttr(g.name || "")}"></td>
-            <td class="age"><input class="cellin" value="${g.age != null && g.age !== "" ? g.age : ""}"></td>
-            <td class="rem"><input class="cellin"></td>
-        </tr>`;
+        const n = document.getElementById(`gff_name_${i+1}`);
+        const a = document.getElementById(`gff_age_${i+1}`);
+        if(n) n.value = g.name || "";
+        if(a) a.value = (g.age != null && g.age !== "") ? g.age : "";
     }
-    body.innerHTML = html;
 }
 
-// init when the page opens: populate haven dropdown, defaults, empty rows
+// init when the page opens: build overlay, populate haven dropdown, defaults
 function renderGuestForm(){
+    gfBuildOverlay();
     const sel = document.getElementById("gf_haven");
     if(sel && !sel.options.length) sel.innerHTML = HAVENS.map(h => `<option>${escHtml(h)}</option>`).join("");
     const dt = document.getElementById("gf_date");
@@ -5673,8 +5603,7 @@ function renderGuestForm(){
     const owner = document.getElementById("gff_owner");
     if(owner && !owner.value) owner.value = GF_OWNER_DEFAULT;
     const sign = document.getElementById("gff_ownerSign");
-    if(sign) sign.textContent = GF_OWNER_DEFAULT;
-    if(!document.getElementById("gff_guestRows").children.length) gfRenderGuestRows([]);
+    if(sign && !sign.value) sign.value = GF_OWNER_DEFAULT;
     gfHavenChanged();         // prefill the remembered unit for the current haven
     gfRenderIds();
 }
@@ -5722,8 +5651,7 @@ function gfLoadBooking(){
 function gfFill(b){
     const set = (id, v) => { const el = document.getElementById(id); if(el) el.value = v ?? ""; };
     set("gff_owner", GF_OWNER_DEFAULT);
-    const sign = document.getElementById("gff_ownerSign");
-    if(sign) sign.textContent = GF_OWNER_DEFAULT;
+    set("gff_ownerSign", GF_OWNER_DEFAULT);
     // Unit No. & Tower comes from the haven's remembered value, not the booking
     const unit = gfLoadUnits()[b.haven] || "";
     set("gff_unit", unit);
@@ -5739,8 +5667,8 @@ function gfFill(b){
 function gfClear(){
     ["gff_date","gff_unit","gff_contact","gff_movein","gff_moveout","gff_days"]
         .forEach(id => { const el = document.getElementById(id); if(el) el.value = ""; });
-    document.getElementById("gff_owner").value = GF_OWNER_DEFAULT;
-    document.getElementById("gff_ownerSign").textContent = GF_OWNER_DEFAULT;
+    const owner = document.getElementById("gff_owner"); if(owner) owner.value = GF_OWNER_DEFAULT;
+    const sign  = document.getElementById("gff_ownerSign"); if(sign) sign.value = GF_OWNER_DEFAULT;
     gfRenderGuestRows([]);
     gfIdPhotos = []; gfRenderIds();
     gfSetUnit2("");
