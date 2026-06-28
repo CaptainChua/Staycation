@@ -380,7 +380,7 @@ body{ background:#f5f5f5; color:#222; padding:30px 30px 30px 250px; }
     letter-spacing:1px;
     color:#3a2b50;
 }
-/* day view: faded "cleaning / turnaround" block after a check-out (the 2h gap before re-booking) */
+/* day view: faded "cleaning / turnaround" block after a check-out (the 1h gap before re-booking) */
 .bar.bar-clean{
     background:repeating-linear-gradient(45deg, rgba(140,140,140,.16), rgba(140,140,140,.16) 6px, rgba(140,140,140,.30) 6px, rgba(140,140,140,.30) 12px);
     border-left:none;
@@ -3011,8 +3011,8 @@ function bookingInterval(b){
     return { start, end: start + dur };
 }
 // minimum turnaround/cleaning gap required between two stays in the same haven.
-// e.g. if a guest checks out at 8:00 AM, the next check-in can only be 10:00 AM or later.
-const CLEANING_GAP_MIN = 120; // 2 hours
+// e.g. if a guest checks out at 8:00 AM, the next check-in can only be 9:00 AM or later.
+const CLEANING_GAP_MIN = 60; // 1 hour
 // the property opens for check-ins at 9:00 AM. A same-day check-out pushes the next
 // check-in even later via CLEANING_GAP_MIN; this floor covers havens that have been
 // vacant since an earlier day (you still can't check a guest in before 9 AM).
@@ -5310,7 +5310,7 @@ function saveBooking(){
         alert(
             `${data.haven} is already booked at that time by ${primaryName(clash)} ` +
             `(${fmt(clash.checkin)} · ${checkinTimeStr(clash)}–${checkoutTimeStr(clash)}).\n\n` +
-            `Leave at least a 2-hour cleaning gap — pick a check-in time at least 2 hours after that check-out, or a different haven/date.`
+            `Leave at least a 1-hour cleaning gap — pick a check-in time at least 1 hour after that check-out, or a different haven/date.`
         );
         return;
     }
