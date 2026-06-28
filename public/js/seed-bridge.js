@@ -46,23 +46,69 @@
 
   var seed = window.__SEED__ || {};
 
-  // mirror a shared-key write to the server, RETRYING on failure so a transient
-  // network/server hiccup can't silently drop a write (e.g. a booking).
-  function push(key, jsonString, attempt) {
-    attempt = attempt || 1;
-    var MAX = 5;
-    function retry() {
-      if (attempt < MAX) setTimeout(function () { push(key, jsonString, attempt + 1); }, 800 * attempt);
-    }
+  // ---- durable write queue ----------------------------------------------
+  // Every shared-key write is queued and RE-TRIED until the server confirms it
+  // (never gives up). While anything is unsaved, a red banner is shown and the
+  // browser warns before the tab is closed — so a payment/booking/etc. can never
+  // be silently lost, even on a flaky connection.
+  var pending = {};   // key -> latest JSON not yet confirmed saved
+  var delay = {};     // key -> current backoff (ms)
+  var timer = {};     // key -> retry timer id
+  var banner = null;
+
+  function unsavedCount() { var n = 0; for (var k in pending) if (pending.hasOwnProperty(k)) n++; return n; }
+
+  function updateBanner() {
+    var n = unsavedCount();
     try {
-      fetch("/api/kv/" + encodeURIComponent(key), {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: jsonString
-      }).then(function (res) { if (!res.ok) retry(); })
-        .catch(function () { retry(); });   // network error → try again
-    } catch (e) { retry(); }
+      if (n > 0) {
+        if (!banner && document.body) {
+          banner = document.createElement("div");
+          banner.style.cssText = "position:fixed;left:0;right:0;bottom:0;z-index:2147483647;background:#c0283d;color:#fff;font:600 13px/1.45 system-ui,Segoe UI,Arial,sans-serif;padding:11px 16px;text-align:center;box-shadow:0 -2px 12px rgba(0,0,0,.25)";
+          document.body.appendChild(banner);
+        }
+        if (banner) {
+          banner.textContent = "⚠️ " + n + " change" + (n > 1 ? "s" : "") +
+            " not yet saved to the server — keep this tab open and check your internet; it will keep retrying.";
+          banner.style.display = "block";
+        }
+      } else if (banner) { banner.style.display = "none"; }
+    } catch (e) {}
   }
+
+  function flush(key) {
+    timer[key] = null;
+    var body = pending[key];
+    if (body === undefined) return;
+    fetch("/api/kv/" + encodeURIComponent(key), {
+      method: "PUT", headers: { "Content-Type": "application/json" }, body: body
+    }).then(function (res) {
+      if (res.ok) {
+        if (pending[key] === body) { delete pending[key]; delete delay[key]; updateBanner(); }
+        else { delay[key] = 200; flush(key); }      // a newer value queued meanwhile → save it
+      } else { scheduleRetry(key); }                 // 4xx/5xx → try again
+    }).catch(function () { scheduleRetry(key); });    // network error → try again
+  }
+
+  function scheduleRetry(key) {
+    updateBanner();
+    delay[key] = Math.min((delay[key] || 600) * 1.7, 30000);   // backoff, capped at 30s
+    if (timer[key]) clearTimeout(timer[key]);
+    timer[key] = setTimeout(function () { flush(key); }, delay[key]);
+  }
+
+  // queue the LATEST value for a key and (re)start flushing — never gives up
+  function push(key, jsonString) {
+    pending[key] = jsonString;
+    delay[key] = 600;
+    if (timer[key]) { clearTimeout(timer[key]); timer[key] = null; }
+    flush(key);
+  }
+
+  // warn before leaving if something still hasn't saved
+  window.addEventListener("beforeunload", function (e) {
+    if (unsavedCount() > 0) { e.preventDefault(); e.returnValue = ""; return ""; }
+  });
 
   // 1) prime localStorage from the server so synchronous reads work
   SHARED.forEach(function (k) {

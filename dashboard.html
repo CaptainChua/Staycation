@@ -5618,6 +5618,7 @@ function showPage(page){
 
 /* ---------- Guest Form (overlay on the original M Place form image) ---------- */
 let gfIdPhotos = [];                  // data-URL photos of the guests' IDs (page 2)
+let gfBookingId = null;              // the booking these IDs belong to (so they persist)
 const GF_OWNER_DEFAULT = "Pia Carla Salamat";
 const GF_UNITS_KEY = "shph_guestform_units";   // remembers Unit No. & Tower per haven
 
@@ -5757,6 +5758,21 @@ function gfFill(b){
     set("gff_moveout", b.checkout ? gfDate(b.checkout) : gfDate(iso(addDays(new Date(b.checkin + "T00:00:00"), 1))));
     set("gff_days", gfDays(b));
     gfRenderGuestRows(b.guests || []);
+    // load this booking's saved ID photos so they're shown (and stay persisted)
+    gfBookingId = b.id;
+    gfIdPhotos = Array.isArray(b.ids) ? b.ids.slice() : [];
+    gfRenderIds();
+}
+
+// save the guest-form ID photos onto the loaded booking so they're never lost
+// (persisted to Firestore + the photos themselves to Cloud Storage).
+function gfPersistIds(){
+    if(gfBookingId == null) return;   // no booking loaded → can't persist yet
+    const b = bookings.find(x => x.id === gfBookingId);
+    if(!b) return;
+    b.ids = gfIdPhotos.slice();
+    save(bookings);
+    confirmBookingSaved(gfBookingId);   // verify it reached the server, warn if not
 }
 
 // reset the form back to blanks (keeps remembered unit numbers)
@@ -5766,6 +5782,7 @@ function gfClear(){
     const owner = document.getElementById("gff_owner"); if(owner) owner.value = GF_OWNER_DEFAULT;
     const sign  = document.getElementById("gff_ownerSign"); if(sign) sign.value = GF_OWNER_DEFAULT;
     gfRenderGuestRows([]);
+    gfBookingId = null;
     gfIdPhotos = []; gfRenderIds();
     gfSetUnit2("");
     const msg = document.getElementById("gf_pickMsg"); if(msg) msg.textContent = "";
@@ -5780,6 +5797,7 @@ function gfAddIdPhotos(ev){
             if(!dataUrl) return;
             gfIdPhotos.push(dataUrl);
             gfRenderIds();
+            gfPersistIds();   // save onto the booking right away
         });
     });
     ev.target.value = "";   // allow re-selecting the same file
@@ -5795,7 +5813,7 @@ function gfRenderIds(){
         </div>`).join("");
 }
 
-function gfRemoveId(i){ gfIdPhotos.splice(i, 1); gfRenderIds(); }
+function gfRemoveId(i){ gfIdPhotos.splice(i, 1); gfRenderIds(); gfPersistIds(); }
 
 /* ---------- Assist: towels to place per haven ---------- */
 function renderAssist(){
