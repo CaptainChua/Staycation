@@ -452,6 +452,7 @@
   <div class="nav-group">Main</div>
   <div class="nav-item active" data-page="today"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/><path d="m9 15 2 2 4-4"/></svg></span> Today's Booking</div>
   <div class="nav-item" data-page="calendar" onclick="goPage('calendar')"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg></span> Calendar/Bookings</div>
+  <div class="nav-item" data-page="guestform" onclick="goPage('guestform')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M5 3h11l3 3v15H5z"/><path d="M9 8h6M9 12h6M9 16h4"/></svg></span> Guest Form</div>
 
   <div class="nav-group">Front Desk</div>
   <div class="nav-item" data-page="approval" onclick="goPage('approval')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M20 12V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6"/><path d="M9 9h6M9 13h3"/><path d="m15 18 2 2 4-4"/></svg></span> Booking Approval <span class="nav-badge" id="approvalBadge"></span></div>
@@ -468,6 +469,7 @@
   <div class="nav-item" data-page="payments" onclick="goPage('payments')"><span class="ico"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg></span> Payments</div>
   <div class="nav-item" data-page="payroll" onclick="goPage('payroll')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M5 3h14v18l-3-2-2 2-2-2-2 2-3-2V3Z"/><path d="M9 8h6M9 12h6"/></svg></span> Payroll</div>
   <div class="nav-item" data-page="bills" onclick="goPage('bills')"><span class="ico"><svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg></span> Bills</div>
+  <div class="nav-item" data-page="expenses" onclick="goPage('expenses')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M3 7h18v12H3z"/><path d="M3 11h18M7 15h4"/></svg></span> Expenses</div>
   <div class="nav-item" data-page="analytics" onclick="goPage('analytics')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M4 20V4M4 20h16"/><path d="M8 17v-5M13 17V8M18 17v-9"/></svg></span> Analytics</div>
 
   <div class="nav-group">Team</div>
@@ -1060,7 +1062,7 @@
   }
   // is the logged-in user an administrator? (unknown / direct access = treated as admin)
   /* ---------- access control (mirrors dashboard.html) ---------- */
-  const PAGE_KEYS = ["today","addbooking","finance","analytics","calendar","havens","booking","payments","cleaners","employees","log","payroll","bills","assist","users"];
+  const PAGE_KEYS = ["today","addbooking","calendar","guestform","approval","paymentapproval","deposit","havens","booking","cleaners","finance","payments","payroll","bills","expenses","analytics","users","employees","assist","log"];
   // resolve the logged-in user from the RAW stored name (no "Admin" default), so a
   // missing/unknown session can't inherit admin access and flash the full sidebar
   function currentUserObj(){
