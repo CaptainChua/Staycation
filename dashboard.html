@@ -378,6 +378,16 @@ body{ background:#f5f5f5; color:#222; padding:30px 30px 30px 250px; }
     letter-spacing:1px;
     color:#3a2b50;
 }
+/* day view: faded "cleaning / turnaround" block after a check-out (the 2h gap before re-booking) */
+.bar.bar-clean{
+    background:repeating-linear-gradient(45deg, rgba(140,140,140,.16), rgba(140,140,140,.16) 6px, rgba(140,140,140,.30) 6px, rgba(140,140,140,.30) 12px);
+    border-left:none;
+    color:#7a7a7a;
+    font-size:9.5px;
+    font-style:italic;
+    cursor:default;
+    z-index:0;
+}
 
 .legend{ display:flex; gap:16px; font-size:12px; color:#666; margin-top:14px; flex-wrap:wrap; }
 .dot{ display:inline-block; width:11px; height:11px; border-radius:3px; margin-right:5px; vertical-align:middle; }
@@ -3418,28 +3428,33 @@ function renderTimelineHours(){
     const dl = document.getElementById("tlDayLabel");
     if(dl) dl.textContent = day.toLocaleDateString("en-PH", { weekday:"long", month:"long", day:"numeric" });
 
-    // collect the bookings active on this day, with their start/end minute within the day
+    // collect the bookings active on this day, with their start/end minute within the day.
+    // dayIso <= coIso (inclusive) so a stay that started earlier and checks out THIS morning
+    // still shows — its bar runs from midnight to the check-out time, so staff can see until
+    // when each haven is occupied (and the cleaning gap before it can be re-booked).
     const dayBookings = [];
     bookings.forEach(b => {
         if(!HAVENS.includes(b.haven)) return;
         const coIso = b.checkout > b.checkin ? b.checkout : iso(addDays(new Date(b.checkin + "T00:00:00"), 1));
-        if(!(b.checkin <= dayIso && dayIso < coIso)) return;            // active this day?
+        if(!(b.checkin <= dayIso && dayIso <= coIso)) return;          // active this day (incl. the check-out morning)
         const ciMin = bookingCheckinMin(b);
         // multi-night overnight stays occupy the full span up to the check-out morning
         const iv = bookingInterval(b);
         const durMin = iv.end - iv.start;
-        const dDiff = daysBetween(b.checkin, dayIso);                   // 0 = same day
+        const dDiff = daysBetween(b.checkin, dayIso);                   // 0 = same day, >0 = carried over
         const startMin = Math.max(0, dDiff === 0 ? ciMin : 0);
         const endMin = Math.min(1440, ciMin + durMin - dDiff * 1440);
         if(endMin <= startMin) return;
-        dayBookings.push({ b, startMin, endMin });
+        const departsToday = endMin < 1440;                            // the actual check-out is this day
+        const carryover = dDiff > 0;                                   // came from an earlier day
+        dayBookings.push({ b, startMin, endMin, departsToday, carryover });
     });
 
-    // derive the visible hour window: floor(earliest start) … ceil(latest end)
+    // derive the visible hour window: floor(earliest start) … ceil(latest end + cleaning gap)
     let HS = 0, HE = 24;
     if(dayBookings.length){
         const minStart = Math.min(...dayBookings.map(x => x.startMin));
-        const maxEnd   = Math.max(...dayBookings.map(x => x.endMin));
+        const maxEnd   = Math.max(...dayBookings.map(x => x.departsToday ? Math.min(1440, x.endMin + CLEANING_GAP_MIN) : x.endMin));
         HS = Math.max(0, Math.floor(minStart / 60));
         HE = Math.min(24, Math.ceil(maxEnd / 60));
     } else {
@@ -3463,7 +3478,8 @@ function renderTimelineHours(){
     grid.innerHTML = html;
 
     const winStart = HS * 60, winEnd = HE * 60;
-    dayBookings.forEach(({ b, startMin, endMin }) => {
+    const xFor = (firstCell, m) => firstCell.offsetLeft + ((m - winStart) / 60) * firstCell.offsetWidth;
+    dayBookings.forEach(({ b, startMin, endMin, departsToday, carryover }) => {
         const s = Math.max(winStart, Math.min(winEnd, startMin));
         const e = Math.max(winStart, Math.min(winEnd, endMin));
         if(e <= s) return;
@@ -3471,21 +3487,47 @@ function renderTimelineHours(){
         const firstCell = grid.querySelector(`.tl-cell[data-h="${cssEscape(b.haven)}"][data-hr="${HS}"]`);
         if(!firstCell) return;
         const hourW = firstCell.offsetWidth, rowTop = firstCell.offsetTop, cellH = firstCell.offsetHeight;
+        const coStr = checkoutTimeStr(b);
+        const freeAt = minToTime(Math.min(1440, endMin + CLEANING_GAP_MIN));
 
         const bar = document.createElement("div");
         bar.className = "bar";
         bar.style.background = havenColor(b);
         bar.style.color = "#222";
         bar.style.borderLeft = "5px solid " + (STATUS_COLOR[statusOf(b)] || "#999");
-        bar.textContent = (b.fbName || primaryName(b)) + (b.slot ? " (" + (b.slot === "morning" ? "AM" : "PM") + ")" : "");
-        bar.title = `${guestNames(b)} • ${checkinTimeStr(b)}→${checkoutTimeStr(b)} • ${peso(paidOf(b))}/${peso(b.total)}`;
+        // carry-over stays (from a previous day) are labelled with their check-out time
+        bar.textContent = (carryover ? "⟵ " : "") + (b.fbName || primaryName(b))
+            + (b.slot ? " (" + (b.slot === "morning" ? "AM" : "PM") + ")" : "")
+            + (carryover ? " · out " + coStr : "");
+        bar.title = `${guestNames(b)} • ${checkinTimeStr(b)}→${coStr}`
+            + (departsToday ? ` • free at ${freeAt} (after cleaning)` : "")
+            + ` • ${peso(paidOf(b))}/${peso(b.total)}`;
         bar.onclick = () => openModal(b.id);
-        bar.style.left = (firstCell.offsetLeft + ((s - winStart) / 60) * hourW + 2) + "px";
+        bar.style.left = (xFor(firstCell, s) + 2) + "px";
         bar.style.width = Math.max(10, ((e - s) / 60) * hourW - 4) + "px";
         bar.style.top = (rowTop + 7) + "px";
         bar.style.height = (cellH - 14) + "px";
         bar.style.bottom = "auto";
         grid.appendChild(bar);
+
+        // faded "cleaning / turnaround" block right after the check-out, so the 2-hour gap
+        // before the haven can be re-booked is visible on the calendar
+        if(departsToday){
+            const cs = Math.max(winStart, Math.min(winEnd, endMin));
+            const ce = Math.max(winStart, Math.min(winEnd, endMin + CLEANING_GAP_MIN));
+            if(ce > cs){
+                const gap = document.createElement("div");
+                gap.className = "bar bar-clean";
+                gap.textContent = "cleaning";
+                gap.title = `${b.haven} — cleaning / turnaround until ${freeAt}`;
+                gap.style.left = (xFor(firstCell, cs) + 2) + "px";
+                gap.style.width = Math.max(6, ((ce - cs) / 60) * hourW - 4) + "px";
+                gap.style.top = (rowTop + 7) + "px";
+                gap.style.height = (cellH - 14) + "px";
+                gap.style.bottom = "auto";
+                grid.appendChild(gap);
+            }
+        }
     });
 }
 
