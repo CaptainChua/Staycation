@@ -75,8 +75,15 @@ apiRouter.get("/kv/:key", (req, res) => {
 // write one key (body is the raw JSON value the browser stored)
 apiRouter.put("/kv/:key", async (req, res) => {
   if (!store.isShared(req.params.key)) return res.status(403).json({ error: "key not shared" });
-  await store.set(req.params.key, req.body);
-  res.json({ ok: true });
+  try {
+    // durable write: only report success once the backend (Firestore) confirms,
+    // so a client knows to retry instead of silently losing the change.
+    await store.setStrict(req.params.key, req.body);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error("[api] PUT /kv/" + req.params.key + " failed to persist:", e.message);
+    res.status(502).json({ ok: false, error: "persist failed" });
+  }
 });
 
 // delete one key (resets it)

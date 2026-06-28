@@ -2410,7 +2410,10 @@ input.gf-ov:focus{ outline:none; background:#fff7cc; }
     <div class="panel">
         <div class="panel-head">
             <h2>Users <span class="muted">— who can log in and what they can access</span></h2>
-            <button class="btn" onclick="openUserModal()">+ Add User</button>
+            <div style="display:flex; align-items:center; gap:12px;">
+                <span id="userSaveNote" style="font-size:13px; font-weight:600;"></span>
+                <button class="btn" onclick="openUserModal()">+ Add User</button>
+            </div>
         </div>
         <p class="muted" style="margin-bottom:16px;">Each user logs in at the admin page with their username &amp; password. Tick the pages they're allowed to open; admins get everything plus this Users page.</p>
         <div id="usersList"></div>
@@ -8601,7 +8604,49 @@ function loadUsers(){
     return arr;
 }
 let users = loadUsers();
-function persistUsers(){ localStorage.setItem(USERS_KEY, JSON.stringify(users)); }
+function persistUsers(){
+    // 1) local copy (also triggers the seed-bridge's automatic mirror)
+    localStorage.setItem(USERS_KEY, JSON.stringify(users));
+    // 2) explicit, VERIFIED write to the shared server (Firestore) so a user is
+    //    never silently lost if the fire-and-forget mirror happens to fail.
+    saveUsersToServer(users.slice());
+}
+// PUT users to the server, confirm Firestore really stored them, retry on
+// failure, and warn the admin if it ultimately can't be saved.
+async function saveUsersToServer(arr, attempt){
+    attempt = attempt || 1;
+    const MAX = 4;
+    const note = document.getElementById("userSaveNote");
+    if(note && attempt === 1){ note.style.color = "#9a7b3f"; note.textContent = "Saving…"; }
+    try {
+        const res = await fetch("/api/kv/shph_users", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(arr),
+            cache: "no-store"
+        });
+        if(!res.ok) throw new Error("HTTP " + res.status);
+        // read it back and confirm every user we sent is actually stored
+        const check = await fetch("/api/kv/shph_users", { cache: "no-store" });
+        const saved = check.ok ? await check.json() : null;
+        const ok = Array.isArray(saved) &&
+            arr.every(u => saved.some(s => String(s.id) === String(u.id) && s.name === u.name));
+        if(!ok) throw new Error("verify mismatch");
+        if(note){ note.style.color = "#1f9d3c"; note.textContent = "✓ Saved to server";
+                  setTimeout(() => { if(note.textContent === "✓ Saved to server") note.textContent = ""; }, 3000); }
+        return true;
+    } catch(e){
+        if(attempt < MAX){
+            await new Promise(r => setTimeout(r, 500 * attempt));
+            return saveUsersToServer(arr, attempt + 1);
+        }
+        if(note){ note.style.color = "#c0392b"; note.textContent = "⚠ NOT saved to server"; }
+        alert("⚠️ This change is saved on THIS device but could NOT be saved to the server "
+            + "(you may be offline or the server is unreachable).\n\nPlease check your internet "
+            + "and open the Users page again to re-save — otherwise it may be lost on the next refresh.");
+        return false;
+    }
+}
 
 // resolve the logged-in user from the RAW stored name (no "Admin" default) so an
 // unknown/missing session can't accidentally inherit admin access
