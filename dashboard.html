@@ -3077,6 +3077,19 @@ function load(){
     return seed;
 }
 function save(data){ localStorage.setItem(KEY, JSON.stringify(data)); }
+// like save(), but WAITS for the server to confirm. Use for actions the user verifies by
+// refreshing immediately (cancel / reinstate) — a normal save mirrors to the server
+// fire-and-forget, which a quick refresh can cancel before it lands.
+async function saveBookingsDurable(){
+    save(bookings);   // keep localStorage in sync for this session
+    try {
+        await fetch("/api/kv/" + encodeURIComponent(KEY), {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(bookings)
+        });
+    } catch(e){ /* offline — localStorage still holds it */ }
+}
 
 // bring older saved bookings up to the current data shape
 function migrate(b){
@@ -4007,18 +4020,18 @@ function renderCancelled(){
     }).join("");
 }
 
-function deleteBooking(id){
+async function deleteBooking(id){
     if(!confirm("Delete this booking?")) return;
     const b = bookings.find(x => x.id === id);
     if(b) logActivity(`deleted booking — ${b.haven} (${primaryName(b)})`);
     bookings = bookings.filter(b => b.id !== id);
-    save(bookings);
+    await saveBookingsDurable();   // confirm on the server before updating the view
     renderAll();
 }
 
 // cancel a booking: the guest backed out, so free the haven — but the downpayment is
 // non-refundable, so the record stays and its collected money remains in Finance.
-function cancelBooking(id){
+async function cancelBooking(id){
     const b = bookings.find(x => x.id === id);
     if(!b) return;
     const kept = paidOf(b);   // non-refundable: downpayment + anything already collected
@@ -4028,13 +4041,13 @@ function cancelBooking(id){
         + `• The remaining balance is no longer due.`)) return;
     b.cancelled = true;
     b.cancelledAt = new Date().toISOString();
-    save(bookings);
     logActivity(`cancelled booking — ${b.haven} (${primaryName(b)}); kept ${peso(kept)} non-refundable`);
+    await saveBookingsDurable();   // confirm on the server before updating the view
     renderAll();
 }
 
 // undo a cancellation, but only if the haven/time hasn't since been taken by another booking
-function reinstateBooking(id){
+async function reinstateBooking(id){
     const b = bookings.find(x => x.id === id);
     if(!b) return;
     const clash = findConflictAdmin(b, id);
@@ -4045,8 +4058,8 @@ function reinstateBooking(id){
     }
     delete b.cancelled;
     delete b.cancelledAt;
-    save(bookings);
     logActivity(`reinstated booking — ${b.haven} (${primaryName(b)})`);
+    await saveBookingsDurable();   // confirm on the server before updating the view
     renderAll();
 }
 
