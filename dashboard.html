@@ -1693,7 +1693,6 @@ tr.row-cancelled td:nth-child(2){ text-decoration:line-through; }
                 <option value="paid">Paid</option>
                 <option value="partial">Partial</option>
                 <option value="unpaid">Unpaid</option>
-                <option value="cancelled">Cancelled</option>
             </select>
             <input type="text" id="filterSearch" placeholder="Search guest name..." oninput="resetBookingsPage()">
         </div>
@@ -1720,6 +1719,31 @@ tr.row-cancelled td:nth-child(2){ text-decoration:line-through; }
         </table>
     </div>
     <div id="bookingsPager" class="bookings-pager"></div>
+</div>
+
+<!-- cancelled bookings (kept for the record; downpayment is non-refundable) -->
+<div class="panel" id="cancelledPanel" style="display:none;">
+    <div class="panel-head">
+        <h2>Cancelled bookings <span class="muted" id="cancelledCount"></span></h2>
+        <span class="muted" style="font-size:12.5px;">Haven is freed · downpayment is non-refundable and stays in Finance.</span>
+    </div>
+    <div style="overflow-x:auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th>Haven</th>
+                    <th>Guests</th>
+                    <th>Check-in</th>
+                    <th>Check-out</th>
+                    <th>Stay</th>
+                    <th>Kept (DP)</th>
+                    <th>Cancelled</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody id="cancelledBody"></tbody>
+        </table>
+    </div>
 </div>
 
 </div><!-- /page-calendar -->
@@ -3841,11 +3865,13 @@ document.addEventListener("click", e => {
 
 /* ---------- table ---------- */
 function renderTable(){
+    renderCancelled();   // keep the separate cancelled panel in sync with the filters
     const haven = document.getElementById("filterHaven").value;
     const status = document.getElementById("filterStatus").value;
     const search = document.getElementById("filterSearch").value.toLowerCase();
 
     let rows = bookings.filter(b => {
+        if(b.cancelled) return false;          // cancelled bookings live in their own panel below
         if(haven && b.haven !== haven) return false;
         if(status && statusOf(b) !== status) return false;
         if(search && !guestNames(b).toLowerCase().includes(search)) return false;
@@ -3883,7 +3909,7 @@ function renderTable(){
     tbody.innerHTML = pageRows.map(b => {
         const balance = balanceOf(b);
         const st = statusOf(b);
-        return `<tr class="${b.cancelled ? "row-cancelled" : ""}">
+        return `<tr>
             <td><strong>${b.haven}</strong></td>
             <td>${guestSummary(b)}<br><span class="muted">${b.contact||""}</span></td>
             <td>${fmt(b.checkin)}<br><span class="muted">${checkinTimeStr(b)}</span></td>
@@ -3897,9 +3923,7 @@ function renderTable(){
             <td><span class="status ${st}">${st}</span></td>
             <td class="actions">
                 <span class="edit" onclick="openModal(${b.id})">Edit</span>
-                ${b.cancelled
-                    ? `<span class="reinstate" onclick="reinstateBooking(${b.id})">Reinstate</span>`
-                    : `<span class="cancel" onclick="cancelBooking(${b.id})">Cancel</span>`}
+                <span class="cancel" onclick="cancelBooking(${b.id})">Cancel</span>
                 <span class="del" onclick="deleteBooking(${b.id})">Delete</span>
             </td>
         </tr>`;
@@ -3924,6 +3948,48 @@ function renderBookingsPager(pages){
     }
     html += `<button class="page-btn" onclick="gotoBookingsPage(${bookingsPage + 1})" ${bookingsPage >= pages - 1 ? "disabled" : ""}>›</button>`;
     pager.innerHTML = html;
+}
+
+// separate panel listing cancelled bookings (same haven/search/date filters as the main table)
+function renderCancelled(){
+    const panel = document.getElementById("cancelledPanel");
+    const body = document.getElementById("cancelledBody");
+    const countEl = document.getElementById("cancelledCount");
+    if(!panel || !body) return;
+
+    const haven = document.getElementById("filterHaven").value;
+    const search = document.getElementById("filterSearch").value.toLowerCase();
+    let rows = bookings.filter(b => b.cancelled);
+    if(haven) rows = rows.filter(b => b.haven === haven);
+    if(search) rows = rows.filter(b => guestNames(b).toLowerCase().includes(search));
+    if(filterToWindow){
+        const startIso = iso(rangeStart);
+        const endIso = iso(addDays(rangeStart, viewDays)); // exclusive
+        rows = rows.filter(b => b.checkin < endIso && endExcl(b) > startIso);
+    }
+    rows.sort((a,b) => (b.cancelledAt || "").localeCompare(a.cancelledAt || ""));
+
+    if(rows.length === 0){ panel.style.display = "none"; body.innerHTML = ""; if(countEl) countEl.textContent = ""; return; }
+    panel.style.display = "";
+    if(countEl) countEl.textContent = `(${rows.length})`;
+    body.innerHTML = rows.map(b => {
+        const when = b.cancelledAt
+            ? new Date(b.cancelledAt).toLocaleDateString("en-PH", { month:"short", day:"numeric" })
+            : "—";
+        return `<tr class="row-cancelled">
+            <td><strong>${b.haven}</strong></td>
+            <td>${guestSummary(b)}<br><span class="muted">${b.contact||""}</span></td>
+            <td>${fmt(b.checkin)}<br><span class="muted">${checkinTimeStr(b)}</span></td>
+            <td>${fmt(b.checkout)}<br><span class="muted">${checkoutTimeStr(b)}</span></td>
+            <td>${b.stayHours ? b.stayHours + "h" : "—"}</td>
+            <td>${peso(paidOf(b))}</td>
+            <td>${when}</td>
+            <td class="actions">
+                <span class="reinstate" onclick="reinstateBooking(${b.id})">Reinstate</span>
+                <span class="del" onclick="deleteBooking(${b.id})">Delete</span>
+            </td>
+        </tr>`;
+    }).join("");
 }
 
 function deleteBooking(id){
