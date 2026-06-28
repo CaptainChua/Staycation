@@ -1010,6 +1010,17 @@ tbody tr:hover{ background:#fafafa; }
   .filters select:focus, .filters input:focus{ outline:none; border-color:var(--hv-terra); }
   .field label{ color:var(--hv-muted); }
 
+  /* ---- modal date pickers (custom calendar, matches the other tabs) ---- */
+  .md-dpwrap{ position:relative; }
+  .md-datepill{ display:flex; align-items:center; gap:8px; padding:10px; border:1px solid var(--hv-line); border-radius:10px; background:#faf7f2; color:var(--hv-ink); font-size:13px; cursor:pointer; min-height:39px; }
+  .md-datepill:hover{ border-color:var(--hv-terra); }
+  .md-datepill .md-dp-ico{ display:flex; }
+  .md-datepill .md-dp-ico svg{ width:15px; height:15px; stroke:var(--hv-muted); fill:none; stroke-width:1.8; }
+  .md-datepill.locked{ opacity:.6; cursor:default; }
+  .md-datepill.locked:hover{ border-color:var(--hv-line); }
+  .md-dppopup{ left:0; right:auto; transform:none; top:46px; z-index:60; }
+  .md-dppopup::before{ left:24px; right:auto; }
+
   /* ---- modal ---- */
   .modal{ border-radius:20px; border:1px solid var(--hv-line); }
 
@@ -2424,11 +2435,33 @@ tbody tr:hover{ background:#fafafa; }
 
             <div class="field">
                 <label>Check-in</label>
-                <input type="date" id="f_checkin" onchange="onCheckinChange()">
+                <div class="dp-wrap md-dpwrap">
+                    <div class="md-datepill" id="f_checkinPill" onclick="openCiPicker(event)">
+                        <span class="md-dp-ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg></span>
+                        <span id="f_checkinLbl">—</span>
+                    </div>
+                    <input type="hidden" id="f_checkin">
+                    <div class="dp-popup md-dppopup" id="ciDpPopup" onclick="event.stopPropagation()">
+                        <div class="dp-head"><button type="button" onclick="ciNav(-1)">‹</button><span id="ciDpTitle"></span><button type="button" onclick="ciNav(1)">›</button></div>
+                        <div class="dp-grid" id="ciDpGrid"></div>
+                        <div class="dp-foot"><span onclick="ciPickToday()">Today</span></div>
+                    </div>
+                </div>
             </div>
             <div class="field">
                 <label id="f_checkoutLabel">Check-out <span class="muted">(auto)</span></label>
-                <input type="date" id="f_checkout" onchange="onCheckoutEdited()" readonly>
+                <div class="dp-wrap md-dpwrap">
+                    <div class="md-datepill" id="f_checkoutPill" onclick="openCoPicker(event)">
+                        <span class="md-dp-ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg></span>
+                        <span id="f_checkoutLbl">—</span>
+                    </div>
+                    <input type="hidden" id="f_checkout">
+                    <div class="dp-popup md-dppopup" id="coDpPopup" onclick="event.stopPropagation()">
+                        <div class="dp-head"><button type="button" onclick="coNav(-1)">‹</button><span id="coDpTitle"></span><button type="button" onclick="coNav(1)">›</button></div>
+                        <div class="dp-grid" id="coDpGrid"></div>
+                        <div class="dp-foot"><span onclick="coPickToday()">Today</span></div>
+                    </div>
+                </div>
             </div>
 
             <div class="field">
@@ -4420,20 +4453,75 @@ function setDashCheckinTime(timeStr){
 function stayIsMulti(){ return document.getElementById("f_stay").value === "multi"; }
 // when "Multiple nights" is chosen, let the user pick the check-out date directly
 function setCheckoutEditable(on){
-    const co = document.getElementById("f_checkout");
+    const pill = document.getElementById("f_checkoutPill");
     const lbl = document.getElementById("f_checkoutLabel");
-    if(on){
-        co.removeAttribute("readonly");
-        co.style.background = "#fff";
-        co.style.cursor = "text";
-        if(lbl) lbl.innerHTML = 'Check-out <span class="muted">(pick the date)</span>';
-    } else {
-        co.setAttribute("readonly", "readonly");
-        co.style.background = "";
-        co.style.cursor = "";
-        if(lbl) lbl.innerHTML = 'Check-out <span class="muted">(auto)</span>';
-    }
+    if(pill) pill.classList.toggle("locked", !on);
+    if(lbl) lbl.innerHTML = on ? 'Check-out <span class="muted">(pick the date)</span>'
+                               : 'Check-out <span class="muted">(auto)</span>';
 }
+// paint the visible date pills from the hidden check-in/out inputs
+function paintDates(){
+    const ci = document.getElementById("f_checkin").value;
+    const co = document.getElementById("f_checkout").value;
+    const cl = document.getElementById("f_checkinLbl");  if(cl) cl.textContent = ci ? fmt(ci) : "—";
+    const ol = document.getElementById("f_checkoutLbl"); if(ol) ol.textContent = co ? fmt(co) : "—";
+}
+/* ---------- custom check-in / check-out calendars (match the app's other pickers) ---------- */
+let ciDpMonth = null, coDpMonth = null;
+function closeModalPickers(){ ["ciDpPopup","coDpPopup"].forEach(id => { const p = document.getElementById(id); if(p) p.classList.remove("show"); }); }
+function mdRenderGrid(gridId, titleId, monthDate, selIso, pickFn){
+    const y = monthDate.getFullYear(), m = monthDate.getMonth();
+    document.getElementById(titleId).textContent = MONTHS[m] + " " + y;
+    const startDay = new Date(y, m, 1).getDay(), dim = new Date(y, m + 1, 0).getDate();
+    const todayIso = iso(today());
+    let html = "";
+    ["Su","Mo","Tu","We","Th","Fr","Sa"].forEach(d => html += `<div class="dp-wd">${d}</div>`);
+    for(let i = 0; i < startDay; i++) html += `<div class="dp-day empty"></div>`;
+    for(let d = 1; d <= dim; d++){
+        const ci = iso(new Date(y, m, d));
+        let cls = "dp-day"; if(ci === todayIso) cls += " today"; if(ci === selIso) cls += " sel";
+        html += `<div class="${cls}" onclick="${pickFn}('${ci}')"><span class="n">${d}</span></div>`;
+    }
+    document.getElementById(gridId).innerHTML = html;
+}
+function openCiPicker(e){
+    if(e) e.stopPropagation();
+    closeModalPickers();
+    const cur = document.getElementById("f_checkin").value || iso(today());
+    ciDpMonth = new Date(cur + "T00:00:00"); ciDpMonth.setDate(1);
+    ciRender();
+    document.getElementById("ciDpPopup").classList.add("show");
+}
+function ciNav(d){ ciDpMonth.setMonth(ciDpMonth.getMonth() + d); ciRender(); }
+function ciRender(){ mdRenderGrid("ciDpGrid", "ciDpTitle", ciDpMonth, document.getElementById("f_checkin").value, "ciPick"); }
+function ciPick(isoVal){
+    document.getElementById("f_checkin").value = isoVal;
+    closeModalPickers();
+    onCheckinChange();   // recomputes check-out + haven options, then paints the pills
+    paintDates();
+}
+function ciPickToday(){ ciPick(iso(today())); }
+function openCoPicker(e){
+    if(e) e.stopPropagation();
+    if(!stayIsMulti()) return;   // check-out is only pickable for "Multiple nights"
+    closeModalPickers();
+    const cur = document.getElementById("f_checkout").value || iso(today());
+    coDpMonth = new Date(cur + "T00:00:00"); coDpMonth.setDate(1);
+    coRender();
+    document.getElementById("coDpPopup").classList.add("show");
+}
+function coNav(d){ coDpMonth.setMonth(coDpMonth.getMonth() + d); coRender(); }
+function coRender(){ mdRenderGrid("coDpGrid", "coDpTitle", coDpMonth, document.getElementById("f_checkout").value, "coPick"); }
+function coPick(isoVal){
+    const ci = document.getElementById("f_checkin").value;
+    if(ci && isoVal <= ci) isoVal = iso(addDays(new Date(ci + "T00:00:00"), 1));  // must be after check-in
+    document.getElementById("f_checkout").value = isoVal;
+    closeModalPickers();
+    onCheckoutEdited();
+    paintDates();
+}
+function coPickToday(){ coPick(iso(today())); }
+document.addEventListener("click", e => { if(!e.target.closest(".md-dpwrap")) closeModalPickers(); });
 // derive check-out date + time from check-in date/time + stay length (+ extend)
 function recomputeDashCheckout(){
     const ci = document.getElementById("f_checkin").value;
@@ -4446,6 +4534,7 @@ function recomputeDashCheckout(){
         const coEl = document.getElementById("f_checkout");
         if(!coEl.value || coEl.value <= ci) coEl.value = iso(addDays(new Date(ci + "T00:00:00"), 2));
         document.getElementById("f_checkoutTime").value = minToTime(dashCheckinMin(t) + (21 + ext) * 60);
+        paintDates();
         return;
     }
     const hours = Number(stayVal) || 0;
@@ -4453,6 +4542,7 @@ function recomputeDashCheckout(){
     const co = addDays(new Date(ci + "T00:00:00"), Math.floor(total / 1440));
     document.getElementById("f_checkout").value = iso(co);
     document.getElementById("f_checkoutTime").value = minToTime(total);
+    paintDates();
 }
 // user edited the check-out date (only possible on multi-night stays)
 function onCheckoutEdited(){ recalc(); updateHavenOptions(); }
