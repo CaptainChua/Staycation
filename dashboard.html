@@ -3234,6 +3234,27 @@ function load(){
     return seed;
 }
 function save(data){ localStorage.setItem(KEY, JSON.stringify(data)); }
+let _lastCreatedBookingId = null;
+// after creating a booking, confirm the server actually stored it (the bookings
+// write is a large array that can be dropped on a flaky connection). Re-send and
+// retry a few times, then warn the user so a booking is never silently lost.
+async function confirmBookingSaved(id){
+    if(id == null) return;
+    for(let attempt = 1; attempt <= 4; attempt++){
+        await new Promise(r => setTimeout(r, 800 * attempt));
+        try {
+            const res = await fetch("/api/kv/" + encodeURIComponent(KEY), { cache:"no-store" });
+            if(res.ok){
+                const arr = await res.json();
+                if(Array.isArray(arr) && arr.some(b => String(b.id) === String(id))) return;  // confirmed on server
+            }
+        } catch(e){ /* offline → try again */ }
+        try { localStorage.setItem(KEY, JSON.stringify(bookings)); } catch(e){}   // re-send (mirror retries)
+    }
+    alert("⚠️ The booking is saved on THIS device, but the server hasn't confirmed it yet "
+        + "(slow or unstable connection).\n\nPlease check your internet and REFRESH the page — "
+        + "if the booking is missing, add it again.");
+}
 // durably apply a single booking status change (cancel / reinstate / delete) by sending only
 // the id + action — a tiny request the server applies to the stored array. This avoids
 // re-uploading the whole bookings array (which carries base64 images), so a quick refresh
@@ -5540,6 +5561,7 @@ function saveBooking(){
     } else {
         const newId = bookings.length ? Math.max(...bookings.map(b => b.id)) + 1 : 1;
         bookings.push({ id:newId, ...data });
+        _lastCreatedBookingId = newId;
         logActivity(`added booking — ${data.haven} (${primaryName(data)})`);
     }
     // append the linked haven segments as their own bookings
@@ -5549,6 +5571,7 @@ function saveBooking(){
         logActivity(`linked ${segDatas.length} more haven(s) to this stay — ${segDatas.map(s => s.haven).join(", ")}`);
     }
     save(bookings);
+    if(!editingId) confirmBookingSaved(_lastCreatedBookingId);   // verify a NEW booking reached the server
     closeModal();
     renderAll();
 }

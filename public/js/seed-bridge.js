@@ -41,15 +41,22 @@
     }
   });
 
-  // 2) mirror writes of shared keys back to the server (fire-and-forget)
-  function push(key, jsonString) {
+  // 2) mirror writes of shared keys back to the server, RETRYING on failure so a
+  //    transient network/server hiccup can't silently drop a write (e.g. a booking).
+  function push(key, jsonString, attempt) {
+    attempt = attempt || 1;
+    var MAX = 5;
+    function retry() {
+      if (attempt < MAX) setTimeout(function () { push(key, jsonString, attempt + 1); }, 800 * attempt);
+    }
     try {
       fetch("/api/kv/" + encodeURIComponent(key), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: jsonString
-      });
-    } catch (e) { /* offline → localStorage still holds it */ }
+      }).then(function (res) { if (!res.ok) retry(); })
+        .catch(function () { retry(); });   // network error → try again
+    } catch (e) { retry(); }
   }
 
   var proto = window.Storage && window.Storage.prototype;

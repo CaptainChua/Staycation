@@ -1036,6 +1036,26 @@
       localStorage.setItem("shph_activity_log", JSON.stringify(log.slice(-500)));
     } catch(e){ /* never let logging break an action (e.g. storage full) */ }
   }
+  // after creating a booking, confirm the server actually stored it (the bookings
+  // write is a large array that can be dropped on a flaky connection). Re-send and
+  // retry, then warn the user so a customer booking is never silently lost.
+  async function confirmBookingSaved(id){
+    if(id == null) return;
+    for(let attempt = 1; attempt <= 4; attempt++){
+      await new Promise(r => setTimeout(r, 800 * attempt));
+      try {
+        const res = await fetch("/api/kv/" + encodeURIComponent(KEY), { cache:"no-store" });
+        if(res.ok){
+          const arr = await res.json();
+          if(Array.isArray(arr) && arr.some(b => String(b.id) === String(id))) return;  // confirmed
+        }
+      } catch(e){ /* offline → try again */ }
+      try { localStorage.setItem(KEY, JSON.stringify(bookings)); } catch(e){}   // re-send (mirror retries)
+    }
+    alert("⚠️ The booking is saved on THIS device, but the server hasn't confirmed it yet "
+      + "(slow or unstable connection).\n\nPlease check your internet and REFRESH the page — "
+      + "if the booking is missing, add it again.");
+  }
   // is the logged-in user an administrator? (unknown / direct access = treated as admin)
   /* ---------- access control (mirrors dashboard.html) ---------- */
   const PAGE_KEYS = ["today","addbooking","finance","analytics","calendar","havens","booking","payments","cleaners","employees","log","payroll","bills","assist","users"];
@@ -1683,6 +1703,7 @@
     const newId = bookings.length ? Math.max(...bookings.map(b => b.id)) + 1 : 1;
     bookings.push({ id:newId, ...data });
     localStorage.setItem(KEY, JSON.stringify(bookings));
+    confirmBookingSaved(newId);   // verify it reached the server; warns if not
     const gName = (data.guests[0] && data.guests[0].name) || "";
     logActivity(`added booking — ${data.haven} (${gName})`);
     closeAdd();
