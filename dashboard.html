@@ -1654,7 +1654,7 @@ input.gf-ov:focus{ outline:none; background:#fff7cc; }
 
   /* stacked expenses */
   #page-analytics .stack{ display:flex; height:14px; border-radius:8px; overflow:hidden; margin-bottom:12px; background:#f0e7d8; }
-  #page-analytics .stack .seg-bills{ background:#bd6e3f; } #page-analytics .stack .seg-pay{ background:#9a3db8; }
+  #page-analytics .stack .seg-bills{ background:#bd6e3f; } #page-analytics .stack .seg-pay{ background:#9a3db8; } #page-analytics .stack .seg-exp{ background:#3f9e6a; }
   #page-analytics .stack-legend{ display:flex; flex-wrap:wrap; gap:18px; font-size:12.5px; color:var(--hv-muted); margin-bottom:20px; }
   #page-analytics .stack-legend b{ color:var(--hv-ink); }
   #page-analytics .stack-legend .k{ display:inline-flex; align-items:center; gap:7px; }
@@ -7643,6 +7643,7 @@ function renderAnalytics(){
     // money collected in a calendar month "YYYY-MM"
     const incOf = ym => bookings.filter(b => b.checkin && b.checkin.slice(0,7) === ym).reduce((s,b) => s + netCollectedOf(b), 0);
     const billsOf = ym => bills.filter(b => b.due && b.due.slice(0,7) === ym).reduce((s,b) => s + Number(b.amount||0), 0);
+    const expSpendOf = ym => expenses.filter(e => e.date && e.date.slice(0,7) === ym).reduce((s,e) => s + Number(e.amount||0), 0);
     const payOf  = ym => staff.reduce((s,st) => s + staffGross(st, ym), 0);
     const bkCntOf = ym => bookings.filter(b => b.checkin && b.checkin.slice(0,7) === ym).length;
 
@@ -7651,7 +7652,7 @@ function renderAnalytics(){
     for(let i = 11; i >= 0; i--){
         const d = new Date(t.getFullYear(), t.getMonth() - i, 1);
         const ym = iso(d).slice(0,7);
-        series.push({ label: MONTHS[d.getMonth()].slice(0,3), ym, inc: incOf(ym), exp: billsOf(ym) + payOf(ym), bk: bkCntOf(ym) });
+        series.push({ label: MONTHS[d.getMonth()].slice(0,3), ym, inc: incOf(ym), exp: billsOf(ym) + payOf(ym) + expSpendOf(ym), bk: bkCntOf(ym) });
     }
     const cur = series[11], prev = series[10] || { inc:0, exp:0, bk:0 };
     const pct = (a, b) => b ? Math.round((a - b) / b * 1000) / 10 : null;
@@ -7671,23 +7672,25 @@ function renderAnalytics(){
 
     const bk = bookings.filter(b => inWin(b.checkin));
     const bl = bills.filter(b => inWin(b.due));
+    const ex = expenses.filter(e => inWin(e.date));
     const collected   = Math.round(bk.reduce((s,b) => s + netCollectedOf(b), 0));
     const receivables = Math.round(bk.reduce((s,b) => s + balanceOf(b), 0));
     const billsTotal  = Math.round(bl.reduce((s,b) => s + Number(b.amount||0), 0));
     const billsPaid   = bl.filter(b => b.paid).reduce((s,b) => s + Number(b.amount||0), 0);
     const billsPending = Math.round(billsTotal - billsPaid);
     const payrollGross = Math.round(months.reduce((s,ym) => s + payOf(ym), 0));
-    const expenses  = billsTotal + payrollGross;
-    const netProfit = collected - expenses;
+    const expensesSpend = Math.round(ex.reduce((s,e) => s + Number(e.amount||0), 0));
+    const totalExpenses = billsTotal + payrollGross + expensesSpend;
+    const netProfit = collected - totalExpenses;
 
     document.getElementById("anScope").textContent =
-        `All units combined — bookings, bills / payables, and payroll · ${scopeText}`;
+        `All units combined — bookings, bills, payroll &amp; expenses · ${scopeText}`;
 
     // ---- big KPI cards ----
     const kpis = [
         ["Collected (revenue in)", peso(collected), "#2e7d4f", AN_ICO.trendUp, "ic-green", pct(cur.inc, prev.inc)],
         ["Net profit", peso(netProfit), netProfit >= 0 ? "#2e7d4f" : "#c0283d", AN_ICO.piggy, "ic-green", pct(cur.inc - cur.exp, prev.inc - prev.exp)],
-        ["Total expenses", peso(expenses), "var(--hv-terra-d)", AN_ICO.trendDown, "ic-terra", pct(cur.exp, prev.exp)],
+        ["Total expenses", peso(totalExpenses), "var(--hv-terra-d)", AN_ICO.trendDown, "ic-terra", pct(cur.exp, prev.exp)],
         ["Bookings", bk.length, "var(--hv-ink)", AN_ICO.cal, "ic-dark", pct(cur.bk, prev.bk)]
     ];
     document.getElementById("anCards").innerHTML = kpis.map(k => `
@@ -7702,6 +7705,7 @@ function renderAnalytics(){
         ["Receivables (pending)", peso(receivables), AN_ICO.hour, "ic-gold"],
         ["Total bills", peso(billsTotal), AN_ICO.receipt, "ic-terra"],
         ["Bills pending", peso(billsPending), AN_ICO.receipt, "ic-terra"],
+        ["Expenses (supplies)", peso(expensesSpend), AN_ICO.receipt, "ic-green"],
         ["Payroll (gross)", peso(payrollGross), AN_ICO.badge, "ic-purple"]
     ];
     document.getElementById("anMini").innerHTML = minis.map(m => `
@@ -7736,22 +7740,32 @@ function renderAnalytics(){
         havenRev.length ? anHBars(havenRev, havenRev.reduce((s,x) => s + x.value, 0)) : `<p class="muted">No revenue yet.</p>`;
 
     // ---- expenses: bills vs payroll + bills by haven ----
-    const expTotal = (billsTotal + payrollGross) || 1;
-    const billsW = Math.round(billsTotal / expTotal * 100), payW = 100 - billsW;
+    const expTotal = (billsTotal + payrollGross + expensesSpend) || 1;
+    const billsW = Math.round(billsTotal / expTotal * 100);
+    const payW   = Math.round(payrollGross / expTotal * 100);
+    const expW   = Math.max(0, 100 - billsW - payW);
     const billCats = (typeof BILL_HAVENS !== "undefined") ? BILL_HAVENS : HAVENS;
     const havenBills = billCats.map(h => ({
         label: h,
         value: Math.round(bl.filter(b => b.haven === h).reduce((s,b) => s + Number(b.amount||0), 0)),
         color: havenColors(h).am
     })).filter(x => x.value > 0).sort((a,b) => b.value - a.value);
+    const expByType = (typeof EXPENSE_TYPES !== "undefined" ? EXPENSE_TYPES : []).map(tp => ({
+        label: tp,
+        value: Math.round(ex.filter(e => e.type === tp).reduce((s,e) => s + Number(e.amount||0), 0)),
+        color: "#3f9e6a"
+    })).filter(x => x.value > 0).sort((a,b) => b.value - a.value);
     document.getElementById("anExpenses").innerHTML = `
-        <div class="stack"><div class="seg-bills" style="width:${billsW}%"></div><div class="seg-pay" style="width:${payW}%"></div></div>
+        <div class="stack"><div class="seg-bills" style="width:${billsW}%"></div><div class="seg-pay" style="width:${payW}%"></div><div class="seg-exp" style="width:${expW}%"></div></div>
         <div class="stack-legend">
             <span class="k"><span class="sw" style="background:#bd6e3f"></span>Bills <b>${peso(billsTotal)}</b> · ${billsW}%</span>
             <span class="k"><span class="sw" style="background:#9a3db8"></span>Payroll <b>${peso(payrollGross)}</b> · ${payW}%</span>
+            <span class="k"><span class="sw" style="background:#3f9e6a"></span>Expenses <b>${peso(expensesSpend)}</b> · ${expW}%</span>
         </div>
         <div class="sub-h">Bills by haven / category</div>
-        ${havenBills.length ? anHBars(havenBills, havenBills.reduce((s,x) => s + x.value, 0)) : `<p class="muted">No bills yet.</p>`}`;
+        ${havenBills.length ? anHBars(havenBills, havenBills.reduce((s,x) => s + x.value, 0)) : `<p class="muted">No bills yet.</p>`}
+        <div class="sub-h">Expenses by type</div>
+        ${expByType.length ? anHBars(expByType, expByType.reduce((s,x) => s + x.value, 0)) : `<p class="muted">No expenses yet.</p>`}`;
 }
 function setAnPeriod(p){
     anPeriod = p;
