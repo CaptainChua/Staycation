@@ -91,6 +91,10 @@ app.get("/api/health", async (req, res) => {
   try { await ensureStore(); } catch (e) {}
   res.json({ backend: store.backend(), imageStorage: store.imageStorage() });
 });
+app.get("/api/storage-debug", async (req, res) => {
+  try { await ensureStore(); res.json(await store.storageDebug()); }
+  catch (e) { res.status(500).json({ error: String(e.message || e) }); }
+});
 
 // stream a stored image by id (Cloud Storage, or the legacy Firestore doc).
 // Image refs in the data are served as /img/<id> so payloads stay tiny.
