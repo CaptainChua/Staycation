@@ -358,6 +358,29 @@
     .user-pill .avatar{ order:-1; width:32px !important; height:32px !important; background:var(--hv-terra) !important; color:#fff !important; font-size:13px; }
     .user-pill .btn.secondary{ display:inline-flex !important; align-items:center; background:transparent !important; border:none !important; color:#fff !important; padding:2px 12px 2px 2px !important; font-weight:600; font-size:13px; box-shadow:none !important; }
   }
+  /* ===== Compact sizing so everything fits one mobile screen (beats the warm-theme rules) ===== */
+  @media (max-width:760px){
+    .wrap{ padding:14px 12px 40px !important; }
+    .topbar{ margin:4px 0 12px !important; }
+    .topbar .title h1{ font-size:21px !important; }
+    .topbar .title p{ font-size:11.5px !important; }
+    .seg .view-tab{ padding:7px 12px !important; font-size:12.5px !important; }
+    .cards{ gap:9px !important; margin-bottom:13px !important; }
+    .card{ padding:12px 13px !important; }
+    .card .card-label{ font-size:10px !important; letter-spacing:.4px !important; }
+    .card .number{ font-size:22px !important; margin-top:5px !important; }
+    .card .number.money{ font-size:20px !important; }
+    .card .card-sub{ font-size:11px !important; margin-top:3px !important; }
+    .panel{ padding:13px 14px !important; margin-bottom:13px !important; }
+    .panel-head h2{ font-size:15px !important; }
+    .panel-head h2 .sec-ico svg{ width:16px !important; height:16px !important; }
+    .mop-grid{ grid-template-columns:repeat(3,1fr) !important; gap:8px !important; }
+    .mop-item{ padding:9px 10px !important; }
+    .mop-label{ font-size:10px !important; }
+    .mop-val{ font-size:15px !important; }
+    .scroll tbody tr{ padding:12px 14px !important; }
+    .scroll tbody td:nth-child(1){ font-size:15px !important; }
+  }
 </style>
 </head>
 <body>
