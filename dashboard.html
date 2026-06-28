@@ -4612,18 +4612,20 @@ function onExtendChange(){ recomputeDashCheckout(); recalc(); }
 // or "" if nothing clashes. Used to label busy havens in the dropdown.
 function havenFreeAtStr(haven, cand){
     const ci = bookingInterval(cand);
-    let latestEnd = null;
+    let latest = null, latestEnd = null;
     bookings.forEach(b => {
         if(b.id === editingId) return;
         if(b.haven !== haven) return;
-        const bi = bookingInterval(b);
+        const bi = bookingInterval(b);   // absolute minutes — fine for comparing/clashing
         if(ci.start < bi.end + CLEANING_GAP_MIN && bi.start < ci.end + CLEANING_GAP_MIN){
-            if(latestEnd == null || bi.end > latestEnd) latestEnd = bi.end;
+            if(latestEnd == null || bi.end > latestEnd){ latestEnd = bi.end; latest = b; }
         }
     });
-    if(latestEnd == null) return "";
-    const freeMin = latestEnd + CLEANING_GAP_MIN;
-    return minToTime(((freeMin % 1440) + 1440) % 1440);
+    if(!latest) return "";
+    // free-at = the clashing booking's LOCAL check-out time-of-day + cleaning gap.
+    // (bookingInterval.end is absolute epoch minutes, so % 1440 would be timezone-shifted)
+    const dur = ((Number(latest.stayHours) || 21) + (Number(latest.extend) || 0)) * 60;
+    return minToTime(bookingCheckinMin(latest) + dur + CLEANING_GAP_MIN);
 }
 // List EVERY haven. Free havens are selectable; ones busy for the chosen time window are shown
 // disabled with the time they free up (after the 2h cleaning gap) — so havens never just vanish.
