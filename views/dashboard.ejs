@@ -4610,8 +4610,25 @@ function onStayChange(){
 function onTimeChange(){ onStayChange(); }
 function onExtendChange(){ recomputeDashCheckout(); recalc(); }
 
-// show every haven whose chosen TIME WINDOW is free (admin time-based check).
-// So a haven with a 3pm booking still shows for an 8am–2pm 6h booking.
+// the time a haven becomes free for `cand` = latest clashing booking's check-out + cleaning gap,
+// or "" if nothing clashes. Used to label busy havens in the dropdown.
+function havenFreeAtStr(haven, cand){
+    const ci = bookingInterval(cand);
+    let latestEnd = null;
+    bookings.forEach(b => {
+        if(b.id === editingId) return;
+        if(b.haven !== haven) return;
+        const bi = bookingInterval(b);
+        if(ci.start < bi.end + CLEANING_GAP_MIN && bi.start < ci.end + CLEANING_GAP_MIN){
+            if(latestEnd == null || bi.end > latestEnd) latestEnd = bi.end;
+        }
+    });
+    if(latestEnd == null) return "";
+    const freeMin = latestEnd + CLEANING_GAP_MIN;
+    return minToTime(((freeMin % 1440) + 1440) % 1440);
+}
+// List EVERY haven. Free havens are selectable; ones busy for the chosen time window are shown
+// disabled with the time they free up (after the 2h cleaning gap) — so havens never just vanish.
 function updateHavenOptions(){
     const sel = document.getElementById("f_haven");
     const current = sel.value;
@@ -4622,15 +4639,21 @@ function updateHavenOptions(){
     const extend = Number(document.getElementById("f_extend").value) || 0;
     const checkinTime = dashCheckinTimeValue();
 
-    let list = HAVENS;
-    if(checkin && checkinTime){
-        list = HAVENS.filter(h =>
-            !findConflictAdmin({ haven:h, checkin, checkout, stayHours, extend, checkinTime, slot:null }, editingId));
-    }
-    sel.innerHTML = list.length
-        ? list.map(h => `<option>${h}</option>`).join("")
-        : `<option value="">— No haven is free at that time —</option>`;
-    if(list.includes(current)) sel.value = current;
+    let html = "", firstFree = null, currentStillFree = false;
+    HAVENS.forEach(h => {
+        const cand = { haven:h, checkin, checkout, stayHours, extend, checkinTime, slot:null };
+        const clash = (checkin && checkinTime) ? findConflictAdmin(cand, editingId) : null;
+        if(clash){
+            const freeStr = havenFreeAtStr(h, cand);
+            html += `<option value="" disabled>${h} — occupied${freeStr ? " until " + freeStr : ""}</option>`;
+        } else {
+            if(firstFree == null) firstFree = h;
+            if(h === current) currentStillFree = true;
+            html += `<option value="${h}">${h}</option>`;
+        }
+    });
+    sel.innerHTML = html || `<option value="">— No haven —</option>`;
+    sel.value = currentStillFree ? current : (firstFree || "");
     updateSlotOptions();
 }
 
