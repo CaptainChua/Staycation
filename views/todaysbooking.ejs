@@ -823,7 +823,7 @@
     const amtCell = amountCol > 0
         ? peso(amountCol)
         : (over > 0 ? `<span style="color:#2e9e5b; font-weight:700;">+${peso(over)} over</span>` : '<span class="muted">—</span>');
-    const addonLink = canAddBooking() ? ` <span class="edit-pay" onclick="openAddon(${b.id})">+ Add-ons</span>` : "";
+    const addonLink = ` <span class="edit-pay" onclick="openAddon(${b.id})">+ Add-ons</span>`;
     return `<tr>
         <td><strong style="color:${havenInk(b.haven)};"><span class="hv-dot" style="background:${havenColors(b.haven).pm};"></span>${b.haven}</strong></td>
         <td>${guestSummary(b)}<br><span class="muted">${b.contact||""}</span></td>
@@ -996,26 +996,24 @@
     } catch(e){ /* never let logging break an action (e.g. storage full) */ }
   }
   // is the logged-in user an administrator? (unknown / direct access = treated as admin)
-  function isAdmin(){
-    try {
-      const users = JSON.parse(localStorage.getItem("shph_users")) || [];
-      const u = users.find(x => x.name === currentUser());
-      return u ? !!u.admin : true;
-    } catch(e){ return true; }
-  }
-  let IS_ADMIN = isAdmin();
-
   /* ---------- access control (mirrors dashboard.html) ---------- */
   const PAGE_KEYS = ["today","finance","analytics","calendar","havens","booking","payments","cleaners","employees","log","payroll","bills","assist","users"];
+  // resolve the logged-in user from the RAW stored name (no "Admin" default), so a
+  // missing/unknown session can't inherit admin access and flash the full sidebar
   function currentUserObj(){
     try {
+      const name = (localStorage.getItem("shph_current_user") || "").trim();
+      if(!name) return null;
       const users = JSON.parse(localStorage.getItem("shph_users")) || [];
-      return users.find(u => (u.name || "").toLowerCase() === currentUser().toLowerCase()) || null;
+      return users.find(u => (u.name || "").toLowerCase() === name.toLowerCase()) || null;
     } catch(e){ return null; }
   }
+  // fail CLOSED: an unrecognised user gets no admin / no pages
+  function isAdmin(){ const u = currentUserObj(); return !!(u && u.admin); }
+  let IS_ADMIN = isAdmin();
   function currentPerms(){
     const u = currentUserObj();
-    if(!u) return PAGE_KEYS;       // direct access (no login) = full
+    if(!u) return [];
     if(u.admin) return PAGE_KEYS;
     return u.perms || [];
   }
@@ -1033,6 +1031,8 @@
     } catch(e){ return false; }
   }
   function applyPerms(){
+    // no recognised logged-in user → send to login instead of revealing anything
+    if(!currentUserObj()){ window.location.href = "admin.html"; return; }
     const admin = IS_ADMIN;
     const perms = currentPerms();
     // not allowed to view Today's Booking → bounce to the dashboard (it routes to an allowed page)
@@ -1043,6 +1043,15 @@
       if(!pg) return;
       const ok = (pg === "users") ? admin : (admin || perms.includes(pg));
       n.style.display = ok ? "flex" : "none";
+    });
+    // hide a section header (Property / Finance / Team …) when all its items are hidden
+    document.querySelectorAll(".sidebar .nav-group").forEach(g => {
+      let sib = g.nextElementSibling, any = false;
+      while(sib && !(sib.classList && sib.classList.contains("nav-group"))){
+        if(sib.classList && sib.classList.contains("nav-item") && sib.style.display !== "none"){ any = true; break; }
+        sib = sib.nextElementSibling;
+      }
+      g.style.display = any ? "" : "none";
     });
     document.querySelector(".sidebar").classList.remove("perms-pending");  // reveal now that it's filtered
     const ab = document.getElementById("addBookingBtn");
@@ -1333,7 +1342,6 @@
   let addonBookingId = null;
   const TOWEL_RATE = 50, POOL_RATE = 150, POOL_RATE_HOLIDAY = 300;
   function openAddon(id){
-    if(!canAddBooking()){ alert("Only an administrator or CSR can add to a bill."); return; }
     addonBookingId = id;
     const b = bookings.find(x => x.id === id);
     if(!b) return;

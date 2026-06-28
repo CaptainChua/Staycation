@@ -8325,14 +8325,19 @@ function loadUsers(){
 let users = loadUsers();
 function persistUsers(){ localStorage.setItem(USERS_KEY, JSON.stringify(users)); }
 
+// resolve the logged-in user from the RAW stored name (no "Admin" default) so an
+// unknown/missing session can't accidentally inherit admin access
 function currentUserObj(){
-    const name = currentUser();
+    const name = (localStorage.getItem("shph_current_user") || "").trim();
+    if(!name) return null;
     return users.find(u => (u.name || "").toLowerCase() === name.toLowerCase()) || null;
 }
-function isAdminUser(){ const u = currentUserObj(); return u ? !!u.admin : true; }   // unknown user (direct access) = full access
+// fail CLOSED: an unrecognised user gets no admin / no pages (prevents the
+// "full sidebar flashes for a limited user" glitch)
+function isAdminUser(){ const u = currentUserObj(); return !!(u && u.admin); }
 function currentPerms(){
     const u = currentUserObj();
-    if(!u) return DASH_PAGES.map(p => p.key);
+    if(!u) return [];
     if(u.admin) return DASH_PAGES.map(p => p.key);
     return u.perms || [];
 }
@@ -8342,12 +8347,23 @@ function pageAllowed(page){
 }
 // hide nav items the current user can't access; redirect off a disallowed page
 function applyPermissions(){
+    // no recognised logged-in user → send to the login page instead of revealing anything
+    if(!currentUserObj()){ window.location.href = "admin.html"; return; }
     const perms = currentPerms();
     const admin = isAdminUser();
     document.querySelectorAll(".sidebar .nav-item").forEach(n => {
         const pg = n.dataset.page;
         const ok = (pg === "users") ? admin : perms.includes(pg);
         n.style.display = ok ? "flex" : "none";
+    });
+    // hide a section header (Property / Finance / Team …) when all its items are hidden
+    document.querySelectorAll(".sidebar .nav-group").forEach(g => {
+        let sib = g.nextElementSibling, any = false;
+        while(sib && !(sib.classList && sib.classList.contains("nav-group"))){
+            if(sib.classList && sib.classList.contains("nav-item") && sib.style.display !== "none"){ any = true; break; }
+            sib = sib.nextElementSibling;
+        }
+        g.style.display = any ? "" : "none";
     });
     document.querySelector(".sidebar").classList.remove("perms-pending");  // reveal now that it's filtered
     const ab = document.getElementById("addBookingBtn");
