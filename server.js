@@ -86,6 +86,22 @@ apiRouter.put("/kv/:key", async (req, res) => {
   }
 });
 
+// stream a stored image by id (Cloud Storage, or the legacy Firestore doc).
+// Image refs in the data are served as /img/<id> so payloads stay tiny.
+app.get("/img/:id", async (req, res) => {
+  try {
+    await ensureStore();
+    const img = await store.getImage(req.params.id);
+    if (!img) return res.status(404).send("image not found");
+    res.set("Content-Type", img.contentType || "application/octet-stream");
+    res.set("Cache-Control", "public, max-age=31536000, immutable");
+    res.send(img.buffer);
+  } catch (e) {
+    console.error("[api] GET /img/" + req.params.id + " failed:", e.message);
+    res.status(500).send("error");
+  }
+});
+
 // delete one key (resets it)
 apiRouter.delete("/kv/:key", async (req, res) => {
   if (!store.isShared(req.params.key)) return res.status(403).json({ error: "key not shared" });
