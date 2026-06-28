@@ -995,7 +995,7 @@
   }
   // is the logged-in user an administrator? (unknown / direct access = treated as admin)
   /* ---------- access control (mirrors dashboard.html) ---------- */
-  const PAGE_KEYS = ["today","finance","analytics","calendar","havens","booking","payments","cleaners","employees","log","payroll","bills","assist","users"];
+  const PAGE_KEYS = ["today","addbooking","finance","analytics","calendar","havens","booking","payments","cleaners","employees","log","payroll","bills","assist","users"];
   // resolve the logged-in user from the RAW stored name (no "Admin" default), so a
   // missing/unknown session can't inherit admin access and flash the full sidebar
   function currentUserObj(){
@@ -1015,9 +1015,10 @@
     if(u.admin) return PAGE_KEYS;
     return u.perms || [];
   }
-  // only admins and CSRs may create bookings
+  // admins, CSRs, and users granted the "Add Booking" permission may create bookings
   function canAddBooking(){
     if(IS_ADMIN) return true;
+    if(currentPerms().includes("addbooking")) return true;
     try {
       const st = JSON.parse(localStorage.getItem("shph_staff_v1")) || [];
       const un = currentUser().trim().toLowerCase();

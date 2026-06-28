@@ -6528,9 +6528,10 @@ function payrollOwns(s){
     if(!sn || !un) return false;
     return sn === un || sn.startsWith(un + " ") || sn.split(/\s+/)[0] === un;
 }
-// only admins and CSRs may create bookings
+// admins, CSRs, and users granted the "Add Booking" permission may create bookings
 function canAddBooking(){
     if(payrollIsAdmin()) return true;
+    if(currentPerms().includes("addbooking")) return true;
     return staff.filter(s => payrollOwns(s)).some(s => s.role === "CSR");
 }
 function renderPayroll(){
@@ -8292,6 +8293,7 @@ fillPaymentSettings();
 const USERS_KEY = "shph_users";
 const DASH_PAGES = [
     { key:"today",     label:"Today's Booking" },
+    { key:"addbooking", label:"Add Booking" },
     { key:"approval",  label:"Booking Approval" },
     { key:"paymentapproval", label:"Payment Approval" },
     { key:"deposit",   label:"Security Deposit" },
