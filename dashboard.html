@@ -2746,12 +2746,16 @@ input.gf-ov:focus{ outline:none; background:#fff7cc; }
         <h2 id="billModalTitle">Add Bill</h2>
         <div class="form-grid">
             <div class="field full">
-                <label>Haven</label>
-                <select id="b_haven"></select>
+                <label>Haven / Category</label>
+                <select id="b_haven" onchange="onBillHavenChange()"></select>
             </div>
             <div class="field full">
                 <label>Payable</label>
-                <select id="b_type"></select>
+                <select id="b_type" onchange="toggleBillNotesHint()"></select>
+            </div>
+            <div class="field full">
+                <label>Notes <span class="muted" id="b_notes_hint">(optional)</span></label>
+                <input type="text" id="b_notes" placeholder="e.g. details for 'Others', brand, supplier…">
             </div>
             <div class="field">
                 <label>Amount (₱)</label>
@@ -6040,8 +6044,15 @@ window.addEventListener("resize", renderTimeline);
 
 /* ---------- bills / payables ---------- */
 const BILL_TYPES = ["Meralco", "Water", "GAF", "Condo dues", "Internet", "Rent"];
+// "Staycation" is a whole-business category (shared operating supplies, not tied
+// to a single haven) with its own set of expense types.
+const STAYCATION_TYPES = ["Laundry", "Supplies", "Tissues", "Fabcon", "Sponge",
+    "Trashbags", "Cleaning agents", "Lalamove", "Dishwashing liquid", "Albatross", "Others"];
 // bills can be tagged to a haven or to these extra expense categories
-const BILL_HAVENS = [...HAVENS, "Pia", "OTHERS"];
+const BILL_HAVENS = ["Staycation", ...HAVENS, "Pia", "OTHERS"];
+// which payable types apply to a given category
+function billTypesFor(haven){ return haven === "Staycation" ? STAYCATION_TYPES : BILL_TYPES; }
+const ALL_BILL_TYPES = [...new Set([...BILL_TYPES, ...STAYCATION_TYPES])];
 const BILLS_KEY = "shph_bills_v1";
 
 function loadBills(){
@@ -6065,11 +6076,28 @@ function persistBills(){ localStorage.setItem(BILLS_KEY, JSON.stringify(bills));
 
 function fillBillSelectors(){
     const havenOpts = BILL_HAVENS.map(h => `<option>${h}</option>`).join("");
-    const typeOpts  = BILL_TYPES.map(t => `<option>${t}</option>`).join("");
+    const filterTypeOpts = ALL_BILL_TYPES.map(t => `<option>${t}</option>`).join("");
     document.getElementById("billFilterHaven").innerHTML = `<option value="">All havens</option>` + havenOpts;
-    document.getElementById("billFilterType").innerHTML  = `<option value="">All payables</option>` + typeOpts;
+    document.getElementById("billFilterType").innerHTML  = `<option value="">All payables</option>` + filterTypeOpts;
     document.getElementById("b_haven").innerHTML = havenOpts;
-    document.getElementById("b_type").innerHTML  = typeOpts;
+    fillBillTypeOptions();   // the payable list depends on the selected category
+}
+// repopulate the payable-type dropdown to match the selected category
+function fillBillTypeOptions(keep){
+    const haven = document.getElementById("b_haven").value;
+    const types = billTypesFor(haven);
+    document.getElementById("b_type").innerHTML = types.map(t => `<option>${t}</option>`).join("");
+    if(keep && types.includes(keep)) document.getElementById("b_type").value = keep;
+    toggleBillNotesHint();
+}
+// when the category changes, swap the payable list (e.g. Staycation supplies)
+function onBillHavenChange(){ fillBillTypeOptions(); }
+// nudge the user to add a description when the payable is "Others"
+function toggleBillNotesHint(){
+    const hint = document.getElementById("b_notes_hint");
+    if(!hint) return;
+    const t = document.getElementById("b_type").value;
+    hint.textContent = (t === "Others") ? "— please describe" : "(optional)";
 }
 
 // a bill is overdue if it's unpaid and the due date has passed
@@ -6096,7 +6124,7 @@ function billTableHtml(rows){
         const st = overdue ? "overdue" : (b.paid ? "paid" : "unpaid");
         const stLabel = overdue ? "Overdue" : (b.paid ? "Paid" : "Unpaid");
         return `<tr>
-            <td><span class="biller">${billerIcon(b.type)}${b.type}</span></td>
+            <td><span class="biller">${billerIcon(b.type)}${b.type}</span>${b.notes ? `<div class="muted" style="font-size:11px; margin-top:2px;">${escHtml(b.notes)}</div>` : ""}</td>
             <td><strong>${peso(b.amount || 0)}</strong></td>
             <td>${b.due ? fmt(b.due) : '<span class="muted">—</span>'}</td>
             <td><span class="status ${st}">${stLabel}</span></td>
@@ -6269,15 +6297,17 @@ function openBillModal(id){
         if(!b) return;
         document.getElementById("billModalTitle").textContent = "Edit Bill";
         document.getElementById("b_haven").value = b.haven;
-        document.getElementById("b_type").value = b.type;
+        fillBillTypeOptions(b.type);   // populate the right type list, then keep b.type
         document.getElementById("b_amount").value = b.amount || 0;
+        document.getElementById("b_notes").value = b.notes || "";
         setBillDate(b.due || iso(today()));
         document.getElementById("b_paid").checked = !!b.paid;
     } else {
         document.getElementById("billModalTitle").textContent = "Add Bill";
         document.getElementById("b_haven").selectedIndex = 0;
-        document.getElementById("b_type").selectedIndex = 0;
+        fillBillTypeOptions();
         document.getElementById("b_amount").value = "";
+        document.getElementById("b_notes").value = "";
         setBillDate(iso(today()));
         document.getElementById("b_paid").checked = false;
     }
@@ -6293,6 +6323,7 @@ function saveBill(){
         haven: document.getElementById("b_haven").value,
         type: document.getElementById("b_type").value,
         amount: Number(document.getElementById("b_amount").value) || 0,
+        notes: document.getElementById("b_notes").value.trim(),
         due: document.getElementById("b_due").value,
         paid: document.getElementById("b_paid").checked
     };
