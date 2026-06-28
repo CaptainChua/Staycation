@@ -2810,92 +2810,109 @@ input.gf-ov:focus{ outline:none; background:#fff7cc; }
         <!-- ===== PDF tab: booking confirmation (viewable + downloadable) ===== -->
         <style>
           #bkPage4 .bkc-bar{ display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:12px; flex-wrap:wrap; }
-          #bkPage4 .bkc-wrap{ overflow:auto; max-height:64vh; background:#e7e3dc; padding:16px; border-radius:14px; }
+          #bkPage4 .bkc-wrap{ overflow:hidden; background:#e7e3dc; padding:12px; border-radius:14px; cursor:zoom-in; position:relative; }
+          #bkPage4 .bkc-wrap::after{ content:"⤢ Click to view full size"; position:absolute; right:14px; bottom:10px; background:rgba(28,27,26,.8); color:#fff; font-size:11px; font-weight:700; padding:5px 10px; border-radius:20px; pointer-events:none; }
+          #bkPage4 #bkConfirm{ transform-origin:top left; }
           /* the confirmation document — matched to the PDF design */
-          #bkConfirm{ width:760px; margin:0 auto; background:#fff; color:#2b2622; font-family:'Mulish',-apple-system,Segoe UI,Arial,sans-serif; font-size:13px; line-height:1.45; box-shadow:0 8px 30px rgba(0,0,0,.14); }
-          #bkConfirm .pf{ font-family:'Playfair Display',Georgia,serif; }
-          #bkConfirm .hd{ background:#1c1b1a; color:#fff; padding:30px 40px 26px; }
-          #bkConfirm .hd-top{ display:flex; justify-content:space-between; align-items:flex-start; }
-          #bkConfirm .brand{ display:flex; align-items:center; gap:13px; }
-          #bkConfirm .logo{ width:46px; height:46px; border-radius:12px; background:#fff; color:#c0683a; font-family:'Playfair Display',serif; font-weight:800; font-size:25px; display:flex; align-items:center; justify-content:center; }
-          #bkConfirm .brand b{ font-size:18px; font-weight:800; letter-spacing:.2px; display:block; }
-          #bkConfirm .brand small{ font-size:9.5px; letter-spacing:2.5px; color:#9a948c; }
-          #bkConfirm .pill{ border:1px solid #2f8f57; color:#5cc585; border-radius:30px; padding:6px 14px; font-size:11px; font-weight:700; letter-spacing:.6px; white-space:nowrap; }
-          #bkConfirm .pill .dot{ color:#2f8f57; }
-          #bkConfirm .hd-mid{ display:flex; justify-content:space-between; align-items:flex-end; margin-top:30px; }
-          #bkConfirm .eyebrow{ color:#c0683a; font-size:11px; font-weight:800; letter-spacing:2.5px; }
-          #bkConfirm .resno{ font-size:38px; font-weight:800; margin-top:8px; line-height:1; }
-          #bkConfirm .issued{ text-align:right; }
-          #bkConfirm .issued .l{ color:#9a948c; font-size:10px; letter-spacing:1.8px; font-weight:700; }
-          #bkConfirm .issued .v{ font-size:13px; margin-top:5px; }
+          .bkc-doc{ width:760px; margin:0 auto; background:#fff; color:#2b2622; font-family:'Mulish',-apple-system,Segoe UI,Arial,sans-serif; font-size:13px; line-height:1.45; box-shadow:0 8px 30px rgba(0,0,0,.14); }
+          .bkc-doc .pf{ font-family:'Playfair Display',Georgia,serif; }
+          .bkc-doc .hd{ background:#1c1b1a; color:#fff; padding:30px 40px 26px; }
+          .bkc-doc .hd-top{ display:flex; justify-content:space-between; align-items:flex-start; }
+          .bkc-doc .brand{ display:flex; align-items:center; gap:13px; }
+          .bkc-doc .logo{ width:46px; height:46px; border-radius:12px; background:#fff; color:#c0683a; font-family:'Playfair Display',serif; font-weight:800; font-size:25px; display:flex; align-items:center; justify-content:center; }
+          .bkc-doc .brand b{ font-size:18px; font-weight:800; letter-spacing:.2px; display:block; }
+          .bkc-doc .brand small{ font-size:9.5px; letter-spacing:2.5px; color:#9a948c; }
+          .bkc-doc .pill{ border:1px solid #2f8f57; color:#5cc585; border-radius:30px; padding:6px 14px; font-size:11px; font-weight:700; letter-spacing:.6px; white-space:nowrap; }
+          .bkc-doc .pill .dot{ color:#2f8f57; }
+          .bkc-doc .hd-mid{ display:flex; justify-content:space-between; align-items:flex-end; margin-top:30px; }
+          .bkc-doc .eyebrow{ color:#c0683a; font-size:11px; font-weight:800; letter-spacing:2.5px; }
+          .bkc-doc .resno{ font-size:38px; font-weight:800; margin-top:8px; line-height:1; }
+          .bkc-doc .issued{ text-align:right; }
+          .bkc-doc .issued .l{ color:#9a948c; font-size:10px; letter-spacing:1.8px; font-weight:700; }
+          .bkc-doc .issued .v{ font-size:13px; margin-top:5px; }
           /* date band */
-          #bkConfirm .band{ background:#f1eae0; display:flex; align-items:center; gap:18px; padding:20px 40px; }
-          #bkConfirm .band .col{ flex:1; }
-          #bkConfirm .band .lbl{ color:#a39a8c; font-size:10px; letter-spacing:1.6px; font-weight:800; }
-          #bkConfirm .band .big{ font-size:21px; font-weight:800; margin-top:5px; color:#2b2622; }
-          #bkConfirm .band .sub{ color:#8c8378; font-size:12px; margin-top:2px; }
-          #bkConfirm .band .arrow{ flex:0 0 auto; text-align:center; color:#c0683a; }
-          #bkConfirm .band .arrow .a{ font-size:20px; line-height:1; }
-          #bkConfirm .band .arrow .n{ color:#8c8378; font-size:11px; font-weight:700; margin-top:3px; white-space:nowrap; }
-          #bkConfirm .band .haven{ color:#c0683a; }
+          .bkc-doc .band{ background:#f1eae0; display:flex; align-items:center; gap:18px; padding:20px 40px; }
+          .bkc-doc .band .col{ flex:1; }
+          .bkc-doc .band .lbl{ color:#a39a8c; font-size:10px; letter-spacing:1.6px; font-weight:800; }
+          .bkc-doc .band .big{ font-size:21px; font-weight:800; margin-top:5px; color:#2b2622; }
+          .bkc-doc .band .sub{ color:#8c8378; font-size:12px; margin-top:2px; }
+          .bkc-doc .band .arrow{ flex:0 0 auto; text-align:center; color:#c0683a; }
+          .bkc-doc .band .arrow .a{ font-size:20px; line-height:1; }
+          .bkc-doc .band .arrow .n{ color:#8c8378; font-size:11px; font-weight:700; margin-top:3px; white-space:nowrap; }
+          .bkc-doc .band .haven{ color:#c0683a; }
           /* body */
-          #bkConfirm .body{ padding:30px 40px 34px; }
-          #bkConfirm .two{ display:flex; gap:34px; }
-          #bkConfirm .two > div{ flex:1; min-width:0; }
-          #bkConfirm .sec-lbl{ color:#c0683a; font-size:11px; font-weight:800; letter-spacing:1.6px; margin-bottom:9px; }
-          #bkConfirm .bookby b{ font-size:19px; font-weight:800; }
-          #bkConfirm .bookby .ln{ color:#6f675d; font-size:12.5px; margin-top:5px; }
-          #bkConfirm .party .big{ font-size:19px; font-weight:800; }
-          #bkConfirm .party .big span{ color:#8c8378; font-weight:600; font-size:13px; }
-          #bkConfirm .party .sub{ color:#8c8378; font-size:12.5px; margin-top:4px; }
-          #bkConfirm table.glist{ width:100%; border-collapse:collapse; margin-top:6px; }
-          #bkConfirm .glist th{ background:#f6f1ea; color:#a39a8c; font-size:10px; letter-spacing:1px; text-transform:uppercase; font-weight:800; text-align:left; padding:9px 14px; }
-          #bkConfirm .glist th.r, #bkConfirm .glist td.r{ text-align:right; }
-          #bkConfirm .glist td{ padding:11px 14px; border-bottom:1px solid #efe9e0; font-size:13.5px; }
-          #bkConfirm .glist td.num{ color:#c0683a; font-weight:800; width:36px; }
-          #bkConfirm .glist tr:last-child td{ border-bottom:none; }
-          #bkConfirm .divider{ border:none; border-top:1px solid #efe9e0; margin:26px 0; }
+          .bkc-doc .body{ padding:30px 40px 34px; }
+          .bkc-doc .two{ display:flex; gap:34px; }
+          .bkc-doc .two > div{ flex:1; min-width:0; }
+          .bkc-doc .sec-lbl{ color:#c0683a; font-size:11px; font-weight:800; letter-spacing:1.6px; margin-bottom:9px; }
+          .bkc-doc .bookby b{ font-size:19px; font-weight:800; }
+          .bkc-doc .bookby .ln{ color:#6f675d; font-size:12.5px; margin-top:5px; }
+          .bkc-doc .party .big{ font-size:19px; font-weight:800; }
+          .bkc-doc .party .big span{ color:#8c8378; font-weight:600; font-size:13px; }
+          .bkc-doc .party .sub{ color:#8c8378; font-size:12.5px; margin-top:4px; }
+          .bkc-doc table.glist{ width:100%; border-collapse:collapse; margin-top:6px; }
+          .bkc-doc .glist th{ background:#f6f1ea; color:#a39a8c; font-size:10px; letter-spacing:1px; text-transform:uppercase; font-weight:800; text-align:left; padding:9px 14px; }
+          .bkc-doc .glist th.r, .bkc-doc .glist td.r{ text-align:right; }
+          .bkc-doc .glist td{ padding:11px 14px; border-bottom:1px solid #efe9e0; font-size:13.5px; }
+          .bkc-doc .glist td.num{ color:#c0683a; font-weight:800; width:36px; }
+          .bkc-doc .glist tr:last-child td{ border-bottom:none; }
+          .bkc-doc .divider{ border:none; border-top:1px solid #efe9e0; margin:26px 0; }
           /* inclusions */
-          #bkConfirm .inc{ display:flex; align-items:center; gap:13px; background:#faf7f2; border:1px solid #f0e9df; border-radius:13px; padding:13px 15px; margin-bottom:11px; }
-          #bkConfirm .inc.zero{ opacity:.5; }
-          #bkConfirm .inc .ico{ width:38px; height:38px; border-radius:10px; background:#f1e7db; color:#c0683a; flex:none; display:flex; align-items:center; justify-content:center; }
-          #bkConfirm .inc .ico svg{ width:19px; height:19px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
-          #bkConfirm .inc .t{ flex:1; min-width:0; }
-          #bkConfirm .inc .t b{ font-size:13.5px; font-weight:800; }
-          #bkConfirm .inc .t small{ display:block; color:#8c8378; font-size:11.5px; margin-top:1px; }
-          #bkConfirm .inc .amt{ font-weight:800; font-size:14px; white-space:nowrap; }
+          .bkc-doc .inc{ display:flex; align-items:center; gap:13px; background:#faf7f2; border:1px solid #f0e9df; border-radius:13px; padding:13px 15px; margin-bottom:11px; }
+          .bkc-doc .inc.zero{ opacity:.5; }
+          .bkc-doc .inc .ico{ width:38px; height:38px; border-radius:10px; background:#f1e7db; color:#c0683a; flex:none; display:flex; align-items:center; justify-content:center; }
+          .bkc-doc .inc .ico svg{ width:19px; height:19px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+          .bkc-doc .inc .t{ flex:1; min-width:0; }
+          .bkc-doc .inc .t b{ font-size:13.5px; font-weight:800; }
+          .bkc-doc .inc .t small{ display:block; color:#8c8378; font-size:11.5px; margin-top:1px; }
+          .bkc-doc .inc .amt{ font-weight:800; font-size:14px; white-space:nowrap; }
           /* payment summary */
-          #bkConfirm .psum{ border:1px solid #efe9e0; border-radius:14px; overflow:hidden; }
-          #bkConfirm .psum .row{ display:flex; justify-content:space-between; gap:10px; padding:13px 17px; border-bottom:1px solid #f1ece4; font-size:13.5px; }
-          #bkConfirm .psum .row.zero{ color:#b3a99c; }
-          #bkConfirm .psum .row b{ font-weight:800; }
-          #bkConfirm .psum .row.disc{ color:#2f8f57; }
-          #bkConfirm .psum .row.disc b{ color:#2f8f57; }
-          #bkConfirm .psum .total{ background:#1c1b1a; color:#fff; display:flex; justify-content:space-between; align-items:center; padding:16px 17px; }
-          #bkConfirm .psum .total .l{ font-weight:800; font-size:14px; }
-          #bkConfirm .psum .total .v{ font-family:'Playfair Display',serif; font-weight:800; font-size:21px; }
-          #bkConfirm .paybox{ display:flex; gap:12px; margin-top:12px; }
-          #bkConfirm .paybox .b{ flex:1; border-radius:13px; padding:13px 15px; }
-          #bkConfirm .paybox .b.dp{ background:#e7f3ec; }
-          #bkConfirm .paybox .b.bal{ background:#fbeadd; }
-          #bkConfirm .paybox .l{ font-size:10px; font-weight:800; letter-spacing:1px; }
-          #bkConfirm .paybox .dp .l{ color:#2f8f57; }
-          #bkConfirm .paybox .bal .l{ color:#c0683a; }
-          #bkConfirm .paybox .v{ font-family:'Playfair Display',serif; font-weight:800; font-size:21px; margin-top:5px; }
-          #bkConfirm .paybox .dp .v{ color:#2f8f57; }
-          #bkConfirm .paybox .bal .v{ color:#c0683a; }
+          .bkc-doc .psum{ border:1px solid #efe9e0; border-radius:14px; overflow:hidden; }
+          .bkc-doc .psum .row{ display:flex; justify-content:space-between; gap:10px; padding:13px 17px; border-bottom:1px solid #f1ece4; font-size:13.5px; }
+          .bkc-doc .psum .row.zero{ color:#b3a99c; }
+          .bkc-doc .psum .row b{ font-weight:800; }
+          .bkc-doc .psum .row.disc{ color:#2f8f57; }
+          .bkc-doc .psum .row.disc b{ color:#2f8f57; }
+          .bkc-doc .psum .total{ background:#1c1b1a; color:#fff; display:flex; justify-content:space-between; align-items:center; padding:16px 17px; }
+          .bkc-doc .psum .total .l{ font-weight:800; font-size:14px; }
+          .bkc-doc .psum .total .v{ font-family:'Playfair Display',serif; font-weight:800; font-size:21px; }
+          .bkc-doc .paybox{ display:flex; gap:12px; margin-top:12px; }
+          .bkc-doc .paybox .b{ flex:1; border-radius:13px; padding:13px 15px; }
+          .bkc-doc .paybox .b.dp{ background:#e7f3ec; }
+          .bkc-doc .paybox .b.bal{ background:#fbeadd; }
+          .bkc-doc .paybox .l{ font-size:10px; font-weight:800; letter-spacing:1px; }
+          .bkc-doc .paybox .dp .l{ color:#2f8f57; }
+          .bkc-doc .paybox .bal .l{ color:#c0683a; }
+          .bkc-doc .paybox .v{ font-family:'Playfair Display',serif; font-weight:800; font-size:21px; margin-top:5px; }
+          .bkc-doc .paybox .dp .v{ color:#2f8f57; }
+          .bkc-doc .paybox .bal .v{ color:#c0683a; }
           /* notes + footer */
-          #bkConfirm .notes{ background:#faf7f2; border:1px solid #f0e9df; border-radius:13px; padding:16px 18px; margin-top:26px; }
-          #bkConfirm .notes .l{ color:#c0683a; font-size:11px; font-weight:800; letter-spacing:1.4px; margin-bottom:7px; }
-          #bkConfirm .notes p{ color:#6f675d; font-size:12.5px; margin:0; }
-          #bkConfirm .foot{ display:flex; justify-content:space-between; gap:10px; padding:18px 40px 24px; color:#a39a8c; font-size:11px; border-top:1px solid #efe9e0; }
+          .bkc-doc .notes{ background:#faf7f2; border:1px solid #f0e9df; border-radius:13px; padding:16px 18px; margin-top:26px; }
+          .bkc-doc .notes .l{ color:#c0683a; font-size:11px; font-weight:800; letter-spacing:1.4px; margin-bottom:7px; }
+          .bkc-doc .notes p{ color:#6f675d; font-size:12.5px; margin:0; }
+          .bkc-doc .foot{ display:flex; justify-content:space-between; gap:10px; padding:18px 40px 24px; color:#a39a8c; font-size:11px; border-top:1px solid #efe9e0; }
         </style>
         <div id="bkPage4" style="display:none;">
             <div class="bkc-bar">
-                <div class="muted" style="font-size:13px;">Booking confirmation — preview below. Download a PDF to send to the guest.</div>
+                <div class="muted" style="font-size:13px;">Tap the preview to view it full size · then Download a PDF for the guest.</div>
                 <button type="button" class="btn" onclick="downloadConfirmation()">⬇ Download PDF</button>
             </div>
-            <div class="bkc-wrap"><div id="bkConfirm"></div></div>
+            <div class="bkc-wrap" id="bkcWrap" onclick="openConfirmFull()" title="Click to view full size">
+                <div id="bkConfirm" class="bkc-doc"></div>
+            </div>
+        </div>
+
+        <!-- full-size confirmation viewer -->
+        <div class="overlay" id="confirmFullOverlay">
+            <div style="max-width:96vw; max-height:96vh; display:flex; flex-direction:column; gap:10px;">
+                <div style="display:flex; gap:8px; justify-content:flex-end;">
+                    <button type="button" class="btn" onclick="downloadConfirmation()">⬇ Download PDF</button>
+                    <button type="button" class="btn secondary" onclick="document.getElementById('confirmFullOverlay').classList.remove('show')">Close</button>
+                </div>
+                <div style="overflow:auto; background:#e7e3dc; padding:18px; border-radius:14px;">
+                    <div id="confirmFullInner" class="bkc-doc"></div>
+                </div>
+            </div>
         </div>
 
         <div class="modal-actions">
@@ -5352,11 +5369,37 @@ function splitName(full){
     return { first: parts.join(" "), last };
 }
 
-// build the booking-confirmation document (matches the PDF design) from the
-// current form state so it always reflects what's on screen
+// render into the small preview, then scale it to fit the modal width
 function renderConfirmation(){
     const el = document.getElementById("bkConfirm");
     if(!el) return;
+    el.innerHTML = buildConfirmationHTML();
+    fitConfirmPreview();
+}
+// scale the preview down so it fits the modal (no horizontal scroll)
+function fitConfirmPreview(){
+    const el = document.getElementById("bkConfirm");
+    const wrap = document.getElementById("bkcWrap");
+    if(!el || !wrap) return;
+    el.style.transform = "none";                       // measure at full size
+    const avail = wrap.clientWidth - 24;               // minus padding
+    const scale = Math.min(1, avail / (el.offsetWidth || 760));
+    el.style.transform = `scale(${scale})`;
+    wrap.style.height = (el.offsetHeight * scale + 24) + "px";
+}
+window.addEventListener("resize", () => {
+    if(document.getElementById("bkPage4") && document.getElementById("bkPage4").style.display !== "none") fitConfirmPreview();
+});
+// open the confirmation full size in an overlay
+function openConfirmFull(){
+    const inner = document.getElementById("confirmFullInner");
+    if(inner) inner.innerHTML = buildConfirmationHTML();
+    document.getElementById("confirmFullOverlay").classList.add("show");
+}
+
+// build the booking-confirmation document HTML (matches the PDF design) from the
+// current form state so it always reflects what's on screen
+function buildConfirmationHTML(){
     const g = id => document.getElementById(id);
     const stayVal = g("f_stay").value;
     const stayH = stayVal === "multi" ? 21 : (Number(stayVal) || 0);
@@ -5409,7 +5452,7 @@ function renderConfirmation(){
         return `<tr><td class="num">${i + 1}</td><td>${escHtml(nm.first)}</td><td>${escHtml(nm.last)}</td><td class="r">${gst.age != null && gst.age !== "" ? gst.age : ""}</td></tr>`;
     }).join("") || `<tr><td colspan="4" style="color:#a39a8c;">No guests listed.</td></tr>`;
 
-    el.innerHTML = `
+    return `
     <div class="hd">
         <div class="hd-top">
             <div class="brand">
@@ -5490,22 +5533,25 @@ function renderConfirmation(){
 
 // download the confirmation as a PDF (lazy-loads the generator from a CDN)
 function downloadConfirmation(){
-    renderConfirmation();
     const el = document.getElementById("bkConfirm");
     if(!el) return;
+    el.innerHTML = buildConfirmationHTML();   // fresh content
+    const prev = el.style.transform;
+    el.style.transform = "none";              // capture at full 760px (not the scaled preview)
     const w = el.offsetWidth, h = el.offsetHeight;
     const fname = "Booking-Confirmation-" + (editingId || "new") + ".pdf";
+    const restore = () => { el.style.transform = prev; fitConfirmPreview(); };
     const go = () => html2pdf().set({
         margin: 0, filename: fname,
         image: { type:"jpeg", quality:0.98 },
         html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff" },
         jsPDF: { unit:"px", format:[w, h], orientation: "portrait" }
-    }).from(el).save();
+    }).from(el).save().then(restore, restore);
     if(window.html2pdf) return go();
     const s = document.createElement("script");
     s.src = "https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.2/dist/html2pdf.bundle.min.js";
     s.onload = go;
-    s.onerror = () => alert("Couldn't load the PDF tool. Use your browser's Print (Ctrl+P) → Save as PDF on this tab instead.");
+    s.onerror = () => { restore(); alert("Couldn't load the PDF tool. Use your browser's Print (Ctrl+P) → Save as PDF on this tab instead."); };
     document.body.appendChild(s);
 }
 
