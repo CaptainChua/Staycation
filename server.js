@@ -86,6 +86,30 @@ apiRouter.delete("/kv/:key", async (req, res) => {
   res.json({ ok: true });
 });
 
+// lightweight per-booking status change — cancel / reinstate / delete.
+// The browser only sends the id + action (tiny), so a quick refresh can't lose it
+// (unlike re-uploading the whole bookings array, which carries base64 images).
+apiRouter.post("/booking/:id/:action", async (req, res) => {
+  const KEY = "shph_bookings_v3";
+  const arr = store.get(KEY) || [];
+  const idx = arr.findIndex(x => String(x.id) === String(req.params.id));
+  if (idx < 0) return res.status(404).json({ error: "booking not found" });
+  const action = req.params.action;
+  if (action === "cancel") {
+    arr[idx].cancelled = true;
+    if (!arr[idx].cancelledAt) arr[idx].cancelledAt = new Date().toISOString();
+  } else if (action === "reinstate") {
+    delete arr[idx].cancelled;
+    delete arr[idx].cancelledAt;
+  } else if (action === "delete") {
+    arr.splice(idx, 1);
+  } else {
+    return res.status(400).json({ error: "unknown action" });
+  }
+  await store.set(KEY, arr);
+  res.json({ ok: true });
+});
+
 app.use("/api", apiRouter);
 
 /* ---------------- Pages (server-rendered EJS) ---------------- */

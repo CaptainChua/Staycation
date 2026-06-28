@@ -3079,18 +3079,14 @@ function load(){
     return seed;
 }
 function save(data){ localStorage.setItem(KEY, JSON.stringify(data)); }
-// like save(), but WAITS for the server to confirm. Use for actions the user verifies by
-// refreshing immediately (cancel / reinstate) — a normal save mirrors to the server
-// fire-and-forget, which a quick refresh can cancel before it lands.
-async function saveBookingsDurable(){
-    save(bookings);   // keep localStorage in sync for this session
+// durably apply a single booking status change (cancel / reinstate / delete) by sending only
+// the id + action — a tiny request the server applies to the stored array. This avoids
+// re-uploading the whole bookings array (which carries base64 images), so a quick refresh
+// right after the click can't lose the change.
+async function bookingAction(id, action){
     try {
-        await fetch("/api/kv/" + encodeURIComponent(KEY), {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(bookings)
-        });
-    } catch(e){ /* offline — localStorage still holds it */ }
+        await fetch(`/api/booking/${encodeURIComponent(id)}/${action}`, { method: "POST" });
+    } catch(e){ /* offline — the normal localStorage mirror is the fallback */ }
 }
 
 // bring older saved bookings up to the current data shape
@@ -4027,8 +4023,8 @@ async function deleteBooking(id){
     const b = bookings.find(x => x.id === id);
     if(b) logActivity(`deleted booking — ${b.haven} (${primaryName(b)})`);
     bookings = bookings.filter(b => b.id !== id);
-    await saveBookingsDurable();   // confirm on the server before updating the view
-    renderAll();
+    renderAll();   // instant feedback (in-memory)
+    await bookingAction(id, "delete");   // durable tiny write so a quick refresh can't lose it
 }
 
 // cancel a booking: the guest backed out, so free the haven — but the downpayment is
@@ -4043,9 +4039,9 @@ async function cancelBooking(id){
         + `• The remaining balance is no longer due.`)) return;
     b.cancelled = true;
     b.cancelledAt = new Date().toISOString();
+    renderAll();   // instant feedback (in-memory)
     logActivity(`cancelled booking — ${b.haven} (${primaryName(b)}); kept ${peso(kept)} non-refundable`);
-    await saveBookingsDurable();   // confirm on the server before updating the view
-    renderAll();
+    await bookingAction(id, "cancel");   // durable tiny write so a quick refresh can't lose it
 }
 
 // undo a cancellation, but only if the haven/time hasn't since been taken by another booking
@@ -4060,9 +4056,9 @@ async function reinstateBooking(id){
     }
     delete b.cancelled;
     delete b.cancelledAt;
+    renderAll();   // instant feedback (in-memory)
     logActivity(`reinstated booking — ${b.haven} (${primaryName(b)})`);
-    await saveBookingsDurable();   // confirm on the server before updating the view
-    renderAll();
+    await bookingAction(id, "reinstate");   // durable tiny write so a quick refresh can't lose it
 }
 
 /* ---------- Booking Approval (verify payment, then approve or delete) ---------- */
