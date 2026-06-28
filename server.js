@@ -86,6 +86,12 @@ apiRouter.put("/kv/:key", async (req, res) => {
   }
 });
 
+// quick health/diagnostics — confirms which backend + whether Cloud Storage is active
+app.get("/api/health", async (req, res) => {
+  try { await ensureStore(); } catch (e) {}
+  res.json({ backend: store.backend(), imageStorage: store.imageStorage() });
+});
+
 // stream a stored image by id (Cloud Storage, or the legacy Firestore doc).
 // Image refs in the data are served as /img/<id> so payloads stay tiny.
 app.get("/img/:id", async (req, res) => {
