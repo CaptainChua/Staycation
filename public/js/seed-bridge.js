@@ -25,6 +25,7 @@
     "shph_bookings_v3",
     "shph_staff_v1",
     "shph_bills_v1",
+    "shph_expenses_v1",
     "shph_cleaning_v1",
     "shph_users",
     "shph_activity_log"

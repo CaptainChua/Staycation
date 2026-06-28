@@ -1262,6 +1262,7 @@ tr.row-cancelled td:nth-child(2){ text-decoration:line-through; }
     <div class="nav-item" data-page="payments" onclick="showPage('payments')"><span class="ico"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg></span> Payments</div>
     <div class="nav-item" data-page="payroll" onclick="showPage('payroll')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M5 3h14v18l-3-2-2 2-2-2-2 2-3-2V3Z"/><path d="M9 8h6M9 12h6"/></svg></span> Payroll</div>
     <div class="nav-item" data-page="bills" onclick="showPage('bills')"><span class="ico"><svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg></span> Bills</div>
+    <div class="nav-item" data-page="expenses" onclick="showPage('expenses')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M3 7h18v12H3z"/><path d="M3 11h18M7 15h4"/></svg></span> Expenses</div>
     <div class="nav-item" data-page="analytics" onclick="showPage('analytics')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M4 20V4M4 20h16"/><path d="M8 17v-5M13 17V8M18 17v-9"/></svg></span> Analytics</div>
 
     <div class="nav-group">Team</div>
@@ -2375,6 +2376,74 @@ input.gf-ov:focus{ outline:none; background:#fff7cc; }
     </div>
 </div>
 
+<!-- ===== Expenses ===== -->
+<div class="page" id="page-expenses">
+<style>
+  #page-expenses .soa-head h1{ font-family:'Playfair Display',Georgia,serif; font-size:28px; font-weight:700; margin:0 0 22px; color:var(--hv-ink); }
+  #page-expenses .soa-head h1 .muted{ font-family:'Mulish',sans-serif; font-size:15px; font-weight:500; color:var(--hv-muted); }
+  #page-expenses .cards{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:20px; margin-bottom:24px; }
+  @media(max-width:760px){ #page-expenses .cards{ grid-template-columns:1fr; } }
+  #page-expenses .bcard{ background:#fff; border:1px solid var(--hv-line); border-radius:16px; padding:18px 20px; box-shadow:0 6px 20px rgba(80,60,30,.05); }
+  #page-expenses .bcard .card-label{ font-size:11px; letter-spacing:.5px; text-transform:uppercase; color:var(--hv-muted); font-weight:700; }
+  #page-expenses .bcard .num{ font-family:'Playfair Display',Georgia,serif; font-size:30px; font-weight:700; margin-top:10px; color:var(--hv-terra); }
+  #page-expenses .panel-head h2{ font-family:'Playfair Display',Georgia,serif; font-weight:700; }
+  #page-expenses .filters{ display:flex; gap:10px; flex-wrap:wrap; }
+  #page-expenses .filters select{ border:1px solid var(--hv-line); border-radius:10px; background:#fff; padding:9px 13px; font-size:13px; color:var(--hv-ink); }
+  #page-expenses table.exp-table{ width:100%; border-collapse:collapse; }
+  #page-expenses .exp-table th{ text-align:left; color:var(--hv-muted); font-size:11px; letter-spacing:.4px; text-transform:uppercase; font-weight:700; padding:11px 14px; }
+  #page-expenses .exp-table td{ border-top:1px solid var(--hv-line); padding:12px 14px; vertical-align:middle; color:var(--hv-ink); }
+  #page-expenses .exp-table tbody tr:first-child td{ border-top:none; }
+  #page-expenses .col-actions{ text-align:right; white-space:nowrap; }
+  #page-expenses .exp-type{ font-weight:600; }
+  #page-expenses .exp-note{ color:var(--hv-muted); font-size:12px; margin-top:2px; }
+  #page-expenses .act{ font-size:13px; font-weight:600; cursor:pointer; margin-left:14px; }
+  #page-expenses .act.edit{ color:var(--hv-terra-d); }
+  #page-expenses .act.del{ color:#c0283d; }
+</style>
+    <div class="soa-head"><h1>Expenses <span class="muted" id="expScopeLabel"></span></h1></div>
+    <div class="cards" id="expCards"></div>
+    <div class="panel">
+        <div class="panel-head">
+            <h2>Business Expenses</h2>
+            <button class="btn" onclick="openExpenseModal()">+ Add expense</button>
+        </div>
+        <div class="filters" style="margin-bottom:16px;">
+            <select id="expFilterType" onchange="renderExpenses()"></select>
+            <select id="expFilterMonth" onchange="renderExpenses()"></select>
+        </div>
+        <div id="expContainer"></div>
+    </div>
+</div>
+
+<!-- Add / edit expense modal -->
+<div class="overlay" id="expenseOverlay">
+    <div class="modal" style="width:460px;">
+        <h2 id="expModalTitle">Add Expense</h2>
+        <div class="form-grid">
+            <div class="field full">
+                <label>Type</label>
+                <select id="e_type" onchange="toggleExpNotesHint()"></select>
+            </div>
+            <div class="field">
+                <label>Amount (₱)</label>
+                <input type="number" id="e_amount" min="0" placeholder="0">
+            </div>
+            <div class="field">
+                <label>Date</label>
+                <input type="date" id="e_date">
+            </div>
+            <div class="field full">
+                <label>Notes <span class="muted" id="e_notes_hint">(optional)</span></label>
+                <input type="text" id="e_notes" placeholder="brand, supplier, details…">
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button class="btn secondary" onclick="closeExpenseModal()">Cancel</button>
+            <button class="btn" onclick="saveExpense()">Save</button>
+        </div>
+    </div>
+</div>
+
 <!-- ===== Assist ===== -->
 <div class="page" id="page-assist">
     <div class="panel">
@@ -2748,16 +2817,12 @@ input.gf-ov:focus{ outline:none; background:#fff7cc; }
         <h2 id="billModalTitle">Add Bill</h2>
         <div class="form-grid">
             <div class="field full">
-                <label>Haven / Category</label>
-                <select id="b_haven" onchange="onBillHavenChange()"></select>
+                <label>Haven</label>
+                <select id="b_haven"></select>
             </div>
             <div class="field full">
                 <label>Payable</label>
-                <select id="b_type" onchange="toggleBillNotesHint()"></select>
-            </div>
-            <div class="field full">
-                <label>Notes <span class="muted" id="b_notes_hint">(optional)</span></label>
-                <input type="text" id="b_notes" placeholder="e.g. details for 'Others', brand, supplier…">
+                <select id="b_type"></select>
             </div>
             <div class="field">
                 <label>Amount (₱)</label>
@@ -5505,7 +5570,7 @@ function showPage(page){
         today:["Main","Today's Booking"], calendar:["Main","Calendar & Bookings"], guestform:["Main","Guest Form"], approval:["Front Desk","Booking Approval"], paymentapproval:["Front Desk","Payment Approval"], deposit:["Front Desk","Security Deposit"],
         havens:["Property","Havens"], booking:["Property","Rates & Add-ons"], cleaners:["Property","Housekeeping"],
         finance:["Finance","Finance"], payments:["Finance","Payments"], payroll:["Finance","Payroll"],
-        bills:["Finance","Bills"], analytics:["Finance","Analytics"],
+        bills:["Finance","Bills"], expenses:["Finance","Expenses"], analytics:["Finance","Analytics"],
         users:["Team","Users"], employees:["Team","Employees"], assist:["Team","Assist"], log:["Team","Log"]
     };
     const cr = CRUMB[page] || ["Main", page];
@@ -5521,6 +5586,7 @@ function showPage(page){
     if(page === "deposit") renderDeposit();
     if(page === "calendar") renderTimeline();
     if(page === "guestform") renderGuestForm();
+    if(page === "expenses" && typeof renderExpenses === "function") renderExpenses();
     if(page === "analytics" && typeof renderAnalytics === "function") renderAnalytics();
     if(page === "users" && typeof renderUsers === "function") renderUsers();
     if(page === "employees" && typeof renderEmployees === "function") renderEmployees();
@@ -6046,15 +6112,8 @@ window.addEventListener("resize", renderTimeline);
 
 /* ---------- bills / payables ---------- */
 const BILL_TYPES = ["Meralco", "Water", "GAF", "Condo dues", "Internet", "Rent"];
-// "Staycation" is a whole-business category (shared operating supplies, not tied
-// to a single haven) with its own set of expense types.
-const STAYCATION_TYPES = ["Laundry", "Supplies", "Tissues", "Fabcon", "Sponge",
-    "Trashbags", "Cleaning agents", "Lalamove", "Dishwashing liquid", "Albatross", "Others"];
-// bills can be tagged to a haven or to these extra expense categories
-const BILL_HAVENS = ["Staycation", ...HAVENS, "Pia", "OTHERS"];
-// which payable types apply to a given category
-function billTypesFor(haven){ return haven === "Staycation" ? STAYCATION_TYPES : BILL_TYPES; }
-const ALL_BILL_TYPES = [...new Set([...BILL_TYPES, ...STAYCATION_TYPES])];
+// bills can be tagged to a haven or to "Pia" (personal / owner)
+const BILL_HAVENS = [...HAVENS, "Pia"];
 const BILLS_KEY = "shph_bills_v1";
 
 function loadBills(){
@@ -6076,30 +6135,130 @@ function loadBills(){
 let bills = loadBills();
 function persistBills(){ localStorage.setItem(BILLS_KEY, JSON.stringify(bills)); }
 
+/* ---------- Expenses (whole-business operating spend) ---------- */
+const EXPENSE_TYPES = ["Laundry", "Supplies", "Tissues", "Fabcon", "Sponge",
+    "Trashbags", "Cleaning agents", "Lalamove", "Dishwashing liquid", "Albatross", "Others"];
+const EXPENSES_KEY = "shph_expenses_v1";
+function loadExpenses(){ try { return JSON.parse(localStorage.getItem(EXPENSES_KEY)) || []; } catch(e){ return []; } }
+let expenses = loadExpenses();
+// localStorage write is auto-mirrored to the shared server (Firestore) by the seed bridge
+function persistExpenses(){ localStorage.setItem(EXPENSES_KEY, JSON.stringify(expenses)); }
+function expMonthKey(d){ return (d || "").slice(0, 7); }                 // "YYYY-MM"
+function expMonthLabel(m){ return new Date(m + "-01T00:00:00").toLocaleDateString("en-PH", { month:"long", year:"numeric" }); }
+
+function toggleExpNotesHint(){
+    const h = document.getElementById("e_notes_hint");
+    if(h) h.textContent = (document.getElementById("e_type").value === "Others") ? "— please describe" : "(optional)";
+}
+
+let editingExpenseId = null;
+function openExpenseModal(id){
+    editingExpenseId = id || null;
+    const typeSel = document.getElementById("e_type");
+    if(!typeSel.options.length) typeSel.innerHTML = EXPENSE_TYPES.map(t => `<option>${t}</option>`).join("");
+    if(editingExpenseId){
+        const e = expenses.find(x => x.id === editingExpenseId);
+        if(!e) return;
+        document.getElementById("expModalTitle").textContent = "Edit Expense";
+        typeSel.value = e.type;
+        document.getElementById("e_amount").value = e.amount || 0;
+        document.getElementById("e_date").value = e.date || iso(today());
+        document.getElementById("e_notes").value = e.notes || "";
+    } else {
+        document.getElementById("expModalTitle").textContent = "Add Expense";
+        typeSel.selectedIndex = 0;
+        document.getElementById("e_amount").value = "";
+        document.getElementById("e_date").value = iso(today());
+        document.getElementById("e_notes").value = "";
+    }
+    toggleExpNotesHint();
+    document.getElementById("expenseOverlay").classList.add("show");
+}
+function closeExpenseModal(){ editingExpenseId = null; document.getElementById("expenseOverlay").classList.remove("show"); }
+
+function saveExpense(){
+    const type   = document.getElementById("e_type").value;
+    const amount = Number(document.getElementById("e_amount").value) || 0;
+    const date   = document.getElementById("e_date").value;
+    const notes  = document.getElementById("e_notes").value.trim();
+    if(amount <= 0){ alert("Please enter an amount."); return; }
+    if(!date){ alert("Please pick a date."); return; }
+    const data = { type, amount, date, notes };
+    if(editingExpenseId){
+        const idx = expenses.findIndex(x => x.id === editingExpenseId);
+        if(idx !== -1) expenses[idx] = { ...expenses[idx], ...data };
+        logActivity(`edited expense — ${type} ${peso(amount)}`);
+    } else {
+        const newId = expenses.length ? Math.max(...expenses.map(x => x.id)) + 1 : 1;
+        expenses.push({ id:newId, ...data });
+        logActivity(`added expense — ${type} ${peso(amount)}`);
+    }
+    persistExpenses(); closeExpenseModal(); renderExpenses();
+}
+function deleteExpense(id){
+    const e = expenses.find(x => x.id === id);
+    if(!confirm("Delete this expense?")) return;
+    if(e) logActivity(`deleted expense — ${e.type} ${peso(e.amount)}`);
+    expenses = expenses.filter(x => x.id !== id);
+    persistExpenses(); renderExpenses();
+}
+
+function renderExpenses(){
+    // static type lists (build once)
+    const tSel = document.getElementById("e_type");
+    if(tSel && !tSel.options.length) tSel.innerHTML = EXPENSE_TYPES.map(t => `<option>${t}</option>`).join("");
+    const ftSel = document.getElementById("expFilterType");
+    if(ftSel && !ftSel.options.length) ftSel.innerHTML = `<option value="">All types</option>` + EXPENSE_TYPES.map(t => `<option>${t}</option>`).join("");
+    // month filter from existing data (preserve current selection)
+    const mSel = document.getElementById("expFilterMonth");
+    const curMonth = mSel.value;
+    const months = [...new Set(expenses.map(e => expMonthKey(e.date)).filter(Boolean))].sort().reverse();
+    mSel.innerHTML = `<option value="">All months</option>` + months.map(m => `<option value="${m}">${expMonthLabel(m)}</option>`).join("");
+    if(months.includes(curMonth)) mSel.value = curMonth;
+
+    const fType = ftSel.value, fMonth = mSel.value;
+    const rows = expenses.slice()
+        .filter(e => (!fType || e.type === fType) && (!fMonth || expMonthKey(e.date) === fMonth))
+        .sort((a, b) => (b.date || "").localeCompare(a.date || "") || b.id - a.id);
+
+    const total = rows.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+    const thisMonth = expMonthKey(iso(today()));
+    const monthTotal = expenses.filter(e => expMonthKey(e.date) === thisMonth).reduce((s, e) => s + (Number(e.amount) || 0), 0);
+
+    const card = (label, val) => `<div class="bcard"><div class="card-label">${label}</div><div class="num">${val}</div></div>`;
+    document.getElementById("expCards").innerHTML =
+        card("Total" + (fType || fMonth ? " (filtered)" : ""), peso(total)) +
+        card("This month", peso(monthTotal)) +
+        card("Entries", String(rows.length));
+
+    const scope = document.getElementById("expScopeLabel");
+    if(scope) scope.textContent = fMonth ? "— " + expMonthLabel(fMonth) : "— all time";
+
+    document.getElementById("expContainer").innerHTML = rows.length ? `
+        <table class="exp-table">
+            <thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Notes</th><th class="col-actions">Actions</th></tr></thead>
+            <tbody>${rows.map(e => `
+                <tr>
+                    <td>${e.date ? fmt(e.date) : '<span class="muted">—</span>'}</td>
+                    <td><span class="exp-type">${escHtml(e.type || "")}</span></td>
+                    <td><strong>${peso(e.amount || 0)}</strong></td>
+                    <td>${e.notes ? `<span class="exp-note">${escHtml(e.notes)}</span>` : '<span class="muted">—</span>'}</td>
+                    <td class="col-actions">
+                        <span class="act edit" onclick="openExpenseModal(${e.id})">Edit</span>
+                        <span class="act del" onclick="deleteExpense(${e.id})">Delete</span>
+                    </td>
+                </tr>`).join("")}</tbody>
+        </table>`
+        : `<div class="muted" style="padding:22px 4px;">No expenses recorded${fType || fMonth ? " for this filter" : ""}. Click “+ Add expense” to log one.</div>`;
+}
+
 function fillBillSelectors(){
     const havenOpts = BILL_HAVENS.map(h => `<option>${h}</option>`).join("");
-    const filterTypeOpts = ALL_BILL_TYPES.map(t => `<option>${t}</option>`).join("");
+    const typeOpts  = BILL_TYPES.map(t => `<option>${t}</option>`).join("");
     document.getElementById("billFilterHaven").innerHTML = `<option value="">All havens</option>` + havenOpts;
-    document.getElementById("billFilterType").innerHTML  = `<option value="">All payables</option>` + filterTypeOpts;
+    document.getElementById("billFilterType").innerHTML  = `<option value="">All payables</option>` + typeOpts;
     document.getElementById("b_haven").innerHTML = havenOpts;
-    fillBillTypeOptions();   // the payable list depends on the selected category
-}
-// repopulate the payable-type dropdown to match the selected category
-function fillBillTypeOptions(keep){
-    const haven = document.getElementById("b_haven").value;
-    const types = billTypesFor(haven);
-    document.getElementById("b_type").innerHTML = types.map(t => `<option>${t}</option>`).join("");
-    if(keep && types.includes(keep)) document.getElementById("b_type").value = keep;
-    toggleBillNotesHint();
-}
-// when the category changes, swap the payable list (e.g. Staycation supplies)
-function onBillHavenChange(){ fillBillTypeOptions(); }
-// nudge the user to add a description when the payable is "Others"
-function toggleBillNotesHint(){
-    const hint = document.getElementById("b_notes_hint");
-    if(!hint) return;
-    const t = document.getElementById("b_type").value;
-    hint.textContent = (t === "Others") ? "— please describe" : "(optional)";
+    document.getElementById("b_type").innerHTML  = typeOpts;
 }
 
 // a bill is overdue if it's unpaid and the due date has passed
@@ -6126,7 +6285,7 @@ function billTableHtml(rows){
         const st = overdue ? "overdue" : (b.paid ? "paid" : "unpaid");
         const stLabel = overdue ? "Overdue" : (b.paid ? "Paid" : "Unpaid");
         return `<tr>
-            <td><span class="biller">${billerIcon(b.type)}${b.type}</span>${b.notes ? `<div class="muted" style="font-size:11px; margin-top:2px;">${escHtml(b.notes)}</div>` : ""}</td>
+            <td><span class="biller">${billerIcon(b.type)}${b.type}</span></td>
             <td><strong>${peso(b.amount || 0)}</strong></td>
             <td>${b.due ? fmt(b.due) : '<span class="muted">—</span>'}</td>
             <td><span class="status ${st}">${stLabel}</span></td>
@@ -6299,17 +6458,15 @@ function openBillModal(id){
         if(!b) return;
         document.getElementById("billModalTitle").textContent = "Edit Bill";
         document.getElementById("b_haven").value = b.haven;
-        fillBillTypeOptions(b.type);   // populate the right type list, then keep b.type
+        document.getElementById("b_type").value = b.type;
         document.getElementById("b_amount").value = b.amount || 0;
-        document.getElementById("b_notes").value = b.notes || "";
         setBillDate(b.due || iso(today()));
         document.getElementById("b_paid").checked = !!b.paid;
     } else {
         document.getElementById("billModalTitle").textContent = "Add Bill";
         document.getElementById("b_haven").selectedIndex = 0;
-        fillBillTypeOptions();
+        document.getElementById("b_type").selectedIndex = 0;
         document.getElementById("b_amount").value = "";
-        document.getElementById("b_notes").value = "";
         setBillDate(iso(today()));
         document.getElementById("b_paid").checked = false;
     }
@@ -6325,7 +6482,6 @@ function saveBill(){
         haven: document.getElementById("b_haven").value,
         type: document.getElementById("b_type").value,
         amount: Number(document.getElementById("b_amount").value) || 0,
-        notes: document.getElementById("b_notes").value.trim(),
         due: document.getElementById("b_due").value,
         paid: document.getElementById("b_paid").checked
     };
@@ -8618,6 +8774,7 @@ const DASH_PAGES = [
     { key:"log",       label:"Activity Log" },
     { key:"payroll",   label:"Payroll" },
     { key:"bills",     label:"Bills" },
+    { key:"expenses",  label:"Expenses" },
     { key:"assist",    label:"Assist" }
 ];
 function pageLabel(key){ const p = DASH_PAGES.find(x => x.key === key); return p ? p.label : key; }
