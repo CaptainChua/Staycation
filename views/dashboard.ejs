@@ -2806,6 +2806,31 @@ input.gf-ov:focus{ outline:none; background:#fff7cc; }
     </div>
 </div>
 
+<!-- read-only booking viewer (info · payments · photos) — used for cancelled bookings -->
+<style>
+  #viewOverlay .modal{ width:640px; max-width:94vw; max-height:90vh; overflow-y:auto; }
+  #viewOverlay .vb-sec{ font-family:'Playfair Display',Georgia,serif; font-weight:700; font-size:16px; color:var(--hv-ink); margin:18px 0 8px; }
+  #viewOverlay .vb-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:8px 18px; font-size:13.5px; }
+  #viewOverlay .vb-grid .k{ color:var(--hv-muted); }
+  #viewOverlay .vb-grid .v{ font-weight:600; color:var(--hv-ink); text-align:right; }
+  #viewOverlay .vb-row{ display:flex; justify-content:space-between; gap:10px; padding:7px 0; border-bottom:1px solid #f0ece5; font-size:13.5px; }
+  #viewOverlay .vb-row:last-child{ border-bottom:none; }
+  #viewOverlay .vb-photos{ display:flex; flex-wrap:wrap; gap:10px; }
+  #viewOverlay .vb-photos figure{ margin:0; }
+  #viewOverlay .vb-photos img{ width:130px; height:130px; object-fit:cover; border-radius:10px; border:1px solid var(--hv-line); cursor:zoom-in; display:block; }
+  #viewOverlay .vb-photos figcaption{ font-size:11px; color:var(--hv-muted); margin-top:3px; text-align:center; }
+  #viewOverlay .vb-empty{ color:var(--hv-muted); font-size:13px; }
+</style>
+<div class="overlay" id="viewOverlay">
+    <div class="modal">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
+            <h2 id="vbTitle" style="margin:0;">Booking details</h2>
+            <button class="btn secondary" onclick="document.getElementById('viewOverlay').classList.remove('show')">Close</button>
+        </div>
+        <div id="viewContent"></div>
+    </div>
+</div>
+
 <!-- full-size proof image viewer -->
 <div class="img-lightbox" id="imgLightbox" onclick="this.classList.remove('show')">
     <img id="imgLightboxImg" alt="proof of payment">
@@ -4189,6 +4214,7 @@ function renderCancelled(){
             <td>${peso(paidOf(b))}</td>
             <td>${when}</td>
             <td class="actions">
+                <span class="reinstate" style="color:var(--hv-terra-d);" onclick="viewBooking(${b.id})">View</span>
                 <span class="reinstate" onclick="reinstateBooking(${b.id})">Reinstate</span>
                 <span class="del" onclick="deleteBooking(${b.id})">Delete</span>
             </td>
@@ -4252,6 +4278,72 @@ function updateApprovalBadge(){
 function apViewProof(src){
     document.getElementById("imgLightboxImg").src = src;
     document.getElementById("imgLightbox").classList.add("show");
+}
+
+// read-only viewer for a booking's info, payment details and photos
+let vbPhotos = [];
+function vbZoom(i){ if(vbPhotos[i]) apViewProof(vbPhotos[i]); }
+function viewBooking(id){
+    const b = bookings.find(x => x.id === id);
+    if(!b) return;
+    document.getElementById("vbTitle").innerHTML =
+        `${escHtml(b.haven)} <span class="muted" style="font-size:13px;">· #${b.id}${b.cancelled ? " · Cancelled" : ""}</span>`;
+
+    const guests = (b.guests || []).map(g =>
+        `${escHtml(g.name || "")}${g.age != null && g.age !== "" ? " (" + g.age + ")" : ""}`).join("<br>")
+        || '<span class="vb-empty">—</span>';
+    const addons = [];
+    if(b.swimpass) addons.push(`${b.swimpass} swimpass`);
+    if(b.towels)   addons.push(`${b.towels} towels`);
+    if(b.extend)   addons.push(`+${b.extend}h extend`);
+    if(b.holiday)  addons.push("holiday rate");
+
+    const total = Number(b.total || 0), down = Number(b.downpayment || 0);
+    const coll = collectedSum(b), paid = paidOf(b);
+    const dep = (b.deposit === undefined ? PRICING.deposit : Number(b.deposit)) || 0;
+    const bal = b.cancelled ? 0 : Math.max(0, total - paid);
+    const payRows = (b.payments || []).map(p =>
+        `<div class="vb-row"><span>${escHtml(p.category || "Payment")} · ${escHtml(p.mop || "—")}${p.by ? " · " + escHtml(p.by) : ""}${p.at ? ' · <span class="muted">' + new Date(p.at).toLocaleDateString("en-PH", { month:"short", day:"numeric" }) + "</span>" : ""}</span><b>${peso(p.amount || 0)}</b></div>`
+    ).join("") || '<div class="vb-empty">No payment records.</div>';
+
+    // gather every photo on the booking
+    vbPhotos = [];
+    const items = [];
+    const add = (src, label) => { if(src){ const i = vbPhotos.push(src) - 1; items.push({ i, label }); } };
+    (b.ids || []).forEach((s, n) => add(s, "Valid ID " + (n + 1)));
+    add(b.downProof, "Downpayment proof");
+    add(b.balanceProof, "Balance proof");
+    add(b.addonProof, "Add-on proof");
+    add(b.depositProof, "Deposit proof");
+    (b.payments || []).forEach(p => add(p.proof, (p.category || "Payment") + " proof"));
+    const photosHtml = items.length
+        ? items.map(it => `<figure><img src="${it.src ? it.src : vbPhotos[it.i]}" onclick="vbZoom(${it.i})" alt="${escHtml(it.label)}"><figcaption>${escHtml(it.label)}</figcaption></figure>`).join("")
+        : '<div class="vb-empty">No photos attached.</div>';
+
+    document.getElementById("viewContent").innerHTML = `
+        <div class="vb-sec">Guest information</div>
+        <div class="vb-grid">
+            <span class="k">Guests</span><span class="v">${guests}</span>
+            <span class="k">Contact</span><span class="v">${escHtml(b.contact || "—")}</span>
+            <span class="k">Check-in</span><span class="v">${fmt(b.checkin)} · ${checkinTimeStr(b)}</span>
+            <span class="k">Check-out</span><span class="v">${b.checkout ? fmt(b.checkout) : "—"} · ${checkoutTimeStr(b)}</span>
+            <span class="k">Stay</span><span class="v">${b.stayHours ? b.stayHours + "h" : "—"}${b.slot ? " · " + slotLabel(b.slot) : ""}</span>
+            <span class="k">Pax</span><span class="v">${(b.guests || []).length}</span>
+            ${addons.length ? `<span class="k">Add-ons</span><span class="v">${addons.join(", ")}</span>` : ""}
+        </div>
+        <div class="vb-sec">Payment details</div>
+        <div class="vb-grid">
+            <span class="k">Total</span><span class="v">${peso(total)}</span>
+            <span class="k">Downpayment</span><span class="v">${peso(down)}</span>
+            <span class="k">Collected (balance)</span><span class="v">${peso(coll)}</span>
+            <span class="k">Total paid</span><span class="v">${peso(paid)}</span>
+            <span class="k">Deposit</span><span class="v">${peso(dep)}</span>
+            <span class="k">Balance</span><span class="v">${peso(bal)}</span>
+        </div>
+        <div style="margin-top:10px;">${payRows}</div>
+        <div class="vb-sec">Photos</div>
+        <div class="vb-photos">${photosHtml}</div>`;
+    document.getElementById("viewOverlay").classList.add("show");
 }
 
 let apStatus = "all";   // all | pending | approved
