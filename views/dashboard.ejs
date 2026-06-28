@@ -384,9 +384,9 @@ body{ background:#f5f5f5; color:#222; padding:30px 30px 30px 250px; }
 .bar.bar-clean{
     background:repeating-linear-gradient(45deg, rgba(140,140,140,.16), rgba(140,140,140,.16) 6px, rgba(140,140,140,.30) 6px, rgba(140,140,140,.30) 12px);
     border-left:none;
-    color:#7a7a7a;
-    font-size:9.5px;
-    font-style:italic;
+    color:#5f5f5f;
+    font-size:10px;
+    font-weight:600;
     cursor:default;
     z-index:0;
 }
@@ -3473,8 +3473,8 @@ function renderTimelineHours(){
 
     // collect the bookings active on this day, with their start/end minute within the day.
     // dayIso <= coIso (inclusive) so a stay that started earlier and checks out THIS morning
-    // still shows — its bar runs from midnight to the check-out time, so staff can see until
-    // when each haven is occupied (and the cleaning gap before it can be re-booked).
+    // is still considered — but its guest bar is NOT drawn; instead we show only its cleaning
+    // window and the time the haven becomes available (see the draw loop below).
     const dayBookings = [];
     bookings.forEach(b => {
         if(b.cancelled) return;                                        // cancelled → haven is free
@@ -3494,11 +3494,21 @@ function renderTimelineHours(){
         dayBookings.push({ b, startMin, endMin, departsToday, carryover });
     });
 
-    // derive the visible hour window: floor(earliest start) … ceil(latest end + cleaning gap)
+    // the visible time range each booking contributes to the window:
+    //  • carry-over checking out today → only its cleaning block [check-out, free-at]
+    //  • carry-over still in-house all day → its occupied span (neutral, rare multi-night)
+    //  • a booking starting today → its own bar, plus its cleaning block if it ends today
+    const visRange = x => {
+        if(x.carryover && x.departsToday) return [x.endMin, Math.min(1440, x.endMin + CLEANING_GAP_MIN)];
+        if(x.carryover)                    return [x.startMin, x.endMin];
+        return [x.startMin, x.departsToday ? Math.min(1440, x.endMin + CLEANING_GAP_MIN) : x.endMin];
+    };
+
+    // derive the visible hour window
     let HS = 0, HE = 24;
     if(dayBookings.length){
-        const minStart = Math.min(...dayBookings.map(x => x.startMin));
-        const maxEnd   = Math.max(...dayBookings.map(x => x.departsToday ? Math.min(1440, x.endMin + CLEANING_GAP_MIN) : x.endMin));
+        const minStart = Math.min(...dayBookings.map(x => visRange(x)[0]));
+        const maxEnd   = Math.max(...dayBookings.map(x => visRange(x)[1]));
         HS = Math.max(0, Math.floor(minStart / 60));
         HE = Math.min(24, Math.ceil(maxEnd / 60));
     } else {
@@ -3522,55 +3532,60 @@ function renderTimelineHours(){
     grid.innerHTML = html;
 
     const winStart = HS * 60, winEnd = HE * 60;
-    const xFor = (firstCell, m) => firstCell.offsetLeft + ((m - winStart) / 60) * firstCell.offsetWidth;
-    dayBookings.forEach(({ b, startMin, endMin, departsToday, carryover }) => {
-        const s = Math.max(winStart, Math.min(winEnd, startMin));
-        const e = Math.max(winStart, Math.min(winEnd, endMin));
+    // draw one positioned block in a haven row; returns nothing
+    function drawBlock(haven, sMin, eMin, opts){
+        const s = Math.max(winStart, Math.min(winEnd, sMin));
+        const e = Math.max(winStart, Math.min(winEnd, eMin));
         if(e <= s) return;
-
-        const firstCell = grid.querySelector(`.tl-cell[data-h="${cssEscape(b.haven)}"][data-hr="${HS}"]`);
+        const firstCell = grid.querySelector(`.tl-cell[data-h="${cssEscape(haven)}"][data-hr="${HS}"]`);
         if(!firstCell) return;
         const hourW = firstCell.offsetWidth, rowTop = firstCell.offsetTop, cellH = firstCell.offsetHeight;
-        const coStr = checkoutTimeStr(b);
+        const el = document.createElement("div");
+        el.className = opts.className || "bar";
+        if(opts.bg) el.style.background = opts.bg;
+        if(opts.color) el.style.color = opts.color;
+        if(opts.borderLeft) el.style.borderLeft = opts.borderLeft;
+        if(opts.label != null) el.textContent = opts.label;
+        if(opts.title) el.title = opts.title;
+        if(opts.onclick) el.onclick = opts.onclick;
+        el.style.left = (firstCell.offsetLeft + ((s - winStart) / 60) * hourW + 2) + "px";
+        el.style.width = Math.max(opts.minW || 10, ((e - s) / 60) * hourW - 4) + "px";
+        el.style.top = (rowTop + 7) + "px";
+        el.style.height = (cellH - 14) + "px";
+        el.style.bottom = "auto";
+        grid.appendChild(el);
+    }
+
+    dayBookings.forEach(({ b, startMin, endMin, departsToday, carryover }) => {
         const freeAt = minToTime(Math.min(1440, endMin + CLEANING_GAP_MIN));
+        // a cleaning / turnaround block, labelled with when the haven is then available
+        const drawCleaning = () => drawBlock(b.haven, endMin, endMin + CLEANING_GAP_MIN, {
+            className: "bar bar-clean",
+            label: "🧹 free " + freeAt,
+            title: `${b.haven} — cleaning / turnaround, available from ${freeAt}`,
+            minW: 6
+        });
 
-        const bar = document.createElement("div");
-        bar.className = "bar";
-        bar.style.background = havenColor(b);
-        bar.style.color = "#222";
-        bar.style.borderLeft = "5px solid " + (STATUS_COLOR[statusOf(b)] || "#999");
-        // carry-over stays (from a previous day) are labelled with their check-out time
-        bar.textContent = (carryover ? "⟵ " : "") + (b.fbName || primaryName(b))
-            + (b.slot ? " (" + (b.slot === "morning" ? "AM" : "PM") + ")" : "")
-            + (carryover ? " · out " + coStr : "");
-        bar.title = `${guestNames(b)} • ${checkinTimeStr(b)}→${coStr}`
-            + (departsToday ? ` • free at ${freeAt} (after cleaning)` : "")
-            + ` • ${peso(paidOf(b))}/${peso(b.total)}`;
-        bar.onclick = () => openModal(b.id);
-        bar.style.left = (xFor(firstCell, s) + 2) + "px";
-        bar.style.width = Math.max(10, ((e - s) / 60) * hourW - 4) + "px";
-        bar.style.top = (rowTop + 7) + "px";
-        bar.style.height = (cellH - 14) + "px";
-        bar.style.bottom = "auto";
-        grid.appendChild(bar);
-
-        // faded "cleaning / turnaround" block right after the check-out, so the 2-hour gap
-        // before the haven can be re-booked is visible on the calendar
-        if(departsToday){
-            const cs = Math.max(winStart, Math.min(winEnd, endMin));
-            const ce = Math.max(winStart, Math.min(winEnd, endMin + CLEANING_GAP_MIN));
-            if(ce > cs){
-                const gap = document.createElement("div");
-                gap.className = "bar bar-clean";
-                gap.textContent = "cleaning";
-                gap.title = `${b.haven} — cleaning / turnaround until ${freeAt}`;
-                gap.style.left = (xFor(firstCell, cs) + 2) + "px";
-                gap.style.width = Math.max(6, ((ce - cs) / 60) * hourW - 4) + "px";
-                gap.style.top = (rowTop + 7) + "px";
-                gap.style.height = (cellH - 14) + "px";
-                gap.style.bottom = "auto";
-                grid.appendChild(gap);
-            }
+        if(carryover && departsToday){
+            // previous guest's bar is hidden — just show the cleaning window + available-from time
+            drawCleaning();
+        } else if(carryover){
+            // still in-house all day (multi-night middle day): neutral "occupied" block, no details
+            drawBlock(b.haven, startMin, endMin, {
+                className: "bar bar-clean", label: "occupied", title: `${b.haven} — occupied all day`
+            });
+        } else {
+            // a booking that STARTS today → show it normally
+            drawBlock(b.haven, startMin, endMin, {
+                bg: havenColor(b), color: "#222",
+                borderLeft: "5px solid " + (STATUS_COLOR[statusOf(b)] || "#999"),
+                label: (b.fbName || primaryName(b)) + (b.slot ? " (" + (b.slot === "morning" ? "AM" : "PM") + ")" : ""),
+                title: `${guestNames(b)} • ${checkinTimeStr(b)}→${checkoutTimeStr(b)}`
+                    + (departsToday ? ` • free at ${freeAt} (after cleaning)` : "")
+                    + ` • ${peso(paidOf(b))}/${peso(b.total)}`,
+                onclick: () => openModal(b.id)
+            });
+            if(departsToday) drawCleaning();
         }
     });
 }
