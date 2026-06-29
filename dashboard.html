@@ -2634,6 +2634,7 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
                 </select>
             </div>
             <div class="field"><label>Commission / booking (₱)</label><input type="number" id="pf_rate" min="0" step="1" placeholder="e.g. 500"></div>
+            <div class="field full"><label>Haven / Casa owned</label><select id="pf_haven"></select></div>
             <div class="field"><label>Contact number</label><input type="text" id="pf_contact" placeholder="09xx xxx xxxx"></div>
             <div class="field"><label>Email</label><input type="email" id="pf_email" placeholder="name@email.com"></div>
             <div class="field"><label>Login name</label><input type="text" id="pf_login" placeholder="username" autocomplete="off"></div>
@@ -2709,6 +2710,10 @@ function openAddPartner(id){
     document.getElementById("pf_name").value    = p ? (p.name || "")    : "";
     document.getElementById("pf_type").value     = p ? (p.type || "Agency") : "Agency";
     document.getElementById("pf_rate").value     = p ? (p.rate || "")    : "";
+    const _havenSel = document.getElementById("pf_haven");
+    const _owns = (typeof HAVENS !== "undefined" && Array.isArray(HAVENS)) ? HAVENS : [];
+    _havenSel.innerHTML = '<option value="">— None —</option>' + _owns.map(h => `<option>${escHtml(h)}</option>`).join("");
+    _havenSel.value = p ? (p.haven || "") : "";
     document.getElementById("pf_contact").value  = p ? (p.contact || "") : "";
     document.getElementById("pf_email").value    = p ? (p.email || "")   : "";
     document.getElementById("pf_login").value    = p ? (p.login || "")   : "";
@@ -2724,6 +2729,7 @@ function savePartnerForm(){
         name,
         type:    document.getElementById("pf_type").value,
         rate:    Number(document.getElementById("pf_rate").value) || 0,
+        haven:   document.getElementById("pf_haven").value,
         contact: document.getElementById("pf_contact").value.trim(),
         email:   document.getElementById("pf_email").value.trim(),
         login:   document.getElementById("pf_login").value.trim(),
