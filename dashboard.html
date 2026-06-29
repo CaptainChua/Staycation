@@ -1495,7 +1495,7 @@ tr.row-cancelled td:nth-child(2){ text-decoration:line-through; }
 }
 input.gf-ov:focus{ outline:none; background:#fff7cc; }
 .gf-ov.sign{ font-family:"Segoe Script","Brush Script MT",cursive; font-size:2.3cqw; color:#0b1f63; }
-.gf-ov.big{ font-family:Arial, sans-serif; font-weight:800; font-size:2.4cqw; }
+.gf-ov.big{ font-family:Arial, sans-serif; font-weight:800; font-size:3.3cqw; }
 /* page-2 IDs overlay */
 .gf-ids{ position:absolute; left:6%; right:6%; top:8%; display:flex; flex-direction:column; align-items:center; gap:2.2cqw; }
 .gf-idphoto{ position:relative; width:100%; display:flex; justify-content:center; }
@@ -1560,10 +1560,12 @@ input.gf-ov:focus{ outline:none; background:#fff7cc; }
         <!-- PAGE 2 — guest IDs -->
         <div class="gf-page" id="gfPage2">
             <img class="gf-bg" src="images/guest-form-id.png" alt="Unit IDs page">
-            <input class="gf-ov big" id="gff_unit2" style="left:16%; top:3.6%; width:40%;" readonly>
-            <div class="gfToolbar-inline" style="position:absolute; top:4.2%; right:4%; text-align:right;">
-                <input type="file" id="gf_idFiles" accept="image/*" multiple onchange="gfAddIdPhotos(event)">
-                <div class="muted" style="font-size:11px; margin-top:3px;">IDs print on this page</div>
+            <input class="gf-ov big" id="gff_unit2" style="left:20.5%; top:3.3%; width:30%;" readonly>
+            <div class="gfToolbar-inline" style="position:absolute; top:3.2%; right:3%; text-align:right;">
+                <label class="btn" style="cursor:pointer; font-size:13px;">⬆ Upload guest IDs
+                    <input type="file" id="gf_idFiles" accept="image/*" multiple onchange="gfAddIdPhotos(event)" style="display:none;">
+                </label>
+                <div class="muted" style="font-size:11px; margin-top:4px;">These print on this page</div>
             </div>
             <div class="gf-ids" id="gf_idGallery"></div>
         </div>
@@ -6337,13 +6339,17 @@ function gfClear(){
 // add ID photos → store as data URLs and show them on page 2
 function gfAddIdPhotos(ev){
     const files = Array.from(ev.target.files || []);
+    if(files.length && gfBookingId == null){
+        alert("Pick a Haven + date and click “Load booking” first — then the ID photos save to that booking (and won't be lost).");
+        ev.target.value = ""; return;
+    }
     files.forEach(file => {
         if(!/^image\//.test(file.type)) return;
         compressImageTo(file, idMaxBytes, dataUrl => {   // shrink to ~2MB to save storage
             if(!dataUrl) return;
             gfIdPhotos.push(dataUrl);
             gfRenderIds();
-            gfPersistIds();   // save onto the booking right away
+            gfPersistIds();   // save onto the loaded booking right away
         });
     });
     ev.target.value = "";   // allow re-selecting the same file
