@@ -505,13 +505,36 @@
       </div>
       <div id="tbRangeWrap" style="display:none; position:relative;" title="Admin only — pick any date range">
         <button class="btn secondary" onclick="toggleRangePop(event)"><svg viewBox="0 0 24 24" style="width:15px; height:15px; fill:none; stroke:currentColor; stroke-width:2; vertical-align:-2px; margin-right:6px;"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg><span id="tbRangeBtnLabel">Custom range</span></button>
-        <div id="tbRangePop" style="display:none; position:absolute; right:0; top:48px; z-index:60; background:#fff; border:1px solid var(--hv-line); border-radius:12px; box-shadow:0 12px 34px rgba(80,60,30,.18); padding:14px; width:230px; text-align:left;" onclick="event.stopPropagation()">
-          <div style="font-size:12px; color:var(--hv-muted); margin:0 0 4px 2px;">From</div>
-          <input type="date" id="tbFrom" style="width:100%; border:1px solid var(--hv-line); border-radius:8px; padding:8px 10px; font-family:inherit; font-size:13px; margin-bottom:10px;">
-          <div style="font-size:12px; color:var(--hv-muted); margin:0 0 4px 2px;">To</div>
-          <input type="date" id="tbTo" style="width:100%; border:1px solid var(--hv-line); border-radius:8px; padding:8px 10px; font-family:inherit; font-size:13px; margin-bottom:12px;">
-          <button class="btn" style="width:100%;" onclick="applyCustomRange()">Apply range</button>
+        <div id="tbRangePop" class="tb-dp" style="display:none;" onclick="event.stopPropagation()">
+          <div class="dp-head"><button type="button" onclick="tbPickerNav(-1)">‹</button><span id="tbDpTitle"></span><button type="button" onclick="tbPickerNav(1)">›</button></div>
+          <div class="dp-grid" id="tbDpGrid"></div>
+          <div class="dp-hint" id="tbDpHint"></div>
+          <div class="dp-foot"><span onclick="tbDpClear()">Clear</span><span onclick="tbDpToday()">Today</span></div>
         </div>
+        <style>
+          #tbRangePop.tb-dp{ position:absolute; right:0; top:50px; width:300px; background:#fff; border:1px solid #f0f0f0; border-radius:20px; box-shadow:0 12px 35px rgba(0,0,0,.16); padding:18px; z-index:60; text-align:left; }
+          #tbRangePop .dp-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+          #tbRangePop .dp-head span{ font-size:15px; font-weight:bold; color:#333; }
+          #tbRangePop .dp-head button{ width:32px; height:32px; border:none; background:#f6f6f6; border-radius:50%; cursor:pointer; font-size:16px; color:#555; }
+          #tbRangePop .dp-head button:hover{ background:#f0f0f0; color:#111; }
+          #tbRangePop .dp-grid{ display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); column-gap:0; row-gap:6px; }
+          #tbRangePop .dp-wd{ text-align:center; font-size:11px; font-weight:bold; color:#bbb; padding:4px 0; }
+          #tbRangePop .dp-day{ position:relative; height:40px; display:flex; align-items:center; justify-content:center; font-size:13px; color:#333; cursor:pointer; }
+          #tbRangePop .dp-day .n{ width:34px; height:34px; display:flex; align-items:center; justify-content:center; border-radius:50%; position:relative; z-index:1; transition:background .12s ease; }
+          #tbRangePop .dp-day.empty{ cursor:default; }
+          #tbRangePop .dp-day.today .n{ font-weight:bold; }
+          #tbRangePop .dp-day:not(.sel):not(.empty):hover .n{ background:#efefef; }
+          #tbRangePop .dp-day.in-range{ background:#f1f1f1; }
+          #tbRangePop .dp-day.range-start{ background:linear-gradient(to right,transparent 50%,#f1f1f1 50%); }
+          #tbRangePop .dp-day.range-end{ background:linear-gradient(to left,transparent 50%,#f1f1f1 50%); }
+          #tbRangePop .dp-day.sel .n{ background:var(--hv-terra,#b9744a); color:#fff; font-weight:bold; }
+          #tbRangePop .dp-grid > *:nth-child(7n+1){ border-top-left-radius:20px; border-bottom-left-radius:20px; }
+          #tbRangePop .dp-grid > *:nth-child(7n){ border-top-right-radius:20px; border-bottom-right-radius:20px; }
+          #tbRangePop .dp-hint{ font-size:11px; color:#999; text-align:center; margin-top:12px; line-height:1.4; }
+          #tbRangePop .dp-foot{ display:flex; justify-content:space-between; margin-top:10px; padding-top:12px; border-top:1px solid #f3f3f3; }
+          #tbRangePop .dp-foot span{ font-size:13px; font-weight:bold; color:#333; cursor:pointer; }
+          #tbRangePop .dp-foot span:hover{ text-decoration:underline; }
+        </style>
       </div>
       <button class="btn secondary" onclick="renderToday()">↻ Refresh</button>
     </div>
@@ -887,26 +910,84 @@
     if(currentView === "custom" && customStart && customEnd){ return { start: customStart, end: iso(addDays(new Date(customEnd + "T00:00:00"), 1)) }; }   // end inclusive
     return { start: iso(t0), end: iso(addDays(t0, 1)) };
   }
-  // admin-only: the custom-range popover
+  // ---- admin-only custom-range calendar picker (max 30 days) ----
+  const TB_MAX = 30;
+  const TB_MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  let tbPickerMonth = null, tbPendingStart = null, tbHoverIso = null;
+  function tbDaysBetween(a, b){ return Math.round((Date.parse(b + "T00:00:00") - Date.parse(a + "T00:00:00")) / 86400000); }
+
   function toggleRangePop(e){
     if(e) e.stopPropagation();
     const p = document.getElementById("tbRangePop");
-    if(p) p.style.display = (p.style.display === "block") ? "none" : "block";
+    if(!p) return;
+    if(p.style.display === "block"){ p.style.display = "none"; return; }
+    tbPendingStart = null; tbHoverIso = null;
+    const base = customStart ? new Date(customStart + "T00:00:00") : today();
+    tbPickerMonth = new Date(base.getFullYear(), base.getMonth(), 1);
+    tbRenderPicker();
+    p.style.display = "block";
   }
   document.addEventListener("click", function(){ const p = document.getElementById("tbRangePop"); if(p && p.style.display === "block") p.style.display = "none"; });
-  // admin-only: apply a custom From–To range
-  function applyCustomRange(){
-    const f = document.getElementById("tbFrom").value;
-    const t = document.getElementById("tbTo").value;
-    if(!f || !t){ alert("Pick both a From and a To date."); return; }
-    if(f > t){ alert("The From date must be on or before the To date."); return; }
+
+  function tbPickerNav(dir){ tbPickerMonth = new Date(tbPickerMonth.getFullYear(), tbPickerMonth.getMonth() + dir, 1); tbRenderPicker(); }
+  function tbHighlightRange(){
+    if(tbPendingStart){
+      let end = (tbHoverIso && tbHoverIso >= tbPendingStart) ? tbHoverIso : tbPendingStart;
+      if(tbDaysBetween(tbPendingStart, end) > TB_MAX - 1) end = iso(addDays(new Date(tbPendingStart + "T00:00:00"), TB_MAX - 1));
+      return { start: tbPendingStart, end };
+    }
+    if(currentView === "custom" && customStart && customEnd) return { start: customStart, end: customEnd };
+    return { start: "", end: "" };
+  }
+  function tbRenderPicker(){
+    const y = tbPickerMonth.getFullYear(), m = tbPickerMonth.getMonth();
+    document.getElementById("tbDpTitle").textContent = TB_MONTHS[m] + " " + y;
+    const startDay = new Date(y, m, 1).getDay();
+    const daysInMonth = new Date(y, m + 1, 0).getDate();
+    const todayIso = iso(today());
+    let html = "";
+    ["Su","Mo","Tu","We","Th","Fr","Sa"].forEach(d => html += `<div class="dp-wd">${d}</div>`);
+    for(let i = 0; i < startDay; i++) html += `<div class="dp-day empty"></div>`;
+    for(let d = 1; d <= daysInMonth; d++){
+      const cellIso = iso(new Date(y, m, d));
+      html += `<div class="dp-day${cellIso === todayIso ? " today" : ""}" data-iso="${cellIso}" onclick="tbPickDay('${cellIso}')" onmouseover="tbHoverDay('${cellIso}')"><span class="n">${d}</span></div>`;
+    }
+    document.getElementById("tbDpGrid").innerHTML = html;
+    tbUpdateHighlight();
+  }
+  function tbUpdateHighlight(){
+    const { start, end } = tbHighlightRange();
+    document.querySelectorAll("#tbDpGrid .dp-day").forEach(cell => {
+      cell.classList.remove("sel","range-start","range-end","in-range");
+      const ci = cell.dataset.iso; if(!ci) return;
+      if(start && ci === start && ci === end) cell.classList.add("sel");
+      else if(start && ci === start) cell.classList.add("sel","range-start");
+      else if(end && ci === end) cell.classList.add("sel","range-end");
+      else if(start && end && ci > start && ci < end) cell.classList.add("in-range");
+    });
+    document.getElementById("tbDpHint").textContent = tbPendingStart
+      ? "Now click an end date (max " + TB_MAX + " days), or the same day for a single date"
+      : "Click a date, then an end date for a range (max " + TB_MAX + " days)";
+  }
+  function tbPickDay(cellIso){
+    if(!tbPendingStart){ tbPendingStart = cellIso; tbHoverIso = cellIso; tbUpdateHighlight(); return; }
+    if(cellIso < tbPendingStart){ tbPendingStart = cellIso; tbUpdateHighlight(); return; }
+    let endIso = cellIso;
+    if(tbDaysBetween(tbPendingStart, endIso) > TB_MAX - 1) endIso = iso(addDays(new Date(tbPendingStart + "T00:00:00"), TB_MAX - 1));
+    tbApplyRange(tbPendingStart, endIso);
+  }
+  function tbHoverDay(cellIso){ if(!tbPendingStart) return; tbHoverIso = cellIso; tbUpdateHighlight(); }
+  function tbApplyRange(f, t){
     customStart = f; customEnd = t; currentView = "custom";
+    tbPendingStart = null; tbHoverIso = null;
     document.querySelectorAll(".view-tab").forEach(b => b.classList.remove("active"));
-    const lbl = document.getElementById("tbRangeBtnLabel"); if(lbl) lbl.textContent = fmt(f) + " – " + fmt(t);
+    const lbl = document.getElementById("tbRangeBtnLabel"); if(lbl) lbl.textContent = fmt(f) + (f === t ? "" : " – " + fmt(t));
     const p = document.getElementById("tbRangePop"); if(p) p.style.display = "none";
     try{ localStorage.setItem("shph_today_view", "custom"); localStorage.setItem("shph_today_custom", JSON.stringify({ f, t })); }catch(e){}
     renderToday();
   }
+  function tbDpToday(){ tbApplyRange(iso(today()), iso(today())); }
+  function tbDpClear(){ tbPendingStart = null; tbHoverIso = null; const p = document.getElementById("tbRangePop"); if(p) p.style.display = "none"; setView("today"); }
   // classify a booking against a date range [start, end)
   function rangeInfo(b, start, end){
     const dayUse = !(b.checkout > b.checkin);
@@ -1764,10 +1845,9 @@
     if(IS_ADMIN){
       const r = document.getElementById("tbRangeWrap");
       if(r) r.style.display = "inline-block";
-      if(customStart){
-        const ff = document.getElementById("tbFrom"); const tt = document.getElementById("tbTo");
-        if(ff) ff.value = customStart; if(tt) tt.value = customEnd;
-        const lbl = document.getElementById("tbRangeBtnLabel"); if(lbl && currentView === "custom") lbl.textContent = fmt(customStart) + " – " + fmt(customEnd);
+      if(currentView === "custom" && customStart){
+        const lbl = document.getElementById("tbRangeBtnLabel");
+        if(lbl) lbl.textContent = fmt(customStart) + (customStart === customEnd ? "" : " – " + fmt(customEnd));
       }
     }
   })();
