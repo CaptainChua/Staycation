@@ -1490,7 +1490,7 @@ tr.row-cancelled td:nth-child(2){ text-decoration:line-through; }
 .gf-ov{
     position:absolute; transform:translateY(-50%);   /* top = vertical centre of the blank */
     border:none; background:transparent; color:#000; padding:0; margin:0;
-    font-family:"Times New Roman", Georgia, serif; font-size:1.6cqw; line-height:1.05;
+    font-family:"Times New Roman", Georgia, serif; font-size:1.35cqw; line-height:1.05;
     white-space:nowrap; overflow:hidden; box-sizing:border-box;
 }
 input.gf-ov:focus{ outline:none; background:#fff7cc; }
@@ -6123,13 +6123,13 @@ function gfTodayLabel(){
 // where each value sits on the scanned form, as % of the image
 // (left = from left edge, top = vertical centre of the blank). Tweak to nudge.
 const GF_OV = [
-    { id:"gff_date",      left:13,  top:9.4,  width:13 },
-    { id:"gff_owner",     left:23,  top:11.4, width:24 },
-    { id:"gff_unit",      left:22,  top:13.4, width:20, change:"gfSaveUnit()" },
-    { id:"gff_contact",   left:23,  top:15.4, width:20 },
-    { id:"gff_movein",    left:73,  top:11.4, width:16 },
-    { id:"gff_moveout",   left:74,  top:13.4, width:15 },
-    { id:"gff_days",      left:72,  top:15.4, width:17 }
+    { id:"gff_date",      left:15,   top:9.3,  width:16 },
+    { id:"gff_owner",     left:23.5, top:11.2, width:24 },
+    { id:"gff_unit",      left:22.5, top:13.0, width:20, change:"gfSaveUnit()" },
+    { id:"gff_contact",   left:24,   top:14.8, width:20 },
+    { id:"gff_movein",    left:73,   top:11.2, width:16 },
+    { id:"gff_moveout",   left:74,   top:13.0, width:15 },
+    { id:"gff_days",      left:72,   top:14.8, width:17 }
 ];
 const GF_ROW_TOP = 23.7, GF_ROW_STEP = 1.95;   // guest table: row-1 centre + per-row step (%)
 const GF_NAME = { left:16,   width:40 };
