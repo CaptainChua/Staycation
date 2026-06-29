@@ -292,7 +292,8 @@ function applyPartnerChrome(){
     if(!ps) return;
     const MAIN = ["today", "calendar"];                          // stay under the "Main" header
     const DASH = ["analytics", "finance", "bills", "expenses"];  // move under a new "Dashboard" header
-    const ALLOW = MAIN.concat(DASH);
+    const BOARD = ["board"];                                     // move under a new "Board" header
+    const ALLOW = MAIN.concat(DASH).concat(BOARD);
     const sb = document.querySelector(".sidebar");
 
     // show only the allowed nav items
@@ -300,17 +301,30 @@ function applyPartnerChrome(){
         n.style.display = ALLOW.includes(n.dataset.page) ? "flex" : "none";
     });
 
-    // build a "DASHBOARD" group and move the finance-style pages into it (in order)
-    if(sb && !document.getElementById("partnerDashGroup")){
+    // helper: build a sidebar group at the end and move the given pages into it
+    const buildGroup = (id, title, keys) => {
+        if(!sb || document.getElementById(id)) return;
         const hdr = document.createElement("div");
         hdr.className = "nav-group";
-        hdr.id = "partnerDashGroup";
-        hdr.textContent = "Dashboard";
+        hdr.id = id;
+        hdr.textContent = title;
         sb.appendChild(hdr);
-        DASH.forEach(dp => {
+        keys.forEach(dp => {
             const item = sb.querySelector('.nav-item[data-page="' + dp + '"]');
             if(item){ item.style.display = "flex"; sb.appendChild(item); }
         });
+    };
+    buildGroup("partnerDashGroup", "Dashboard", DASH);
+    buildGroup("partnerBoardGroup", "Board", BOARD);
+
+    // put a "PARTNERS" label under the logo
+    const brand = document.querySelector(".sidebar .brand");
+    if(brand && !document.getElementById("partnerBadge")){
+        const badge = document.createElement("div");
+        badge.id = "partnerBadge";
+        badge.textContent = "PARTNERS";
+        badge.style.cssText = "font:800 12px/1 'Mulish',sans-serif; letter-spacing:3px; color:var(--hv-terra); padding:10px 0 2px 6px;";
+        brand.insertAdjacentElement("afterend", badge);
     }
 
     // hide every now-empty group (e.g. Finance, emptied by the move above)
@@ -399,12 +413,49 @@ function savePartnerLogin(id){
    Register the Partners pages into the dashboard shell.
    Runs once, right after this script loads (main script already ran).
    ============================================================ */
+/* ---------- Notice Board (admin/super-admin posts; partners view read-only) ---------- */
+const BOARD_KEY = "shph_partner_board";
+function loadBoard(){ try{ return JSON.parse(localStorage.getItem(BOARD_KEY)) || {}; }catch(e){ return {}; } }
+function boardCanEdit(){ return !window.__PARTNER__ || !!window.__PARTNER__.superAdmin; }
+function saveBoard(){
+    const ta = document.getElementById("boardText");
+    if(!ta) return;
+    const rec = { text: ta.value, updatedAt: new Date().toISOString(), updatedBy: (typeof currentUser === "function" ? currentUser() : "") };
+    localStorage.setItem(BOARD_KEY, JSON.stringify(rec));
+    if(typeof logActivity === "function") logActivity("updated the partner notice board");
+    const btn = (typeof event !== "undefined" && event) ? event.target : null;
+    if(btn){ const t = btn.textContent; btn.textContent = "Posted ✓"; setTimeout(function(){ btn.textContent = t; }, 1200); }
+    renderBoard();
+}
+function renderBoard(){
+    const rec = loadBoard();
+    const canEdit = boardCanEdit();
+    const adminBox = document.getElementById("boardAdmin");
+    if(adminBox) adminBox.style.display = canEdit ? "block" : "none";
+    if(canEdit){
+        const ta = document.getElementById("boardText");
+        if(ta && document.activeElement !== ta) ta.value = rec.text || "";
+    }
+    const view = document.getElementById("boardView");
+    if(view){
+        const txt = (rec.text || "").trim();
+        if(txt){
+            const when = rec.updatedAt ? new Date(rec.updatedAt).toLocaleString("en-PH") : "";
+            view.innerHTML = `<div class="board-note">${escHtml(txt).replace(/\n/g, "<br>")}</div>`
+                + (when ? `<div class="muted" style="margin-top:8px; font-size:12px;">Last updated ${rec.updatedBy ? escHtml(rec.updatedBy) + " · " : ""}${escHtml(when)}</div>` : "");
+        } else {
+            view.innerHTML = `<p class="muted" style="margin:0;">No notice posted yet.</p>`;
+        }
+    }
+}
+
 function partnersOnShowPage(page){
     if(page === "partners") renderPartners();
     else if(page === "commissions") renderCommissions();
     else if(page === "partnerbookings") renderPartnerBookings();
     else if(page === "prrooms") renderPrRooms();
     else if(page === "users") renderPartnerLogins();
+    else if(page === "board") renderBoard();
 }
 
 (function registerPartners(){
@@ -414,7 +465,8 @@ function partnersOnShowPage(page){
         { key:"commissions",     label:"Commissions" },
         { key:"partnerbookings", label:"Bookings by Partner" },
         { key:"prrooms",         label:"PR-Rooms" },
-        { key:"partnerdash",     label:"Partner Dashboard" }   // nav item only — navigates to /partner-login
+        { key:"partnerdash",     label:"Partner Dashboard" },  // nav item only — navigates to /partner-login
+        { key:"board",           label:"Board" }
     ];
     // 1) access-control registry
     if(typeof DASH_PAGES !== "undefined" && Array.isArray(DASH_PAGES)){
@@ -427,7 +479,8 @@ function partnersOnShowPage(page){
         addpartner:["Partners","Add Partner"],
         commissions:["Partners","Commissions"],
         partnerbookings:["Partners","Bookings by Partner"],
-        prrooms:["Partners","PR-Rooms"]
+        prrooms:["Partners","PR-Rooms"],
+        board:["Partners","Board"]
     };
     // 3) re-apply permissions so the (now-registered) Partners nav reveals
     //    (in partner mode this runs applyPartnerChrome and lands on Today)

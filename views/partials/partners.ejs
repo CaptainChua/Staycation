@@ -17,6 +17,9 @@
   .pl-row{ display:grid; grid-template-columns:1.3fr 1fr 1fr auto; gap:10px; align-items:center; padding:10px 0; border-bottom:1px solid var(--hv-line); }
   #partnerLoginsList input{ padding:9px 11px; border:1px solid var(--hv-line); border-radius:8px; background:#faf6ee; font-family:inherit; font-size:13.5px; }
   #partnerLoginsList .btn{ padding:9px 16px; }
+  /* Notice board */
+  .board-note{ background:#faf6ee; border:1px solid var(--hv-line); border-left:4px solid var(--hv-terra); border-radius:12px; padding:16px 18px; font-size:15px; color:var(--hv-ink); line-height:1.6; white-space:pre-wrap; }
+  #boardText{ width:100%; min-height:120px; resize:vertical; border:1px solid var(--hv-line); border-radius:12px; background:#faf6ee; padding:12px 14px; font-family:inherit; font-size:14px; }
   @media(max-width:680px){ .pt-form{ grid-template-columns:1fr; } .pl-row{ grid-template-columns:1fr 1fr; } }
   /* Partner DASHBOARD mode (dashboard.html?mode=partner) — read-only chrome */
   body.partner-mode #addBookingBtn{ display:none !important; }
@@ -139,5 +142,20 @@
                 <tbody id="prBookingsBody"></tbody>
             </table>
         </div>
+    </div>
+</div>
+
+<!-- Notice Board -->
+<div class="page" id="page-board">
+    <div class="panel">
+        <div class="panel-head">
+            <h2><span class="sec-ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 13h8M8 16h5"/></svg></span>Notice Board</h2>
+        </div>
+        <p class="muted" style="margin:0 0 14px;">Announcements for your partners — they see this on their dashboard (read-only).</p>
+        <div id="boardAdmin" style="display:none; margin-bottom:18px;">
+            <textarea id="boardText" placeholder="Type a notice for your partners…"></textarea>
+            <div style="margin-top:10px;"><button class="btn" onclick="saveBoard()">Post notice</button></div>
+        </div>
+        <div id="boardView"></div>
     </div>
 </div>

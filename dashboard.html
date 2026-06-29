@@ -3572,7 +3572,7 @@ function todayRow(b, amountCol){
         <td>${addonsCell(b)}</td>
         <td>${amountCol > 0 ? peso(amountCol) : '<span class="muted">—</span>'}</td>
         <td><span class="status ${st}">${st}</span></td>
-        <td class="actions"><span class="edit" onclick="openModal(${b.id})">Edit</span></td>
+        <td class="actions">${window.__PARTNER__ ? `<span class="edit" style="color:var(--hv-terra-d);" onclick="viewBooking(${b.id})">View</span>` : `<span class="edit" onclick="openModal(${b.id})">Edit</span>`}</td>
     </tr>`;
 }
 function renderToday(){
@@ -4312,9 +4312,9 @@ function renderTable(){
             <td><span class="status ${st}">${st}</span></td>
             <td class="actions">
                 <span class="edit" style="color:var(--hv-terra-d);" onclick="viewBooking(${b.id})">View</span>
-                <span class="edit" onclick="openModal(${b.id})">Edit</span>
+                ${window.__PARTNER__ ? "" : `<span class="edit" onclick="openModal(${b.id})">Edit</span>
                 <span class="cancel" onclick="cancelBooking(${b.id})">Cancel</span>
-                <span class="del" onclick="deleteBooking(${b.id})">Delete</span>
+                <span class="del" onclick="deleteBooking(${b.id})">Delete</span>`}
             </td>
         </tr>`;
     }).join("");
@@ -9659,7 +9659,7 @@ function currentPerms(){
     return u.perms || [];
 }
 function pageAllowed(page){
-    if(window.__PARTNER__) return ["today", "calendar", "analytics", "finance", "bills", "expenses"].includes(page);   // partner pages
+    if(window.__PARTNER__) return ["today", "calendar", "analytics", "finance", "bills", "expenses", "board"].includes(page);   // partner pages
     if(page === "users") return isAdminUser();
     return currentPerms().includes(page);
 }
