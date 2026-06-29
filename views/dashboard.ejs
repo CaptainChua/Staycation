@@ -9642,7 +9642,7 @@ function currentPerms(){
     return u.perms || [];
 }
 function pageAllowed(page){
-    if(window.__PARTNER__) return page === "calendar" || page === "today";   // partner: scoped pages only
+    if(window.__PARTNER__) return ["today", "calendar", "analytics", "finance", "bills", "expenses"].includes(page);   // partner pages
     if(page === "users") return isAdminUser();
     return currentPerms().includes(page);
 }

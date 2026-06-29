@@ -290,12 +290,30 @@ function prRenderBookings(){
 function applyPartnerChrome(){
     const ps = window.__PARTNER__;
     if(!ps) return;
-    const ALLOW = ["today", "calendar"];   // both render from the haven-filtered data
+    const MAIN = ["today", "calendar"];                          // stay under the "Main" header
+    const DASH = ["analytics", "finance", "bills", "expenses"];  // move under a new "Dashboard" header
+    const ALLOW = MAIN.concat(DASH);
+    const sb = document.querySelector(".sidebar");
 
-    // sidebar: show only the allowed items, hide every empty group
+    // show only the allowed nav items
     document.querySelectorAll(".sidebar .nav-item").forEach(n => {
         n.style.display = ALLOW.includes(n.dataset.page) ? "flex" : "none";
     });
+
+    // build a "DASHBOARD" group and move the finance-style pages into it (in order)
+    if(sb && !document.getElementById("partnerDashGroup")){
+        const hdr = document.createElement("div");
+        hdr.className = "nav-group";
+        hdr.id = "partnerDashGroup";
+        hdr.textContent = "Dashboard";
+        sb.appendChild(hdr);
+        DASH.forEach(dp => {
+            const item = sb.querySelector('.nav-item[data-page="' + dp + '"]');
+            if(item){ item.style.display = "flex"; sb.appendChild(item); }
+        });
+    }
+
+    // hide every now-empty group (e.g. Finance, emptied by the move above)
     document.querySelectorAll(".sidebar .nav-group").forEach(g => {
         let sib = g.nextElementSibling, any = false;
         while(sib && !(sib.classList && sib.classList.contains("nav-group"))){
@@ -303,10 +321,8 @@ function applyPartnerChrome(){
             sib = sib.nextElementSibling;
         }
         g.style.display = any ? "" : "none";
-        // partner view: the only visible group is "Main" — label it "Dashboard"
-        if(any && g.textContent.trim().toLowerCase() === "main") g.textContent = "Dashboard";
     });
-    const sb = document.querySelector(".sidebar"); if(sb) sb.classList.remove("perms-pending");
+    if(sb) sb.classList.remove("perms-pending");
     document.body.classList.add("partner-mode");
 
     // identity + hide admin-only chrome
