@@ -5540,7 +5540,17 @@ function downloadConfirmation(){
     const prev = el.style.transform;
     el.style.transform = "none";              // capture at full 760px (not the scaled preview)
     const w = el.offsetWidth, h = el.offsetHeight;
-    const fname = "Booking-Confirmation-" + (editingId || "new") + ".pdf";
+    // filename = <check-in MMDDYY>-D<unit>, e.g. Jun 29 2026 · Haven 4 → 062926-D2602
+    const ci = (document.getElementById("f_checkin") || {}).value || "";
+    const havenVal = (document.getElementById("f_haven") || {}).value || "";
+    const unitNo = GF_HAVEN_UNITS[havenVal] || "";
+    let fname;
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ci);
+    if(m && unitNo){
+        fname = `${m[2]}${m[3]}${m[1].slice(-2)}-${GF_TOWER}${unitNo}.pdf`;
+    } else {
+        fname = "Booking-Confirmation-" + (editingId || "new") + ".pdf";
+    }
     const restore = () => { el.style.transform = prev; fitConfirmPreview(); };
     const go = () => html2pdf().set({
         margin: 0, filename: fname,
