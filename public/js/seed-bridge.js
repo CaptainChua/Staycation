@@ -37,7 +37,7 @@
   // keys that used to be browser-only: the first time the server copy is still
   // empty, migrate this browser's existing data UP instead of letting the empty
   // server value overwrite (and destroy) it.
-  var MIGRATE = ["shph_poolpass_v1", "shph_guestform_units", "shph_employee_nicole"];
+  var MIGRATE = ["shph_poolpass_v1", "shph_guestform_units", "shph_employee_nicole", "shph_partners"];
   var isShared = function (k) { return SHARED.indexOf(k) !== -1; };
   function isEmptyVal(v) {
     return v == null
