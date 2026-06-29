@@ -2564,10 +2564,20 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
     <div class="panel">
         <div class="panel-head">
             <h2><span class="sec-ico"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v5c0 5 3.4 8.3 8 10 4.6-1.7 8-5 8-10V6Z"/><path d="m9 12 2 2 4-4"/></svg></span>Security Deposit</h2>
+        </div>
+        <p class="muted" style="margin:0 0 14px;">Guests who <b>checked out</b> on the selected day and the security deposit to return. Use the quick filters, or pick any date.</p>
+        <div class="dep-toolbar">
+            <div class="seg" id="depSeg">
+                <button type="button" data-d="yesterday" onclick="setDepQuick('yesterday')">Yesterday</button>
+                <button type="button" data-d="today" class="active" onclick="setDepQuick('today')">Today</button>
+                <button type="button" data-d="month" onclick="setDepQuick('month')">This month</button>
+                <button type="button" data-d="custom" onclick="openDepRange(event)">Custom range</button>
+            </div>
             <div class="fin-date" style="display:flex; align-items:center; gap:8px;">Date
                 <div class="dp-wrap" style="position:relative;">
                     <span class="date-pill" id="depositDateLabel" onclick="openDepPicker(event)" title="Pick a date">Pick a date</span>
                     <input type="hidden" id="depositDate">
+                    <input type="hidden" id="depositDateEnd">
                     <div class="dp-popup" id="sdDpPopup" onclick="event.stopPropagation()">
                         <div class="dp-head">
                             <button type="button" onclick="sdPickerNav(-1)">‹</button>
@@ -2575,16 +2585,10 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
                             <button type="button" onclick="sdPickerNav(1)">›</button>
                         </div>
                         <div class="dp-grid" id="sdDpGrid"></div>
+                        <div class="dp-hint" id="sdDpHint"></div>
                         <div class="dp-foot"><span onclick="sdDpToday()">Today</span></div>
                     </div>
                 </div>
-            </div>
-        </div>
-        <p class="muted" style="margin:0 0 14px;">Guests who <b>checked out</b> on the selected day and the security deposit to return. Use the quick filters, or pick any date.</p>
-        <div class="dep-toolbar">
-            <div class="seg" id="depSeg">
-                <button type="button" data-d="yesterday" onclick="setDepQuick('yesterday')">Yesterday</button>
-                <button type="button" data-d="today" class="active" onclick="setDepQuick('today')">Today</button>
             </div>
         </div>
         <div style="overflow-x:auto;">
@@ -6605,16 +6609,15 @@ function renderDeposit(){
     const inp = document.getElementById("depositDate");
     if(!inp) return;
     if(!inp.value) inp.value = iso(today());
+    const endInp = document.getElementById("depositDateEnd");
+    const start = inp.value;
+    const end = (endInp && endInp.value) ? endInp.value : start;
     sdUpdateLabel();
-    const d = inp.value;
-    // keep the Yesterday/Today segment in sync with the chosen date
-    const todayIso = iso(today()), ydayIso = iso(addDays(today(), -1));
-    document.querySelectorAll("#depSeg button").forEach(x => {
-        const dv = x.dataset.d === "today" ? todayIso : ydayIso;
-        x.classList.toggle("active", d === dv);
-    });
+    // keep the quick-filter segment in sync with the chosen range
+    document.querySelectorAll("#depSeg button").forEach(x => x.classList.toggle("active", x.dataset.d === depQuick));
 
-    const list = bookings.filter(b => b.checkout === d).sort((a, b) => a.haven.localeCompare(b.haven));
+    const list = bookings.filter(b => b.checkout >= start && b.checkout <= end)
+        .sort((a, b) => (a.checkout || "").localeCompare(b.checkout || "") || a.haven.localeCompare(b.haven));
     const body = document.getElementById("depositBody");
     body.innerHTML = list.length ? list.map(b => {
         const dot = (HAVEN_COLORS[b.haven] || { am:"#ccc" }).am;
@@ -6642,7 +6645,7 @@ function renderDeposit(){
                 : ""}</td>
             <td>${statusCell}</td>
         </tr>`;
-    }).join("") : `<tr><td colspan="6" class="empty">No check-outs on this date.</td></tr>`;
+    }).join("") : `<tr><td colspan="6" class="empty">No check-outs in this period.</td></tr>`;
 
     const toReturn = list.reduce((s, b) => s + (b.depositReturned ? 0 : Number(b.deposit || 0)), 0);
     document.getElementById("depositTotal").innerHTML =
@@ -6650,7 +6653,11 @@ function renderDeposit(){
         `<div class="card"><h3>Deposit still to return</h3><div class="number money">${peso(toReturn)}</div></div>`;
 }
 function setDepQuick(which){
-    document.getElementById("depositDate").value = which === "today" ? iso(today()) : iso(addDays(today(), -1));
+    const di = document.getElementById("depositDate"), de = document.getElementById("depositDateEnd");
+    depQuick = which;
+    if(which === "month"){ di.value = iso(_depMonthStart()); de.value = iso(_depMonthEnd()); }
+    else if(which === "yesterday"){ di.value = iso(addDays(today(), -1)); de.value = ""; }
+    else { di.value = iso(today()); de.value = ""; }   // today
     renderDeposit();
 }
 // undo a return — clears the proof so re-marking requires a fresh photo
@@ -6772,12 +6779,29 @@ document.addEventListener("paste", e => {
         }
     }
 });
-/* Security Deposit: custom single-date picker (matches the other tabs) */
+/* Security Deposit: clickable date picker — single day, This month, or a custom range */
 let sdDpMonth = null;
+let depQuick = "today";                       // "yesterday" | "today" | "month" | "custom"
+let sdRangeMode = false, sdPendingStart = null;
+function _depMonthStart(){ const t = today(); return new Date(t.getFullYear(), t.getMonth(), 1); }
+function _depMonthEnd(){ const t = today(); return new Date(t.getFullYear(), t.getMonth() + 1, 0); }
 function openDepPicker(e){
     if(e) e.stopPropagation();
     const pop = document.getElementById("sdDpPopup");
     if(pop.classList.contains("show")){ closeDepPicker(); return; }
+    sdRangeMode = false; sdPendingStart = null;
+    const cur = document.getElementById("depositDate").value || iso(today());
+    const base = new Date(cur + "T00:00:00");
+    sdDpMonth = new Date(base.getFullYear(), base.getMonth(), 1);
+    sdRenderPicker();
+    pop.classList.add("show");
+}
+// open the same clickable calendar, but in range mode: click a start day, then an end day
+function openDepRange(e){
+    if(e) e.stopPropagation();
+    const pop = document.getElementById("sdDpPopup");
+    sdRangeMode = true; sdPendingStart = null;
+    depQuick = "custom";
     const cur = document.getElementById("depositDate").value || iso(today());
     const base = new Date(cur + "T00:00:00");
     sdDpMonth = new Date(base.getFullYear(), base.getMonth(), 1);
@@ -6790,7 +6814,12 @@ function sdRenderPicker(){
     const y = sdDpMonth.getFullYear(), m = sdDpMonth.getMonth();
     document.getElementById("sdDpTitle").textContent = MONTHS[m] + " " + y;
     const startDay = new Date(y, m, 1).getDay(), dim = new Date(y, m + 1, 0).getDate();
-    const sel = document.getElementById("depositDate").value, todayIso = iso(today());
+    const di = document.getElementById("depositDate").value;
+    const de = (document.getElementById("depositDateEnd") || {}).value;
+    const todayIso = iso(today());
+    // while picking a range, highlight only the pending start until the end is chosen
+    const rngS = (sdRangeMode && sdPendingStart) ? sdPendingStart : di;
+    const rngE = (sdRangeMode && sdPendingStart) ? sdPendingStart : (de || di);
     let html = "";
     ["Su","Mo","Tu","We","Th","Fr","Sa"].forEach(d => html += `<div class="dp-wd">${d}</div>`);
     for(let i = 0; i < startDay; i++) html += `<div class="dp-day empty"></div>`;
@@ -6798,23 +6827,42 @@ function sdRenderPicker(){
         const ci = iso(new Date(y, m, d));
         let cls = "dp-day";
         if(ci === todayIso) cls += " today";
-        if(ci === sel) cls += " sel";
+        if(ci === rngS || ci === rngE) cls += " sel";
+        else if(rngS && rngE && ci > rngS && ci < rngE) cls += " in-range";
         html += `<div class="${cls}" onclick="sdPickDay('${ci}')"><span class="n">${d}</span></div>`;
     }
     document.getElementById("sdDpGrid").innerHTML = html;
+    const hint = document.getElementById("sdDpHint");
+    if(hint) hint.textContent = sdRangeMode ? (sdPendingStart ? "Now pick the end date" : "Pick the start date") : "";
 }
 function sdPickDay(ci){
-    document.getElementById("depositDate").value = ci;
-    sdUpdateLabel();
-    closeDepPicker();
-    renderDeposit();
+    const di = document.getElementById("depositDate"), de = document.getElementById("depositDateEnd");
+    if(sdRangeMode){
+        if(!sdPendingStart){            // first click → start (keep popup open for the end date)
+            sdPendingStart = ci; di.value = ci; de.value = ci;
+            sdUpdateLabel(); sdRenderPicker();
+            return;
+        }
+        let s = sdPendingStart, en = ci;                 // second click → finalize
+        if(en < s){ const t = s; s = en; en = t; }       // allow picking end before start
+        di.value = s; de.value = en;
+        sdPendingStart = null; sdRangeMode = false;
+        depQuick = "custom";
+        sdUpdateLabel(); closeDepPicker(); renderDeposit();
+        return;
+    }
+    di.value = ci; de.value = "";       // single day
+    depQuick = (ci === iso(today())) ? "today" : (ci === iso(addDays(today(), -1)) ? "yesterday" : "custom");
+    sdUpdateLabel(); closeDepPicker(); renderDeposit();
 }
 function sdUpdateLabel(){
     const lbl = document.getElementById("depositDateLabel");
+    if(!lbl) return;
     const v = document.getElementById("depositDate").value;
-    if(lbl) lbl.textContent = v ? fmt(v) : "Pick a date";
+    const e = (document.getElementById("depositDateEnd") || {}).value;
+    lbl.textContent = !v ? "Pick a date" : (e && e !== v ? fmt(v) + " – " + fmt(e) : fmt(v));
 }
-function sdDpToday(){ sdPickDay(iso(today())); }
+function sdDpToday(){ sdRangeMode = false; sdPendingStart = null; setDepQuick("today"); closeDepPicker(); }
 document.addEventListener("click", e => {
     const pop = document.getElementById("sdDpPopup");
     if(pop && pop.classList.contains("show") && !e.target.closest(".dp-wrap")) closeDepPicker();
