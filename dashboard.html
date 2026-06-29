@@ -1494,13 +1494,15 @@ tr.row-cancelled td:nth-child(2){ text-decoration:line-through; }
     white-space:nowrap; overflow:hidden; box-sizing:border-box;
 }
 input.gf-ov:focus{ outline:none; background:#fff7cc; }
+input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fields are editable */
 .gf-ov.sign{ font-family:"Segoe Script","Brush Script MT",cursive; font-size:2.3cqw; color:#0b1f63; }
 .gf-ov.big{ font-family:Arial, sans-serif; font-weight:800; font-size:3.3cqw; }
-/* page-2 IDs overlay */
-.gf-ids{ position:absolute; left:6%; right:6%; top:8%; display:flex; flex-direction:column; align-items:center; gap:2.2cqw; }
-.gf-idphoto{ position:relative; width:100%; display:flex; justify-content:center; }
-.gf-idphoto img{ max-width:90%; max-height:40cqw; object-fit:contain; border:1px solid #bbb; }
-.gf-idphoto .gf-rm{ position:absolute; top:4px; right:7%; }
+/* page-2 IDs overlay — photos are drag-moveable & resizable */
+.gf-ids{ position:absolute; inset:0; pointer-events:none; }            /* container doesn't block clicks */
+.gf-idphoto{ position:absolute; pointer-events:auto; cursor:move; border:1px solid #bbb; box-shadow:0 1px 4px rgba(0,0,0,.15); }
+.gf-idphoto img{ width:100%; height:auto; display:block; pointer-events:none; }
+.gf-idphoto .gf-rm{ position:absolute; top:4px; right:4px; padding:3px 8px; font-size:11px; }
+.gf-idphoto .gf-resize{ position:absolute; right:-8px; bottom:-8px; width:18px; height:18px; background:#bd6e3f; border:2px solid #fff; border-radius:50%; cursor:nwse-resize; box-shadow:0 1px 3px rgba(0,0,0,.3); }
 @media print{
     @page{ size:A4; margin:0; }
     body{ padding:0 !important; background:#fff !important; }
@@ -1510,8 +1512,9 @@ input.gf-ov:focus{ outline:none; background:#fff7cc; }
     .gf-doc{ gap:0; }
     .gf-page{ box-shadow:none; border:none; width:100%; page-break-after:always; }
     .gf-page:last-child{ page-break-after:auto; }
-    input.gf-ov:focus{ background:transparent; }
-    .gf-idphoto .gf-rm{ display:none !important; }
+    input.gf-ov:focus, input.gf-ov:hover{ background:transparent; }
+    .gf-idphoto{ box-shadow:none; }
+    .gf-idphoto .gf-rm, .gf-idphoto .gf-resize{ display:none !important; }
 }
 </style>
 <div class="page" id="page-guestform">
@@ -6101,6 +6104,7 @@ function showPage(page){
 
 /* ---------- Guest Form (overlay on the original M Place form image) ---------- */
 let gfIdPhotos = [];                  // data-URL photos of the guests' IDs (page 2)
+let gfIdLayout = [];                  // per-photo {x,y,w} placement on the page (% — form-only)
 let gfBookingId = null;              // the booking these IDs belong to (so they persist)
 const GF_OWNER_DEFAULT = "Pia Carla Salamat";
 const GF_CONTACT = "0945 693 5211";            // always the owner's contact
@@ -6307,6 +6311,7 @@ function gfFill(b){
     // load this booking's saved ID photos so they're shown (and stay persisted)
     gfBookingId = b.id;
     gfIdPhotos = Array.isArray(b.ids) ? b.ids.slice() : [];
+    gfIdLayout = [];   // reset placement for the newly loaded set
     gfRenderIds();
 }
 
@@ -6333,7 +6338,7 @@ function gfClear(){
     gfSetUnit2("");                       // clear the page-2 UNIT # too
     gfRenderGuestRows([]);
     gfBookingId = null;
-    gfIdPhotos = []; gfRenderIds();
+    gfIdPhotos = []; gfIdLayout = []; gfRenderIds();
     const msg = document.getElementById("gf_pickMsg"); if(msg) msg.textContent = "";
 }
 
@@ -6359,18 +6364,59 @@ function gfAddIdPhotos(ev){
     ev.target.value = "";   // allow re-selecting the same file
 }
 
+// default placement: stacked down the page, centred
+function gfDefaultLayout(i){ return { x:18, y:9 + i * 32, w:64 }; }
 function gfRenderIds(){
     const box = document.getElementById("gf_idGallery");
     if(!box) return;
-    box.innerHTML = gfIdPhotos.map((src, i) =>
-        `<div class="gf-idphoto">
-            <img src="${src}" alt="Guest ID">
-            <button class="btn secondary gf-rm" onclick="gfRemoveId(${i})">✕ remove</button>
-        </div>`).join("");
+    box.innerHTML = gfIdPhotos.map((src, i) => {
+        const lay = gfIdLayout[i] || (gfIdLayout[i] = gfDefaultLayout(i));
+        return `<div class="gf-idphoto" id="gfIdPhoto_${i}" style="left:${lay.x}%; top:${lay.y}%; width:${lay.w}%;" onmousedown="gfPhotoDragStart(event, ${i})">
+            <img src="${src}" alt="Guest ID" draggable="false">
+            <button class="btn secondary gf-rm" onmousedown="event.stopPropagation()" onclick="gfRemoveId(${i})">✕ remove</button>
+            <span class="gf-resize" onmousedown="gfPhotoResizeStart(event, ${i})" title="Drag to resize"></span>
+        </div>`;
+    }).join("");
+}
+// drag a photo to move it
+function gfPhotoDragStart(e, i){
+    if(e.target.classList.contains("gf-resize")) return;
+    e.preventDefault();
+    const page = document.getElementById("gfPage2");
+    const rect = page.getBoundingClientRect();
+    const lay = Object.assign({}, gfIdLayout[i] || gfDefaultLayout(i));
+    const sx = e.clientX, sy = e.clientY;
+    const el = document.getElementById("gfIdPhoto_" + i);
+    function move(ev){
+        const x = lay.x + (ev.clientX - sx) / rect.width * 100;
+        const y = lay.y + (ev.clientY - sy) / rect.height * 100;
+        gfIdLayout[i] = { x, y, w: lay.w };
+        if(el){ el.style.left = x + "%"; el.style.top = y + "%"; }
+    }
+    function up(){ document.removeEventListener("mousemove", move); document.removeEventListener("mouseup", up); }
+    document.addEventListener("mousemove", move);
+    document.addEventListener("mouseup", up);
+}
+// drag the corner handle to resize a photo
+function gfPhotoResizeStart(e, i){
+    e.preventDefault(); e.stopPropagation();
+    const page = document.getElementById("gfPage2");
+    const rect = page.getBoundingClientRect();
+    const lay = Object.assign({}, gfIdLayout[i] || gfDefaultLayout(i));
+    const sx = e.clientX;
+    const el = document.getElementById("gfIdPhoto_" + i);
+    function move(ev){
+        const w = Math.max(10, Math.min(95, lay.w + (ev.clientX - sx) / rect.width * 100));
+        gfIdLayout[i] = { x: lay.x, y: lay.y, w };
+        if(el) el.style.width = w + "%";
+    }
+    function up(){ document.removeEventListener("mousemove", move); document.removeEventListener("mouseup", up); }
+    document.addEventListener("mousemove", move);
+    document.addEventListener("mouseup", up);
 }
 
 // form-only: removes the photo from THIS print view, but NOT from the booking
-function gfRemoveId(i){ gfIdPhotos.splice(i, 1); gfRenderIds(); }
+function gfRemoveId(i){ gfIdPhotos.splice(i, 1); gfIdLayout.splice(i, 1); gfRenderIds(); }
 
 /* ---------- Assist: towels to place per haven ---------- */
 function renderAssist(){
