@@ -505,6 +505,12 @@
         <button class="view-tab" data-view="tomorrow" onclick="setView('tomorrow')">Tomorrow</button>
         <button class="view-tab" data-view="week" onclick="setView('week')">This week</button>
       </div>
+      <div id="tbRange" style="display:none; align-items:center; gap:6px;" title="Admin only — pick any date range">
+        <input type="date" id="tbFrom" style="border:1px solid var(--hv-line); border-radius:8px; padding:7px 9px; font-family:inherit; font-size:13px; background:#fff;">
+        <span style="color:var(--hv-muted);">–</span>
+        <input type="date" id="tbTo" style="border:1px solid var(--hv-line); border-radius:8px; padding:7px 9px; font-family:inherit; font-size:13px; background:#fff;">
+        <button class="btn" style="padding:8px 14px;" onclick="applyCustomRange()">Apply</button>
+      </div>
       <button class="btn secondary" onclick="renderToday()">↻ Refresh</button>
     </div>
   </div>
@@ -866,7 +872,8 @@
   let bookings = loadBookings();
 
   /* ---------- render ---------- */
-  let currentView = "today"; // today | tomorrow | week | month
+  let currentView = "today"; // today | tomorrow | week | month | custom
+  let customStart = null, customEnd = null;   // admin date-range picker (iso "YYYY-MM-DD")
 
   // [start, end) iso date range for the chosen view
   function viewRange(){
@@ -875,7 +882,19 @@
     if(currentView === "tomorrow"){ const d = addDays(t0, 1); return { start: iso(d), end: iso(addDays(d, 1)) }; }
     if(currentView === "week"){ const s = addDays(t0, -t0.getDay()); return { start: iso(s), end: iso(addDays(s, 7)) }; }
     if(currentView === "month"){ const s = new Date(t0.getFullYear(), t0.getMonth(), 1); const e = new Date(t0.getFullYear(), t0.getMonth() + 1, 1); return { start: iso(s), end: iso(e) }; }
+    if(currentView === "custom" && customStart && customEnd){ return { start: customStart, end: iso(addDays(new Date(customEnd + "T00:00:00"), 1)) }; }   // end inclusive
     return { start: iso(t0), end: iso(addDays(t0, 1)) };
+  }
+  // admin-only: apply a custom From–To range
+  function applyCustomRange(){
+    const f = document.getElementById("tbFrom").value;
+    const t = document.getElementById("tbTo").value;
+    if(!f || !t){ alert("Pick both a From and a To date."); return; }
+    if(f > t){ alert("The From date must be on or before the To date."); return; }
+    customStart = f; customEnd = t; currentView = "custom";
+    document.querySelectorAll(".view-tab").forEach(b => b.classList.remove("active"));
+    try{ localStorage.setItem("shph_today_view", "custom"); localStorage.setItem("shph_today_custom", JSON.stringify({ f, t })); }catch(e){}
+    renderToday();
   }
   // classify a booking against a date range [start, end)
   function rangeInfo(b, start, end){
@@ -931,7 +950,8 @@
     const single = (currentView === "today" || currentView === "tomorrow" || currentView === "yesterday");
     const suffix = currentView === "today" ? "today" : currentView === "tomorrow" ? "tomorrow"
                  : currentView === "yesterday" ? "yesterday"
-                 : currentView === "week" ? "this week" : "this month";
+                 : currentView === "week" ? "this week"
+                 : currentView === "custom" ? "selected range" : "this month";
 
     const lastDay = iso(addDays(new Date(end + "T00:00:00"), -1));
     document.getElementById("todayDateLabel").textContent = single
@@ -1721,9 +1741,19 @@
   // restore the last-selected view (Yesterday/Today/Tomorrow/Week/Month) across refreshes
   (function restoreView(){
     const saved = localStorage.getItem("shph_today_view");
-    const valid = ["yesterday","today","tomorrow","week","month"];
+    const valid = ["yesterday","today","tomorrow","week","month","custom"];
     if(saved && valid.includes(saved)) currentView = saved;
+    if(currentView === "custom"){
+      try{ const c = JSON.parse(localStorage.getItem("shph_today_custom") || "null"); if(c && c.f && c.t){ customStart = c.f; customEnd = c.t; } else { currentView = "today"; } }catch(e){ currentView = "today"; }
+    }
+    if(currentView === "custom" && !IS_ADMIN) currentView = "today";   // range picker is admin-only
     document.querySelectorAll(".view-tab").forEach(t => t.classList.toggle("active", t.dataset.view === currentView));
+    // show the admin-only date range picker
+    if(IS_ADMIN){
+      const r = document.getElementById("tbRange");
+      if(r) r.style.display = "flex";
+      if(customStart){ const ff = document.getElementById("tbFrom"); const tt = document.getElementById("tbTo"); if(ff) ff.value = customStart; if(tt) tt.value = customEnd; }
+    }
   })();
   renderToday();
   renderTodayLog();   // admin-only activity log below the lists
