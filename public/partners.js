@@ -290,7 +290,7 @@ function prRenderBookings(){
 function applyPartnerChrome(){
     const ps = window.__PARTNER__;
     if(!ps) return;
-    const MAIN = ["today", "calendar"];                          // stay under the "Main" header
+    const MAIN = ["today", "calendar", "deposit"];               // stay under the "Main" header
     const DASH = ["analytics", "finance", "bills", "expenses"];  // move under a new "Dashboard" header
     const BOARD = ["board"];                                     // move under a new "Board" header
     const ALLOW = MAIN.concat(DASH).concat(BOARD);
@@ -316,6 +316,11 @@ function applyPartnerChrome(){
     };
     buildGroup("partnerDashGroup", "Dashboard", DASH);
     buildGroup("partnerBoardGroup", "Board", BOARD);
+
+    // Security Deposit belongs under MAIN — move it next to Calendar/Bookings
+    const _dep = sb && sb.querySelector('.nav-item[data-page="deposit"]');
+    const _cal = sb && sb.querySelector('.nav-item[data-page="calendar"]');
+    if(_dep && _cal){ _dep.style.display = "flex"; _cal.insertAdjacentElement("afterend", _dep); }
 
     // put a "PARTNERS" label under the logo
     const brand = document.querySelector(".sidebar .brand");
