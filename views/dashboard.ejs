@@ -3506,7 +3506,9 @@ let bookings = load();
 if(new URLSearchParams(location.search).get("mode") === "partner"){
     let _ps = null;
     try{ _ps = JSON.parse(localStorage.getItem("shph_partner_session") || "null"); }catch(e){}
-    if(_ps && _ps.haven){
+    if(_ps && _ps.superAdmin){
+        window.__PARTNER__ = _ps;                       // super admin: every haven, no filter
+    } else if(_ps && _ps.haven){
         window.__PARTNER__ = _ps;
         bookings = bookings.filter(b => b.haven === _ps.haven);
     } else {

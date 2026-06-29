@@ -309,12 +309,16 @@ function applyPartnerChrome(){
 
     // identity + hide admin-only chrome
     const ab = document.getElementById("addBookingBtn"); if(ab) ab.style.display = "none";
-    const ul = document.getElementById("currentUserLabel"); if(ul) ul.textContent = "Partner: " + ps.name + " · " + ps.haven;
-
-    // lock the haven filters to the partner's haven and hide the pickers
-    try{ calHaven = ps.haven; }catch(e){}
-    const ch = document.getElementById("calHavenFilter"); if(ch) ch.style.display = "none";
-    const fh = document.getElementById("filterHaven"); if(fh) fh.style.display = "none";
+    const ul = document.getElementById("currentUserLabel");
+    if(ps.superAdmin){
+        // super admin: see ALL havens; keep the haven pickers usable to filter
+        if(ul) ul.textContent = "Partner Super Admin: " + ps.name + " · all havens";
+    } else {
+        if(ul) ul.textContent = "Partner: " + ps.name + " · " + ps.haven;
+        try{ calHaven = ps.haven; }catch(e){}
+        const ch = document.getElementById("calHavenFilter"); if(ch) ch.style.display = "none";
+        const fh = document.getElementById("filterHaven"); if(fh) fh.style.display = "none";
+    }
 
     // read-only: row/bar clicks open the View (never the editor); block any save
     try{ if(typeof viewBooking === "function") openModal = function(id){ viewBooking(id); }; }catch(e){}

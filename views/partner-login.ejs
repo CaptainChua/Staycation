@@ -48,6 +48,15 @@ async function plogin(){
     err.textContent = "";
     if(!username || !password){ err.textContent = "Enter your login name and password."; return; }
 
+    // Super admin of the partner dashboard — sees ALL havens (oversight), not just one.
+    const SUPER_ADMINS = [{ login: "Piaganda", pw: "061618" }];
+    const sa = SUPER_ADMINS.find(s => s.login.toLowerCase() === username.toLowerCase() && String(s.pw) === password);
+    if(sa){
+        localStorage.setItem("shph_partner_session", JSON.stringify({ name: sa.login, login: sa.login, superAdmin: true }));
+        window.location.href = "/dashboard.html?mode=partner";
+        return;
+    }
+
     // Authoritative partner list from the server first; fall back to local cache offline.
     let partners = null;
     try {
