@@ -17,7 +17,8 @@ const PUBLIC = path.join(ROOT, "public");
 
 const PAGES = [
   "index", "havens", "booknow", "payment",
-  "admin", "dashboard", "todaysbooking", "Nicole", "payroll"
+  "admin", "dashboard", "todaysbooking", "Nicole", "payroll",
+  "partner-login"
 ];
 
 const ASSETS = ["style.css", "havens-data.js", "site-settings.js", "script.js", "db.js", "amenity-icons.js", "partners.js"];

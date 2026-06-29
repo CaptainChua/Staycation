@@ -13,7 +13,16 @@
   #page-prrooms .cal-nav{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
   #page-prrooms #prRoomFilter{ min-width:140px; }
   #page-prrooms .bar{ border-radius:8px; font-size:12px; font-weight:600; }
-  @media(max-width:680px){ .pt-form{ grid-template-columns:1fr; } }
+  /* Partner logins (Users page) */
+  .pl-row{ display:grid; grid-template-columns:1.3fr 1fr 1fr auto; gap:10px; align-items:center; padding:10px 0; border-bottom:1px solid var(--hv-line); }
+  #partnerLoginsList input{ padding:9px 11px; border:1px solid var(--hv-line); border-radius:8px; background:#faf6ee; font-family:inherit; font-size:13.5px; }
+  #partnerLoginsList .btn{ padding:9px 16px; }
+  @media(max-width:680px){ .pt-form{ grid-template-columns:1fr; } .pl-row{ grid-template-columns:1fr 1fr; } }
+  /* Partner DASHBOARD mode (dashboard.html?mode=partner) — read-only chrome */
+  body.partner-mode #addBookingBtn{ display:none !important; }
+  body.partner-mode .actions .cancel,
+  body.partner-mode .actions .del{ display:none !important; }
+  body.partner-mode #cancelledPanel{ display:none !important; }
 </style>
 
 <!-- Partner List -->

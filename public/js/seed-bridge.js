@@ -31,7 +31,8 @@
     "shph_guestform_units",
     "shph_employee_nicole",
     "shph_users",
-    "shph_activity_log"
+    "shph_activity_log",
+    "shph_partners"
   ];
   // keys that used to be browser-only: the first time the server copy is still
   // empty, migrate this browser's existing data UP instead of letting the empty

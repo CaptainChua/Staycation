@@ -145,7 +145,8 @@ app.use("/api", apiRouter);
 // Every page that has real content. Empty placeholder files are skipped.
 const PAGES = [
   "index", "havens", "booknow", "payment",
-  "admin", "dashboard", "todaysbooking", "Nicole", "payroll"
+  "admin", "dashboard", "todaysbooking", "Nicole", "payroll",
+  "partner-login"
 ];
 
 function renderPage(name) {

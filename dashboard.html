@@ -2526,6 +2526,14 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
         <p class="muted" style="margin-bottom:16px;">Each user logs in at the admin page with their username &amp; password. Tick the pages they're allowed to open; admins get everything plus this Users page.</p>
         <div id="usersList"></div>
     </div>
+    <!-- Partner logins (markup hook; rendered by partners.js renderPartnerLogins) -->
+    <div class="panel" id="partnerLoginsPanel" style="margin-top:20px;">
+        <div class="panel-head">
+            <h2>Partner Logins <span class="muted">— usernames &amp; passwords for the partner dashboard</span></h2>
+        </div>
+        <p class="muted" style="margin-bottom:14px;">Each partner logs in at <b>/partner-login</b> and sees only their own haven (view-only). Edit a partner's full details in the Partners section.</p>
+        <div id="partnerLoginsList"></div>
+    </div>
 </div>
 
 <!-- ===== Security Deposit ===== -->
@@ -3490,6 +3498,19 @@ function seedData(){
 }
 
 let bookings = load();
+/* Partner mode (read-only, single haven): a logged-in partner sees ONLY their
+   haven. Filtering the bookings array here scopes EVERY view (stats, calendar,
+   table). Chrome/lockdown lives in partners.js (applyPartnerChrome). */
+if(new URLSearchParams(location.search).get("mode") === "partner"){
+    let _ps = null;
+    try{ _ps = JSON.parse(localStorage.getItem("shph_partner_session") || "null"); }catch(e){}
+    if(_ps && _ps.haven){
+        window.__PARTNER__ = _ps;
+        bookings = bookings.filter(b => b.haven === _ps.haven);
+    } else {
+        location.replace("/partner-login");
+    }
+}
 let rangeStart = today();
 let viewMode = "week";   // "today" | "week" | "custom" — remembered across refreshes
 let calHaven = "";       // calendar haven filter ("" = all havens)
@@ -6066,7 +6087,10 @@ function saveBooking(){
     renderAll();
 }
 
-function logout(){ logActivity("logged out"); localStorage.removeItem("shph_current_user"); window.location.href = "/admin.html"; }
+function logout(){
+    if(window.__PARTNER__){ localStorage.removeItem("shph_partner_session"); window.location.href = "/partner-login"; return; }
+    logActivity("logged out"); localStorage.removeItem("shph_current_user"); window.location.href = "/admin.html";
+}
 
 /* ---------- sidebar navigation ---------- */
 function showPage(page){
@@ -9612,11 +9636,14 @@ function currentPerms(){
     return u.perms || [];
 }
 function pageAllowed(page){
+    if(window.__PARTNER__) return page === "today" || page === "calendar";   // partner: only these
     if(page === "users") return isAdminUser();
     return currentPerms().includes(page);
 }
 // hide nav items the current user can't access; redirect off a disallowed page
 function applyPermissions(){
+    // partner mode is driven entirely by partners.js (no admin user required)
+    if(window.__PARTNER__){ if(typeof applyPartnerChrome === "function") applyPartnerChrome(); return; }
     // no recognised logged-in user → send to the login page instead of revealing anything
     if(!currentUserObj()){ window.location.href = "/admin.html"; return; }
     const perms = currentPerms();

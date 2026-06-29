@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<%- include('partials/seed') %>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Partner Login - Staycation Haven PH</title>
+    <link rel="icon" href="images/logo.png">
+    <style>
+        *{ margin:0; padding:0; box-sizing:border-box; font-family:'Mulish',Arial,sans-serif; }
+        body{ background:#f3ece1; display:flex; justify-content:center; align-items:center; min-height:100vh; padding:20px; }
+        .login-box{ background:#fff; padding:40px; border-radius:20px; width:400px; max-width:100%; box-shadow:0 14px 40px rgba(80,60,30,.12); }
+        .brand{ display:flex; align-items:center; gap:10px; justify-content:center; margin-bottom:8px; }
+        .brand img{ width:42px; height:42px; border-radius:9px; object-fit:cover; }
+        .brand b{ font-size:18px; color:#3a2f25; }
+        h1{ text-align:center; font-size:20px; margin:18px 0 4px; color:#3a2f25; }
+        p.sub{ text-align:center; color:#8a7d6e; font-size:13px; margin-bottom:24px; }
+        label{ display:block; font-size:12px; color:#8a7d6e; margin:0 0 5px 2px; }
+        input{ width:100%; padding:14px; margin-bottom:15px; border:1px solid #e4d9c7; border-radius:10px; background:#faf6ee; font-size:14px; }
+        input:focus{ outline:none; border-color:#c08457; }
+        button{ width:100%; padding:14px; border:none; background:#c0704a; color:#fff; border-radius:10px; cursor:pointer; font-size:15px; font-weight:700; }
+        button:hover{ background:#a85f3c; }
+        .err{ color:#c0283d; font-size:13px; text-align:center; min-height:18px; margin-bottom:8px; }
+    </style>
+</head>
+<body>
+    <div class="login-box">
+        <div class="brand">
+            <img src="images/logo.png" alt="" onerror="this.style.display='none'">
+            <b>Staycation Haven PH</b>
+        </div>
+        <h1>Partner Login</h1>
+        <p class="sub">Sign in to view your haven's bookings.</p>
+        <div class="err" id="err"></div>
+        <label>Login name</label>
+        <input type="text" id="username" placeholder="username" autocomplete="off" onkeydown="if(event.key==='Enter') plogin()">
+        <label>Password</label>
+        <input type="password" id="password" placeholder="password" onkeydown="if(event.key==='Enter') plogin()">
+        <button onclick="plogin()">Log in</button>
+    </div>
+
+<script>
+async function plogin(){
+    const username = document.getElementById("username").value.trim();
+    const password = document.getElementById("password").value;
+    const err = document.getElementById("err");
+    err.textContent = "";
+    if(!username || !password){ err.textContent = "Enter your login name and password."; return; }
+
+    // Authoritative partner list from the server first; fall back to local cache offline.
+    let partners = null;
+    try {
+        const res = await fetch("/api/kv/shph_partners", { cache: "no-store" });
+        if(res.ok){ const j = await res.json(); if(Array.isArray(j)) partners = j; }
+    } catch(e){ /* offline */ }
+    if(partners === null){
+        try { partners = JSON.parse(localStorage.getItem("shph_partners")) || []; } catch(e){ partners = []; }
+    } else {
+        try { localStorage.setItem("shph_partners", JSON.stringify(partners)); } catch(e){}
+    }
+
+    const match = partners.find(p =>
+        (p.login || "").trim() !== "" &&
+        (p.login || "").toLowerCase() === username.toLowerCase() &&
+        String(p.pw || "") === password);
+
+    if(!match){ err.textContent = "Invalid login. Check with the admin if unsure."; return; }
+    if(!match.haven){ err.textContent = "No haven is assigned to your account yet. Please contact the admin."; return; }
+
+    localStorage.setItem("shph_partner_session", JSON.stringify({
+        id: match.id, name: match.name, login: match.login, haven: match.haven
+    }));
+    window.location.href = "/dashboard.html?mode=partner";
+}
+</script>
+</body>
+</html>

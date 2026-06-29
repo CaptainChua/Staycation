@@ -282,6 +282,80 @@ function prRenderBookings(){
 }
 
 /* ============================================================
+   Partner DASHBOARD MODE (read-only, single haven)
+   Entered when dashboard.html runs as /dashboard.html?mode=partner.
+   dashboard.html has already filtered `bookings` to the partner's haven
+   and set window.__PARTNER__. Here we lock down the chrome.
+   ============================================================ */
+function applyPartnerChrome(){
+    const ps = window.__PARTNER__;
+    if(!ps) return;
+    const ALLOW = ["today", "calendar"];   // the only pages a partner can open
+
+    // sidebar: show only the allowed items, hide every empty group
+    document.querySelectorAll(".sidebar .nav-item").forEach(n => {
+        n.style.display = ALLOW.includes(n.dataset.page) ? "flex" : "none";
+    });
+    document.querySelectorAll(".sidebar .nav-group").forEach(g => {
+        let sib = g.nextElementSibling, any = false;
+        while(sib && !(sib.classList && sib.classList.contains("nav-group"))){
+            if(sib.classList && sib.classList.contains("nav-item") && sib.style.display !== "none"){ any = true; break; }
+            sib = sib.nextElementSibling;
+        }
+        g.style.display = any ? "" : "none";
+    });
+    const sb = document.querySelector(".sidebar"); if(sb) sb.classList.remove("perms-pending");
+    document.body.classList.add("partner-mode");
+
+    // identity + hide admin-only chrome
+    const ab = document.getElementById("addBookingBtn"); if(ab) ab.style.display = "none";
+    const ul = document.getElementById("currentUserLabel"); if(ul) ul.textContent = "Partner: " + ps.name + " · " + ps.haven;
+
+    // lock the haven filters to the partner's haven and hide the pickers
+    try{ calHaven = ps.haven; }catch(e){}
+    const ch = document.getElementById("calHavenFilter"); if(ch) ch.style.display = "none";
+    const fh = document.getElementById("filterHaven"); if(fh) fh.style.display = "none";
+
+    // read-only: row/bar clicks open the View (never the editor); block any save
+    try{ if(typeof viewBooking === "function") openModal = function(id){ viewBooking(id); }; }catch(e){}
+    try{ save = function(){}; }catch(e){}
+    try{ window.save = function(){}; }catch(e){}
+
+    // land on Today's Booking (or the last allowed page)
+    let start = "today";
+    try{ const sv = localStorage.getItem("shph_dashboard_page"); if(ALLOW.includes(sv)) start = sv; }catch(e){}
+    if(typeof showPage === "function") showPage(start);
+}
+
+/* ---------- Users page: Partner Logins section (admin-only) ---------- */
+function renderPartnerLogins(){
+    const el = document.getElementById("partnerLoginsList");
+    if(!el) return;
+    const list = loadPartners();
+    if(!list.length){
+        el.innerHTML = '<p class="muted" style="margin:0;">No partners yet. Add them in the Partners section.</p>';
+        return;
+    }
+    el.innerHTML = list.map(p => `<div class="pl-row">
+        <div class="pl-who"><strong>${escHtml(p.name)}</strong>${p.haven ? ' <span class="muted">· ' + escHtml(p.haven) + '</span>' : ' <span class="muted">· no haven set</span>'}</div>
+        <input type="text" id="pl_login_${p.id}" value="${escAttr(p.login || "")}" placeholder="username" autocomplete="off">
+        <input type="text" id="pl_pw_${p.id}" value="${escAttr(p.pw || "")}" placeholder="password" autocomplete="off">
+        <button class="btn" onclick="savePartnerLogin(${p.id})">Save</button>
+    </div>`).join("");
+}
+function savePartnerLogin(id){
+    const list = loadPartners();
+    const i = list.findIndex(p => p.id === id);
+    if(i < 0) return;
+    list[i].login = document.getElementById("pl_login_" + id).value.trim();
+    list[i].pw = document.getElementById("pl_pw_" + id).value;
+    savePartnersStore(list);
+    if(typeof logActivity === "function") logActivity("updated partner login for " + list[i].name);
+    const btn = event && event.target;
+    if(btn){ const t = btn.textContent; btn.textContent = "Saved ✓"; setTimeout(() => { btn.textContent = t; }, 1200); }
+}
+
+/* ============================================================
    Register the Partners pages into the dashboard shell.
    Runs once, right after this script loads (main script already ran).
    ============================================================ */
@@ -290,6 +364,7 @@ function partnersOnShowPage(page){
     else if(page === "commissions") renderCommissions();
     else if(page === "partnerbookings") renderPartnerBookings();
     else if(page === "prrooms") renderPrRooms();
+    else if(page === "users") renderPartnerLogins();
 }
 
 (function registerPartners(){
@@ -298,7 +373,8 @@ function partnersOnShowPage(page){
         { key:"addpartner",      label:"Add Partner" },
         { key:"commissions",     label:"Commissions" },
         { key:"partnerbookings", label:"Bookings by Partner" },
-        { key:"prrooms",         label:"PR-Rooms" }
+        { key:"prrooms",         label:"PR-Rooms" },
+        { key:"partnerdash",     label:"Partner Dashboard" }   // nav item only — navigates to /partner-login
     ];
     // 1) access-control registry
     if(typeof DASH_PAGES !== "undefined" && Array.isArray(DASH_PAGES)){
@@ -314,10 +390,14 @@ function partnersOnShowPage(page){
         prrooms:["Partners","PR-Rooms"]
     };
     // 3) re-apply permissions so the (now-registered) Partners nav reveals
+    //    (in partner mode this runs applyPartnerChrome and lands on Today)
     if(typeof applyPermissions === "function") applyPermissions();
     // 4) if the last-open page was a Partners page, restore it now that it's registered
-    try{
-        const saved = localStorage.getItem("shph_dashboard_page");
-        if(saved && pages.some(p => p.key === saved) && typeof showPage === "function") showPage(saved);
-    }catch(e){}
+    //    (skipped in partner mode — chrome already chose the page)
+    if(!window.__PARTNER__){
+        try{
+            const saved = localStorage.getItem("shph_dashboard_page");
+            if(saved && pages.some(p => p.key === saved) && typeof showPage === "function") showPage(saved);
+        }catch(e){}
+    }
 })();
