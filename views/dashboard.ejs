@@ -6323,15 +6323,14 @@ function gfPersistIds(){
     confirmBookingSaved(gfBookingId);   // verify it reached the server, warn if not
 }
 
-// reset the form back to blanks (keeps remembered unit numbers)
+// reset the form to blanks — including the Date and Unit No. & Tower
 function gfClear(){
-    ["gff_movein","gff_moveout","gff_days"]
+    ["gff_date","gff_unit","gff_movein","gff_moveout","gff_days"]
         .forEach(id => { const el = document.getElementById(id); if(el) el.value = ""; });
     const set = (id, v) => { const el = document.getElementById(id); if(el) el.value = v; };
     set("gff_owner", GF_OWNER_DEFAULT);
-    set("gff_date", gfTodayLabel());     // always today
-    set("gff_contact", GF_CONTACT);      // always the fixed contact
-    gfHavenChanged();                    // re-apply the fixed unit for the current haven
+    set("gff_contact", GF_CONTACT);      // contact stays (always the fixed number)
+    gfSetUnit2("");                       // clear the page-2 UNIT # too
     gfRenderGuestRows([]);
     gfBookingId = null;
     gfIdPhotos = []; gfRenderIds();
@@ -6342,16 +6341,19 @@ function gfClear(){
 function gfAddIdPhotos(ev){
     const files = Array.from(ev.target.files || []);
     if(files.length && gfBookingId == null){
-        alert("Pick a Haven + date and click “Load booking” first — then the ID photos save to that booking (and won't be lost).");
-        ev.target.value = ""; return;
+        // not blocking — just a heads-up that they won't be saved without a booking
+        const msg = document.getElementById("gf_pickMsg");
+        if(msg) msg.textContent = "Tip: Load a booking first so the IDs save to it (still shown for printing).";
     }
+    const add = dataUrl => { if(!dataUrl) return; gfIdPhotos.push(dataUrl); gfRenderIds(); gfPersistIds(); };
     files.forEach(file => {
-        if(!/^image\//.test(file.type)) return;
-        compressImageTo(file, idMaxBytes, dataUrl => {   // shrink to ~2MB to save storage
-            if(!dataUrl) return;
-            gfIdPhotos.push(dataUrl);
-            gfRenderIds();
-            gfPersistIds();   // save onto the loaded booking right away
+        if(file.type && !/^image\//.test(file.type)) return;   // allow empty type (e.g. HEIC)
+        compressImageTo(file, idMaxBytes, dataUrl => {
+            if(dataUrl){ add(dataUrl); return; }
+            // compression couldn't decode it → keep the original so it's never lost
+            const r = new FileReader();
+            r.onload = e => add(e.target.result);
+            r.readAsDataURL(file);
         });
     });
     ev.target.value = "";   // allow re-selecting the same file
