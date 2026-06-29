@@ -1257,6 +1257,7 @@ tr.row-cancelled td:nth-child(2){ text-decoration:line-through; }
     <div class="nav-item" data-page="partners" onclick="showPage('partners')"><span class="ico"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 5.5a3 3 0 0 1 0 6M21.5 20a6.5 6.5 0 0 0-4.5-6.2"/></svg></span> Partner List</div>
     <div class="nav-item" data-page="commissions" onclick="showPage('commissions')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M19 5 5 19"/><circle cx="7.5" cy="7.5" r="2.5"/><circle cx="16.5" cy="16.5" r="2.5"/></svg></span> Commissions</div>
     <div class="nav-item" data-page="partnerbookings" onclick="showPage('partnerbookings')"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/><circle cx="12" cy="15" r="1.8"/></svg></span> Bookings by Partner</div>
+    <div class="nav-item" data-page="prrooms" onclick="showPage('prrooms')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M3 21V8l9-5 9 5v13"/><path d="M3 21h18M9 21v-6h6v6"/><path d="M8 11h.01M16 11h.01"/></svg></span> PR-Rooms</div>
     <div class="nav-item" data-page="addpartner" onclick="openAddPartner()"><span class="ico"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M19 8v6M16 11h6"/></svg></span> Add Partner</div>
 
     <div class="nav-group">Property</div>
@@ -2672,6 +2673,16 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
         </div>
         <p class="muted" style="margin:0 0 16px;">Bookings grouped by the partner they were referred from.</p>
         <div id="partnerBookingsBody"></div>
+    </div>
+</div>
+
+<!-- PR-Rooms (placeholder) -->
+<div class="page" id="page-prrooms">
+    <div class="panel">
+        <div class="panel-head">
+            <h2><span class="sec-ico"><svg viewBox="0 0 24 24"><path d="M3 21V8l9-5 9 5v13"/><path d="M3 21h18M9 21v-6h6v6"/><path d="M8 11h.01M16 11h.01"/></svg></span>PR-Rooms</h2>
+        </div>
+        <p class="muted" style="margin:0;">Coming soon.</p>
     </div>
 </div>
 
@@ -6318,7 +6329,7 @@ function showPage(page){
     // breadcrumb in the top bar
     const CRUMB = {
         today:["Main","Today's Booking"], calendar:["Main","Calendar & Bookings"], guestform:["Main","Guest Form"], approval:["Front Desk","Booking Approval"], paymentapproval:["Front Desk","Payment Approval"], deposit:["Front Desk","Security Deposit"],
-        partners:["Partners","Partner List"], addpartner:["Partners","Add Partner"], commissions:["Partners","Commissions"], partnerbookings:["Partners","Bookings by Partner"],
+        partners:["Partners","Partner List"], addpartner:["Partners","Add Partner"], commissions:["Partners","Commissions"], partnerbookings:["Partners","Bookings by Partner"], prrooms:["Partners","PR-Rooms"],
         havens:["Property","Havens"], booking:["Property","Rates & Add-ons"], cleaners:["Property","Housekeeping"],
         finance:["Finance","Finance"], payments:["Finance","Payments"], payroll:["Finance","Payroll"],
         bills:["Finance","Bills"], expenses:["Finance","Expenses"], analytics:["Finance","Analytics"],
@@ -9765,6 +9776,7 @@ const DASH_PAGES = [
     { key:"addpartner", label:"Add Partner" },
     { key:"commissions", label:"Commissions" },
     { key:"partnerbookings", label:"Bookings by Partner" },
+    { key:"prrooms",   label:"PR-Rooms" },
     { key:"finance",   label:"Finance" },
     { key:"analytics", label:"Analytics" },
     { key:"calendar",  label:"Calendar/Bookings" },
