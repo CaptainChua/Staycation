@@ -167,6 +167,10 @@ for (const name of PAGES) {
   app.get("/" + name + ".html", handler); // keep old links working e.g. /havens.html
 }
 app.get("/", renderPage("index"));
+// Partner dashboard: serves the dashboard view at a partner-branded URL.
+// Single path segment so the dashboard's relative assets still resolve to root.
+// Partner mode is detected client-side from this path (see dashboard.html).
+app.get("/partner-dashboard", renderPage("dashboard"));
 
 /* ---------------- Static assets ---------------- */
 // Client JS/CSS live in /public; images stay in /images.

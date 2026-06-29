@@ -290,7 +290,7 @@ function prRenderBookings(){
 function applyPartnerChrome(){
     const ps = window.__PARTNER__;
     if(!ps) return;
-    const ALLOW = ["today", "calendar"];   // the only pages a partner can open
+    const ALLOW = ["calendar"];   // Calendar/Bookings page = stats + timeline + bookings, all scoped
 
     // sidebar: show only the allowed items, hide every empty group
     document.querySelectorAll(".sidebar .nav-item").forEach(n => {
@@ -325,10 +325,8 @@ function applyPartnerChrome(){
     try{ save = function(){}; }catch(e){}
     try{ window.save = function(){}; }catch(e){}
 
-    // land on Today's Booking (or the last allowed page)
-    let start = "today";
-    try{ const sv = localStorage.getItem("shph_dashboard_page"); if(ALLOW.includes(sv)) start = sv; }catch(e){}
-    if(typeof showPage === "function") showPage(start);
+    // land on the scoped Calendar/Bookings page
+    if(typeof showPage === "function") showPage("calendar");
 }
 
 /* ---------- Users page: Partner Logins section (admin-only) ---------- */
