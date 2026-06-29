@@ -1244,7 +1244,7 @@ tr.row-cancelled td:nth-child(2){ text-decoration:line-through; }
     <input type="text" class="m-navsearch" id="mNavSearch" placeholder="Jump to a page…" oninput="filterNav(this.value)" autocomplete="off">
 
     <div class="nav-group">Main</div>
-    <div class="nav-item active" data-page="today" onclick="window.location.href='todaysbooking.html'"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/><path d="m9 15 2 2 4-4"/></svg></span> Today's Booking</div>
+    <div class="nav-item active" data-page="today" onclick="window.location.href='/todaysbooking.html'"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/><path d="m9 15 2 2 4-4"/></svg></span> Today's Booking</div>
     <div class="nav-item" data-page="calendar" onclick="showPage('calendar')"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg></span> Calendar/Bookings</div>
     <div class="nav-item" data-page="guestform" onclick="showPage('guestform')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M5 3h11l3 3v15H5z"/><path d="M9 8h6M9 12h6M9 16h4"/><circle cx="12" cy="2.5" r="0"/></svg></span> Guest Form</div>
 
@@ -6005,7 +6005,7 @@ function saveBooking(){
     renderAll();
 }
 
-function logout(){ logActivity("logged out"); localStorage.removeItem("shph_current_user"); window.location.href = "admin.html"; }
+function logout(){ logActivity("logged out"); localStorage.removeItem("shph_current_user"); window.location.href = "/admin.html"; }
 
 /* ---------- sidebar navigation ---------- */
 function showPage(page){
@@ -9556,7 +9556,7 @@ function pageAllowed(page){
 // hide nav items the current user can't access; redirect off a disallowed page
 function applyPermissions(){
     // no recognised logged-in user → send to the login page instead of revealing anything
-    if(!currentUserObj()){ window.location.href = "admin.html"; return; }
+    if(!currentUserObj()){ window.location.href = "/admin.html"; return; }
     const perms = currentPerms();
     const admin = isAdminUser();
     document.querySelectorAll(".sidebar .nav-item").forEach(n => {

@@ -482,7 +482,7 @@
 <div class="main">
   <!-- full-width breadcrumb top bar -->
   <div class="appbar">
-    <div class="crumb"><a onclick="window.location.href='dashboard.html'">Dashboard</a> / <b>Today's Booking</b></div>
+    <div class="crumb"><a onclick="window.location.href='/dashboard.html'">Dashboard</a> / <b>Today's Booking</b></div>
     <div class="spacer"></div>
     <span class="who" id="currentUserLabel"></span>
     <button class="btn" id="addBookingBtn" onclick="openAdd()">+ Add booking</button>
@@ -1027,10 +1027,10 @@
   // jump to another dashboard page — remember it so dashboard.html opens there
   function goPage(page){
     localStorage.setItem("shph_dashboard_page", page);
-    window.location.href = "dashboard.html";
+    window.location.href = "/dashboard.html";
   }
   function currentUser(){ return localStorage.getItem("shph_current_user") || "Admin"; }
-  function logout(){ logActivity("logged out"); localStorage.removeItem("shph_current_user"); window.location.href = "admin.html"; }
+  function logout(){ logActivity("logged out"); localStorage.removeItem("shph_current_user"); window.location.href = "/admin.html"; }
   // shared activity log (viewable on the dashboard's Log page)
   function logActivity(action){
     try {
@@ -1098,11 +1098,11 @@
   }
   function applyPerms(){
     // no recognised logged-in user → send to login instead of revealing anything
-    if(!currentUserObj()){ window.location.href = "admin.html"; return; }
+    if(!currentUserObj()){ window.location.href = "/admin.html"; return; }
     const admin = IS_ADMIN;
     const perms = currentPerms();
     // not allowed to view Today's Booking → bounce to the dashboard (it routes to an allowed page)
-    if(!admin && !perms.includes("today")){ window.location.href = "dashboard.html"; return; }
+    if(!admin && !perms.includes("today")){ window.location.href = "/dashboard.html"; return; }
     // hide sidebar items the user can't access
     document.querySelectorAll(".sidebar .nav-item").forEach(n => {
       const pg = n.dataset.page;
@@ -1401,7 +1401,7 @@
   });
   function goBack(){
     if(window.opener && !window.opener.closed){ window.close(); }
-    else { window.location.href = "dashboard.html"; }
+    else { window.location.href = "/dashboard.html"; }
   }
 
   /* ---------- late add-ons (pool pass / towels) added to an existing booking ---------- */
@@ -1665,7 +1665,7 @@
       localStorage.setItem("shph_open_add", "1");
       localStorage.setItem("shph_add_return", "todaysbooking.html");
     }catch(e){}
-    window.location.href = "dashboard.html";
+    window.location.href = "/dashboard.html";
   }
   function closeAdd(){ document.getElementById("addOverlay").classList.remove("show"); }
   function saveNewBooking(){
