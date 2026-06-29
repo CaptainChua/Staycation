@@ -303,6 +303,8 @@ function applyPartnerChrome(){
             sib = sib.nextElementSibling;
         }
         g.style.display = any ? "" : "none";
+        // partner view: the only visible group is "Main" — label it "Dashboard"
+        if(any && g.textContent.trim().toLowerCase() === "main") g.textContent = "Dashboard";
     });
     const sb = document.querySelector(".sidebar"); if(sb) sb.classList.remove("perms-pending");
     document.body.classList.add("partner-mode");
