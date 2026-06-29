@@ -2571,21 +2571,19 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
                 <button type="button" data-d="month" onclick="setDepQuick('month')">This month</button>
                 <button type="button" data-d="custom" onclick="openDepRange(event)">Custom range</button>
             </div>
-            <div class="fin-date" style="display:flex; align-items:center; gap:8px;">Date
-                <div class="dp-wrap" style="position:relative;">
-                    <span class="date-pill" id="depositDateLabel" onclick="openDepPicker(event)" title="Pick a date">Pick a date</span>
-                    <input type="hidden" id="depositDate">
-                    <input type="hidden" id="depositDateEnd">
-                    <div class="dp-popup" id="sdDpPopup" onclick="event.stopPropagation()">
-                        <div class="dp-head">
-                            <button type="button" onclick="sdPickerNav(-1)">‹</button>
-                            <span id="sdDpTitle"></span>
-                            <button type="button" onclick="sdPickerNav(1)">›</button>
-                        </div>
-                        <div class="dp-grid" id="sdDpGrid"></div>
-                        <div class="dp-hint" id="sdDpHint"></div>
-                        <div class="dp-foot"><span onclick="sdDpToday()">Today</span></div>
+            <!-- date state + calendar popup (no visible pill — opened by the Custom range button) -->
+            <div class="dp-wrap" style="position:relative;">
+                <input type="hidden" id="depositDate">
+                <input type="hidden" id="depositDateEnd">
+                <div class="dp-popup" id="sdDpPopup" onclick="event.stopPropagation()">
+                    <div class="dp-head">
+                        <button type="button" onclick="sdPickerNav(-1)">‹</button>
+                        <span id="sdDpTitle"></span>
+                        <button type="button" onclick="sdPickerNav(1)">›</button>
                     </div>
+                    <div class="dp-grid" id="sdDpGrid"></div>
+                    <div class="dp-hint" id="sdDpHint"></div>
+                    <div class="dp-foot"><span onclick="sdDpToday()">Today</span></div>
                 </div>
             </div>
         </div>
