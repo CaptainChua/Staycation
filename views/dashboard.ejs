@@ -6103,7 +6103,24 @@ function showPage(page){
 let gfIdPhotos = [];                  // data-URL photos of the guests' IDs (page 2)
 let gfBookingId = null;              // the booking these IDs belong to (so they persist)
 const GF_OWNER_DEFAULT = "Pia Carla Salamat";
-const GF_UNITS_KEY = "shph_guestform_units";   // remembers Unit No. & Tower per haven
+const GF_CONTACT = "0945 693 5211";            // always the owner's contact
+const GF_TOWER = "D";                          // every haven is in Tower D
+const GF_HAVEN_UNITS = {                        // fixed unit number per haven
+    "Haven 1":"2802", "Haven 2":"2823", "Haven 3":"2334", "Haven 4":"2602",
+    "Haven 5":"1923", "Haven 7":"930", "Haven 8":"2535",
+    "CasaBienca":"518", "CasaSiesta":"2531"
+};
+const GF_UNITS_KEY = "shph_guestform_units";   // remembers Unit No. & Tower per haven (fallback)
+// "2602 Tower D" for a haven (fixed map first, then any remembered value)
+function gfUnitFor(haven){
+    const u = GF_HAVEN_UNITS[haven];
+    if(u) return u + " Tower " + GF_TOWER;
+    return gfLoadUnits()[haven] || "";
+}
+// today's date for the form's "Date:" line, e.g. "JUNE 29, 2026"
+function gfTodayLabel(){
+    return new Date().toLocaleDateString("en-PH", { month:"long", day:"numeric", year:"numeric" }).toUpperCase();
+}
 
 // where each value sits on the scanned form, as % of the image
 // (left = from left edge, top = vertical centre of the blank). Tweak to nudge.
@@ -6181,7 +6198,9 @@ function renderGuestForm(){
     setGfDate(dt && dt.value ? dt.value : iso(today()));   // styled calendar pill
     const owner = document.getElementById("gff_owner");
     if(owner && !owner.value) owner.value = GF_OWNER_DEFAULT;
-    gfHavenChanged();         // prefill the remembered unit for the current haven
+    const dEl = document.getElementById("gff_date"); if(dEl && !dEl.value) dEl.value = gfTodayLabel();
+    const cEl = document.getElementById("gff_contact"); if(cEl && !cEl.value) cEl.value = GF_CONTACT;
+    gfHavenChanged();         // fixed unit/tower for the current haven
     gfRenderIds();
 }
 
@@ -6235,7 +6254,7 @@ document.addEventListener("click", e => { if(!e.target.closest(".dp-wrap")) clos
 // when the haven dropdown changes, pull its remembered Unit No. & Tower
 function gfHavenChanged(){
     const haven = document.getElementById("gf_haven").value;
-    const unit  = gfLoadUnits()[haven] || "";
+    const unit  = gfUnitFor(haven);
     document.getElementById("gff_unit").value = unit;
     gfSetUnit2(unit);
 }
@@ -6275,12 +6294,12 @@ function gfLoadBooking(){
 function gfFill(b){
     const set = (id, v) => { const el = document.getElementById(id); if(el) el.value = v ?? ""; };
     set("gff_owner", GF_OWNER_DEFAULT);
-    set("gff_ownerSign", GF_OWNER_DEFAULT);
-    // Unit No. & Tower comes from the haven's remembered value, not the booking
-    const unit = gfLoadUnits()[b.haven] || "";
+    set("gff_date", gfTodayLabel());
+    set("gff_contact", GF_CONTACT);
+    // Unit No. & Tower is fixed per haven (all Tower D)
+    const unit = gfUnitFor(b.haven);
     set("gff_unit", unit);
     gfSetUnit2(unit);
-    set("gff_contact", b.contact);
     set("gff_movein", gfDate(b.checkin));
     set("gff_moveout", b.checkout ? gfDate(b.checkout) : gfDate(iso(addDays(new Date(b.checkin + "T00:00:00"), 1))));
     set("gff_days", gfDays(b));
@@ -6304,14 +6323,16 @@ function gfPersistIds(){
 
 // reset the form back to blanks (keeps remembered unit numbers)
 function gfClear(){
-    ["gff_date","gff_unit","gff_contact","gff_movein","gff_moveout","gff_days"]
+    ["gff_movein","gff_moveout","gff_days"]
         .forEach(id => { const el = document.getElementById(id); if(el) el.value = ""; });
-    const owner = document.getElementById("gff_owner"); if(owner) owner.value = GF_OWNER_DEFAULT;
-    const sign  = document.getElementById("gff_ownerSign"); if(sign) sign.value = GF_OWNER_DEFAULT;
+    const set = (id, v) => { const el = document.getElementById(id); if(el) el.value = v; };
+    set("gff_owner", GF_OWNER_DEFAULT);
+    set("gff_date", gfTodayLabel());     // always today
+    set("gff_contact", GF_CONTACT);      // always the fixed contact
+    gfHavenChanged();                    // re-apply the fixed unit for the current haven
     gfRenderGuestRows([]);
     gfBookingId = null;
     gfIdPhotos = []; gfRenderIds();
-    gfSetUnit2("");
     const msg = document.getElementById("gf_pickMsg"); if(msg) msg.textContent = "";
 }
 
