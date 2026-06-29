@@ -1500,8 +1500,9 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
 /* page-2 IDs overlay — photos are drag-moveable & resizable */
 .gf-ids{ position:absolute; inset:0; pointer-events:none; }            /* container doesn't block clicks */
 .gf-idphoto{ position:absolute; pointer-events:auto; cursor:move; border:1px solid #bbb; box-shadow:0 1px 4px rgba(0,0,0,.15); }
-.gf-idphoto img{ width:100%; height:auto; display:block; pointer-events:none; }
-.gf-idphoto .gf-rm{ position:absolute; top:4px; right:4px; padding:3px 8px; font-size:11px; }
+.gf-idphoto img{ width:100%; height:auto; display:block; pointer-events:none; }   /* keeps aspect ratio */
+.gf-idphoto .gf-idbtns{ position:absolute; top:4px; right:4px; display:flex; gap:4px; }
+.gf-idphoto .gf-idbtns .btn{ padding:3px 8px; font-size:11px; }
 .gf-idphoto .gf-resize{ position:absolute; right:-8px; bottom:-8px; width:18px; height:18px; background:#bd6e3f; border:2px solid #fff; border-radius:50%; cursor:nwse-resize; box-shadow:0 1px 3px rgba(0,0,0,.3); }
 @media print{
     @page{ size:A4; margin:0; }
@@ -1514,7 +1515,7 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
     .gf-page:last-child{ page-break-after:auto; }
     input.gf-ov:focus, input.gf-ov:hover{ background:transparent; }
     .gf-idphoto{ box-shadow:none; }
-    .gf-idphoto .gf-rm, .gf-idphoto .gf-resize{ display:none !important; }
+    .gf-idphoto .gf-idbtns, .gf-idphoto .gf-resize{ display:none !important; }
 }
 </style>
 <div class="page" id="page-guestform">
@@ -2828,84 +2829,60 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
           #bkPage4 .bkc-wrap{ overflow:hidden; background:#e7e3dc; padding:12px; border-radius:14px; cursor:zoom-in; position:relative; }
           #bkPage4 .bkc-wrap::after{ content:"⤢ Click to view full size"; position:absolute; right:14px; bottom:10px; background:rgba(28,27,26,.8); color:#fff; font-size:11px; font-weight:700; padding:5px 10px; border-radius:20px; pointer-events:none; }
           #bkPage4 #bkConfirm{ transform-origin:top left; }
-          /* the confirmation document — matched to the PDF design */
-          .bkc-doc{ width:760px; margin:0 auto; background:#fff; color:#2b2622; font-family:'Mulish',-apple-system,Segoe UI,Arial,sans-serif; font-size:13px; line-height:1.45; box-shadow:0 8px 30px rgba(0,0,0,.14); }
+          /* the confirmation document — light/modern design */
+          .bkc-doc{ width:760px; margin:0 auto; background:#edeae3; color:#2b2b2b; font-family:'Mulish',-apple-system,Segoe UI,Arial,sans-serif; font-size:13px; line-height:1.45; padding:30px 30px 22px; box-shadow:0 8px 30px rgba(0,0,0,.14); }
           .bkc-doc .pf{ font-family:'Playfair Display',Georgia,serif; }
-          .bkc-doc .hd{ background:#1c1b1a; color:#fff; padding:30px 40px 26px; }
-          .bkc-doc .hd-top{ display:flex; justify-content:space-between; align-items:flex-start; }
-          .bkc-doc .brand{ display:flex; align-items:center; gap:13px; }
-          .bkc-doc .logo{ width:46px; height:46px; border-radius:12px; background:#fff; color:#c0683a; font-family:'Playfair Display',serif; font-weight:800; font-size:25px; display:flex; align-items:center; justify-content:center; }
-          .bkc-doc .brand b{ font-size:18px; font-weight:800; letter-spacing:.2px; display:block; }
-          .bkc-doc .brand small{ font-size:9.5px; letter-spacing:2.5px; color:#9a948c; }
-          .bkc-doc .pill{ border:1px solid #2f8f57; color:#5cc585; border-radius:30px; padding:6px 14px; font-size:11px; font-weight:700; letter-spacing:.6px; white-space:nowrap; }
-          .bkc-doc .pill .dot{ color:#2f8f57; }
-          .bkc-doc .hd-mid{ display:flex; justify-content:space-between; align-items:flex-end; margin-top:30px; }
-          .bkc-doc .eyebrow{ color:#c0683a; font-size:11px; font-weight:800; letter-spacing:2.5px; }
-          .bkc-doc .resno{ font-size:38px; font-weight:800; margin-top:8px; line-height:1; }
-          .bkc-doc .issued{ text-align:right; }
-          .bkc-doc .issued .l{ color:#9a948c; font-size:10px; letter-spacing:1.8px; font-weight:700; }
-          .bkc-doc .issued .v{ font-size:13px; margin-top:5px; }
-          /* date band */
-          .bkc-doc .band{ background:#f1eae0; display:flex; align-items:center; gap:18px; padding:20px 40px; }
-          .bkc-doc .band .col{ flex:1; }
-          .bkc-doc .band .lbl{ color:#a39a8c; font-size:10px; letter-spacing:1.6px; font-weight:800; }
-          .bkc-doc .band .big{ font-size:21px; font-weight:800; margin-top:5px; color:#2b2622; }
-          .bkc-doc .band .sub{ color:#8c8378; font-size:12px; margin-top:2px; }
-          .bkc-doc .band .arrow{ flex:0 0 auto; text-align:center; color:#c0683a; }
-          .bkc-doc .band .arrow .a{ font-size:20px; line-height:1; }
-          .bkc-doc .band .arrow .n{ color:#8c8378; font-size:11px; font-weight:700; margin-top:3px; white-space:nowrap; }
-          .bkc-doc .band .haven{ color:#c0683a; }
-          /* body */
-          .bkc-doc .body{ padding:30px 40px 34px; }
-          .bkc-doc .two{ display:flex; gap:34px; }
-          .bkc-doc .two > div{ flex:1; min-width:0; }
-          .bkc-doc .sec-lbl{ color:#c0683a; font-size:11px; font-weight:800; letter-spacing:1.6px; margin-bottom:9px; }
+          /* header */
+          .bkc-doc .bkc-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; }
+          .bkc-doc .brand{ display:flex; align-items:center; gap:12px; }
+          .bkc-doc .logo{ width:48px; height:48px; border-radius:13px; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,.08); display:flex; align-items:center; justify-content:center; font-family:'Playfair Display',serif; font-weight:800; font-size:26px; color:#c79a3e; }
+          .bkc-doc .brand b{ font-size:18px; font-weight:800; display:block; }
+          .bkc-doc .brand small{ font-size:12px; color:#9a958c; }
+          .bkc-doc .pill{ background:#e3ede1; color:#4a6b48; border-radius:30px; padding:7px 16px; font-size:12px; font-weight:700; white-space:nowrap; }
+          /* reservation card */
+          .bkc-doc .resv{ background:linear-gradient(135deg,#4a5a43,#2f3a2c); color:#fff; border-radius:18px; padding:24px 28px; margin-bottom:16px; }
+          .bkc-doc .resv-top{ display:flex; justify-content:space-between; align-items:flex-start; }
+          .bkc-doc .resv-top .l{ color:#b9c4b2; font-size:11px; letter-spacing:2px; font-weight:700; }
+          .bkc-doc .resv-top .big{ font-size:40px; font-weight:800; line-height:1; margin-top:6px; }
+          .bkc-doc .resv-top .r{ text-align:right; }
+          .bkc-doc .resv-top .r .big{ font-size:30px; }
+          .bkc-doc .resv-dates{ display:flex; gap:14px; margin-top:20px; }
+          .bkc-doc .resv-dates .d{ flex:1; background:rgba(255,255,255,.09); border-radius:12px; padding:13px 16px; }
+          .bkc-doc .resv-dates .d .l{ color:#b9c4b2; font-size:10px; letter-spacing:1.5px; font-weight:700; }
+          .bkc-doc .resv-dates .d .v{ font-size:18px; font-weight:800; margin-top:4px; }
+          .bkc-doc .resv-meta{ display:flex; gap:22px; margin-top:18px; padding-top:16px; border-top:1px solid rgba(255,255,255,.13); color:#cfd6c9; font-size:13px; }
+          .bkc-doc .resv-meta span{ display:inline-flex; align-items:center; gap:6px; }
+          /* white cards */
+          .bkc-doc .cards{ display:flex; gap:14px; margin-bottom:14px; }
+          .bkc-doc .card{ flex:1; background:#fff; border-radius:16px; padding:20px 22px; min-width:0; }
+          .bkc-doc .sec-lbl{ color:#bd6e3f; font-size:11px; font-weight:800; letter-spacing:1.6px; margin-bottom:10px; }
           .bkc-doc .bookby b{ font-size:19px; font-weight:800; }
-          .bkc-doc .bookby .ln{ color:#6f675d; font-size:12.5px; margin-top:5px; }
-          .bkc-doc .party .big{ font-size:19px; font-weight:800; }
-          .bkc-doc .party .big span{ color:#8c8378; font-weight:600; font-size:13px; }
-          .bkc-doc .party .sub{ color:#8c8378; font-size:12.5px; margin-top:4px; }
-          .bkc-doc table.glist{ width:100%; border-collapse:collapse; margin-top:6px; }
-          .bkc-doc .glist th{ background:#f6f1ea; color:#a39a8c; font-size:10px; letter-spacing:1px; text-transform:uppercase; font-weight:800; text-align:left; padding:9px 14px; }
-          .bkc-doc .glist th.r, .bkc-doc .glist td.r{ text-align:right; }
-          .bkc-doc .glist td{ padding:11px 14px; border-bottom:1px solid #efe9e0; font-size:13.5px; }
-          .bkc-doc .glist td.num{ color:#c0683a; font-weight:800; width:36px; }
-          .bkc-doc .glist tr:last-child td{ border-bottom:none; }
-          .bkc-doc .divider{ border:none; border-top:1px solid #efe9e0; margin:26px 0; }
-          /* inclusions */
-          .bkc-doc .inc{ display:flex; align-items:center; gap:13px; background:#faf7f2; border:1px solid #f0e9df; border-radius:13px; padding:13px 15px; margin-bottom:11px; }
-          .bkc-doc .inc.zero{ opacity:.5; }
-          .bkc-doc .inc .ico{ width:38px; height:38px; border-radius:10px; background:#f1e7db; color:#c0683a; flex:none; display:flex; align-items:center; justify-content:center; }
-          .bkc-doc .inc .ico svg{ width:19px; height:19px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
-          .bkc-doc .inc .t{ flex:1; min-width:0; }
-          .bkc-doc .inc .t b{ font-size:13.5px; font-weight:800; }
-          .bkc-doc .inc .t small{ display:block; color:#8c8378; font-size:11.5px; margin-top:1px; }
-          .bkc-doc .inc .amt{ font-weight:800; font-size:14px; white-space:nowrap; }
-          /* payment summary */
-          .bkc-doc .psum{ border:1px solid #efe9e0; border-radius:14px; overflow:hidden; }
-          .bkc-doc .psum .row{ display:flex; justify-content:space-between; gap:10px; padding:13px 17px; border-bottom:1px solid #f1ece4; font-size:13.5px; }
-          .bkc-doc .psum .row.zero{ color:#b3a99c; }
-          .bkc-doc .psum .row b{ font-weight:800; }
-          .bkc-doc .psum .row.disc{ color:#2f8f57; }
-          .bkc-doc .psum .row.disc b{ color:#2f8f57; }
-          .bkc-doc .psum .total{ background:#1c1b1a; color:#fff; display:flex; justify-content:space-between; align-items:center; padding:16px 17px; }
-          .bkc-doc .psum .total .l{ font-weight:800; font-size:14px; }
-          .bkc-doc .psum .total .v{ font-family:'Playfair Display',serif; font-weight:800; font-size:21px; }
+          .bkc-doc .bookby .ln{ color:#8c8378; font-size:12.5px; margin-top:5px; }
+          .bkc-doc .glist-row{ display:flex; justify-content:space-between; gap:10px; padding:6px 0; font-size:14px; }
+          .bkc-doc .glist-row .nm{ font-weight:600; }
+          .bkc-doc .glist-row .ag{ color:#9a958c; }
+          /* payment breakdown */
+          .bkc-doc .pay{ background:#fff; border-radius:16px; padding:22px 24px; }
+          .bkc-doc .pay .row{ display:flex; justify-content:space-between; gap:10px; padding:11px 0; border-bottom:1px solid #efece6; font-size:13.5px; }
+          .bkc-doc .pay .row:last-of-type{ border-bottom:none; }
+          .bkc-doc .pay .row b{ font-weight:800; }
+          .bkc-doc .pay .row.zero{ color:#b3a99c; }
+          .bkc-doc .pay .total{ background:#3b4a37; color:#fff; border-radius:12px; display:flex; justify-content:space-between; align-items:center; padding:15px 18px; margin-top:14px; }
+          .bkc-doc .pay .total .l{ font-weight:800; font-size:14px; }
+          .bkc-doc .pay .total .v{ font-family:'Playfair Display',serif; font-weight:800; font-size:22px; }
           .bkc-doc .paybox{ display:flex; gap:12px; margin-top:12px; }
-          .bkc-doc .paybox .b{ flex:1; border-radius:13px; padding:13px 15px; }
-          .bkc-doc .paybox .b.dp{ background:#e7f3ec; }
-          .bkc-doc .paybox .b.bal{ background:#fbeadd; }
+          .bkc-doc .paybox .b{ flex:1; border-radius:13px; padding:14px 16px; }
+          .bkc-doc .paybox .b.dp{ background:#e6efe2; }
+          .bkc-doc .paybox .b.bal{ background:#f3e9dc; }
           .bkc-doc .paybox .l{ font-size:10px; font-weight:800; letter-spacing:1px; }
-          .bkc-doc .paybox .dp .l{ color:#2f8f57; }
-          .bkc-doc .paybox .bal .l{ color:#c0683a; }
-          .bkc-doc .paybox .v{ font-family:'Playfair Display',serif; font-weight:800; font-size:21px; margin-top:5px; }
-          .bkc-doc .paybox .dp .v{ color:#2f8f57; }
-          .bkc-doc .paybox .bal .v{ color:#c0683a; }
-          /* notes + footer */
-          .bkc-doc .notes{ background:#faf7f2; border:1px solid #f0e9df; border-radius:13px; padding:16px 18px; margin-top:26px; }
-          .bkc-doc .notes .l{ color:#c0683a; font-size:11px; font-weight:800; letter-spacing:1.4px; margin-bottom:7px; }
-          .bkc-doc .notes p{ color:#6f675d; font-size:12.5px; margin:0; }
-          .bkc-doc .foot{ display:flex; justify-content:space-between; gap:10px; padding:18px 40px 24px; color:#a39a8c; font-size:11px; border-top:1px solid #efe9e0; }
+          .bkc-doc .paybox .dp .l{ color:#4a6b48; }
+          .bkc-doc .paybox .bal .l{ color:#bd6e3f; }
+          .bkc-doc .paybox .v{ font-family:'Playfair Display',serif; font-weight:800; font-size:22px; margin-top:5px; }
+          .bkc-doc .paybox .dp .v{ color:#4a6b48; }
+          .bkc-doc .paybox .bal .v{ color:#bd6e3f; }
+          .bkc-doc .note{ background:#fff; border-radius:14px; padding:15px 18px; margin-top:14px; color:#6f675d; font-size:12.5px; }
+          .bkc-doc .note b{ color:#2b2b2b; }
+          .bkc-doc .foot{ text-align:center; color:#a39a8c; font-size:11.5px; margin-top:18px; }
         </style>
         <div id="bkPage4" style="display:none;">
             <div class="bkc-bar">
@@ -5451,99 +5428,64 @@ function buildConfirmationHTML(){
     const issued = new Date().toLocaleDateString("en-PH", { month:"long", day:"numeric", year:"numeric" });
     const bookedBy = b.fbName || primaryName(b);
 
-    const ICO = {
-        bed:`<svg viewBox="0 0 24 24"><path d="M2 17v-5a2 2 0 0 1 2-2h12a4 4 0 0 1 4 4v3"/><path d="M2 17h20M2 13h7"/><path d="M6 10V8a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v2"/></svg>`,
-        guest:`<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M19 8v6M16 11h6"/></svg>`,
-        swim:`<svg viewBox="0 0 24 24"><path d="M2 16c1.5 0 1.5-1 3-1s1.5 1 3 1 1.5-1 3-1 1.5 1 3 1 1.5-1 3-1 1.5 1 3 1"/><path d="M2 20c1.5 0 1.5-1 3-1s1.5 1 3 1 1.5-1 3-1 1.5 1 3 1 1.5-1 3-1 1.5 1 3 1"/><circle cx="14" cy="6" r="1.6"/><path d="M7 14l4-4 3 2"/></svg>`,
-        towel:`<svg viewBox="0 0 24 24"><path d="M6 4h12v16H8a2 2 0 0 1-2-2V4Z"/><path d="M6 8H4v8a2 2 0 0 0 2 2"/></svg>`,
-        clock:`<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>`
-    };
-    const inc = (icon, title, sub, amount) =>
-        `<div class="inc${amount <= 0 ? " zero" : ""}"><span class="ico">${icon}</span><span class="t"><b>${title}</b><small>${sub}</small></span><span class="amt">${peso(amount)}</span></div>`;
     const ps = (label, val, cls) => `<div class="row${cls ? " " + cls : ""}"><span>${label}</span><b>${val}</b></div>`;
+    const shortDate = d => d ? new Date(d + "T00:00:00").toLocaleDateString("en-PH", { month:"short", day:"numeric" }) : "—";
 
-    const guestRows = guests.map((gst, i) => {
-        const nm = splitName(gst.name);
-        return `<tr><td class="num">${i + 1}</td><td>${escHtml(nm.first)}</td><td>${escHtml(nm.last)}</td><td class="r">${gst.age != null && gst.age !== "" ? gst.age : ""}</td></tr>`;
-    }).join("") || `<tr><td colspan="4" style="color:#a39a8c;">No guests listed.</td></tr>`;
+    const guestRows = guests.map(gst =>
+        `<div class="glist-row"><span class="nm">${escHtml(gst.name || "")}</span><span class="ag">${gst.age != null && gst.age !== "" ? gst.age : ""}</span></div>`
+    ).join("") || `<div class="glist-row"><span class="ag">No guests listed.</span></div>`;
 
     return `
-    <div class="hd">
-        <div class="hd-top">
-            <div class="brand">
-                <span class="logo">S</span>
-                <span><b>Staycation Haven PH</b><small>PRIVATE STAYCATION RENTALS</small></span>
-            </div>
-            <span class="pill"><span class="dot">●</span> CONFIRMED</span>
+    <div class="bkc-head">
+        <div class="brand">
+            <span class="logo">S</span>
+            <span><b>Staycation Haven PH</b><small>Booking confirmation</small></span>
         </div>
-        <div class="hd-mid">
-            <div>
-                <div class="eyebrow">BOOKING CONFIRMATION</div>
-                <div class="resno pf">Reservation #${editingId || ""}</div>
-            </div>
-            <div class="issued"><div class="l">ISSUED</div><div class="v">${issued}</div></div>
+        <span class="pill">✓ Confirmed</span>
+    </div>
+    <div class="resv">
+        <div class="resv-top">
+            <div><div class="l">RESERVATION</div><div class="big pf">#${editingId || ""}</div></div>
+            <div class="r"><div class="l">Total payable</div><div class="big pf">${peso(total)}</div></div>
+        </div>
+        <div class="resv-dates">
+            <div class="d"><div class="l">CHECK-IN</div><div class="v pf">${shortDate(checkin)} · ${checkinTimeStr(b)}</div></div>
+            <div class="d"><div class="l">CHECK-OUT</div><div class="v pf">${shortDate(checkout)} · ${checkoutTimeStr(b)}</div></div>
+        </div>
+        <div class="resv-meta">
+            <span>🏠 ${escHtml(b.haven)}</span>
+            <span>🌙 ${nightsBadge}</span>
+            <span>👥 ${guests.length} guest${guests.length === 1 ? "" : "s"} · max ${PRICING.maxPax}</span>
         </div>
     </div>
-    <div class="band">
-        <div class="col"><div class="lbl">CHECK-IN</div><div class="big pf">${longDate(checkin)}</div><div class="sub">${checkinTimeStr(b)}</div></div>
-        <div class="arrow"><div class="a">→</div><div class="n">${nightsBadge}</div></div>
-        <div class="col"><div class="lbl">CHECK-OUT</div><div class="big pf">${longDate(checkout)}</div><div class="sub">${checkoutTimeStr(b)}</div></div>
-        <div class="col"><div class="lbl">HAVEN</div><div class="big pf haven">${escHtml(b.haven)}</div><div class="sub">${stayType}</div></div>
-    </div>
-    <div class="body">
-        <div class="two">
-            <div class="bookby">
-                <div class="sec-lbl">BOOKED BY</div>
-                <b>${escHtml(bookedBy)}</b>
-                <div class="ln">📞 ${escHtml(b.contact || "—")}</div>
-                ${b.fbName ? `<div class="ln">💬 Facebook: ${escHtml(b.fbName)}</div>` : ""}
-            </div>
-            <div class="party">
-                <div class="sec-lbl">PARTY SIZE</div>
-                <div class="big pf">${guests.length} guest${guests.length === 1 ? "" : "s"} <span>· max ${PRICING.maxPax} pax</span></div>
-                <div class="sub">Up to ${PRICING.maxAdults} adults &amp; ${PRICING.maxKids} kids (0–${PRICING.kidMaxAge})</div>
-            </div>
+    <div class="cards">
+        <div class="card bookby">
+            <div class="sec-lbl">BOOKED BY</div>
+            <b>${escHtml(bookedBy)}</b>
+            <div class="ln">📞 ${escHtml(b.contact || "—")}</div>
+            ${b.fbName ? `<div class="ln">💬 Facebook · ${escHtml(b.fbName)}</div>` : ""}
         </div>
-        <div style="margin-top:22px;">
-            <div class="sec-lbl">GUEST LIST</div>
-            <table class="glist"><thead><tr><th>#</th><th>First name</th><th>Last name</th><th class="r">Age</th></tr></thead><tbody>${guestRows}</tbody></table>
-        </div>
-        <hr class="divider">
-        <div class="two">
-            <div>
-                <div class="sec-lbl">INCLUSIONS &amp; ADD-ONS</div>
-                ${inc(ICO.bed, isON ? "Overnight stay · " + nights + " night" + (nights > 1 ? "s" : "") : stayType, "Base rate for " + PRICING.baseIncludedPax + " pax", base)}
-                ${inc(ICO.guest, "Extra guest", extraHeads + " pax × " + peso(PRICING.addPax), pax)}
-                ${inc(ICO.swim, "Swimpass", b.swimpass + " × " + peso(swimRate), swim)}
-                ${inc(ICO.towel, "Towels", b.towels + " × " + peso(PRICING.towel), tow)}
-                ${inc(ICO.clock, "Extended hours", b.extend + " hr × " + peso(PRICING.extendPerHr), ext)}
-            </div>
-            <div>
-                <div class="sec-lbl">PAYMENT SUMMARY</div>
-                <div class="psum">
-                    ${ps("Base rate (" + PRICING.baseIncludedPax + " pax" + (isON ? " · " + nights + " night" + (nights > 1 ? "s" : "") : "") + ")", peso(base))}
-                    ${ps("Extra pax (" + extraHeads + " × " + peso(PRICING.addPax) + ")", peso(pax), pax <= 0 ? "zero" : "")}
-                    ${ps("Swimpass (" + b.swimpass + " × " + peso(swimRate) + ")", peso(swim), swim <= 0 ? "zero" : "")}
-                    ${ps("Towels / Extend", peso(tow + ext), (tow + ext) <= 0 ? "zero" : "")}
-                    ${ps("Security deposit (refundable)", peso(dep))}
-                    ${discount > 0 ? ps("Discount", "− " + peso(discount), "disc") : ""}
-                    <div class="total"><span class="l">Total amount payable</span><span class="v">${peso(total)}</span></div>
-                </div>
-                <div class="paybox">
-                    <div class="b dp"><div class="l">DOWNPAYMENT · ${escHtml((method || "").toUpperCase())}</div><div class="v">${peso(down)}</div></div>
-                    <div class="b bal"><div class="l">BALANCE ON CHECK-IN</div><div class="v">${peso(balance)}</div></div>
-                </div>
-            </div>
-        </div>
-        <div class="notes">
-            <div class="l">NOTES</div>
-            <p>Balance will be collected upon arrival. A refundable security deposit of ${peso(dep)} is collected on arrival. Standard check-in ${checkinTimeStr(b)}, check-out ${checkoutTimeStr(b)}. Please present a valid ID for each guest upon arrival.</p>
+        <div class="card">
+            <div class="sec-lbl">GUESTS</div>
+            ${guestRows}
         </div>
     </div>
-    <div class="foot">
-        <span>Thank you for booking with Staycation Haven PH · This confirmation is your proof of reservation.</span>
-        <span>staycationhaven.ph</span>
-    </div>`;
+    <div class="pay">
+        <div class="sec-lbl">PAYMENT BREAKDOWN</div>
+        ${ps("Base rate (" + PRICING.baseIncludedPax + " pax" + (isON ? " · " + nights + " night" + (nights > 1 ? "s" : "") : "") + ")", peso(base))}
+        ${ps("Extra pax (" + extraHeads + " × " + peso(PRICING.addPax) + ")", peso(pax), pax <= 0 ? "zero" : "")}
+        ${ps("Swimpass (" + b.swimpass + " × " + peso(swimRate) + ")", peso(swim), swim <= 0 ? "zero" : "")}
+        ${ps("Towels / Extend", peso(tow + ext), (tow + ext) <= 0 ? "zero" : "")}
+        ${ps("Security deposit (refundable)", peso(dep))}
+        ${discount > 0 ? ps("Discount", "− " + peso(discount)) : ""}
+        <div class="total"><span class="l">Total payable</span><span class="v">${peso(total)}</span></div>
+        <div class="paybox">
+            <div class="b dp"><div class="l">PAID · ${escHtml((method || "").toUpperCase())}</div><div class="v">${peso(down + collected)}</div></div>
+            <div class="b bal"><div class="l">BALANCE DUE</div><div class="v">${peso(balance)}</div></div>
+        </div>
+        <div class="note"><b>Note</b> Balance collected upon arrival. ${peso(dep)} refundable deposit on arrival. Check-in ${checkinTimeStr(b)}, check-out ${checkoutTimeStr(b)}. Valid ID required per guest.</div>
+    </div>
+    <div class="foot">Thank you for booking with Staycation Haven PH · staycationhaven.ph</div>`;
 }
 
 // download the confirmation as a PDF (lazy-loads the generator from a CDN)
@@ -6364,19 +6306,29 @@ function gfAddIdPhotos(ev){
     ev.target.value = "";   // allow re-selecting the same file
 }
 
-// default placement: stacked down the page, centred
-function gfDefaultLayout(i){ return { x:18, y:9 + i * 32, w:64 }; }
+// default placement: stacked down the page, centred, sensible size (aspect kept)
+function gfDefaultLayout(i){ return { x:27, y:7 + i * 36, w:46, rot:0 }; }
 function gfRenderIds(){
     const box = document.getElementById("gf_idGallery");
     if(!box) return;
     box.innerHTML = gfIdPhotos.map((src, i) => {
         const lay = gfIdLayout[i] || (gfIdLayout[i] = gfDefaultLayout(i));
-        return `<div class="gf-idphoto" id="gfIdPhoto_${i}" style="left:${lay.x}%; top:${lay.y}%; width:${lay.w}%;" onmousedown="gfPhotoDragStart(event, ${i})">
+        return `<div class="gf-idphoto" id="gfIdPhoto_${i}" style="left:${lay.x}%; top:${lay.y}%; width:${lay.w}%; transform:rotate(${lay.rot || 0}deg);" onmousedown="gfPhotoDragStart(event, ${i})">
             <img src="${src}" alt="Guest ID" draggable="false">
-            <button class="btn secondary gf-rm" onmousedown="event.stopPropagation()" onclick="gfRemoveId(${i})">✕ remove</button>
+            <div class="gf-idbtns">
+                <button class="btn secondary" onmousedown="event.stopPropagation()" onclick="gfRotateId(${i})" title="Rotate 90°">↻</button>
+                <button class="btn secondary" onmousedown="event.stopPropagation()" onclick="gfRemoveId(${i})" title="Remove from this print">✕</button>
+            </div>
             <span class="gf-resize" onmousedown="gfPhotoResizeStart(event, ${i})" title="Drag to resize"></span>
         </div>`;
     }).join("");
+}
+// rotate a photo 90° (fixes sideways IDs)
+function gfRotateId(i){
+    const lay = gfIdLayout[i] || (gfIdLayout[i] = gfDefaultLayout(i));
+    lay.rot = ((lay.rot || 0) + 90) % 360;
+    const el = document.getElementById("gfIdPhoto_" + i);
+    if(el) el.style.transform = "rotate(" + lay.rot + "deg)";
 }
 // drag a photo to move it
 function gfPhotoDragStart(e, i){
@@ -6390,7 +6342,7 @@ function gfPhotoDragStart(e, i){
     function move(ev){
         const x = lay.x + (ev.clientX - sx) / rect.width * 100;
         const y = lay.y + (ev.clientY - sy) / rect.height * 100;
-        gfIdLayout[i] = { x, y, w: lay.w };
+        gfIdLayout[i] = { x, y, w: lay.w, rot: lay.rot };
         if(el){ el.style.left = x + "%"; el.style.top = y + "%"; }
     }
     function up(){ document.removeEventListener("mousemove", move); document.removeEventListener("mouseup", up); }
@@ -6407,7 +6359,7 @@ function gfPhotoResizeStart(e, i){
     const el = document.getElementById("gfIdPhoto_" + i);
     function move(ev){
         const w = Math.max(10, Math.min(95, lay.w + (ev.clientX - sx) / rect.width * 100));
-        gfIdLayout[i] = { x: lay.x, y: lay.y, w };
+        gfIdLayout[i] = { x: lay.x, y: lay.y, w, rot: lay.rot };
         if(el) el.style.width = w + "%";
     }
     function up(){ document.removeEventListener("mousemove", move); document.removeEventListener("mouseup", up); }
