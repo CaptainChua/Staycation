@@ -23,6 +23,11 @@
   body.partner-mode .actions .cancel,
   body.partner-mode .actions .del{ display:none !important; }
   body.partner-mode #cancelledPanel{ display:none !important; }
+  /* read-only on the finance-style pages */
+  body.partner-mode #page-expenses .panel-head .btn,
+  body.partner-mode #page-bills .panel-head .btn{ display:none !important; }
+  body.partner-mode #page-expenses .act,
+  body.partner-mode #page-bills .act{ display:none !important; }
 </style>
 
 <!-- Partner List -->

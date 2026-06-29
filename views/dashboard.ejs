@@ -2447,6 +2447,7 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
             <button class="btn" onclick="openExpenseModal()">+ Add expense</button>
         </div>
         <div class="filters" style="margin-bottom:16px;">
+            <select id="expFilterHaven" onchange="renderExpenses()"></select>
             <select id="expFilterType" onchange="renderExpenses()"></select>
             <select id="expFilterMonth" onchange="renderExpenses()"></select>
         </div>
@@ -2462,6 +2463,10 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
             <div class="field full">
                 <label>Type</label>
                 <select id="e_type" onchange="toggleExpNotesHint()"></select>
+            </div>
+            <div class="field full">
+                <label>Haven <span class="muted">(which unit this expense is for)</span></label>
+                <select id="e_haven"></select>
             </div>
             <div class="field">
                 <label>Amount (₱)</label>
@@ -6898,17 +6903,21 @@ function openExpenseModal(id){
     editingExpenseId = id || null;
     const typeSel = document.getElementById("e_type");
     if(!typeSel.options.length) typeSel.innerHTML = EXPENSE_TYPES.map(t => `<option>${t}</option>`).join("");
+    const hSel = document.getElementById("e_haven");
+    if(hSel) hSel.innerHTML = '<option value="">— General / all —</option>' + ((typeof HAVENS !== "undefined" && HAVENS) ? HAVENS : []).map(h => `<option>${h}</option>`).join("");
     if(editingExpenseId){
         const e = expenses.find(x => x.id === editingExpenseId);
         if(!e) return;
         document.getElementById("expModalTitle").textContent = "Edit Expense";
         typeSel.value = e.type;
+        if(hSel) hSel.value = e.haven || "";
         document.getElementById("e_amount").value = e.amount || 0;
         document.getElementById("e_date").value = e.date || iso(today());
         document.getElementById("e_notes").value = e.notes || "";
     } else {
         document.getElementById("expModalTitle").textContent = "Add Expense";
         typeSel.selectedIndex = 0;
+        if(hSel) hSel.value = "";
         document.getElementById("e_amount").value = "";
         document.getElementById("e_date").value = iso(today());
         document.getElementById("e_notes").value = "";
@@ -6923,9 +6932,10 @@ function saveExpense(){
     const amount = Number(document.getElementById("e_amount").value) || 0;
     const date   = document.getElementById("e_date").value;
     const notes  = document.getElementById("e_notes").value.trim();
+    const haven  = document.getElementById("e_haven") ? document.getElementById("e_haven").value : "";
     if(amount <= 0){ alert("Please enter an amount."); return; }
     if(!date){ alert("Please pick a date."); return; }
-    const data = { type, amount, date, notes };
+    const data = { type, amount, date, notes, haven };
     if(editingExpenseId){
         const idx = expenses.findIndex(x => x.id === editingExpenseId);
         if(idx !== -1) expenses[idx] = { ...expenses[idx], ...data };
@@ -6957,15 +6967,22 @@ function renderExpenses(){
     const months = [...new Set(expenses.map(e => expMonthKey(e.date)).filter(Boolean))].sort().reverse();
     mSel.innerHTML = `<option value="">All months</option>` + months.map(m => `<option value="${m}">${expMonthLabel(m)}</option>`).join("");
     if(months.includes(curMonth)) mSel.value = curMonth;
+    // haven filter (expenses can be tagged to a haven)
+    const fhSel = document.getElementById("expFilterHaven");
+    if(fhSel){
+        const curH = fhSel.value;
+        fhSel.innerHTML = `<option value="">All havens</option>` + ((typeof HAVENS !== "undefined" && HAVENS) ? HAVENS : []).map(h => `<option>${h}</option>`).join("");
+        if(curH) fhSel.value = curH;
+    }
 
-    const fType = ftSel.value, fMonth = mSel.value;
+    const fType = ftSel.value, fMonth = mSel.value, fHaven = fhSel ? fhSel.value : "";
     const rows = expenses.slice()
-        .filter(e => (!fType || e.type === fType) && (!fMonth || expMonthKey(e.date) === fMonth))
+        .filter(e => (!fType || e.type === fType) && (!fMonth || expMonthKey(e.date) === fMonth) && (!fHaven || (e.haven || "") === fHaven))
         .sort((a, b) => (b.date || "").localeCompare(a.date || "") || b.id - a.id);
 
     const total = rows.reduce((s, e) => s + (Number(e.amount) || 0), 0);
     const thisMonth = expMonthKey(iso(today()));
-    const monthTotal = expenses.filter(e => expMonthKey(e.date) === thisMonth).reduce((s, e) => s + (Number(e.amount) || 0), 0);
+    const monthTotal = expenses.filter(e => expMonthKey(e.date) === thisMonth && (!fHaven || (e.haven || "") === fHaven)).reduce((s, e) => s + (Number(e.amount) || 0), 0);
 
     const card = (label, val) => `<div class="bcard"><div class="card-label">${label}</div><div class="num">${val}</div></div>`;
     document.getElementById("expCards").innerHTML =
@@ -6978,11 +6995,12 @@ function renderExpenses(){
 
     document.getElementById("expContainer").innerHTML = rows.length ? `
         <table class="exp-table">
-            <thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Notes</th><th class="col-actions">Actions</th></tr></thead>
+            <thead><tr><th>Date</th><th>Type</th><th>Haven</th><th>Amount</th><th>Notes</th><th class="col-actions">Actions</th></tr></thead>
             <tbody>${rows.map(e => `
                 <tr>
                     <td>${e.date ? fmt(e.date) : '<span class="muted">—</span>'}</td>
                     <td><span class="exp-type">${escHtml(e.type || "")}</span></td>
+                    <td>${e.haven ? escHtml(e.haven) : '<span class="muted">—</span>'}</td>
                     <td><strong>${peso(e.amount || 0)}</strong></td>
                     <td>${e.notes ? `<span class="exp-note">${escHtml(e.notes)}</span>` : '<span class="muted">—</span>'}</td>
                     <td class="col-actions">

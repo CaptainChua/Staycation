@@ -336,13 +336,22 @@ function applyPartnerChrome(){
         try{ calHaven = ps.haven; }catch(e){}
         const ch = document.getElementById("calHavenFilter"); if(ch) ch.style.display = "none";
         const fh = document.getElementById("filterHaven"); if(fh) fh.style.display = "none";
-        // lock Finance + Bills to this haven (data still comes from the shared main-account store)
-        const finH = document.getElementById("finHaven");
-        if(finH){ finH.value = ps.haven; finH.style.display = "none"; }
-        const billH = document.getElementById("billFilterHaven");
-        if(billH){ billH.value = ps.haven; billH.style.display = "none"; }
+        // Scope the shared finance data to this haven (same idea as the bookings filter
+        // in dashboard.html). This auto-scopes Bills, Expenses AND Analytics. Read-only,
+        // so block the writers to be safe.
+        try{ if(typeof bills !== "undefined") bills = bills.filter(b => b.haven === ps.haven); }catch(e){}
+        try{ if(typeof expenses !== "undefined") expenses = expenses.filter(e => (e.haven || "") === ps.haven); }catch(e){}
+        try{ persistBills = function(){}; }catch(e){}
+        try{ persistExpenses = function(){}; }catch(e){}
+        // lock the haven selectors on the finance-style pages
+        const finH = document.getElementById("finHaven"); if(finH){ finH.value = ps.haven; finH.style.display = "none"; }
+        const billH = document.getElementById("billFilterHaven"); if(billH){ billH.value = ps.haven; billH.style.display = "none"; }
+        const expH = document.getElementById("expFilterHaven"); if(expH){ expH.value = ps.haven; expH.style.display = "none"; }
+        // re-render with the scoped data
         try{ if(typeof renderHavenAnalytics === "function") renderHavenAnalytics(); }catch(e){}
         try{ if(typeof renderBills === "function") renderBills(); }catch(e){}
+        try{ if(typeof renderExpenses === "function") renderExpenses(); }catch(e){}
+        try{ if(typeof renderAnalytics === "function") renderAnalytics(); }catch(e){}
     }
 
     // read-only: row/bar clicks open the View (never the editor); block any save
