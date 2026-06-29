@@ -4260,6 +4260,7 @@ function renderTable(){
             <td>${balance>0 ? `<span class="bal-due">${peso(balance)}</span>` : '<span class="bal-clear">₱0</span>'}</td>
             <td><span class="status ${st}">${st}</span></td>
             <td class="actions">
+                <span class="edit" style="color:var(--hv-terra-d);" onclick="viewBooking(${b.id})">View</span>
                 <span class="edit" onclick="openModal(${b.id})">Edit</span>
                 <span class="cancel" onclick="cancelBooking(${b.id})">Cancel</span>
                 <span class="del" onclick="deleteBooking(${b.id})">Delete</span>
