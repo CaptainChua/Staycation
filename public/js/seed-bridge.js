@@ -56,7 +56,9 @@
   var pending = {};   // key -> latest JSON not yet confirmed saved
   var delay = {};     // key -> current backoff (ms)
   var timer = {};     // key -> retry timer id
+  var lastErr = {};   // key -> human reason the last save attempt failed
   var banner = null;
+  var KEY_LABEL = { shph_bookings_v3: "booking/payment", shph_users: "user", shph_partners: "partner", shph_expenses_v1: "expense", shph_bills_v1: "bill" };
 
   function unsavedCount() { var n = 0; for (var k in pending) if (pending.hasOwnProperty(k)) n++; return n; }
 
@@ -70,8 +72,11 @@
           document.body.appendChild(banner);
         }
         if (banner) {
-          banner.textContent = "⚠️ " + n + " change" + (n > 1 ? "s" : "") +
-            " not yet saved to the server — keep this tab open and check your internet; it will keep retrying.";
+          var reason = "", what = "";
+          for (var k in lastErr) { if (pending[k] !== undefined && lastErr[k]) { reason = lastErr[k]; what = KEY_LABEL[k] || k; break; } }
+          banner.textContent = "⚠️ " + n + " " + (what ? what + " " : "") + "change" + (n > 1 ? "s" : "") +
+            " not yet saved to the server" + (reason ? " — " + reason : "") +
+            ". Keep this tab open & check your internet; it will keep retrying.";
           banner.style.display = "block";
         }
       } else if (banner) { banner.style.display = "none"; }
@@ -86,10 +91,19 @@
       method: "PUT", headers: { "Content-Type": "application/json" }, body: body
     }).then(function (res) {
       if (res.ok) {
+        delete lastErr[key];
         if (pending[key] === body) { delete pending[key]; delete delay[key]; updateBanner(); }
         else { delay[key] = 200; flush(key); }      // a newer value queued meanwhile → save it
-      } else { scheduleRetry(key); }                 // 4xx/5xx → try again
-    }).catch(function () { scheduleRetry(key); });    // network error → try again
+      } else {
+        lastErr[key] = (res.status === 413 || res.status === 502) ? ("the save is too large (error " + res.status + ")") : ("server error " + res.status);
+        try { res.text().then(function (t) { console.error("[sync] save REJECTED for " + key + " — HTTP " + res.status + ": " + String(t || "").slice(0, 300)); }).catch(function () {}); } catch (e) {}
+        scheduleRetry(key);                          // 4xx/5xx → try again
+      }
+    }).catch(function (err) {                          // network/timeout → try again
+      lastErr[key] = "can't reach the server (offline or slow connection?)";
+      try { console.error("[sync] network error saving " + key + ": " + (err && err.message)); } catch (e) {}
+      scheduleRetry(key);
+    });
   }
 
   function scheduleRetry(key) {
