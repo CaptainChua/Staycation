@@ -6389,7 +6389,11 @@ function gfSavePdf(){
         };
     });
     const page = doc.querySelector(".gf-page");
-    const fname = "Guest-Form-" + (gfBookingId || "form") + ".pdf";
+    // filename = <MMDDYY>-D<unit>, e.g. Haven 1 today → 062926-D2802
+    const now = new Date();
+    const mmddyy = String(now.getMonth() + 1).padStart(2, "0") + String(now.getDate()).padStart(2, "0") + String(now.getFullYear()).slice(-2);
+    const unitNo = GF_HAVEN_UNITS[document.getElementById("gf_haven").value] || "";
+    const fname = `${mmddyy}-${GF_TOWER}${unitNo}.pdf`;
     const run = () => html2pdf().set({
         margin: 0, filename: fname,
         image: { type:"jpeg", quality:0.95 },
