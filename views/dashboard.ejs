@@ -6312,13 +6312,15 @@ function gfFill(b){
     gfRenderIds();
 }
 
-// save the guest-form ID photos onto the loaded booking so they're never lost
-// (persisted to Firestore + the photos themselves to Cloud Storage).
-function gfPersistIds(){
-    if(gfBookingId == null) return;   // no booking loaded → can't persist yet
+// APPEND a newly-uploaded ID photo to the loaded booking (so uploads are saved &
+// never lost). It never overwrites the booking's list — so removing a photo on
+// the form is form-only and does NOT delete it from the booking.
+function gfAttachIdToBooking(dataUrl){
+    if(gfBookingId == null || !dataUrl) return;
     const b = bookings.find(x => x.id === gfBookingId);
     if(!b) return;
-    b.ids = gfIdPhotos.slice();
+    b.ids = Array.isArray(b.ids) ? b.ids : [];
+    b.ids.push(dataUrl);
     save(bookings);
     confirmBookingSaved(gfBookingId);   // verify it reached the server, warn if not
 }
@@ -6345,7 +6347,7 @@ function gfAddIdPhotos(ev){
         const msg = document.getElementById("gf_pickMsg");
         if(msg) msg.textContent = "Tip: Load a booking first so the IDs save to it (still shown for printing).";
     }
-    const add = dataUrl => { if(!dataUrl) return; gfIdPhotos.push(dataUrl); gfRenderIds(); gfPersistIds(); };
+    const add = dataUrl => { if(!dataUrl) return; gfIdPhotos.push(dataUrl); gfRenderIds(); gfAttachIdToBooking(dataUrl); };
     files.forEach(file => {
         if(file.type && !/^image\//.test(file.type)) return;   // allow empty type (e.g. HEIC)
         compressImageTo(file, idMaxBytes, dataUrl => {
@@ -6369,7 +6371,8 @@ function gfRenderIds(){
         </div>`).join("");
 }
 
-function gfRemoveId(i){ gfIdPhotos.splice(i, 1); gfRenderIds(); gfPersistIds(); }
+// form-only: removes the photo from THIS print view, but NOT from the booking
+function gfRemoveId(i){ gfIdPhotos.splice(i, 1); gfRenderIds(); }
 
 /* ---------- Assist: towels to place per haven ---------- */
 function renderAssist(){
