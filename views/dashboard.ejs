@@ -1524,7 +1524,7 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
     <div class="topbar" style="margin-bottom:14px;">
         <h2 style="font-size:20px;">Guest Form <span class="muted" style="font-size:13px;">— M Place Guest Move-In Clearance</span></h2>
         <div style="display:flex; gap:8px;">
-            <button class="btn secondary" onclick="window.print()">🖨 Print</button>
+            <button class="btn secondary" onclick="gfSavePdf()">💾 Save as PDF</button>
         </div>
     </div>
 
@@ -6367,6 +6367,54 @@ function gfPhotoResizeStart(e, i){
     function up(){ document.removeEventListener("mousemove", move); document.removeEventListener("mouseup", up); }
     document.addEventListener("mousemove", move);
     document.addEventListener("mouseup", up);
+}
+
+// Save the whole guest form (both pages) as a downloadable PDF. The overlay
+// <input> fields are converted to plain text in the captured copy so their
+// values render reliably; the on-screen controls are hidden.
+function gfSavePdf(){
+    const doc = document.getElementById("gfDoc");
+    if(!doc) return;
+    const snap = {};
+    let idx = 0;
+    doc.querySelectorAll("input.gf-ov").forEach(inp => {
+        const key = "pdf" + (idx++);
+        inp.dataset.pdfkey = key;
+        const cs = getComputedStyle(inp);
+        snap[key] = {
+            value: inp.value || "",
+            css: `position:absolute; left:${inp.style.left}; top:${inp.style.top}; width:${inp.style.width};`
+                + `transform:${cs.transform === "none" ? "translateY(-50%)" : cs.transform};`
+                + `font-family:${cs.fontFamily}; font-size:${cs.fontSize}; font-weight:${cs.fontWeight};`
+                + `color:${cs.color}; text-align:${cs.textAlign}; line-height:${cs.lineHeight};`
+                + `white-space:nowrap; overflow:hidden; box-sizing:border-box;`
+        };
+    });
+    const page = doc.querySelector(".gf-page");
+    const fname = "Guest-Form-" + (gfBookingId || "form") + ".pdf";
+    const run = () => html2pdf().set({
+        margin: 0, filename: fname,
+        image: { type:"jpeg", quality:0.95 },
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff", onclone: cd => {
+            cd.getElementById("gfDoc").style.gap = "0";
+            cd.querySelectorAll("input.gf-ov").forEach(inp => {
+                const s = snap[inp.dataset.pdfkey]; if(!s) return;
+                const d = cd.createElement("div");
+                d.textContent = s.value;
+                d.setAttribute("style", s.css);
+                inp.parentNode.replaceChild(d, inp);
+            });
+            cd.querySelectorAll("#gfDoc .gfToolbar-inline, #gfDoc .gf-idbtns, #gfDoc .gf-resize").forEach(e => e.remove());
+        }},
+        jsPDF: { unit:"px", format:[page.offsetWidth, page.offsetHeight], orientation:"portrait" },
+        pagebreak: { mode:["css","legacy"], before:"#gfPage2" }
+    }).from(doc).save();
+    if(window.html2pdf) return run();
+    const sc = document.createElement("script");
+    sc.src = "https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.2/dist/html2pdf.bundle.min.js";
+    sc.onload = run;
+    sc.onerror = () => { alert("Couldn't load the PDF tool — opening Print so you can choose “Save as PDF”."); window.print(); };
+    document.body.appendChild(sc);
 }
 
 // form-only: removes the photo from THIS print view, but NOT from the booking
