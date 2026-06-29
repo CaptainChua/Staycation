@@ -505,11 +505,15 @@
         <button class="view-tab" data-view="tomorrow" onclick="setView('tomorrow')">Tomorrow</button>
         <button class="view-tab" data-view="week" onclick="setView('week')">This week</button>
       </div>
-      <div id="tbRange" style="display:none; align-items:center; gap:6px;" title="Admin only — pick any date range">
-        <input type="date" id="tbFrom" style="border:1px solid var(--hv-line); border-radius:8px; padding:7px 9px; font-family:inherit; font-size:13px; background:#fff;">
-        <span style="color:var(--hv-muted);">–</span>
-        <input type="date" id="tbTo" style="border:1px solid var(--hv-line); border-radius:8px; padding:7px 9px; font-family:inherit; font-size:13px; background:#fff;">
-        <button class="btn" style="padding:8px 14px;" onclick="applyCustomRange()">Apply</button>
+      <div id="tbRangeWrap" style="display:none; position:relative;" title="Admin only — pick any date range">
+        <button class="btn secondary" onclick="toggleRangePop(event)"><svg viewBox="0 0 24 24" style="width:15px; height:15px; fill:none; stroke:currentColor; stroke-width:2; vertical-align:-2px; margin-right:6px;"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg><span id="tbRangeBtnLabel">Custom range</span></button>
+        <div id="tbRangePop" style="display:none; position:absolute; right:0; top:48px; z-index:60; background:#fff; border:1px solid var(--hv-line); border-radius:12px; box-shadow:0 12px 34px rgba(80,60,30,.18); padding:14px; width:230px; text-align:left;" onclick="event.stopPropagation()">
+          <div style="font-size:12px; color:var(--hv-muted); margin:0 0 4px 2px;">From</div>
+          <input type="date" id="tbFrom" style="width:100%; border:1px solid var(--hv-line); border-radius:8px; padding:8px 10px; font-family:inherit; font-size:13px; margin-bottom:10px;">
+          <div style="font-size:12px; color:var(--hv-muted); margin:0 0 4px 2px;">To</div>
+          <input type="date" id="tbTo" style="width:100%; border:1px solid var(--hv-line); border-radius:8px; padding:8px 10px; font-family:inherit; font-size:13px; margin-bottom:12px;">
+          <button class="btn" style="width:100%;" onclick="applyCustomRange()">Apply range</button>
+        </div>
       </div>
       <button class="btn secondary" onclick="renderToday()">↻ Refresh</button>
     </div>
@@ -885,6 +889,13 @@
     if(currentView === "custom" && customStart && customEnd){ return { start: customStart, end: iso(addDays(new Date(customEnd + "T00:00:00"), 1)) }; }   // end inclusive
     return { start: iso(t0), end: iso(addDays(t0, 1)) };
   }
+  // admin-only: the custom-range popover
+  function toggleRangePop(e){
+    if(e) e.stopPropagation();
+    const p = document.getElementById("tbRangePop");
+    if(p) p.style.display = (p.style.display === "block") ? "none" : "block";
+  }
+  document.addEventListener("click", function(){ const p = document.getElementById("tbRangePop"); if(p && p.style.display === "block") p.style.display = "none"; });
   // admin-only: apply a custom From–To range
   function applyCustomRange(){
     const f = document.getElementById("tbFrom").value;
@@ -893,6 +904,8 @@
     if(f > t){ alert("The From date must be on or before the To date."); return; }
     customStart = f; customEnd = t; currentView = "custom";
     document.querySelectorAll(".view-tab").forEach(b => b.classList.remove("active"));
+    const lbl = document.getElementById("tbRangeBtnLabel"); if(lbl) lbl.textContent = fmt(f) + " – " + fmt(t);
+    const p = document.getElementById("tbRangePop"); if(p) p.style.display = "none";
     try{ localStorage.setItem("shph_today_view", "custom"); localStorage.setItem("shph_today_custom", JSON.stringify({ f, t })); }catch(e){}
     renderToday();
   }
@@ -932,6 +945,7 @@
     currentView = v;
     localStorage.setItem("shph_today_view", v);   // remember across refreshes
     document.querySelectorAll(".view-tab").forEach(t => t.classList.toggle("active", t.dataset.view === v));
+    const lbl = document.getElementById("tbRangeBtnLabel"); if(lbl) lbl.textContent = "Custom range";   // reset the range pill
     renderToday();
   }
 
@@ -1750,9 +1764,13 @@
     document.querySelectorAll(".view-tab").forEach(t => t.classList.toggle("active", t.dataset.view === currentView));
     // show the admin-only date range picker
     if(IS_ADMIN){
-      const r = document.getElementById("tbRange");
-      if(r) r.style.display = "flex";
-      if(customStart){ const ff = document.getElementById("tbFrom"); const tt = document.getElementById("tbTo"); if(ff) ff.value = customStart; if(tt) tt.value = customEnd; }
+      const r = document.getElementById("tbRangeWrap");
+      if(r) r.style.display = "inline-block";
+      if(customStart){
+        const ff = document.getElementById("tbFrom"); const tt = document.getElementById("tbTo");
+        if(ff) ff.value = customStart; if(tt) tt.value = customEnd;
+        const lbl = document.getElementById("tbRangeBtnLabel"); if(lbl && currentView === "custom") lbl.textContent = fmt(customStart) + " – " + fmt(customEnd);
+      }
     }
   })();
   renderToday();
