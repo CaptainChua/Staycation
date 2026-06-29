@@ -1532,7 +1532,19 @@ input.gf-ov:focus{ outline:none; background:#fff7cc; }
         </div>
         <div class="field">
             <label>Check-in date</label>
-            <input type="date" id="gf_date">
+            <div class="dp-wrap">
+                <div class="dpi-input" id="gf_date_pill" onclick="openGfCal(event)">Pick date</div>
+                <div class="dp-popup" id="gf_date_popup" onclick="event.stopPropagation()">
+                    <div class="dp-head">
+                        <button type="button" onclick="gfCalNav(-1)">‹</button>
+                        <span id="gf_date_title"></span>
+                        <button type="button" onclick="gfCalNav(1)">›</button>
+                    </div>
+                    <div class="dp-grid" id="gf_date_grid"></div>
+                    <div class="dp-foot"><span onclick="gfCalToday()">Today</span></div>
+                </div>
+                <input type="hidden" id="gf_date">
+            </div>
         </div>
         <button class="btn" onclick="gfLoadBooking()">Load booking</button>
         <button class="btn secondary" onclick="gfClear()">Clear</button>
@@ -6166,14 +6178,59 @@ function renderGuestForm(){
     const sel = document.getElementById("gf_haven");
     if(sel && !sel.options.length) sel.innerHTML = HAVENS.map(h => `<option>${escHtml(h)}</option>`).join("");
     const dt = document.getElementById("gf_date");
-    if(dt && !dt.value) dt.value = iso(today());
+    setGfDate(dt && dt.value ? dt.value : iso(today()));   // styled calendar pill
     const owner = document.getElementById("gff_owner");
     if(owner && !owner.value) owner.value = GF_OWNER_DEFAULT;
-    const sign = document.getElementById("gff_ownerSign");
-    if(sign && !sign.value) sign.value = GF_OWNER_DEFAULT;
     gfHavenChanged();         // prefill the remembered unit for the current haven
     gfRenderIds();
 }
+
+/* ---------- Guest Form: custom calendar (matches the app's other pickers) ---------- */
+let gfCalMonth = today();
+let gfCalSel = iso(today());
+function gfDateText(ci){
+    return ci ? new Date(ci + "T00:00:00").toLocaleDateString("en-PH", { weekday:"short", month:"short", day:"numeric", year:"numeric" }) : "Pick date";
+}
+function renderGfCal(){
+    const y = gfCalMonth.getFullYear(), m = gfCalMonth.getMonth();
+    document.getElementById("gf_date_title").textContent = MONTHS[m] + " " + y;
+    const first = new Date(y, m, 1).getDay();
+    const dim = new Date(y, m + 1, 0).getDate();
+    const todayIso = iso(today());
+    let html = "";
+    ["Su","Mo","Tu","We","Th","Fr","Sa"].forEach(d => html += `<div class="dp-wd">${d}</div>`);
+    for(let i = 0; i < first; i++) html += `<div class="dp-day empty"></div>`;
+    for(let d = 1; d <= dim; d++){
+        const ci = iso(new Date(y, m, d));
+        const cls = "dp-day" + (ci === gfCalSel ? " sel" : "") + (ci === todayIso ? " today" : "");
+        html += `<div class="${cls}" onclick="pickGfDate('${ci}')"><span class="n">${d}</span></div>`;
+    }
+    document.getElementById("gf_date_grid").innerHTML = html;
+}
+function gfCalNav(dir){ gfCalMonth = new Date(gfCalMonth.getFullYear(), gfCalMonth.getMonth() + dir, 1); renderGfCal(); }
+function openGfCal(e){
+    if(e) e.stopPropagation();
+    const pop = document.getElementById("gf_date_popup");
+    if(pop.classList.contains("show")){ pop.classList.remove("show"); return; }
+    gfCalMonth = new Date((gfCalSel || iso(today())) + "T00:00:00");
+    renderGfCal();
+    pop.classList.add("show");
+}
+function closeGfCal(){ const p = document.getElementById("gf_date_popup"); if(p) p.classList.remove("show"); }
+function pickGfDate(ci){
+    gfCalSel = ci;
+    document.getElementById("gf_date").value = ci;
+    document.getElementById("gf_date_pill").textContent = gfDateText(ci);
+    closeGfCal();
+}
+function setGfDate(ci){
+    gfCalSel = ci || iso(today());
+    const inp = document.getElementById("gf_date"); if(inp) inp.value = ci || "";
+    const pill = document.getElementById("gf_date_pill"); if(pill) pill.textContent = gfDateText(ci);
+    if(ci) gfCalMonth = new Date(ci + "T00:00:00");
+}
+function gfCalToday(){ pickGfDate(iso(today())); }
+document.addEventListener("click", e => { if(!e.target.closest(".dp-wrap")) closeGfCal(); });
 
 // when the haven dropdown changes, pull its remembered Unit No. & Tower
 function gfHavenChanged(){
