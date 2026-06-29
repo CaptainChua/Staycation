@@ -170,7 +170,8 @@ app.get("/", renderPage("index"));
 // Partner dashboard: serves the dashboard view at a partner-branded URL.
 // Single path segment so the dashboard's relative assets still resolve to root.
 // Partner mode is detected client-side from this path (see dashboard.html).
-app.get("/partner-dashboard", renderPage("dashboard"));
+app.get("/partners", renderPage("dashboard"));
+app.get("/partner-dashboard", renderPage("dashboard"));   // alias
 
 /* ---------------- Static assets ---------------- */
 // Client JS/CSS live in /public; images stay in /images.

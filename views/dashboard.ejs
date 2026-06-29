@@ -3503,8 +3503,9 @@ let bookings = load();
 /* Partner mode (read-only, single haven): a logged-in partner sees ONLY their
    haven. Filtering the bookings array here scopes EVERY view (stats, calendar,
    table). Chrome/lockdown lives in partners.js (applyPartnerChrome). */
+var _pPath = location.pathname.replace(/\/+$/, "").toLowerCase();
 if(new URLSearchParams(location.search).get("mode") === "partner"
-   || location.pathname.replace(/\/+$/, "").toLowerCase().endsWith("/partner-dashboard")){
+   || _pPath === "/partners" || _pPath.endsWith("/partner-dashboard")){
     let _ps = null;
     try{ _ps = JSON.parse(localStorage.getItem("shph_partner_session") || "null"); }catch(e){}
     if(_ps && _ps.superAdmin){
