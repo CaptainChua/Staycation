@@ -290,7 +290,7 @@ function prRenderBookings(){
 function applyPartnerChrome(){
     const ps = window.__PARTNER__;
     if(!ps) return;
-    const ALLOW = ["calendar"];   // Calendar/Bookings page = stats + timeline + bookings, all scoped
+    const ALLOW = ["today", "calendar"];   // both render from the haven-filtered data
 
     // sidebar: show only the allowed items, hide every empty group
     document.querySelectorAll(".sidebar .nav-item").forEach(n => {
@@ -325,8 +325,12 @@ function applyPartnerChrome(){
     try{ save = function(){}; }catch(e){}
     try{ window.save = function(){}; }catch(e){}
 
-    // land on the scoped Calendar/Bookings page
-    if(typeof showPage === "function") showPage("calendar");
+    // the "Today's Booking" nav normally jumps to the standalone (unscoped) page;
+    // in partner mode point it at the in-app, haven-scoped Today page instead.
+    const _todayNav = document.querySelector('.sidebar .nav-item[data-page="today"]');
+    if(_todayNav) _todayNav.onclick = function(){ showPage("today"); };
+    // land on the scoped Today's Booking page
+    if(typeof showPage === "function") showPage("today");
 }
 
 /* ---------- Users page: Partner Logins section (admin-only) ---------- */

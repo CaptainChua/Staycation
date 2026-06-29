@@ -9640,7 +9640,7 @@ function currentPerms(){
     return u.perms || [];
 }
 function pageAllowed(page){
-    if(window.__PARTNER__) return page === "calendar";   // partner: scoped Calendar/Bookings only
+    if(window.__PARTNER__) return page === "calendar" || page === "today";   // partner: scoped pages only
     if(page === "users") return isAdminUser();
     return currentPerms().includes(page);
 }
