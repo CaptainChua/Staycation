@@ -2911,13 +2911,13 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
         </div>
 
         <!-- full-size confirmation viewer -->
-        <div class="overlay" id="confirmFullOverlay">
+        <div class="overlay" id="confirmFullOverlay" onclick="closeConfirmFull()" title="Click anywhere to minimize">
             <div style="max-width:96vw; max-height:96vh; display:flex; flex-direction:column; gap:10px;">
-                <div style="display:flex; gap:8px; justify-content:flex-end;">
+                <div style="display:flex; gap:8px; justify-content:flex-end;" onclick="event.stopPropagation()">
                     <button type="button" class="btn" onclick="downloadConfirmation()">⬇ Download PDF</button>
-                    <button type="button" class="btn secondary" onclick="document.getElementById('confirmFullOverlay').classList.remove('show')">Close</button>
+                    <button type="button" class="btn secondary" onclick="closeConfirmFull()">Close</button>
                 </div>
-                <div style="overflow:auto; background:#e7e3dc; padding:18px; border-radius:14px;">
+                <div style="overflow:auto; background:#e7e3dc; padding:18px; border-radius:14px; cursor:zoom-out;">
                     <div id="confirmFullInner" class="bkc-doc"></div>
                 </div>
             </div>
@@ -5422,9 +5422,15 @@ window.addEventListener("resize", () => {
 });
 // open the confirmation full size in an overlay
 function openConfirmFull(){
+    const ov = document.getElementById("confirmFullOverlay");
+    // clicking the preview again while it's open simply minimizes (closes) it
+    if(ov.classList.contains("show")){ closeConfirmFull(); return; }
     const inner = document.getElementById("confirmFullInner");
     if(inner) inner.innerHTML = buildConfirmationHTML();
-    document.getElementById("confirmFullOverlay").classList.add("show");
+    ov.classList.add("show");
+}
+function closeConfirmFull(){
+    document.getElementById("confirmFullOverlay").classList.remove("show");
 }
 
 // build the booking-confirmation document HTML (matches the PDF design) from the
