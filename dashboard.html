@@ -1287,29 +1287,48 @@ tr.row-cancelled td:nth-child(2){ text-decoration:line-through; }
 <div class="page" id="page-approval">
 <style>
   #page-approval .ap-empty{ background:#fff; border:1px solid var(--hv-line); border-radius:16px; text-align:center; color:var(--hv-muted); padding:40px; box-shadow:0 6px 20px rgba(80,60,30,.05); }
-  #page-approval .ap-card{ padding:0; overflow:hidden; }
-  #page-approval .ap-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:14px; flex-wrap:wrap; padding:18px 22px; background:#faf6ee; border-bottom:1px solid var(--hv-line); }
-  #page-approval .ap-head h3{ font-family:'Playfair Display',Georgia,serif; font-size:19px; font-weight:700; margin:0; color:var(--hv-ink); display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-  #page-approval .ap-src{ font-family:'Mulish',sans-serif; font-size:11px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; padding:3px 9px; border-radius:20px; }
+  /* ---- compact 2-column approval cards ---- */
+  #page-approval #approvalList{ display:grid; grid-template-columns:1fr 1fr; gap:20px; align-items:start; }
+  @media(max-width:980px){ #page-approval #approvalList{ grid-template-columns:1fr; } }
+  #page-approval .ap-empty{ grid-column:1/-1; }
+  #page-approval .ap-card{ padding:20px 22px; display:flex; flex-direction:column; }
+  #page-approval .ap-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+  #page-approval .ap-head h3{ font-family:'Playfair Display',Georgia,serif; font-size:20px; font-weight:700; margin:0; color:var(--hv-ink); display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
+  #page-approval .ap-src{ font-family:'Mulish',sans-serif; font-size:10.5px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; padding:3px 9px; border-radius:20px; }
   #page-approval .ap-src.web{ background:#e7eef6; color:#2b6cb0; }
   #page-approval .ap-src.manual{ background:#f3ece1; color:#8a6f4f; }
-  #page-approval .ap-sub{ color:var(--hv-muted); font-size:13px; margin-top:4px; }
-  #page-approval .ap-actions{ display:flex; gap:10px; }
+  #page-approval .ap-actions{ display:flex; gap:9px; flex-shrink:0; }
+  #page-approval .ap-actions .btn{ padding:9px 16px; font-size:13.5px; }
   #page-approval .ap-del{ color:#b91c1c; border-color:#f0d4d4; }
   #page-approval .ap-del:hover{ background:#fdf3f3; border-color:#e6b8b8; }
-  #page-approval .ap-body{ display:grid; grid-template-columns:1fr 280px; gap:24px; padding:20px 22px; }
-  @media(max-width:820px){ #page-approval .ap-body{ grid-template-columns:1fr; } }
-  #page-approval .ap-row{ display:flex; justify-content:space-between; gap:14px; padding:8px 0; border-bottom:1px solid var(--hv-line); font-size:14px; color:var(--hv-muted); }
-  #page-approval .ap-row:last-child{ border-bottom:none; }
-  #page-approval .ap-row b{ color:var(--hv-ink); text-align:right; }
-  #page-approval .ap-proof-label{ font-size:11px; letter-spacing:.4px; text-transform:uppercase; color:var(--hv-muted); font-weight:700; margin-bottom:8px; }
-  #page-approval .ap-proof{ width:100%; max-height:300px; object-fit:contain; border:1px solid var(--hv-line); border-radius:12px; background:#faf7f2; cursor:zoom-in; display:block; }
-  #page-approval .ap-noproof{ border:1.5px dashed #e0d3bf; border-radius:12px; padding:30px 14px; text-align:center; color:#b89a78; font-size:13px; font-weight:600; background:#faf7f2; }
-  #page-approval .ap-status{ display:inline-flex; align-items:center; gap:6px; font-size:11.5px; font-weight:700; padding:4px 11px; border-radius:20px; }
-  #page-approval .ap-status::before{ content:""; width:7px; height:7px; border-radius:50%; background:currentColor; }
-  #page-approval .ap-status.paid{ background:#e7f3ec; color:#2e7d4f; }
-  #page-approval .ap-status.partial{ background:#f6ecd9; color:#9a7700; }
-  #page-approval .ap-status.unpaid{ background:#fde3e7; color:#c0283d; }
+  #page-approval .ap-status{ display:inline-flex; align-items:center; gap:7px; font-size:13px; font-weight:700; margin-top:13px; }
+  #page-approval .ap-status::before{ content:""; width:8px; height:8px; border-radius:50%; background:currentColor; }
+  #page-approval .ap-status.paid{ color:#2e7d4f; }
+  #page-approval .ap-status.partial{ color:#2e7d4f; }
+  #page-approval .ap-status.unpaid{ color:#8a7d6e; }
+  #page-approval .ap-contact{ color:var(--hv-muted); font-size:13.5px; margin-top:5px; }
+  #page-approval .ap-divider{ height:1px; background:var(--hv-line); margin:16px 0; }
+  #page-approval .ap-grid{ display:grid; grid-template-columns:1.4fr 1fr 1fr .85fr; gap:16px 14px; }
+  #page-approval .ap-cell .lab{ font-size:10.5px; letter-spacing:.5px; text-transform:uppercase; color:var(--hv-muted); font-weight:700; margin-bottom:5px; }
+  #page-approval .ap-cell .val{ font-size:14px; color:var(--hv-ink); font-weight:700; line-height:1.45; }
+  #page-approval .ap-cell .sub{ font-size:12.5px; color:var(--hv-muted); font-weight:500; margin-top:1px; }
+  #page-approval .ap-cell .age{ color:var(--hv-muted); font-weight:600; }
+  #page-approval .ap-foot{ display:grid; grid-template-columns:1fr 134px; gap:16px; margin-top:18px; align-items:stretch; }
+  #page-approval .ap-totals{ background:#faf6ee; border:1px solid var(--hv-line); border-radius:14px; padding:14px 16px; display:flex; flex-direction:column; justify-content:center; gap:9px; }
+  #page-approval .ap-tot{ display:flex; justify-content:space-between; align-items:baseline; gap:12px; font-size:13.5px; color:var(--hv-muted); }
+  #page-approval .ap-tot.total b{ font-family:'Playfair Display',Georgia,serif; font-size:22px; color:var(--hv-terra-d); }
+  #page-approval .ap-tot .green{ color:#2e7d4f; font-weight:700; }
+  #page-approval .ap-tot .bal{ color:var(--hv-terra-d); font-weight:700; }
+  #page-approval .ap-proof-col{ display:flex; flex-direction:column; gap:7px; }
+  #page-approval .ap-proof2{ position:relative; flex:1; background:#2f6fb0; border:none; border-radius:14px; color:#fff; cursor:zoom-in; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px; padding:14px 10px; min-height:108px; font-family:inherit; }
+  #page-approval .ap-proof2 .ic{ font-size:25px; opacity:.95; }
+  #page-approval .ap-proof2 .amt{ font-size:16px; font-weight:800; letter-spacing:.3px; }
+  #page-approval .ap-proof2 .zoom{ position:absolute; top:8px; right:8px; width:22px; height:22px; border-radius:7px; background:rgba(255,255,255,.22); display:flex; align-items:center; justify-content:center; font-size:12px; }
+  #page-approval .ap-proof2.empty{ background:#faf7f2; color:#b89a78; border:1.5px dashed #e0d3bf; cursor:default; }
+  #page-approval .ap-vp{ text-align:center; font-size:10.5px; letter-spacing:.5px; text-transform:uppercase; color:var(--hv-muted); font-weight:700; }
+  #page-approval .ap-flag{ font-family:'Mulish',sans-serif; font-size:10.5px; font-weight:700; padding:3px 10px; border-radius:20px; }
+  #page-approval .ap-flag.approved{ background:#e7f3ec; color:#2e7d4f; }
+  #page-approval .ap-flag.pending{ background:#f6ecd9; color:#9a7700; }
   #page-approval .ap-toolbar{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:18px; }
   #page-approval .ap-seg{ display:flex; background:#fff; border:1px solid var(--hv-line); border-radius:10px; overflow:hidden; }
   #page-approval .ap-seg button{ border:none; background:none; padding:9px 16px; font-size:13px; font-weight:600; color:var(--hv-muted); cursor:pointer; font-family:inherit; }
@@ -1319,9 +1338,6 @@ tr.row-cancelled td:nth-child(2){ text-decoration:line-through; }
   #page-approval .date-pill{ min-width:150px; }
   #page-approval #apDpPopup{ left:auto; right:0; transform:none; top:48px; }
   #page-approval #apDpPopup::before{ left:auto; right:30px; transform:rotate(45deg); }
-  #page-approval .ap-flag{ font-family:'Mulish',sans-serif; font-size:11px; font-weight:700; padding:3px 10px; border-radius:20px; }
-  #page-approval .ap-flag.approved{ background:#e7f3ec; color:#2e7d4f; }
-  #page-approval .ap-flag.pending{ background:#f6ecd9; color:#9a7700; }
   .nav-badge{ display:inline-flex; align-items:center; justify-content:center; min-width:19px; height:19px; padding:0 5px; margin-left:auto; background:var(--hv-terra); color:#fff; border-radius:20px; font-size:11px; font-weight:700; }
   .nav-badge:empty{ display:none; }
 </style>
@@ -4497,42 +4513,63 @@ function renderApproval(){
         const web = b.source === "website";
         const st = statusOf(b);
         const stLabel = st === "paid" ? "Fully paid" : st === "partial" ? "Downpayment paid" : "No payment";
-        const stayTxt = (b.stayHours ? b.stayHours + "h" : "—") +
-            (Number(b.stayHours) === 6 && b.slot ? " · " + (b.slot === "morning" ? "AM" : "PM") : "");
-        const proof = b.downProof
-            ? `<img class="ap-proof" src="${b.downProof}" alt="Payment screenshot" onclick="apViewProof(this.src)">`
-            : `<div class="ap-noproof">No payment screenshot uploaded</div>`;
+        const dd = (b.checkin && b.checkout) ? daysBetween(b.checkin, b.checkout) : 0;
+        const stayTxt = dd >= 2
+            ? dd + " nights"
+            : (b.stayHours ? b.stayHours + " h" : "—") +
+              (Number(b.stayHours) === 6 && b.slot ? " · " + (b.slot === "morning" ? "AM" : "PM") : "");
+        const guestCell = (b.guests || []).length
+            ? (b.guests || []).map(g => `<div>${escHtml(g.name || "")}${g.age != null && g.age !== "" ? ` <span class="age">${g.age}</span>` : ""}</div>`).join("")
+            : "—";
+        const pax = (b.guests || []).length;
+        const paxTxt = pax + (pax === 1 ? " guest" : " guests");
+        const proofCol = b.downProof
+            ? `<div class="ap-proof-col">
+                   <button type="button" class="ap-proof2" data-src="${String(b.downProof).replace(/"/g, "&quot;")}" onclick="apViewProof(this.dataset.src)">
+                       <span class="zoom">🔍</span>
+                       <span class="ic">🧾</span>
+                       <span class="amt">${peso(b.downpayment || 0)}</span>
+                   </button>
+                   <div class="ap-vp">View proof</div>
+               </div>`
+            : `<div class="ap-proof-col">
+                   <div class="ap-proof2 empty">
+                       <span class="ic">🧾</span>
+                       <span class="amt" style="font-size:12px;">No proof</span>
+                   </div>
+               </div>`;
         const flag = b.approved
             ? `<span class="ap-flag approved">✓ Approved</span>`
             : `<span class="ap-flag pending">Pending</span>`;
         const actions = b.approved
-            ? `<button class="btn secondary" onclick="revertApproval(${b.id})">↺ Revert to pending</button>
+            ? `<button class="btn secondary" onclick="revertApproval(${b.id})">↺ Revert</button>
                <button class="btn secondary ap-del" onclick="rejectBooking(${b.id})">🗑 Delete</button>`
             : `<button class="btn" onclick="approveBooking(${b.id})">✓ Approve</button>
                <button class="btn secondary ap-del" onclick="rejectBooking(${b.id})">🗑 Delete</button>`;
         return `<div class="panel ap-card">
             <div class="ap-head">
-                <div>
-                    <h3>${b.haven} <span class="ap-src ${web ? "web" : "manual"}">${web ? "Website" : "Manual"}</span> ${flag} <span class="ap-status ${st}">${stLabel}</span></h3>
-                    <div class="ap-sub">${primaryName(b)}${b.contact ? " · " + b.contact : ""}${b.bookingNo ? " · " + b.bookingNo : ""}</div>
-                </div>
+                <h3>${b.haven} <span class="ap-src ${web ? "web" : "manual"}">${web ? "Online" : "Manual"}</span> ${flag}</h3>
                 <div class="ap-actions">${actions}</div>
             </div>
-            <div class="ap-body">
-                <div class="ap-info">
-                    <div class="ap-row"><span>Guests</span><b>${guestSummary(b)}</b></div>
-                    <div class="ap-row"><span>Check-in</span><b>${fmt(b.checkin)} · ${checkinTimeStr(b)}</b></div>
-                    <div class="ap-row"><span>Check-out</span><b>${fmt(b.checkout)} · ${checkoutTimeStr(b)}</b></div>
-                    <div class="ap-row"><span>Stay</span><b>${stayTxt}</b></div>
-                    <div class="ap-row"><span>Payment method</span><b>${b.method || "—"}</b></div>
-                    <div class="ap-row"><span>Total</span><b>${peso(b.total || 0)}</b></div>
-                    <div class="ap-row"><span>Downpayment</span><b>${peso(b.downpayment || 0)}</b></div>
-                    <div class="ap-row"><span>Balance on arrival</span><b>${peso(balanceOf(b))}</b></div>
+            <div class="ap-status ${st}">${stLabel}</div>
+            <div class="ap-contact">${primaryName(b)}${b.contact ? " · " + b.contact : ""}</div>
+            <div class="ap-divider"></div>
+            <div class="ap-grid">
+                <div class="ap-cell"><div class="lab">Guests</div><div class="val">${guestCell}</div></div>
+                <div class="ap-cell"><div class="lab">Check-in</div><div class="val">${fmt(b.checkin)}<div class="sub">${checkinTimeStr(b)}</div></div></div>
+                <div class="ap-cell"><div class="lab">Check-out</div><div class="val">${fmt(b.checkout)}<div class="sub">${checkoutTimeStr(b)}</div></div></div>
+                <div class="ap-cell"><div class="lab">Stay</div><div class="val">${stayTxt}</div></div>
+                <div class="ap-cell"><div class="lab">Method</div><div class="val">${b.method || "—"}</div></div>
+                <div class="ap-cell"><div class="lab">Pax</div><div class="val">${paxTxt}</div></div>
+                <div class="ap-cell" style="grid-column:span 2;"><div class="lab">Reference no.</div><div class="val">${b.bookingNo || "—"}</div></div>
+            </div>
+            <div class="ap-foot">
+                <div class="ap-totals">
+                    <div class="ap-tot total"><span>Total</span><b>${peso(b.total || 0)}</b></div>
+                    <div class="ap-tot"><span>Downpayment</span><span class="green">${peso(b.downpayment || 0)}</span></div>
+                    <div class="ap-tot"><span>Balance on arrival</span><span class="bal">${peso(balanceOf(b))}</span></div>
                 </div>
-                <div class="ap-proof-col">
-                    <div class="ap-proof-label">Payment screenshot</div>
-                    ${proof}
-                </div>
+                ${proofCol}
             </div>
         </div>`;
     }).join("");
