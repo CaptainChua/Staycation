@@ -10063,7 +10063,7 @@ function currentPerms(){
     return u.perms || [];
 }
 function pageAllowed(page){
-    if(window.__PARTNER__) return ["today", "calendar", "deposit", "analytics", "finance", "bills", "expenses", "board"].includes(page);   // partner pages
+    if(window.__PARTNER__) return ["today", "calendar", "deposit", "cleaners", "analytics", "finance", "bills", "expenses", "board"].includes(page);   // partner pages
     if(page === "users") return isAdminUser();
     return currentPerms().includes(page);
 }
