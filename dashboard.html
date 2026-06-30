@@ -2848,8 +2848,8 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
                 <h3>Balance</h3>
                 <div id="balProofList"></div>
             </div>
-            <div class="proof-block proof-block-wide">
-                <h3>Add Ons</h3>
+            <div class="proof-block">
+                <h3>Add-Ons <span class="muted" style="font-weight:400;font-size:13px;">— Swimpass &amp; Towels</span></h3>
                 <div class="proof-meta" id="addonMeta"></div>
                 <span class="proof-thumb" id="addonProofThumb" style="display:none;">
                     <img id="addonProofImg" class="proof-img" alt="add-ons proof" onclick="openProofImg(this.src)">
@@ -2861,6 +2861,19 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
                     <input type="file" id="addonProofFile" accept="image/*" onchange="onAddonProofChange(this)">
                 </label>
                 <span class="proof-del" id="addonDel" style="display:none;" onclick="deleteCollection('Add Ons')">Delete this collection</span>
+            </div>
+            <div class="proof-block">
+                <h3>Additional Hours <span class="muted" style="font-weight:400;font-size:13px;">— Extend</span></h3>
+                <div class="proof-meta" id="extendMeta"></div>
+                <span class="proof-thumb" id="extendProofThumb" style="display:none;">
+                    <img id="extendProofImg" class="proof-img" alt="additional-hours proof" onclick="openProofImg(this.src)">
+                    <button type="button" class="proof-imgdel" title="Delete photo" onclick="deleteProofImg('extend')">✕</button>
+                </span>
+                <label class="proof-upload" data-proof="extend">
+                    <span class="pu-ico"><svg viewBox="0 0 24 24"><path d="M12 16V5"/><path d="m7 10 5-5 5 5"/><path d="M5 19h14"/></svg></span>
+                    <span class="pu-body"><b>Upload additional-hours proof</b><small class="pu-name" id="extendProofName">No file chosen</small></span>
+                    <input type="file" id="extendProofFile" accept="image/*" onchange="onExtendProofChange(this)">
+                </label>
             </div>
         </div>
 
@@ -4558,6 +4571,7 @@ function viewBooking(id){
     add(b.downProof, "Downpayment proof");
     add(b.balanceProof, "Balance proof");
     add(b.addonProof, "Add-on proof");
+    add(b.extendProof, "Additional-hours proof");
     add(b.depositProof, "Deposit proof");
     (b.payments || []).forEach(p => add(p.proof, (p.category || "Payment") + " proof"));
     const photosHtml = items.length
@@ -5494,7 +5508,7 @@ function closeModal(){
 }
 
 /* ---------- booking modal: page 2 (proof of payment) ---------- */
-let downProofData = null, addonProofData = null, balProofData = null, balProofDirty = false;
+let downProofData = null, addonProofData = null, balProofData = null, balProofDirty = false, extendProofData = null;
 function bkGoPage(n){
     document.getElementById("bkPage1").style.display = n === 1 ? "" : "none";
     document.getElementById("bkPage2").style.display = n === 2 ? "" : "none";
@@ -5806,9 +5820,10 @@ function setProofName(id, f){
     if(el) el.textContent = f ? (f.name || "Photo attached") : "No file chosen";
 }
 const PROOF_CFG = {
-    down:  { nameId:"downProofName",  imgId:"downProofImg",  thumbId:"downProofThumb",  fileId:"downProofFile"  },
-    addon: { nameId:"addonProofName", imgId:"addonProofImg", thumbId:"addonProofThumb", fileId:"addonProofFile" },
-    bal:   { nameId:"balProofName",   imgId:"balProofImg",   thumbId:"balProofThumb"   }
+    down:   { nameId:"downProofName",   imgId:"downProofImg",   thumbId:"downProofThumb",   fileId:"downProofFile"   },
+    addon:  { nameId:"addonProofName",  imgId:"addonProofImg",  thumbId:"addonProofThumb",  fileId:"addonProofFile"  },
+    extend: { nameId:"extendProofName", imgId:"extendProofImg", thumbId:"extendProofThumb", fileId:"extendProofFile" },
+    bal:    { nameId:"balProofName",    imgId:"balProofImg",    thumbId:"balProofThumb"    }
 };
 let addonShownPayIdx = -1;   // payments[] index when the add-ons image is a collection's photo (else -1)
 // shared core: accept an image File from the picker, a drop, or a paste
@@ -5817,8 +5832,9 @@ function applyProofFile(type, f){
     if(!cfg || !f || !/^image\//.test(f.type)) return;
     setProofName(cfg.nameId, f);
     resizeImage(f, dataUrl => {
-        if(type === "down")  downProofData = dataUrl;
-        if(type === "addon") addonProofData = dataUrl;
+        if(type === "down")   downProofData = dataUrl;
+        if(type === "addon")  addonProofData = dataUrl;
+        if(type === "extend") extendProofData = dataUrl;
         if(type === "bal"){ balProofData = dataUrl; balProofDirty = true; }
         const img = document.getElementById(cfg.imgId);
         if(img){ img.src = dataUrl; img.style.display = "block"; }
@@ -5834,6 +5850,7 @@ function deleteProofImg(type){
     if(!cfg) return;
     if(type === "down")  downProofData = null;
     else if(type === "addon") addonProofData = null;
+    else if(type === "extend") extendProofData = null;
     else if(type === "bal"){ balProofData = null; balProofDirty = true; }
     const img = document.getElementById(cfg.imgId); if(img){ img.src = ""; img.style.display = "none"; }
     const t = cfg.thumbId && document.getElementById(cfg.thumbId); if(t) t.style.display = "none";
@@ -5857,6 +5874,7 @@ function deleteCollectionPhoto(idx){
 }
 function onDownProofChange(input){ if(input.files[0]) applyProofFile("down", input.files[0]); }
 function onAddonProofChange(input){ if(input.files[0]) applyProofFile("addon", input.files[0]); }
+function onExtendProofChange(input){ if(input.files[0]) applyProofFile("extend", input.files[0]); }
 function onBalProofChange(input){ if(input.files[0]) applyProofFile("bal", input.files[0]); }
 
 // drag & drop onto any proof-upload card (delegated; bal card is re-rendered)
@@ -5952,13 +5970,14 @@ function renderProofPage(b){
     const extend   = b ? (Number(b.extend) || 0)   : (Number(document.getElementById("f_extend").value) || 0);
     const holiday  = b ? !!b.holiday : document.getElementById("f_holiday").checked;
     const swimRate = holiday ? PRICING.swimHoliday : PRICING.swimRegular;
-    const addonTotal = swimpass * swimRate + towels * PRICING.towel + extend * PRICING.extendPerHr;
+    const addonsOnly = swimpass * swimRate + towels * PRICING.towel;   // Swimpass + Towels only
+    const extendAmt  = extend * PRICING.extendPerHr;                   // Additional hours (Extend)
     const latestAddonPay = addonPays.length ? addonPays[addonPays.length - 1] : null;
     addonProofData = (b && b.addonProof) || null;   // manual-upload channel only (persisted on save)
     // show the latest Add Ons collection's proof if any, otherwise the manual upload
     const addonShown = (latestAddonPay && latestAddonPay.proof) ? latestAddonPay.proof : addonProofData;
     addonShownPayIdx = (latestAddonPay && latestAddonPay.proof) ? pays.indexOf(latestAddonPay) : -1;   // ✕ deletes the collection photo when shown one
-    let addonMeta = `<span>Swimpass ${swimpass} · Towels ${towels} · Extend ${extend}h</span><span>Total <strong>${peso(addonTotal)}</strong></span>`;
+    let addonMeta = `<span>Swimpass ${swimpass} · Towels ${towels}</span><span>Total <strong>${peso(addonsOnly)}</strong></span>`;
     if(latestAddonPay){
         const more = addonPays.length > 1 ? ` <span class="muted">(+${addonPays.length - 1} earlier)</span>` : "";
         addonMeta += `<span style="flex-basis:100%">Collected <strong>${peso(latestAddonPay.amount)}</strong> via ${latestAddonPay.mop}${more} · by ${latestAddonPay.by || "—"}</span>`;
@@ -5971,6 +5990,17 @@ function renderProofPage(b){
     if(addonShown){ aImg.src = addonShown; aThumb.style.display = "inline-block"; }
     else { aImg.src = ""; aThumb.style.display = "none"; }
     document.getElementById("addonDel").style.display = latestAddonPay ? "inline-block" : "none";
+
+    // Additional Hours (Extend) — its own amount + manual proof, kept separate from add-ons
+    extendProofData = (b && b.extendProof) || null;
+    document.getElementById("extendMeta").innerHTML =
+        `<span>Extend ${extend}h${extend ? " · " + peso(PRICING.extendPerHr) + "/hr" : ""}</span><span>Total <strong>${peso(extendAmt)}</strong></span>`;
+    const eImg = document.getElementById("extendProofImg");
+    const eThumb = document.getElementById("extendProofThumb");
+    document.getElementById("extendProofFile").value = "";
+    document.getElementById("extendProofName").textContent = extendProofData ? "Photo attached ✓" : "No file chosen";
+    if(extendProofData){ eImg.src = extendProofData; eThumb.style.display = "inline-block"; }
+    else { eImg.src = ""; eThumb.style.display = "none"; }
 }
 // replace one collection's photo (by its index in the payments array) — saves now
 function replaceCollectionProof(idx, input){
@@ -6113,6 +6143,7 @@ function saveBooking(){
         notes: document.getElementById("f_notes").value.trim(),
         downProof: downProofData || null,
         addonProof: addonProofData || null,
+        extendProof: extendProofData || null,
         balanceProof: balProofData || null,
         ids: idsData.slice(),
         idOptOut: document.getElementById("f_idOptOut").checked
@@ -6162,7 +6193,7 @@ function saveBooking(){
             method: data.method,
             downpayment: 0,
             notes: data.notes,
-            downProof: null, addonProof: null, balanceProof: null,
+            downProof: null, addonProof: null, extendProof: null, balanceProof: null,
             ids: data.ids, idOptOut: data.idOptOut,
             source: data.source
         };
