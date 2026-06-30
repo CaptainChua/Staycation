@@ -3499,13 +3499,18 @@ function _bkCanon(v){
         .map(k => JSON.stringify(k) + ":" + _bkCanon(v[k])).join(",") + "}";
     return JSON.stringify(v);
 }
-let _bkSig = null;   // id -> last-saved signature
+let _bkSig = null;   // id -> last-saved canonical signature (baseline for change detection)
+// (re)build the baseline from the CURRENT loaded list, so save() only stamps records the user
+// actually changes afterward. Seeding from localStorage was wrong: migrate() normalises fields
+// on load, so every migrated booking looked "changed" and got mass-stamped with a fresh time —
+// that stale snapshot then won the merge and wiped real edits (e.g. deposit returns).
+function _seedBkSig(arr){
+    _bkSig = {};
+    (arr || []).forEach(b => { if(b && b.id != null) _bkSig[String(b.id)] = _bkCanon(b); });
+}
 function save(data){
     try{
-        if(_bkSig === null){   // baseline from what's already stored (server-synced)
-            _bkSig = {};
-            (JSON.parse(localStorage.getItem(KEY) || "[]") || []).forEach(p => { if(p && p.id != null) _bkSig[String(p.id)] = _bkCanon(p); });
-        }
+        if(_bkSig === null) _seedBkSig(data);   // not seeded yet → treat the current list as the baseline
         const now = new Date().toISOString();
         for(const b of (data || [])){
             if(!b || b.id == null) continue;
@@ -3630,6 +3635,7 @@ function seedData(){
 }
 
 let bookings = load();
+_seedBkSig(bookings);   // baseline for edit-stamping = the loaded state (prevents mass-stamping on first save)
 /* Partner mode (read-only, single haven): a logged-in partner sees ONLY their
    haven. Filtering the bookings array here scopes EVERY view (stats, calendar,
    table). Chrome/lockdown lives in partners.js (applyPartnerChrome). */
@@ -3654,6 +3660,7 @@ window.addEventListener("storage", function(e){
     if(e.key !== KEY) return;
     try{
         bookings = load();
+        _seedBkSig(bookings);   // another tab's data is now our baseline → don't re-stamp it as ours
         if(window.__PARTNER__ && !window.__PARTNER__.superAdmin && window.__PARTNER__.haven){
             bookings = bookings.filter(b => b.haven === window.__PARTNER__.haven);
         }
