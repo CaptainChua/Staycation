@@ -72,11 +72,6 @@ apiRouter.get("/kv/:key", (req, res) => {
   res.json(store.get(req.params.key));
 });
 
-// Multi-user merge for bookings: combine the incoming list with what's already on the
-// server (by booking id) instead of replacing it wholesale. So when two people save at
-// the same time, neither overwrites the other's bookings. Bookings only this client is
-// missing (added by someone else) are KEPT; bookings deleted via the /booking delete
-// endpoint are tombstoned and excluded, so a stale client can't resurrect them.
 // Id-keyed list stores that are merged per-item on save (multi-user safe + never erased).
 // Only stores whose items have a stable unique `id` belong here — merging an id-less list
 // would DROP records. (cleaning = object keyed by room; poolpass = no id → NOT here.)
@@ -84,30 +79,19 @@ const MERGE_LIST_KEYS = new Set([
   "shph_bookings_v3", "shph_bills_v1", "shph_expenses_v1",
   "shph_users", "shph_staff_v1", "staycation_havens"
 ]);
-function mergeList(stored, incoming) {
-  const byId = new Map();
-  for (const b of stored) if (b && b.id != null) byId.set(String(b.id), b);
-  for (const b of incoming) {
-    if (!b || b.id == null) continue;
-    const cur = byId.get(String(b.id));
-    // never let a stale client UN-delete a record the server already marked deleted
-    if (cur && cur.deleted && !b.deleted) continue;
-    byId.set(String(b.id), b);
-  }
-  return Array.from(byId.values());
-}
 
 // write one key (body is the raw JSON value the browser stored)
 apiRouter.put("/kv/:key", async (req, res) => {
   if (!store.isShared(req.params.key)) return res.status(403).json({ error: "key not shared" });
   try {
-    let value = req.body;
-    if (MERGE_LIST_KEYS.has(req.params.key) && Array.isArray(value)) {
-      value = mergeList(store.get(req.params.key) || [], value);   // never overwrite another user's records
+    if (MERGE_LIST_KEYS.has(req.params.key) && Array.isArray(req.body)) {
+      // ATOMIC per-item merge against the LIVE doc (transaction): two users saving at once
+      // never overwrite each other, and a stale cache can't drop another instance's records.
+      await store.mergeListWrite(req.params.key, req.body);
+    } else {
+      // durable write: only report success once the backend confirms, so the client retries.
+      await store.setStrict(req.params.key, req.body);
     }
-    // durable write: only report success once the backend (Firestore) confirms,
-    // so a client knows to retry instead of silently losing the change.
-    await store.setStrict(req.params.key, value);
     res.json({ ok: true });
   } catch (e) {
     console.error("[api] PUT /kv/" + req.params.key + " failed to persist:", e.message);
@@ -149,25 +133,24 @@ apiRouter.delete("/kv/:key", async (req, res) => {
 // (unlike re-uploading the whole bookings array, which carries base64 images).
 apiRouter.post("/booking/:id/:action", async (req, res) => {
   const KEY = "shph_bookings_v3";
-  const arr = store.get(KEY) || [];
-  const idx = arr.findIndex(x => String(x.id) === String(req.params.id));
-  const action = req.params.action;
-  if (idx < 0) return res.status(404).json({ error: "booking not found" });
-  if (action === "cancel") {
-    arr[idx].cancelled = true;
-    if (!arr[idx].cancelledAt) arr[idx].cancelledAt = new Date().toISOString();
-  } else if (action === "reinstate") {
-    delete arr[idx].cancelled;
-    delete arr[idx].cancelledAt;
-  } else if (action === "delete") {
-    // SOFT delete: the record is NEVER erased from the server — just flagged (and hidden in
-    // the dashboard). mergeBookings keeps it deleted so a stale client can't un-delete it.
-    arr[idx].deleted = true;
-    if (!arr[idx].deletedAt) arr[idx].deletedAt = new Date().toISOString();
-  } else {
-    return res.status(400).json({ error: "unknown action" });
+  const id = req.params.id, action = req.params.action;
+  let ok;
+  try {
+    if (action === "cancel") {
+      ok = await store.updateOneFresh(KEY, id, b => { b.cancelled = true; if (!b.cancelledAt) b.cancelledAt = new Date().toISOString(); });
+    } else if (action === "reinstate") {
+      ok = await store.updateOneFresh(KEY, id, b => { delete b.cancelled; delete b.cancelledAt; });
+    } else if (action === "delete") {
+      // SOFT delete: the record is NEVER erased — just flagged (and hidden in the dashboard).
+      ok = await store.updateOneFresh(KEY, id, b => { b.deleted = true; if (!b.deletedAt) b.deletedAt = new Date().toISOString(); });
+    } else {
+      return res.status(400).json({ error: "unknown action" });
+    }
+  } catch (e) {
+    console.error("[api] booking action failed:", e.message);
+    return res.status(502).json({ ok: false, error: "persist failed" });
   }
-  await store.set(KEY, arr);
+  if (!ok) return res.status(404).json({ error: "booking not found" });
   res.json({ ok: true });
 });
 
