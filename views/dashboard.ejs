@@ -3409,7 +3409,8 @@ function computeTotal(b){
 /* ---------- data ---------- */
 function load(){
     const raw = localStorage.getItem(KEY);
-    if(raw) return JSON.parse(raw).map(migrate);
+    // soft-deleted bookings are KEPT on the server (never erased) but hidden from every view here
+    if(raw) return JSON.parse(raw).map(migrate).filter(b => !b.deleted);
     const seed = seedData();
     localStorage.setItem(KEY, JSON.stringify(seed));
     return seed;

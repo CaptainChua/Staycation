@@ -78,10 +78,15 @@ apiRouter.get("/kv/:key", (req, res) => {
 // missing (added by someone else) are KEPT; bookings deleted via the /booking delete
 // endpoint are tombstoned and excluded, so a stale client can't resurrect them.
 function mergeBookings(stored, incoming) {
-  const tomb = new Set((store.get("shph_deleted_bookings") || []).map(t => String(t && t.id)));
   const byId = new Map();
-  for (const b of stored)   if (b && b.id != null && !tomb.has(String(b.id))) byId.set(String(b.id), b);
-  for (const b of incoming) if (b && b.id != null && !tomb.has(String(b.id))) byId.set(String(b.id), b);
+  for (const b of stored) if (b && b.id != null) byId.set(String(b.id), b);
+  for (const b of incoming) {
+    if (!b || b.id == null) continue;
+    const cur = byId.get(String(b.id));
+    // never let a stale client UN-delete a booking the server already marked deleted
+    if (cur && cur.deleted && !b.deleted) continue;
+    byId.set(String(b.id), b);
+  }
   return Array.from(byId.values());
 }
 
@@ -140,7 +145,7 @@ apiRouter.post("/booking/:id/:action", async (req, res) => {
   const arr = store.get(KEY) || [];
   const idx = arr.findIndex(x => String(x.id) === String(req.params.id));
   const action = req.params.action;
-  if (idx < 0 && action !== "delete") return res.status(404).json({ error: "booking not found" });
+  if (idx < 0) return res.status(404).json({ error: "booking not found" });
   if (action === "cancel") {
     arr[idx].cancelled = true;
     if (!arr[idx].cancelledAt) arr[idx].cancelledAt = new Date().toISOString();
@@ -148,12 +153,10 @@ apiRouter.post("/booking/:id/:action", async (req, res) => {
     delete arr[idx].cancelled;
     delete arr[idx].cancelledAt;
   } else if (action === "delete") {
-    if (idx >= 0) arr.splice(idx, 1);
-    // tombstone the id so a stale client's full-list save can't bring it back
-    const tomb = (store.get("shph_deleted_bookings") || []).filter(t => t && t.id != null);
-    if (!tomb.some(t => String(t.id) === String(req.params.id))) tomb.push({ id: req.params.id, at: Date.now() });
-    const cutoff = Date.now() - 60 * 86400000;   // keep tombstones 60 days
-    await store.set("shph_deleted_bookings", tomb.filter(t => (t.at || 0) > cutoff));
+    // SOFT delete: the record is NEVER erased from the server — just flagged (and hidden in
+    // the dashboard). mergeBookings keeps it deleted so a stale client can't un-delete it.
+    arr[idx].deleted = true;
+    if (!arr[idx].deletedAt) arr[idx].deletedAt = new Date().toISOString();
   } else {
     return res.status(400).json({ error: "unknown action" });
   }
