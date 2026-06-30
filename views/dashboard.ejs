@@ -3575,6 +3575,18 @@ function netCollectedOf(b){
     const refund = (b.depositRefundAmount != null) ? Number(b.depositRefundAmount) : Number(b.deposit || 0);
     return paidOf(b) - refund;
 }
+// Revenue per booking for Business Analytics. A scoped partner earns only the ROOM RATE +
+// EXTENDED HOURS — add-ons (towels / pool pass) aren't theirs and the refundable security
+// deposit is never revenue, so it's excluded. Admin keeps the full collected-revenue figure.
+function analyticsRevenueOf(b){
+    if(window.__PARTNER__ && !window.__PARTNER__.superAdmin){
+        if(b.cancelled || b.deleted) return 0;
+        const room = baseRate(b.stayHours, b.checkin, b.checkout);
+        const ext  = (Number(b.extend) || 0) * PRICING.extendPerHr;
+        return Math.max(0, room + ext);   // deposit & add-ons intentionally not included
+    }
+    return netCollectedOf(b);
+}
 function statusOf(b){
     if(b.cancelled) return "cancelled";
     const paid = paidOf(b);
@@ -8701,7 +8713,7 @@ function renderAnalytics(){
     const t = today();
 
     // money collected in a calendar month "YYYY-MM"
-    const incOf = ym => bookings.filter(b => b.checkin && b.checkin.slice(0,7) === ym).reduce((s,b) => s + netCollectedOf(b), 0);
+    const incOf = ym => bookings.filter(b => b.checkin && b.checkin.slice(0,7) === ym).reduce((s,b) => s + analyticsRevenueOf(b), 0);
     const billsOf = ym => bills.filter(b => b.due && b.due.slice(0,7) === ym).reduce((s,b) => s + Number(b.amount||0), 0);
     const expSpendOf = ym => expenses.filter(e => e.date && e.date.slice(0,7) === ym).reduce((s,e) => s + Number(e.amount||0), 0);
     const payOf  = ym => staff.reduce((s,st) => s + staffGross(st, ym), 0);
@@ -8733,7 +8745,7 @@ function renderAnalytics(){
     const bk = bookings.filter(b => inWin(b.checkin));
     const bl = bills.filter(b => inWin(b.due));
     const ex = expenses.filter(e => inWin(e.date));
-    const collected   = Math.round(bk.reduce((s,b) => s + netCollectedOf(b), 0));
+    const collected   = Math.round(bk.reduce((s,b) => s + analyticsRevenueOf(b), 0));
     const receivables = Math.round(bk.reduce((s,b) => s + balanceOf(b), 0));
     const billsTotal  = Math.round(bl.reduce((s,b) => s + Number(b.amount||0), 0));
     const billsPaid   = bl.filter(b => b.paid).reduce((s,b) => s + Number(b.amount||0), 0);
