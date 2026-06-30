@@ -8758,7 +8758,7 @@ function renderAnalytics(){
     const towelTotal  = Math.round(_live.reduce((s,b) => s + (Number(b.towels)||0) * PRICING.towel, 0));         // towels
     const damageTotal = Math.round(_live.reduce((s,b) => s + (Number(b.depositDeductAmount)||0), 0));            // damages kept from deposits
     const refundTotal = Math.round(bk.filter(b => b.cancelled && b.dpRefunded).reduce((s,b) => s + paidOf(b), 0)); // refunds on cancelled bookings
-    const housekeepingTotal = 0;   // housekeeping/cleaning cost — no data source yet, so ₱0 for now
+    const housekeepingTotal = 100 * _live.length;   // ₱100 per (non-cancelled) booking
     // deposit, pool pass, towels and cancellation refunds all go to the MAIN ADMIN — not the
     // partner — so they're deducted from gross. Damages kept are the admin's income (added back,
     // and only relevant to the admin view).
