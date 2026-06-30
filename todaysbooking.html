@@ -100,7 +100,7 @@
   /* payment popup */
   .overlay{ position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; align-items:center; justify-content:center; z-index:60; }
   .overlay.show{ display:flex; }
-  .modal{ position:relative; background:#fff; border-radius:18px; padding:24px 26px; width:420px; max-width:92vw; box-shadow:0 20px 50px rgba(0,0,0,.25); }
+  .modal{ position:relative; background:#fff; border-radius:18px; padding:24px 26px; width:420px; max-width:92vw; max-height:90vh; overflow-y:auto; box-shadow:0 20px 50px rgba(0,0,0,.25); }
   .modal-x{ position:absolute; top:15px; right:15px; width:30px; height:30px; border-radius:8px; background:#f3ede4; color:#7a6a55; font-size:13px; line-height:30px; text-align:center; cursor:pointer; transition:background .12s; }
   .modal-x:hover{ background:#e8ded0; }
   .modal-eyebrow{ font-size:11px; font-weight:700; letter-spacing:1.2px; color:var(--hv-terra); text-transform:uppercase; margin-bottom:3px; }
