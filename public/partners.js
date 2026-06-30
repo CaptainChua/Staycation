@@ -382,8 +382,13 @@ function applyPartnerChrome(){
     // in partner mode point it at the in-app, haven-scoped Today page instead.
     const _todayNav = document.querySelector('.sidebar .nav-item[data-page="today"]');
     if(_todayNav) _todayNav.onclick = function(){ showPage("today"); };
-    // land on the scoped Today's Booking page
-    if(typeof showPage === "function") showPage("today");
+    // land on the last-open page (if it's still a partner-allowed page), else the scoped Today's Booking page
+    let _land = "today";
+    try{
+        const _saved = localStorage.getItem("shph_dashboard_page");
+        if(_saved && ALLOW.includes(_saved) && document.getElementById("page-" + _saved)) _land = _saved;
+    }catch(e){}
+    if(typeof showPage === "function") showPage(_land);
 }
 
 /* ---------- Users page: Partner Logins section (admin-only) ---------- */
