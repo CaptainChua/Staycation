@@ -72,13 +72,30 @@ apiRouter.get("/kv/:key", (req, res) => {
   res.json(store.get(req.params.key));
 });
 
+// Multi-user merge for bookings: combine the incoming list with what's already on the
+// server (by booking id) instead of replacing it wholesale. So when two people save at
+// the same time, neither overwrites the other's bookings. Bookings only this client is
+// missing (added by someone else) are KEPT; bookings deleted via the /booking delete
+// endpoint are tombstoned and excluded, so a stale client can't resurrect them.
+function mergeBookings(stored, incoming) {
+  const tomb = new Set((store.get("shph_deleted_bookings") || []).map(t => String(t && t.id)));
+  const byId = new Map();
+  for (const b of stored)   if (b && b.id != null && !tomb.has(String(b.id))) byId.set(String(b.id), b);
+  for (const b of incoming) if (b && b.id != null && !tomb.has(String(b.id))) byId.set(String(b.id), b);
+  return Array.from(byId.values());
+}
+
 // write one key (body is the raw JSON value the browser stored)
 apiRouter.put("/kv/:key", async (req, res) => {
   if (!store.isShared(req.params.key)) return res.status(403).json({ error: "key not shared" });
   try {
+    let value = req.body;
+    if (req.params.key === "shph_bookings_v3" && Array.isArray(value)) {
+      value = mergeBookings(store.get("shph_bookings_v3") || [], value);   // never overwrite other users' bookings
+    }
     // durable write: only report success once the backend (Firestore) confirms,
     // so a client knows to retry instead of silently losing the change.
-    await store.setStrict(req.params.key, req.body);
+    await store.setStrict(req.params.key, value);
     res.json({ ok: true });
   } catch (e) {
     console.error("[api] PUT /kv/" + req.params.key + " failed to persist:", e.message);
@@ -122,8 +139,8 @@ apiRouter.post("/booking/:id/:action", async (req, res) => {
   const KEY = "shph_bookings_v3";
   const arr = store.get(KEY) || [];
   const idx = arr.findIndex(x => String(x.id) === String(req.params.id));
-  if (idx < 0) return res.status(404).json({ error: "booking not found" });
   const action = req.params.action;
+  if (idx < 0 && action !== "delete") return res.status(404).json({ error: "booking not found" });
   if (action === "cancel") {
     arr[idx].cancelled = true;
     if (!arr[idx].cancelledAt) arr[idx].cancelledAt = new Date().toISOString();
@@ -131,7 +148,12 @@ apiRouter.post("/booking/:id/:action", async (req, res) => {
     delete arr[idx].cancelled;
     delete arr[idx].cancelledAt;
   } else if (action === "delete") {
-    arr.splice(idx, 1);
+    if (idx >= 0) arr.splice(idx, 1);
+    // tombstone the id so a stale client's full-list save can't bring it back
+    const tomb = (store.get("shph_deleted_bookings") || []).filter(t => t && t.id != null);
+    if (!tomb.some(t => String(t.id) === String(req.params.id))) tomb.push({ id: req.params.id, at: Date.now() });
+    const cutoff = Date.now() - 60 * 86400000;   // keep tombstones 60 days
+    await store.set("shph_deleted_bookings", tomb.filter(t => (t.at || 0) > cutoff));
   } else {
     return res.status(400).json({ error: "unknown action" });
   }
