@@ -2351,7 +2351,10 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
     <div class="panel">
         <div class="panel-head">
             <h2>Activity Log <span class="muted" style="font-weight:400;">— who did what, and when</span></h2>
-            <button class="btn secondary" onclick="clearActivityLog()">Clear log</button>
+            <div style="display:flex; gap:8px;">
+                <button class="btn secondary" onclick="exportAllData()">⬇ Export backup</button>
+                <button class="btn secondary" onclick="clearActivityLog()">Clear log</button>
+            </div>
         </div>
         <div id="logList"></div>
     </div>
@@ -8060,6 +8063,23 @@ function clearActivityLog(){
     if(!confirm("Clear the entire activity log?")) return;
     localStorage.removeItem(ACTIVITY_KEY);
     renderLog();
+}
+// Download a full copy of all your data (bookings, bills, expenses, settings, etc.) as a JSON
+// file — a manual backup you can keep anywhere. The server also keeps automatic daily backups.
+async function exportAllData(){
+    try{
+        const res = await fetch("/api/kv", { cache:"no-store" });
+        if(!res.ok) throw new Error("server error " + res.status);
+        const all = await res.json();
+        const stamp = new Date().toISOString().slice(0,19).replace(/[:T]/g, "-");
+        const blob = new Blob([JSON.stringify(all, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url; a.download = "staycationhaven-backup-" + stamp + ".json";
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        logActivity("exported a data backup");
+    }catch(e){ alert("Export failed: " + (e && e.message) + "\nCheck your connection and try again."); }
 }
 // per-staff change log
 function addStaffLog(s, action){
