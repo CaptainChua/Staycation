@@ -8799,7 +8799,7 @@ function renderAnalytics(){
     const RED = "#c0283d";
     const minis = [
         ["Receivables (pending)", peso(receivables), AN_ICO.hour, "ic-gold"],
-        ["Total bills", peso(billsTotal), AN_ICO.receipt, "ic-terra"],
+        [_scopedPartner ? "Pending Bills" : "Total bills", peso(_scopedPartner ? billsPending : billsTotal), AN_ICO.receipt, "ic-terra"],
         ["Expenses (supplies)", peso(expensesSpend), AN_ICO.receipt, "ic-green"]
     ];
     // Bills pending + Payroll are admin-only (business-wide; not shown on the partner view)
