@@ -8777,17 +8777,31 @@ function renderAnalytics(){
             ${anDelta(k[5])}
         </div>`).join("");
 
-    // ---- compact cards ----
+    // ---- deducted from gross (held money & add-ons that aren't core room revenue) ----
+    const _live = bk.filter(b => !b.cancelled);
+    const swimRateOf = b => (b.holiday ? PRICING.swimHoliday : PRICING.swimRegular);
+    const depTotal    = Math.round(_live.reduce((s,b) => s + (Number(b.deposit)||0), 0));                       // security deposit (held / returned)
+    const poolTotal   = Math.round(_live.reduce((s,b) => s + (Number(b.swimpass)||0) * swimRateOf(b), 0));     // pool passes
+    const towelTotal  = Math.round(_live.reduce((s,b) => s + (Number(b.towels)||0) * PRICING.towel, 0));        // towels
+    const damageTotal = Math.round(_live.reduce((s,b) => s + (Number(b.depositDeductAmount)||0), 0));           // damages kept from deposits
+
+    // ---- compact cards ----  (m[4] = optional value colour)
+    const RED = "#c0283d";
     const minis = [
         ["Receivables (pending)", peso(receivables), AN_ICO.hour, "ic-gold"],
         ["Total bills", peso(billsTotal), AN_ICO.receipt, "ic-terra"],
         ["Bills pending", peso(billsPending), AN_ICO.receipt, "ic-terra"],
         ["Expenses (supplies)", peso(expensesSpend), AN_ICO.receipt, "ic-green"],
-        ["Payroll (gross)", peso(payrollGross), AN_ICO.badge, "ic-purple"]
+        ["Payroll (gross)", peso(payrollGross), AN_ICO.badge, "ic-purple"],
+        // deductions from gross — shown in red
+        ["Security deposit", "−" + peso(depTotal), AN_ICO.receipt, "ic-terra", RED],
+        ["Pool pass", "−" + peso(poolTotal), AN_ICO.receipt, "ic-terra", RED],
+        ["Towels", "−" + peso(towelTotal), AN_ICO.receipt, "ic-terra", RED],
+        ["Damages", "−" + peso(damageTotal), AN_ICO.receipt, "ic-terra", RED]
     ];
     document.getElementById("anMini").innerHTML = minis.map(m => `
         <div class="mini"><span class="ico ${m[3]}">${m[2]}</span>
-            <div><div class="lbl">${m[0]}</div><div class="mval">${m[1]}</div></div>
+            <div><div class="lbl">${m[0]}</div><div class="mval"${m[4] ? ` style="color:${m[4]}"` : ""}>${m[1]}</div></div>
         </div>`).join("");
 
     // ---- revenue vs expenses chart (trailing 12 months) ----
