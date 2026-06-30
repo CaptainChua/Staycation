@@ -8781,7 +8781,7 @@ function renderAnalytics(){
     const kpis = [
         [_scopedPartner ? "Gross" : "Collected (gross)", peso(gross), "#2e7d4f", AN_ICO.trendUp, "ic-green", pct(cur.inc, prev.inc)],
         [_scopedPartner ? "NET (after bills & expenses)" : "Net profit", peso(_net2), _net2 >= 0 ? "#2e7d4f" : "#c0283d", AN_ICO.piggy, "ic-green", pct(cur.inc - cur.exp, prev.inc - prev.exp)],
-        ["Total expenses", peso(totalExpenses), "var(--hv-terra-d)", AN_ICO.trendDown, "ic-terra", pct(cur.exp, prev.exp)],
+        ["Total expenses", peso(_scopedPartner ? totalExpenses + deductions : totalExpenses), "var(--hv-terra-d)", AN_ICO.trendDown, "ic-terra", pct(cur.exp, prev.exp)],
         ["Bookings", _live.length, "var(--hv-ink)", AN_ICO.cal, "ic-dark", pct(cur.bk, prev.bk)]
     ];
     // admin: show NET (gross − all the red deductions) right after the gross card
@@ -8798,10 +8798,13 @@ function renderAnalytics(){
     const minis = [
         ["Receivables (pending)", peso(receivables), AN_ICO.hour, "ic-gold"],
         ["Total bills", peso(billsTotal), AN_ICO.receipt, "ic-terra"],
-        ["Bills pending", peso(billsPending), AN_ICO.receipt, "ic-terra"],
         ["Expenses (supplies)", peso(expensesSpend), AN_ICO.receipt, "ic-green"]
     ];
-    if(!_scopedPartner) minis.push(["Payroll (gross)", peso(payrollGross), AN_ICO.badge, "ic-purple"]);   // business-wide
+    // Bills pending + Payroll are admin-only (business-wide; not shown on the partner view)
+    if(!_scopedPartner) minis.push(
+        ["Bills pending", peso(billsPending), AN_ICO.receipt, "ic-terra"],
+        ["Payroll (gross)", peso(payrollGross), AN_ICO.badge, "ic-purple"]
+    );
     // deductions from gross — shown in red (these go to the main admin, not the partner)
     minis.push(
         ["Security deposit", "−" + peso(depTotal), AN_ICO.receipt, "ic-terra", RED],
