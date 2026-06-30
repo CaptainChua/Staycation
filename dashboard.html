@@ -690,8 +690,13 @@ tr.row-cancelled td:nth-child(2){ text-decoration:line-through; }
 .proof-del:hover{ text-decoration:underline; }
 .proof-meta{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; font-size:13px; color:#6f5b46; background:#faf6ef; border:1px solid #efe6d8; border-radius:11px; padding:12px 14px; margin-bottom:10px; line-height:1.5; }
 .proof-meta strong{ color:#33291f; }
-.proof-img{ width:140px; height:140px; object-fit:cover; border-radius:11px; border:1px solid #efe6d8; display:block; margin-bottom:10px; cursor:zoom-in; transition:transform .1s; }
+.proof-img{ max-width:200px; max-height:190px; width:auto; height:auto; object-fit:contain; border-radius:11px; border:1px solid #efe6d8; display:block; margin-bottom:10px; cursor:zoom-in; transition:transform .1s; background:#faf6ef; }
 .proof-img:hover{ transform:scale(1.02); }
+/* proof image with a delete (✕) control in the corner */
+.proof-thumb{ position:relative; display:inline-block; margin-bottom:10px; }
+.proof-thumb .proof-img{ margin-bottom:0; }
+.proof-imgdel{ position:absolute; top:6px; right:6px; z-index:3; width:24px; height:24px; padding:0; border:none; border-radius:50%; background:rgba(192,40,61,.92); color:#fff; font-size:13px; line-height:1; text-align:center; cursor:pointer; box-shadow:0 1px 4px rgba(0,0,0,.3); }
+.proof-imgdel:hover{ background:#c0283d; }
 .proof-empty{ font-size:13px; color:#9b8a76; padding:6px 0; }
 /* one card per payment collection (Cash, GCash, …) */
 .proof-collection{ border:1px solid #efe6d8; border-radius:14px; padding:14px; margin-bottom:14px; background:#fffdfa; }
@@ -2829,7 +2834,10 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
             <div class="proof-block">
                 <h3>Downpayment</h3>
                 <div class="proof-meta" id="downMeta"></div>
-                <img id="downProofImg" class="proof-img" alt="downpayment proof" style="display:none;" onclick="openProofImg(this.src)">
+                <span class="proof-thumb" id="downProofThumb" style="display:none;">
+                    <img id="downProofImg" class="proof-img" alt="downpayment proof" onclick="openProofImg(this.src)">
+                    <button type="button" class="proof-imgdel" title="Delete photo" onclick="deleteProofImg('down')">✕</button>
+                </span>
                 <label class="proof-upload" data-proof="down">
                     <span class="pu-ico"><svg viewBox="0 0 24 24"><path d="M12 16V5"/><path d="m7 10 5-5 5 5"/><path d="M5 19h14"/></svg></span>
                     <span class="pu-body"><b>Upload downpayment proof</b><small class="pu-name" id="downProofName">No file chosen</small></span>
@@ -2843,7 +2851,10 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
             <div class="proof-block proof-block-wide">
                 <h3>Add Ons</h3>
                 <div class="proof-meta" id="addonMeta"></div>
-                <img id="addonProofImg" class="proof-img" alt="add-ons proof" style="display:none;" onclick="openProofImg(this.src)">
+                <span class="proof-thumb" id="addonProofThumb" style="display:none;">
+                    <img id="addonProofImg" class="proof-img" alt="add-ons proof" onclick="openProofImg(this.src)">
+                    <button type="button" class="proof-imgdel" title="Delete photo" onclick="deleteProofImg('addon')">✕</button>
+                </span>
                 <label class="proof-upload" data-proof="addon">
                     <span class="pu-ico"><svg viewBox="0 0 24 24"><path d="M12 16V5"/><path d="m7 10 5-5 5 5"/><path d="M5 19h14"/></svg></span>
                     <span class="pu-body"><b>Upload add-ons proof</b><small class="pu-name" id="addonProofName">No file chosen</small></span>
@@ -5795,10 +5806,11 @@ function setProofName(id, f){
     if(el) el.textContent = f ? (f.name || "Photo attached") : "No file chosen";
 }
 const PROOF_CFG = {
-    down:  { nameId:"downProofName",  imgId:"downProofImg"  },
-    addon: { nameId:"addonProofName", imgId:"addonProofImg" },
-    bal:   { nameId:"balProofName",   imgId:"balProofImg"   }
+    down:  { nameId:"downProofName",  imgId:"downProofImg",  thumbId:"downProofThumb",  fileId:"downProofFile"  },
+    addon: { nameId:"addonProofName", imgId:"addonProofImg", thumbId:"addonProofThumb", fileId:"addonProofFile" },
+    bal:   { nameId:"balProofName",   imgId:"balProofImg",   thumbId:"balProofThumb"   }
 };
+let addonShownPayIdx = -1;   // payments[] index when the add-ons image is a collection's photo (else -1)
 // shared core: accept an image File from the picker, a drop, or a paste
 function applyProofFile(type, f){
     const cfg = PROOF_CFG[type];
@@ -5810,7 +5822,38 @@ function applyProofFile(type, f){
         if(type === "bal"){ balProofData = dataUrl; balProofDirty = true; }
         const img = document.getElementById(cfg.imgId);
         if(img){ img.src = dataUrl; img.style.display = "block"; }
+        if(cfg.thumbId){ const t = document.getElementById(cfg.thumbId); if(t) t.style.display = "inline-block"; }
     });
+}
+// delete an attached proof photo. Manual channels (down/addon/bal) clear the in-memory
+// copy and hide it — persisted when you click Save Booking (so Cancel undoes it). When
+// the add-ons image is actually a collection's photo, remove that photo immediately.
+function deleteProofImg(type){
+    if(type === "addon" && addonShownPayIdx >= 0){ deleteCollectionPhoto(addonShownPayIdx); return; }
+    const cfg = PROOF_CFG[type];
+    if(!cfg) return;
+    if(type === "down")  downProofData = null;
+    else if(type === "addon") addonProofData = null;
+    else if(type === "bal"){ balProofData = null; balProofDirty = true; }
+    const img = document.getElementById(cfg.imgId); if(img){ img.src = ""; img.style.display = "none"; }
+    const t = cfg.thumbId && document.getElementById(cfg.thumbId); if(t) t.style.display = "none";
+    const nm = document.getElementById(cfg.nameId); if(nm) nm.textContent = "No file chosen";
+    const fi = cfg.fileId && document.getElementById(cfg.fileId); if(fi) fi.value = "";
+}
+// remove just one collection's photo (keep the collection) — saves immediately
+function deleteCollectionPhoto(idx){
+    if(editingId == null) return;
+    const bIdx = bookings.findIndex(x => x.id === editingId);
+    if(bIdx === -1) return;
+    const pays = bookings[bIdx].payments || [];
+    if(!pays[idx] || !pays[idx].proof) return;
+    if(!confirm("Delete this payment photo? The collection stays; only the photo is removed.")) return;
+    delete pays[idx].proof;
+    save(bookings);
+    confirmBookingSaved(editingId);
+    logActivity(`deleted payment photo — ${bookings[bIdx].haven} · ${peso(pays[idx].amount)}`);
+    renderProofPage(bookings[bIdx]);
+    renderAll();
 }
 function onDownProofChange(input){ if(input.files[0]) applyProofFile("down", input.files[0]); }
 function onAddonProofChange(input){ if(input.files[0]) applyProofFile("addon", input.files[0]); }
@@ -5854,10 +5897,11 @@ function renderProofPage(b){
     document.getElementById("downMeta").innerHTML =
         `<span>Amount <strong>${peso(down)}</strong></span><span>Method <strong>${method}</strong></span>`;
     const dImg = document.getElementById("downProofImg");
+    const dThumb = document.getElementById("downProofThumb");
     document.getElementById("downProofFile").value = "";
     document.getElementById("downProofName").textContent = downProofData ? "Photo attached ✓" : "No file chosen";
-    if(downProofData){ dImg.src = downProofData; dImg.style.display = "block"; }
-    else { dImg.src = ""; dImg.style.display = "none"; }
+    if(downProofData){ dImg.src = downProofData; dThumb.style.display = "inline-block"; }
+    else { dImg.src = ""; dThumb.style.display = "none"; }
 
     // split collections by category so each shows in the right section
     const pays = (b && b.payments) || [];
@@ -5877,7 +5921,7 @@ function renderProofPage(b){
             const gi = pays.indexOf(p);   // index in the full payments array
             return `<div class="proof-collection">
                 <div class="proof-meta"><span>Collected <strong>${peso(p.amount)}</strong> via ${escHtml(p.mop || "—")}</span><span>${p.at ? new Date(p.at).toLocaleString("en-PH") : ""} · by ${escHtml(p.by || "—")}</span></div>
-                ${p.proof ? `<img class="proof-img" src="${p.proof}" onclick="openProofImg(this.src)">` : `<div class="proof-empty">No photo for this collection.</div>`}
+                ${p.proof ? `<span class="proof-thumb"><img class="proof-img" src="${p.proof}" onclick="openProofImg(this.src)"><button type="button" class="proof-imgdel" title="Delete photo" onclick="deleteCollectionPhoto(${gi})">✕</button></span>` : `<div class="proof-empty">No photo for this collection.</div>`}
                 <label class="proof-upload">
                     <span class="pu-ico">${UP_ICO}</span>
                     <span class="pu-body"><b>${p.proof ? "Replace" : "Upload"} photo</b><small class="pu-name">${p.proof ? "Photo attached ✓" : "No file chosen"}</small></span>
@@ -5891,7 +5935,10 @@ function renderProofPage(b){
         const balShown = balProofData;
         list.innerHTML =
             `<div class="proof-meta">No balance payment recorded yet. Collect it from <strong>Today's Booking</strong>.</div>` +
-            `<img id="balProofImg" class="proof-img" src="${balShown || ""}" style="${balShown ? "" : "display:none;"}" onclick="openProofImg(this.src)">` +
+            `<span class="proof-thumb" id="balProofThumb" style="${balShown ? "" : "display:none;"}">` +
+                `<img id="balProofImg" class="proof-img" src="${balShown || ""}" onclick="openProofImg(this.src)">` +
+                `<button type="button" class="proof-imgdel" title="Delete photo" onclick="deleteProofImg('bal')">✕</button>` +
+            `</span>` +
             `<label class="proof-upload" data-proof="bal">` +
                 `<span class="pu-ico">${UP_ICO}</span>` +
                 `<span class="pu-body"><b>Upload balance proof</b><small class="pu-name" id="balProofName">${balShown ? "Photo attached ✓" : "No file chosen"}</small></span>` +
@@ -5910,6 +5957,7 @@ function renderProofPage(b){
     addonProofData = (b && b.addonProof) || null;   // manual-upload channel only (persisted on save)
     // show the latest Add Ons collection's proof if any, otherwise the manual upload
     const addonShown = (latestAddonPay && latestAddonPay.proof) ? latestAddonPay.proof : addonProofData;
+    addonShownPayIdx = (latestAddonPay && latestAddonPay.proof) ? pays.indexOf(latestAddonPay) : -1;   // ✕ deletes the collection photo when shown one
     let addonMeta = `<span>Swimpass ${swimpass} · Towels ${towels} · Extend ${extend}h</span><span>Total <strong>${peso(addonTotal)}</strong></span>`;
     if(latestAddonPay){
         const more = addonPays.length > 1 ? ` <span class="muted">(+${addonPays.length - 1} earlier)</span>` : "";
@@ -5917,10 +5965,11 @@ function renderProofPage(b){
     }
     document.getElementById("addonMeta").innerHTML = addonMeta;
     const aImg = document.getElementById("addonProofImg");
+    const aThumb = document.getElementById("addonProofThumb");
     document.getElementById("addonProofFile").value = "";
     document.getElementById("addonProofName").textContent = addonShown ? "Photo attached ✓" : "No file chosen";
-    if(addonShown){ aImg.src = addonShown; aImg.style.display = "block"; }
-    else { aImg.src = ""; aImg.style.display = "none"; }
+    if(addonShown){ aImg.src = addonShown; aThumb.style.display = "inline-block"; }
+    else { aImg.src = ""; aThumb.style.display = "none"; }
     document.getElementById("addonDel").style.display = latestAddonPay ? "inline-block" : "none";
 }
 // replace one collection's photo (by its index in the payments array) — saves now
