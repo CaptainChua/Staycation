@@ -8769,6 +8769,7 @@ function renderAnalytics(){
     const billsTotal  = Math.round(bl.reduce((s,b) => s + Number(b.amount||0), 0));
     const billsPaid   = bl.filter(b => b.paid).reduce((s,b) => s + Number(b.amount||0), 0);
     const billsPending = Math.round(billsTotal - billsPaid);
+    const billsPendingAll = Math.round(bills.filter(b => !b.paid).reduce((s,b) => s + Number(b.amount||0), 0));   // ALL unpaid bills (matches the Bills page total)
     const payrollGross = Math.round(months.reduce((s,ym) => s + payOf(ym), 0));
     const payroll = _scopedPartner ? 0 : payrollGross;   // payroll is business-wide, not per-haven
     const expensesSpend = Math.round(ex.reduce((s,e) => s + Number(e.amount||0), 0));
@@ -8802,7 +8803,7 @@ function renderAnalytics(){
     if(!_scopedPartner) minis.push(["Receivables (pending)", peso(receivables), AN_ICO.hour, "ic-gold"]);
     // partner: "Pending Bills" = the unpaid balances still to collect (same as the Pending/Unpaid figure)
     minis.push(_scopedPartner
-        ? ["Pending Bills", peso(receivables), AN_ICO.hour, "ic-gold"]
+        ? ["Pending Bills", peso(billsPendingAll), AN_ICO.hour, "ic-gold"]
         : ["Total bills", peso(billsTotal), AN_ICO.receipt, "ic-terra"]);
     minis.push(["Expenses (supplies)", peso(expensesSpend), AN_ICO.receipt, "ic-green"]);
     // Bills pending + Payroll are admin-only (business-wide; not shown on the partner view)
