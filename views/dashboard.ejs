@@ -8760,7 +8760,7 @@ function renderAnalytics(){
     // ---- deductions from gross (admin; a partner's gross already excludes these) ----
     const _live = bk.filter(b => !b.cancelled);
     const swimRateOf = b => (b.holiday ? PRICING.swimHoliday : PRICING.swimRegular);
-    const depTotal    = Math.round(_live.reduce((s,b) => s + (Number(b.deposit)||0), 0));                        // security deposit
+    const depTotal    = Math.round(_live.filter(b => b.depositReturned).reduce((s,b) => s + (Number(b.deposit)||0), 0));   // only deposits actually RETURNED
     const poolTotal   = Math.round(_live.reduce((s,b) => s + (Number(b.swimpass)||0) * swimRateOf(b), 0));      // pool passes
     const towelTotal  = Math.round(_live.reduce((s,b) => s + (Number(b.towels)||0) * PRICING.towel, 0));         // towels
     const damageTotal = Math.round(_live.reduce((s,b) => s + (Number(b.depositDeductAmount)||0), 0));            // damages kept from deposits
