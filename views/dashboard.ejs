@@ -2651,6 +2651,7 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
                     <div class="dp-foot"><span onclick="sdDpToday()">Today</span></div>
                 </div>
             </div>
+            <select id="depHavenFilter" onchange="renderDeposit()" title="Filter by haven" style="padding:9px 12px;border:1px solid var(--hv-line);border-radius:10px;background:#fff;font-size:13px;font-weight:600;color:var(--hv-ink);font-family:inherit;cursor:pointer;"></select>
         </div>
         <div style="overflow-x:auto;">
             <table class="clean-summary-table">
@@ -6808,7 +6809,8 @@ function renderDeposit(){
     // keep the quick-filter segment in sync with the chosen range
     document.querySelectorAll("#depSeg button").forEach(x => x.classList.toggle("active", x.dataset.d === depQuick));
 
-    const list = bookings.filter(b => b.checkout >= start && b.checkout <= end)
+    const hv = (document.getElementById("depHavenFilter") || {}).value || "";
+    const list = bookings.filter(b => b.checkout >= start && b.checkout <= end && (!hv || b.haven === hv))
         .sort((a, b) => (a.checkout || "").localeCompare(b.checkout || "") || a.haven.localeCompare(b.haven));
     const body = document.getElementById("depositBody");
     body.innerHTML = list.length ? list.map(b => {
@@ -7070,6 +7072,8 @@ function fillHavenSelectors(){
         `<option value="">All havens</option>` + opts;
     document.getElementById("finHaven").innerHTML =
         `<option value="">All havens</option>` + opts;
+    const dep = document.getElementById("depHavenFilter");
+    if(dep) dep.innerHTML = `<option value="">All havens</option>` + opts;
 }
 
 function renderLegend(){
