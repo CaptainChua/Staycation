@@ -1150,7 +1150,12 @@ tr.row-cancelled td:nth-child(2){ text-decoration:line-through; }
   .sidebar .nav-group{
     font-size:10px; letter-spacing:1.6px; color:#6f6258; font-weight:700;
     margin:16px 12px 6px; text-transform:uppercase;
+    display:flex; align-items:center; justify-content:space-between; cursor:pointer; user-select:none;
   }
+  .sidebar .nav-group::after{ content:"▾"; font-size:9px; opacity:.55; transition:transform .15s; }
+  .sidebar .nav-group.collapsed::after{ transform:rotate(-90deg); }
+  .sidebar .nav-group:hover{ color:#cabdb1; }
+  .sidebar .nav-item.nav-collapsed{ display:none !important; }
   .sidebar .nav-item{
     gap:11px; padding:9px 12px; margin:1px 4px; border-radius:9px; white-space:nowrap;
     border-left:none; font-size:13.5px; font-weight:500; color:#cabdb1;
@@ -1234,10 +1239,43 @@ tr.row-cancelled td:nth-child(2){ text-decoration:line-through; }
       }
       g.style.display = (!q || any) ? '' : 'none';
     });
+    applyNavCollapse();   // re-apply minimized sections once the search clears
   }
   document.addEventListener('click', function(e){
     if(window.innerWidth<=760 && e.target.closest && e.target.closest('.sidebar .nav-item')) closeSidebar();
   });
+  // ----- collapsible sidebar sub-categories (Main / Front Desk / Partners / …) -----
+  function navCollapsedSet(){
+    try { return JSON.parse(localStorage.getItem('shph_nav_collapsed')) || []; } catch(e){ return []; }
+  }
+  function applyNavCollapse(){
+    var collapsed = navCollapsedSet();
+    var search = document.querySelector('.m-navsearch');
+    var searching = !!(search && search.value && search.value.trim());   // while searching, show everything
+    document.querySelectorAll('.sidebar .nav-group').forEach(function(g){
+      var key = (g.textContent || '').trim();
+      var isCol = !searching && collapsed.indexOf(key) !== -1;
+      g.classList.toggle('collapsed', isCol);
+      var sib = g.nextElementSibling;
+      while(sib && !(sib.classList && sib.classList.contains('nav-group'))){
+        if(sib.classList && sib.classList.contains('nav-item')) sib.classList.toggle('nav-collapsed', isCol);
+        sib = sib.nextElementSibling;
+      }
+    });
+  }
+  function toggleNavGroup(g){
+    var key = (g.textContent || '').trim();
+    if(!key) return;
+    var set = navCollapsedSet(), i = set.indexOf(key);
+    if(i === -1) set.push(key); else set.splice(i, 1);
+    try { localStorage.setItem('shph_nav_collapsed', JSON.stringify(set)); } catch(e){}   // per-device UI pref
+    applyNavCollapse();
+  }
+  document.addEventListener('click', function(e){
+    var g = e.target.closest && e.target.closest('.sidebar .nav-group');
+    if(g) toggleNavGroup(g);
+  });
+  document.addEventListener('DOMContentLoaded', applyNavCollapse);
 </script>
 
 <!-- sidebar navigation -->
@@ -9952,6 +9990,7 @@ function applyPermissions(){
         g.style.display = any ? "" : "none";
     });
     document.querySelector(".sidebar").classList.remove("perms-pending");  // reveal now that it's filtered
+    if(typeof applyNavCollapse === "function") applyNavCollapse();          // honor minimized sub-categories
     const ab = document.getElementById("addBookingBtn");
     if(ab) ab.style.display = canAddBooking() ? "" : "none";   // only admin/CSR can add bookings
     const active = document.querySelector(".sidebar .nav-item.active");
