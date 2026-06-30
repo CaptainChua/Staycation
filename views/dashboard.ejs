@@ -3544,6 +3544,8 @@ function paidOf(b){ return Number(b.downpayment || 0) + collectedSum(b); }
 function balanceOf(b){ if(b.cancelled) return 0; return Math.max(0, Number(b.total || 0) - paidOf(b)); }
 // revenue actually kept = everything paid, minus a security deposit that's been returned to the guest
 function netCollectedOf(b){
+    // a cancelled booking's kept downpayment that was refunded to the guest leaves revenue entirely
+    if(b.dpRefunded) return 0;
     if(!b.depositReturned) return paidOf(b);
     // only the amount actually refunded leaves revenue; any deduction (damage/smoking) is kept
     const refund = (b.depositRefundAmount != null) ? Number(b.depositRefundAmount) : Number(b.deposit || 0);
@@ -4513,7 +4515,10 @@ function renderCancelled(){
             <td>${fmt(b.checkin)}<br><span class="muted">${checkinTimeStr(b)}</span></td>
             <td>${fmt(b.checkout)}<br><span class="muted">${checkoutTimeStr(b)}</span></td>
             <td>${b.stayHours ? b.stayHours + "h" : "—"}</td>
-            <td>${peso(paidOf(b))}</td>
+            <td>${b.dpRefunded
+                ? `<span style="text-decoration:line-through;color:#a99;">${peso(paidOf(b))}</span> <span style="color:#2e7d4f;font-weight:700;font-size:11px;">refunded</span>`
+                : peso(paidOf(b))}
+                <div><span class="reinstate" style="font-size:12px;" onclick="toggleDpRefund(${b.id})">${b.dpRefunded ? "Undo refund" : "Mark DP refunded"}</span></div></td>
             <td>${when}</td>
             <td class="actions">
                 <span class="reinstate" style="color:var(--hv-terra-d);" onclick="viewBooking(${b.id})">View</span>
@@ -4522,6 +4527,29 @@ function renderCancelled(){
             </td>
         </tr>`;
     }).join("");
+}
+
+// mark a cancelled booking's kept downpayment as refunded (or undo) — keeps the record,
+// but removes the money from Finance/Analytics revenue (netCollectedOf returns 0).
+function toggleDpRefund(id){
+    const b = bookings.find(x => x.id === id);
+    if(!b) return;
+    if(!b.dpRefunded){
+        if(!confirm(`Mark the ${peso(paidOf(b))} downpayment as REFUNDED to ${primaryName(b)}?\n\n`
+            + `• It is removed from Finance & Analytics revenue.\n`
+            + `• The cancelled booking record stays here for your records.`)) return;
+        b.dpRefunded = true;
+        b.dpRefundedAt = new Date().toISOString();
+        logActivity(`refunded downpayment — ${b.haven} (${primaryName(b)}) · ${peso(paidOf(b))}`);
+    } else {
+        if(!confirm(`Undo the refund — put the ${peso(paidOf(b))} back into Finance revenue?`)) return;
+        b.dpRefunded = false;
+        delete b.dpRefundedAt;
+        logActivity(`reverted downpayment refund — ${b.haven} (${primaryName(b)})`);
+    }
+    save(bookings);
+    confirmBookingSaved(id);
+    renderAll();
 }
 
 async function deleteBooking(id){
