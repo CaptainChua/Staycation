@@ -1566,7 +1566,7 @@
       }
     }
   });
-  function savePay(again){
+  async function savePay(again){
     const bookingId = payBookingId;
     if(payBookingId == null) return;
     if(!payProof){ alert("Please upload a photo of the proof of payment."); return; }
@@ -1579,39 +1579,46 @@
     const b = bookings.find(x => x.id === payBookingId);
     if(!b) return;
     b.payments = b.payments || [];
+    const editing = !!(payEditing && payEditIndex >= 0 && b.payments[payEditIndex]);
 
-    if(payEditing && payEditIndex >= 0 && b.payments[payEditIndex]){
-      // update the selected collection in place — does NOT touch the customer's downpayment
-      const p = b.payments[payEditIndex];
-      p.amount = amount;
-      p.mop = mop;
-      p.category = category;
-      p.proof = payProof;
-      p.at = payAtFromInput();   // collection date (editable for late inputs)
-      p.editedAt = new Date().toISOString();
-      p.editedBy = currentUser();
-      logActivity(`edited ${category} payment — ${b.haven} · ${peso(amount)} (${mop})`);
-    } else {
-      // record a new collection (may be partial) — tracked separately from the downpayment
-      b.payments.push({
-        amount,
-        mop,
-        category,
-        proof: payProof,
-        at: payAtFromInput(),   // collection date (editable for late inputs)
-        by: currentUser()
-      });
-      logActivity(`uploaded ${category} payment — ${b.haven} · ${peso(amount)} (${mop})`);
+    // 1) offload the proof photo to a tiny /img link so the request stays small
+    let proofRef = payProof;
+    if(payProof && payProof.indexOf("data:image") === 0){
+      try{
+        const r = await fetch("/api/img", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ data: payProof }) });
+        if(r.ok){ const j = await r.json(); if(j && j.url) proofRef = j.url; }
+      }catch(e){}
     }
-    // each payment carries its own category, so it shows in the right section on the dashboard
-    try { saveBookings(bookings); }
-    catch(e){ alert("Couldn't save — browser storage is full. Older proof photos may need to be removed."); return; }
-    const _stamp = b.updatedAt;   // saveBookings just stamped this edit
+
+    // 2) build the payment record
+    const payment = editing
+      ? Object.assign({}, b.payments[payEditIndex], { amount, mop, category, proof: proofRef, at: payAtFromInput(), editedAt: new Date().toISOString(), editedBy: currentUser() })
+      : { amount, mop, category, proof: proofRef, at: payAtFromInput(), by: currentUser() };
+
+    // 3) PER-RECORD write — touches ONLY this booking on the server, so a payment can NEVER
+    //    overwrite another booking (this replaces the old whole-array save that lost data).
+    let ok = false;
+    try{
+      const res = await fetch("/api/booking/" + encodeURIComponent(bookingId) + "/payment", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ payment, editIndex: editing ? payEditIndex : null })
+      });
+      ok = res.ok;
+    }catch(e){}
+    if(!ok){
+      alert("⚠️ The payment was NOT saved — the server didn't confirm (slow / offline).\n\nPlease check your internet and try again.");
+      return;
+    }
+
+    // 4) reflect locally WITHOUT re-pushing the whole array (no clobber). The server already has it.
+    if(editing) b.payments[payEditIndex] = payment;
+    else b.payments.push(payment);
+    b.updatedAt = new Date().toISOString();
+    try{ (window.shphSetLocal || localStorage.setItem.bind(localStorage))(KEY, JSON.stringify(bookings)); }catch(e){}
+    logActivity(`${editing ? "edited" : "uploaded"} ${category} payment — ${b.haven} · ${peso(amount)} (${mop})`);
     renderToday();
-    confirmBookingFresh(bookingId, _stamp);   // verify the payment actually reached the server (warns if not)
     if(again){
-      // keep the popup open and start a fresh entry for the same booking
-      openPay(bookingId, false);
+      openPay(bookingId, false);   // keep the popup open for the next entry
     } else {
       closePay();
     }

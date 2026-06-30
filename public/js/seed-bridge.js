@@ -156,6 +156,13 @@
   // ---- image offload helpers ----
   var _imgRefCache = {};   // base64 dataURL -> "/img/<id>" (don't re-upload the same photo)
   var _suppressPush = false;  // true while we rewrite localStorage with offloaded refs
+  // Let a page persist a shared key LOCALLY (e.g. after a per-record server write) without
+  // re-pushing the whole array — that whole-array push is exactly what overwrites other records.
+  window.shphSetLocal = function (key, value) {
+    _suppressPush = true;
+    try { localStorage.setItem(key, String(value)); } catch (e) {}
+    _suppressPush = false;
+  };
   function _isImgUrl(s) { return typeof s === "string" && s.indexOf("data:image") === 0 && s.indexOf(";base64,") !== -1; }
   function _collectImgs(v, out) {
     if (typeof v === "string") { if (_isImgUrl(v)) out[v] = true; return; }

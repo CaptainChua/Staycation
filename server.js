@@ -144,6 +144,31 @@ apiRouter.delete("/kv/:key", async (req, res) => {
   res.json({ ok: true });
 });
 
+// PER-RECORD payment write — appends (or edits) ONE payment on ONE booking, transactionally.
+// This is the fix for the whole-array overwrite: the request only ever touches this booking, so
+// collecting a payment can NEVER wipe another booking's data. The proof photo should already be
+// a tiny /img ref (the browser offloads it via POST /api/img first). updateOneFresh reads the
+// live doc inside a Firestore transaction and stamps updatedAt, so concurrent edits are safe.
+apiRouter.post("/booking/:id/payment", async (req, res) => {
+  const KEY = "shph_bookings_v3";
+  const id = req.params.id;
+  const payment = req.body && req.body.payment;
+  const editIndex = (req.body && req.body.editIndex != null) ? Number(req.body.editIndex) : null;
+  if (!payment || typeof payment !== "object") return res.status(400).json({ error: "no payment" });
+  try {
+    const ok = await store.updateOneFresh(KEY, id, b => {
+      b.payments = Array.isArray(b.payments) ? b.payments : [];
+      if (editIndex != null && b.payments[editIndex]) b.payments[editIndex] = payment;   // edit an existing collection
+      else b.payments.push(payment);                                                      // record a new collection
+    });
+    if (!ok) return res.status(404).json({ error: "booking not found" });
+    res.json({ ok: true });
+  } catch (e) {
+    console.error("[api] booking payment failed:", e.message);
+    res.status(502).json({ ok: false, error: "persist failed" });
+  }
+});
+
 // lightweight per-booking status change — cancel / reinstate / delete.
 // The browser only sends the id + action (tiny), so a quick refresh can't lose it
 // (unlike re-uploading the whole bookings array, which carries base64 images).
