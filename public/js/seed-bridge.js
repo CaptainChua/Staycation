@@ -172,11 +172,20 @@
       var localArr = []; try { localArr = JSON.parse(localStorage.getItem(k) || "[]") || []; } catch (e) { localArr = []; }
       var byId = {}, order = [];
       serverArr.forEach(function (b) { if (b && b.id != null && !(String(b.id) in byId)) { byId[String(b.id)] = b; order.push(String(b.id)); } });
-      var hasExtra = false;
-      localArr.forEach(function (b) { if (b && b.id != null && !(String(b.id) in byId)) { byId[String(b.id)] = b; order.push(String(b.id)); hasExtra = true; } });
+      var changed = false;
+      localArr.forEach(function (b) {
+        if (!b || b.id == null) return;
+        var id = String(b.id);
+        if (!(id in byId)) { byId[id] = b; order.push(id); changed = true; return; }   // a record only this browser has
+        var s = byId[id];
+        // both have it → keep the MORE-RECENTLY-EDITED copy, so a local change that hasn't
+        // finished syncing (e.g. a deposit marked returned) isn't wiped by the older server
+        // copy on refresh. Then re-push it so the server catches up.
+        if (b.updatedAt && (!s.updatedAt || String(b.updatedAt) > String(s.updatedAt))) { byId[id] = b; changed = true; }
+      });
       var merged = order.map(function (id) { return byId[id]; });
       try { localStorage.setItem(k, JSON.stringify(merged)); } catch (e) {}   // setItem isn't wrapped yet → no push here
-      if (hasExtra) push(k, JSON.stringify(merged));   // re-send the not-yet-saved records (retries until confirmed)
+      if (changed) push(k, JSON.stringify(merged));   // re-send anything the server is missing or has an older copy of
       return;
     }
     if (sv != null) { try { localStorage.setItem(k, JSON.stringify(sv)); } catch (e) {} }

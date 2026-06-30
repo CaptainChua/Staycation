@@ -3491,7 +3491,31 @@ function load(){
     localStorage.setItem(KEY, JSON.stringify(seed));
     return seed;
 }
-function save(data){ localStorage.setItem(KEY, JSON.stringify(data)); }
+// canonical signature of a booking (key-order-independent, ignores updatedAt) so we can
+// tell which records actually changed and stamp only those with a fresh edit time.
+function _bkCanon(v){
+    if(Array.isArray(v)) return "[" + v.map(_bkCanon).join(",") + "]";
+    if(v && typeof v === "object") return "{" + Object.keys(v).filter(k => k !== "updatedAt").sort()
+        .map(k => JSON.stringify(k) + ":" + _bkCanon(v[k])).join(",") + "}";
+    return JSON.stringify(v);
+}
+let _bkSig = null;   // id -> last-saved signature
+function save(data){
+    try{
+        if(_bkSig === null){   // baseline from what's already stored (server-synced)
+            _bkSig = {};
+            (JSON.parse(localStorage.getItem(KEY) || "[]") || []).forEach(p => { if(p && p.id != null) _bkSig[String(p.id)] = _bkCanon(p); });
+        }
+        const now = new Date().toISOString();
+        for(const b of (data || [])){
+            if(!b || b.id == null) continue;
+            const sig = _bkCanon(b);
+            if(_bkSig[String(b.id)] !== sig) b.updatedAt = now;   // changed → stamp edit time
+            _bkSig[String(b.id)] = _bkCanon(b);                   // sig excludes updatedAt, so stays stable
+        }
+    }catch(e){}
+    localStorage.setItem(KEY, JSON.stringify(data));
+}
 let _lastCreatedBookingId = null;
 // after creating a booking, confirm the server actually stored it (the bookings
 // write is a large array that can be dropped on a flaky connection). Re-send and
