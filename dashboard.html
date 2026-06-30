@@ -8840,21 +8840,9 @@ function renderAnalytics(){
             <div><div class="lbl">${m[0]}</div><div class="mval"${m[4] ? ` style="color:${m[4]}"` : ""}>${m[1]}</div></div>
         </div>`).join("");
 
-    // ---- revenue vs expenses chart ----
-    // admin: trailing 12 months; partner: a daily breakdown of the current month
-    let chartSeries = series;
-    if(_scopedPartner){
-        const yy = t.getFullYear(), mm = t.getMonth(), ymCur = iso(t).slice(0,7);
-        const daysInMonth = new Date(yy, mm + 1, 0).getDate();
-        const dInc = {}, dExp = {};
-        bookings.forEach(b => { if(!b.cancelled && b.checkin && b.checkin.slice(0,7) === ymCur){ const d = Number(b.checkin.slice(8,10)); dInc[d] = (dInc[d]||0) + paidOf(b); } });
-        bills.forEach(b => { if(b.paid && b.due && b.due.slice(0,7) === ymCur){ const d = Number(b.due.slice(8,10)); dExp[d] = (dExp[d]||0) + Number(b.amount||0); } });
-        expenses.forEach(e => { if(e.date && e.date.slice(0,7) === ymCur){ const d = Number(e.date.slice(8,10)); dExp[d] = (dExp[d]||0) + Number(e.amount||0); } });
-        chartSeries = [];
-        for(let d = 1; d <= daysInMonth; d++) chartSeries.push({ label: (d === 1 || d % 5 === 0) ? String(d) : "", inc: dInc[d]||0, exp: dExp[d]||0 });
-    }
-    const maxV = Math.max(1, ...chartSeries.map(s => Math.max(s.inc, s.exp)));
-    document.getElementById("anChart").innerHTML = `<div class="chart">${chartSeries.map(s => `
+    // ---- revenue vs expenses chart (trailing 12 months) ----
+    const maxV = Math.max(1, ...series.map(s => Math.max(s.inc, s.exp)));
+    document.getElementById("anChart").innerHTML = `<div class="chart">${series.map(s => `
         <div class="col">
             <div class="bars">
                 <div class="bar inc" style="height:${Math.round(s.inc / maxV * 100)}%" title="Income ${peso(Math.round(s.inc))}"></div>
