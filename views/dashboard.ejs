@@ -1809,6 +1809,15 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
     <div class="legend" id="legend"></div>
 </div>
 
+<!-- recent activity (inline copy of the Activity Log, between calendar & bookings) -->
+<div class="panel">
+    <div class="panel-head">
+        <h2>Activity Log <span class="muted" style="font-weight:400;">— recent changes, newest first</span></h2>
+        <button class="btn secondary" onclick="showPage('log')">View all</button>
+    </div>
+    <div id="logListCal" style="max-height:280px; overflow:auto;"></div>
+</div>
+
 <!-- bookings table -->
 <div class="panel">
     <div class="panel-head">
@@ -6196,7 +6205,7 @@ function showPage(page){
     if(page === "approval") renderApproval();
     if(page === "paymentapproval") renderPaymentApproval();
     if(page === "deposit") renderDeposit();
-    if(page === "calendar") renderTimeline();
+    if(page === "calendar"){ renderTimeline(); if(typeof renderLog === "function") renderLog(); }
     if(page === "guestform") renderGuestForm();
     if(typeof partnersOnShowPage === "function") partnersOnShowPage(page);   // Partners sub-module (partners.js)
     if(page === "expenses" && typeof renderExpenses === "function") renderExpenses();
@@ -7821,17 +7830,19 @@ function logActivity(action, user){
     } catch(e){ /* never let logging break an action (e.g. storage full) */ }
 }
 function renderLog(){
-    const el = document.getElementById("logList");
-    if(!el) return;
     let log = [];
     try { log = JSON.parse(localStorage.getItem(ACTIVITY_KEY)) || []; } catch(e){}
-    if(!log.length){ el.innerHTML = `<div class="muted">No activity logged yet.</div>`; return; }
-    el.innerHTML = log.slice().reverse().map(e => `
+    const rows = arr => arr.slice().reverse().map(e => `
         <div class="log-row">
             <span class="log-when">${new Date(e.at).toLocaleString("en-PH")}</span>
             <span class="log-user">${escHtml(e.user || "—")}</span>
             <span class="log-action">${escHtml(e.action || "")}</span>
         </div>`).join("");
+    const empty = `<div class="muted">No activity logged yet.</div>`;
+    const full = document.getElementById("logList");                 // full Activity Log page
+    if(full) full.innerHTML = log.length ? rows(log) : empty;
+    const cal = document.getElementById("logListCal");               // compact copy on the Calendar page (last 40)
+    if(cal) cal.innerHTML = log.length ? rows(log.slice(-40)) : empty;
 }
 function clearActivityLog(){
     if(!confirm("Clear the entire activity log?")) return;
