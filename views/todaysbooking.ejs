@@ -699,7 +699,40 @@
     <input type="number" id="payAmount" min="0" placeholder="0">
 
     <label for="payDate">Date collected</label>
-    <input type="date" id="payDate">
+    <input type="hidden" id="payDate">
+    <div class="paydp-wrap">
+      <button type="button" class="paydp-pill" onclick="payDpToggle(event)">
+        <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>
+        <span id="payDateLabel">Today</span>
+      </button>
+      <div id="payDpPop" class="paydp-pop" onclick="event.stopPropagation()">
+        <div class="dp-head"><button type="button" onclick="payDpNav(-1)">‹</button><span id="payDpTitle"></span><button type="button" onclick="payDpNav(1)">›</button></div>
+        <div class="dp-grid" id="payDpGrid"></div>
+        <div class="dp-foot"><span onclick="payDpPick(iso(today()))">Today</span></div>
+      </div>
+    </div>
+    <style>
+      .paydp-wrap{ position:relative; }
+      .paydp-pill{ width:100%; display:flex; align-items:center; gap:9px; padding:12px 14px; border:1px solid #ece4d8; border-radius:10px; background:#faf6ef; font:inherit; font-size:14px; color:#33291f; cursor:pointer; text-align:left; }
+      .paydp-pill:hover{ border-color:#d9b48f; }
+      .paydp-pill svg{ width:16px; height:16px; flex:none; fill:none; stroke:#bd6e3f; stroke-width:2; }
+      #payDpPop.paydp-pop{ display:none; margin-top:8px; background:#fff; border:1px solid #f0e6d8; border-radius:16px; box-shadow:0 8px 24px rgba(80,60,30,.14); padding:16px; }
+      #payDpPop .dp-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+      #payDpPop .dp-head span{ font-size:14px; font-weight:bold; color:#33291f; }
+      #payDpPop .dp-head button{ width:30px; height:30px; border:none; background:#f6efe6; border-radius:50%; cursor:pointer; font-size:16px; color:#6f5b46; }
+      #payDpPop .dp-head button:hover{ background:#efe2cf; color:#111; }
+      #payDpPop .dp-grid{ display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); row-gap:5px; }
+      #payDpPop .dp-wd{ text-align:center; font-size:11px; font-weight:bold; color:#c3b39d; padding:4px 0; }
+      #payDpPop .dp-day{ height:36px; display:flex; align-items:center; justify-content:center; font-size:13px; color:#33291f; cursor:pointer; }
+      #payDpPop .dp-day .n{ width:32px; height:32px; display:flex; align-items:center; justify-content:center; border-radius:50%; transition:background .12s; }
+      #payDpPop .dp-day.empty{ cursor:default; }
+      #payDpPop .dp-day.today .n{ font-weight:bold; color:#bd6e3f; }
+      #payDpPop .dp-day:not(.sel):not(.empty):hover .n{ background:#f3ece1; }
+      #payDpPop .dp-day.sel .n{ background:var(--hv-terra,#bd6e3f); color:#fff; font-weight:bold; }
+      #payDpPop .dp-foot{ display:flex; justify-content:flex-end; margin-top:10px; padding-top:10px; border-top:1px solid #f3ece1; }
+      #payDpPop .dp-foot span{ font-size:13px; font-weight:bold; color:#bd6e3f; cursor:pointer; }
+      #payDpPop .dp-foot span:hover{ text-decoration:underline; }
+    </style>
 
     <label for="payMop">MOP <span class="lbl-muted">(Mode of Payment)</span></label>
     <select id="payMop">
@@ -1327,7 +1360,7 @@
       document.getElementById("payAmount").value = Number(p.amount) || 0;
       document.getElementById("payMop").value = p.mop || "Cash";
       document.getElementById("payFor").value = p.category || "Balance";
-      document.getElementById("payDate").value = p.at ? iso(new Date(p.at)) : iso(today());
+      payDateSet(p.at ? iso(new Date(p.at)) : iso(today()));
       payProof = p.proof || null;
       if(nameEl) nameEl.textContent = payProof ? "Photo attached ✓" : "No file chosen";
       if(payProof){ prev.src = payProof; prev.style.display = "block"; } else { prev.src = ""; prev.style.display = "none"; }
@@ -1335,7 +1368,7 @@
       document.getElementById("payAmount").value = balanceOf(b);
       document.getElementById("payMop").selectedIndex = 0;
       document.getElementById("payFor").value = "Balance";
-      document.getElementById("payDate").value = iso(today());
+      payDateSet(iso(today()));
       payProof = null; prev.src = ""; prev.style.display = "none";
       if(nameEl) nameEl.textContent = "No file chosen";
     }
@@ -1346,6 +1379,41 @@
     document.getElementById("paySaveAddBtn").style.display = editingExisting ? "none" : "inline-block";
     document.getElementById("paySaveBtn").textContent = editingExisting ? "Update Payment" : "Save Payment";
   }
+  // ---- styled "Date collected" calendar (matches the app's other date pickers) ----
+  let payDpMonth = null;
+  function payDpFmt(ci){ if(!ci) return "Pick a date"; const d = new Date(ci + "T00:00:00"); return TB_MONTHS[d.getMonth()].slice(0,3) + " " + d.getDate() + ", " + d.getFullYear(); }
+  function payDateSet(ci){
+    const inp = document.getElementById("payDate"); if(inp) inp.value = ci || "";
+    const lbl = document.getElementById("payDateLabel"); if(lbl) lbl.textContent = payDpFmt(ci);
+  }
+  function payDpToggle(e){
+    if(e) e.stopPropagation();
+    const pop = document.getElementById("payDpPop");
+    if(pop.style.display === "block"){ pop.style.display = "none"; return; }
+    const cur = document.getElementById("payDate").value;
+    const base = cur ? new Date(cur + "T00:00:00") : today();
+    payDpMonth = new Date(base.getFullYear(), base.getMonth(), 1);
+    payDpRender();
+    pop.style.display = "block";
+  }
+  function payDpNav(dir){ payDpMonth = new Date(payDpMonth.getFullYear(), payDpMonth.getMonth() + dir, 1); payDpRender(); }
+  function payDpRender(){
+    const y = payDpMonth.getFullYear(), m = payDpMonth.getMonth();
+    document.getElementById("payDpTitle").textContent = TB_MONTHS[m] + " " + y;
+    const startDay = new Date(y, m, 1).getDay();
+    const daysInMonth = new Date(y, m + 1, 0).getDate();
+    const todayIso = iso(today()), selIso = document.getElementById("payDate").value;
+    let html = "";
+    ["Su","Mo","Tu","We","Th","Fr","Sa"].forEach(d => html += `<div class="dp-wd">${d}</div>`);
+    for(let i = 0; i < startDay; i++) html += `<div class="dp-day empty"></div>`;
+    for(let d = 1; d <= daysInMonth; d++){
+      const ci = iso(new Date(y, m, d));
+      html += `<div class="dp-day${ci === todayIso ? " today" : ""}${ci === selIso ? " sel" : ""}" onclick="payDpPick('${ci}')"><span class="n">${d}</span></div>`;
+    }
+    document.getElementById("payDpGrid").innerHTML = html;
+  }
+  function payDpPick(ci){ payDateSet(ci); const p = document.getElementById("payDpPop"); if(p) p.style.display = "none"; }
+  document.addEventListener("click", function(){ const p = document.getElementById("payDpPop"); if(p && p.style.display === "block") p.style.display = "none"; });
   // the chosen collection date (with current time-of-day) so late inputs land on the right day
   function payAtFromInput(){
     const d = document.getElementById("payDate").value;
