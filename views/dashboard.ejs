@@ -8761,8 +8761,11 @@ function renderAnalytics(){
     const towelTotal  = Math.round(_live.reduce((s,b) => s + (Number(b.towels)||0) * PRICING.towel, 0));         // towels
     const damageTotal = Math.round(_live.reduce((s,b) => s + (Number(b.depositDeductAmount)||0), 0));            // damages kept from deposits
     const refundTotal = Math.round(bk.filter(b => b.cancelled && b.dpRefunded).reduce((s,b) => s + paidOf(b), 0)); // refunds on cancelled bookings
-    const deductions  = _scopedPartner ? 0 : (depTotal + poolTotal + towelTotal + damageTotal + refundTotal);
-    const netRevenue  = gross - deductions;   // NET = what's left after all the deductions above
+    // damages kept from a deposit are the MAIN ADMIN's income (never the partner's), so they're
+    // ADDED back — not deducted; only deposit/pool/towels/refunds reduce the net.
+    const deductions    = _scopedPartner ? 0 : (depTotal + poolTotal + towelTotal + refundTotal);
+    const damagesIncome = _scopedPartner ? 0 : damageTotal;
+    const netRevenue    = gross - deductions + damagesIncome;   // NET after deductions, plus damages kept
 
     const billsTotal  = Math.round(bl.reduce((s,b) => s + Number(b.amount||0), 0));
     const billsPaid   = bl.filter(b => b.paid).reduce((s,b) => s + Number(b.amount||0), 0);
@@ -8807,8 +8810,8 @@ function renderAnalytics(){
         ["Security deposit", "−" + peso(depTotal), AN_ICO.receipt, "ic-terra", RED],
         ["Pool pass", "−" + peso(poolTotal), AN_ICO.receipt, "ic-terra", RED],
         ["Towels", "−" + peso(towelTotal), AN_ICO.receipt, "ic-terra", RED],
-        ["Damages", "−" + peso(damageTotal), AN_ICO.receipt, "ic-terra", RED],
-        ["Refunds (cancelled)", "−" + peso(refundTotal), AN_ICO.receipt, "ic-terra", RED]
+        ["Refunds (cancelled)", "−" + peso(refundTotal), AN_ICO.receipt, "ic-terra", RED],
+        ["Damages (kept → admin)", "+" + peso(damageTotal), AN_ICO.receipt, "ic-green", "#2e7d4f"]
     );
     document.getElementById("anMini").innerHTML = minis.map(m => `
         <div class="mini"><span class="ico ${m[3]}">${m[2]}</span>
