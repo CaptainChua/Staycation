@@ -4031,6 +4031,8 @@ function renderTimeline(){
     // place bars
     const rangeStartIso = iso(rangeStart);
     const rangeEndIso = iso(addDays(rangeStart, viewDays)); // exclusive
+    // First pass: figure out which bookings are visible and the columns they span.
+    const placed = [];
     bookings.forEach(b => {
         if(b.cancelled) return;                                        // cancelled → not shown / haven free
         if(!HAVENS.includes(b.haven)) return;
@@ -4042,7 +4044,39 @@ function renderTimeline(){
         const endIdx = Math.min(viewDays, daysBetween(rangeStartIso, coIso));
         const span = endIdx - startIdx;
         if(span <= 0) return;
+        placed.push({ b, startIdx, endIdx, span, lane: 0, lanes: 1 });
+    });
 
+    // Second pass: pack overlapping stays in the same haven into vertical LANES so two
+    // bookings on the same day are BOTH visible (e.g. a 6h day-use + a 21h overnight),
+    // instead of the full-height bar hiding the other. Only the overlapping cluster is
+    // split — standalone stays still use the full row height / AM-PM halves below.
+    HAVENS.forEach(haven => {
+        const items = placed.filter(p => p.b.haven === haven)
+                            .sort((a,c) => a.startIdx - c.startIdx || a.endIdx - c.endIdx);
+        let i = 0;
+        while(i < items.length){
+            const cluster = [items[i]];
+            let maxEnd = items[i].endIdx, j = i + 1;
+            while(j < items.length && items[j].startIdx < maxEnd){      // transitively overlapping
+                cluster.push(items[j]);
+                if(items[j].endIdx > maxEnd) maxEnd = items[j].endIdx;
+                j++;
+            }
+            const laneEnds = [];                                        // greedy lane colouring
+            cluster.forEach(p => {
+                let lane = laneEnds.findIndex(end => end <= p.startIdx);
+                if(lane === -1) lane = laneEnds.length;
+                laneEnds[lane] = p.endIdx;
+                p.lane = lane;
+            });
+            cluster.forEach(p => p.lanes = laneEnds.length);
+            i = j;
+        }
+    });
+
+    // place bars
+    placed.forEach(({ b, startIdx, span, lane, lanes }) => {
         // find the first cell of this haven row to anchor position
         const firstCell = grid.querySelector(`.tl-cell[data-h="${cssEscape(b.haven)}"][data-i="0"]`);
         if(!firstCell) return;
@@ -4069,8 +4103,14 @@ function renderTimeline(){
         const cellH = firstCell.offsetHeight;
         bar.style.left = (firstCell.offsetLeft + startIdx*cellWidth + 2) + "px";
         bar.style.width = (span*cellWidth - 4) + "px";
-        // time map: 6h AM = top half, 6h PM = bottom half, longer stays = full height
-        if(b.slot === "morning"){
+        if(lanes > 1){
+            // stacked: one horizontal slice per overlapping booking so all are visible
+            const pad = 4, gap = 2;
+            const laneH = (cellH - pad*2 - gap*(lanes-1)) / lanes;
+            bar.style.top = (rowTop + pad + lane*(laneH + gap)) + "px";
+            bar.style.height = laneH + "px";
+        } else if(b.slot === "morning"){
+            // time map: 6h AM = top half, 6h PM = bottom half, longer stays = full height
             bar.style.top = (rowTop + 4) + "px";
             bar.style.height = (cellH/2 - 5) + "px";
         } else if(b.slot === "evening"){
