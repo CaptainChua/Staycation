@@ -8756,10 +8756,11 @@ function renderAnalytics(){
     const towelTotal  = Math.round(_live.reduce((s,b) => s + (Number(b.towels)||0) * PRICING.towel, 0));         // towels
     const damageTotal = Math.round(_live.reduce((s,b) => s + (Number(b.depositDeductAmount)||0), 0));            // damages kept from deposits
     const refundTotal = Math.round(bk.filter(b => b.cancelled && b.dpRefunded).reduce((s,b) => s + paidOf(b), 0)); // refunds on cancelled bookings
+    const housekeepingTotal = 0;   // housekeeping/cleaning cost — no data source yet, so ₱0 for now
     // deposit, pool pass, towels and cancellation refunds all go to the MAIN ADMIN — not the
     // partner — so they're deducted from gross. Damages kept are the admin's income (added back,
     // and only relevant to the admin view).
-    const deductions    = depTotal + poolTotal + towelTotal + refundTotal;
+    const deductions    = depTotal + poolTotal + towelTotal + refundTotal + housekeepingTotal;
     const damagesIncome = _scopedPartner ? 0 : damageTotal;
     const netRevenue    = gross - deductions + damagesIncome;   // NET after deductions (+ damages for admin)
 
@@ -8812,6 +8813,7 @@ function renderAnalytics(){
         ["Security deposit", "−" + peso(depTotal), AN_ICO.receipt, "ic-terra", RED],
         ["Pool pass", "−" + peso(poolTotal), AN_ICO.receipt, "ic-terra", RED],
         ["Towels", "−" + peso(towelTotal), AN_ICO.receipt, "ic-terra", RED],
+        ["Housekeeping", "−" + peso(housekeepingTotal), AN_ICO.receipt, "ic-terra", RED],
         ["Refunds (cancelled)", "−" + peso(refundTotal), AN_ICO.receipt, "ic-terra", RED]
     );
     // damages kept are the admin's income (not the partner's) → admin view only
