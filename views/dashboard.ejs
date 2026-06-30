@@ -6935,7 +6935,7 @@ const BILLS_KEY = "shph_bills_v1";
 
 function loadBills(){
     const raw = localStorage.getItem(BILLS_KEY);
-    if(raw) return JSON.parse(raw);
+    if(raw) return JSON.parse(raw).filter(b => !b.deleted);   // soft-deleted bills stay on the server, hidden here
     // seed a few examples so the page isn't empty
     const t = today();
     const due = n => iso(addDays(t, n));
@@ -6956,7 +6956,7 @@ function persistBills(){ localStorage.setItem(BILLS_KEY, JSON.stringify(bills));
 const EXPENSE_TYPES = ["Laundry", "Supplies", "Tissues", "Fabcon", "Sponge",
     "Trashbags", "Cleaning agents", "Lalamove", "Dishwashing liquid", "Albatross", "Others"];
 const EXPENSES_KEY = "shph_expenses_v1";
-function loadExpenses(){ try { return JSON.parse(localStorage.getItem(EXPENSES_KEY)) || []; } catch(e){ return []; } }
+function loadExpenses(){ try { return (JSON.parse(localStorage.getItem(EXPENSES_KEY)) || []).filter(x => !x.deleted); } catch(e){ return []; } }
 let expenses = loadExpenses();
 // localStorage write is auto-mirrored to the shared server (Firestore) by the seed bridge
 function persistExpenses(){ localStorage.setItem(EXPENSES_KEY, JSON.stringify(expenses)); }
@@ -7021,8 +7021,10 @@ function deleteExpense(id){
     const e = expenses.find(x => x.id === id);
     if(!confirm("Delete this expense?")) return;
     if(e) logActivity(`deleted expense — ${e.type} ${peso(e.amount)}`);
-    expenses = expenses.filter(x => x.id !== id);
-    persistExpenses(); renderExpenses();
+    if(e){ e.deleted = true; e.deletedAt = new Date().toISOString(); }   // kept on the server, just hidden
+    persistExpenses();
+    expenses = expenses.filter(x => !x.deleted);
+    renderExpenses();
 }
 
 function renderExpenses(){
@@ -7338,8 +7340,10 @@ function toggleBillPaid(id){
 }
 function deleteBill(id){
     if(!confirm("Delete this bill?")) return;
-    bills = bills.filter(b => b.id !== id);
-    persistBills();
+    const b = bills.find(x => x.id === id);
+    if(b){ b.deleted = true; b.deletedAt = new Date().toISOString(); }   // kept on the server, just hidden
+    persistBills();                          // server merge marks it deleted (never erased)
+    bills = bills.filter(x => !x.deleted);   // hide from this view
     renderBills();
 }
 
@@ -7360,7 +7364,7 @@ function monthLabel(ym){ const [y, m] = ym.split("-"); return MONTHS[Number(m) -
 
 function loadStaff(){
     const raw = localStorage.getItem(PAYROLL_KEY);
-    if(raw) return JSON.parse(raw);
+    if(raw) return JSON.parse(raw).filter(s => !s.deleted);   // soft-deleted staff stay on the server, hidden here
     const td = iso(today());
     const seed = [
         { id:1, name:"Juan Dela Cruz", role:"CSR",
@@ -7947,8 +7951,11 @@ function saveStaff(){
 }
 function deleteStaff(id){
     if(!confirm("Delete this staff member and all their entries?")) return;
-    staff = staff.filter(s => s.id !== id);
-    persistStaff(); renderPayroll(); renderEmployees();
+    const s = staff.find(x => x.id === id);
+    if(s){ s.deleted = true; s.deletedAt = new Date().toISOString(); }   // kept on the server, just hidden
+    persistStaff();
+    staff = staff.filter(x => !x.deleted);
+    renderPayroll(); renderEmployees();
 }
 
 /* ---------- employees directory ---------- */
@@ -9295,8 +9302,9 @@ function hvDeleteFromDrawer(){
     const i = hvEditIndex;
     if(!confirm(`Delete "${listings[i].name}"? This removes it from the website.`)) return;
     const name = listings[i].name;
-    listings.splice(i, 1);
-    saveHavens(listings);
+    listings[i].deleted = true; listings[i].deletedAt = new Date().toISOString();   // kept on the server, just hidden
+    saveHavens(listings);          // server merge marks it deleted (never erased)
+    listings.splice(i, 1);         // hide from this view
     logActivity(`deleted haven listing — ${name}`);
     closeHaven();
     renderListings();
@@ -9696,11 +9704,11 @@ function loadUsers(){
     // UI works, but NEVER write/mirror it to the server here — a stale/empty local
     // copy (e.g. right after a cold start) would otherwise overwrite the real user
     // list on the server and wipe everyone. Persisting the admin is admin.html's job.
-    if(!arr.some(u => u.admin)){
+    if(!arr.some(u => u.admin && !u.deleted)){
         const nextId = (arr.reduce((m, u) => Math.max(m, Number(u.id) || 0), 0) || 0) + 1;
         arr.push({ id: nextId, name:"admin", password:"1234", admin:true, perms: DASH_PAGES.map(p => p.key) });
     }
-    return arr;
+    return arr.filter(u => !u.deleted);   // soft-deleted users stay on the server, hidden here
 }
 let users = loadUsers();
 function persistUsers(){
@@ -9906,8 +9914,10 @@ function deleteUser(id){
     if(u && u.admin && users.filter(x => x.admin).length <= 1){ alert("You can't delete the last administrator."); return; }
     if(!confirm("Delete this user?")) return;
     if(u) logActivity(`deleted user — ${u.name}`);
-    users = users.filter(x => x.id !== id);
-    persistUsers(); renderUsers(); applyPermissions();
+    if(u){ u.deleted = true; u.deletedAt = new Date().toISOString(); }   // kept on the server, just hidden
+    persistUsers();
+    users = users.filter(x => !x.deleted);
+    renderUsers(); applyPermissions();
 }
 
 renderUsers();

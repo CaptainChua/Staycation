@@ -39,6 +39,9 @@
   // empty, migrate this browser's existing data UP instead of letting the empty
   // server value overwrite (and destroy) it.
   var MIGRATE = ["shph_poolpass_v1", "shph_guestform_units", "shph_employee_nicole", "shph_partners"];
+  // id-keyed list stores that MERGE (never overwrite) on load + save → no lost records,
+  // multi-user safe. Must match server.js MERGE_LIST_KEYS. (id-less stores must NOT be here.)
+  var MERGE_KEYS = ["shph_bookings_v3", "shph_bills_v1", "shph_expenses_v1", "shph_users", "shph_staff_v1", "staycation_havens"];
   var isShared = function (k) { return SHARED.indexOf(k) !== -1; };
   function isEmptyVal(v) {
     return v == null
@@ -140,21 +143,20 @@
         if (!isEmptyVal(lv)) { push(k, lr); return; }   // migrate up, keep local copy
       }
     }
-    // Bookings: NEVER let the server copy silently drop a booking this browser saved but
-    // hasn't finished syncing yet (e.g. you clicked Save then refreshed). Merge local +
-    // server by id (excluding server-deleted/tombstoned ones) and re-push anything the
-    // server is still missing — and the durable queue keeps retrying until it confirms.
-    if (k === "shph_bookings_v3") {
+    // Merged list stores: NEVER let the server copy silently drop a record this browser saved
+    // but hasn't finished syncing yet (e.g. you clicked Save then refreshed). Merge local +
+    // server by id and re-push anything the server is still missing — the durable queue keeps
+    // retrying until confirmed. (Soft-deleted records are kept, marked, and hidden by the page.)
+    if (MERGE_KEYS.indexOf(k) !== -1) {
       var serverArr = Array.isArray(sv) ? sv : [];
       var localArr = []; try { localArr = JSON.parse(localStorage.getItem(k) || "[]") || []; } catch (e) { localArr = []; }
-      var tomb = {}; try { (seed["shph_deleted_bookings"] || []).forEach(function (t) { if (t && t.id != null) tomb[String(t.id)] = 1; }); } catch (e) {}
       var byId = {}, order = [];
-      serverArr.forEach(function (b) { if (b && b.id != null && !tomb[String(b.id)] && !(String(b.id) in byId)) { byId[String(b.id)] = b; order.push(String(b.id)); } });
+      serverArr.forEach(function (b) { if (b && b.id != null && !(String(b.id) in byId)) { byId[String(b.id)] = b; order.push(String(b.id)); } });
       var hasExtra = false;
-      localArr.forEach(function (b) { if (b && b.id != null && !tomb[String(b.id)] && !(String(b.id) in byId)) { byId[String(b.id)] = b; order.push(String(b.id)); hasExtra = true; } });
+      localArr.forEach(function (b) { if (b && b.id != null && !(String(b.id) in byId)) { byId[String(b.id)] = b; order.push(String(b.id)); hasExtra = true; } });
       var merged = order.map(function (id) { return byId[id]; });
       try { localStorage.setItem(k, JSON.stringify(merged)); } catch (e) {}   // setItem isn't wrapped yet → no push here
-      if (hasExtra) push(k, JSON.stringify(merged));   // re-send the not-yet-saved bookings (retries until confirmed)
+      if (hasExtra) push(k, JSON.stringify(merged));   // re-send the not-yet-saved records (retries until confirmed)
       return;
     }
     if (sv != null) { try { localStorage.setItem(k, JSON.stringify(sv)); } catch (e) {} }

@@ -77,13 +77,20 @@ apiRouter.get("/kv/:key", (req, res) => {
 // the same time, neither overwrites the other's bookings. Bookings only this client is
 // missing (added by someone else) are KEPT; bookings deleted via the /booking delete
 // endpoint are tombstoned and excluded, so a stale client can't resurrect them.
-function mergeBookings(stored, incoming) {
+// Id-keyed list stores that are merged per-item on save (multi-user safe + never erased).
+// Only stores whose items have a stable unique `id` belong here — merging an id-less list
+// would DROP records. (cleaning = object keyed by room; poolpass = no id → NOT here.)
+const MERGE_LIST_KEYS = new Set([
+  "shph_bookings_v3", "shph_bills_v1", "shph_expenses_v1",
+  "shph_users", "shph_staff_v1", "staycation_havens"
+]);
+function mergeList(stored, incoming) {
   const byId = new Map();
   for (const b of stored) if (b && b.id != null) byId.set(String(b.id), b);
   for (const b of incoming) {
     if (!b || b.id == null) continue;
     const cur = byId.get(String(b.id));
-    // never let a stale client UN-delete a booking the server already marked deleted
+    // never let a stale client UN-delete a record the server already marked deleted
     if (cur && cur.deleted && !b.deleted) continue;
     byId.set(String(b.id), b);
   }
@@ -95,8 +102,8 @@ apiRouter.put("/kv/:key", async (req, res) => {
   if (!store.isShared(req.params.key)) return res.status(403).json({ error: "key not shared" });
   try {
     let value = req.body;
-    if (req.params.key === "shph_bookings_v3" && Array.isArray(value)) {
-      value = mergeBookings(store.get("shph_bookings_v3") || [], value);   // never overwrite other users' bookings
+    if (MERGE_LIST_KEYS.has(req.params.key) && Array.isArray(value)) {
+      value = mergeList(store.get(req.params.key) || [], value);   // never overwrite another user's records
     }
     // durable write: only report success once the backend (Firestore) confirms,
     // so a client knows to retry instead of silently losing the change.

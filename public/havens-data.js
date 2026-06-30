@@ -42,7 +42,7 @@ function loadHavens() {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
         try {
-            return JSON.parse(saved);
+            return JSON.parse(saved).filter(h => !h.deleted);   // soft-deleted havens stay on the server, hidden here
         } catch (e) {
             console.warn("Could not read saved havens, using defaults.");
         }
