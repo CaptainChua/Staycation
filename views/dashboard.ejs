@@ -1154,7 +1154,8 @@ tr.row-cancelled td:nth-child(2){ text-decoration:line-through; }
     margin:16px 12px 6px; text-transform:uppercase;
     display:flex; align-items:center; justify-content:space-between; cursor:pointer; user-select:none;
   }
-  .sidebar .nav-group::after{ content:"▾"; font-size:9px; opacity:.55; transition:transform .15s; }
+  .sidebar .nav-group::after{ content:"▾"; font-size:12px; line-height:1; color:#cabdb1; opacity:1; margin-left:8px; transition:transform .15s; }
+  .sidebar .nav-group:hover::after{ color:#fff; }
   .sidebar .nav-group.collapsed::after{ transform:rotate(-90deg); }
   .sidebar .nav-group:hover{ color:#cabdb1; }
   .sidebar .nav-item.nav-collapsed{ display:none !important; }
