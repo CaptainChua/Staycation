@@ -1926,7 +1926,8 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
   #page-havens .hv-fl{ display:block; font-size:11px; letter-spacing:1.2px; text-transform:uppercase; color:var(--hv-muted); margin:18px 0 7px; font-weight:600; }
   #page-havens .hv-mainimg{ height:170px; border-radius:14px; margin-top:4px; background:#faf4ec repeating-linear-gradient(135deg,#efe6d7,#efe6d7 13px,#e7dcc9 13px,#e7dcc9 26px); background-size:cover; background-position:center; border:1px solid var(--hv-line); }
   #page-havens .hv-gallery{ display:flex; flex-direction:column; gap:8px; }
-  #page-havens .hv-grow{ display:flex; gap:8px; }
+  #page-havens .hv-grow{ display:flex; gap:8px; align-items:center; }
+  #page-havens .hv-thumb{ width:40px; height:40px; flex:none; border-radius:8px; border:1px solid var(--hv-line); background:#eee center/cover no-repeat; }
   #page-havens .hv-gx, #page-havens .hv-pill{ border:1px solid var(--hv-line); background:#fff; border-radius:9px; cursor:pointer; font-family:inherit; }
   #page-havens .hv-gx{ width:38px; flex:none; color:#b6a692; font-size:14px; }
   #page-havens .hv-pill{ margin-top:8px; padding:9px 15px; font-size:13px; font-weight:600; color:var(--hv-ink); display:inline-flex; gap:6px; align-items:center; }
@@ -1973,13 +1974,19 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
         <button class="hv-drx" onclick="closeHaven()">✕</button>
     </div>
     <div class="hv-drbody">
-        <label class="hv-fl">Main image URL</label>
-        <input class="hv-fld" id="hvImg" placeholder="https://…" oninput="hvPreviewImg(this.value)">
-        <div class="hv-mainimg" id="hvMainImg"></div>
+        <label class="hv-fl">Main image</label>
+        <input class="hv-fld" id="hvImg" placeholder="Paste an image link, or upload below" oninput="hvPreviewImg(this.value)">
+        <button type="button" class="hv-pill" onclick="document.getElementById('hvMainUp').click()">⬆ Upload image</button>
+        <input type="file" id="hvMainUp" accept="image/*" hidden onchange="hvUploadMain(this.files[0], this)">
+        <div class="hv-mainimg" id="hvMainImg" onclick="document.getElementById('hvMainUp').click()" style="cursor:pointer;" title="Click to upload an image"></div>
 
         <label class="hv-fl">Photo gallery</label>
         <div class="hv-gallery" id="hvGallery"></div>
-        <button class="hv-pill" onclick="hvAddGallery()">＋ Add photo</button>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button type="button" class="hv-pill" onclick="hvAddGallery()">＋ Add photo link</button>
+            <button type="button" class="hv-pill" onclick="document.getElementById('hvGalUp').click()">⬆ Upload photos</button>
+            <input type="file" id="hvGalUp" accept="image/*" multiple hidden onchange="hvUploadGallery(this.files, this)">
+        </div>
 
         <div class="hv-two">
             <div><label class="hv-fl">Name</label><input class="hv-fld" id="hvName"></div>
@@ -9194,14 +9201,41 @@ function hvPreviewImg(url){
 }
 
 function hvRenderGallery(){
-    document.getElementById("hvGallery").innerHTML = hvDraftGallery.map((u, idx) =>
-        `<div class="hv-grow">
-            <input class="hv-fld" value="${escAttr(u)}" placeholder="Photo URL" oninput="hvDraftGallery[${idx}]=this.value">
-            <button class="hv-gx" onclick="hvDelGallery(${idx})" title="Remove">✕</button>
-        </div>`).join("");
+    document.getElementById("hvGallery").innerHTML = hvDraftGallery.map((u, idx) => {
+        const val = String(u || "");
+        const isImg = val.startsWith("data:") || val.startsWith("/img/");
+        const thumbUrl = val.replace(/'/g, "%27").replace(/"/g, "%22");
+        const thumb = `<span class="hv-thumb" style="background-image:url('${thumbUrl}')"></span>`;
+        const field = isImg
+            ? `<input class="hv-fld" value="Uploaded photo ✓" readonly style="color:var(--hv-muted);">`
+            : `<input class="hv-fld" value="${escAttr(val)}" placeholder="Photo link" oninput="hvDraftGallery[${idx}]=this.value">`;
+        return `<div class="hv-grow">${thumb}${field}<button class="hv-gx" onclick="hvDelGallery(${idx})" title="Remove">✕</button></div>`;
+    }).join("");
 }
 function hvAddGallery(){ hvDraftGallery.push(""); hvRenderGallery(); }
 function hvDelGallery(idx){ hvDraftGallery.splice(idx, 1); hvRenderGallery(); }
+// upload an image file (compressed) as the main image
+function hvUploadMain(file, inputEl){
+    if(!file) return;
+    compressImageTo(file, idMaxBytes, function(dataUrl){
+        if(!dataUrl){ alert("Sorry, couldn't read that image — please try another file."); return; }
+        document.getElementById("hvImg").value = dataUrl;
+        hvPreviewImg(dataUrl);
+    });
+    if(inputEl) inputEl.value = "";
+}
+// upload one or more images (compressed) into the gallery
+function hvUploadGallery(files, inputEl){
+    if(!files || !files.length) return;
+    let pending = files.length;
+    Array.prototype.forEach.call(files, function(f){
+        compressImageTo(f, idMaxBytes, function(dataUrl){
+            if(dataUrl) hvDraftGallery.push(dataUrl);
+            if(--pending === 0) hvRenderGallery();
+        });
+    });
+    if(inputEl) inputEl.value = "";
+}
 
 function hvRenderChips(){
     document.getElementById("hvChips").innerHTML = hvDraftAmen.length
