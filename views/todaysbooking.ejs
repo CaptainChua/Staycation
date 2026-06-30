@@ -1602,12 +1602,14 @@
     b.addonLog.push({ pool, towels: tow, amount: added, at: new Date().toISOString(), by: currentUser() });
     try { saveBookings(bookings); }
     catch(e){ alert("Couldn't save — storage may be full."); return; }
+    const _bid = addonBookingId, _stamp = b.updatedAt;
     const parts = [];
     if(pool) parts.push(`${pool} pool pass${pool > 1 ? "es" : ""}`);
     if(tow) parts.push(`${tow} towel${tow > 1 ? "s" : ""}`);
     logActivity(`added late add-ons — ${b.haven}: ${parts.join(", ")} (${peso(added)})`);
     closeAddon();
     renderToday();
+    confirmBookingFresh(_bid, _stamp);   // verify the late add-on reached the server
     alert(`Added ${peso(added)} to the bill. The balance has been updated.`);
   }
   document.getElementById("addonOverlay").addEventListener("click", e => { if(e.target.id === "addonOverlay") closeAddon(); });
