@@ -290,7 +290,7 @@ function prRenderBookings(){
 function applyPartnerChrome(){
     const ps = window.__PARTNER__;
     if(!ps) return;
-    const MAIN = ["today", "calendar", "deposit", "cleaners"];    // stay under the "Main" header (cleaners = Housekeeping)
+    const MAIN = ["today", "calendar", "deposit"];               // stay under the "Main" header
     const DASH = ["analytics", "finance", "bills", "expenses"];  // move under a new "Dashboard" header
     const BOARD = ["board"];                                     // move under a new "Board" header
     const ALLOW = MAIN.concat(DASH).concat(BOARD);
@@ -321,9 +321,6 @@ function applyPartnerChrome(){
     const _dep = sb && sb.querySelector('.nav-item[data-page="deposit"]');
     const _cal = sb && sb.querySelector('.nav-item[data-page="calendar"]');
     if(_dep && _cal){ _dep.style.display = "flex"; _cal.insertAdjacentElement("afterend", _dep); }
-    // Housekeeping belongs under MAIN too — move it right after Security Deposit
-    const _clean = sb && sb.querySelector('.nav-item[data-page="cleaners"]');
-    if(_clean){ _clean.style.display = "flex"; (_dep || _cal) && (_dep || _cal).insertAdjacentElement("afterend", _clean); }
 
     // put a "PARTNERS" label under the logo
     const brand = document.querySelector(".sidebar .brand");
