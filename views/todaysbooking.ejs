@@ -803,9 +803,12 @@
     return JSON.stringify(v);
   }
   let _bkSig = null;
+  // baseline for change-stamping = the loaded list, so save() only stamps records the user
+  // actually edits (never mass-stamps stale data, which could win the merge and wipe edits).
+  function _seedBkSig(arr){ _bkSig = {}; (arr || []).forEach(b => { if(b && b.id != null) _bkSig[String(b.id)] = _bkCanon(b); }); }
   function saveBookings(data){
     try{
-      if(_bkSig === null){ _bkSig = {}; (JSON.parse(localStorage.getItem(KEY) || "[]") || []).forEach(p => { if(p && p.id != null) _bkSig[String(p.id)] = _bkCanon(p); }); }
+      if(_bkSig === null) _seedBkSig(data);
       const now = new Date().toISOString();
       (data || []).forEach(b => { if(!b || b.id == null) return; const sig = _bkCanon(b); if(_bkSig[String(b.id)] !== sig) b.updatedAt = now; _bkSig[String(b.id)] = _bkCanon(b); });
     }catch(e){}
@@ -948,6 +951,7 @@
     try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch(e){ return []; }
   }
   let bookings = loadBookings();
+  _seedBkSig(bookings);   // baseline = the loaded state (prevents stale re-stamping)
 
   /* ---------- render ---------- */
   let currentView = "today"; // today | tomorrow | week | month | custom
@@ -1969,7 +1973,9 @@
 
   // keep this page in sync when bookings are changed in another tab (e.g. the dashboard)
   window.addEventListener("storage", e => {
-    if(e.key === KEY) renderToday();
+    // another tab/device changed the bookings → RELOAD them (never keep a stale list in memory
+    // that a later save would push back over newer data) and reset the change baseline.
+    if(e.key === KEY){ bookings = loadBookings(); _seedBkSig(bookings); renderToday(); }
     if(e.key === "shph_activity_log") renderTodayLog();
   });
 </script>
