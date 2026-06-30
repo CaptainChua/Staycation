@@ -61,6 +61,25 @@
   var timer = {};     // key -> retry timer id
   var lastErr = {};   // key -> human reason the last save attempt failed
   var banner = null;
+
+  // Mirror the unconfirmed queue to localStorage so a refresh / crash / closed
+  // laptop can't lose an in-flight save: on the next load we replay it and keep
+  // retrying. Merge keys (bookings, etc.) are NOT mirrored here — their own
+  // localStorage key + prime-merge already recovers them, and copying their
+  // base64 images twice would waste storage.
+  var PERSIST_KEY = "__shph_unsynced__";
+  function persistPending() {
+    try {
+      var o = {};
+      for (var k in pending) {
+        if (!pending.hasOwnProperty(k) || pending[k] === undefined) continue;
+        if (MERGE_KEYS.indexOf(k) !== -1) continue;   // already durable via its own key
+        o[k] = pending[k];
+      }
+      if (Object.keys(o).length) localStorage.setItem(PERSIST_KEY, JSON.stringify(o));
+      else { try { localStorage.removeItem(PERSIST_KEY); } catch (e) {} }
+    } catch (e) {}
+  }
   var KEY_LABEL = { shph_bookings_v3: "booking/payment", shph_users: "user", shph_partners: "partner", shph_expenses_v1: "expense", shph_bills_v1: "bill" };
 
   function unsavedCount() { var n = 0; for (var k in pending) if (pending.hasOwnProperty(k)) n++; return n; }
@@ -95,7 +114,7 @@
     }).then(function (res) {
       if (res.ok) {
         delete lastErr[key];
-        if (pending[key] === body) { delete pending[key]; delete delay[key]; updateBanner(); }
+        if (pending[key] === body) { delete pending[key]; delete delay[key]; persistPending(); updateBanner(); }
         else { delay[key] = 200; flush(key); }      // a newer value queued meanwhile → save it
       } else {
         lastErr[key] = (res.status === 413 || res.status === 502) ? ("the save is too large (error " + res.status + ")") : ("server error " + res.status);
@@ -119,6 +138,7 @@
   // queue the LATEST value for a key and (re)start flushing — never gives up
   function push(key, jsonString) {
     pending[key] = jsonString;
+    persistPending();
     delay[key] = 600;
     if (timer[key]) { clearTimeout(timer[key]); timer[key] = null; }
     flush(key);
@@ -180,4 +200,31 @@
       }
     };
   }
+
+  // 3) recover any write that was queued but NOT yet confirmed before the tab was
+  //    closed/refreshed/crashed — replay it so it keeps retrying until saved. (Merge
+  //    keys like bookings are already recovered by prime-merge above; this covers the
+  //    rest — settings, cleaning, pool pass, guest forms, partner board, etc.)
+  try {
+    var unsynced = JSON.parse(localStorage.getItem(PERSIST_KEY) || "{}") || {};
+    Object.keys(unsynced).forEach(function (k) {
+      if (!isShared(k) || typeof unsynced[k] !== "string") return;
+      try { localStorage.setItem(k, unsynced[k]); } catch (e) {}   // wrapped setItem → restores the local copy AND re-queues the push
+    });
+  } catch (e) {}
+
+  // 4) the moment the network comes back (or the tab is refocused), stop waiting on the
+  //    backoff timer and retry everything still unsaved immediately.
+  function flushAll() {
+    for (var k in pending) {
+      if (!pending.hasOwnProperty(k)) continue;
+      delay[k] = 200;
+      if (timer[k]) { clearTimeout(timer[k]); timer[k] = null; }
+      flush(k);
+    }
+  }
+  try {
+    window.addEventListener("online", flushAll);
+    document.addEventListener("visibilitychange", function () { if (!document.hidden) flushAll(); });
+  } catch (e) {}
 })();
