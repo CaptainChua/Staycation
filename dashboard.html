@@ -8784,15 +8784,23 @@ function renderAnalytics(){
         `All units combined — bookings, bills, payroll &amp; expenses · ${scopeText}`;
 
     // ---- big KPI cards ----
-    const _net2 = _scopedPartner ? partnerNet : netProfit;   // partner's 2nd card = Gross − Total Expenses
-    const kpis = [
-        [_scopedPartner ? "Gross" : "Collected (gross)", peso(gross), "#2e7d4f", AN_ICO.trendUp, "ic-green", pct(cur.inc, prev.inc)],
-        [_scopedPartner ? "NET (after bills & expenses)" : "Net profit", peso(_net2), _net2 >= 0 ? "#2e7d4f" : "#c0283d", AN_ICO.piggy, "ic-green", pct(cur.inc - cur.exp, prev.inc - prev.exp)],
-        ["Total expenses", peso(_scopedPartner ? partnerExp : totalExpenses), "var(--hv-terra-d)", AN_ICO.trendDown, "ic-terra", pct(cur.exp, prev.exp)],
-        ["Bookings", _live.length, "var(--hv-ink)", AN_ICO.cal, "ic-dark", pct(cur.bk, prev.bk)]
-    ];
-    // admin: show NET (gross − all the red deductions) right after the gross card
-    if(!_scopedPartner) kpis.splice(1, 0, ["Net (after deductions)", peso(netRevenue), netRevenue >= 0 ? "#2e7d4f" : "#c0283d", AN_ICO.piggy, "ic-green", null]);
+    let kpis;
+    if(_scopedPartner){
+        // Partner layout: Gross → Total Expenses → NET (Bookings shown as a mini below)
+        kpis = [
+            ["Gross", peso(gross), "#2e7d4f", AN_ICO.trendUp, "ic-green", null],
+            ["Total expenses", peso(partnerExp), "var(--hv-terra-d)", AN_ICO.trendDown, "ic-terra", null],
+            ["NET (after bills & expenses)", peso(partnerNet), partnerNet >= 0 ? "#2e7d4f" : "#c0283d", AN_ICO.piggy, "ic-green", null]
+        ];
+    } else {
+        kpis = [
+            ["Collected (gross)", peso(gross), "#2e7d4f", AN_ICO.trendUp, "ic-green", pct(cur.inc, prev.inc)],
+            ["Net (after deductions)", peso(netRevenue), netRevenue >= 0 ? "#2e7d4f" : "#c0283d", AN_ICO.piggy, "ic-green", null],
+            ["Net profit", peso(netProfit), netProfit >= 0 ? "#2e7d4f" : "#c0283d", AN_ICO.piggy, "ic-green", pct(cur.inc - cur.exp, prev.inc - prev.exp)],
+            ["Total expenses", peso(totalExpenses), "var(--hv-terra-d)", AN_ICO.trendDown, "ic-terra", pct(cur.exp, prev.exp)],
+            ["Bookings", _live.length, "var(--hv-ink)", AN_ICO.cal, "ic-dark", pct(cur.bk, prev.bk)]
+        ];
+    }
     document.getElementById("anCards").innerHTML = kpis.map(k => `
         <div class="kpi">
             <div class="top"><span class="lbl">${k[0]}</span><span class="ico ${k[4]}">${k[3]}</span></div>
@@ -8803,6 +8811,7 @@ function renderAnalytics(){
     // ---- compact cards ----  (m[4] = optional value colour)
     const RED = "#c0283d";
     const minis = [];
+    if(_scopedPartner) minis.push(["Bookings", _live.length, AN_ICO.cal, "ic-dark"]);
     if(!_scopedPartner) minis.push(["Receivables (pending)", peso(receivables), AN_ICO.hour, "ic-gold"]);
     // partner: "Pending Bills" = the unpaid balances still to collect (same as the Pending/Unpaid figure)
     minis.push(_scopedPartner
@@ -8829,9 +8838,21 @@ function renderAnalytics(){
             <div><div class="lbl">${m[0]}</div><div class="mval"${m[4] ? ` style="color:${m[4]}"` : ""}>${m[1]}</div></div>
         </div>`).join("");
 
-    // ---- revenue vs expenses chart (trailing 12 months) ----
-    const maxV = Math.max(1, ...series.map(s => Math.max(s.inc, s.exp)));
-    document.getElementById("anChart").innerHTML = `<div class="chart">${series.map(s => `
+    // ---- revenue vs expenses chart ----
+    // admin: trailing 12 months; partner: a daily breakdown of the current month
+    let chartSeries = series;
+    if(_scopedPartner){
+        const yy = t.getFullYear(), mm = t.getMonth(), ymCur = iso(t).slice(0,7);
+        const daysInMonth = new Date(yy, mm + 1, 0).getDate();
+        const dInc = {}, dExp = {};
+        bookings.forEach(b => { if(!b.cancelled && b.checkin && b.checkin.slice(0,7) === ymCur){ const d = Number(b.checkin.slice(8,10)); dInc[d] = (dInc[d]||0) + paidOf(b); } });
+        bills.forEach(b => { if(b.paid && b.due && b.due.slice(0,7) === ymCur){ const d = Number(b.due.slice(8,10)); dExp[d] = (dExp[d]||0) + Number(b.amount||0); } });
+        expenses.forEach(e => { if(e.date && e.date.slice(0,7) === ymCur){ const d = Number(e.date.slice(8,10)); dExp[d] = (dExp[d]||0) + Number(e.amount||0); } });
+        chartSeries = [];
+        for(let d = 1; d <= daysInMonth; d++) chartSeries.push({ label: (d === 1 || d % 5 === 0) ? String(d) : "", inc: dInc[d]||0, exp: dExp[d]||0 });
+    }
+    const maxV = Math.max(1, ...chartSeries.map(s => Math.max(s.inc, s.exp)));
+    document.getElementById("anChart").innerHTML = `<div class="chart">${chartSeries.map(s => `
         <div class="col">
             <div class="bars">
                 <div class="bar inc" style="height:${Math.round(s.inc / maxV * 100)}%" title="Income ${peso(Math.round(s.inc))}"></div>
@@ -8843,7 +8864,7 @@ function renderAnalytics(){
     document.getElementById("anChartLegend").innerHTML = `<div class="chart-legend">
         <span class="k"><span class="sw" style="background:#5aa873"></span>Income</span>
         <span class="k"><span class="sw" style="background:#bd6e3f"></span>Expenses</span>
-        <span class="chart-net">↗ Net ${peso(netProfit)}${dNet != null ? ` · ${dNet >= 0 ? "+" : ""}${dNet}%` : ""}</span>
+        <span class="chart-net">↗ Net ${peso(_scopedPartner ? partnerNet : netProfit)}${dNet != null ? ` · ${dNet >= 0 ? "+" : ""}${dNet}%` : ""}</span>
     </div>`;
 
     // ---- revenue by haven ----
