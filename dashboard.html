@@ -8795,11 +8795,13 @@ function renderAnalytics(){
 
     // ---- compact cards ----  (m[4] = optional value colour)
     const RED = "#c0283d";
-    const minis = [
-        ["Receivables (pending)", peso(receivables), AN_ICO.hour, "ic-gold"],
-        [_scopedPartner ? "Pending Bills" : "Total bills", peso(_scopedPartner ? billsPending : billsTotal), AN_ICO.receipt, "ic-terra"],
-        ["Expenses (supplies)", peso(expensesSpend), AN_ICO.receipt, "ic-green"]
-    ];
+    const minis = [];
+    if(!_scopedPartner) minis.push(["Receivables (pending)", peso(receivables), AN_ICO.hour, "ic-gold"]);
+    // partner: "Pending Bills" = the unpaid balances still to collect (same as the Pending/Unpaid figure)
+    minis.push(_scopedPartner
+        ? ["Pending Bills", peso(receivables), AN_ICO.hour, "ic-gold"]
+        : ["Total bills", peso(billsTotal), AN_ICO.receipt, "ic-terra"]);
+    minis.push(["Expenses (supplies)", peso(expensesSpend), AN_ICO.receipt, "ic-green"]);
     // Bills pending + Payroll are admin-only (business-wide; not shown on the partner view)
     if(!_scopedPartner) minis.push(
         ["Bills pending", peso(billsPending), AN_ICO.receipt, "ic-terra"],
