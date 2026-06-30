@@ -8715,7 +8715,7 @@ function renderAnalytics(){
     const billsOf = ym => bills.filter(b => b.due && b.due.slice(0,7) === ym).reduce((s,b) => s + Number(b.amount||0), 0);
     const expSpendOf = ym => expenses.filter(e => e.date && e.date.slice(0,7) === ym).reduce((s,e) => s + Number(e.amount||0), 0);
     const payOf  = ym => staff.reduce((s,st) => s + staffGross(st, ym), 0);
-    const bkCntOf = ym => bookings.filter(b => b.checkin && b.checkin.slice(0,7) === ym).length;
+    const bkCntOf = ym => bookings.filter(b => b.checkin && b.checkin.slice(0,7) === ym && !b.cancelled).length;
 
     // trailing-12-month series (always shown in the chart)
     const series = [];
@@ -8782,7 +8782,7 @@ function renderAnalytics(){
         [_scopedPartner ? "Gross" : "Collected (gross)", peso(gross), "#2e7d4f", AN_ICO.trendUp, "ic-green", pct(cur.inc, prev.inc)],
         [_scopedPartner ? "NET (after bills & expenses)" : "Net profit", peso(_net2), _net2 >= 0 ? "#2e7d4f" : "#c0283d", AN_ICO.piggy, "ic-green", pct(cur.inc - cur.exp, prev.inc - prev.exp)],
         ["Total expenses", peso(totalExpenses), "var(--hv-terra-d)", AN_ICO.trendDown, "ic-terra", pct(cur.exp, prev.exp)],
-        ["Bookings", bk.length, "var(--hv-ink)", AN_ICO.cal, "ic-dark", pct(cur.bk, prev.bk)]
+        ["Bookings", _live.length, "var(--hv-ink)", AN_ICO.cal, "ic-dark", pct(cur.bk, prev.bk)]
     ];
     // admin: show NET (gross − all the red deductions) right after the gross card
     if(!_scopedPartner) kpis.splice(1, 0, ["Net (after deductions)", peso(netRevenue), netRevenue >= 0 ? "#2e7d4f" : "#c0283d", AN_ICO.piggy, "ic-green", null]);
