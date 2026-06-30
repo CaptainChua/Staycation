@@ -2661,8 +2661,8 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
 </style>
 
 <!-- Add booking modal -->
-<div class="overlay" id="overlay">
-    <div class="modal">
+<div class="overlay" id="overlay" onclick="closeModal()" title="Click outside to close">
+    <div class="modal" onclick="event.stopPropagation()">
         <span class="modal-x" onclick="closeModal()" title="Close">✕</span>
         <div class="modal-eyebrow" id="bkEyebrow"></div>
         <h2 id="modalTitle">Add Booking</h2>
@@ -5972,9 +5972,11 @@ function saveBooking(){
         alert("Saturday check-ins are 21 hours only.");
         return;
     }
-    // earliest check-in is 9:00 AM (a same-day check-out pushes it later via the 2h cleaning gap)
+    // earliest check-in is 9:00 AM (a same-day check-out pushes it later via the 2h cleaning gap).
+    // Admins are exempt — they may set an earlier custom time (e.g. 8:00 AM). The public website
+    // (booknow) keeps the 9:00 AM minimum; this exemption is dashboard/admin-only.
     const ciMin = parseTimeMin(dashCheckinTimeValue());
-    if(ciMin != null && ciMin < EARLIEST_CHECKIN_MIN){
+    if(ciMin != null && ciMin < EARLIEST_CHECKIN_MIN && !isAdminUser()){
         alert("The earliest check-in time is 9:00 AM.");
         return;
     }
