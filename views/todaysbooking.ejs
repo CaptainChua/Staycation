@@ -760,6 +760,24 @@
 <script>
   // shares the dashboard's data — same localStorage key
   const KEY = "shph_bookings_v3";
+  // Persist bookings WITH an edit-time stamp on whatever changed, so the merge layers keep
+  // the newest version and a refresh / stale tab can't wipe a fresh payment. MUST match the
+  // main dashboard's save() — without this, payments entered here are lost on reload.
+  function _bkCanon(v){
+    if(Array.isArray(v)) return "[" + v.map(_bkCanon).join(",") + "]";
+    if(v && typeof v === "object") return "{" + Object.keys(v).filter(k => k !== "updatedAt").sort()
+      .map(k => JSON.stringify(k) + ":" + _bkCanon(v[k])).join(",") + "}";
+    return JSON.stringify(v);
+  }
+  let _bkSig = null;
+  function saveBookings(data){
+    try{
+      if(_bkSig === null){ _bkSig = {}; (JSON.parse(localStorage.getItem(KEY) || "[]") || []).forEach(p => { if(p && p.id != null) _bkSig[String(p.id)] = _bkCanon(p); }); }
+      const now = new Date().toISOString();
+      (data || []).forEach(b => { if(!b || b.id == null) return; const sig = _bkCanon(b); if(_bkSig[String(b.id)] !== sig) b.updatedAt = now; _bkSig[String(b.id)] = _bkCanon(b); });
+    }catch(e){}
+    localStorage.setItem(KEY, JSON.stringify(data));
+  }
   const HAVEN_TIMES = {
     "Haven 1":{in:"12:00 NN"}, "Haven 2":{in:"12:00 NN"}, "Haven 3":{in:"12:00 NN"},
     "Haven 4":{in:"3:00 PM"}, "Haven 5":{in:"3:00 PM"}, "Haven 7":{in:"3:00 PM"},
@@ -1169,7 +1187,7 @@
           if(Array.isArray(arr) && arr.some(b => String(b.id) === String(id))) return;  // confirmed
         }
       } catch(e){ /* offline → try again */ }
-      try { localStorage.setItem(KEY, JSON.stringify(bookings)); } catch(e){}   // re-send (mirror retries)
+      try { saveBookings(bookings); } catch(e){}   // re-send (mirror retries)
     }
     alert("⚠️ The booking is saved on THIS device, but the server hasn't confirmed it yet "
       + "(slow or unstable connection).\n\nPlease check your internet and REFRESH the page — "
@@ -1372,7 +1390,7 @@
     if(!confirm(`Delete this ${p.category || "Balance"} payment of ${peso(p.amount)}? This cannot be undone.`)) return;
     b.payments.splice(index, 1);
     if(!(b.payments || []).some(x => x.category === "Add Ons")) delete b.addonProof;
-    try { localStorage.setItem(KEY, JSON.stringify(data)); }
+    try { saveBookings(data); }
     catch(e){ alert("Couldn't save the change — browser storage may be full."); return; }
     logActivity(`deleted ${p.category || "Balance"} payment — ${b.haven} · ${peso(p.amount)} (${p.mop})`);
     bookings = data;
@@ -1495,7 +1513,7 @@
       logActivity(`uploaded ${category} payment — ${b.haven} · ${peso(amount)} (${mop})`);
     }
     // each payment carries its own category, so it shows in the right section on the dashboard
-    try { localStorage.setItem(KEY, JSON.stringify(bookings)); }
+    try { saveBookings(bookings); }
     catch(e){ alert("Couldn't save — browser storage is full. Older proof photos may need to be removed."); return; }
     renderToday();
     if(again){
@@ -1559,7 +1577,7 @@
     // record the late request
     b.addonLog = b.addonLog || [];
     b.addonLog.push({ pool, towels: tow, amount: added, at: new Date().toISOString(), by: currentUser() });
-    try { localStorage.setItem(KEY, JSON.stringify(bookings)); }
+    try { saveBookings(bookings); }
     catch(e){ alert("Couldn't save — storage may be full."); return; }
     const parts = [];
     if(pool) parts.push(`${pool} pool pass${pool > 1 ? "es" : ""}`);
@@ -1821,7 +1839,7 @@
     if(clash){ alert(`${data.haven} is already booked for those dates by ${(clash.guests && clash.guests[0] && clash.guests[0].name) || "another guest"}.`); return; }
     const newId = bookings.length ? Math.max(...bookings.map(b => b.id)) + 1 : 1;
     bookings.push({ id:newId, ...data });
-    localStorage.setItem(KEY, JSON.stringify(bookings));
+    saveBookings(bookings);
     confirmBookingSaved(newId);   // verify it reached the server; warns if not
     const gName = (data.guests[0] && data.guests[0].name) || "";
     logActivity(`added booking — ${data.haven} (${gName})`);
