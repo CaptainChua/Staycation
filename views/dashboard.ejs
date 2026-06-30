@@ -9596,9 +9596,9 @@ function collectMethods(){
 function onMethodQrUpload(i, input){
     const file = input.files[0];
     if(!file) return;
-    const reader = new FileReader();
-    reader.onload = e => {
-        paymentMethods[i].qr = e.target.result;
+    const apply = dataUrl => {
+        if(!dataUrl) return;
+        paymentMethods[i].qr = dataUrl;
         const box = document.getElementById("qrbox_" + i);
         if(box){
             box.classList.add("has");
@@ -9608,7 +9608,13 @@ function onMethodQrUpload(i, input){
         const rm = document.getElementById("mqrrm_" + i);
         if(rm) rm.style.display = "inline";
     };
-    reader.readAsDataURL(file);
+    // compress so a big QR photo (e.g. 4MB) is shrunk to fit the max size before saving
+    compressImageTo(file, idMaxBytes, dataUrl => {
+        if(dataUrl){ apply(dataUrl); return; }
+        const r = new FileReader();   // couldn't decode (e.g. HEIC) → keep original so it's never lost
+        r.onload = e => apply(e.target.result);
+        r.readAsDataURL(file);
+    });
 }
 
 function removeMethodQr(i){
