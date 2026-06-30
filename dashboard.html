@@ -8744,11 +8744,8 @@ function renderAnalytics(){
     const bl = bills.filter(b => inWin(b.due));
     const ex = expenses.filter(e => inWin(e.date));
     const _scopedPartner = !!(window.__PARTNER__ && !window.__PARTNER__.superAdmin);
-    // GROSS — everything collected BEFORE any deduction. A scoped partner's gross is their
-    // room + extended-hours only (add-ons / deposit aren't theirs); admin's is all cash in.
-    const gross = _scopedPartner
-        ? Math.round(bk.reduce((s,b) => s + analyticsRevenueOf(b), 0))
-        : Math.round(bk.reduce((s,b) => s + paidOf(b), 0));
+    // GROSS — everything collected BEFORE any deduction (all cash in for the haven(s) in view).
+    const gross = Math.round(bk.reduce((s,b) => s + paidOf(b), 0));
     const receivables = Math.round(bk.reduce((s,b) => s + balanceOf(b), 0));
 
     // ---- deductions from gross (admin; a partner's gross already excludes these) ----
@@ -8759,11 +8756,12 @@ function renderAnalytics(){
     const towelTotal  = Math.round(_live.reduce((s,b) => s + (Number(b.towels)||0) * PRICING.towel, 0));         // towels
     const damageTotal = Math.round(_live.reduce((s,b) => s + (Number(b.depositDeductAmount)||0), 0));            // damages kept from deposits
     const refundTotal = Math.round(bk.filter(b => b.cancelled && b.dpRefunded).reduce((s,b) => s + paidOf(b), 0)); // refunds on cancelled bookings
-    // damages kept from a deposit are the MAIN ADMIN's income (never the partner's), so they're
-    // ADDED back — not deducted; only deposit/pool/towels/refunds reduce the net.
-    const deductions    = _scopedPartner ? 0 : (depTotal + poolTotal + towelTotal + refundTotal);
+    // deposit, pool pass, towels and cancellation refunds all go to the MAIN ADMIN — not the
+    // partner — so they're deducted from gross. Damages kept are the admin's income (added back,
+    // and only relevant to the admin view).
+    const deductions    = depTotal + poolTotal + towelTotal + refundTotal;
     const damagesIncome = _scopedPartner ? 0 : damageTotal;
-    const netRevenue    = gross - deductions + damagesIncome;   // NET after deductions, plus damages kept
+    const netRevenue    = gross - deductions + damagesIncome;   // NET after deductions (+ damages for admin)
 
     const billsTotal  = Math.round(bl.reduce((s,b) => s + Number(b.amount||0), 0));
     const billsPaid   = bl.filter(b => b.paid).reduce((s,b) => s + Number(b.amount||0), 0);
@@ -8779,9 +8777,10 @@ function renderAnalytics(){
         `All units combined — bookings, bills, payroll &amp; expenses · ${scopeText}`;
 
     // ---- big KPI cards ----
+    const _net2 = _scopedPartner ? leftAfterBE : netProfit;   // partner's 2nd card = net after bills & expenses
     const kpis = [
-        [_scopedPartner ? "Collected (revenue in)" : "Collected (gross)", peso(gross), "#2e7d4f", AN_ICO.trendUp, "ic-green", pct(cur.inc, prev.inc)],
-        [_scopedPartner ? "Left after bills & expenses" : "Net profit", peso(netProfit), netProfit >= 0 ? "#2e7d4f" : "#c0283d", AN_ICO.piggy, "ic-green", pct(cur.inc - cur.exp, prev.inc - prev.exp)],
+        [_scopedPartner ? "Gross" : "Collected (gross)", peso(gross), "#2e7d4f", AN_ICO.trendUp, "ic-green", pct(cur.inc, prev.inc)],
+        [_scopedPartner ? "NET (after bills & expenses)" : "Net profit", peso(_net2), _net2 >= 0 ? "#2e7d4f" : "#c0283d", AN_ICO.piggy, "ic-green", pct(cur.inc - cur.exp, prev.inc - prev.exp)],
         ["Total expenses", peso(totalExpenses), "var(--hv-terra-d)", AN_ICO.trendDown, "ic-terra", pct(cur.exp, prev.exp)],
         ["Bookings", bk.length, "var(--hv-ink)", AN_ICO.cal, "ic-dark", pct(cur.bk, prev.bk)]
     ];
@@ -8800,17 +8799,18 @@ function renderAnalytics(){
         ["Receivables (pending)", peso(receivables), AN_ICO.hour, "ic-gold"],
         ["Total bills", peso(billsTotal), AN_ICO.receipt, "ic-terra"],
         ["Bills pending", peso(billsPending), AN_ICO.receipt, "ic-terra"],
-        ["Expenses (supplies)", peso(expensesSpend), AN_ICO.receipt, "ic-green"],
-        ["Payroll (gross)", peso(payrollGross), AN_ICO.badge, "ic-purple"]
+        ["Expenses (supplies)", peso(expensesSpend), AN_ICO.receipt, "ic-green"]
     ];
-    // deductions from gross — shown in red (admin; a partner's gross already excludes these)
-    if(!_scopedPartner) minis.push(
+    if(!_scopedPartner) minis.push(["Payroll (gross)", peso(payrollGross), AN_ICO.badge, "ic-purple"]);   // business-wide
+    // deductions from gross — shown in red (these go to the main admin, not the partner)
+    minis.push(
         ["Security deposit", "−" + peso(depTotal), AN_ICO.receipt, "ic-terra", RED],
         ["Pool pass", "−" + peso(poolTotal), AN_ICO.receipt, "ic-terra", RED],
         ["Towels", "−" + peso(towelTotal), AN_ICO.receipt, "ic-terra", RED],
-        ["Refunds (cancelled)", "−" + peso(refundTotal), AN_ICO.receipt, "ic-terra", RED],
-        ["Damages (kept → admin)", "+" + peso(damageTotal), AN_ICO.receipt, "ic-green", "#2e7d4f"]
+        ["Refunds (cancelled)", "−" + peso(refundTotal), AN_ICO.receipt, "ic-terra", RED]
     );
+    // damages kept are the admin's income (not the partner's) → admin view only
+    if(!_scopedPartner) minis.push(["Damages (kept → admin)", "+" + peso(damageTotal), AN_ICO.receipt, "ic-green", "#2e7d4f"]);
     document.getElementById("anMini").innerHTML = minis.map(m => `
         <div class="mini"><span class="ico ${m[3]}">${m[2]}</span>
             <div><div class="lbl">${m[0]}</div><div class="mval"${m[4] ? ` style="color:${m[4]}"` : ""}>${m[1]}</div></div>
