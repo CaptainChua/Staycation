@@ -99,6 +99,22 @@ apiRouter.put("/kv/:key", async (req, res) => {
   }
 });
 
+// store ONE photo and return a tiny /img/<id> link. The browser calls this the moment a
+// photo is attached, then saves only the link inside the booking — so the bookings payload
+// stays small and never overflows the host's request-size limit (the cause of lost saves).
+apiRouter.post("/img", async (req, res) => {
+  try {
+    const data = req.body && req.body.data;
+    if (!data || typeof data !== "string") return res.status(400).json({ error: "no image data" });
+    const id = await store.putImage(data);
+    if (!id) return res.json({ url: null });   // file backend → no offload; client keeps the base64
+    res.json({ id, url: "/img/" + id });
+  } catch (e) {
+    console.error("[api] POST /img failed:", e.message);
+    res.status(502).json({ error: "image store failed" });
+  }
+});
+
 // quick health/diagnostics — confirms which backend + whether Cloud Storage is active
 app.get("/api/health", async (req, res) => {
   try { await ensureStore(); } catch (e) {}

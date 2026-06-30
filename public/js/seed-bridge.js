@@ -136,12 +136,57 @@
   }
 
   // queue the LATEST value for a key and (re)start flushing — never gives up
-  function push(key, jsonString) {
+  function _queue(key, jsonString) {
     pending[key] = jsonString;
     persistPending();
     delay[key] = 600;
     if (timer[key]) { clearTimeout(timer[key]); timer[key] = null; }
     flush(key);
+  }
+  function push(key, jsonString) {
+    // Offload inline photos first: upload each base64 image and swap it for a tiny /img/<id>
+    // link, so the saved list stays small and never overflows the host's request-size limit
+    // (the cause of photo-heavy saves silently failing). Falls back to base64 if upload fails.
+    if (MERGE_KEYS.indexOf(key) !== -1 && jsonString.indexOf("data:image") !== -1) {
+      offloadThenQueue(key, jsonString);
+      return;
+    }
+    _queue(key, jsonString);
+  }
+  // ---- image offload helpers ----
+  var _imgRefCache = {};   // base64 dataURL -> "/img/<id>" (don't re-upload the same photo)
+  var _suppressPush = false;  // true while we rewrite localStorage with offloaded refs
+  function _isImgUrl(s) { return typeof s === "string" && s.indexOf("data:image") === 0 && s.indexOf(";base64,") !== -1; }
+  function _collectImgs(v, out) {
+    if (typeof v === "string") { if (_isImgUrl(v)) out[v] = true; return; }
+    if (Array.isArray(v)) { for (var i = 0; i < v.length; i++) _collectImgs(v[i], out); return; }
+    if (v && typeof v === "object") { for (var k in v) _collectImgs(v[k], out); }
+  }
+  function _swapImgs(v, map) {
+    if (typeof v === "string") return map[v] || v;
+    if (Array.isArray(v)) return v.map(function (x) { return _swapImgs(x, map); });
+    if (v && typeof v === "object") { var o = {}; for (var k in v) o[k] = _swapImgs(v[k], map); return o; }
+    return v;
+  }
+  function offloadThenQueue(key, jsonString) {
+    var val; try { val = JSON.parse(jsonString); } catch (e) { _queue(key, jsonString); return; }
+    var found = {}; _collectImgs(val, found);
+    var todo = Object.keys(found).filter(function (u) { return !_imgRefCache[u]; });
+    var finish = function () {
+      var cleaned = _swapImgs(val, _imgRefCache);            // any failed uploads stay base64 (still saved)
+      var s = JSON.stringify(cleaned);
+      _suppressPush = true;                                   // shrink localStorage too, without re-triggering a push
+      try { localStorage.setItem(key, s); } catch (e) {}
+      _suppressPush = false;
+      _queue(key, s);
+    };
+    if (!todo.length) { finish(); return; }
+    Promise.all(todo.map(function (u) {
+      return fetch("/api/img", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ data: u }) })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) { if (j && j.url) _imgRefCache[u] = j.url; })
+        .catch(function () {});
+    })).then(finish, finish);
   }
 
   // warn before leaving if something still hasn't saved
@@ -199,7 +244,9 @@
     proto.setItem = function (key, value) {
       _set.apply(this, arguments);
       // only mirror the real localStorage (not sessionStorage) and only shared keys
-      if (this === window.localStorage && isShared(key)) push(key, String(value));
+      // (_suppressPush is set while we rewrite a key with offloaded image refs — that
+      //  rewrite is queued explicitly, so we must not double-queue it here)
+      if (!_suppressPush && this === window.localStorage && isShared(key)) push(key, String(value));
     };
 
     proto.removeItem = function (key) {
