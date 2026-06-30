@@ -1191,6 +1191,27 @@
       + "(slow or unstable connection).\n\nPlease check your internet and REFRESH the page — "
       + "if the booking is missing, add it again.");
   }
+  // confirm a CHANGE to an existing booking (e.g. a payment/collection) actually reached the
+  // server. confirmBookingSaved only checks the id exists — which is always true for an edit,
+  // so it can't catch a lost payment. This verifies the server's copy is as fresh as our edit.
+  async function confirmBookingFresh(id, stamp){
+    if(id == null || !stamp) return;
+    for(let attempt = 1; attempt <= 5; attempt++){
+      await new Promise(r => setTimeout(r, 900 * attempt));
+      try {
+        const res = await fetch("/api/kv/" + encodeURIComponent(KEY), { cache:"no-store" });
+        if(res.ok){
+          const arr = await res.json();
+          const sb = Array.isArray(arr) && arr.find(b => String(b.id) === String(id));
+          if(sb && sb.updatedAt && String(sb.updatedAt) >= String(stamp)) return;  // server has our change
+        }
+      } catch(e){ /* offline → retry */ }
+      try { saveBookings(bookings); } catch(e){}   // nudge the durable queue to re-send
+    }
+    alert("⚠️ The payment is saved on THIS device, but the server hasn't confirmed it yet "
+      + "(slow / unstable connection).\n\nKeep this tab OPEN and check your internet — it keeps "
+      + "retrying automatically. Don't close the tab until the red 'unsaved' banner disappears.");
+  }
   // is the logged-in user an administrator? (unknown / direct access = treated as admin)
   /* ---------- access control (mirrors dashboard.html) ---------- */
   const PAGE_KEYS = ["today","addbooking","calendar","guestform","approval","paymentapproval","deposit","havens","booking","cleaners","finance","payments","payroll","bills","expenses","analytics","users","employees","assist","log"];
@@ -1513,7 +1534,9 @@
     // each payment carries its own category, so it shows in the right section on the dashboard
     try { saveBookings(bookings); }
     catch(e){ alert("Couldn't save — browser storage is full. Older proof photos may need to be removed."); return; }
+    const _stamp = b.updatedAt;   // saveBookings just stamped this edit
     renderToday();
+    confirmBookingFresh(bookingId, _stamp);   // verify the payment actually reached the server (warns if not)
     if(again){
       // keep the popup open and start a fresh entry for the same booking
       openPay(bookingId, false);
