@@ -1816,7 +1816,10 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
 <div class="panel">
     <div class="panel-head">
         <h2>Activity Log <span class="muted" style="font-weight:400;">— recent changes, newest first</span></h2>
-        <button class="btn secondary" onclick="showPage('log')">View all</button>
+        <div style="display:flex; align-items:center; gap:8px;">
+            <button class="btn secondary" onclick="showPage('log')">View all</button>
+            <button type="button" class="btn secondary" id="calLogToggle" onclick="toggleCalLog()" title="Minimize" style="padding:6px 11px; line-height:1;">▾</button>
+        </div>
     </div>
     <div id="logListCal" style="max-height:280px; overflow:auto;"></div>
 </div>
@@ -7920,7 +7923,22 @@ function renderLog(){
     const full = document.getElementById("logList");                 // full Activity Log page
     if(full) full.innerHTML = log.length ? rows(log) : empty;
     const cal = document.getElementById("logListCal");               // compact copy on the Calendar page (last 40)
-    if(cal) cal.innerHTML = log.length ? rows(log.slice(-40)) : empty;
+    if(cal){ cal.innerHTML = log.length ? rows(log.slice(-40)) : empty; applyCalLogState(); }
+}
+// minimize / expand the inline Activity Log on the Calendar page (state remembered)
+function applyCalLogState(){
+    const cal = document.getElementById("logListCal");
+    const btn = document.getElementById("calLogToggle");
+    let collapsed = false;
+    try { collapsed = localStorage.getItem("shph_callog_min") === "1"; } catch(e){}
+    if(cal) cal.style.display = collapsed ? "none" : "";
+    if(btn){ btn.textContent = collapsed ? "▸" : "▾"; btn.title = collapsed ? "Expand" : "Minimize"; }
+}
+function toggleCalLog(){
+    let collapsed = false;
+    try { collapsed = localStorage.getItem("shph_callog_min") === "1"; } catch(e){}
+    try { localStorage.setItem("shph_callog_min", collapsed ? "0" : "1"); } catch(e){}
+    applyCalLogState();
 }
 function clearActivityLog(){
     if(!confirm("Clear the entire activity log?")) return;
