@@ -6810,7 +6810,7 @@ function renderDeposit(){
     document.querySelectorAll("#depSeg button").forEach(x => x.classList.toggle("active", x.dataset.d === depQuick));
 
     const hv = (document.getElementById("depHavenFilter") || {}).value || "";
-    const list = bookings.filter(b => b.checkout >= start && b.checkout <= end && (!hv || b.haven === hv))
+    const list = bookings.filter(b => !b.cancelled && b.checkout >= start && b.checkout <= end && (!hv || b.haven === hv))
         .sort((a, b) => (a.checkout || "").localeCompare(b.checkout || "") || a.haven.localeCompare(b.haven));
     const body = document.getElementById("depositBody");
     body.innerHTML = list.length ? list.map(b => {
