@@ -3532,6 +3532,19 @@ if(new URLSearchParams(location.search).get("mode") === "partner"
         location.replace("/partner-login");
     }
 }
+// Cross-tab sync: when ANOTHER tab changes the shared bookings, reload them here so this
+// tab can never save a STALE list back over newer data. Without this, having the dashboard
+// open in two tabs lets an old tab silently overwrite (delete) bookings a newer tab added.
+window.addEventListener("storage", function(e){
+    if(e.key !== KEY) return;
+    try{
+        bookings = load();
+        if(window.__PARTNER__ && !window.__PARTNER__.superAdmin && window.__PARTNER__.haven){
+            bookings = bookings.filter(b => b.haven === window.__PARTNER__.haven);
+        }
+    }catch(err){ return; }
+    if(typeof renderAll === "function") renderAll();
+});
 let rangeStart = today();
 let viewMode = "week";   // "today" | "week" | "custom" — remembered across refreshes
 let calHaven = "";       // calendar haven filter ("" = all havens)
