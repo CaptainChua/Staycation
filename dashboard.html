@@ -1842,6 +1842,7 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
             <button class="btn secondary" onclick="showThisMonth()">This month</button>
             <button class="btn secondary" onclick="openDatePicker(event)"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>Custom range</button>
             <select id="calHavenFilter" onchange="setCalHaven(this.value)" title="Show one haven"></select>
+            <input type="text" id="calSearchInput" placeholder="Search name / mobile / booking #…" oninput="setCalSearch(this.value)" title="Show only bookings matching a guest name, mobile no., or booking #" style="min-width:220px;">
         </div>
     </div>
     <div class="tl-daylabel" id="tlDayLabel"></div>
@@ -3699,6 +3700,7 @@ window.addEventListener("storage", function(e){
 let rangeStart = today();
 let viewMode = "week";   // "today" | "week" | "custom" — remembered across refreshes
 let calHaven = "";       // calendar haven filter ("" = all havens)
+let calSearch = "";      // calendar search — show only bookings matching name / mobile / booking #
 
 /* ---------- guest helpers ---------- */
 function primaryName(b){ return (b.guests && b.guests[0] && b.guests[0].name) || "(no name)"; }
@@ -4037,6 +4039,7 @@ function renderTimelineHours(){
     const dayBookings = [];
     bookings.forEach(b => {
         if(b.cancelled) return;                                        // cancelled → haven is free
+        if(!bkMatchesSearch(b, calSearch)) return;                     // calendar search filter
         if(!HAVENS.includes(b.haven)) return;
         const coIso = b.checkout > b.checkin ? b.checkout : iso(addDays(new Date(b.checkin + "T00:00:00"), 1));
         if(!(b.checkin <= dayIso && dayIso <= coIso)) return;          // active this day (incl. the check-out morning)
@@ -4199,6 +4202,7 @@ function renderTimeline(){
     const placed = [];
     bookings.forEach(b => {
         if(b.cancelled) return;                                        // cancelled → not shown / haven free
+        if(!bkMatchesSearch(b, calSearch)) return;                     // calendar search filter
         if(!HAVENS.includes(b.haven)) return;
         // exclusive end day for display; same-day (6h) bookings occupy 1 day
         const coIso = b.checkout > b.checkin ? b.checkout : iso(addDays(new Date(b.checkin + "T00:00:00"), 1));
@@ -4319,6 +4323,26 @@ function showTomorrow(){
 function setCalHaven(v){
     calHaven = v;
     renderTimeline(); // only the calendar rows change; table keeps its own haven filter
+}
+function setCalSearch(v){
+    calSearch = (v || "").toLowerCase().trim();
+    if(calSearch){
+        // if there are matches but none fall in the current date window, jump to the earliest match's
+        // check-in so the search actually surfaces bookings from any month.
+        const matches = bookings.filter(b => b && !b.cancelled && bkMatchesSearch(b, calSearch));
+        if(matches.length){
+            const winStart = iso(rangeStart), winEnd = iso(addDays(rangeStart, viewDays));
+            const inWindow = matches.some(b => {
+                const co = b.checkout > b.checkin ? b.checkout : iso(addDays(new Date(b.checkin + "T00:00:00"), 1));
+                return b.checkin < winEnd && co > winStart;
+            });
+            if(!inWindow){
+                const earliest = matches.map(b => b.checkin).filter(Boolean).sort()[0];
+                if(earliest) rangeStart = new Date(earliest + "T00:00:00");
+            }
+        }
+    }
+    renderTimeline();   // filter the timeline bars to matching bookings
 }
 function showThisMonth(){
     closePicker();
