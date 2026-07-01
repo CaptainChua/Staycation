@@ -3719,7 +3719,7 @@ window.addEventListener("storage", function(e){
         else if(e.key === "staycation_havens"){
             const dr = document.getElementById("hvDrawer");
             if(dr && dr.classList.contains("open")) return;   // don't swap listings out from under an open edit
-            listings = loadHavens(); if(typeof renderListings === "function") renderListings();
+            listings = loadHavens(); if(typeof sortListings === "function") sortListings(); if(typeof renderListings === "function") renderListings();
         }
     }catch(err){}
 });
@@ -9646,6 +9646,11 @@ renderCleaners();
 
 /* ---------- haven listings manager (website content) ---------- */
 let listings = loadHavens();
+// Havens carry an explicit `order` field so the drag-reorder survives the server's per-item merge
+// (which keys by id and can't preserve array position). Sort by it; havens without one keep their
+// current relative position (stable sort with a high fallback).
+function sortListings(){ listings.sort((a, b) => (a.order != null ? a.order : 1e9) - (b.order != null ? b.order : 1e9)); }
+sortListings();
 
 function escAttr(s){ return String(s).replace(/"/g, "&quot;"); }
 function escHtml(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
@@ -9836,6 +9841,7 @@ async function saveHaven(){
     const i = hvEditIndex;
     const item = {
         id: listings[i].id,
+        order: listings[i].order,                       // keep the haven's position through the edit
         name: document.getElementById("hvName").value.trim() || "Untitled Haven",
         image: document.getElementById("hvImg").value.trim(),
         gallery: hvDraftGallery.map(s => s.trim()).filter(Boolean),
@@ -9883,34 +9889,44 @@ function onDragEnd(){
 function onDragOver(e){ e.preventDefault(); e.dataTransfer.dropEffect = "move"; }
 function onDragEnter(e){ if(dragSrcIndex !== null) e.currentTarget.classList.add("drag-over"); }
 function onDragLeave(e){ e.currentTarget.classList.remove("drag-over"); }
-function onDrop(e, targetIndex){
+async function onDrop(e, targetIndex){
     e.preventDefault();
     e.currentTarget.classList.remove("drag-over");
     if(dragSrcIndex === null || dragSrcIndex === targetIndex) return;
     const moved = listings.splice(dragSrcIndex, 1)[0];
     listings.splice(targetIndex, 0, moved);
     dragSrcIndex = null;
-    renderListings();
-    saveHavens(listings);                               // persist the new order
+    renderListings();                                   // optimistic — snap into place immediately
+    // persist the new order PER-RECORD: set order=index and save each haven whose position changed,
+    // so the reorder survives the server's id-keyed merge (a whole-array write would be reordered away).
+    const changed = [];
+    listings.forEach((h, i) => { if(h.order !== i){ h.order = i; changed.push(h); } });
+    for(const h of changed){ await saveOneRecord("staycation_havens", h); }
+    setLocalKey("staycation_havens", listings);
 }
 
-function saveListings(){
-    saveHavens(listings);
+async function saveListings(){
+    listings.forEach((h, i) => { h.order = i; });       // lock in the current on-screen order
+    for(const h of listings){ await saveOneRecord("staycation_havens", h); }
+    setLocalKey("staycation_havens", listings);
     alert("All listings saved! They now show on the Home page and haven detail pages.");
 }
 
-function addListing(){
-    const nextId = uid();
-    listings.push({
-        id: nextId,
+async function addListing(){
+    const item = {
+        id: uid(),
+        order: listings.length,                          // new haven goes to the end
         name: "New Haven",
         image: "",
         gallery: [],
         price: "₱0 / night",
         description: "Describe this haven...",
         amenities: ["📶 Fast WiFi"]
-    });
-    saveHavens(listings);
+    };
+    const ok = await saveOneRecord("staycation_havens", item);   // per-record: unique id, no collision
+    if(!ok){ alert("⚠️ Couldn't add the haven — the server didn't confirm (slow / offline). Please try again."); return; }
+    listings.push(item);
+    setLocalKey("staycation_havens", listings);
     listingPage = listingTotalPages() - 1;   // jump to the page with the new haven
     renderListings();
     openHaven(listings.length - 1);          // open it for editing right away

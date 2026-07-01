@@ -42,7 +42,11 @@ function loadHavens() {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
         try {
-            return JSON.parse(saved).filter(h => !h.deleted);   // soft-deleted havens stay on the server, hidden here
+            // soft-deleted havens stay on the server, hidden here; sort by the admin-set `order` so the
+            // dashboard's drag-reorder shows on the website too (havens without one keep their position)
+            return JSON.parse(saved)
+                .filter(h => !h.deleted)
+                .sort((a, b) => (a.order != null ? a.order : 1e9) - (b.order != null ? b.order : 1e9));
         } catch (e) {
             console.warn("Could not read saved havens, using defaults.");
         }
