@@ -7271,7 +7271,7 @@ function loadBills(){
     return seed;
 }
 let bills = loadBills();
-function persistBills(){ localStorage.setItem(BILLS_KEY, JSON.stringify(bills)); }
+// (bills are saved PER-RECORD via saveOneRecord/deleteOneRecord + setLocalKey — see below)
 
 /* ---------- Expenses (whole-business operating spend) ---------- */
 const EXPENSE_TYPES = ["Laundry", "Supplies", "Tissues", "Fabcon", "Sponge",
@@ -7279,8 +7279,7 @@ const EXPENSE_TYPES = ["Laundry", "Supplies", "Tissues", "Fabcon", "Sponge",
 const EXPENSES_KEY = "shph_expenses_v1";
 function loadExpenses(){ try { return (JSON.parse(localStorage.getItem(EXPENSES_KEY)) || []).filter(x => !x.deleted); } catch(e){ return []; } }
 let expenses = loadExpenses();
-// localStorage write is auto-mirrored to the shared server (Firestore) by the seed bridge
-function persistExpenses(){ localStorage.setItem(EXPENSES_KEY, JSON.stringify(expenses)); }
+// (expenses are saved PER-RECORD via saveOneRecord/deleteOneRecord + setLocalKey — see below)
 // PER-RECORD write helpers (like payments/deposits): touch ONE item on the server so a save
 // can never overwrite the rest of the list. The item's base64 images (receipts) are offloaded
 // server-side. Local copy updated WITHOUT a whole-array push. Returns true if the server confirmed.
