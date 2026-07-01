@@ -7471,6 +7471,7 @@ function clearExpReceipt(){
     });
 })();
 
+let _savingExpense = false;
 async function saveExpense(){
     const type   = document.getElementById("e_type").value;
     const amount = Number(document.getElementById("e_amount").value) || 0;
@@ -7479,16 +7480,20 @@ async function saveExpense(){
     const haven  = document.getElementById("e_haven") ? document.getElementById("e_haven").value : "";
     if(amount <= 0){ alert("Please enter an amount."); return; }
     if(!date){ alert("Please pick a date."); return; }
-    const data = { type, amount, date, notes, haven, receipt: expReceiptData || null };
-    let item;
-    if(editingExpenseId){ const cur = expenses.find(x => x.id === editingExpenseId) || {}; item = { ...cur, ...data, id: editingExpenseId }; }
-    else { item = { id: uid(), ...data }; }
-    const ok = await saveOneRecord(EXPENSES_KEY, item);   // per-record — can't overwrite other expenses
-    if(!ok){ alert("⚠️ The expense was NOT saved — the server didn't confirm (slow / offline). Please try again."); return; }
-    if(editingExpenseId){ const idx = expenses.findIndex(x => x.id === editingExpenseId); if(idx !== -1) expenses[idx] = item; logActivity(`edited expense — ${type} ${peso(amount)}`); }
-    else { expenses.push(item); logActivity(`added expense — ${type} ${peso(amount)}`); }
-    setLocalKey(EXPENSES_KEY, expenses);
-    closeExpenseModal(); renderExpenses();
+    if(_savingExpense) return;   // block double-submit (a 2nd click would create a duplicate)
+    _savingExpense = true;
+    try{
+        const data = { type, amount, date, notes, haven, receipt: expReceiptData || null };
+        let item;
+        if(editingExpenseId){ const cur = expenses.find(x => x.id === editingExpenseId) || {}; item = { ...cur, ...data, id: editingExpenseId }; }
+        else { item = { id: uid(), ...data }; }
+        const ok = await saveOneRecord(EXPENSES_KEY, item);   // per-record — can't overwrite other expenses
+        if(!ok){ alert("⚠️ The expense was NOT saved — the server didn't confirm (slow / offline). Please try again."); return; }
+        if(editingExpenseId){ const idx = expenses.findIndex(x => x.id === editingExpenseId); if(idx !== -1) expenses[idx] = item; logActivity(`edited expense — ${type} ${peso(amount)}`); }
+        else { expenses.push(item); logActivity(`added expense — ${type} ${peso(amount)}`); }
+        setLocalKey(EXPENSES_KEY, expenses);
+        closeExpenseModal(); renderExpenses();
+    } finally { _savingExpense = false; }
 }
 function viewExpReceipt(id){ const e = expenses.find(x => x.id === id); if(e && e.receipt) openProofImg(e.receipt); }
 async function deleteExpense(id){
@@ -7788,6 +7793,7 @@ function closeBillModal(){
     document.getElementById("billOverlay").classList.remove("show");
 }
 
+let _savingBill = false;
 async function saveBill(){
     const data = {
         haven: document.getElementById("b_haven").value,
@@ -7799,17 +7805,20 @@ async function saveBill(){
         receipt: billReceiptData || null
     };
     if(data.amount <= 0){ alert("Please enter an amount."); return; }
-
-    let item;
-    if(editingBillId){ const cur = bills.find(b => b.id === editingBillId) || {}; item = { ...cur, ...data, id: editingBillId }; }
-    else { item = { id: uid(), ...data }; }
-    const ok = await saveOneRecord(BILLS_KEY, item);   // per-record — offloads photos, can't overwrite other bills
-    if(!ok){ alert("⚠️ The bill was NOT saved — the server didn't confirm (slow / offline). Please try again."); return; }
-    if(editingBillId){ const idx = bills.findIndex(b => b.id === editingBillId); if(idx !== -1) bills[idx] = item; }
-    else { bills.push(item); }
-    setLocalKey(BILLS_KEY, bills);
-    closeBillModal();
-    renderBills();
+    if(_savingBill) return;   // block double-submit (a 2nd click would create a duplicate)
+    _savingBill = true;
+    try{
+        let item;
+        if(editingBillId){ const cur = bills.find(b => b.id === editingBillId) || {}; item = { ...cur, ...data, id: editingBillId }; }
+        else { item = { id: uid(), ...data }; }
+        const ok = await saveOneRecord(BILLS_KEY, item);   // per-record — offloads photos, can't overwrite other bills
+        if(!ok){ alert("⚠️ The bill was NOT saved — the server didn't confirm (slow / offline). Please try again."); return; }
+        if(editingBillId){ const idx = bills.findIndex(b => b.id === editingBillId); if(idx !== -1) bills[idx] = item; }
+        else { bills.push(item); }
+        setLocalKey(BILLS_KEY, bills);
+        closeBillModal();
+        renderBills();
+    } finally { _savingBill = false; }
 }
 
 async function toggleBillPaid(id){
@@ -8497,6 +8506,7 @@ function openStaffModal(id){
 function closeStaffModal(){ editingStaffId = null; document.getElementById("staffOverlay").classList.remove("show"); }
 function saveStaff(){
     const g = i => document.getElementById(i);
+    if(!g("staffOverlay").classList.contains("show")) return;   // block double-submit: 2nd rapid click after the modal closed
     const name = g("st_name").value.trim();
     if(!name){ alert("Please enter a staff name."); return; }
     const data = {
@@ -10001,7 +10011,10 @@ async function saveListings(){
     alert("All listings saved! They now show on the Home page and haven detail pages.");
 }
 
+let _addingListing = false;
 async function addListing(){
+    if(_addingListing) return;   // block double-click (a 2nd click would create a duplicate haven)
+    _addingListing = true;
     const item = {
         id: uid(),
         order: listings.length,                          // new haven goes to the end
@@ -10013,6 +10026,7 @@ async function addListing(){
         amenities: ["📶 Fast WiFi"]
     };
     const ok = await saveOneRecord("staycation_havens", item);   // per-record: unique id, no collision
+    _addingListing = false;
     if(!ok){ alert("⚠️ Couldn't add the haven — the server didn't confirm (slow / offline). Please try again."); return; }
     listings.push(item);
     setLocalKey("staycation_havens", listings);
