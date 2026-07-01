@@ -2859,6 +2859,11 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
                 </select>
             </div>
 
+            <div class="field full">
+                <label>Reference no. <span class="muted">(GCash / bank transaction no. — optional)</span></label>
+                <input type="text" id="f_reference" placeholder="e.g. 1234 567 890123">
+            </div>
+
             <div class="field">
                 <label>Security deposit (₱)</label>
                 <input type="number" id="f_deposit" value="1000" min="0" oninput="recalc()">
@@ -4864,7 +4869,7 @@ function renderApproval(){
                 <div class="ap-cell"><div class="lab">Stay</div><div class="val">${stayTxt}</div></div>
                 <div class="ap-cell"><div class="lab">Method</div><div class="val">${b.method || "—"}</div></div>
                 <div class="ap-cell"><div class="lab">Pax</div><div class="val">${paxTxt}</div></div>
-                <div class="ap-cell" style="grid-column:span 2;"><div class="lab">Reference no.</div><div class="val">${b.bookingNo || "—"}</div></div>
+                <div class="ap-cell" style="grid-column:span 2;"><div class="lab">Reference no.</div><div class="val">${escHtml(b.reference || b.bookingNo || "—")}</div></div>
             </div>
             <div class="ap-foot">
                 <div class="ap-totals">
@@ -5641,6 +5646,7 @@ function openModal(id){
         setField("f_deposit", b.deposit === undefined ? PRICING.deposit : b.deposit);
         setDiscountField(b.discount || 0);
         setField("f_method", b.method || "GCash");
+        setField("f_reference", b.reference || "");
         setField("f_down", b.downpayment || 0);
         setField("f_notes", b.notes || "");
         renderProofPage(b);
@@ -5663,6 +5669,7 @@ function openModal(id){
         setField("f_deposit", PRICING.deposit);
         setDiscountField(0);
         setField("f_method", "GCash");
+        setField("f_reference", "");
         setField("f_down", 0);
         setField("f_notes", "");
         renderProofPage(null);
@@ -6369,6 +6376,7 @@ async function saveBooking(){
         deposit: Number(document.getElementById("f_deposit").value) || 0,
         discount: Number(document.getElementById("f_discount").value) || 0,
         method: document.getElementById("f_method").value,
+        reference: document.getElementById("f_reference").value.trim(),
         downpayment: Number(document.getElementById("f_down").value) || 0,
         notes: document.getElementById("f_notes").value.trim(),
         downProof: downProofData || null,
