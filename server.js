@@ -272,6 +272,20 @@ apiRouter.post("/booking/:id/deposit", async (req, res) => {
   }
 });
 
+// Read a booking's CURRENT guest IDs live from the server, so the editor shows the true saved set
+// (a stale browser copy could otherwise show fewer/none — and then overwrite the real ones on save).
+apiRouter.get("/booking/:id/ids", async (req, res) => {
+  try {
+    const arr = await store.readFreshList("shph_bookings_v3");
+    const b = Array.isArray(arr) ? arr.find(x => String(x.id) === String(req.params.id)) : null;
+    if (!b) return res.status(404).json({ error: "booking not found" });
+    res.json({ ids: Array.isArray(b.ids) ? b.ids : [], idOptOut: !!b.idOptOut });
+  } catch (e) {
+    console.error("[api] GET booking ids failed:", e.message);
+    res.status(502).json({ error: "read failed" });
+  }
+});
+
 // PER-RECORD guest-ID save. Writing the ids the moment they're uploaded (not deferred to the
 // whole-booking Save) means a stale whole-array save from another tab/device can't wipe them.
 // Photos should already be tiny /img refs (offloaded via /api/img) before being sent here.

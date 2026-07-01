@@ -5855,10 +5855,30 @@ function downloadConfirmation(){
 /* ---------- booking modal: page 3 (guest IDs) ---------- */
 let idsData = [];
 const ID_MAX = 6;
-function renderIdPage(b){
-    idsData = (b && Array.isArray(b.ids)) ? b.ids.slice() : [];
+async function renderIdPage(b){
+    idsData = (b && Array.isArray(b.ids)) ? b.ids.slice() : [];   // show the local copy instantly
     document.getElementById("f_idOptOut").checked = b ? !!b.idOptOut : false;
     renderIdGrid();
+    // then pull the LIVE saved IDs from the server so a stale local copy can't hide them (or let an
+    // upload overwrite them). Skip if the user has already added a photo locally (don't lose it).
+    if(b && b.id != null){
+        const forId = b.id;
+        try{
+            const r = await fetch("/api/booking/" + encodeURIComponent(forId) + "/ids", { cache:"no-store" });
+            if(!r.ok) return;
+            const j = await r.json();
+            if(editingId !== forId) return;                       // modal moved on
+            const hasLocalUpload = idsData.some(v => typeof v === "string" && v.indexOf("data:image") === 0);
+            if(hasLocalUpload) return;                            // user started uploading — keep their work
+            if(Array.isArray(j.ids)){
+                idsData = j.ids.slice();
+                document.getElementById("f_idOptOut").checked = !!j.idOptOut;
+                const idx = bookings.findIndex(x => x.id === forId);   // reflect the truth into the local copy
+                if(idx !== -1){ bookings[idx].ids = j.ids.slice(); bookings[idx].idOptOut = !!j.idOptOut; setLocalKey(KEY, bookings); }
+                renderIdGrid();
+            }
+        }catch(e){}
+    }
 }
 // label an ID by its matching guest (e.g. "J. Mercado"), falling back to "ID n"
 function idGuestLabel(i){
