@@ -7496,15 +7496,20 @@ async function saveExpense(){
     } finally { _savingExpense = false; }
 }
 function viewExpReceipt(id){ const e = expenses.find(x => x.id === id); if(e && e.receipt) openProofImg(e.receipt); }
+let _deletingExpense = false;
 async function deleteExpense(id){
     const e = expenses.find(x => x.id === id);
     if(!confirm("Delete this expense?")) return;
-    const ok = await deleteOneRecord(EXPENSES_KEY, id);
-    if(!ok){ alert("⚠️ Couldn't delete on the server (slow / offline). Please try again."); return; }
-    if(e){ e.deleted = true; e.deletedAt = new Date().toISOString(); logActivity(`deleted expense — ${e.type} ${peso(e.amount)}`); }
-    expenses = expenses.filter(x => !x.deleted);
-    setLocalKey(EXPENSES_KEY, expenses);
-    renderExpenses();
+    if(_deletingExpense) return;   // block a rapid 2nd click (idempotent anyway, but keeps it clean)
+    _deletingExpense = true;
+    try{
+        const ok = await deleteOneRecord(EXPENSES_KEY, id);
+        if(!ok){ alert("⚠️ Couldn't delete on the server (slow / offline). Please try again."); return; }
+        if(e){ e.deleted = true; e.deletedAt = new Date().toISOString(); logActivity(`deleted expense — ${e.type} ${peso(e.amount)}`); }
+        expenses = expenses.filter(x => !x.deleted);
+        setLocalKey(EXPENSES_KEY, expenses);
+        renderExpenses();
+    } finally { _deletingExpense = false; }
 }
 
 function renderExpenses(){
@@ -7831,15 +7836,20 @@ async function toggleBillPaid(id){
     setLocalKey(BILLS_KEY, bills);
     renderBills();
 }
+let _deletingBill = false;
 async function deleteBill(id){
     if(!confirm("Delete this bill?")) return;
-    const ok = await deleteOneRecord(BILLS_KEY, id);
-    if(!ok){ alert("⚠️ Couldn't delete on the server (slow / offline). Please try again."); return; }
-    const b = bills.find(x => x.id === id);
-    if(b){ b.deleted = true; b.deletedAt = new Date().toISOString(); }   // kept on the server, just hidden
-    bills = bills.filter(x => !x.deleted);   // hide from this view
-    setLocalKey(BILLS_KEY, bills);
-    renderBills();
+    if(_deletingBill) return;   // block a rapid 2nd click
+    _deletingBill = true;
+    try{
+        const ok = await deleteOneRecord(BILLS_KEY, id);
+        if(!ok){ alert("⚠️ Couldn't delete on the server (slow / offline). Please try again."); return; }
+        const b = bills.find(x => x.id === id);
+        if(b){ b.deleted = true; b.deletedAt = new Date().toISOString(); }   // kept on the server, just hidden
+        bills = bills.filter(x => !x.deleted);   // hide from this view
+        setLocalKey(BILLS_KEY, bills);
+        renderBills();
+    } finally { _deletingBill = false; }
 }
 /* ---------- bill photo + receipt uploads (offloaded via per-record save, like deposits) ---------- */
 let billPhotoData = null, billReceiptData = null;
