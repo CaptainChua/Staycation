@@ -4728,7 +4728,7 @@ function viewBooking(id){
     const b = bookings.find(x => x.id === id);
     if(!b) return;
     document.getElementById("vbTitle").innerHTML =
-        `${escHtml(b.haven)} <span class="muted" style="font-size:13px;">· #${b.id}${b.cancelled ? " · Cancelled" : ""}</span>`;
+        `${escHtml(b.haven)} <span class="muted" style="font-size:13px;">· #${bookingCode(b)}${b.cancelled ? " · Cancelled" : ""}</span>`;
 
     const guests = (b.guests || []).map(g =>
         `${escHtml(g.name || "")}${g.age != null && g.age !== "" ? " (" + g.age + ")" : ""}`).join("<br>")
@@ -5812,7 +5812,7 @@ function buildConfirmationHTML(){
     </div>
     <div class="resv">
         <div class="resv-top">
-            <div><div class="l">BOOKING #</div><div class="big pf">${bookingCode(b)}</div></div>
+            <div><div class="l">BOOKING #</div><div class="big pf">${bookingCode(saved) || bookingCode(b)}</div></div>
             <div class="r"><div class="l">Total payable</div><div class="big pf">${peso(total)}</div></div>
         </div>
         <div class="resv-dates">
