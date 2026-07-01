@@ -8384,6 +8384,7 @@ async function exportAllData(){
 function addStaffLog(s, action){
     s.log = s.log || [];
     s.log.push({ action, user: currentUser(), at: new Date().toISOString() });
+    s.updatedAt = new Date().toISOString();   // stamp so a stale device can't clobber this staff edit on merge
     logActivity(`${action} — ${s.name}`);   // mirror into the global activity log
 }
 function staffLogHtml(s){
@@ -8535,7 +8536,7 @@ function saveStaff(){
 function deleteStaff(id){
     if(!confirm("Delete this staff member and all their entries?")) return;
     const s = staff.find(x => x.id === id);
-    if(s){ s.deleted = true; s.deletedAt = new Date().toISOString(); }   // kept on the server, just hidden
+    if(s){ const now = new Date().toISOString(); s.deleted = true; s.deletedAt = now; s.updatedAt = now; }   // kept on the server, just hidden
     persistStaff();
     staff = staff.filter(x => !x.deleted);
     renderPayroll(); renderEmployees();
