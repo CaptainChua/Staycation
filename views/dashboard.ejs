@@ -3690,6 +3690,7 @@ window.addEventListener("storage", function(e){
         else if(e.key === EXPENSES_KEY){ expenses = loadExpenses(); if(typeof renderExpenses === "function") renderExpenses(); }
         else if(e.key === PAYROLL_KEY){ staff = loadStaff(); if(typeof renderPayroll === "function") renderPayroll(); }
         else if(e.key === USERS_KEY){ users = loadUsers(); if(typeof renderUsers === "function") renderUsers(); }
+        else if(e.key === CLEAN_KEY){ try{ cleaning = JSON.parse(localStorage.getItem(CLEAN_KEY) || "{}") || {}; }catch(e2){} if(typeof renderCleaners === "function") renderCleaners(); }
         else if(e.key === "staycation_havens"){
             const dr = document.getElementById("hvDrawer");
             if(dr && dr.classList.contains("open")) return;   // don't swap listings out from under an open edit
