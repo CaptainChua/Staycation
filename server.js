@@ -195,13 +195,23 @@ apiRouter.post("/booking/:id/payment", async (req, res) => {
   const payment = req.body && req.body.payment;
   const editIndex = (req.body && req.body.editIndex != null) ? Number(req.body.editIndex) : null;
   const deleteIndex = (req.body && req.body.deleteIndex != null) ? Number(req.body.deleteIndex) : null;
-  if ((!payment || typeof payment !== "object") && deleteIndex == null) return res.status(400).json({ error: "no payment" });
+  const editId = req.body && req.body.editId;      // stable payment id (pid) — match by this, not array position
+  const deleteId = req.body && req.body.deleteId;  // so a concurrent add elsewhere can't shift the target
+  const isDelete = (deleteId != null || deleteIndex != null);
+  if ((!payment || typeof payment !== "object") && !isDelete) return res.status(400).json({ error: "no payment" });
   try {
     const ok = await store.updateOneFresh(KEY, id, b => {
       b.payments = Array.isArray(b.payments) ? b.payments : [];
-      if (deleteIndex != null) { if (b.payments[deleteIndex]) b.payments.splice(deleteIndex, 1); }  // remove one collection
-      else if (editIndex != null && b.payments[editIndex]) b.payments[editIndex] = payment;          // edit an existing collection
-      else b.payments.push(payment);                                                                 // record a new collection
+      if (isDelete) {                                                     // remove one collection — by pid, fallback to index
+        let di = (deleteId != null) ? b.payments.findIndex(p => p && p.pid === deleteId) : -1;
+        if (di < 0 && deleteIndex != null) di = deleteIndex;
+        if (di >= 0 && b.payments[di]) b.payments.splice(di, 1);
+      } else {                                                            // edit an existing collection — by pid, fallback to index
+        let ei = (editId != null) ? b.payments.findIndex(p => p && p.pid === editId) : -1;
+        if (ei < 0 && editIndex != null) ei = editIndex;
+        if (ei >= 0 && b.payments[ei]) b.payments[ei] = payment;
+        else b.payments.push(payment);                                    // record a new collection
+      }
     });
     if (!ok) return res.status(404).json({ error: "booking not found" });
     res.json({ ok: true });

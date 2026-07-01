@@ -1482,7 +1482,7 @@
     if(!confirm(`Delete this ${p.category || "Balance"} payment of ${peso(p.amount)}? This cannot be undone.`)) return;
     // PER-RECORD delete — touches only this booking's payments on the live server record
     let ok = false;
-    try{ const res = await fetch("/api/booking/" + encodeURIComponent(payBookingId) + "/payment", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ deleteIndex: index }) }); ok = res.ok; }catch(e){}
+    try{ const res = await fetch("/api/booking/" + encodeURIComponent(payBookingId) + "/payment", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ deleteId: p.pid, deleteIndex: index }) }); ok = res.ok; }catch(e){}
     if(!ok){ alert("⚠️ Couldn't delete the payment — the server didn't confirm (slow / offline). Please try again."); return; }
     b.payments.splice(index, 1);
     const clearAddon = ('addonProof' in b) && !(b.payments || []).some(x => x.category === "Add Ons");
@@ -1603,10 +1603,11 @@
       }catch(e){}
     }
 
-    // 2) build the payment record
+    // 2) build the payment record — each carries a stable `pid` so edits/deletes match by id, not position
+    const pmtId = () => Date.now() * 1000 + Math.floor(Math.random() * 1000);
     const payment = editing
-      ? Object.assign({}, b.payments[payEditIndex], { amount, mop, category, proof: proofRef, at: payAtFromInput(), editedAt: new Date().toISOString(), editedBy: currentUser() })
-      : { amount, mop, category, proof: proofRef, at: payAtFromInput(), by: currentUser() };
+      ? Object.assign({}, b.payments[payEditIndex], { pid: b.payments[payEditIndex].pid || pmtId(), amount, mop, category, proof: proofRef, at: payAtFromInput(), editedAt: new Date().toISOString(), editedBy: currentUser() })
+      : { pid: pmtId(), amount, mop, category, proof: proofRef, at: payAtFromInput(), by: currentUser() };
 
     // 3) PER-RECORD write — touches ONLY this booking on the server, so a payment can NEVER
     //    overwrite another booking (this replaces the old whole-array save that lost data).
@@ -1614,7 +1615,7 @@
     try{
       const res = await fetch("/api/booking/" + encodeURIComponent(bookingId) + "/payment", {
         method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({ payment, editIndex: editing ? payEditIndex : null })
+        body: JSON.stringify({ payment, editId: editing ? payment.pid : null, editIndex: editing ? payEditIndex : null })
       });
       ok = res.ok;
     }catch(e){}

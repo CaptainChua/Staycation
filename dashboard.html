@@ -5131,7 +5131,7 @@ function deletePaymentRow(bookingId, idx){
     b.payments.splice(idx, 1);
     const clearAddon = ('addonProof' in b) && !(b.payments || []).some(x => x.category === "Add Ons");
     if(clearAddon) delete b.addonProof;
-    bkPaymentDelete(b, idx);
+    bkPaymentDelete(b, idx, p.pid);
     if(clearAddon) patchBooking(b.id, { addonProof: null });
     logActivity(`deleted ${p.category || "Balance"} payment — ${b.haven} · ${peso(p.amount)} (${p.mop})`);
     renderPaymentApproval();
@@ -6246,7 +6246,7 @@ function deleteCollectionAt(idx){
     const cat = pays[idx].category || "Balance";
     if(!confirm(`Delete this ${cat} collection of ${peso(pays[idx].amount)}? This removes the payment and its photo. This cannot be undone.`)) return;
     const removed = pays.splice(idx, 1)[0];
-    bkPaymentDelete(bookings[bIdx], idx);
+    bkPaymentDelete(bookings[bIdx], idx, removed.pid);
     logActivity(`deleted ${cat} collection — ${bookings[bIdx].haven} · ${peso(removed.amount)}`);
     renderProofPage(bookings[bIdx]);
     renderAll();
@@ -6265,7 +6265,7 @@ function deleteCollection(category){
     if(pos === -1) return;
     if(!confirm(`Delete this ${category} collection of ${peso(pays[pos].amount)}? This cannot be undone.`)) return;
     const removed = pays.splice(pos, 1)[0];
-    bkPaymentDelete(bookings[idx], pos);
+    bkPaymentDelete(bookings[idx], pos, removed.pid);
     logActivity(`deleted ${category} collection — ${bookings[idx].haven} · ${peso(removed.amount)}`);
     renderProofPage(bookings[idx]);
     renderAll();
@@ -6294,8 +6294,9 @@ function _stampLocal(b){ try{ b.updatedAt = new Date().toISOString(); if(_bkSig 
 // → can't clobber another device's edit to a different field/payment).
 function _bkMirror(b){ _stampLocal(b); setLocalKey(KEY, bookings); }
 function bkSave(b, set){ _bkMirror(b); patchBooking(b.id, set); }                       // b already mutated; `set` = fields to persist
-function bkPaymentEdit(b, idx){ _bkMirror(b); fetch(`/api/booking/${encodeURIComponent(b.id)}/payment`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ payment: b.payments[idx], editIndex: idx }) }).catch(()=>{}); }
-function bkPaymentDelete(b, idx){ _bkMirror(b); fetch(`/api/booking/${encodeURIComponent(b.id)}/payment`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ deleteIndex: idx }) }).catch(()=>{}); }
+function bkPaymentEdit(b, idx){ const p = b.payments[idx]; if(p && p.pid == null) p.pid = uid(); _bkMirror(b); fetch(`/api/booking/${encodeURIComponent(b.id)}/payment`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ payment: p, editId: p && p.pid, editIndex: idx }) }).catch(()=>{}); }
+// pass the DELETED payment's pid (capture it before splicing locally) so the server matches by id, not position
+function bkPaymentDelete(b, idx, pid){ _bkMirror(b); fetch(`/api/booking/${encodeURIComponent(b.id)}/payment`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ deleteId: pid, deleteIndex: idx }) }).catch(()=>{}); }
 let _savingBooking = false;
 async function saveBooking(){
     const guests = readGuests();
@@ -6481,9 +6482,9 @@ async function saveBooking(){
                 const pays = bookings[idx].payments || [];
                 let k = -1; for(let j = pays.length - 1; j >= 0; j--){ if((pays[j].category || "Balance") !== "Add Ons"){ k = j; break; } }
                 if(k !== -1){
-                    pays[k] = { ...pays[k], proof: ref, editedAt: new Date().toISOString(), editedBy: currentUser() };
+                    pays[k] = { ...pays[k], pid: pays[k].pid || uid(), proof: ref, editedAt: new Date().toISOString(), editedBy: currentUser() };
                     _stampLocal(bookings[idx]);   // local is now newest → prime-merge re-pushes if this fails
-                    try{ await fetch(`/api/booking/${encodeURIComponent(editingId)}/payment`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ payment: pays[k], editIndex: k }) }); }catch(e){}
+                    try{ await fetch(`/api/booking/${encodeURIComponent(editingId)}/payment`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ payment: pays[k], editId: pays[k].pid, editIndex: k }) }); }catch(e){}
                 }
             }
             logActivity(`edited booking — ${data.haven} (${primaryName(data)})`);
