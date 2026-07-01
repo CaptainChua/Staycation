@@ -9737,16 +9737,22 @@ function cleanUndoDone(id){
     cleanAddHistory(log, "Undid done", id);
     persistCleaning(); renderCleaners();
 }
+const _cleanBusy = new Set();   // per-slot in-flight guard so a re-triggered same-photo upload can't double-write
 function cleanPhoto(id, key, input){
     const file = input.files && input.files[0];
     if(!file) return;
+    const slot = id + "|" + key;
+    if(_cleanBusy.has(slot)) return;   // this exact photo slot is already processing
+    _cleanBusy.add(slot);
     resizeImage(file, dataUrl => {
-        const log = cleanLog(id);
-        log.photos = log.photos || {};
-        const existed = !!log.photos[key];
-        log.photos[key] = dataUrl;
-        cleanAddHistory(log, (existed ? "Replaced" : "Added") + " " + key + " photo", id);
-        persistCleaning(); renderCleaners();
+        try{
+            const log = cleanLog(id);
+            log.photos = log.photos || {};
+            const existed = !!log.photos[key];
+            log.photos[key] = dataUrl;
+            cleanAddHistory(log, (existed ? "Replaced" : "Added") + " " + key + " photo", id);
+            persistCleaning(); renderCleaners();
+        } finally { _cleanBusy.delete(slot); }
     });
 }
 function cleanRemovePhoto(id, key){
