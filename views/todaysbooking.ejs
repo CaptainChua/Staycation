@@ -1569,7 +1569,9 @@
       }
     }
   });
+  let _savingPay = false;
   async function savePay(again){
+    if(_savingPay) return;   // block rapid double-clicks — they were appending DUPLICATE payments
     const bookingId = payBookingId;
     if(payBookingId == null) return;
     if(!payProof){ alert("Please upload a photo of the proof of payment."); return; }
@@ -1577,6 +1579,10 @@
     const category = document.getElementById("payFor").value; // "Balance" or "Add Ons"
     const amount = Number(document.getElementById("payAmount").value) || 0;
     if(amount <= 0){ alert("Please enter the amount collected."); return; }
+    _savingPay = true;
+    const _payBtns = ["paySaveBtn","paySaveAddBtn"].map(i => document.getElementById(i)).filter(Boolean);
+    _payBtns.forEach(x => x.disabled = true);
+    try{
     // always work off the freshest data in storage
     bookings = loadBookings();
     const b = bookings.find(x => x.id === payBookingId);
@@ -1624,6 +1630,10 @@
       openPay(bookingId, false);   // keep the popup open for the next entry
     } else {
       closePay();
+    }
+    } finally {
+      _savingPay = false;
+      _payBtns.forEach(x => { if(x) x.disabled = false; });
     }
   }
   function openProofImg(src){
