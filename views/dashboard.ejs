@@ -7075,19 +7075,24 @@ function setDepQuick(which){
     renderDeposit();
 }
 // undo a return — clears the proof so re-marking requires a fresh photo
+let _undoDep = false;
 async function undoDeposit(id){
     const b = bookings.find(x => x.id === id);
     if(!b) return;
-    const del = ["depositProof","depositReturnedAt","depositReturnedBy","depositDeductReason","depositDeductAmount","depositDeductNote","depositRefundAmount"];
-    let ok = false;
-    try{ const res = await fetch("/api/booking/" + encodeURIComponent(id) + "/deposit", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ set:{ depositReturned:false }, del }) }); ok = res.ok; }catch(e){}
-    if(!ok){ alert("⚠️ Couldn't undo on the server (slow / offline). Please try again."); return; }
-    b.depositReturned = false;
-    del.forEach(k => delete b[k]);
-    b.updatedAt = new Date().toISOString();
-    try{ (window.shphSetLocal || localStorage.setItem.bind(localStorage))(KEY, JSON.stringify(bookings)); }catch(e){}
-    logActivity(`un-returned security deposit — ${b.haven} (${primaryName(b)})`);
-    renderDeposit();
+    if(_undoDep) return;   // block double-click (idempotent anyway, but avoids a redundant write + double log)
+    _undoDep = true;
+    try{
+        const del = ["depositProof","depositReturnedAt","depositReturnedBy","depositDeductReason","depositDeductAmount","depositDeductNote","depositRefundAmount"];
+        let ok = false;
+        try{ const res = await fetch("/api/booking/" + encodeURIComponent(id) + "/deposit", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ set:{ depositReturned:false }, del }) }); ok = res.ok; }catch(e){}
+        if(!ok){ alert("⚠️ Couldn't undo on the server (slow / offline). Please try again."); return; }
+        b.depositReturned = false;
+        del.forEach(k => delete b[k]);
+        b.updatedAt = new Date().toISOString();
+        try{ (window.shphSetLocal || localStorage.setItem.bind(localStorage))(KEY, JSON.stringify(bookings)); }catch(e){}
+        logActivity(`un-returned security deposit — ${b.haven} (${primaryName(b)})`);
+        renderDeposit();
+    } finally { _undoDep = false; }
 }
 function viewDepProof(id){ const b = bookings.find(x => x.id === id); if(b && b.depositProof) openProofImg(b.depositProof); }
 
