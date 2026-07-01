@@ -10611,13 +10611,14 @@ function saveUser(){
     }
     const admin = g("u_admin").checked;
     const perms = admin ? DASH_PAGES.map(p => p.key) : [...document.querySelectorAll(".u-perm:checked")].map(c => c.value);
+    const now = new Date().toISOString();   // stamp so the server's last-write-wins merge protects cross-device edits
     if(editingUserId){
         const idx = users.findIndex(u => u.id === editingUserId);
-        users[idx] = { ...users[idx], name, password, admin, perms };
+        users[idx] = { ...users[idx], name, password, admin, perms, updatedAt: now };
         logActivity(`edited user — ${name}`);
     } else {
         const id = uid();
-        users.push({ id, name, password, admin, perms });
+        users.push({ id, name, password, admin, perms, updatedAt: now });
         logActivity(`added user — ${name}`);
     }
     persistUsers(); closeUserModal(); renderUsers(); applyPermissions();
@@ -10627,7 +10628,7 @@ function deleteUser(id){
     if(u && u.admin && users.filter(x => x.admin).length <= 1){ alert("You can't delete the last administrator."); return; }
     if(!confirm("Delete this user?")) return;
     if(u) logActivity(`deleted user — ${u.name}`);
-    if(u){ u.deleted = true; u.deletedAt = new Date().toISOString(); }   // kept on the server, just hidden
+    if(u){ const now = new Date().toISOString(); u.deleted = true; u.deletedAt = now; u.updatedAt = now; }   // kept on the server, just hidden
     persistUsers();
     users = users.filter(x => !x.deleted);
     renderUsers(); applyPermissions();
