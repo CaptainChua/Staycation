@@ -3158,6 +3158,32 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
     </div>
 </div>
 
+<!-- Mark bill as paid — requires a receipt / proof of payment -->
+<div class="overlay" id="billPaidOverlay">
+    <div class="modal" style="width:440px;">
+        <h2>Mark bill as paid</h2>
+        <p class="muted" id="billPaidInfo" style="margin:-4px 0 14px;"></p>
+        <div class="form-grid">
+            <div class="field full">
+                <label>Receipt / proof of payment <span class="muted">(required — click, drag &amp; drop, or paste)</span></label>
+                <span class="proof-thumb" id="paidReceiptThumb" style="display:none;">
+                    <img id="paidReceiptImg" class="proof-img" alt="receipt" onclick="openProofImg(this.src)">
+                    <button type="button" class="proof-imgdel" title="Remove" onclick="clearPaidReceipt()">✕</button>
+                </span>
+                <label class="proof-upload" id="paidReceiptCard" data-proof="receipt">
+                    <span class="pu-ico"><svg viewBox="0 0 24 24"><path d="M12 16V5"/><path d="m7 10 5-5 5 5"/><path d="M5 19h14"/></svg></span>
+                    <span class="pu-body"><b>Upload receipt</b><small class="pu-name" id="paidReceiptName">No file chosen</small></span>
+                    <input type="file" id="paidReceiptFile" accept="image/*" onchange="onPaidReceiptChange(this)">
+                </label>
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button class="btn secondary" onclick="closeMarkPaid()">Cancel</button>
+            <button class="btn" id="paidConfirmBtn" onclick="confirmMarkPaid()" disabled>Mark as Paid</button>
+        </div>
+    </div>
+</div>
+
 <!-- Add / edit staff modal -->
 <div class="overlay" id="staffOverlay">
     <div class="modal" style="width:480px;">
@@ -7692,7 +7718,7 @@ function billTableHtml(rows){
             <td>${b.due ? fmt(b.due) : '<span class="muted">—</span>'}</td>
             <td><span class="status ${st}">${stLabel}</span></td>
             <td class="col-actions">
-                ${b.paid ? "" : `<span class="act markpaid" onclick="toggleBillPaid(${b.id})"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg>Mark paid</span>`}
+                ${b.paid ? "" : `<span class="act markpaid" onclick="openMarkPaid(${b.id})"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg>Mark paid</span>`}
                 <span class="act edit" onclick="openBillModal(${b.id})">Edit</span>
                 <span class="act del" onclick="deleteBill(${b.id})">Delete</span>
             </td>
@@ -7977,8 +8003,56 @@ function clearBillReceipt(){
 }
 function viewBillPhoto(id){ const b = bills.find(x => x.id === id); if(b && b.photo) openProofImg(b.photo); }
 function viewBillReceipt(id){ const b = bills.find(x => x.id === id); if(b && b.receipt) openProofImg(b.receipt); }
+
+// ---- Mark a bill PAID — requires a receipt / proof of payment (can't be marked paid without one) ----
+let paidBillId = null, paidReceiptData = null, _markingPaid = false;
+function openMarkPaid(id){
+    const b = bills.find(x => x.id === id);
+    if(!b) return;
+    paidBillId = id;
+    document.getElementById("billPaidInfo").textContent = `${b.type || "Bill"} · ${b.haven || ""} · ${peso(b.amount || 0)}`;
+    if(b.receipt) setPaidReceipt(b.receipt); else clearPaidReceipt();   // prefill if a receipt already exists
+    document.getElementById("billPaidOverlay").classList.add("show");
+}
+function closeMarkPaid(){ paidBillId = null; document.getElementById("billPaidOverlay").classList.remove("show"); }
+function onPaidReceiptChange(input){ if(input.files && input.files[0]) applyPaidReceipt(input.files[0]); }
+function applyPaidReceipt(f){
+    if(!f || !/^image\//.test(f.type)) return;
+    document.getElementById("paidReceiptName").textContent = f.name || "Photo attached";
+    compressImageTo(f, idMaxBytes, dataUrl => { if(dataUrl){ setPaidReceipt(dataUrl); return; } const r = new FileReader(); r.onload = e => setPaidReceipt(e.target.result); r.readAsDataURL(f); });
+}
+function setPaidReceipt(dataUrl){
+    paidReceiptData = dataUrl;
+    const img = document.getElementById("paidReceiptImg"), thumb = document.getElementById("paidReceiptThumb"), nm = document.getElementById("paidReceiptName"), btn = document.getElementById("paidConfirmBtn");
+    if(img) img.src = dataUrl; if(thumb) thumb.style.display = "inline-block"; if(nm) nm.textContent = "Receipt attached ✓";
+    if(btn) btn.disabled = false;   // only now can it be marked paid
+}
+function clearPaidReceipt(){
+    paidReceiptData = null;
+    const thumb = document.getElementById("paidReceiptThumb"), img = document.getElementById("paidReceiptImg"), nm = document.getElementById("paidReceiptName"), fi = document.getElementById("paidReceiptFile"), btn = document.getElementById("paidConfirmBtn");
+    if(thumb) thumb.style.display = "none"; if(img) img.src = ""; if(nm) nm.textContent = "No file chosen"; if(fi) fi.value = "";
+    if(btn) btn.disabled = true;    // no receipt → can't mark paid
+}
+async function confirmMarkPaid(){
+    if(paidBillId == null) return;
+    if(!paidReceiptData){ alert("Please upload the receipt / proof of payment first — a bill can't be marked paid without it."); return; }
+    if(_markingPaid) return;
+    _markingPaid = true;
+    try{
+        const b = bills.find(x => x.id === paidBillId);
+        if(!b) return;
+        const item = { ...b, paid: true, receipt: paidReceiptData };
+        const ok = await saveOneRecord(BILLS_KEY, item);   // per-record — offloads the receipt image
+        if(!ok){ alert("⚠️ Couldn't save — the server didn't confirm (slow / offline). Please try again."); return; }
+        const idx = bills.findIndex(x => x.id === paidBillId);
+        if(idx !== -1) bills[idx] = item;
+        setLocalKey(BILLS_KEY, bills);
+        closeMarkPaid(); renderBills();
+    } finally { _markingPaid = false; }
+}
+
 (function initBillUploads(){
-    [["billPhotoCard", applyBillPhoto], ["billReceiptCard", applyBillReceipt]].forEach(([cardId, apply]) => {
+    [["billPhotoCard", applyBillPhoto], ["billReceiptCard", applyBillReceipt], ["paidReceiptCard", applyPaidReceipt]].forEach(([cardId, apply]) => {
         const card = document.getElementById(cardId);
         if(!card) return;
         card.addEventListener("dragover", e => { e.preventDefault(); card.classList.add("drag"); });
@@ -7986,10 +8060,12 @@ function viewBillReceipt(id){ const b = bills.find(x => x.id === id); if(b && b.
         card.addEventListener("drop", e => { e.preventDefault(); card.classList.remove("drag"); const f = e.dataTransfer && e.dataTransfer.files; if(f && f.length) apply(f[0]); });
     });
     document.addEventListener("paste", e => {
-        const ov = document.getElementById("billOverlay");
-        if(!ov || !ov.classList.contains("show")) return;   // only while the Add/Edit Bill modal is open
+        const billOv = document.getElementById("billOverlay"), paidOv = document.getElementById("billPaidOverlay");
+        const onBill = billOv && billOv.classList.contains("show");
+        const onPaid = paidOv && paidOv.classList.contains("show");
+        if(!onBill && !onPaid) return;                      // only while a bill modal is open
         const items = (e.clipboardData && e.clipboardData.items) || [];
-        for(const it of items){ if(it.type && it.type.indexOf("image") === 0){ const f = it.getAsFile(); if(f){ applyBillPhoto(f); e.preventDefault(); } break; } }
+        for(const it of items){ if(it.type && it.type.indexOf("image") === 0){ const f = it.getAsFile(); if(f){ (onPaid ? applyPaidReceipt : applyBillPhoto)(f); e.preventDefault(); } break; } }
     });
 })();
 
