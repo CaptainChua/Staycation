@@ -4065,7 +4065,7 @@ function renderTimelineHours(){
     //  • carry-over still in-house all day → its occupied span (neutral, rare multi-night)
     //  • a booking starting today → its own bar, plus its cleaning block if it ends today
     const visRange = x => {
-        if(x.carryover && x.departsToday) return [x.endMin, Math.min(1440, x.endMin + CLEANING_GAP_MIN)];
+        if(x.carryover && x.departsToday) return [x.startMin, Math.min(1440, x.endMin + CLEANING_GAP_MIN)]; // occupied span + cleaning
         if(x.carryover)                    return [x.startMin, x.endMin];
         return [x.startMin, x.departsToday ? Math.min(1440, x.endMin + CLEANING_GAP_MIN) : x.endMin];
     };
@@ -4133,7 +4133,12 @@ function renderTimelineHours(){
         });
 
         if(carryover && departsToday){
-            // previous guest's bar is hidden — just show the cleaning window + available-from time
+            // still in-house today until check-out → show it OCCUPIED up to check-out, then the
+            // cleaning/turnaround window with the available-from time.
+            drawBlock(b.haven, startMin, endMin, {
+                className: "bar bar-clean", label: "occupied",
+                title: `${b.haven} — occupied until ${minToTime(endMin)} (${guestNames(b)}) · free at ${freeAt}`
+            });
             drawCleaning();
         } else if(carryover){
             // still in-house all day (multi-night middle day): neutral "occupied" block, no details
