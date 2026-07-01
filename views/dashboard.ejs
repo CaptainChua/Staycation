@@ -1877,7 +1877,7 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
                 <option value="partial">Partial</option>
                 <option value="unpaid">Unpaid</option>
             </select>
-            <input type="text" id="filterSearch" placeholder="Search guest name..." oninput="resetBookingsPage()">
+            <input type="text" id="filterSearch" placeholder="Search name or booking #..." oninput="resetBookingsPage()">
         </div>
     </div>
     <div style="overflow-x:auto;">
@@ -3712,6 +3712,18 @@ function stayShape(b){
     return "●"; // 21h / overnight (and any other length)
 }
 function guestNames(b){ return (b.guests || []).map(g => g.name).join(", "); }
+// match a booking against the search box: guest name, booking CODE (6-char), internal id, website
+// booking no., FB name, or contact — so you (or a customer's code) can find a booking fast.
+function bkMatchesSearch(b, q){
+    if(!q) return true;
+    q = String(q).toLowerCase().trim();
+    return guestNames(b).toLowerCase().includes(q)
+        || String(b.code || "").toLowerCase().includes(q)
+        || String(b.id || "").includes(q)
+        || String(b.bookingNo || "").toLowerCase().includes(q)
+        || String(b.fbName || "").toLowerCase().includes(q)
+        || String(b.contact || "").toLowerCase().includes(q);
+}
 function guestSummary(b){
     return (b.guests || []).map(g => `${g.name} (${g.age})`).join("<br>");
 }
@@ -4480,7 +4492,7 @@ function renderTable(){
         if(b.cancelled) return false;          // cancelled bookings live in their own panel below
         if(haven && b.haven !== haven) return false;
         if(status && statusOf(b) !== status) return false;
-        if(search && !guestNames(b).toLowerCase().includes(search)) return false;
+        if(!bkMatchesSearch(b, search)) return false;
         return true;
     });
 
@@ -4568,7 +4580,7 @@ function renderCancelled(){
     const search = document.getElementById("filterSearch").value.toLowerCase();
     let rows = bookings.filter(b => b.cancelled);
     if(haven) rows = rows.filter(b => b.haven === haven);
-    if(search) rows = rows.filter(b => guestNames(b).toLowerCase().includes(search));
+    if(search) rows = rows.filter(b => bkMatchesSearch(b, search));
     if(filterToWindow){
         const startIso = iso(rangeStart);
         const endIso = iso(addDays(rangeStart, viewDays)); // exclusive
@@ -5596,7 +5608,7 @@ function openModal(id){
         const b = bookings.find(x => x.id === editingId);
         if(!b) return;
         document.getElementById("modalTitle").textContent = "Edit Booking";
-        document.getElementById("bkEyebrow").textContent = "Reservation #" + bookingCode(b);
+        document.getElementById("bkEyebrow").textContent = "Booking #" + bookingCode(b);
         setField("f_haven", b.haven);
         setField("f_fbName", b.fbName || "");
         renderGuestRows(b.guests);
@@ -5774,7 +5786,7 @@ function buildConfirmationHTML(){
     </div>
     <div class="resv">
         <div class="resv-top">
-            <div><div class="l">RESERVATION</div><div class="big pf">#${bookingCode(b)}</div></div>
+            <div><div class="l">BOOKING #</div><div class="big pf">${bookingCode(b)}</div></div>
             <div class="r"><div class="l">Total payable</div><div class="big pf">${peso(total)}</div></div>
         </div>
         <div class="resv-dates">
@@ -7105,7 +7117,7 @@ function openDepReturn(id){
     depReturnId = id;
     depCurrentDeposit = Number(b.deposit || 0);
     depProofData = b.depositProof || null;   // keep existing proof when managing a returned one
-    document.getElementById("depRetEyebrow").textContent = "Reservation #" + bookingCode(bookings.find(x => x.id === id));
+    document.getElementById("depRetEyebrow").textContent = "Booking #" + bookingCode(bookings.find(x => x.id === id));
     document.getElementById("depRetTitle").textContent = returned ? "Manage Security Deposit" : "Return Security Deposit";
     document.getElementById("depRetInfo").innerHTML =
         `<strong>${b.haven}</strong> — ${primaryName(b)}<br>Deposit held: <strong>${peso(b.deposit || 0)}</strong>`;
