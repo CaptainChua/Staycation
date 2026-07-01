@@ -3544,48 +3544,17 @@ function _bkCanon(v){
     return JSON.stringify(v);
 }
 let _bkSig = null;   // id -> last-saved canonical signature (baseline for change detection)
-// (re)build the baseline from the CURRENT loaded list, so save() only stamps records the user
-// actually changes afterward. Seeding from localStorage was wrong: migrate() normalises fields
-// on load, so every migrated booking looked "changed" and got mass-stamped with a fresh time —
-// that stale snapshot then won the merge and wiped real edits (e.g. deposit returns).
+// (re)build the change-detection baseline from the CURRENT loaded list, so _stampLocal only marks
+// records the user actually changes afterward. Seeding from localStorage was wrong: migrate()
+// normalises fields on load, so every migrated booking looked "changed" and got mass-stamped with a
+// fresh time — that stale snapshot then won the merge and wiped real edits (e.g. deposit returns).
 function _seedBkSig(arr){
     _bkSig = {};
     (arr || []).forEach(b => { if(b && b.id != null) _bkSig[String(b.id)] = _bkCanon(b); });
 }
-function save(data){
-    try{
-        if(_bkSig === null) _seedBkSig(data);   // not seeded yet → treat the current list as the baseline
-        const now = new Date().toISOString();
-        for(const b of (data || [])){
-            if(!b || b.id == null) continue;
-            const sig = _bkCanon(b);
-            if(_bkSig[String(b.id)] !== sig) b.updatedAt = now;   // changed → stamp edit time
-            _bkSig[String(b.id)] = _bkCanon(b);                   // sig excludes updatedAt, so stays stable
-        }
-    }catch(e){}
-    localStorage.setItem(KEY, JSON.stringify(data));
-}
 let _lastCreatedBookingId = null;
-// after creating a booking, confirm the server actually stored it (the bookings
-// write is a large array that can be dropped on a flaky connection). Re-send and
-// retry a few times, then warn the user so a booking is never silently lost.
-async function confirmBookingSaved(id){
-    if(id == null) return;
-    for(let attempt = 1; attempt <= 4; attempt++){
-        await new Promise(r => setTimeout(r, 800 * attempt));
-        try {
-            const res = await fetch("/api/kv/" + encodeURIComponent(KEY), { cache:"no-store" });
-            if(res.ok){
-                const arr = await res.json();
-                if(Array.isArray(arr) && arr.some(b => String(b.id) === String(id))) return;  // confirmed on server
-            }
-        } catch(e){ /* offline → try again */ }
-        try { localStorage.setItem(KEY, JSON.stringify(bookings)); } catch(e){}   // re-send (mirror retries)
-    }
-    alert("⚠️ The booking is saved on THIS device, but the server hasn't confirmed it yet "
-        + "(slow or unstable connection).\n\nPlease check your internet and REFRESH the page — "
-        + "if the booking is missing, add it again.");
-}
+// NOTE: the old whole-array save()/confirmBookingSaved() were removed — every booking write is now
+// per-record (patchBooking / saveOneRecord / bkPaymentEdit·Delete / bookingAction).
 // durably apply a single booking status change (cancel / reinstate / delete) by sending only
 // the id + action — a tiny request the server applies to the stored array. This avoids
 // re-uploading the whole bookings array (which carries base64 images), so a quick refresh
