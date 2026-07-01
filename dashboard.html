@@ -1297,7 +1297,7 @@ tr.row-cancelled td:nth-child(2){ text-decoration:line-through; }
     <div class="nav-group">Front Desk</div>
     <div class="nav-item" data-page="approval" onclick="showPage('approval')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M20 12V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6"/><path d="M9 9h6M9 13h3"/><path d="m15 18 2 2 4-4"/></svg></span> Booking Approval <span class="nav-badge" id="approvalBadge"></span></div>
     <div class="nav-item" data-page="paymentapproval" onclick="showPage('paymentapproval')"><span class="ico"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="m14 16 1.6 1.6L19 14"/></svg></span> Payment Approval <span class="nav-badge" id="paymentApprovalBadge"></span></div>
-    <div class="nav-item" data-page="deposit" onclick="showPage('deposit')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v5c0 5 3.4 8.3 8 10 4.6-1.7 8-5 8-10V6Z"/><path d="m9 12 2 2 4-4"/></svg></span> Security Deposit</div>
+    <div class="nav-item" data-page="deposit" onclick="showPage('deposit')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v5c0 5 3.4 8.3 8 10 4.6-1.7 8-5 8-10V6Z"/><path d="m9 12 2 2 4-4"/></svg></span> Security Deposit <span class="nav-badge" id="depositBadge"></span></div>
 
 <%- include('partials/partners-nav') %>
 
@@ -5040,6 +5040,18 @@ function updatePaymentApprovalBadge(){
     const n = pendingPaymentsToday().length;
     badge.textContent = n ? String(n) : "";
 }
+// security deposits STILL to return: guests who have already checked out (checkout ≤ today), have a
+// deposit, and it hasn't been marked returned yet.
+function depositsToReturn(){
+    const t = iso(today());
+    return bookings.filter(b => b && !b.cancelled && !b.depositReturned && Number(b.deposit || 0) > 0 && b.checkout && b.checkout <= t).length;
+}
+function updateDepositBadge(){
+    const badge = document.getElementById("depositBadge");
+    if(!badge) return;
+    const n = depositsToReturn();
+    badge.textContent = n ? String(n) : "";
+}
 
 let paStatus = "all";    // all | pending | approved
 let paDate = "today";    // all | today | yesterday | range
@@ -7050,6 +7062,7 @@ document.addEventListener("click", e => {
 
 /* ---------- Security Deposit: check-outs + deposit to return on a date ---------- */
 function renderDeposit(){
+    updateDepositBadge();
     const inp = document.getElementById("depositDate");
     if(!inp) return;
     if(!inp.value) inp.value = iso(today());
@@ -7369,6 +7382,7 @@ function renderAll(){
     renderTable();
     if(typeof updateApprovalBadge === "function") updateApprovalBadge();
     if(typeof updatePaymentApprovalBadge === "function") updatePaymentApprovalBadge();
+    if(typeof updateDepositBadge === "function") updateDepositBadge();
 }
 
 fillHavenSelectors();
