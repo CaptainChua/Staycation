@@ -7092,9 +7092,9 @@ function renderDeposit(){
             if(returned){
                 const mopTxt = b.depositMop ? " · " + b.depositMop : "";
                 const pill = `<span class="dep-status returned" style="cursor:pointer;" onclick="openDepReturn(${b.id})" title="View / manage refund">✓ Returned${mopTxt}</span>`;
-                statusCell = `<div class="dep-cell">${pill}<button class="btn secondary" onclick="undoDeposit(${b.id})">↺ Undo</button></div>`;
+                statusCell = `<div class="dep-cell">${pill}<button class="btn secondary" onclick="viewBooking(${b.id})">View</button><button class="btn secondary" onclick="undoDeposit(${b.id})">↺ Undo</button></div>`;
             } else {
-                statusCell = `<div class="dep-cell"><span class="dep-status held">To return</span><button class="btn" onclick="openDepReturn(${b.id})">Mark returned</button></div>`;
+                statusCell = `<div class="dep-cell"><span class="dep-status held">To return</span><button class="btn secondary" onclick="viewBooking(${b.id})">View</button><button class="btn" onclick="openDepReturn(${b.id})">Mark returned</button></div>`;
             }
         } else {
             statusCell = `<span class="muted">No deposit</span>`;
