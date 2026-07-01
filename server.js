@@ -118,7 +118,47 @@ apiRouter.post("/img", async (req, res) => {
 // quick health/diagnostics — confirms which backend + whether Cloud Storage is active
 app.get("/api/health", async (req, res) => {
   try { await ensureStore(); } catch (e) {}
-  res.json({ backend: store.backend(), imageStorage: store.imageStorage() });
+  try { res.json(store.status()); }
+  catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+});
+
+// friendly, human-readable health page — open /health anytime to confirm data + images are safe
+app.get("/health", async (req, res) => {
+  try { await ensureStore(); } catch (e) {}
+  let s;
+  try { s = store.status(); } catch (e) { s = { ok: false, error: e.message }; }
+  const green = "#127a3d", red = "#c0283d", gray = "#5b6470";
+  const row = (label, value, good) =>
+    `<tr><td style="padding:9px 14px;color:${gray};white-space:nowrap">${label}</td>` +
+    `<td style="padding:9px 14px;font-weight:700;color:${good == null ? "#1b1f24" : (good ? green : red)}">${value}</td></tr>`;
+  const counts = s.counts || {};
+  const countRows = Object.keys(counts).map(k => row(k, counts[k], null)).join("");
+  const durable = !!s.durable;
+  const imgGood = s.images === "cloud-storage";
+  const html = `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Staycation Haven — System Health</title>
+<body style="margin:0;font:15px/1.5 system-ui,Segoe UI,Arial,sans-serif;background:#f4f6f8;color:#1b1f24">
+<div style="max-width:560px;margin:32px auto;padding:0 16px">
+  <h1 style="font-size:20px;margin:0 0 4px">System Health</h1>
+  <div style="color:${gray};font-size:13px;margin-bottom:18px">Live check of where your data &amp; photos are stored.</div>
+  <div style="background:${durable ? green : red};color:#fff;border-radius:12px;padding:16px 18px;font-weight:700;font-size:16px;margin-bottom:16px">
+    ${durable ? "✅ Data is DURABLE — saved permanently to Firestore." : "🚨 NOT DURABLE — running on temporary file storage. Data can be lost on restart! Set FIREBASE_SERVICE_ACCOUNT."}
+  </div>
+  <div style="background:#fff;border:1px solid #e3e7ec;border-radius:12px;overflow:hidden">
+    <table style="width:100%;border-collapse:collapse;font-size:14px">
+      ${row("Backend", s.backend || "?", durable)}
+      ${row("Firebase project", s.project || "—", null)}
+      ${row("Image storage", s.images === "cloud-storage" ? "Cloud Storage (unlimited)" : "Firestore fallback (1 MB cap ⚠️)", imgGood)}
+      ${row("Storage bucket", s.bucket || "—", null)}
+      <tr><td colspan="2" style="padding:12px 14px 4px;color:${gray};font-size:12px;text-transform:uppercase;letter-spacing:.04em">Records stored right now</td></tr>
+      ${countRows}
+      ${row("Checked at", s.at || "", null)}
+    </table>
+  </div>
+  <div style="color:${gray};font-size:12px;margin-top:14px">Refresh this page anytime. Green = your data and photos are safe on the server.</div>
+</div>`;
+  res.set("Content-Type", "text/html; charset=utf-8");
+  res.send(html);
 });
 
 // stream a stored image by id (Cloud Storage, or the legacy Firestore doc).
