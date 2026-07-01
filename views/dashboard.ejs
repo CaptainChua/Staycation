@@ -5834,7 +5834,6 @@ function buildConfirmationHTML(){
         </div>
         <div class="resv-dates">
             <div class="d"><div class="l">CHECK-IN</div><div class="v pf">${shortDate(checkin)} · ${checkinTimeStr(b)}</div></div>
-            <div class="d"><div class="l">CHECK-OUT</div><div class="v pf">${shortDate(checkout)} · ${checkoutTimeStr(b)}</div></div>
         </div>
         <div class="resv-meta">
             <span>🏠 ${escHtml(b.haven)}</span>
@@ -5867,7 +5866,12 @@ function buildConfirmationHTML(){
             <div class="b dp"><div class="l">PAID · ${escHtml((method || "").toUpperCase())}</div><div class="v">${peso(down + collected)}</div></div>
             <div class="b bal"><div class="l">BALANCE DUE</div><div class="v">${peso(balance)}</div></div>
         </div>
-        <div class="note"><b>Note</b> Balance collected upon arrival. ${peso(dep)} refundable deposit on arrival. Check-in ${checkinTimeStr(b)}, check-out ${checkoutTimeStr(b)}. Valid ID required per guest.</div>
+        <div class="note"><b>Note</b> Balance collected upon arrival. ${peso(dep)} refundable deposit on arrival. Check-in ${checkinTimeStr(b)}. Valid ID required per guest.</div>
+    </div>
+    <div class="bkc-maris" style="margin-top:14px;padding:14px 16px;color:#8a1020;font-weight:700;line-height:1.55;font-size:14px;">
+        Kindly message Miss Maris for your key and unit # pag nasa Area na po sila.<br><br>
+        Maris Contact #:<br>
+        (0930) 911 0991
     </div>
     <div class="foot">Thank you for booking with Staycation Haven PH · staycationhaven.ph</div>`;
 }
