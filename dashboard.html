@@ -5594,7 +5594,7 @@ function openModal(id){
         const b = bookings.find(x => x.id === editingId);
         if(!b) return;
         document.getElementById("modalTitle").textContent = "Edit Booking";
-        document.getElementById("bkEyebrow").textContent = "Reservation #" + b.id;
+        document.getElementById("bkEyebrow").textContent = "Reservation #" + bookingCode(b);
         setField("f_haven", b.haven);
         setField("f_fbName", b.fbName || "");
         renderGuestRows(b.guests);
@@ -5772,7 +5772,7 @@ function buildConfirmationHTML(){
     </div>
     <div class="resv">
         <div class="resv-top">
-            <div><div class="l">RESERVATION</div><div class="big pf">#${editingId || ""}</div></div>
+            <div><div class="l">RESERVATION</div><div class="big pf">#${bookingCode(b)}</div></div>
             <div class="r"><div class="l">Total payable</div><div class="big pf">${peso(total)}</div></div>
         </div>
         <div class="resv-dates">
@@ -5834,7 +5834,7 @@ function downloadConfirmation(){
     if(m && unitNo){
         fname = `${m[2]}${m[3]}${m[1].slice(-2)}-${GF_TOWER}${unitNo}.pdf`;
     } else {
-        fname = "Booking-Confirmation-" + (editingId || "new") + ".pdf";
+        fname = "Booking-Confirmation-" + (bookingCode(bookings.find(x => x.id === editingId)) || "new") + ".pdf";
     }
     const restore = () => { el.style.transform = prev; fitConfirmPreview(); };
     const go = () => html2pdf().set({
@@ -7103,7 +7103,7 @@ function openDepReturn(id){
     depReturnId = id;
     depCurrentDeposit = Number(b.deposit || 0);
     depProofData = b.depositProof || null;   // keep existing proof when managing a returned one
-    document.getElementById("depRetEyebrow").textContent = "Reservation #" + id;
+    document.getElementById("depRetEyebrow").textContent = "Reservation #" + bookingCode(bookings.find(x => x.id === id));
     document.getElementById("depRetTitle").textContent = returned ? "Manage Security Deposit" : "Return Security Deposit";
     document.getElementById("depRetInfo").innerHTML =
         `<strong>${b.haven}</strong> — ${primaryName(b)}<br>Deposit held: <strong>${peso(b.deposit || 0)}</strong>`;
@@ -7386,6 +7386,22 @@ async function deleteOneRecord(key, id){
     try{ const res = await fetch("/api/list/" + encodeURIComponent(key), { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ del: id }) }); return res.ok; }catch(e){ return false; }
 }
 function setLocalKey(key, val){ try{ (window.shphSetLocal || localStorage.setItem.bind(localStorage))(key, JSON.stringify(val)); }catch(e){} }
+// A short, human-friendly reservation code shown to guests instead of the long internal id (which
+// must stay unchanged — every per-record save matches on it). Generated ONCE per booking from an
+// unambiguous charset (no I/L/O/0/1), checked unique against existing codes, and persisted per-record
+// so it's stable forever.
+function genBookingCode(){ const CH = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; let c = ""; for(let i=0;i<6;i++) c += CH.charAt(Math.floor(Math.random()*CH.length)); return c; }
+function bookingCode(b){
+    if(!b) return "";
+    if(b.code) return b.code;
+    const used = new Set(bookings.map(x => x && x.code).filter(Boolean));
+    let c, t = 0; do{ c = genBookingCode(); t++; }while(used.has(c) && t < 50);
+    b.code = c;
+    const idx = bookings.findIndex(x => x.id === b.id);
+    if(idx !== -1){ bookings[idx].code = c; setLocalKey(KEY, bookings); }
+    try{ patchBooking(b.id, { code: c }); }catch(e){}   // persist so the code never changes
+    return c;
+}
 // Collision-resistant record id. `Math.max(...ids)+1` makes two browsers generate the SAME id at
 // once, so a per-record save silently overwrites the other user's new record. A millisecond stamp
 // (×1000) plus 3 random digits, kept strictly increasing within this tab, makes that practically

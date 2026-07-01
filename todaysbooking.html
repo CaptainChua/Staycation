@@ -1441,12 +1441,24 @@
       <div class="pi-bar"><span style="width:${pct}%"></span></div>`;
   }
 
+  // short, stable, unique reservation code shown instead of the long internal id (see dashboard.html)
+  function tbBookingCode(b){
+    if(!b) return "";
+    if(b.code) return b.code;
+    const CH = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+    const used = new Set(bookings.map(x => x && x.code).filter(Boolean));
+    let c, t = 0; do{ c = ""; for(let i=0;i<6;i++) c += CH.charAt(Math.floor(Math.random()*CH.length)); t++; }while(used.has(c) && t < 50);
+    b.code = c;
+    try{ (window.shphSetLocal || localStorage.setItem.bind(localStorage))(KEY, JSON.stringify(bookings)); }catch(e){}
+    try{ fetch("/api/booking/" + encodeURIComponent(b.id) + "/patch", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ set: { code: c } }) }); }catch(e){}
+    return c;
+  }
   function openPay(id, edit){
     payBookingId = id; payProof = null;
     const b = bookings.find(x => x.id === id);
     if(!b) return;
     const pays = b.payments || [];
-    document.getElementById("payEyebrow").textContent = "Reservation #" + b.id;
+    document.getElementById("payEyebrow").textContent = "Reservation #" + tbBookingCode(b);
     document.getElementById("payInfo").innerHTML = payInfoLine(b);
     if(edit && pays.length){
       payEditIndex = pays.length - 1; payEditing = true;
