@@ -6294,7 +6294,7 @@ function _stampLocal(b){ try{ b.updatedAt = new Date().toISOString(); if(_bkSig 
 // → can't clobber another device's edit to a different field/payment).
 function _bkMirror(b){ _stampLocal(b); setLocalKey(KEY, bookings); }
 function bkSave(b, set){ _bkMirror(b); patchBooking(b.id, set); }                       // b already mutated; `set` = fields to persist
-function bkPaymentEdit(b, idx){ const p = b.payments[idx]; if(p && p.pid == null) p.pid = uid(); _bkMirror(b); fetch(`/api/booking/${encodeURIComponent(b.id)}/payment`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ payment: p, editId: p && p.pid, editIndex: idx }) }).catch(()=>{}); }
+function bkPaymentEdit(b, idx){ const p = b.payments[idx]; const existingPid = p && p.pid; if(p && p.pid == null) p.pid = uid(); _bkMirror(b); fetch(`/api/booking/${encodeURIComponent(b.id)}/payment`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ payment: p, editId: existingPid, editIndex: idx }) }).catch(()=>{}); }
 // pass the DELETED payment's pid (capture it before splicing locally) so the server matches by id, not position
 function bkPaymentDelete(b, idx, pid){ _bkMirror(b); fetch(`/api/booking/${encodeURIComponent(b.id)}/payment`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ deleteId: pid, deleteIndex: idx }) }).catch(()=>{}); }
 let _savingBooking = false;
@@ -6482,9 +6482,10 @@ async function saveBooking(){
                 const pays = bookings[idx].payments || [];
                 let k = -1; for(let j = pays.length - 1; j >= 0; j--){ if((pays[j].category || "Balance") !== "Add Ons"){ k = j; break; } }
                 if(k !== -1){
+                    const existingPid = pays[k].pid;   // null for legacy → server uses index fallback
                     pays[k] = { ...pays[k], pid: pays[k].pid || uid(), proof: ref, editedAt: new Date().toISOString(), editedBy: currentUser() };
                     _stampLocal(bookings[idx]);   // local is now newest → prime-merge re-pushes if this fails
-                    try{ await fetch(`/api/booking/${encodeURIComponent(editingId)}/payment`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ payment: pays[k], editId: pays[k].pid, editIndex: k }) }); }catch(e){}
+                    try{ await fetch(`/api/booking/${encodeURIComponent(editingId)}/payment`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ payment: pays[k], editId: existingPid, editIndex: k }) }); }catch(e){}
                 }
             }
             logActivity(`edited booking — ${data.haven} (${primaryName(data)})`);

@@ -1475,6 +1475,7 @@
     renderPayList(b);
   }
   // delete a specific payment by index
+  let _deletingPay = false;
   async function deletePaymentAt(index){
     if(payBookingId == null) return;
     const data = loadBookings();
@@ -1482,6 +1483,9 @@
     if(!b || !b.payments || !b.payments[index]){ return; }
     const p = b.payments[index];
     if(!confirm(`Delete this ${p.category || "Balance"} payment of ${peso(p.amount)}? This cannot be undone.`)) return;
+    if(_deletingPay) return;   // block double-click (a legacy payment falls back to index → could hit the neighbor)
+    _deletingPay = true;
+    try{
     // PER-RECORD delete — touches only this booking's payments on the live server record
     let ok = false;
     try{ const res = await fetch("/api/booking/" + encodeURIComponent(payBookingId) + "/payment", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ deleteId: p.pid, deleteIndex: index }) }); ok = res.ok; }catch(e){}
@@ -1497,6 +1501,7 @@
     renderToday();
     if(b.payments.length) openPay(payBookingId, true);   // reopen showing remaining
     else closePay();
+    } finally { _deletingPay = false; }
   }
   // Delete button (deletes the payment currently in the form)
   function deletePaymentEntry(){
@@ -1607,6 +1612,7 @@
 
     // 2) build the payment record — each carries a stable `pid` so edits/deletes match by id, not position
     const pmtId = () => Date.now() * 1000 + Math.floor(Math.random() * 1000);
+    const existingPid = editing ? b.payments[payEditIndex].pid : null;   // null for legacy → server uses index fallback
     const payment = editing
       ? Object.assign({}, b.payments[payEditIndex], { pid: b.payments[payEditIndex].pid || pmtId(), amount, mop, category, proof: proofRef, at: payAtFromInput(), editedAt: new Date().toISOString(), editedBy: currentUser() })
       : { pid: pmtId(), amount, mop, category, proof: proofRef, at: payAtFromInput(), by: currentUser() };
@@ -1617,7 +1623,7 @@
     try{
       const res = await fetch("/api/booking/" + encodeURIComponent(bookingId) + "/payment", {
         method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({ payment, editId: editing ? payment.pid : null, editIndex: editing ? payEditIndex : null })
+        body: JSON.stringify({ payment, editId: existingPid, editIndex: editing ? payEditIndex : null })
       });
       ok = res.ok;
     }catch(e){}
@@ -1684,32 +1690,37 @@
     document.getElementById("addonTotalInfo").innerHTML = `Added to bill: <strong>${peso(added)}</strong>`;
   }
   function closeAddon(){ addonBookingId = null; document.getElementById("addonOverlay").classList.remove("show"); }
+  let _savingAddon = false;
   async function saveAddon(){
     if(addonBookingId == null) return;
     const { pool, tow, added } = addonAddedAmount();
     if(pool <= 0 && tow <= 0){ alert("Enter pool passes or towels to add."); return; }
-    bookings = loadBookings();
-    const b = bookings.find(x => x.id === addonBookingId);
-    if(!b) return;
-    b.swimpass = (Number(b.swimpass) || 0) + pool;
-    b.towels   = (Number(b.towels) || 0) + tow;
-    b.total    = (Number(b.total) || 0) + added;   // add the late charge to the bill
-    // record the late request
-    b.addonLog = b.addonLog || [];
-    b.addonLog.push({ pool, towels: tow, amount: added, at: new Date().toISOString(), by: currentUser() });
-    // PER-RECORD patch — updates only these fields on the live booking (can't clobber other data)
-    let ok = false;
-    try{ const res = await fetch("/api/booking/" + encodeURIComponent(addonBookingId) + "/patch", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ set: { swimpass: b.swimpass, towels: b.towels, total: b.total, addonLog: b.addonLog } }) }); ok = res.ok; }catch(e){}
-    if(!ok){ alert("⚠️ Couldn't save the add-on — the server didn't confirm (slow / offline). Please try again."); return; }
-    b.updatedAt = new Date().toISOString();
-    try{ (window.shphSetLocal || localStorage.setItem.bind(localStorage))(KEY, JSON.stringify(bookings)); }catch(e){}
-    const parts = [];
-    if(pool) parts.push(`${pool} pool pass${pool > 1 ? "es" : ""}`);
-    if(tow) parts.push(`${tow} towel${tow > 1 ? "s" : ""}`);
-    logActivity(`added late add-ons — ${b.haven}: ${parts.join(", ")} (${peso(added)})`);
-    closeAddon();
-    renderToday();
-    alert(`Added ${peso(added)} to the bill. The balance has been updated.`);
+    if(_savingAddon) return;   // block double-click (a 2nd click would double-charge the add-ons)
+    _savingAddon = true;
+    try{
+      bookings = loadBookings();
+      const b = bookings.find(x => x.id === addonBookingId);
+      if(!b) return;
+      b.swimpass = (Number(b.swimpass) || 0) + pool;
+      b.towels   = (Number(b.towels) || 0) + tow;
+      b.total    = (Number(b.total) || 0) + added;   // add the late charge to the bill
+      // record the late request
+      b.addonLog = b.addonLog || [];
+      b.addonLog.push({ pool, towels: tow, amount: added, at: new Date().toISOString(), by: currentUser() });
+      // PER-RECORD patch — updates only these fields on the live booking (can't clobber other data)
+      let ok = false;
+      try{ const res = await fetch("/api/booking/" + encodeURIComponent(addonBookingId) + "/patch", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ set: { swimpass: b.swimpass, towels: b.towels, total: b.total, addonLog: b.addonLog } }) }); ok = res.ok; }catch(e){}
+      if(!ok){ alert("⚠️ Couldn't save the add-on — the server didn't confirm (slow / offline). Please try again."); return; }
+      b.updatedAt = new Date().toISOString();
+      try{ (window.shphSetLocal || localStorage.setItem.bind(localStorage))(KEY, JSON.stringify(bookings)); }catch(e){}
+      const parts = [];
+      if(pool) parts.push(`${pool} pool pass${pool > 1 ? "es" : ""}`);
+      if(tow) parts.push(`${tow} towel${tow > 1 ? "s" : ""}`);
+      logActivity(`added late add-ons — ${b.haven}: ${parts.join(", ")} (${peso(added)})`);
+      closeAddon();
+      renderToday();
+      alert(`Added ${peso(added)} to the bill. The balance has been updated.`);
+    } finally { _savingAddon = false; }
   }
   document.getElementById("addonOverlay").addEventListener("click", e => { if(e.target.id === "addonOverlay") closeAddon(); });
 
@@ -1961,21 +1972,26 @@
     if(!data.haven){ alert("Please choose a haven."); return; }
     const clash = findConflict(data, null);
     if(clash){ alert(`${data.haven} is already booked for those dates by ${(clash.guests && clash.guests[0] && clash.guests[0].name) || "another guest"}.`); return; }
-    // unique across browsers (Math.max+1 would let two concurrent creators collide and overwrite)
-    const newId = Date.now() * 1000 + Math.floor(Math.random() * 1000);
-    const rec = { id:newId, ...data };
-    // PER-RECORD create — inserts only this booking on the server (can't overwrite the rest)
-    let ok = false;
-    try{ const res = await fetch("/api/list/" + encodeURIComponent(KEY), { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ upsert: rec }) }); ok = res.ok; }catch(e){}
-    if(!ok){ alert("⚠️ The booking was NOT saved — the server didn't confirm (slow / offline). Please try again."); return; }
-    bookings.push(rec);
-    try{ (window.shphSetLocal || localStorage.setItem.bind(localStorage))(KEY, JSON.stringify(bookings)); }catch(e){}
-    const gName = (data.guests[0] && data.guests[0].name) || "";
-    logActivity(`added booking — ${data.haven} (${gName})`);
-    closeAdd();
-    renderToday();
-    alert("Booking saved. It now appears in Calendar/Bookings.");
+    if(_savingNewBooking) return;   // block double-click (a 2nd click would create a duplicate booking)
+    _savingNewBooking = true;
+    try{
+      // unique across browsers (Math.max+1 would let two concurrent creators collide and overwrite)
+      const newId = Date.now() * 1000 + Math.floor(Math.random() * 1000);
+      const rec = { id:newId, ...data };
+      // PER-RECORD create — inserts only this booking on the server (can't overwrite the rest)
+      let ok = false;
+      try{ const res = await fetch("/api/list/" + encodeURIComponent(KEY), { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ upsert: rec }) }); ok = res.ok; }catch(e){}
+      if(!ok){ alert("⚠️ The booking was NOT saved — the server didn't confirm (slow / offline). Please try again."); return; }
+      bookings.push(rec);
+      try{ (window.shphSetLocal || localStorage.setItem.bind(localStorage))(KEY, JSON.stringify(bookings)); }catch(e){}
+      const gName = (data.guests[0] && data.guests[0].name) || "";
+      logActivity(`added booking — ${data.haven} (${gName})`);
+      closeAdd();
+      renderToday();
+      alert("Booking saved. It now appears in Calendar/Bookings.");
+    } finally { _savingNewBooking = false; }
   }
+  let _savingNewBooking = false;
   document.getElementById("addOverlay").addEventListener("click", e => { if(e.target.id === "addOverlay") closeAdd(); });
 
   document.getElementById("currentUserLabel").textContent = "Logged in as " + currentUser();

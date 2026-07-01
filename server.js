@@ -202,15 +202,19 @@ apiRouter.post("/booking/:id/payment", async (req, res) => {
   try {
     const ok = await store.updateOneFresh(KEY, id, b => {
       b.payments = Array.isArray(b.payments) ? b.payments : [];
-      if (isDelete) {                                                     // remove one collection — by pid, fallback to index
-        let di = (deleteId != null) ? b.payments.findIndex(p => p && p.pid === deleteId) : -1;
-        if (di < 0 && deleteIndex != null) di = deleteIndex;
+      if (isDelete) {                                                     // remove one collection
+        let di = -1;
+        if (deleteId != null) di = b.payments.findIndex(p => p && p.pid === deleteId);  // match by stable id
+        else if (deleteIndex != null) di = deleteIndex;                   // legacy (no id sent) → position
+        // if an id WAS sent but not found, it's already gone → no-op (never index-fallback, which would hit the neighbor)
         if (di >= 0 && b.payments[di]) b.payments.splice(di, 1);
-      } else {                                                            // edit an existing collection — by pid, fallback to index
-        let ei = (editId != null) ? b.payments.findIndex(p => p && p.pid === editId) : -1;
-        if (ei < 0 && editIndex != null) ei = editIndex;
-        if (ei >= 0 && b.payments[ei]) b.payments[ei] = payment;
-        else b.payments.push(payment);                                    // record a new collection
+      } else {                                                            // edit or add a collection
+        let ei = -1;
+        if (editId != null) ei = b.payments.findIndex(p => p && p.pid === editId);      // match by stable id
+        else if (editIndex != null) ei = editIndex;                      // legacy (no id sent) → position
+        if (ei >= 0 && b.payments[ei]) b.payments[ei] = payment;         // edit the matched collection
+        else if (editId == null && editIndex == null) b.payments.push(payment);  // brand-new collection
+        // id sent but not found → the payment is gone; do nothing (don't resurrect or duplicate)
       }
     });
     if (!ok) return res.status(404).json({ error: "booking not found" });
