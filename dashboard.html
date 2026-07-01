@@ -3704,6 +3704,23 @@ window.addEventListener("storage", function(e){
     }catch(err){ return; }
     if(typeof renderAll === "function") renderAll();
 });
+// Cross-tab refresh for the OTHER shared lists. When another tab — or the guest website — changes a
+// bill/expense/staff/user/haven, reload that list here and re-render, so an open tab never shows (or
+// acts on) stale data. The callback runs long after load, so the *_KEY consts are initialised by then.
+window.addEventListener("storage", function(e){
+    if(!e || !e.key) return;
+    try{
+        if(e.key === BILLS_KEY){ bills = loadBills(); if(typeof renderBills === "function") renderBills(); }
+        else if(e.key === EXPENSES_KEY){ expenses = loadExpenses(); if(typeof renderExpenses === "function") renderExpenses(); }
+        else if(e.key === PAYROLL_KEY){ staff = loadStaff(); if(typeof renderPayroll === "function") renderPayroll(); }
+        else if(e.key === USERS_KEY){ users = loadUsers(); if(typeof renderUsers === "function") renderUsers(); }
+        else if(e.key === "staycation_havens"){
+            const dr = document.getElementById("hvDrawer");
+            if(dr && dr.classList.contains("open")) return;   // don't swap listings out from under an open edit
+            listings = loadHavens(); if(typeof renderListings === "function") renderListings();
+        }
+    }catch(err){}
+});
 let rangeStart = today();
 let viewMode = "week";   // "today" | "week" | "custom" — remembered across refreshes
 let calHaven = "";       // calendar haven filter ("" = all havens)
