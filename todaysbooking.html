@@ -1696,20 +1696,22 @@
     if(_savingAddon) return;   // block double-click (a 2nd click would double-charge the add-ons)
     _savingAddon = true;
     try{
-      bookings = loadBookings();
-      const b = bookings.find(x => x.id === addonBookingId);
+      const data = loadBookings();
+      const b = data.find(x => x.id === addonBookingId);
       if(!b) return;
-      b.swimpass = (Number(b.swimpass) || 0) + pool;
-      b.towels   = (Number(b.towels) || 0) + tow;
-      b.total    = (Number(b.total) || 0) + added;   // add the late charge to the bill
-      // record the late request
-      b.addonLog = b.addonLog || [];
-      b.addonLog.push({ pool, towels: tow, amount: added, at: new Date().toISOString(), by: currentUser() });
+      // compute the new values WITHOUT mutating anything yet — so a failed save leaves state unchanged
+      const newSwim  = (Number(b.swimpass) || 0) + pool;
+      const newTow   = (Number(b.towels)   || 0) + tow;
+      const newTotal = (Number(b.total)    || 0) + added;   // the late charge added to the bill
+      const newLog   = (b.addonLog || []).concat([{ pool, towels: tow, amount: added, at: new Date().toISOString(), by: currentUser() }]);
       // PER-RECORD patch — updates only these fields on the live booking (can't clobber other data)
       let ok = false;
-      try{ const res = await fetch("/api/booking/" + encodeURIComponent(addonBookingId) + "/patch", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ set: { swimpass: b.swimpass, towels: b.towels, total: b.total, addonLog: b.addonLog } }) }); ok = res.ok; }catch(e){}
+      try{ const res = await fetch("/api/booking/" + encodeURIComponent(addonBookingId) + "/patch", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ set: { swimpass: newSwim, towels: newTow, total: newTotal, addonLog: newLog } }) }); ok = res.ok; }catch(e){}
       if(!ok){ alert("⚠️ Couldn't save the add-on — the server didn't confirm (slow / offline). Please try again."); return; }
+      // server confirmed → NOW apply locally and adopt the fresh array
+      b.swimpass = newSwim; b.towels = newTow; b.total = newTotal; b.addonLog = newLog;
       b.updatedAt = new Date().toISOString();
+      bookings = data;
       try{ (window.shphSetLocal || localStorage.setItem.bind(localStorage))(KEY, JSON.stringify(bookings)); }catch(e){}
       const parts = [];
       if(pool) parts.push(`${pool} pool pass${pool > 1 ? "es" : ""}`);
