@@ -159,6 +159,8 @@ body{ background:#f5f5f5; color:#222; padding:30px 30px 30px 250px; }
 /* calendar timeline */
 .cal-nav{ display:flex; gap:8px; align-items:center; }
 .cal-nav select{ padding:9px 11px; border:1px solid #ddd; border-radius:9px; font-size:13px; background:#fff; color:#444; cursor:pointer; }
+.cal-nav input{ padding:9px 11px; border:1px solid #ddd; border-radius:9px; font-size:13px; background:#fff; color:#444; }
+.cal-nav input::placeholder{ color:#9a938b; }
 .date-pill{
     display:inline-flex;
     align-items:center;
@@ -1028,11 +1030,11 @@ tr.row-cancelled td:nth-child(2){ text-decoration:line-through; }
   /* ---- inputs ---- */
   .field input, .field select, .field textarea,
   .filters select, .filters input,
-  .cal-nav select{
+  .cal-nav select, .cal-nav input{
     border:1px solid var(--hv-line); border-radius:10px; background:#faf7f2; color:var(--hv-ink);
   }
   .field input:focus, .field select:focus, .field textarea:focus,
-  .filters select:focus, .filters input:focus{ outline:none; border-color:var(--hv-terra); }
+  .filters select:focus, .filters input:focus, .cal-nav input:focus{ outline:none; border-color:var(--hv-terra); }
   .field label{ color:var(--hv-muted); }
 
   /* ---- modal date pickers (custom calendar, matches the other tabs) ---- */
