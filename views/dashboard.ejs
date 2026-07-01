@@ -2040,11 +2040,11 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
 
         <label class="hv-fl">Photo gallery</label>
         <div class="hv-gallery" id="hvGallery"></div>
-        <div style="display:flex; gap:8px; flex-wrap:wrap;">
-            <button type="button" class="hv-pill" onclick="hvAddGallery()">＋ Add photo link</button>
-            <button type="button" class="hv-pill" onclick="document.getElementById('hvGalUp').click()">⬆ Upload photos</button>
+        <label class="proof-upload" id="hvGalCard" data-proof="gallery">
+            <span class="pu-ico"><svg viewBox="0 0 24 24"><path d="M12 16V5"/><path d="m7 10 5-5 5 5"/><path d="M5 19h14"/></svg></span>
+            <span class="pu-body"><b>Upload photos</b><small class="pu-name" id="hvGalName">Click, drag &amp; drop, or paste</small></span>
             <input type="file" id="hvGalUp" accept="image/*" multiple hidden onchange="hvUploadGallery(this.files, this)">
-        </div>
+        </label>
 
         <div class="hv-two">
             <div><label class="hv-fl">Name</label><input class="hv-fld" id="hvName"></div>
@@ -9715,6 +9715,7 @@ function openHaven(i){
     hvDraftAmen = (h.amenities || []).slice();
     hvRenderGallery();
     hvRenderChips();
+    const gnm = document.getElementById("hvGalName"); if(gnm) gnm.textContent = "Click, drag & drop, or paste";
     document.getElementById("hvScrim").classList.add("open");
     document.getElementById("hvDrawer").classList.add("open");
 }
@@ -9742,7 +9743,6 @@ function hvRenderGallery(){
         return `<div class="hv-grow">${thumb}${field}<button class="hv-gx" onclick="hvDelGallery(${idx})" title="Remove">✕</button></div>`;
     }).join("");
 }
-function hvAddGallery(){ hvDraftGallery.push(""); hvRenderGallery(); }
 function hvDelGallery(idx){ hvDraftGallery.splice(idx, 1); hvRenderGallery(); }
 // upload an image file (compressed) as the main image
 function hvUploadMain(file, inputEl){
@@ -9754,18 +9754,38 @@ function hvUploadMain(file, inputEl){
     });
     if(inputEl) inputEl.value = "";
 }
-// upload one or more images (compressed) into the gallery
+// upload one or more images (compressed) into the gallery — from the file input, a drop, or a paste
 function hvUploadGallery(files, inputEl){
     if(!files || !files.length) return;
-    let pending = files.length;
+    let pending = 0, added = 0;
     Array.prototype.forEach.call(files, function(f){
+        if(!f || !/^image\//.test(f.type)) return;
+        pending++;
         compressImageTo(f, idMaxBytes, function(dataUrl){
-            if(dataUrl) hvDraftGallery.push(dataUrl);
-            if(--pending === 0) hvRenderGallery();
+            if(dataUrl){ hvDraftGallery.push(dataUrl); added++; }
+            else { const r = new FileReader(); r.onload = e => { hvDraftGallery.push(e.target.result); added++; hvRenderGallery(); }; r.readAsDataURL(f); }
+            if(--pending === 0){ hvRenderGallery(); const nm = document.getElementById("hvGalName"); if(nm && added) nm.textContent = added + " photo" + (added > 1 ? "s" : "") + " added ✓ — Save changes to keep them"; }
         });
     });
     if(inputEl) inputEl.value = "";
 }
+// drag / drop / paste into the gallery card (paste only while the haven drawer is open)
+(function initHvGalleryUpload(){
+    const card = document.getElementById("hvGalCard");
+    if(card){
+        card.addEventListener("dragover", e => { e.preventDefault(); card.classList.add("drag"); });
+        card.addEventListener("dragleave", e => { if(!card.contains(e.relatedTarget)) card.classList.remove("drag"); });
+        card.addEventListener("drop", e => { e.preventDefault(); card.classList.remove("drag"); const f = e.dataTransfer && e.dataTransfer.files; if(f && f.length) hvUploadGallery(f); });
+    }
+    document.addEventListener("paste", e => {
+        const dr = document.getElementById("hvDrawer");
+        if(!dr || !dr.classList.contains("open")) return;   // only while the Editing Haven drawer is open
+        const items = (e.clipboardData && e.clipboardData.items) || [];
+        const imgs = [];
+        for(const it of items){ if(it.type && it.type.indexOf("image") === 0){ const f = it.getAsFile(); if(f) imgs.push(f); } }
+        if(imgs.length){ hvUploadGallery(imgs); e.preventDefault(); }
+    });
+})();
 
 function hvRenderChips(){
     document.getElementById("hvChips").innerHTML = hvDraftAmen.length
@@ -9784,10 +9804,10 @@ function hvAddAmen(){
 }
 function hvDelAmen(idx){ hvDraftAmen.splice(idx, 1); hvRenderChips(); }
 
-function saveHaven(){
+async function saveHaven(){
     if(hvEditIndex < 0) return;
     const i = hvEditIndex;
-    listings[i] = {
+    const item = {
         id: listings[i].id,
         name: document.getElementById("hvName").value.trim() || "Untitled Haven",
         image: document.getElementById("hvImg").value.trim(),
@@ -9796,20 +9816,27 @@ function saveHaven(){
         description: document.getElementById("hvDesc").value,
         amenities: hvDraftAmen.map(s => s.trim()).filter(Boolean)
     };
-    saveHavens(listings);                                   // persist → Firestore
-    logActivity(`edited haven listing — ${listings[i].name}`);
+    // PER-RECORD save: the server offloads every gallery/main-image photo to a durable ref,
+    // so the images are never lost and one haven's save can't overwrite the others.
+    const ok = await saveOneRecord("staycation_havens", item);
+    if(!ok){ alert("⚠️ The haven was NOT saved — the server didn't confirm (slow / offline). Please try again."); return; }
+    listings[i] = item;
+    setLocalKey("staycation_havens", listings);
+    logActivity(`edited haven listing — ${item.name}`);
     closeHaven();
     renderListings();
 }
 
-function hvDeleteFromDrawer(){
+async function hvDeleteFromDrawer(){
     if(hvEditIndex < 0) return;
     const i = hvEditIndex;
     if(!confirm(`Delete "${listings[i].name}"? This removes it from the website.`)) return;
     const name = listings[i].name;
+    const ok = await deleteOneRecord("staycation_havens", listings[i].id);
+    if(!ok){ alert("⚠️ Couldn't delete on the server (slow / offline). Please try again."); return; }
     listings[i].deleted = true; listings[i].deletedAt = new Date().toISOString();   // kept on the server, just hidden
-    saveHavens(listings);          // server merge marks it deleted (never erased)
     listings.splice(i, 1);         // hide from this view
+    setLocalKey("staycation_havens", listings);
     logActivity(`deleted haven listing — ${name}`);
     closeHaven();
     renderListings();
