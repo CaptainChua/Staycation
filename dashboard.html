@@ -7177,7 +7177,7 @@ window.addEventListener("resize", renderTimeline);
 /* ---------- bills / payables ---------- */
 const BILL_TYPES = ["Meralco", "Water", "GAF", "Condo dues", "Internet", "Rent"];
 // bills can be tagged to a haven or to "Pia" (personal / owner)
-const BILL_HAVENS = [...HAVENS, "Pia"];
+const BILL_HAVENS = [...HAVENS, "Pia", "Staycation"];   // extra billers/entities beyond the havens
 const BILLS_KEY = "shph_bills_v1";
 
 function loadBills(){
@@ -7221,7 +7221,7 @@ function openExpenseModal(id){
     const typeSel = document.getElementById("e_type");
     if(!typeSel.options.length) typeSel.innerHTML = EXPENSE_TYPES.map(t => `<option>${t}</option>`).join("");
     const hSel = document.getElementById("e_haven");
-    if(hSel) hSel.innerHTML = '<option value="">— General / all —</option>' + ((typeof HAVENS !== "undefined" && HAVENS) ? HAVENS : []).map(h => `<option>${h}</option>`).join("");
+    if(hSel) hSel.innerHTML = '<option value="">— General / all —</option>' + ((typeof BILL_HAVENS !== "undefined" && BILL_HAVENS) ? BILL_HAVENS : []).map(h => `<option>${h}</option>`).join("");
     if(editingExpenseId){
         const e = expenses.find(x => x.id === editingExpenseId);
         if(!e) return;
@@ -7290,7 +7290,7 @@ function renderExpenses(){
     const fhSel = document.getElementById("expFilterHaven");
     if(fhSel){
         const curH = fhSel.value;
-        fhSel.innerHTML = `<option value="">All havens</option>` + ((typeof HAVENS !== "undefined" && HAVENS) ? HAVENS : []).map(h => `<option>${h}</option>`).join("");
+        fhSel.innerHTML = `<option value="">All havens</option>` + ((typeof BILL_HAVENS !== "undefined" && BILL_HAVENS) ? BILL_HAVENS : []).map(h => `<option>${h}</option>`).join("");
         if(curH) fhSel.value = curH;
     }
 
