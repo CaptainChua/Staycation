@@ -7352,10 +7352,19 @@ let expenses = loadExpenses();
 // PER-RECORD write helpers (like payments/deposits): touch ONE item on the server so a save
 // can never overwrite the rest of the list. The item's base64 images (receipts) are offloaded
 // server-side. Local copy updated WITHOUT a whole-array push. Returns true if the server confirmed.
+// A scoped (non-super-admin) partner sees Bills & Expenses READ-ONLY. Enforce it at the ONE choke
+// point every finance write funnels through — so it can't be bypassed by a future/renamed writer
+// (the fragility that let partners write finance after the per-record refactor). Buttons are also
+// hidden in partners.js; this is the defense-in-depth backstop.
+function _partnerReadOnlyKey(key){
+    return !!(window.__PARTNER__ && !window.__PARTNER__.superAdmin && (key === BILLS_KEY || key === EXPENSES_KEY));
+}
 async function saveOneRecord(key, item){
+    if(_partnerReadOnlyKey(key)) return false;
     try{ const res = await fetch("/api/list/" + encodeURIComponent(key), { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ upsert: item }) }); return res.ok; }catch(e){ return false; }
 }
 async function deleteOneRecord(key, id){
+    if(_partnerReadOnlyKey(key)) return false;
     try{ const res = await fetch("/api/list/" + encodeURIComponent(key), { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ del: id }) }); return res.ok; }catch(e){ return false; }
 }
 function setLocalKey(key, val){ try{ (window.shphSetLocal || localStorage.setItem.bind(localStorage))(key, JSON.stringify(val)); }catch(e){} }

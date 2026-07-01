@@ -360,12 +360,9 @@ function applyPartnerChrome(){
         // so block the writers to be safe.
         try{ if(typeof bills !== "undefined") bills = bills.filter(b => b.haven === ps.haven); }catch(e){}
         try{ if(typeof expenses !== "undefined") expenses = expenses.filter(e => (e.haven || "") === ps.haven); }catch(e){}
-        // Bills & Expenses are READ-ONLY for a scoped partner. The finance data now saves PER-RECORD
-        // (saveBill/saveExpense → saveOneRecord), so neuter those writers — the old persistBills/
-        // persistExpenses no longer exist — and hide the add/edit/delete controls on those pages.
-        ["saveBill","toggleBillPaid","deleteBill","saveExpense","deleteExpense"].forEach(function(fn){
-            try{ window[fn] = function(){}; }catch(e){}
-        });
+        // Bills & Expenses are READ-ONLY for a scoped partner. Writes are blocked CENTRALLY in
+        // dashboard.html (saveOneRecord/deleteOneRecord bail out for a scoped partner on the finance
+        // keys — refactor-proof), so here we only hide the add/edit/delete controls on those pages.
         try{
             var _roCss = document.createElement("style");
             _roCss.textContent = "#page-bills button[onclick^='openBillModal'],#page-bills .act,"
