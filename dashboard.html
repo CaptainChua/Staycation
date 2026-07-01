@@ -9951,43 +9951,53 @@ function hvAddAmen(){
 }
 function hvDelAmen(idx){ hvDraftAmen.splice(idx, 1); hvRenderChips(); }
 
+let _savingHaven = false;
 async function saveHaven(){
     if(hvEditIndex < 0) return;
-    const i = hvEditIndex;
-    const item = {
-        id: listings[i].id,
-        order: listings[i].order,                       // keep the haven's position through the edit
-        name: document.getElementById("hvName").value.trim() || "Untitled Haven",
-        image: document.getElementById("hvImg").value.trim(),
-        gallery: hvDraftGallery.map(s => s.trim()).filter(Boolean),
-        price: document.getElementById("hvPrice").value.trim(),
-        description: document.getElementById("hvDesc").value,
-        amenities: hvDraftAmen.map(s => s.trim()).filter(Boolean)
-    };
-    // PER-RECORD save: the server offloads every gallery/main-image photo to a durable ref,
-    // so the images are never lost and one haven's save can't overwrite the others.
-    const ok = await saveOneRecord("staycation_havens", item);
-    if(!ok){ alert("⚠️ The haven was NOT saved — the server didn't confirm (slow / offline). Please try again."); return; }
-    listings[i] = item;
-    setLocalKey("staycation_havens", listings);
-    logActivity(`edited haven listing — ${item.name}`);
-    closeHaven();
-    renderListings();
+    if(_savingHaven) return;   // block double-submit (redundant write + double log)
+    _savingHaven = true;
+    try{
+        const i = hvEditIndex;
+        const item = {
+            id: listings[i].id,
+            order: listings[i].order,                       // keep the haven's position through the edit
+            name: document.getElementById("hvName").value.trim() || "Untitled Haven",
+            image: document.getElementById("hvImg").value.trim(),
+            gallery: hvDraftGallery.map(s => s.trim()).filter(Boolean),
+            price: document.getElementById("hvPrice").value.trim(),
+            description: document.getElementById("hvDesc").value,
+            amenities: hvDraftAmen.map(s => s.trim()).filter(Boolean)
+        };
+        // PER-RECORD save: the server offloads every gallery/main-image photo to a durable ref,
+        // so the images are never lost and one haven's save can't overwrite the others.
+        const ok = await saveOneRecord("staycation_havens", item);
+        if(!ok){ alert("⚠️ The haven was NOT saved — the server didn't confirm (slow / offline). Please try again."); return; }
+        listings[i] = item;
+        setLocalKey("staycation_havens", listings);
+        logActivity(`edited haven listing — ${item.name}`);
+        closeHaven();
+        renderListings();
+    } finally { _savingHaven = false; }
 }
 
+let _deletingHaven = false;
 async function hvDeleteFromDrawer(){
     if(hvEditIndex < 0) return;
     const i = hvEditIndex;
     if(!confirm(`Delete "${listings[i].name}"? This removes it from the website.`)) return;
-    const name = listings[i].name;
-    const ok = await deleteOneRecord("staycation_havens", listings[i].id);
-    if(!ok){ alert("⚠️ Couldn't delete on the server (slow / offline). Please try again."); return; }
-    listings[i].deleted = true; listings[i].deletedAt = new Date().toISOString();   // kept on the server, just hidden
-    listings.splice(i, 1);         // hide from this view
-    setLocalKey("staycation_havens", listings);
-    logActivity(`deleted haven listing — ${name}`);
-    closeHaven();
-    renderListings();
+    if(_deletingHaven) return;   // block double-click (2nd delete would splice the wrong haven after the array shifts)
+    _deletingHaven = true;
+    try{
+        const id = listings[i].id, name = listings[i].name;
+        const ok = await deleteOneRecord("staycation_havens", id);
+        if(!ok){ alert("⚠️ Couldn't delete on the server (slow / offline). Please try again."); return; }
+        const idx = listings.findIndex(h => h.id === id);   // re-find by id (index may have shifted)
+        if(idx !== -1){ listings[idx].deleted = true; listings[idx].deletedAt = new Date().toISOString(); listings.splice(idx, 1); }
+        setLocalKey("staycation_havens", listings);
+        logActivity(`deleted haven listing — ${name}`);
+        closeHaven();
+        renderListings();
+    } finally { _deletingHaven = false; }
 }
 
 /* ---------- drag to reorder havens ---------- */
