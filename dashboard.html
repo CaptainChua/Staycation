@@ -2947,7 +2947,7 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
                 </div>
                 <div class="id-grid" id="idGrid"></div>
                 <label class="id-optout">
-                    <input type="checkbox" id="f_idOptOut" onchange="renderIdGrid()">
+                    <input type="checkbox" id="f_idOptOut" onchange="renderIdGrid();persistBookingIds();">
                     <span class="id-optout-txt">
                         <b>Guest will send IDs via Facebook instead</b>
                         <small>Skip uploads — verification handled in Messenger.</small>
@@ -5953,6 +5953,7 @@ function addIdsFromFiles(files){
         if(!dataUrl) return;
         idsData.push(dataUrl);
         renderIdGrid();
+        persistBookingIds();   // save this ID to the server NOW (per-record) — never wait for Save
     }));
 }
 function onIdFileChange(input){
@@ -5962,6 +5963,41 @@ function onIdFileChange(input){
 function removeId(i){
     idsData.splice(i, 1);
     renderIdGrid();
+    persistBookingIds();       // persist the removal per-record too
+}
+// Save guest IDs IMMEDIATELY & per-record (for existing bookings) so a later whole-array save from a
+// stale tab/device can never wipe them. A NEW booking's IDs are saved with its first create.
+let _idSaving = false, _idSaveAgain = false;
+async function persistBookingIds(){
+    if(typeof editingId === "undefined" || editingId == null) return;   // new booking → saved on create
+    if(_idSaving){ _idSaveAgain = true; return; }                       // coalesce rapid add/removes
+    _idSaving = true;
+    try{
+        // offload any base64 photos to durable /img refs first (tiny request; the image is never lost)
+        for(let i = 0; i < idsData.length; i++){
+            const v = idsData[i];
+            if(typeof v === "string" && v.indexOf("data:image") === 0){
+                try{
+                    const r = await fetch("/api/img", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ data: v }) });
+                    if(r.ok){ const j = await r.json(); if(j && j.url) idsData[i] = j.url; }
+                }catch(e){}
+            }
+        }
+        const idOptOut = document.getElementById("f_idOptOut").checked;
+        const r = await fetch("/api/booking/" + encodeURIComponent(editingId) + "/ids", {
+            method:"POST", headers:{"Content-Type":"application/json"},
+            body: JSON.stringify({ ids: idsData.slice(), idOptOut })
+        });
+        if(r.ok){
+            const idx = bookings.findIndex(b => b.id === editingId);
+            if(idx !== -1){ bookings[idx].ids = idsData.slice(); bookings[idx].idOptOut = idOptOut; }
+            setLocalKey(KEY, bookings);
+            renderIdGrid();
+        }
+    } finally {
+        _idSaving = false;
+        if(_idSaveAgain){ _idSaveAgain = false; persistBookingIds(); }
+    }
 }
 // paste an image (Ctrl/Cmd+V) while the IDs or Proof of Payment tab is open
 document.addEventListener("paste", e => {

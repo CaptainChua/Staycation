@@ -256,6 +256,28 @@ apiRouter.post("/booking/:id/deposit", async (req, res) => {
   }
 });
 
+// PER-RECORD guest-ID save. Writing the ids the moment they're uploaded (not deferred to the
+// whole-booking Save) means a stale whole-array save from another tab/device can't wipe them.
+// Photos should already be tiny /img refs (offloaded via /api/img) before being sent here.
+apiRouter.post("/booking/:id/ids", async (req, res) => {
+  const KEY = "shph_bookings_v3";
+  const id = req.params.id;
+  const ids = req.body && req.body.ids;
+  const idOptOut = req.body && req.body.idOptOut;
+  if (!Array.isArray(ids)) return res.status(400).json({ error: "ids must be an array" });
+  try {
+    const ok = await store.updateOneFresh(KEY, id, b => {
+      b.ids = ids;
+      if (typeof idOptOut === "boolean") b.idOptOut = idOptOut;
+    });
+    if (!ok) return res.status(404).json({ error: "booking not found" });
+    res.json({ ok: true });
+  } catch (e) {
+    console.error("[api] booking ids failed:", e.message);
+    res.status(502).json({ ok: false, error: "persist failed" });
+  }
+});
+
 // lightweight per-booking status change — cancel / reinstate / delete.
 // The browser only sends the id + action (tiny), so a quick refresh can't lose it
 // (unlike re-uploading the whole bookings array, which carries base64 images).
