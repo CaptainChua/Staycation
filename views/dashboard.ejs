@@ -7153,7 +7153,7 @@ async function confirmDepReturn(){
         // 2) PER-RECORD write — touches ONLY this booking (can't wipe other bookings' data)
         let ok = false;
         try{ const res = await fetch("/api/booking/" + encodeURIComponent(depReturnId) + "/deposit", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ set }) }); ok = res.ok; }catch(e){}
-        if(!ok){ alert("⚠️ The deposit return was NOT saved — the server didn't confirm (slow / offline).\n\nPlease check your internet and try again."); return; }
+        if(!ok){ alert("⚠️ The deposit return was NOT saved — the server didn't confirm (slow / offline). Please try again."); return; }
         // 3) reflect locally without a whole-array push
         Object.assign(b, set);
         b.updatedAt = new Date().toISOString();
