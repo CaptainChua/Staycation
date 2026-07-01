@@ -7826,15 +7826,21 @@ async function saveBill(){
     } finally { _savingBill = false; }
 }
 
+let _togglingBill = false;
 async function toggleBillPaid(id){
     const b = bills.find(x => x.id === id);
     if(!b) return;
-    const item = { ...b, paid: !b.paid };
-    const ok = await saveOneRecord(BILLS_KEY, item);
-    if(!ok){ alert("⚠️ Couldn't update on the server (slow / offline). Please try again."); return; }
-    b.paid = !b.paid;
-    setLocalKey(BILLS_KEY, bills);
-    renderBills();
+    if(_togglingBill) return;   // block double-click (a 2nd click would double-toggle local state out of sync)
+    _togglingBill = true;
+    try{
+        const newPaid = !b.paid;
+        const item = { ...b, paid: newPaid };
+        const ok = await saveOneRecord(BILLS_KEY, item);
+        if(!ok){ alert("⚠️ Couldn't update on the server (slow / offline). Please try again."); return; }
+        b.paid = newPaid;   // set to the value we actually sent — never re-toggle after the await
+        setLocalKey(BILLS_KEY, bills);
+        renderBills();
+    } finally { _togglingBill = false; }
 }
 let _deletingBill = false;
 async function deleteBill(id){
