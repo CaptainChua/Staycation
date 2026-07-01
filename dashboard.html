@@ -2544,6 +2544,18 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
                 <label>Notes <span class="muted" id="e_notes_hint">(optional)</span></label>
                 <input type="text" id="e_notes" placeholder="brand, supplier, details…">
             </div>
+            <div class="field full">
+                <label>Receipt <span class="muted">(photo — click, drag &amp; drop, or paste)</span></label>
+                <span class="proof-thumb" id="expReceiptThumb" style="display:none;">
+                    <img id="expReceiptImg" class="proof-img" alt="receipt" onclick="openProofImg(this.src)">
+                    <button type="button" class="proof-imgdel" title="Remove" onclick="clearExpReceipt()">✕</button>
+                </span>
+                <label class="proof-upload" id="expReceiptCard" data-proof="receipt">
+                    <span class="pu-ico"><svg viewBox="0 0 24 24"><path d="M12 16V5"/><path d="m7 10 5-5 5 5"/><path d="M5 19h14"/></svg></span>
+                    <span class="pu-body"><b>Upload receipt</b><small class="pu-name" id="expReceiptName">No file chosen</small></span>
+                    <input type="file" id="expReceiptFile" accept="image/*" onchange="onExpReceiptChange(this)">
+                </label>
+            </div>
         </div>
         <div class="modal-actions">
             <button class="btn secondary" onclick="closeExpenseModal()">Cancel</button>
@@ -7231,6 +7243,7 @@ function openExpenseModal(id){
         document.getElementById("e_amount").value = e.amount || 0;
         document.getElementById("e_date").value = e.date || iso(today());
         document.getElementById("e_notes").value = e.notes || "";
+        if(e.receipt) setExpReceipt(e.receipt); else clearExpReceipt();
     } else {
         document.getElementById("expModalTitle").textContent = "Add Expense";
         typeSel.selectedIndex = 0;
@@ -7238,11 +7251,53 @@ function openExpenseModal(id){
         document.getElementById("e_amount").value = "";
         document.getElementById("e_date").value = iso(today());
         document.getElementById("e_notes").value = "";
+        clearExpReceipt();
     }
     toggleExpNotesHint();
     document.getElementById("expenseOverlay").classList.add("show");
 }
 function closeExpenseModal(){ editingExpenseId = null; document.getElementById("expenseOverlay").classList.remove("show"); }
+
+// ---- receipt photo for an expense (click / drag-drop / paste) ----
+let expReceiptData = null;   // base64 (or /img ref) of the attached receipt; offloaded on save
+function onExpReceiptChange(input){ if(input.files && input.files[0]) applyExpReceipt(input.files[0]); }
+function applyExpReceipt(f){
+    if(!f || !/^image\//.test(f.type)) return;
+    document.getElementById("expReceiptName").textContent = f.name || "Photo attached";
+    compressImageTo(f, idMaxBytes, dataUrl => {
+        if(dataUrl){ setExpReceipt(dataUrl); return; }
+        const r = new FileReader(); r.onload = e => setExpReceipt(e.target.result); r.readAsDataURL(f);   // couldn't decode → keep original
+    });
+}
+function setExpReceipt(dataUrl){
+    expReceiptData = dataUrl;
+    const img = document.getElementById("expReceiptImg"), thumb = document.getElementById("expReceiptThumb"), nm = document.getElementById("expReceiptName");
+    if(img) img.src = dataUrl;
+    if(thumb) thumb.style.display = "inline-block";
+    if(nm) nm.textContent = "Photo attached ✓";
+}
+function clearExpReceipt(){
+    expReceiptData = null;
+    const thumb = document.getElementById("expReceiptThumb"), img = document.getElementById("expReceiptImg"), nm = document.getElementById("expReceiptName"), fi = document.getElementById("expReceiptFile");
+    if(thumb) thumb.style.display = "none";
+    if(img) img.src = "";
+    if(nm) nm.textContent = "No file chosen";
+    if(fi) fi.value = "";
+}
+(function initExpReceipt(){
+    const card = document.getElementById("expReceiptCard");
+    if(card){
+        card.addEventListener("dragover", e => { e.preventDefault(); card.classList.add("drag"); });
+        card.addEventListener("dragleave", e => { if(!card.contains(e.relatedTarget)) card.classList.remove("drag"); });
+        card.addEventListener("drop", e => { e.preventDefault(); card.classList.remove("drag"); const f = e.dataTransfer && e.dataTransfer.files; if(f && f.length) applyExpReceipt(f[0]); });
+    }
+    document.addEventListener("paste", e => {
+        const ov = document.getElementById("expenseOverlay");
+        if(!ov || !ov.classList.contains("show")) return;   // only while the Add/Edit Expense modal is open
+        const items = (e.clipboardData && e.clipboardData.items) || [];
+        for(const it of items){ if(it.type && it.type.indexOf("image") === 0){ const f = it.getAsFile(); if(f){ applyExpReceipt(f); e.preventDefault(); } break; } }
+    });
+})();
 
 function saveExpense(){
     const type   = document.getElementById("e_type").value;
@@ -7252,7 +7307,7 @@ function saveExpense(){
     const haven  = document.getElementById("e_haven") ? document.getElementById("e_haven").value : "";
     if(amount <= 0){ alert("Please enter an amount."); return; }
     if(!date){ alert("Please pick a date."); return; }
-    const data = { type, amount, date, notes, haven };
+    const data = { type, amount, date, notes, haven, receipt: expReceiptData || null };
     if(editingExpenseId){
         const idx = expenses.findIndex(x => x.id === editingExpenseId);
         if(idx !== -1) expenses[idx] = { ...expenses[idx], ...data };
@@ -7264,6 +7319,7 @@ function saveExpense(){
     }
     persistExpenses(); closeExpenseModal(); renderExpenses();
 }
+function viewExpReceipt(id){ const e = expenses.find(x => x.id === id); if(e && e.receipt) openProofImg(e.receipt); }
 function deleteExpense(id){
     const e = expenses.find(x => x.id === id);
     if(!confirm("Delete this expense?")) return;
@@ -7321,7 +7377,7 @@ function renderExpenses(){
                     <td><span class="exp-type">${escHtml(e.type || "")}</span></td>
                     <td>${e.haven ? escHtml(e.haven) : '<span class="muted">—</span>'}</td>
                     <td><strong>${peso(e.amount || 0)}</strong></td>
-                    <td>${e.notes ? `<span class="exp-note">${escHtml(e.notes)}</span>` : '<span class="muted">—</span>'}</td>
+                    <td>${e.notes ? `<span class="exp-note">${escHtml(e.notes)}</span>` : '<span class="muted">—</span>'}${e.receipt ? ` &nbsp;<span class="reinstate" style="font-size:12px;" onclick="viewExpReceipt(${e.id})">📎 receipt</span>` : ""}</td>
                     <td class="col-actions">
                         <span class="act edit" onclick="openExpenseModal(${e.id})">Edit</span>
                         <span class="act del" onclick="deleteExpense(${e.id})">Delete</span>
