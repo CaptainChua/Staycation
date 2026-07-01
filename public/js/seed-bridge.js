@@ -62,6 +62,33 @@
   var lastErr = {};   // key -> human reason the last save attempt failed
   var banner = null;
 
+  // ---- localStorage-full (quota) handling --------------------------------
+  // When the browser's localStorage is full, setItem throws. We must NOT let that
+  // silently drop a write: detect it, warn the user, and still push the value to the
+  // server (so the data is safe even though this device can't mirror it locally).
+  function isQuotaError(e) {
+    return !!e && (e.name === "QuotaExceededError" || e.name === "NS_ERROR_DOM_QUOTA_REACHED" || e.code === 22 || e.code === 1014);
+  }
+  var quotaBanner = null;
+  function warnQuota() {
+    try {
+      if (!quotaBanner && document.body) {
+        quotaBanner = document.createElement("div");
+        quotaBanner.style.cssText = "position:fixed;left:0;right:0;top:0;z-index:2147483647;background:#8a1020;color:#fff;font:600 13px/1.45 system-ui,Segoe UI,Arial,sans-serif;padding:11px 16px;text-align:center;box-shadow:0 2px 12px rgba(0,0,0,.25)";
+        document.body.appendChild(quotaBanner);
+      }
+      if (quotaBanner) {
+        quotaBanner.textContent = "⚠️ This browser's storage is FULL. Your changes are still being sent to the server, but this device can't keep a local copy — close old tabs or clear browser data, then reload.";
+        quotaBanner.style.display = "block";
+      }
+    } catch (e) {}
+  }
+  // set a local key, surfacing (not swallowing) a quota failure. Returns true on success.
+  function safeSet(key, value) {
+    try { localStorage.setItem(key, value); return true; }
+    catch (e) { if (isQuotaError(e)) warnQuota(); return false; }
+  }
+
   // Mirror the unconfirmed queue to localStorage so a refresh / crash / closed
   // laptop can't lose an in-flight save: on the next load we replay it and keep
   // retrying. Merge keys (bookings, etc.) are NOT mirrored here — their own
@@ -236,11 +263,11 @@
         if (b.updatedAt && (!s.updatedAt || String(b.updatedAt) > String(s.updatedAt))) { byId[id] = b; changed = true; }
       });
       var merged = order.map(function (id) { return byId[id]; });
-      try { localStorage.setItem(k, JSON.stringify(merged)); } catch (e) {}   // setItem isn't wrapped yet → no push here
+      safeSet(k, JSON.stringify(merged));   // setItem isn't wrapped yet → no push here; surfaces quota
       if (changed) push(k, JSON.stringify(merged));   // re-send anything the server is missing or has an older copy of
       return;
     }
-    if (sv != null) { try { localStorage.setItem(k, JSON.stringify(sv)); } catch (e) {} }
+    if (sv != null) { safeSet(k, JSON.stringify(sv)); }
   });
 
   var proto = window.Storage && window.Storage.prototype;
@@ -249,7 +276,12 @@
     var _remove = proto.removeItem;
 
     proto.setItem = function (key, value) {
-      _set.apply(this, arguments);
+      try {
+        _set.apply(this, arguments);
+      } catch (err) {
+        if (!isQuotaError(err)) throw err;   // unknown failure → don't hide it
+        warnQuota();                          // storage full: warn the user, but still mirror to the server below
+      }
       // only mirror the real localStorage (not sessionStorage) and only shared keys
       // (_suppressPush is set while we rewrite a key with offloaded image refs — that
       //  rewrite is queued explicitly, so we must not double-queue it here)
@@ -268,8 +300,16 @@
   //    closed/refreshed/crashed — replay it so it keeps retrying until saved. (Merge
   //    keys like bookings are already recovered by prime-merge above; this covers the
   //    rest — settings, cleaning, pool pass, guest forms, partner board, etc.)
+  var unsynced = {};
   try {
-    var unsynced = JSON.parse(localStorage.getItem(PERSIST_KEY) || "{}") || {};
+    unsynced = JSON.parse(localStorage.getItem(PERSIST_KEY) || "{}") || {};
+  } catch (e) {
+    // a CORRUPTED queue must not block recovery or linger forever — log and clear the bad key
+    try { console.error("[sync] unsynced queue was corrupted — clearing it:", e && e.message); } catch (e2) {}
+    try { localStorage.removeItem(PERSIST_KEY); } catch (e3) {}
+    unsynced = {};
+  }
+  try {
     Object.keys(unsynced).forEach(function (k) {
       if (!isShared(k) || typeof unsynced[k] !== "string") return;
       try { localStorage.setItem(k, unsynced[k]); } catch (e) {}   // wrapped setItem → restores the local copy AND re-queues the push
