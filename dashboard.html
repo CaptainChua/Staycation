@@ -6939,13 +6939,17 @@ function setDepQuick(which){
     renderDeposit();
 }
 // undo a return — clears the proof so re-marking requires a fresh photo
-function undoDeposit(id){
+async function undoDeposit(id){
     const b = bookings.find(x => x.id === id);
     if(!b) return;
+    const del = ["depositProof","depositReturnedAt","depositReturnedBy","depositDeductReason","depositDeductAmount","depositDeductNote","depositRefundAmount"];
+    let ok = false;
+    try{ const res = await fetch("/api/booking/" + encodeURIComponent(id) + "/deposit", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ set:{ depositReturned:false }, del }) }); ok = res.ok; }catch(e){}
+    if(!ok){ alert("⚠️ Couldn't undo on the server (slow / offline). Please try again."); return; }
     b.depositReturned = false;
-    delete b.depositProof; delete b.depositReturnedAt; delete b.depositReturnedBy;
-    delete b.depositDeductReason; delete b.depositDeductAmount; delete b.depositDeductNote; delete b.depositRefundAmount;
-    save(bookings);
+    del.forEach(k => delete b[k]);
+    b.updatedAt = new Date().toISOString();
+    try{ (window.shphSetLocal || localStorage.setItem.bind(localStorage))(KEY, JSON.stringify(bookings)); }catch(e){}
     logActivity(`un-returned security deposit — ${b.haven} (${primaryName(b)})`);
     renderDeposit();
 }
@@ -7010,7 +7014,9 @@ function applyDepProof(f){
     });
 }
 function onDepProofChange(input){ if(input.files[0]) applyDepProof(input.files[0]); }
-function confirmDepReturn(){
+let _depSaving = false;
+async function confirmDepReturn(){
+    if(_depSaving) return;   // block double-clicks
     if(depReturnId == null) return;
     if(!depProofData){ alert("Please attach a photo of the refunded security deposit first."); return; }
     const b = bookings.find(x => x.id === depReturnId);
@@ -7018,20 +7024,34 @@ function confirmDepReturn(){
     const reason = document.getElementById("depDeduct").value;
     const cost = reason ? (Number(document.getElementById("depDeductAmt").value) || 0) : 0;
     const refund = Math.max(0, Number(b.deposit || 0) - cost);
-    b.depositReturned = true;
-    b.depositProof = depProofData;
-    b.depositMop = document.getElementById("depMop").value;
-    b.depositDeductReason = reason || "";
-    b.depositDeductAmount = cost;
-    b.depositDeductNote = reason === "Others" ? document.getElementById("depDeductNote").value.trim() : "";
-    b.depositRefundAmount = refund;
-    b.depositReturnedAt = new Date().toISOString();
-    b.depositReturnedBy = currentUser();
-    save(bookings);
-    const dedTxt = cost > 0 ? ` (−${peso(cost)} ${reason})` : "";
-    logActivity(`returned security deposit — ${b.haven} (${primaryName(b)}) · refunded ${peso(refund)}${dedTxt} via ${b.depositMop}`);
-    closeDepReturn();
-    renderDeposit();
+    _depSaving = true;
+    try{
+        // 1) offload the refund-proof photo to a tiny /img link
+        let proofRef = depProofData;
+        if(depProofData && depProofData.indexOf("data:image") === 0){
+            try{ const r = await fetch("/api/img", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ data: depProofData }) }); if(r.ok){ const j = await r.json(); if(j && j.url) proofRef = j.url; } }catch(e){}
+        }
+        const set = {
+            depositReturned: true, depositProof: proofRef,
+            depositMop: document.getElementById("depMop").value,
+            depositDeductReason: reason || "", depositDeductAmount: cost,
+            depositDeductNote: reason === "Others" ? document.getElementById("depDeductNote").value.trim() : "",
+            depositRefundAmount: refund,
+            depositReturnedAt: new Date().toISOString(), depositReturnedBy: currentUser()
+        };
+        // 2) PER-RECORD write — touches ONLY this booking (can't wipe other bookings' data)
+        let ok = false;
+        try{ const res = await fetch("/api/booking/" + encodeURIComponent(depReturnId) + "/deposit", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ set }) }); ok = res.ok; }catch(e){}
+        if(!ok){ alert("⚠️ The deposit return was NOT saved — the server didn't confirm (slow / offline).\n\nPlease check your internet and try again."); return; }
+        // 3) reflect locally without a whole-array push
+        Object.assign(b, set);
+        b.updatedAt = new Date().toISOString();
+        try{ (window.shphSetLocal || localStorage.setItem.bind(localStorage))(KEY, JSON.stringify(bookings)); }catch(e){}
+        const dedTxt = cost > 0 ? ` (−${peso(cost)} ${reason})` : "";
+        logActivity(`returned security deposit — ${b.haven} (${primaryName(b)}) · refunded ${peso(refund)}${dedTxt} via ${set.depositMop}`);
+        closeDepReturn();
+        renderDeposit();
+    } finally { _depSaving = false; }
 }
 // drag & drop onto the refund-proof card
 (function initDepDnd(){

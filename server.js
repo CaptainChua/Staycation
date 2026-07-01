@@ -169,6 +169,28 @@ apiRouter.post("/booking/:id/payment", async (req, res) => {
   }
 });
 
+// PER-RECORD deposit-return write — sets/clears the deposit fields on ONE booking,
+// transactionally. Same protection as payments: marking a deposit returned can never wipe
+// another booking. The refund photo should already be a tiny /img ref (offloaded via /api/img).
+apiRouter.post("/booking/:id/deposit", async (req, res) => {
+  const KEY = "shph_bookings_v3";
+  const id = req.params.id;
+  const set = req.body && req.body.set;   // fields to set (e.g. depositReturned + proof + refund)
+  const del = req.body && req.body.del;   // field names to delete (for undo)
+  if (!set && !del) return res.status(400).json({ error: "nothing to change" });
+  try {
+    const ok = await store.updateOneFresh(KEY, id, b => {
+      if (Array.isArray(del)) del.forEach(k => delete b[k]);
+      if (set && typeof set === "object") Object.assign(b, set);
+    });
+    if (!ok) return res.status(404).json({ error: "booking not found" });
+    res.json({ ok: true });
+  } catch (e) {
+    console.error("[api] booking deposit failed:", e.message);
+    res.status(502).json({ ok: false, error: "persist failed" });
+  }
+});
+
 // lightweight per-booking status change — cancel / reinstate / delete.
 // The browser only sends the id + action (tiny), so a quick refresh can't lose it
 // (unlike re-uploading the whole bookings array, which carries base64 images).
