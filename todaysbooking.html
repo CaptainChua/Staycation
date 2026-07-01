@@ -946,7 +946,8 @@
 
   /* ---------- data ---------- */
   function loadBookings(){
-    try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch(e){ return []; }
+    try { return (JSON.parse(localStorage.getItem(KEY)) || []).filter(b => b && !b.deleted); }   // soft-deleted bookings stay on the server, hidden here (matches the dashboard)
+    catch(e){ return []; }
   }
   let bookings = loadBookings();
   _seedBkSig(bookings);   // baseline = the loaded state (prevents stale re-stamping)
