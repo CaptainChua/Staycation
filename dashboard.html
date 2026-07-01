@@ -7806,7 +7806,8 @@ function renderBillsStatement(haven, month){
         (!haven || b.haven === haven) &&
         (!month || (b.checkin && b.checkin.slice(0, 7) === month))
     );
-    const earned = earnScope.reduce((s, b) => s + Number(b.downpayment || 0), 0);
+    // exclude cancelled bookings and ones whose downpayment was refunded — consistent with the rest of the app's accounting
+    const earned = earnScope.filter(b => !b.cancelled && !b.dpRefunded).reduce((s, b) => s + Number(b.downpayment || 0), 0);
     const net = earned - pending;
 
     const scopeBits = [haven || "all havens"];
