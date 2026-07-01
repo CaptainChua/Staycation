@@ -221,7 +221,12 @@ function addToCalendar(b, proof){
     // refuse to write a booking that clashes with an existing one
     if(bookingConflicts(arr, b)) return false;
 
-    const nextId = arr.reduce((m, x) => Math.max(m, Number(x.id) || 0), 0) + 1;
+    // Internal id must be UNIQUE across concurrent guests — a shared Math.max+1 would let two
+    // simultaneous website bookings collide and one overwrite the other. Use a ms timestamp + random
+    // (safe integer). The human-friendly SH-000x number stays sequential (a rare duplicate label is
+    // only cosmetic; the id keeps both bookings safe).
+    const nextId = Date.now() * 1000 + Math.floor(Math.random() * 1000);
+    const seqNo = arr.reduce((m, x) => { const mt = /^SH-0*(\d+)$/.exec(x.bookingNo || ""); return mt ? Math.max(m, Number(mt[1])) : m; }, 0) + 1;
     const guests = (b.guestDetails || []).map(g => ({ name: g.name, age: g.age != null ? g.age : 18 }));
     // derive stay hours / slot from the summary so the calendar bar lands correctly
     const stayHours = Number(b.stayHours) || parseInt(b.stayLabel, 10) || 21;
@@ -229,7 +234,7 @@ function addToCalendar(b, proof){
 
     arr.push({
         id: nextId,
-        bookingNo: "SH-" + String(nextId).padStart(4, "0"),
+        bookingNo: "SH-" + String(seqNo).padStart(4, "0"),
         haven: b.haven,
         contact: b.contact || "",
         guests: guests.length ? guests : [{ name: "Guest", age: 18 }],

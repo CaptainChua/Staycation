@@ -6387,15 +6387,14 @@ function saveBooking(){
             logActivity(`edited booking — ${data.haven} (${primaryName(data)})`);
         }
     } else {
-        const newId = bookings.length ? Math.max(...bookings.map(b => b.id)) + 1 : 1;
+        const newId = uid();                        // unique across browsers (no Math.max collision)
         bookings.push({ id:newId, ...data });
         _lastCreatedBookingId = newId;
         logActivity(`added booking — ${data.haven} (${primaryName(data)})`);
     }
     // append the linked haven segments as their own bookings
     if(segDatas.length){
-        let nextId = bookings.length ? Math.max(...bookings.map(b => b.id)) : 0;
-        segDatas.forEach(sd => { nextId += 1; bookings.push({ id: nextId, ...sd, groupId }); });
+        segDatas.forEach(sd => { bookings.push({ id: uid(), ...sd, groupId }); });
         logActivity(`linked ${segDatas.length} more haven(s) to this stay — ${segDatas.map(s => s.haven).join(", ")}`);
     }
     save(bookings);
@@ -7273,6 +7272,17 @@ async function deleteOneRecord(key, id){
     try{ const res = await fetch("/api/list/" + encodeURIComponent(key), { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ del: id }) }); return res.ok; }catch(e){ return false; }
 }
 function setLocalKey(key, val){ try{ (window.shphSetLocal || localStorage.setItem.bind(localStorage))(key, JSON.stringify(val)); }catch(e){} }
+// Collision-resistant record id. `Math.max(...ids)+1` makes two browsers generate the SAME id at
+// once, so a per-record save silently overwrites the other user's new record. A millisecond stamp
+// (×1000) plus 3 random digits, kept strictly increasing within this tab, makes that practically
+// impossible. Stays a safe integer (Date.now()*1000 ≈ 1.8e15 < 9.0e15) so all id math still works.
+let _uidLast = 0;
+function uid(){
+    let t = Date.now() * 1000 + Math.floor(Math.random() * 1000);
+    if(t <= _uidLast) t = _uidLast + 1;   // never repeat within a burst (e.g. linked haven segments)
+    _uidLast = t;
+    return t;
+}
 function expMonthKey(d){ return (d || "").slice(0, 7); }                 // "YYYY-MM"
 function expMonthLabel(m){ return new Date(m + "-01T00:00:00").toLocaleDateString("en-PH", { month:"long", year:"numeric" }); }
 
@@ -7364,7 +7374,7 @@ async function saveExpense(){
     const data = { type, amount, date, notes, haven, receipt: expReceiptData || null };
     let item;
     if(editingExpenseId){ const cur = expenses.find(x => x.id === editingExpenseId) || {}; item = { ...cur, ...data, id: editingExpenseId }; }
-    else { const newId = expenses.length ? Math.max(...expenses.map(x => x.id)) + 1 : 1; item = { id:newId, ...data }; }
+    else { item = { id: uid(), ...data }; }
     const ok = await saveOneRecord(EXPENSES_KEY, item);   // per-record — can't overwrite other expenses
     if(!ok){ alert("⚠️ The expense was NOT saved — the server didn't confirm (slow / offline). Please try again."); return; }
     if(editingExpenseId){ const idx = expenses.findIndex(x => x.id === editingExpenseId); if(idx !== -1) expenses[idx] = item; logActivity(`edited expense — ${type} ${peso(amount)}`); }
@@ -7684,7 +7694,7 @@ async function saveBill(){
 
     let item;
     if(editingBillId){ const cur = bills.find(b => b.id === editingBillId) || {}; item = { ...cur, ...data, id: editingBillId }; }
-    else { const newId = bills.length ? Math.max(...bills.map(b => b.id)) + 1 : 1; item = { id:newId, ...data }; }
+    else { item = { id: uid(), ...data }; }
     const ok = await saveOneRecord(BILLS_KEY, item);   // per-record — offloads photos, can't overwrite other bills
     if(!ok){ alert("⚠️ The bill was NOT saved — the server didn't confirm (slow / offline). Please try again."); return; }
     if(editingBillId){ const idx = bills.findIndex(b => b.id === editingBillId); if(idx !== -1) bills[idx] = item; }
@@ -7812,7 +7822,7 @@ staff.forEach(s => {
 });
 if(!localStorage.getItem("shph_commission_seeded")){
     if(!staff.some(s => s.role === "COMMISSION")){
-        const nid = staff.length ? Math.max(...staff.map(s => s.id)) + 1 : 1;
+        const nid = uid();
         staff.push({ id:nid, name:"Shiemmain Rose Bierneza", role:"COMMISSION", benefits:{ pagibig:0, loans:0 }, days:[] });
         staffChanged = true;
     }
@@ -8395,7 +8405,7 @@ function saveStaff(){
         const idx = staff.findIndex(s => s.id === editingStaffId);
         if(idx !== -1){ staff[idx] = { ...staff[idx], ...data }; addStaffLog(staff[idx], "Edited staff info"); }
     } else {
-        const id = staff.length ? Math.max(...staff.map(s => s.id)) + 1 : 1;
+        const id = uid();
         const ns = { id, ...data, days:[] };
         addStaffLog(ns, "Staff added");
         staff.push(ns);
@@ -9871,7 +9881,7 @@ function saveListings(){
 }
 
 function addListing(){
-    const nextId = listings.reduce((m, h) => Math.max(m, h.id), 0) + 1;
+    const nextId = uid();
     listings.push({
         id: nextId,
         name: "New Haven",
@@ -10440,7 +10450,7 @@ function saveUser(){
         users[idx] = { ...users[idx], name, password, admin, perms };
         logActivity(`edited user — ${name}`);
     } else {
-        const id = users.length ? Math.max(...users.map(u => u.id)) + 1 : 1;
+        const id = uid();
         users.push({ id, name, password, admin, perms });
         logActivity(`added user — ${name}`);
     }

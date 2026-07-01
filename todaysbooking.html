@@ -1950,7 +1950,8 @@
     if(!data.haven){ alert("Please choose a haven."); return; }
     const clash = findConflict(data, null);
     if(clash){ alert(`${data.haven} is already booked for those dates by ${(clash.guests && clash.guests[0] && clash.guests[0].name) || "another guest"}.`); return; }
-    const newId = bookings.length ? Math.max(...bookings.map(b => b.id)) + 1 : 1;
+    // unique across browsers (Math.max+1 would let two concurrent creators collide and overwrite)
+    const newId = Date.now() * 1000 + Math.floor(Math.random() * 1000);
     bookings.push({ id:newId, ...data });
     saveBookings(bookings);
     confirmBookingSaved(newId);   // verify it reached the server; warns if not
