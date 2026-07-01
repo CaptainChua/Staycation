@@ -278,6 +278,24 @@ apiRouter.post("/booking/:id/ids", async (req, res) => {
   }
 });
 
+// PER-RECORD field patch for a booking. Applies ONLY the given fields to the LIVE record inside a
+// transaction (Object.assign), so editing a booking's dates/notes/etc. can never wipe fields owned
+// by other per-record paths (payments, ids, deposit-return) or clobber another device's edit.
+apiRouter.post("/booking/:id/patch", async (req, res) => {
+  const KEY = "shph_bookings_v3";
+  const id = req.params.id;
+  const set = req.body && req.body.set;
+  if (!set || typeof set !== "object" || Array.isArray(set)) return res.status(400).json({ error: "nothing to change" });
+  try {
+    const ok = await store.updateOneFresh(KEY, id, b => { Object.assign(b, set); });
+    if (!ok) return res.status(404).json({ error: "booking not found" });
+    res.json({ ok: true });
+  } catch (e) {
+    console.error("[api] booking patch failed:", e.message);
+    res.status(502).json({ ok: false, error: "persist failed" });
+  }
+});
+
 // lightweight per-booking status change — cancel / reinstate / delete.
 // The browser only sends the id + action (tiny), so a quick refresh can't lose it
 // (unlike re-uploading the whole bookings array, which carries base64 images).

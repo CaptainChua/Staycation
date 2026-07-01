@@ -6268,7 +6268,20 @@ function openProofImg(src){
     document.getElementById("imgLightbox").classList.add("show");
 }
 
-function saveBooking(){
+// offload one base64 image to a durable /img ref (tiny + never lost); returns the ref or the input
+async function _offloadImg(v){
+    if(typeof v !== "string" || v.indexOf("data:image") !== 0) return v;
+    try{ const r = await fetch("/api/img", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ data: v }) }); if(r.ok){ const j = await r.json(); if(j && j.url) return j.url; } }catch(e){}
+    return v;   // fall back to base64 — the server still stores it; never dropped
+}
+// patch ONLY the given fields of one booking on the LIVE server record (preserves everything else)
+async function patchBooking(id, set){
+    try{ const r = await fetch(`/api/booking/${encodeURIComponent(id)}/patch`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ set }) }); return r.ok; }catch(e){ return false; }
+}
+// keep the local record's edit-time + change signature in step with a per-record server write
+function _stampLocal(b){ try{ b.updatedAt = new Date().toISOString(); if(_bkSig && typeof _bkCanon === "function") _bkSig[String(b.id)] = _bkCanon(b); }catch(e){} }
+let _savingBooking = false;
+async function saveBooking(){
     const guests = readGuests();
     const checkin = document.getElementById("f_checkin").value;
     const checkout = document.getElementById("f_checkout").value;
@@ -6422,38 +6435,62 @@ function saveBooking(){
         data.groupId = groupId;
     }
 
-    if(editingId){
-        const idx = bookings.findIndex(b => b.id === editingId);
-        if(idx !== -1){
-            bookings[idx] = { ...bookings[idx], ...data };
-            // replace the latest BALANCE collection's proof photo if a new one was chosen
+    // ---- PERSIST PER-RECORD (never a whole-array write) so a stale save from another tab/device
+    // can't clobber this booking, and its fields owned elsewhere (payments, IDs, deposit-return)
+    // are preserved. Proof photos are offloaded to durable refs first. ----
+    if(_savingBooking) return;
+    _savingBooking = true;
+    try{
+        // offload the booking-level proof photos to /img refs (tiny request; image never lost)
+        data.downProof   = await _offloadImg(data.downProof);
+        data.addonProof  = await _offloadImg(data.addonProof);
+        data.extendProof = await _offloadImg(data.extendProof);
+        data.balanceProof= await _offloadImg(data.balanceProof);
+
+        if(editingId){
+            const idx = bookings.findIndex(b => b.id === editingId);
+            if(idx === -1){ _savingBooking = false; return; }
+            // patch = form-owned fields ONLY. Never send ids/idOptOut (saved per-record on upload) or
+            // payments (their own endpoint) — leaving them out preserves them on the live record.
+            const patch = { ...data };
+            delete patch.ids; delete patch.idOptOut;
+            const ok = await patchBooking(editingId, patch);
+            if(!ok){ alert("⚠️ The booking was NOT saved — the server didn't confirm (slow / offline). Please try again."); _savingBooking = false; return; }
+            bookings[idx] = { ...bookings[idx], ...patch };
+            _stampLocal(bookings[idx]);
+            // if a new BALANCE proof photo was chosen, update that ONE payment per-record too
             if(balProofDirty && balProofData){
+                const ref = await _offloadImg(balProofData);
                 const pays = bookings[idx].payments || [];
-                let target = null;
-                for(let k = pays.length - 1; k >= 0; k--){ if((pays[k].category || "Balance") !== "Add Ons"){ target = pays[k]; break; } }
-                if(target){
-                    target.proof = balProofData;
-                    target.editedAt = new Date().toISOString();
-                    target.editedBy = currentUser();
+                let k = -1; for(let j = pays.length - 1; j >= 0; j--){ if((pays[j].category || "Balance") !== "Add Ons"){ k = j; break; } }
+                if(k !== -1){
+                    pays[k] = { ...pays[k], proof: ref, editedAt: new Date().toISOString(), editedBy: currentUser() };
+                    try{ await fetch(`/api/booking/${encodeURIComponent(editingId)}/payment`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ payment: pays[k], editIndex: k }) }); }catch(e){}
                 }
             }
             logActivity(`edited booking — ${data.haven} (${primaryName(data)})`);
+        } else {
+            const rec = { id: uid(), ...data };          // unique id; upsertOne offloads its images (ids)
+            const ok = await saveOneRecord("shph_bookings_v3", rec);
+            if(!ok){ alert("⚠️ The booking was NOT saved — the server didn't confirm (slow / offline). Please try again."); _savingBooking = false; return; }
+            bookings.push(rec); _lastCreatedBookingId = rec.id; _stampLocal(rec);
+            logActivity(`added booking — ${data.haven} (${primaryName(data)})`);
         }
-    } else {
-        const newId = uid();                        // unique across browsers (no Math.max collision)
-        bookings.push({ id:newId, ...data });
-        _lastCreatedBookingId = newId;
-        logActivity(`added booking — ${data.haven} (${primaryName(data)})`);
+        // linked haven segments → each its own per-record booking
+        if(segDatas.length){
+            for(const sd of segDatas){
+                const rec = { id: uid(), ...sd, groupId };
+                const ok = await saveOneRecord("shph_bookings_v3", rec);
+                if(ok){ bookings.push(rec); _stampLocal(rec); }
+            }
+            logActivity(`linked ${segDatas.length} more haven(s) to this stay — ${segDatas.map(s => s.haven).join(", ")}`);
+        }
+        setLocalKey(KEY, bookings);   // mirror locally WITHOUT a whole-array push
+        closeModal();
+        renderAll();
+    } finally {
+        _savingBooking = false;
     }
-    // append the linked haven segments as their own bookings
-    if(segDatas.length){
-        segDatas.forEach(sd => { bookings.push({ id: uid(), ...sd, groupId }); });
-        logActivity(`linked ${segDatas.length} more haven(s) to this stay — ${segDatas.map(s => s.haven).join(", ")}`);
-    }
-    save(bookings);
-    if(!editingId) confirmBookingSaved(_lastCreatedBookingId);   // verify a NEW booking reached the server
-    closeModal();
-    renderAll();
 }
 
 function logout(){
