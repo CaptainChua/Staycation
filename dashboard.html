@@ -7806,8 +7806,9 @@ function renderBillsStatement(haven, month){
         (!haven || b.haven === haven) &&
         (!month || (b.checkin && b.checkin.slice(0, 7) === month))
     );
-    // exclude cancelled bookings and ones whose downpayment was refunded — consistent with the rest of the app's accounting
-    const earned = earnScope.filter(b => !b.cancelled && !b.dpRefunded).reduce((s, b) => s + Number(b.downpayment || 0), 0);
+    // exclude ONLY downpayments that were refunded. A non-refundable cancellation keeps the DP as real
+    // revenue (dpRefunded stays false), so it still counts — same rule Finance/Analytics use (netCollectedOf).
+    const earned = earnScope.filter(b => !b.dpRefunded).reduce((s, b) => s + Number(b.downpayment || 0), 0);
     const net = earned - pending;
 
     const scopeBits = [haven || "all havens"];
