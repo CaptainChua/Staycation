@@ -3722,7 +3722,7 @@ function bkMatchesSearch(b, q){
     if(!q) return true;
     q = String(q).toLowerCase().trim();
     return guestNames(b).toLowerCase().includes(q)
-        || String(b.code || "").toLowerCase().includes(q)
+        || bookingCode(b).toLowerCase().includes(q)
         || String(b.id || "").includes(q)
         || String(b.bookingNo || "").toLowerCase().includes(q)
         || String(b.fbName || "").toLowerCase().includes(q)
@@ -7430,18 +7430,19 @@ function setLocalKey(key, val){ try{ (window.shphSetLocal || localStorage.setIte
 // must stay unchanged — every per-record save matches on it). Generated ONCE per booking from an
 // unambiguous charset (no I/L/O/0/1), checked unique against existing codes, and persisted per-record
 // so it's stable forever.
-function genBookingCode(){ const CH = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; let c = ""; for(let i=0;i<6;i++) c += CH.charAt(Math.floor(Math.random()*CH.length)); return c; }
-function bookingCode(b){
-    if(!b) return "";
-    if(b.code) return b.code;
-    const used = new Set(bookings.map(x => x && x.code).filter(Boolean));
-    let c, t = 0; do{ c = genBookingCode(); t++; }while(used.has(c) && t < 50);
-    b.code = c;
-    const idx = bookings.findIndex(x => x.id === b.id);
-    if(idx !== -1){ bookings[idx].code = c; setLocalKey(KEY, bookings); }
-    try{ patchBooking(b.id, { code: c }); }catch(e){}   // persist so the code never changes
+// Booking code = a short, STABLE, unique code DERIVED from the (already-unique) booking id — a hash,
+// so it is IDENTICAL on the Edit header, the confirmation card, and the PDF, and can NEVER change.
+// No randomness, no storage, no regeneration: same id → same 6-char code, forever.
+function deriveCode(id){
+    const CH = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";   // 30 unambiguous chars (no I/L/O/0/1)
+    let h = 2166136261 >>> 0;                        // FNV-1a hash of the id
+    const s = String(id == null ? "" : id);
+    for(let i=0;i<s.length;i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+    let c = "";
+    for(let i=0;i<6;i++){ c += CH.charAt(h % CH.length); h = Math.imul(h ^ (h >>> 13), 2654435761) >>> 0; }
     return c;
 }
+function bookingCode(b){ return (b && b.id != null) ? deriveCode(b.id) : ""; }
 // Collision-resistant record id. `Math.max(...ids)+1` makes two browsers generate the SAME id at
 // once, so a per-record save silently overwrites the other user's new record. A millisecond stamp
 // (×1000) plus 3 random digits, kept strictly increasing within this tab, makes that practically
