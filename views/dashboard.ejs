@@ -2454,6 +2454,8 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
   #page-bills .act{ font-size:13px; font-weight:600; cursor:pointer; margin-left:16px; }
   #page-bills .act.markpaid{ color:#2e7d4f; display:inline-flex; align-items:center; gap:5px; }
   #page-bills .act.markpaid svg{ width:15px; height:15px; stroke:currentColor; fill:none; stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round; }
+  #page-bills .act.view{ color:#7a7266; display:inline-flex; align-items:center; gap:5px; }
+  #page-bills .act.view svg{ width:15px; height:15px; stroke:currentColor; fill:none; stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round; }
   #page-bills .act.edit{ color:var(--hv-terra-d); }
   #page-bills .act.del{ color:#c0283d; }
 </style>
@@ -3182,6 +3184,16 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
         <div class="modal-actions">
             <button class="btn secondary" onclick="closeMarkPaid()">Cancel</button>
             <button class="btn" id="paidConfirmBtn" onclick="confirmMarkPaid()" disabled>Mark as Paid</button>
+        </div>
+    </div>
+</div>
+
+<div class="overlay" id="billViewOverlay">
+    <div class="modal" style="width:460px;">
+        <h2 id="billViewTitle">Bill details</h2>
+        <div id="billViewBody" style="margin-top:6px;"></div>
+        <div class="modal-actions">
+            <button class="btn secondary" onclick="closeBillView()">Close</button>
         </div>
     </div>
 </div>
@@ -7721,6 +7733,7 @@ function billTableHtml(rows){
             <td><span class="status ${st}">${stLabel}</span></td>
             <td class="col-actions">
                 ${b.paid ? "" : `<span class="act markpaid" onclick="openMarkPaid(${b.id})"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg>Mark paid</span>`}
+                <span class="act view" onclick="viewBill(${b.id})"><svg viewBox="0 0 24 24"><path d="M1.5 12S5 5 12 5s10.5 7 10.5 7-3.5 7-10.5 7S1.5 12 1.5 12Z"/><circle cx="12" cy="12" r="3"/></svg>View</span>
                 <span class="act edit" onclick="openBillModal(${b.id})">Edit</span>
                 <span class="act del" onclick="deleteBill(${b.id})">Delete</span>
             </td>
@@ -8007,6 +8020,33 @@ function clearBillReceipt(){
 }
 function viewBillPhoto(id){ const b = bills.find(x => x.id === id); if(b && b.photo) openProofImg(b.photo); }
 function viewBillReceipt(id){ const b = bills.find(x => x.id === id); if(b && b.receipt) openProofImg(b.receipt); }
+
+// read-only detail popup for one bill — biller, amount, due, status + the bill photo & receipt
+function viewBill(id){
+    const b = bills.find(x => x.id === id);
+    if(!b) return;
+    const overdue = billOverdue(b);
+    const st = overdue ? "overdue" : (b.paid ? "paid" : "unpaid");
+    const stLabel = overdue ? "Overdue" : (b.paid ? "Paid" : "Unpaid");
+    const attach = (label, src) => src
+        ? `<div style="text-align:center;"><small class="muted" style="display:block;margin-bottom:4px;">${label}</small><img src="${src}" onclick="openProofImg(this.src)" style="width:100%;max-height:190px;object-fit:cover;border-radius:10px;cursor:zoom-in;border:1px solid #eadfce;"></div>`
+        : `<div style="text-align:center;"><small class="muted" style="display:block;margin-bottom:4px;">${label}</small><div style="height:80px;display:flex;align-items:center;justify-content:center;border:1px dashed #e0d6c4;border-radius:10px;color:#b7ab97;font-size:13px;">None</div></div>`;
+    document.getElementById("billViewTitle").textContent = (b.type || "Bill") + " · " + (b.haven || "");
+    document.getElementById("billViewBody").innerHTML = `
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 18px;margin:8px 0 16px;">
+            <div><small class="muted">Biller</small><div style="font-weight:600;">${b.type || "—"}</div></div>
+            <div><small class="muted">Haven</small><div style="font-weight:600;">${b.haven || "—"}</div></div>
+            <div><small class="muted">Amount</small><div style="font-weight:700;">${peso(b.amount || 0)}</div></div>
+            <div><small class="muted">Due date</small><div style="font-weight:600;">${b.due ? fmt(b.due) : "—"}</div></div>
+            <div><small class="muted">Status</small><div><span class="status ${st}">${stLabel}</span></div></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            ${attach("Bill", b.photo)}
+            ${attach("Receipt", b.receipt)}
+        </div>`;
+    document.getElementById("billViewOverlay").classList.add("show");
+}
+function closeBillView(){ document.getElementById("billViewOverlay").classList.remove("show"); }
 
 // ---- Mark a bill PAID — requires a receipt / proof of payment (can't be marked paid without one) ----
 let paidBillId = null, paidReceiptData = null, _markingPaid = false;
