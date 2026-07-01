@@ -169,6 +169,31 @@ apiRouter.post("/booking/:id/payment", async (req, res) => {
   }
 });
 
+// GENERIC per-record write for id-keyed lists (expenses, bills, etc.): insert/replace ONE
+// item, or soft-delete ONE item — transactionally, so adding/editing one record can never
+// overwrite the rest of the list. Base64 images in the item (e.g. an expense receipt) are
+// offloaded to refs by store.upsertOne.
+apiRouter.post("/list/:key", async (req, res) => {
+  const key = req.params.key;
+  if (!MERGE_LIST_KEYS.has(key)) return res.status(400).json({ error: "not a per-record list" });
+  const upsert = req.body && req.body.upsert;   // full item to insert/replace (by id)
+  const del = req.body && req.body.del;          // id to soft-delete
+  try {
+    if (upsert && upsert.id != null) {
+      await store.upsertOne(key, upsert);
+    } else if (del != null) {
+      const ok = await store.updateOneFresh(key, del, x => { x.deleted = true; if (!x.deletedAt) x.deletedAt = new Date().toISOString(); });
+      if (!ok) return res.status(404).json({ error: "item not found" });
+    } else {
+      return res.status(400).json({ error: "nothing to do" });
+    }
+    res.json({ ok: true });
+  } catch (e) {
+    console.error("[api] POST /list/" + key + " failed:", e.message);
+    res.status(502).json({ ok: false, error: "persist failed" });
+  }
+});
+
 // PER-RECORD deposit-return write — sets/clears the deposit fields on ONE booking,
 // transactionally. Same protection as payments: marking a deposit returned can never wipe
 // another booking. The refund photo should already be a tiny /img ref (offloaded via /api/img).

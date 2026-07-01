@@ -3120,6 +3120,30 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
                     <input type="checkbox" id="b_paid"> Already paid
                 </label>
             </div>
+            <div class="field full">
+                <label>Photo of bill <span class="muted">(click, drag &amp; drop, or paste)</span></label>
+                <span class="proof-thumb" id="billPhotoThumb" style="display:none;">
+                    <img id="billPhotoImg" class="proof-img" alt="bill" onclick="openProofImg(this.src)">
+                    <button type="button" class="proof-imgdel" title="Remove" onclick="clearBillPhoto()">✕</button>
+                </span>
+                <label class="proof-upload" id="billPhotoCard" data-proof="bill">
+                    <span class="pu-ico"><svg viewBox="0 0 24 24"><path d="M12 16V5"/><path d="m7 10 5-5 5 5"/><path d="M5 19h14"/></svg></span>
+                    <span class="pu-body"><b>Upload bill</b><small class="pu-name" id="billPhotoName">No file chosen</small></span>
+                    <input type="file" id="billPhotoFile" accept="image/*" onchange="onBillPhotoChange(this)">
+                </label>
+            </div>
+            <div class="field full">
+                <label>Photo of receipt <span class="muted">(click, drag &amp; drop, or paste)</span></label>
+                <span class="proof-thumb" id="billReceiptThumb" style="display:none;">
+                    <img id="billReceiptImg" class="proof-img" alt="receipt" onclick="openProofImg(this.src)">
+                    <button type="button" class="proof-imgdel" title="Remove" onclick="clearBillReceipt()">✕</button>
+                </span>
+                <label class="proof-upload" id="billReceiptCard" data-proof="receipt">
+                    <span class="pu-ico"><svg viewBox="0 0 24 24"><path d="M12 16V5"/><path d="m7 10 5-5 5 5"/><path d="M5 19h14"/></svg></span>
+                    <span class="pu-body"><b>Upload receipt</b><small class="pu-name" id="billReceiptName">No file chosen</small></span>
+                    <input type="file" id="billReceiptFile" accept="image/*" onchange="onBillReceiptChange(this)">
+                </label>
+            </div>
         </div>
         <div class="modal-actions">
             <button class="btn secondary" onclick="closeBillModal()">Cancel</button>
@@ -7241,6 +7265,16 @@ function loadExpenses(){ try { return (JSON.parse(localStorage.getItem(EXPENSES_
 let expenses = loadExpenses();
 // localStorage write is auto-mirrored to the shared server (Firestore) by the seed bridge
 function persistExpenses(){ localStorage.setItem(EXPENSES_KEY, JSON.stringify(expenses)); }
+// PER-RECORD write helpers (like payments/deposits): touch ONE item on the server so a save
+// can never overwrite the rest of the list. The item's base64 images (receipts) are offloaded
+// server-side. Local copy updated WITHOUT a whole-array push. Returns true if the server confirmed.
+async function saveOneRecord(key, item){
+    try{ const res = await fetch("/api/list/" + encodeURIComponent(key), { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ upsert: item }) }); return res.ok; }catch(e){ return false; }
+}
+async function deleteOneRecord(key, id){
+    try{ const res = await fetch("/api/list/" + encodeURIComponent(key), { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ del: id }) }); return res.ok; }catch(e){ return false; }
+}
+function setLocalKey(key, val){ try{ (window.shphSetLocal || localStorage.setItem.bind(localStorage))(key, JSON.stringify(val)); }catch(e){} }
 function expMonthKey(d){ return (d || "").slice(0, 7); }                 // "YYYY-MM"
 function expMonthLabel(m){ return new Date(m + "-01T00:00:00").toLocaleDateString("en-PH", { month:"long", year:"numeric" }); }
 
@@ -7321,7 +7355,7 @@ function clearExpReceipt(){
     });
 })();
 
-function saveExpense(){
+async function saveExpense(){
     const type   = document.getElementById("e_type").value;
     const amount = Number(document.getElementById("e_amount").value) || 0;
     const date   = document.getElementById("e_date").value;
@@ -7330,25 +7364,25 @@ function saveExpense(){
     if(amount <= 0){ alert("Please enter an amount."); return; }
     if(!date){ alert("Please pick a date."); return; }
     const data = { type, amount, date, notes, haven, receipt: expReceiptData || null };
-    if(editingExpenseId){
-        const idx = expenses.findIndex(x => x.id === editingExpenseId);
-        if(idx !== -1) expenses[idx] = { ...expenses[idx], ...data };
-        logActivity(`edited expense — ${type} ${peso(amount)}`);
-    } else {
-        const newId = expenses.length ? Math.max(...expenses.map(x => x.id)) + 1 : 1;
-        expenses.push({ id:newId, ...data });
-        logActivity(`added expense — ${type} ${peso(amount)}`);
-    }
-    persistExpenses(); closeExpenseModal(); renderExpenses();
+    let item;
+    if(editingExpenseId){ const cur = expenses.find(x => x.id === editingExpenseId) || {}; item = { ...cur, ...data, id: editingExpenseId }; }
+    else { const newId = expenses.length ? Math.max(...expenses.map(x => x.id)) + 1 : 1; item = { id:newId, ...data }; }
+    const ok = await saveOneRecord(EXPENSES_KEY, item);   // per-record — can't overwrite other expenses
+    if(!ok){ alert("⚠️ The expense was NOT saved — the server didn't confirm (slow / offline). Please try again."); return; }
+    if(editingExpenseId){ const idx = expenses.findIndex(x => x.id === editingExpenseId); if(idx !== -1) expenses[idx] = item; logActivity(`edited expense — ${type} ${peso(amount)}`); }
+    else { expenses.push(item); logActivity(`added expense — ${type} ${peso(amount)}`); }
+    setLocalKey(EXPENSES_KEY, expenses);
+    closeExpenseModal(); renderExpenses();
 }
 function viewExpReceipt(id){ const e = expenses.find(x => x.id === id); if(e && e.receipt) openProofImg(e.receipt); }
-function deleteExpense(id){
+async function deleteExpense(id){
     const e = expenses.find(x => x.id === id);
     if(!confirm("Delete this expense?")) return;
-    if(e) logActivity(`deleted expense — ${e.type} ${peso(e.amount)}`);
-    if(e){ e.deleted = true; e.deletedAt = new Date().toISOString(); }   // kept on the server, just hidden
-    persistExpenses();
+    const ok = await deleteOneRecord(EXPENSES_KEY, id);
+    if(!ok){ alert("⚠️ Couldn't delete on the server (slow / offline). Please try again."); return; }
+    if(e){ e.deleted = true; e.deletedAt = new Date().toISOString(); logActivity(`deleted expense — ${e.type} ${peso(e.amount)}`); }
     expenses = expenses.filter(x => !x.deleted);
+    setLocalKey(EXPENSES_KEY, expenses);
     renderExpenses();
 }
 
@@ -7441,8 +7475,9 @@ function billTableHtml(rows){
         const overdue = billOverdue(b);
         const st = overdue ? "overdue" : (b.paid ? "paid" : "unpaid");
         const stLabel = overdue ? "Overdue" : (b.paid ? "Paid" : "Unpaid");
+        const att = `${b.photo ? `<span class="reinstate" style="font-size:12px;margin-left:8px;" onclick="viewBillPhoto(${b.id})">📎 bill</span>` : ""}${b.receipt ? `<span class="reinstate" style="font-size:12px;margin-left:8px;" onclick="viewBillReceipt(${b.id})">📎 receipt</span>` : ""}`;
         return `<tr>
-            <td><span class="biller">${billerIcon(b.type)}${b.type}</span></td>
+            <td><span class="biller">${billerIcon(b.type)}${b.type}</span>${att}</td>
             <td><strong>${peso(b.amount || 0)}</strong></td>
             <td>${b.due ? fmt(b.due) : '<span class="muted">—</span>'}</td>
             <td><span class="status ${st}">${stLabel}</span></td>
@@ -7619,6 +7654,8 @@ function openBillModal(id){
         document.getElementById("b_amount").value = b.amount || 0;
         setBillDate(b.due || iso(today()));
         document.getElementById("b_paid").checked = !!b.paid;
+        if(b.photo) setBillPhoto(b.photo); else clearBillPhoto();
+        if(b.receipt) setBillReceipt(b.receipt); else clearBillReceipt();
     } else {
         document.getElementById("billModalTitle").textContent = "Add Bill";
         document.getElementById("b_haven").selectedIndex = 0;
@@ -7626,6 +7663,7 @@ function openBillModal(id){
         document.getElementById("b_amount").value = "";
         setBillDate(iso(today()));
         document.getElementById("b_paid").checked = false;
+        clearBillPhoto(); clearBillReceipt();
     }
     document.getElementById("billOverlay").classList.add("show");
 }
@@ -7634,43 +7672,101 @@ function closeBillModal(){
     document.getElementById("billOverlay").classList.remove("show");
 }
 
-function saveBill(){
+async function saveBill(){
     const data = {
         haven: document.getElementById("b_haven").value,
         type: document.getElementById("b_type").value,
         amount: Number(document.getElementById("b_amount").value) || 0,
         due: document.getElementById("b_due").value,
-        paid: document.getElementById("b_paid").checked
+        paid: document.getElementById("b_paid").checked,
+        photo: billPhotoData || null,
+        receipt: billReceiptData || null
     };
     if(data.amount <= 0){ alert("Please enter an amount."); return; }
 
-    if(editingBillId){
-        const idx = bills.findIndex(b => b.id === editingBillId);
-        if(idx !== -1) bills[idx] = { ...bills[idx], ...data };
-    } else {
-        const newId = bills.length ? Math.max(...bills.map(b => b.id)) + 1 : 1;
-        bills.push({ id:newId, ...data });
-    }
-    persistBills();
+    let item;
+    if(editingBillId){ const cur = bills.find(b => b.id === editingBillId) || {}; item = { ...cur, ...data, id: editingBillId }; }
+    else { const newId = bills.length ? Math.max(...bills.map(b => b.id)) + 1 : 1; item = { id:newId, ...data }; }
+    const ok = await saveOneRecord(BILLS_KEY, item);   // per-record — offloads photos, can't overwrite other bills
+    if(!ok){ alert("⚠️ The bill was NOT saved — the server didn't confirm (slow / offline). Please try again."); return; }
+    if(editingBillId){ const idx = bills.findIndex(b => b.id === editingBillId); if(idx !== -1) bills[idx] = item; }
+    else { bills.push(item); }
+    setLocalKey(BILLS_KEY, bills);
     closeBillModal();
     renderBills();
 }
 
-function toggleBillPaid(id){
+async function toggleBillPaid(id){
     const b = bills.find(x => x.id === id);
     if(!b) return;
+    const item = { ...b, paid: !b.paid };
+    const ok = await saveOneRecord(BILLS_KEY, item);
+    if(!ok){ alert("⚠️ Couldn't update on the server (slow / offline). Please try again."); return; }
     b.paid = !b.paid;
-    persistBills();
+    setLocalKey(BILLS_KEY, bills);
     renderBills();
 }
-function deleteBill(id){
+async function deleteBill(id){
     if(!confirm("Delete this bill?")) return;
+    const ok = await deleteOneRecord(BILLS_KEY, id);
+    if(!ok){ alert("⚠️ Couldn't delete on the server (slow / offline). Please try again."); return; }
     const b = bills.find(x => x.id === id);
     if(b){ b.deleted = true; b.deletedAt = new Date().toISOString(); }   // kept on the server, just hidden
-    persistBills();                          // server merge marks it deleted (never erased)
     bills = bills.filter(x => !x.deleted);   // hide from this view
+    setLocalKey(BILLS_KEY, bills);
     renderBills();
 }
+/* ---------- bill photo + receipt uploads (offloaded via per-record save, like deposits) ---------- */
+let billPhotoData = null, billReceiptData = null;
+function onBillPhotoChange(input){ if(input.files && input.files[0]) applyBillPhoto(input.files[0]); }
+function onBillReceiptChange(input){ if(input.files && input.files[0]) applyBillReceipt(input.files[0]); }
+function applyBillPhoto(f){
+    if(!f || !/^image\//.test(f.type)) return;
+    document.getElementById("billPhotoName").textContent = f.name || "Photo attached";
+    compressImageTo(f, idMaxBytes, dataUrl => { if(dataUrl){ setBillPhoto(dataUrl); return; } const r = new FileReader(); r.onload = e => setBillPhoto(e.target.result); r.readAsDataURL(f); });
+}
+function applyBillReceipt(f){
+    if(!f || !/^image\//.test(f.type)) return;
+    document.getElementById("billReceiptName").textContent = f.name || "Photo attached";
+    compressImageTo(f, idMaxBytes, dataUrl => { if(dataUrl){ setBillReceipt(dataUrl); return; } const r = new FileReader(); r.onload = e => setBillReceipt(e.target.result); r.readAsDataURL(f); });
+}
+function setBillPhoto(dataUrl){
+    billPhotoData = dataUrl;
+    const img = document.getElementById("billPhotoImg"), thumb = document.getElementById("billPhotoThumb"), nm = document.getElementById("billPhotoName");
+    if(img) img.src = dataUrl; if(thumb) thumb.style.display = "inline-block"; if(nm) nm.textContent = "Photo attached ✓";
+}
+function setBillReceipt(dataUrl){
+    billReceiptData = dataUrl;
+    const img = document.getElementById("billReceiptImg"), thumb = document.getElementById("billReceiptThumb"), nm = document.getElementById("billReceiptName");
+    if(img) img.src = dataUrl; if(thumb) thumb.style.display = "inline-block"; if(nm) nm.textContent = "Photo attached ✓";
+}
+function clearBillPhoto(){
+    billPhotoData = null;
+    const thumb = document.getElementById("billPhotoThumb"), img = document.getElementById("billPhotoImg"), nm = document.getElementById("billPhotoName"), fi = document.getElementById("billPhotoFile");
+    if(thumb) thumb.style.display = "none"; if(img) img.src = ""; if(nm) nm.textContent = "No file chosen"; if(fi) fi.value = "";
+}
+function clearBillReceipt(){
+    billReceiptData = null;
+    const thumb = document.getElementById("billReceiptThumb"), img = document.getElementById("billReceiptImg"), nm = document.getElementById("billReceiptName"), fi = document.getElementById("billReceiptFile");
+    if(thumb) thumb.style.display = "none"; if(img) img.src = ""; if(nm) nm.textContent = "No file chosen"; if(fi) fi.value = "";
+}
+function viewBillPhoto(id){ const b = bills.find(x => x.id === id); if(b && b.photo) openProofImg(b.photo); }
+function viewBillReceipt(id){ const b = bills.find(x => x.id === id); if(b && b.receipt) openProofImg(b.receipt); }
+(function initBillUploads(){
+    [["billPhotoCard", applyBillPhoto], ["billReceiptCard", applyBillReceipt]].forEach(([cardId, apply]) => {
+        const card = document.getElementById(cardId);
+        if(!card) return;
+        card.addEventListener("dragover", e => { e.preventDefault(); card.classList.add("drag"); });
+        card.addEventListener("dragleave", e => { if(!card.contains(e.relatedTarget)) card.classList.remove("drag"); });
+        card.addEventListener("drop", e => { e.preventDefault(); card.classList.remove("drag"); const f = e.dataTransfer && e.dataTransfer.files; if(f && f.length) apply(f[0]); });
+    });
+    document.addEventListener("paste", e => {
+        const ov = document.getElementById("billOverlay");
+        if(!ov || !ov.classList.contains("show")) return;   // only while the Add/Edit Bill modal is open
+        const items = (e.clipboardData && e.clipboardData.items) || [];
+        for(const it of items){ if(it.type && it.type.indexOf("image") === 0){ const f = it.getAsFile(); if(f){ applyBillPhoto(f); e.preventDefault(); } break; } }
+    });
+})();
 
 fillBillSelectors();
 renderBills();
