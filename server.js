@@ -194,12 +194,14 @@ apiRouter.post("/booking/:id/payment", async (req, res) => {
   const id = req.params.id;
   const payment = req.body && req.body.payment;
   const editIndex = (req.body && req.body.editIndex != null) ? Number(req.body.editIndex) : null;
-  if (!payment || typeof payment !== "object") return res.status(400).json({ error: "no payment" });
+  const deleteIndex = (req.body && req.body.deleteIndex != null) ? Number(req.body.deleteIndex) : null;
+  if ((!payment || typeof payment !== "object") && deleteIndex == null) return res.status(400).json({ error: "no payment" });
   try {
     const ok = await store.updateOneFresh(KEY, id, b => {
       b.payments = Array.isArray(b.payments) ? b.payments : [];
-      if (editIndex != null && b.payments[editIndex]) b.payments[editIndex] = payment;   // edit an existing collection
-      else b.payments.push(payment);                                                      // record a new collection
+      if (deleteIndex != null) { if (b.payments[deleteIndex]) b.payments.splice(deleteIndex, 1); }  // remove one collection
+      else if (editIndex != null && b.payments[editIndex]) b.payments[editIndex] = payment;          // edit an existing collection
+      else b.payments.push(payment);                                                                 // record a new collection
     });
     if (!ok) return res.status(404).json({ error: "booking not found" });
     res.json({ ok: true });

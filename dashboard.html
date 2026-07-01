@@ -4644,8 +4644,7 @@ function toggleDpRefund(id){
         delete b.dpRefundedAt;
         logActivity(`reverted downpayment refund — ${b.haven} (${primaryName(b)})`);
     }
-    save(bookings);
-    confirmBookingSaved(id);
+    bkSave(b, b.dpRefunded ? { dpRefunded:true, dpRefundedAt:b.dpRefundedAt } : { dpRefunded:false, dpRefundedAt:null });
     renderAll();
 }
 
@@ -4881,7 +4880,7 @@ function approveBooking(id){
     const b = bookings.find(x => x.id === id);
     if(!b) return;
     b.approved = true;
-    save(bookings);
+    bkSave(b, { approved:true });
     logActivity(`approved booking — ${b.haven} (${primaryName(b)})`);
     renderApproval();
     renderAll();
@@ -4891,7 +4890,7 @@ function revertApproval(id){
     const b = bookings.find(x => x.id === id);
     if(!b) return;
     b.approved = false;
-    save(bookings);
+    bkSave(b, { approved:false });
     logActivity(`reverted approval — ${b.haven} (${primaryName(b)})`);
     renderApproval();
     renderAll();
@@ -4988,8 +4987,11 @@ function rejectBooking(id){
     if(!b) return;
     if(!confirm(`Delete this reserved booking for ${b.haven} (${primaryName(b)})? This frees the slot and can't be undone.`)) return;
     logActivity(`deleted unapproved booking — ${b.haven} (${primaryName(b)})`);
-    bookings = bookings.filter(x => x.id !== id);
-    save(bookings);
+    b.deleted = true; b.deletedAt = new Date().toISOString();   // soft-delete: stamped so it can't resurrect
+    _stampLocal(b);
+    setLocalKey(KEY, bookings);
+    bookingAction(id, "delete");                                // durable per-record soft-delete on the server
+    bookings = bookings.filter(x => !x.deleted);                // hide from this view
     renderApproval();
     renderAll();
 }
@@ -5102,7 +5104,7 @@ function approvePayment(bookingId, idx){
     const b = bookings.find(x => x.id === bookingId);
     if(!b || !b.payments || !b.payments[idx]) return;
     b.payments[idx].approved = true;
-    save(bookings);
+    bkPaymentEdit(b, idx);
     logActivity(`approved payment — ${b.haven} · ${peso(b.payments[idx].amount)} (${b.payments[idx].category || "Balance"})`);
     renderPaymentApproval();
     renderAll();
@@ -5111,7 +5113,7 @@ function revertPayment(bookingId, idx){
     const b = bookings.find(x => x.id === bookingId);
     if(!b || !b.payments || !b.payments[idx]) return;
     b.payments[idx].approved = false;
-    save(bookings);
+    bkPaymentEdit(b, idx);
     logActivity(`reverted payment approval — ${b.haven} · ${peso(b.payments[idx].amount)}`);
     renderPaymentApproval();
     renderAll();
@@ -5122,8 +5124,10 @@ function deletePaymentRow(bookingId, idx){
     const p = b.payments[idx];
     if(!confirm(`Delete this ${p.category || "Balance"} payment of ${peso(p.amount)}? This cannot be undone.`)) return;
     b.payments.splice(idx, 1);
-    if(!(b.payments || []).some(x => x.category === "Add Ons")) delete b.addonProof;
-    save(bookings);
+    const clearAddon = ('addonProof' in b) && !(b.payments || []).some(x => x.category === "Add Ons");
+    if(clearAddon) delete b.addonProof;
+    bkPaymentDelete(b, idx);
+    if(clearAddon) patchBooking(b.id, { addonProof: null });
     logActivity(`deleted ${p.category || "Balance"} payment — ${b.haven} · ${peso(p.amount)} (${p.mop})`);
     renderPaymentApproval();
     renderAll();
@@ -6072,8 +6076,7 @@ function deleteCollectionPhoto(idx){
     if(!pays[idx] || !pays[idx].proof) return;
     if(!confirm("Delete this payment photo? The collection stays; only the photo is removed.")) return;
     delete pays[idx].proof;
-    save(bookings);
-    confirmBookingSaved(editingId);
+    bkPaymentEdit(bookings[bIdx], idx);
     logActivity(`deleted payment photo — ${bookings[bIdx].haven} · ${peso(pays[idx].amount)}`);
     renderProofPage(bookings[bIdx]);
     renderAll();
@@ -6217,10 +6220,9 @@ function replaceCollectionProof(idx, input){
     if(bIdx === -1) return;
     const pays = bookings[bIdx].payments || [];
     if(!pays[idx]) return;
-    resizeImage(f, dataUrl => {
-        pays[idx].proof = dataUrl;
-        save(bookings);
-        confirmBookingSaved(editingId);
+    resizeImage(f, async dataUrl => {
+        pays[idx].proof = await _offloadImg(dataUrl);   // durable /img ref, never lost
+        bkPaymentEdit(bookings[bIdx], idx);
         logActivity(`replaced payment photo — ${bookings[bIdx].haven} · ${peso(pays[idx].amount)} (${pays[idx].category || "Balance"})`);
         renderProofPage(bookings[bIdx]);
         renderAll();
@@ -6237,8 +6239,7 @@ function deleteCollectionAt(idx){
     const cat = pays[idx].category || "Balance";
     if(!confirm(`Delete this ${cat} collection of ${peso(pays[idx].amount)}? This removes the payment and its photo. This cannot be undone.`)) return;
     const removed = pays.splice(idx, 1)[0];
-    save(bookings);
-    confirmBookingSaved(editingId);
+    bkPaymentDelete(bookings[bIdx], idx);
     logActivity(`deleted ${cat} collection — ${bookings[bIdx].haven} · ${peso(removed.amount)}`);
     renderProofPage(bookings[bIdx]);
     renderAll();
@@ -6257,7 +6258,7 @@ function deleteCollection(category){
     if(pos === -1) return;
     if(!confirm(`Delete this ${category} collection of ${peso(pays[pos].amount)}? This cannot be undone.`)) return;
     const removed = pays.splice(pos, 1)[0];
-    save(bookings);
+    bkPaymentDelete(bookings[idx], pos);
     logActivity(`deleted ${category} collection — ${bookings[idx].haven} · ${peso(removed.amount)}`);
     renderProofPage(bookings[idx]);
     renderAll();
@@ -6280,6 +6281,14 @@ async function patchBooking(id, set){
 }
 // keep the local record's edit-time + change signature in step with a per-record server write
 function _stampLocal(b){ try{ b.updatedAt = new Date().toISOString(); if(_bkSig && typeof _bkCanon === "function") _bkSig[String(b.id)] = _bkCanon(b); }catch(e){} }
+// Clobber-safe AND durable per-record change to ONE booking. Stamps + mirrors locally FIRST (so if
+// the server write fails, the load-time prime-merge sees the local record as newer and re-pushes it
+// through the durable queue), then fires the matching per-record server write (reads the live record
+// → can't clobber another device's edit to a different field/payment).
+function _bkMirror(b){ _stampLocal(b); setLocalKey(KEY, bookings); }
+function bkSave(b, set){ _bkMirror(b); patchBooking(b.id, set); }                       // b already mutated; `set` = fields to persist
+function bkPaymentEdit(b, idx){ _bkMirror(b); fetch(`/api/booking/${encodeURIComponent(b.id)}/payment`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ payment: b.payments[idx], editIndex: idx }) }).catch(()=>{}); }
+function bkPaymentDelete(b, idx){ _bkMirror(b); fetch(`/api/booking/${encodeURIComponent(b.id)}/payment`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ deleteIndex: idx }) }).catch(()=>{}); }
 let _savingBooking = false;
 async function saveBooking(){
     const guests = readGuests();
@@ -6465,6 +6474,7 @@ async function saveBooking(){
                 let k = -1; for(let j = pays.length - 1; j >= 0; j--){ if((pays[j].category || "Balance") !== "Add Ons"){ k = j; break; } }
                 if(k !== -1){
                     pays[k] = { ...pays[k], proof: ref, editedAt: new Date().toISOString(), editedBy: currentUser() };
+                    _stampLocal(bookings[idx]);   // local is now newest → prime-merge re-pushes if this fails
                     try{ await fetch(`/api/booking/${encodeURIComponent(editingId)}/payment`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ payment: pays[k], editIndex: k }) }); }catch(e){}
                 }
             }
@@ -6752,14 +6762,15 @@ function gfFill(b){
 // APPEND a newly-uploaded ID photo to the loaded booking (so uploads are saved &
 // never lost). It never overwrites the booking's list — so removing a photo on
 // the form is form-only and does NOT delete it from the booking.
-function gfAttachIdToBooking(dataUrl){
+async function gfAttachIdToBooking(dataUrl){
     if(gfBookingId == null || !dataUrl) return;
     const b = bookings.find(x => x.id === gfBookingId);
     if(!b) return;
     b.ids = Array.isArray(b.ids) ? b.ids : [];
-    b.ids.push(dataUrl);
-    save(bookings);
-    confirmBookingSaved(gfBookingId);   // verify it reached the server, warn if not
+    b.ids.push(await _offloadImg(dataUrl));       // durable /img ref
+    _bkMirror(b);
+    // per-record ID save (reads live record, sets ids) — can't clobber other fields
+    fetch(`/api/booking/${encodeURIComponent(gfBookingId)}/ids`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ ids: b.ids }) }).catch(()=>{});
 }
 
 // reset the form to blanks — including the Date and Unit No. & Tower
