@@ -154,7 +154,9 @@
         </div>
         <p class="muted" style="margin:0 0 14px;">Announcements for your partners — they see this on their dashboard (read-only).</p>
         <div id="boardAdmin" style="display:none; margin-bottom:18px;">
-            <textarea id="boardText" placeholder="Type a notice for your partners…"></textarea>
+            <label style="display:block; font-size:12px; color:var(--hv-muted); margin:0 0 5px 2px;">Post to</label>
+            <select id="boardTarget" onchange="onBoardTargetChange()" style="margin-bottom:10px; padding:10px 12px; border:1px solid var(--hv-line); border-radius:10px; background:#faf6ee; font-family:inherit; font-size:14px; min-width:220px;"></select>
+            <textarea id="boardText" placeholder="Type a notice…"></textarea>
             <div style="margin-top:10px;"><button class="btn" onclick="saveBoard()">Post notice</button></div>
         </div>
         <div id="boardView"></div>

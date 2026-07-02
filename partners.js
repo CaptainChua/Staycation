@@ -501,38 +501,97 @@ function savePartnerLogin(id){
    Runs once, right after this script loads (main script already ran).
    ============================================================ */
 /* ---------- Notice Board (admin/super-admin posts; partners view read-only) ---------- */
+// Notices are TARGETED: board = { "all": {text,updatedAt,updatedBy}, "<Haven>": {...}, ... }.
+// "all" shows to every partner; a haven key shows only to that haven's partner.
 const BOARD_KEY = "shph_partner_board";
-function loadBoard(){ try{ return JSON.parse(localStorage.getItem(BOARD_KEY)) || {}; }catch(e){ return {}; } }
+function normalizeBoard(raw){
+    if(!raw || typeof raw !== "object") return {};
+    // migrate the old single-note shape { text, updatedAt, updatedBy } → { all: {...} }
+    if(typeof raw.text === "string" && raw.all === undefined){
+        return { all: { text: raw.text, updatedAt: raw.updatedAt, updatedBy: raw.updatedBy } };
+    }
+    return raw;
+}
+function loadBoard(){ try{ return normalizeBoard(JSON.parse(localStorage.getItem(BOARD_KEY)) || {}); }catch(e){ return {}; } }
 function boardCanEdit(){ return !window.__PARTNER__ || !!window.__PARTNER__.superAdmin; }
+function boardTargetLabel(key){ return key === "all" ? "All partners" : key; }
+// who the admin can post to: "All partners" + every haven that has a partner (+ the PR rooms)
+function boardTargets(){
+    const havens = [];
+    const add = function(h){ if(h && havens.indexOf(h) === -1) havens.push(h); };
+    try{ (loadPartners() || []).forEach(function(p){ add(p.haven); }); }catch(e){}
+    try{ if(typeof PR_ROOMS !== "undefined" && Array.isArray(PR_ROOMS)) PR_ROOMS.forEach(add); }catch(e){}
+    havens.sort();
+    return [{ value:"all", label:"All partners" }].concat(havens.map(function(h){ return { value:h, label:h }; }));
+}
+// when the admin switches the "Post to" dropdown, load that target's current text
+function onBoardTargetChange(){
+    const sel = document.getElementById("boardTarget"), ta = document.getElementById("boardText");
+    if(!sel || !ta) return;
+    const rec = loadBoard()[sel.value];
+    ta.value = (rec && rec.text) || "";
+}
 function saveBoard(){
-    const ta = document.getElementById("boardText");
+    const ta = document.getElementById("boardText"), sel = document.getElementById("boardTarget");
     if(!ta) return;
-    const rec = { text: ta.value, updatedAt: new Date().toISOString(), updatedBy: (typeof currentUser === "function" ? currentUser() : "") };
-    localStorage.setItem(BOARD_KEY, JSON.stringify(rec));
-    if(typeof logActivity === "function") logActivity("updated the partner notice board");
+    const target = (sel && sel.value) || "all";
+    const board = loadBoard();
+    if(ta.value.trim()){
+        board[target] = { text: ta.value, updatedAt: new Date().toISOString(), updatedBy: (typeof currentUser === "function" ? currentUser() : "") };
+    } else {
+        delete board[target];   // empty text clears that target's notice
+    }
+    localStorage.setItem(BOARD_KEY, JSON.stringify(board));   // shared key → seed-bridge mirrors it to the server
+    if(typeof logActivity === "function") logActivity("updated the partner notice board (" + boardTargetLabel(target) + ")");
     const btn = (typeof event !== "undefined" && event) ? event.target : null;
-    if(btn){ const t = btn.textContent; btn.textContent = "Posted ✓"; setTimeout(function(){ btn.textContent = t; }, 1200); }
+    if(btn){ const t = btn.textContent; btn.textContent = ta.value.trim() ? "Posted ✓" : "Cleared ✓"; setTimeout(function(){ btn.textContent = t; }, 1200); }
     renderBoard();
 }
+// one notice card; pass a label to show a target header (admin view), or null (partner view)
+function boardNoteHtml(rec, label){
+    if(!rec || !(rec.text || "").trim()) return "";
+    const when = rec.updatedAt ? new Date(rec.updatedAt).toLocaleString("en-PH") : "";
+    return '<div class="board-note" style="margin-bottom:12px;">'
+        + (label ? '<div class="muted" style="font-size:11px; font-weight:800; letter-spacing:.4px; text-transform:uppercase; margin-bottom:6px;">' + escHtml(label) + '</div>' : '')
+        + escHtml(rec.text).replace(/\n/g, "<br>")
+        + (when ? '<div class="muted" style="margin-top:8px; font-size:12px;">Last updated ' + (rec.updatedBy ? escHtml(rec.updatedBy) + " · " : "") + escHtml(when) + '</div>' : '')
+        + '</div>';
+}
 function renderBoard(){
-    const rec = loadBoard();
+    const board = loadBoard();
     const canEdit = boardCanEdit();
     const adminBox = document.getElementById("boardAdmin");
     if(adminBox) adminBox.style.display = canEdit ? "block" : "none";
     if(canEdit){
+        const sel = document.getElementById("boardTarget");
+        if(sel){
+            const prev = sel.value;
+            const opts = boardTargets();
+            sel.innerHTML = opts.map(function(o){ return '<option value="' + escAttr(o.value) + '">' + escHtml(o.label) + '</option>'; }).join("");
+            if(opts.some(function(o){ return o.value === prev; })) sel.value = prev;
+        }
         const ta = document.getElementById("boardText");
-        if(ta && document.activeElement !== ta) ta.value = rec.text || "";
+        if(ta && document.activeElement !== ta){
+            const cur = sel ? sel.value : "all";
+            ta.value = (board[cur] && board[cur].text) || "";
+        }
     }
     const view = document.getElementById("boardView");
-    if(view){
-        const txt = (rec.text || "").trim();
-        if(txt){
-            const when = rec.updatedAt ? new Date(rec.updatedAt).toLocaleString("en-PH") : "";
-            view.innerHTML = `<div class="board-note">${escHtml(txt).replace(/\n/g, "<br>")}</div>`
-                + (when ? `<div class="muted" style="margin-top:8px; font-size:12px;">Last updated ${rec.updatedBy ? escHtml(rec.updatedBy) + " · " : ""}${escHtml(when)}</div>` : "");
-        } else {
-            view.innerHTML = `<p class="muted" style="margin:0;">No notice posted yet.</p>`;
-        }
+    if(!view) return;
+    if(canEdit){
+        // admin: show every posted notice, "All partners" first then havens A–Z
+        const keys = Object.keys(board).filter(function(k){ return board[k] && (board[k].text || "").trim(); });
+        keys.sort(function(a, b){ return a === "all" ? -1 : b === "all" ? 1 : a.localeCompare(b); });
+        view.innerHTML = keys.length
+            ? keys.map(function(k){ return boardNoteHtml(board[k], boardTargetLabel(k)); }).join("")
+            : '<p class="muted" style="margin:0;">No notice posted yet.</p>';
+    } else {
+        // partner: the "all" notice + their own haven's notice
+        const ps = window.__PARTNER__ || {};
+        const parts = [ boardNoteHtml(board.all, null) ];
+        if(ps.haven && ps.haven !== "all") parts.push(boardNoteHtml(board[ps.haven], null));
+        const html = parts.filter(Boolean).join("");
+        view.innerHTML = html || '<p class="muted" style="margin:0;">No notice posted yet.</p>';
     }
 }
 
