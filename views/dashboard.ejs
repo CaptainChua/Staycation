@@ -1978,6 +1978,15 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
   #page-havens .hv-badge:hover{ box-shadow:0 2px 10px rgba(0,0,0,.16); }
   #page-havens .hv-badge.off{ color:#8a8578; }
   #page-havens .hv-badge.off i{ background:#c0bab0; }
+  #page-havens .hv-live-row{ display:flex; align-items:center; gap:12px; margin:18px 0 4px; }
+  #page-havens .hv-switch{ position:relative; display:inline-block; width:44px; height:24px; cursor:pointer; }
+  #page-havens .hv-switch input{ opacity:0; width:0; height:0; position:absolute; }
+  #page-havens .hv-slider{ position:absolute; inset:0; background:#cfc8ba; border-radius:24px; transition:.2s; }
+  #page-havens .hv-slider::before{ content:""; position:absolute; width:18px; height:18px; left:3px; top:3px; background:#fff; border-radius:50%; transition:.2s; box-shadow:0 1px 3px rgba(0,0,0,.25); }
+  #page-havens .hv-switch input:checked + .hv-slider{ background:var(--hv-live); }
+  #page-havens .hv-switch input:checked + .hv-slider::before{ transform:translateX(20px); }
+  #page-havens .hv-live-state{ font-size:12px; font-weight:700; color:var(--hv-live); }
+  #page-havens .hv-live-row.off .hv-live-state{ color:#8a8578; }
   #page-havens .hv-grip{ position:absolute; top:12px; right:12px; width:30px; height:30px; border-radius:50%; background:#fff; box-shadow:0 2px 6px rgba(0,0,0,.08); display:flex; align-items:center; justify-content:center; color:#8a8078; font-weight:700; cursor:grab; user-select:none; }
   #page-havens .hv-grip:active{ cursor:grabbing; }
   #page-havens .hv-cardbody{ padding:16px 17px 17px; }
@@ -2068,6 +2077,12 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
         <div class="hv-two">
             <div><label class="hv-fl">Name</label><input class="hv-fld" id="hvName"></div>
             <div><label class="hv-fl">Price starts at:</label><input class="hv-fld" id="hvPrice" placeholder="₱0 / night"></div>
+        </div>
+
+        <div class="hv-live-row" id="hvLiveRow">
+            <span class="hv-fl" style="margin:0;">Live</span>
+            <label class="hv-switch"><input type="checkbox" id="hvLive" onchange="hvLiveToggleUI()"><span class="hv-slider"></span></label>
+            <span class="hv-live-state" id="hvLiveState">On — shown on the website</span>
         </div>
 
         <label class="hv-fl">Description</label>
@@ -10340,6 +10355,12 @@ let hvEditIndex = -1;
 let hvDraftGallery = [];
 let hvDraftAmen = [];
 
+// reflect the edit-modal Live switch in its label/colour
+function hvLiveToggleUI(){
+    const on = document.getElementById("hvLive").checked;
+    const row = document.getElementById("hvLiveRow"); if(row) row.classList.toggle("off", !on);
+    const st = document.getElementById("hvLiveState"); if(st) st.textContent = on ? "On — shown on the website" : "Off — hidden from the website";
+}
 function openHaven(i){
     const h = listings[i];
     if(!h) return;
@@ -10347,6 +10368,7 @@ function openHaven(i){
     document.getElementById("hvDrName").textContent = h.name || "Haven";
     document.getElementById("hvName").value = h.name || "";
     document.getElementById("hvPrice").value = h.price || "";
+    const _lv = document.getElementById("hvLive"); if(_lv){ _lv.checked = (h.live !== false); hvLiveToggleUI(); }
     document.getElementById("hvDesc").value = h.description || "";
     document.getElementById("hvImg").value = h.image || "";
     hvPreviewImg(h.image || "");
@@ -10474,7 +10496,8 @@ async function saveHaven(){
             gallery: hvDraftGallery.map(s => s.trim()).filter(Boolean),
             price: document.getElementById("hvPrice").value.trim(),
             description: document.getElementById("hvDesc").value,
-            amenities: hvDraftAmen.map(s => s.trim()).filter(Boolean)
+            amenities: hvDraftAmen.map(s => s.trim()).filter(Boolean),
+            live: !document.getElementById("hvLive") || document.getElementById("hvLive").checked   // Live/Offline (preserve through edits)
         };
         // PER-RECORD save: the server offloads every gallery/main-image photo to a durable ref,
         // so the images are never lost and one haven's save can't overwrite the others.
