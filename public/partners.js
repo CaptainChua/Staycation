@@ -359,6 +359,7 @@ function applyPartnerChrome(){
 
     // identity + hide admin-only chrome
     const ab = document.getElementById("addBookingBtn"); if(ab) ab.style.display = "none";
+    const _calLog = document.getElementById("calLogPanel"); if(_calLog) _calLog.style.display = "none";   // Activity Log is admin-only
     const ul = document.getElementById("currentUserLabel");
     if(ps.superAdmin){
         // super admin: see ALL havens; keep the haven pickers usable to filter

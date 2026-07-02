@@ -1855,8 +1855,8 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
     <div class="legend" id="legend"></div>
 </div>
 
-<!-- recent activity (inline copy of the Activity Log, between calendar & bookings) -->
-<div class="panel">
+<!-- recent activity (inline copy of the Activity Log, between calendar & bookings) — ADMIN ONLY -->
+<div class="panel" id="calLogPanel">
     <div class="panel-head">
         <h2>Activity Log <span class="muted" style="font-weight:400;">— recent changes, newest first</span></h2>
         <div style="display:flex; align-items:center; gap:8px;">
@@ -7410,7 +7410,12 @@ function fillHavenSelectors(){
 }
 
 function renderLegend(){
-    const havens = HAVENS.map(h => {
+    // a scoped partner only sees their own haven's calendar, so only show that one swatch
+    let _list = HAVENS;
+    if(window.__PARTNER__ && !window.__PARTNER__.superAdmin && window.__PARTNER__.haven){
+        _list = HAVENS.filter(h => h === window.__PARTNER__.haven);
+    }
+    const havens = _list.map(h => {
         const c = havenColors(h);
         return `<span><span class="dot" style="background:${c.am}"></span>${h}</span>`;
     }).join("");
@@ -10723,7 +10728,7 @@ function currentPerms(){
 }
 function pageAllowed(page){
     if(window.__PARTNER__) return ["today", "calendar", "deposit", "analytics", "finance", "bills", "expenses", "board"].includes(page);   // partner pages
-    if(page === "users") return isAdminUser();
+    if(page === "users" || page === "log") return isAdminUser();   // Activity Log is admin-only (not partners/employees)
     return currentPerms().includes(page);
 }
 // hide nav items the current user can't access; redirect off a disallowed page
@@ -10734,9 +10739,12 @@ function applyPermissions(){
     if(!currentUserObj()){ window.location.href = window.__ON_PARTNER_PATH__ ? "/partner-login" : "/admin.html"; return; }
     const perms = currentPerms();
     const admin = isAdminUser();
+    // the inline Activity Log on the Calendar page is admin-only — hide it from employees
+    const _calLog = document.getElementById("calLogPanel");
+    if(_calLog) _calLog.style.display = admin ? "" : "none";
     document.querySelectorAll(".sidebar .nav-item").forEach(n => {
         const pg = n.dataset.page;
-        const ok = (pg === "users") ? admin : perms.includes(pg);
+        const ok = (pg === "users" || pg === "log") ? admin : perms.includes(pg);
         n.style.display = ok ? "flex" : "none";
     });
     // hide a section header (Property / Finance / Team …) when all its items are hidden
