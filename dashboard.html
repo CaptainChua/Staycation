@@ -5212,7 +5212,13 @@ function renderPaymentApproval(){
 
     const el = document.getElementById("paymentApprovalList");
     if(!rows.length){
-        el.innerHTML = `<div class="ap-empty"><div style="font-size:30px;margin-bottom:8px;">✅</div>No payments match this filter.</div>`;
+        // if payments exist on OTHER dates, the empty result is just the date filter — nudge to widen it
+        const anyExist = paymentRowsAll().length > 0;
+        const dateNarrowed = (paDate !== "all");
+        const msg = (anyExist && dateNarrowed)
+            ? `No payments on the selected date.<div style="margin-top:12px;"><button class="btn secondary" onclick="setPaDate('all')">Show all dates</button></div>`
+            : `No payments match this filter.`;
+        el.innerHTML = `<div class="ap-empty"><div style="font-size:30px;margin-bottom:8px;">✅</div>${msg}</div>`;
         return;
     }
     el.innerHTML = rows.map(({ b, idx, p }) => {
