@@ -3694,6 +3694,7 @@ _seedBkSig(bookings);   // baseline for edit-stamping = the loaded state (preven
 var _pPath = location.pathname.replace(/\/+$/, "").toLowerCase();
 if(new URLSearchParams(location.search).get("mode") === "partner"
    || _pPath === "/partners" || _pPath.endsWith("/partner-dashboard")){
+    window.__ON_PARTNER_PATH__ = true;   // on a partner URL → if not signed in, send to partner-login (never admin)
     let _ps = null;
     try{ _ps = JSON.parse(localStorage.getItem("shph_partner_session") || "null"); }catch(e){}
     if(_ps && _ps.superAdmin){
@@ -10729,7 +10730,7 @@ function applyPermissions(){
     // partner mode is driven entirely by partners.js (no admin user required)
     if(window.__PARTNER__){ if(typeof applyPartnerChrome === "function") applyPartnerChrome(); return; }
     // no recognised logged-in user → send to the login page instead of revealing anything
-    if(!currentUserObj()){ window.location.href = "/admin.html"; return; }
+    if(!currentUserObj()){ window.location.href = window.__ON_PARTNER_PATH__ ? "/partner-login" : "/admin.html"; return; }
     const perms = currentPerms();
     const admin = isAdminUser();
     document.querySelectorAll(".sidebar .nav-item").forEach(n => {
