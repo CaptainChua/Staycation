@@ -646,23 +646,7 @@ function pcEnsure(){
         st.textContent =
             "#partnerMonthCal .pc-eyebrow{font:800 11px/1 'Mulish',sans-serif;letter-spacing:2px;color:var(--hv-muted);text-transform:uppercase;margin-bottom:4px;}"
           + "#partnerMonthCal .pc-title{font-size:26px;margin:0;}"
-          + "#partnerMonthCal .pc-titlewrap{position:relative;}"
-          + "#partnerMonthCal .pc-datebtn{display:inline-flex;align-items:center;gap:8px;background:none;border:none;padding:0;cursor:pointer;color:var(--hv-ink);font-family:inherit;}"
-          + "#partnerMonthCal .pc-datebtn #pcTitle{font-size:26px;font-weight:800;}"
-          + "#partnerMonthCal .pc-chev{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;color:var(--hv-muted);margin-top:6px;}"
-          + "#partnerMonthCal .pc-picker{display:none;position:absolute;top:100%;left:0;margin-top:8px;z-index:60;background:#fff;border:1px solid var(--hv-line);border-radius:14px;box-shadow:0 12px 34px rgba(60,45,25,.16);padding:14px;width:300px;}"
-          + "#partnerMonthCal .pc-picker.show{display:block;}"
-          + "#partnerMonthCal .pc-pk-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-weight:700;color:var(--hv-ink);}"
-          + "#partnerMonthCal .pc-pk-head button{width:30px;height:30px;border:1px solid var(--hv-line);border-radius:8px;background:#fff;cursor:pointer;}"
-          + "#partnerMonthCal .pc-pk-dows,#partnerMonthCal .pc-pk-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}"
-          + "#partnerMonthCal .pc-pk-dows{margin-bottom:4px;}"
-          + "#partnerMonthCal .pc-pk-dows span{text-align:center;font-size:11px;color:var(--hv-muted);}"
-          + "#partnerMonthCal .pc-pk-day{text-align:center;padding:8px 0;border-radius:9px;background:#f4f2ef;cursor:pointer;font-size:13px;color:var(--hv-ink);}"
-          + "#partnerMonthCal .pc-pk-day:hover{background:#efe7d8;}"
-          + "#partnerMonthCal .pc-pk-day.today{outline:2px solid #e11d48;}"
-          + "#partnerMonthCal .pc-pk-day.empty{background:transparent;cursor:default;}"
-          + "#partnerMonthCal .pc-pk-foot{margin-top:10px;text-align:right;}"
-          + "#partnerMonthCal .pc-pk-foot span{color:var(--hv-terra-d);font-weight:600;font-size:13px;cursor:pointer;}"
+          + "#partnerMonthCal .dp-popup .dp-foot span{cursor:pointer;}"
           + "#partnerMonthCal .pc-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:16px;}"
           + "#partnerMonthCal .pc-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}"
           + "#partnerMonthCal .pc-rooms{display:inline-flex;gap:6px;}"
@@ -691,20 +675,22 @@ function pcEnsure(){
     panel.className = "panel"; panel.id = "partnerMonthCal"; panel.style.marginBottom = "24px";
     panel.innerHTML =
         '<div class="pc-head">'
-      +   '<div class="pc-titlewrap">'
-      +     '<div class="pc-eyebrow">Partner Calendar</div>'
-      +     '<button class="pc-datebtn" id="pcDateBtn" onclick="pcTogglePicker(event)"><span id="pcTitle"></span><svg class="pc-chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>'
-      +     '<div class="pc-picker" id="pcPicker">'
-      +       '<div class="pc-pk-head"><button type="button" onclick="pcPickerNav(-1)">‹</button><span id="pcPkTitle"></span><button type="button" onclick="pcPickerNav(1)">›</button></div>'
-      +       '<div class="pc-pk-dows" id="pcPkDows"></div>'
-      +       '<div class="pc-pk-grid" id="pcPkGrid"></div>'
-      +       '<div class="pc-pk-foot"><span onclick="pcPickerToday()">Today</span></div>'
-      +     '</div>'
-      +   '</div>'
-      +   '<div class="pc-controls"><div class="pc-rooms" id="pcRooms"></div>'
+      +   '<div><div class="pc-eyebrow">Partner Calendar</div><h2 class="pc-title" id="pcTitle"></h2></div>'
+      +   '<div class="pc-controls">'
+      +     '<div class="pc-rooms" id="pcRooms"></div>'
       +     '<button class="pc-btn" onclick="pcNav(-1)">‹ Prev</button>'
+      +     '<div class="dp-wrap" style="position:relative;">'
+      +       '<span class="date-pill" onclick="pcTogglePicker(event)"><svg class="cal-ico" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg><span id="pcPillLabel"></span></span>'
+      +       '<div class="dp-popup" id="pcPicker" onclick="event.stopPropagation()">'
+      +         '<div class="dp-head"><button type="button" onclick="pcPickerNav(-1)">‹</button><span id="pcPkTitle"></span><button type="button" onclick="pcPickerNav(1)">›</button></div>'
+      +         '<div class="dp-grid" id="pcPkGrid"></div>'
+      +         '<div class="dp-hint">Pick a date to jump to its month.</div>'
+      +         '<div class="dp-foot"><span onclick="pcClosePicker()">Close</span><span onclick="pcPickerToday()">Today</span></div>'
+      +       '</div>'
+      +     '</div>'
       +     '<button class="pc-btn" onclick="pcNav(1)">Next ›</button>'
       +     '<button class="pc-btn" onclick="pcToday()">Today</button>'
+      +     '<button class="pc-btn" onclick="pcThisMonth()">This month</button>'
       +     '<input type="text" id="pcSearch" class="pc-search" placeholder="Search name / mobile / booking #…" oninput="pcSetSearch(this.value)">'
       +   '</div>'
       + '</div>'
@@ -728,6 +714,7 @@ function _pcDefaultMonth(){
 }
 function pcNav(dir){ if(!pcMonth) pcMonth = _pcDefaultMonth(); pcMonth = new Date(pcMonth.getFullYear(), pcMonth.getMonth() + dir, 1); pcRender(); }
 function pcToday(){ pcMonth = _pcFirstOfThisMonth(); pcRender(); }
+function pcThisMonth(){ pcMonth = _pcFirstOfThisMonth(); pcRender(); }
 function pcSetRoom(h){ pcRoom = h; pcRender(); }
 function pcSetSearch(v){
     pcSearch = v || "";
@@ -776,21 +763,21 @@ function pcPickerRender(){
     const ttl = document.getElementById("pcPkTitle"); if(!ttl || !pcPickerMonth) return;
     const y = pcPickerMonth.getFullYear(), m = pcPickerMonth.getMonth();
     ttl.textContent = MONTHS[m] + " " + y;
-    document.getElementById("pcPkDows").innerHTML = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map(function(d){ return "<span>" + d + "</span>"; }).join("");
     const todayIso = iso(today());
-    const firstDow = new Date(y, m, 1).getDay();
+    const startDay = new Date(y, m, 1).getDay();
     const dim = new Date(y, m + 1, 0).getDate();
-    let cells = "";
-    for(let i = 0; i < firstDow; i++) cells += '<div class="pc-pk-day empty"></div>';
+    let html = "";
+    ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].forEach(function(d){ html += '<div class="dp-wd">' + d + '</div>'; });
+    for(let i = 0; i < startDay; i++) html += '<div class="dp-day empty"></div>';
     for(let d = 1; d <= dim; d++){
         const di = iso(new Date(y, m, d));
-        cells += '<div class="pc-pk-day' + (di === todayIso ? " today" : "") + '" onclick="pcPickDate(\'' + di + '\')">' + d + '</div>';
+        html += '<div class="dp-day' + (di === todayIso ? " today" : "") + '" onclick="pcPickDate(\'' + di + '\')"><span class="n">' + d + '</span></div>';
     }
-    document.getElementById("pcPkGrid").innerHTML = cells;
+    document.getElementById("pcPkGrid").innerHTML = html;
 }
 document.addEventListener("click", function(e){
     const pk = document.getElementById("pcPicker");
-    if(pk && pk.classList.contains("show") && e.target && e.target.closest && !e.target.closest("#pcPicker") && !e.target.closest("#pcDateBtn")) pk.classList.remove("show");
+    if(pk && pk.classList.contains("show") && e.target && e.target.closest && !e.target.closest("#pcPicker") && !e.target.closest(".date-pill")) pk.classList.remove("show");
 });
 
 function pcRender(){
@@ -805,6 +792,7 @@ function pcRender(){
     const roomColor = (typeof havenColors === "function" && havenColors(pcRoom)) ? havenColors(pcRoom).am : "#d8f79a";   // the room's colour = the bubble fill
     const y = pcMonth.getFullYear(), m = pcMonth.getMonth();
     document.getElementById("pcTitle").textContent = MONTHS[m] + " " + y;
+    const _lbl = document.getElementById("pcPillLabel"); if(_lbl) _lbl.textContent = MONTHS[m] + " " + y;
     document.getElementById("pcRooms").innerHTML = rooms.length > 1 ? rooms.map(function(h){   // toggle only when there's more than one room (super-admin)
         return '<button class="pc-room' + (h === pcRoom ? " active" : "") + '" onclick="pcSetRoom(\'' + escAttr(h) + '\')">' + escHtml(h) + '</button>';
     }).join("") : "";
