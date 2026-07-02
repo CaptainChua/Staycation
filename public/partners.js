@@ -548,15 +548,45 @@ function saveBoard(){
     if(btn){ const t = btn.textContent; btn.textContent = ta.value.trim() ? "Posted ✓" : "Cleared ✓"; setTimeout(function(){ btn.textContent = t; }, 1200); }
     renderBoard();
 }
-// one notice card; pass a label to show a target header (admin view), or null (partner view)
-function boardNoteHtml(rec, label){
+// one notice card; pass a label to show a target header + a key to show Edit/Delete (admin view),
+// or null/null for the partner view (no header, no buttons)
+function boardNoteHtml(rec, label, key){
     if(!rec || !(rec.text || "").trim()) return "";
     const when = rec.updatedAt ? new Date(rec.updatedAt).toLocaleString("en-PH") : "";
+    const actions = key
+        ? '<div style="margin-top:10px; display:flex; gap:16px;">'
+            + '<span style="font-size:12px; font-weight:600; color:var(--hv-terra-d); cursor:pointer;" onclick="boardEdit(\'' + escAttr(key) + '\')">Edit</span>'
+            + '<span style="font-size:12px; font-weight:600; color:#c0283d; cursor:pointer;" onclick="boardDelete(\'' + escAttr(key) + '\')">Delete</span>'
+          + '</div>'
+        : '';
     return '<div class="board-note" style="margin-bottom:12px;">'
         + (label ? '<div class="muted" style="font-size:11px; font-weight:800; letter-spacing:.4px; text-transform:uppercase; margin-bottom:6px;">' + escHtml(label) + '</div>' : '')
         + escHtml(rec.text).replace(/\n/g, "<br>")
-        + (when ? '<div class="muted" style="margin-top:8px; font-size:12px;">Last updated ' + (rec.updatedBy ? escHtml(rec.updatedBy) + " · " : "") + escHtml(when) + '</div>' : '')
+        + (when ? '<div class="muted" style="margin-top:8px; font-size:12px;">Last updated ADMIN · ' + escHtml(when) + '</div>' : '')
+        + actions
         + '</div>';
+}
+// Edit: pull a posted notice back into the "Post to" + textarea so it can be changed & re-posted
+function boardEdit(key){
+    const sel = document.getElementById("boardTarget"), ta = document.getElementById("boardText");
+    if(sel){
+        if(!Array.prototype.some.call(sel.options, function(o){ return o.value === key; })){
+            const opt = document.createElement("option"); opt.value = key; opt.textContent = boardTargetLabel(key); sel.appendChild(opt);
+        }
+        sel.value = key;
+    }
+    const rec = loadBoard()[key];
+    if(ta){ ta.value = (rec && rec.text) || ""; ta.focus(); }
+    const box = document.getElementById("boardAdmin"); if(box && box.scrollIntoView) box.scrollIntoView({ behavior:"smooth", block:"center" });
+}
+// Delete: remove that target's notice
+function boardDelete(key){
+    if(!confirm("Delete this notice" + (key === "all" ? " for all partners" : " for " + key) + "?")) return;
+    const board = loadBoard();
+    delete board[key];
+    localStorage.setItem(BOARD_KEY, JSON.stringify(board));
+    if(typeof logActivity === "function") logActivity("deleted the partner notice board (" + boardTargetLabel(key) + ")");
+    renderBoard();
 }
 function renderBoard(){
     const board = loadBoard();
@@ -584,7 +614,7 @@ function renderBoard(){
         const keys = Object.keys(board).filter(function(k){ return board[k] && (board[k].text || "").trim(); });
         keys.sort(function(a, b){ return a === "all" ? -1 : b === "all" ? 1 : a.localeCompare(b); });
         view.innerHTML = keys.length
-            ? keys.map(function(k){ return boardNoteHtml(board[k], boardTargetLabel(k)); }).join("")
+            ? keys.map(function(k){ return boardNoteHtml(board[k], boardTargetLabel(k), k); }).join("")
             : '<p class="muted" style="margin:0;">No notice posted yet.</p>';
     } else {
         // partner: the "all" notice + their own haven's notice
