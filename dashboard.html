@@ -1976,7 +1976,7 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
   #page-havens .hv-badge:hover{ box-shadow:0 2px 10px rgba(0,0,0,.16); }
   #page-havens .hv-badge.off{ color:#8a8578; }
   #page-havens .hv-badge.off i{ background:#c0bab0; }
-  #page-havens .hv-live-row{ display:flex; align-items:center; gap:12px; margin:18px 0 4px; }
+  #page-havens .hv-live-row{ display:flex; align-items:center; gap:12px; margin:2px 0 16px; padding-bottom:14px; border-bottom:1px solid var(--hv-line); }
   #page-havens .hv-switch{ position:relative; display:inline-block; width:44px; height:24px; cursor:pointer; }
   #page-havens .hv-switch input{ opacity:0; width:0; height:0; position:absolute; }
   #page-havens .hv-slider{ position:absolute; inset:0; background:#cfc8ba; border-radius:24px; transition:.2s; }
@@ -2064,6 +2064,11 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
         <button class="hv-drx" onclick="closeHaven()">✕</button>
     </div>
     <div class="hv-drbody">
+        <div class="hv-live-row" id="hvLiveRow">
+            <span class="hv-fl" style="margin:0;">Live</span>
+            <label class="hv-switch"><input type="checkbox" id="hvLive" onchange="hvLiveToggleUI()"><span class="hv-slider"></span></label>
+            <span class="hv-live-state" id="hvLiveState">On — shown on the website</span>
+        </div>
         <label class="hv-fl">Main image</label>
         <input class="hv-fld" id="hvImg" placeholder="Paste an image link, or upload below" oninput="hvPreviewImg(this.value)">
         <button type="button" class="hv-pill" onclick="document.getElementById('hvMainUp').click()">⬆ Upload image</button>
@@ -2081,12 +2086,6 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
         <div class="hv-two">
             <div><label class="hv-fl">Name</label><input class="hv-fld" id="hvName"></div>
             <div><label class="hv-fl">Price starts at:</label><input class="hv-fld" id="hvPrice" placeholder="₱0 / night"></div>
-        </div>
-
-        <div class="hv-live-row" id="hvLiveRow">
-            <span class="hv-fl" style="margin:0;">Live</span>
-            <label class="hv-switch"><input type="checkbox" id="hvLive" onchange="hvLiveToggleUI()"><span class="hv-slider"></span></label>
-            <span class="hv-live-state" id="hvLiveState">On — shown on the website</span>
         </div>
 
         <label class="hv-fl">Description</label>
