@@ -1754,6 +1754,7 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
         <div>
             <h1>Business Analytics</h1>
             <p id="anScope">All units combined — bookings, bills / payables, and payroll · last 12 months</p>
+            <div class="an-bkstat"><span class="an-bknum" id="anBookings">0</span><span class="an-bklbl">successful bookings</span></div>
         </div>
         <div class="an-period-wrap">
             <div class="an-seg" id="anSeg">
@@ -1789,6 +1790,9 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
       #page-analytics .an-seg button{ border:none; background:none; padding:9px 15px; font-size:13px; font-weight:600; color:var(--hv-muted); cursor:pointer; font-family:inherit; }
       #page-analytics .an-seg button:hover{ background:#faf6ee; }
       #page-analytics .an-seg button.active{ background:var(--hv-ink); color:#fff; }
+      #page-analytics .an-bkstat{ margin-top:8px; display:inline-flex; align-items:baseline; gap:8px; }
+      #page-analytics .an-bknum{ font-size:24px; font-weight:800; color:var(--hv-ink); line-height:1; }
+      #page-analytics .an-bklbl{ font-size:11px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; color:var(--hv-muted); }
       #page-analytics .an-range .date-pill{ min-width:150px; }
       #page-analytics #anDpPopup{ left:auto; right:0; transform:none; top:48px; }
       #page-analytics #anDpPopup::before{ left:auto; right:30px; transform:rotate(45deg); }
@@ -9357,6 +9361,11 @@ function renderAnalytics(){
     const payrollGross = Math.round(months.reduce((s,ym) => s + payOf(ym), 0));
     const payroll = _scopedPartner ? 0 : payrollGross;   // payroll is business-wide, not per-haven
     const expensesSpend = Math.round(ex.reduce((s,e) => s + Number(e.amount||0), 0));
+    // "Add Funds" = money the owner put in from her own pocket (entered as a NEGATIVE expense).
+    // Split it out so "Expenses (supplies)" shows only real spend and Add Funds shows as a green credit.
+    const addFundsSpend = Math.round(ex.filter(e => (e.type || "") === "Add Funds").reduce((s,e) => s + Number(e.amount||0), 0));   // negative
+    const suppliesSpend = expensesSpend - addFundsSpend;   // real supplies spend, excludes owner top-ups
+    const addFundsCredit = -addFundsSpend;                 // positive amount the owner added
     const totalExpenses = billsTotal + payroll + expensesSpend;
     const netProfit = netRevenue - totalExpenses;
     const leftAfterBE = netRevenue - billsTotal - expensesSpend;
@@ -9367,6 +9376,7 @@ function renderAnalytics(){
 
     document.getElementById("anScope").textContent =
         `All units combined — bookings, bills, payroll &amp; expenses · ${scopeText}`;
+    const _bkEl = document.getElementById("anBookings"); if(_bkEl) _bkEl.textContent = _live.length;   // successful (non-cancelled) bookings, shown in the header
 
     // ---- big KPI cards ----
     let kpis;
@@ -9382,8 +9392,7 @@ function renderAnalytics(){
             ["Collected (gross)", peso(gross), "#2e7d4f", AN_ICO.trendUp, "ic-green", pct(cur.inc, prev.inc)],
             ["Net (after deductions)", peso(netRevenue), netRevenue >= 0 ? "#2e7d4f" : "#c0283d", AN_ICO.piggy, "ic-green", null],
             ["Net profit", peso(netProfit), netProfit >= 0 ? "#2e7d4f" : "#c0283d", AN_ICO.piggy, "ic-green", pct(cur.inc - cur.exp, prev.inc - prev.exp)],
-            ["Total expenses", peso(totalExpenses), "var(--hv-terra-d)", AN_ICO.trendDown, "ic-terra", pct(cur.exp, prev.exp)],
-            ["Bookings", _live.length, "var(--hv-ink)", AN_ICO.cal, "ic-dark", pct(cur.bk, prev.bk)]
+            ["Total expenses", peso(totalExpenses), "var(--hv-terra-d)", AN_ICO.trendDown, "ic-terra", pct(cur.exp, prev.exp)]
         ];
     }
     document.getElementById("anCards").innerHTML = kpis.map(k => `
@@ -9396,15 +9405,16 @@ function renderAnalytics(){
     // ---- compact cards ----  (m[4] = optional value colour)
     const RED = "#c0283d";
     const minis = [];
-    if(_scopedPartner) minis.push(["Bookings", _live.length, AN_ICO.cal, "ic-dark"]);
     if(!_scopedPartner) minis.push(["Receivables (pending)", peso(receivables), AN_ICO.hour, "ic-gold"]);
     // partner: "Pending Bills" = the unpaid balances still to collect (same as the Pending/Unpaid figure)
     minis.push(_scopedPartner
         ? ["Pending Bills", "−" + peso(billsPendingAll), AN_ICO.hour, "ic-gold", RED]
         : ["Total bills", peso(billsTotal), AN_ICO.receipt, "ic-terra"]);
     minis.push(_scopedPartner
-        ? ["Expenses (supplies)", "−" + peso(expensesSpend), AN_ICO.receipt, "ic-green", RED]
-        : ["Expenses (supplies)", peso(expensesSpend), AN_ICO.receipt, "ic-green"]);
+        ? ["Expenses (supplies)", "−" + peso(suppliesSpend), AN_ICO.receipt, "ic-green", RED]
+        : ["Expenses (supplies)", peso(suppliesSpend), AN_ICO.receipt, "ic-green"]);
+    // Add Funds — money the owner added from her own pocket (a credit) → GREEN
+    minis.push(["Add Funds", "+" + peso(addFundsCredit), AN_ICO.receipt, "ic-green", "#2e7d4f"]);
     // Bills pending + Payroll are admin-only (business-wide; not shown on the partner view)
     if(!_scopedPartner) minis.push(
         ["Bills pending", peso(billsPending), AN_ICO.receipt, "ic-terra"],
