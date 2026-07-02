@@ -6998,11 +6998,11 @@ function gfSavePdf(){
         };
     });
     const page = doc.querySelector(".gf-page");
-    // filename = <MMDDYY>-D<unit>, e.g. Haven 1 today → 062926-D2802
-    const now = new Date();
-    const mmddyy = String(now.getMonth() + 1).padStart(2, "0") + String(now.getDate()).padStart(2, "0") + String(now.getFullYear()).slice(-2);
+    // filename = GAF <Tower><Unit> (<Move-in date>), e.g. GAF D2802 (July 2)
     const unitNo = GF_HAVEN_UNITS[document.getElementById("gf_haven").value] || "";
-    const fname = `${mmddyy}-${GF_TOWER}${unitNo}.pdf`;
+    let moveIn = gfCalSel;
+    try{ moveIn = new Date(gfCalSel + "T00:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric" }); }catch(e){}
+    const fname = `GAF ${GF_TOWER}${unitNo} (${moveIn}).pdf`;
     const run = () => html2pdf().set({
         margin: 0, filename: fname,
         image: { type:"jpeg", quality:0.95 },
