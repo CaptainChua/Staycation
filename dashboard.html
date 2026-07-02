@@ -2009,7 +2009,10 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
   #page-havens .hv-drbody{ padding:20px 26px; overflow-y:auto; flex:1; }
   #page-havens .hv-fl{ display:block; font-size:11px; letter-spacing:1.2px; text-transform:uppercase; color:var(--hv-muted); margin:18px 0 7px; font-weight:600; }
   #page-havens .hv-mainimg{ height:170px; border-radius:14px; margin-top:4px; background:#faf4ec repeating-linear-gradient(135deg,#efe6d7,#efe6d7 13px,#e7dcc9 13px,#e7dcc9 26px); background-size:cover; background-position:center; border:1px solid var(--hv-line); }
-  #page-havens .hv-gallery{ display:flex; flex-direction:column; gap:8px; }
+  #page-havens .hv-gallery{ display:grid; grid-template-columns:repeat(auto-fill, minmax(80px, 1fr)); gap:8px; }
+  #page-havens .hv-gcard{ position:relative; aspect-ratio:1 / 1; border-radius:10px; border:1px solid var(--hv-line); background:#f4f2ee center/cover no-repeat; }
+  #page-havens .hv-gcard .hv-gx{ position:absolute; top:4px; right:4px; width:22px; height:22px; padding:0; border-radius:50%; border:none; background:rgba(0,0,0,.5); color:#fff; font-size:12px; line-height:1; display:flex; align-items:center; justify-content:center; }
+  #page-havens .hv-gcard .hv-gx:hover{ background:rgba(192,40,61,.92); }
   #page-havens .hv-grow{ display:flex; gap:8px; align-items:center; }
   #page-havens .hv-thumb{ width:40px; height:40px; flex:none; border-radius:8px; border:1px solid var(--hv-line); background:#eee center/cover no-repeat; }
   #page-havens .hv-gx, #page-havens .hv-pill{ border:1px solid var(--hv-line); background:#fff; border-radius:9px; cursor:pointer; font-family:inherit; }
@@ -10392,14 +10395,9 @@ function hvPreviewImg(url){
 
 function hvRenderGallery(){
     document.getElementById("hvGallery").innerHTML = hvDraftGallery.map((u, idx) => {
-        const val = String(u || "");
-        const isImg = val.startsWith("data:") || val.startsWith("/img/");
-        const thumbUrl = val.replace(/'/g, "%27").replace(/"/g, "%22");
-        const thumb = `<span class="hv-thumb" style="background-image:url('${thumbUrl}')"></span>`;
-        const field = isImg
-            ? `<input class="hv-fld" value="Uploaded photo ✓" readonly style="color:var(--hv-muted);">`
-            : `<input class="hv-fld" value="${escAttr(val)}" placeholder="Photo link" oninput="hvDraftGallery[${idx}]=this.value">`;
-        return `<div class="hv-grow">${thumb}${field}<button class="hv-gx" onclick="hvDelGallery(${idx})" title="Remove">✕</button></div>`;
+        const bg = String(u || "").replace(/'/g, "%27").replace(/"/g, "%22");
+        return `<div class="hv-gcard" style="background-image:url('${bg}')" title="Uploaded photo">`
+            + `<button class="hv-gx" onclick="hvDelGallery(${idx})" title="Remove">✕</button></div>`;
     }).join("");
 }
 function hvDelGallery(idx){ hvDraftGallery.splice(idx, 1); hvRenderGallery(); }
