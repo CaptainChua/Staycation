@@ -8,8 +8,60 @@
     <title>Staycation Haven PH</title>
     <link rel="icon" href="images/logo.png">
     <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Jost:wght@300;400&display=swap" rel="stylesheet">
 </head>
 <body>
+
+<!-- ===== Logo Splash intro (imported from Claude Design) ===== -->
+<div id="sgSplash" aria-hidden="true">
+  <div class="sg-wrap">
+    <div class="sg-glow"></div>
+    <div class="sg-ring"></div>
+    <img class="sg-logo" src="images/logo.png" alt="Staycation Haven PH" onerror="this.style.display='none'">
+    <div class="sg-name">Staycation Haven PH</div>
+    <div class="sg-bar"><span></span></div>
+  </div>
+</div>
+<style>
+  @keyframes sgLogoIn { 0%{opacity:0;transform:scale(.78);filter:blur(6px)} 55%{opacity:1;filter:blur(0)} 100%{opacity:1;transform:scale(1);filter:blur(0)} }
+  @keyframes sgGlow { 0%{opacity:0;transform:translate(-50%,-50%) scale(.7)} 45%{opacity:.9} 100%{opacity:.55;transform:translate(-50%,-50%) scale(1)} }
+  @keyframes sgRing { 0%{opacity:0;transform:translate(-50%,-50%) scale(.55)} 35%{opacity:.5} 100%{opacity:0;transform:translate(-50%,-50%) scale(1.75)} }
+  @keyframes sgBar { 0%{transform:scaleX(0)} 100%{transform:scaleX(1)} }
+  @keyframes sgOut { 0%{opacity:1;transform:scale(1);filter:blur(0)} 100%{opacity:0;transform:scale(1.09);filter:blur(6px)} }
+  #sgSplash{ position:fixed; inset:0; z-index:99999; display:flex; align-items:center; justify-content:center;
+    background:radial-gradient(circle at 50% 44%, #1b1b1e 0%, #0d0d0f 70%); font-family:'Jost',system-ui,sans-serif; }
+  #sgSplash.sg-hide{ animation:sgOut .8s cubic-bezier(.5,0,.2,1) forwards; }
+  #sgSplash .sg-wrap{ position:relative; display:flex; flex-direction:column; align-items:center; }
+  #sgSplash .sg-glow{ position:absolute; top:50%; left:50%; width:440px; height:440px; margin-top:-20px;
+    border-radius:50%; background:radial-gradient(circle, rgba(201,162,74,.34) 0%, rgba(201,162,74,.10) 38%, transparent 66%);
+    animation:sgGlow 1s ease-out both; pointer-events:none; }
+  #sgSplash .sg-ring{ position:absolute; top:50%; left:50%; width:250px; height:250px; margin-top:-20px;
+    border-radius:50%; border:1px solid rgba(201,162,74,.5); animation:sgRing 1.6s ease-out .25s both; pointer-events:none; }
+  #sgSplash .sg-logo{ position:relative; width:min(216px,46vw); height:auto; object-fit:contain;
+    animation:sgLogoIn 1s cubic-bezier(.22,.61,.36,1) .12s both; filter:drop-shadow(0 6px 26px rgba(201,162,74,.35)); }
+  #sgSplash .sg-name{ position:relative; margin-top:24px; font-family:'Cormorant Garamond',serif; font-size:clamp(20px,5vw,30px);
+    letter-spacing:.16em; color:#e7c877; text-transform:uppercase; line-height:1; text-align:center;
+    animation:sgLogoIn 1s cubic-bezier(.22,.61,.36,1) .42s both; }
+  #sgSplash .sg-bar{ margin-top:32px; width:132px; height:2px; border-radius:2px; background:rgba(255,255,255,.10); overflow:hidden; }
+  #sgSplash .sg-bar span{ display:block; height:100%; width:100%; transform-origin:left; transform:scaleX(0);
+    background:linear-gradient(90deg,#c9a24a,#e7c877); animation:sgBar 2.1s cubic-bezier(.4,0,.2,1) .2s both; }
+  @media (prefers-reduced-motion: reduce){ #sgSplash *{ animation-duration:1ms !important; } }
+</style>
+<script>
+(function(){
+  var el = document.getElementById("sgSplash");
+  if(!el) return;
+  // play once per browser session — navigating back to the homepage won't replay it
+  try{ if(sessionStorage.getItem("shph_splash_seen") === "1"){ el.remove(); return; } sessionStorage.setItem("shph_splash_seen", "1"); }catch(e){}
+  var root = document.documentElement;
+  root.style.overflow = "hidden";                                  // no scroll during the intro
+  setTimeout(function(){ el.classList.add("sg-hide"); }, 2150);    // begin fade-out
+  setTimeout(function(){ el.remove(); root.style.overflow = ""; }, 3000);  // remove after fade
+})();
+</script>
+<!-- ===== /Logo Splash ===== -->
 
 <header>
     <a class="logo" href="index.html"><img class="logo-img" src="images/logo.png" alt="" onerror="this.remove()"> Staycation Haven PH</a>
