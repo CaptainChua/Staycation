@@ -359,6 +359,7 @@ function applyPartnerChrome(){
 
     // identity + hide admin-only chrome
     const ab = document.getElementById("addBookingBtn"); if(ab) ab.style.display = "none";
+    const _madd = document.querySelector(".m-add"); if(_madd) _madd.style.display = "none";   // mobile "+" add booking (partners are view-only)
     const _calLog = document.getElementById("calLogPanel"); if(_calLog) _calLog.style.display = "none";   // Activity Log is admin-only
     const _tl = document.getElementById("timeline"); if(_tl){ const _tlp = _tl.closest(".panel"); if(_tlp) _tlp.style.display = "none"; }   // partners use the month grid, not the timeline
     const ul = document.getElementById("currentUserLabel");

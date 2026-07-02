@@ -7252,14 +7252,17 @@ function renderDeposit(){
         const dot = (HAVEN_COLORS[b.haven] || { am:"#ccc" }).am;
         const dep = Number(b.deposit || 0);
         const returned = !!b.depositReturned;
+        const ro = _partnerReadOnly();   // scoped partners see deposits READ-ONLY (View only)
         let statusCell;
         if(dep > 0){
             if(returned){
                 const mopTxt = b.depositMop ? " · " + b.depositMop : "";
-                const pill = `<span class="dep-status returned" style="cursor:pointer;" onclick="openDepReturn(${b.id})" title="View / manage refund">✓ Returned${mopTxt}</span>`;
-                statusCell = `<div class="dep-cell">${pill}<button class="btn secondary" onclick="viewBooking(${b.id})">View</button><button class="btn secondary" onclick="undoDeposit(${b.id})">↺ Undo</button></div>`;
+                const pill = ro
+                    ? `<span class="dep-status returned">✓ Returned${mopTxt}</span>`
+                    : `<span class="dep-status returned" style="cursor:pointer;" onclick="openDepReturn(${b.id})" title="View / manage refund">✓ Returned${mopTxt}</span>`;
+                statusCell = `<div class="dep-cell">${pill}<button class="btn secondary" onclick="viewBooking(${b.id})">View</button>${ro ? "" : `<button class="btn secondary" onclick="undoDeposit(${b.id})">↺ Undo</button>`}</div>`;
             } else {
-                statusCell = `<div class="dep-cell"><span class="dep-status held">To return</span><button class="btn secondary" onclick="viewBooking(${b.id})">View</button><button class="btn" onclick="openDepReturn(${b.id})">Mark returned</button></div>`;
+                statusCell = `<div class="dep-cell"><span class="dep-status held">To return</span><button class="btn secondary" onclick="viewBooking(${b.id})">View</button>${ro ? "" : `<button class="btn" onclick="openDepReturn(${b.id})">Mark returned</button>`}</div>`;
             }
         } else {
             statusCell = `<span class="muted">No deposit</span>`;
@@ -7292,6 +7295,7 @@ function setDepQuick(which){
 // undo a return — clears the proof so re-marking requires a fresh photo
 let _undoDep = false;
 async function undoDeposit(id){
+    if(_partnerReadOnly()) return;   // partners are read-only
     const b = bookings.find(x => x.id === id);
     if(!b) return;
     if(_undoDep) return;   // block double-click (idempotent anyway, but avoids a redundant write + double log)
@@ -7372,6 +7376,7 @@ function applyDepProof(f){
 function onDepProofChange(input){ if(input.files[0]) applyDepProof(input.files[0]); }
 let _depSaving = false;
 async function confirmDepReturn(){
+    if(_partnerReadOnly()) return;   // partners are read-only
     if(_depSaving) return;   // block double-clicks
     if(depReturnId == null) return;
     if(!depProofData){ alert("Please attach a photo of the refunded security deposit first."); return; }
@@ -7611,6 +7616,9 @@ let expenses = loadExpenses();
 function _partnerReadOnlyKey(key){
     return !!(window.__PARTNER__ && !window.__PARTNER__.superAdmin && (key === BILLS_KEY || key === EXPENSES_KEY));
 }
+// a scoped (non-super-admin) partner is READ-ONLY everywhere — use this to block writes that don't go
+// through saveOneRecord/deleteOneRecord (e.g. security-deposit returns) and to hide their action buttons.
+function _partnerReadOnly(){ return !!(window.__PARTNER__ && !window.__PARTNER__.superAdmin); }
 async function saveOneRecord(key, item){
     if(_partnerReadOnlyKey(key)) return false;
     try{ const res = await fetch("/api/list/" + encodeURIComponent(key), { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ upsert: item }) }); return res.ok; }catch(e){ return false; }
