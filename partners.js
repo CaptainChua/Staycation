@@ -567,7 +567,7 @@ function partnersOnShowPage(page){
         commissions:["Partners","Commissions"],
         partnerbookings:["Partners","Bookings by Partner"],
         prrooms:["Partners","PR-Rooms"],
-        board:["Partners","Board"]
+        board:["Main","Board"]
     };
     // 3) re-apply permissions so the (now-registered) Partners nav reveals
     //    (in partner mode this runs applyPartnerChrome and lands on Today)
