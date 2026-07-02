@@ -9500,9 +9500,21 @@ function renderAnalytics(){
     const totalExpenses = billsTotal + payroll + expensesSpend;
     const netProfit = netRevenue - totalExpenses;
     const leftAfterBE = netRevenue - billsTotal - expensesSpend;
-    // partner: Total Expenses = deductions + PAID bills + supplies. A bill marked paid in the
-    // Bills section moves out of "Pending Bills" and into here; unpaid bills stay pending only.
-    const partnerExp = deductions + billsPaidAll + expensesSpend;
+    // partner: Total Expenses = deductions + PAID bills DUE IN THIS PERIOD + supplies + commission.
+    // Use the windowed billsPaid (NOT all-time billsPaidAll) so a bill paid in June doesn't also
+    // count against July — each paid bill hits only the month it's due.
+    // Per-booking commission owed by this partner (rate set on their record) — deducted from their net.
+    let commissionRate = 0;
+    if(_scopedPartner){
+        try{
+            const _ps = window.__PARTNER__ || {};
+            const _pl = JSON.parse(localStorage.getItem("shph_partners")) || [];
+            const _me = _pl.find(function(p){ return String(p.id) === String(_ps.id); });
+            commissionRate = _me ? Number(_me.rate || 0) : 0;
+        }catch(e){}
+    }
+    const commissionTotal = Math.round(commissionRate * _live.length);   // per-booking rate × successful bookings
+    const partnerExp = deductions + billsPaid + expensesSpend + commissionTotal;
     const partnerNet = gross - partnerExp;   // Gross − Total Expenses
 
     document.getElementById("anScope").textContent =
@@ -9539,7 +9551,7 @@ function renderAnalytics(){
     if(!_scopedPartner) minis.push(["Receivables (pending)", peso(receivables), AN_ICO.hour, "ic-gold"]);
     // partner: "Pending Bills" = the unpaid balances still to collect (same as the Pending/Unpaid figure)
     minis.push(_scopedPartner
-        ? ["Pending Bills", "−" + peso(billsPendingAll), AN_ICO.hour, "ic-gold", RED]
+        ? ["Pending Bills", "−" + peso(billsPending), AN_ICO.hour, "ic-gold", RED]
         : ["Total bills", peso(billsTotal), AN_ICO.receipt, "ic-terra"]);
     minis.push(_scopedPartner
         ? ["Expenses (supplies)", "−" + peso(suppliesSpend), AN_ICO.receipt, "ic-green", RED]
@@ -9559,6 +9571,8 @@ function renderAnalytics(){
         ["Housekeeping", "−" + peso(housekeepingTotal), AN_ICO.receipt, "ic-terra", RED],
         ["Refunds (cancelled)", "−" + peso(refundTotal), AN_ICO.receipt, "ic-terra", RED]
     );
+    // per-booking commission — partner view only (rate × successful bookings), deducted from their net
+    if(_scopedPartner) minis.push(["Commission", "−" + peso(commissionTotal), AN_ICO.receipt, "ic-terra", RED]);
     // damages kept are the admin's income (not the partner's) → admin view only
     if(!_scopedPartner) minis.push(["Damages (kept → admin)", "+" + peso(damageTotal), AN_ICO.receipt, "ic-green", "#2e7d4f"]);
     document.getElementById("anMini").innerHTML = minis.map(m => `
