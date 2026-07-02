@@ -2717,7 +2717,7 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
         <div class="panel-head">
             <h2><span class="sec-ico"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v5c0 5 3.4 8.3 8 10 4.6-1.7 8-5 8-10V6Z"/><path d="m9 12 2 2 4-4"/></svg></span>Security Deposit</h2>
         </div>
-        <p class="muted" style="margin:0 0 14px;">Guests who <b>checked out</b> on the selected day and the security deposit to return. Use the quick filters, or pick any date.</p>
+        <p class="muted" style="margin:0 0 14px;">Security deposits <b>due to return</b> on the selected day. Overnight stays show on their check-out day; <b>day-use (same-day) stays show the next day</b>. Use the quick filters, or pick any date.</p>
         <div class="dep-toolbar">
             <div class="seg" id="depSeg">
                 <button type="button" data-d="yesterday" onclick="setDepQuick('yesterday')">Yesterday</button>
@@ -5168,9 +5168,17 @@ function updatePaymentApprovalBadge(){
 }
 // security deposits STILL to return: guests who have already checked out (checkout ≤ today), have a
 // deposit, and it hasn't been marked returned yet.
+// the day a booking's security deposit is due to be returned:
+//  • overnight stays (check-out after check-in) → the check-out day
+//  • same-day / day-use stays (check-out not after check-in) → the NEXT day (returned tomorrow)
+function depReturnDate(b){
+    if(!b || !b.checkout) return b && b.checkout;
+    if(b.checkin && !(b.checkout > b.checkin)) return iso(addDays(new Date(b.checkout + "T00:00:00"), 1));
+    return b.checkout;
+}
 function depositsToReturn(){
     const t = iso(today());
-    return bookings.filter(b => b && !b.cancelled && !b.depositReturned && Number(b.deposit || 0) > 0 && b.checkout && b.checkout <= t).length;
+    return bookings.filter(b => { const rd = depReturnDate(b); return b && !b.cancelled && !b.depositReturned && Number(b.deposit || 0) > 0 && rd && rd <= t; }).length;
 }
 function updateDepositBadge(){
     const badge = document.getElementById("depositBadge");
@@ -7352,8 +7360,8 @@ function renderDeposit(){
     document.querySelectorAll("#depSeg button").forEach(x => x.classList.toggle("active", x.dataset.d === depQuick));
 
     const hv = (document.getElementById("depHavenFilter") || {}).value || "";
-    const list = bookings.filter(b => !b.cancelled && b.checkout >= start && b.checkout <= end && (!hv || b.haven === hv))
-        .sort((a, b) => (a.checkout || "").localeCompare(b.checkout || "") || a.haven.localeCompare(b.haven));
+    const list = bookings.filter(b => { const rd = depReturnDate(b); return !b.cancelled && rd && rd >= start && rd <= end && (!hv || b.haven === hv); })
+        .sort((a, b) => (depReturnDate(a) || "").localeCompare(depReturnDate(b) || "") || a.haven.localeCompare(b.haven));
     const body = document.getElementById("depositBody");
     body.innerHTML = list.length ? list.map(b => {
         const dot = (HAVEN_COLORS[b.haven] || { am:"#ccc" }).am;
