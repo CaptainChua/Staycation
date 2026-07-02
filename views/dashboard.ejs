@@ -9426,6 +9426,45 @@ function anDelta(d){
 }
 
 let anPeriod = "month";   // day | week | month | year | custom
+/* ---------- partner running-balance carry-over ---------- */
+// Net for ONE month (partner-scoped: bookings/bills/expenses are already filtered to their haven).
+// Mirrors the window computation so a month's standalone net matches what its own window shows.
+function _partnerMonthNet(ym, commissionRate){
+    const bk = bookings.filter(b => b.checkin && b.checkin.slice(0, 7) === ym);
+    const live = bk.filter(b => !b.cancelled);
+    const swimRateOf = b => (b.holiday ? PRICING.swimHoliday : PRICING.swimRegular);
+    const gross  = bk.reduce((s, b) => s + paidOf(b), 0);
+    const dep    = live.filter(b => b.depositReturned).reduce((s, b) => s + (Number(b.deposit) || 0), 0);
+    const pool   = live.reduce((s, b) => s + (Number(b.swimpass) || 0) * swimRateOf(b), 0);
+    const towel  = live.reduce((s, b) => s + (Number(b.towels) || 0) * PRICING.towel, 0);
+    const refund = bk.filter(b => b.cancelled && b.dpRefunded).reduce((s, b) => s + paidOf(b), 0);
+    const hk     = 100 * live.length;
+    const billsPaidM = bills.filter(b => b.paid && b.due && b.due.slice(0, 7) === ym).reduce((s, b) => s + Number(b.amount || 0), 0);
+    const expM       = expenses.filter(e => e.date && e.date.slice(0, 7) === ym).reduce((s, e) => s + Number(e.amount || 0), 0);
+    const commission = (Number(commissionRate) || 0) * live.length;
+    return gross - (dep + pool + towel + refund + hk + billsPaidM + expM + commission);
+}
+function _partnerEarliestMonth(){
+    let min = null;
+    const upd = ym => { if(ym && (!min || ym < min)) min = ym; };
+    bookings.forEach(b => { if(b.checkin) upd(b.checkin.slice(0, 7)); });
+    bills.forEach(b => { if(b.due) upd(b.due.slice(0, 7)); });
+    expenses.forEach(e => { if(e.date) upd(e.date.slice(0, 7)); });
+    return min;
+}
+// Running balance carried INTO the window's start month: sum every prior month's net; only a DEFICIT
+// carries (a profitable month pays down the debt; once the balance is >= 0, nothing positive carries).
+function _partnerCarryIn(startYm, commissionRate){
+    const first = _partnerEarliestMonth();
+    if(!first || first >= startYm) return 0;
+    let bal = 0, d = new Date(first + "-01T00:00:00");
+    for(let guard = 0; iso(d).slice(0, 7) < startYm && guard < 240; guard++){
+        bal += _partnerMonthNet(iso(d).slice(0, 7), commissionRate);
+        if(bal > 0) bal = 0;   // surplus clears the debt; nothing positive carries forward
+        d = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+    }
+    return bal;   // <= 0
+}
 function renderAnalytics(){
     HAVENS = havenNames();
     const t = today();
@@ -9515,7 +9554,10 @@ function renderAnalytics(){
     }
     const commissionTotal = Math.round(commissionRate * _live.length);   // per-booking rate × successful bookings
     const partnerExp = deductions + billsPaid + expensesSpend + commissionTotal;
-    const partnerNet = gross - partnerExp;   // Gross − Total Expenses
+    const partnerNet = gross - partnerExp;   // Gross − Total Expenses (this window only)
+    // running balance: fold in any deficit carried from prior months so July opens at June's net, etc.
+    const carriedIn = _scopedPartner ? Math.round(_partnerCarryIn(startIso.slice(0, 7), commissionRate)) : 0;
+    const partnerNetRunning = partnerNet + carriedIn;
 
     document.getElementById("anScope").textContent =
         `All units combined — bookings, bills, payroll &amp; expenses · ${scopeText}`;
@@ -9528,7 +9570,7 @@ function renderAnalytics(){
         kpis = [
             ["Gross", peso(gross), "#2e7d4f", AN_ICO.trendUp, "ic-green", null],
             ["Total expenses", peso(partnerExp), "var(--hv-terra-d)", AN_ICO.trendDown, "ic-terra", null],
-            ["NET (after bills & expenses)", peso(partnerNet), partnerNet >= 0 ? "#2e7d4f" : "#c0283d", AN_ICO.piggy, "ic-green", null]
+            [carriedIn < 0 ? "NET (incl. carry-over)" : "NET (after bills & expenses)", peso(partnerNetRunning), partnerNetRunning >= 0 ? "#2e7d4f" : "#c0283d", AN_ICO.piggy, "ic-green", null]
         ];
     } else {
         kpis = [
@@ -9548,6 +9590,7 @@ function renderAnalytics(){
     // ---- compact cards ----  (m[4] = optional value colour)
     const RED = "#c0283d";
     const minis = [];
+    if(_scopedPartner && carriedIn < 0) minis.push(["Carried over from last month", "−" + peso(-carriedIn), AN_ICO.hour, "ic-terra", RED]);
     if(!_scopedPartner) minis.push(["Receivables (pending)", peso(receivables), AN_ICO.hour, "ic-gold"]);
     // partner: "Pending Bills" = the unpaid balances still to collect (same as the Pending/Unpaid figure)
     minis.push(_scopedPartner
