@@ -2564,7 +2564,7 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
         </div>
         <div class="modal-actions">
             <button class="btn secondary" onclick="closeExpenseModal()">Cancel</button>
-            <button class="btn" onclick="saveExpense()">Save</button>
+            <button class="btn" id="expenseSaveBtn" onclick="saveExpense()">Save</button>
         </div>
     </div>
 </div>
@@ -3155,7 +3155,7 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
         </div>
         <div class="modal-actions">
             <button class="btn secondary" onclick="closeBillModal()">Cancel</button>
-            <button class="btn" onclick="saveBill()">Save Bill</button>
+            <button class="btn" id="billSaveBtn" onclick="saveBill()">Save Bill</button>
         </div>
     </div>
 </div>
@@ -7594,6 +7594,30 @@ function clearExpReceipt(){
 })();
 
 let _savingExpense = false;
+// Instant click feedback: the moment an awaiting button is clicked, disable it and show a
+// "working" label so the click never feels frozen while the server confirms. Restored on failure;
+// on success the modal/row re-renders so the restore is a harmless no-op.
+function btnBusy(btn, label){
+    if(!btn || btn.dataset.busy) return;
+    btn.dataset.busy = "1"; btn.dataset.txt = btn.innerHTML; btn.dataset.dis = btn.disabled ? "1" : "";
+    btn.disabled = true; btn.innerHTML = label || "Saving…";
+}
+function btnDone(btn){
+    if(!btn || !btn.dataset.busy) return;
+    btn.innerHTML = btn.dataset.txt; btn.disabled = btn.dataset.dis === "1";
+    delete btn.dataset.busy; delete btn.dataset.txt; delete btn.dataset.dis;
+}
+// give a clicked row link (Delete) an immediate "…" state; restored only if it's still on-screen
+// (a successful delete re-renders the table, removing it, so no restore is needed there)
+function linkBusy(ev, label){
+    const el = ev && (ev.currentTarget || ev.target);
+    if(el && !el.dataset.busy){ el.dataset.busy = "1"; el.dataset.txt = el.textContent; el.textContent = label || "…"; }
+    return el || null;
+}
+function linkDone(el){
+    if(el && el.dataset.busy && document.body.contains(el)){ el.textContent = el.dataset.txt; delete el.dataset.busy; delete el.dataset.txt; }
+}
+
 async function saveExpense(){
     const type   = document.getElementById("e_type").value;
     const amount = Number(document.getElementById("e_amount").value) || 0;
@@ -7604,6 +7628,7 @@ async function saveExpense(){
     if(!date){ alert("Please pick a date."); return; }
     if(_savingExpense) return;   // block double-submit (a 2nd click would create a duplicate)
     _savingExpense = true;
+    const _btn = document.getElementById("expenseSaveBtn"); btnBusy(_btn, "Saving…");
     try{
         const data = { type, amount, date, notes, haven, receipt: expReceiptData || null };
         let item;
@@ -7615,15 +7640,16 @@ async function saveExpense(){
         else { expenses.push(item); logActivity(`added expense — ${type} ${peso(amount)}`); }
         setLocalKey(EXPENSES_KEY, expenses);
         closeExpenseModal(); renderExpenses();
-    } finally { _savingExpense = false; }
+    } finally { btnDone(_btn); _savingExpense = false; }
 }
 function viewExpReceipt(id){ const e = expenses.find(x => x.id === id); if(e && e.receipt) openProofImg(e.receipt); }
 let _deletingExpense = false;
-async function deleteExpense(id){
+async function deleteExpense(id, ev){
     const e = expenses.find(x => x.id === id);
     if(!confirm("Delete this expense?")) return;
     if(_deletingExpense) return;   // block a rapid 2nd click (idempotent anyway, but keeps it clean)
     _deletingExpense = true;
+    const _lnk = linkBusy(ev, "Deleting…");
     try{
         const ok = await deleteOneRecord(EXPENSES_KEY, id);
         if(!ok){ alert("⚠️ Couldn't delete on the server (slow / offline). Please try again."); return; }
@@ -7631,7 +7657,7 @@ async function deleteExpense(id){
         expenses = expenses.filter(x => !x.deleted);
         setLocalKey(EXPENSES_KEY, expenses);
         renderExpenses();
-    } finally { _deletingExpense = false; }
+    } finally { linkDone(_lnk); _deletingExpense = false; }
 }
 
 function renderExpenses(){
@@ -7684,7 +7710,7 @@ function renderExpenses(){
                     <td>${e.notes ? `<span class="exp-note">${escHtml(e.notes)}</span>` : '<span class="muted">—</span>'}${e.receipt ? ` &nbsp;<span class="reinstate" style="font-size:12px;" onclick="viewExpReceipt(${e.id})">📎 receipt</span>` : ""}</td>
                     <td class="col-actions">
                         <span class="act edit" onclick="openExpenseModal(${e.id})">Edit</span>
-                        <span class="act del" onclick="deleteExpense(${e.id})">Delete</span>
+                        <span class="act del" onclick="deleteExpense(${e.id}, event)">Delete</span>
                     </td>
                 </tr>`).join("")}</tbody>
         </table>`
@@ -7733,7 +7759,7 @@ function billTableHtml(rows){
                 ${b.paid ? "" : `<span class="act markpaid" onclick="openMarkPaid(${b.id})"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg>Mark paid</span>`}
                 <span class="act view" onclick="viewBill(${b.id})"><svg viewBox="0 0 24 24"><path d="M1.5 12S5 5 12 5s10.5 7 10.5 7-3.5 7-10.5 7S1.5 12 1.5 12Z"/><circle cx="12" cy="12" r="3"/></svg>View</span>
                 <span class="act edit" onclick="openBillModal(${b.id})">Edit</span>
-                <span class="act del" onclick="deleteBill(${b.id})">Delete</span>
+                <span class="act del" onclick="deleteBill(${b.id}, event)">Delete</span>
             </td>
         </tr>`;
     }).join("");
@@ -7937,6 +7963,7 @@ async function saveBill(){
     if(data.amount <= 0){ alert("Please enter an amount."); return; }
     if(_savingBill) return;   // block double-submit (a 2nd click would create a duplicate)
     _savingBill = true;
+    const _btn = document.getElementById("billSaveBtn"); btnBusy(_btn, "Saving…");
     try{
         let item;
         if(editingBillId){ const cur = bills.find(b => b.id === editingBillId) || {}; item = { ...cur, ...data, id: editingBillId }; }
@@ -7948,7 +7975,7 @@ async function saveBill(){
         setLocalKey(BILLS_KEY, bills);
         closeBillModal();
         renderBills();
-    } finally { _savingBill = false; }
+    } finally { btnDone(_btn); _savingBill = false; }
 }
 
 let _togglingBill = false;
@@ -7968,10 +7995,11 @@ async function toggleBillPaid(id){
     } finally { _togglingBill = false; }
 }
 let _deletingBill = false;
-async function deleteBill(id){
+async function deleteBill(id, ev){
     if(!confirm("Delete this bill?")) return;
     if(_deletingBill) return;   // block a rapid 2nd click
     _deletingBill = true;
+    const _lnk = linkBusy(ev, "Deleting…");
     try{
         const ok = await deleteOneRecord(BILLS_KEY, id);
         if(!ok){ alert("⚠️ Couldn't delete on the server (slow / offline). Please try again."); return; }
@@ -7980,7 +8008,7 @@ async function deleteBill(id){
         bills = bills.filter(x => !x.deleted);   // hide from this view
         setLocalKey(BILLS_KEY, bills);
         renderBills();
-    } finally { _deletingBill = false; }
+    } finally { linkDone(_lnk); _deletingBill = false; }
 }
 /* ---------- bill photo + receipt uploads (offloaded via per-record save, like deposits) ---------- */
 let billPhotoData = null, billReceiptData = null;
@@ -8080,6 +8108,7 @@ async function confirmMarkPaid(){
     if(!paidReceiptData){ alert("Please upload the receipt / proof of payment first — a bill can't be marked paid without it."); return; }
     if(_markingPaid) return;
     _markingPaid = true;
+    const _btn = document.getElementById("paidConfirmBtn"); btnBusy(_btn, "Saving…");
     try{
         const b = bills.find(x => x.id === paidBillId);
         if(!b) return;
@@ -8090,7 +8119,7 @@ async function confirmMarkPaid(){
         if(idx !== -1) bills[idx] = item;
         setLocalKey(BILLS_KEY, bills);
         closeMarkPaid(); renderBills();
-    } finally { _markingPaid = false; }
+    } finally { btnDone(_btn); _markingPaid = false; }
 }
 
 (function initBillUploads(){
