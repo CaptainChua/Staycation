@@ -626,6 +626,99 @@ function renderBoard(){
     }
 }
 
+/* ---------- Partner month-grid calendar (shown ABOVE the timeline on the Calendar page) ---------- */
+let pcMonth = null;   // Date = first of the displayed month
+let pcRoom  = null;   // haven shown in the grid
+function _pcFirstOfThisMonth(){ const t = today(); return new Date(t.getFullYear(), t.getMonth(), 1); }
+function pcRoomList(){
+    const ps = window.__PARTNER__ || {};
+    if(ps.superAdmin) return (typeof PR_ROOMS !== "undefined" ? PR_ROOMS.slice() : []);
+    return ps.haven ? [ps.haven] : [];
+}
+function pcEnsure(){
+    const page = document.getElementById("page-calendar");
+    if(!page || document.getElementById("partnerMonthCal")) return;
+    if(!document.getElementById("pcStyle")){
+        const st = document.createElement("style"); st.id = "pcStyle";
+        st.textContent =
+            "#partnerMonthCal .pc-eyebrow{font:800 11px/1 'Mulish',sans-serif;letter-spacing:2px;color:var(--hv-muted);text-transform:uppercase;margin-bottom:4px;}"
+          + "#partnerMonthCal .pc-title{font-size:26px;margin:0;}"
+          + "#partnerMonthCal .pc-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:16px;}"
+          + "#partnerMonthCal .pc-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}"
+          + "#partnerMonthCal .pc-rooms{display:inline-flex;gap:6px;}"
+          + "#partnerMonthCal .pc-room{padding:8px 16px;border:1px solid var(--hv-line);border-radius:10px;background:#fff;cursor:pointer;font-weight:700;font-size:13px;color:var(--hv-ink);}"
+          + "#partnerMonthCal .pc-room.active{background:#1e1a17;color:#fff;border-color:#1e1a17;}"
+          + "#partnerMonthCal .pc-arrow{width:38px;height:34px;border:1px solid var(--hv-line);border-radius:10px;background:#fff;cursor:pointer;font-size:16px;color:var(--hv-ink);}"
+          + "#partnerMonthCal .pc-dows,#partnerMonthCal .pc-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;}"
+          + "#partnerMonthCal .pc-dows{margin-bottom:6px;}"
+          + "#partnerMonthCal .pc-dow{color:var(--hv-muted);font-size:12px;font-weight:600;padding-left:4px;}"
+          + "#partnerMonthCal .pc-cell{min-height:96px;border:1px solid var(--hv-line);border-radius:12px;padding:8px;background:#fff;}"
+          + "#partnerMonthCal .pc-cell.empty{background:transparent;border:none;}"
+          + "#partnerMonthCal .pc-cell.past{background:#f4f2ef;}"
+          + "#partnerMonthCal .pc-num{font-weight:700;font-size:15px;margin-bottom:5px;}"
+          + "#partnerMonthCal .pc-cell.past .pc-num{color:#b9b2a8;text-decoration:line-through;}"
+          + "#partnerMonthCal .pc-cell.today .pc-num{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;padding:0 6px;background:#e11d48;color:#fff;border-radius:12px;}"
+          + "#partnerMonthCal .pc-pill{display:block;font-size:11px;font-weight:700;color:#3a332c;background:#faf7f2;border-left:4px solid #999;border-radius:6px;padding:3px 6px;margin-top:4px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}";
+        document.head.appendChild(st);
+    }
+    const panel = document.createElement("div");
+    panel.className = "panel"; panel.id = "partnerMonthCal"; panel.style.marginBottom = "24px";
+    panel.innerHTML =
+        '<div class="pc-head">'
+      +   '<div><div class="pc-eyebrow">Partner Calendar</div><h2 class="pc-title" id="pcTitle"></h2></div>'
+      +   '<div class="pc-controls"><div class="pc-rooms" id="pcRooms"></div>'
+      +     '<div class="pc-nav"><button class="pc-arrow" onclick="pcNav(-1)">‹</button> <button class="pc-arrow" onclick="pcNav(1)">›</button></div>'
+      +   '</div>'
+      + '</div>'
+      + '<div class="pc-dows" id="pcDows"></div>'
+      + '<div class="pc-grid" id="pcGrid"></div>';
+    const tl = document.getElementById("timeline");
+    const anchor = tl ? tl.closest(".panel") : null;
+    if(anchor && anchor.parentNode === page) page.insertBefore(panel, anchor);
+    else page.insertBefore(panel, page.firstChild);
+}
+function pcNav(dir){ if(!pcMonth) pcMonth = _pcFirstOfThisMonth(); pcMonth = new Date(pcMonth.getFullYear(), pcMonth.getMonth() + dir, 1); pcRender(); }
+function pcSetRoom(h){ pcRoom = h; pcRender(); }
+function pcRender(){
+    const panel = document.getElementById("partnerMonthCal");
+    if(!panel) return;
+    const rooms = pcRoomList();
+    if(!rooms.length){ panel.style.display = "none"; return; }
+    panel.style.display = "";
+    if(!pcRoom || rooms.indexOf(pcRoom) === -1) pcRoom = rooms[0];
+    if(!pcMonth) pcMonth = _pcFirstOfThisMonth();
+    const y = pcMonth.getFullYear(), m = pcMonth.getMonth();
+    document.getElementById("pcTitle").textContent = MONTHS[m] + " " + y;
+    document.getElementById("pcRooms").innerHTML = rooms.map(function(h){
+        return '<button class="pc-room' + (h === pcRoom ? " active" : "") + '" onclick="pcSetRoom(\'' + escAttr(h) + '\')">' + escHtml(h) + '</button>';
+    }).join("");
+    const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    document.getElementById("pcDows").innerHTML = DOW.map(function(d){ return '<div class="pc-dow">' + d + '</div>'; }).join("");
+    const todayIso = iso(today());
+    const firstDow = new Date(y, m, 1).getDay();
+    const dim = new Date(y, m + 1, 0).getDate();
+    let cells = "";
+    for(let i = 0; i < firstDow; i++) cells += '<div class="pc-cell empty"></div>';
+    for(let d = 1; d <= dim; d++){
+        const di = iso(new Date(y, m, d));
+        const past = di < todayIso ? " past" : "";
+        const isToday = di === todayIso ? " today" : "";
+        const dayBk = bookings.filter(function(b){
+            if(b.cancelled || b.haven !== pcRoom) return false;
+            const co = b.checkout > b.checkin ? b.checkout : iso(addDays(new Date(b.checkin + "T00:00:00"), 1));
+            return b.checkin <= di && di < co;
+        });
+        const pills = dayBk.map(function(b){
+            const color = (typeof STATUS_COLOR !== "undefined" && STATUS_COLOR[statusOf(b)]) || "#999";
+            const nm = (b.fbName || primaryName(b) || "Guest") + (Number(b.stayHours) === 6 && b.slot ? " (" + (b.slot === "morning" ? "AM" : "PM") + ")" : "");
+            const tip = guestNames(b) + " • " + peso(paidOf(b)) + "/" + peso(b.total);
+            return '<span class="pc-pill" style="border-left-color:' + color + '" title="' + escAttr(tip) + '" onclick="viewBooking(' + b.id + ')">' + escHtml(nm) + '</span>';
+        }).join("");
+        cells += '<div class="pc-cell' + past + isToday + '"><div class="pc-num">' + d + '</div>' + pills + '</div>';
+    }
+    document.getElementById("pcGrid").innerHTML = cells;
+}
+
 function partnersOnShowPage(page){
     if(page === "partners") renderPartners();
     else if(page === "commissions") renderCommissions();
@@ -633,6 +726,7 @@ function partnersOnShowPage(page){
     else if(page === "prrooms") renderPrRooms();
     else if(page === "users") renderPartnerLogins();
     else if(page === "board") renderBoard();
+    if(page === "calendar" && window.__PARTNER__){ pcEnsure(); pcRender(); }   // partner month grid above the timeline
 }
 
 (function registerPartners(){
