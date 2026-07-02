@@ -2552,7 +2552,7 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
             </div>
             <div class="field full">
                 <label>Notes <span class="muted" id="e_notes_hint">(optional)</span></label>
-                <input type="text" id="e_notes" placeholder="brand, supplier, details…">
+                <textarea id="e_notes" rows="2" placeholder="brand, supplier, details… (press Enter for a new line)" style="resize:vertical;"></textarea>
             </div>
             <div class="field full">
                 <label>Receipt <span class="muted">(photo — click, drag &amp; drop, or paste)</span></label>
@@ -7850,7 +7850,7 @@ function renderExpenses(){
                     <td><span class="exp-type">${escHtml(e.type || "")}</span></td>
                     <td>${e.haven ? escHtml(e.haven) : '<span class="muted">—</span>'}</td>
                     <td><strong>${peso(e.amount || 0)}</strong></td>
-                    <td>${e.notes ? `<span class="exp-note">${escHtml(e.notes)}</span>` : '<span class="muted">—</span>'}${e.receipt ? ` &nbsp;<span class="reinstate" style="font-size:12px;" onclick="viewExpReceipt(${e.id})">📎 receipt</span>` : ""}</td>
+                    <td>${e.notes ? `<span class="exp-note" style="white-space:pre-line;">${escHtml(e.notes)}</span>` : '<span class="muted">—</span>'}${e.receipt ? ` &nbsp;<span class="reinstate" style="font-size:12px;" onclick="viewExpReceipt(${e.id})">📎 receipt</span>` : ""}</td>
                     <td class="col-actions">
                         <span class="act edit" onclick="openExpenseModal(${e.id})">Edit</span>
                         <span class="act del" onclick="deleteExpense(${e.id}, event)">Delete</span>
