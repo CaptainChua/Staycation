@@ -1972,6 +1972,10 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
   #page-havens .hv-photo img{ width:100%; height:100%; object-fit:cover; display:block; }
   #page-havens .hv-badge{ position:absolute; top:12px; left:12px; background:#fff; border-radius:20px; padding:5px 11px 5px 9px; font-size:11.5px; font-weight:700; display:flex; align-items:center; gap:6px; box-shadow:0 2px 6px rgba(0,0,0,.08); color:var(--hv-ink); }
   #page-havens .hv-badge i{ width:7px; height:7px; border-radius:50%; background:var(--hv-live); display:inline-block; }
+  #page-havens .hv-badge{ cursor:pointer; user-select:none; }
+  #page-havens .hv-badge:hover{ box-shadow:0 2px 10px rgba(0,0,0,.16); }
+  #page-havens .hv-badge.off{ color:#8a8578; }
+  #page-havens .hv-badge.off i{ background:#c0bab0; }
   #page-havens .hv-grip{ position:absolute; top:12px; right:12px; width:30px; height:30px; border-radius:50%; background:#fff; box-shadow:0 2px 6px rgba(0,0,0,.08); display:flex; align-items:center; justify-content:center; color:#8a8078; font-weight:700; cursor:grab; user-select:none; }
   #page-havens .hv-grip:active{ cursor:grabbing; }
   #page-havens .hv-cardbody{ padding:16px 17px 17px; }
@@ -10312,7 +10316,7 @@ function renderListings(){
              ondragover="onDragOver(event)" ondragenter="onDragEnter(event)"
              ondragleave="onDragLeave(event)" ondrop="onDrop(event, ${i})">
             <div class="hv-photo">${photo}
-                <span class="hv-badge"><i></i>Live</span>
+                <span class="hv-badge${h.live === false ? " off" : ""}" draggable="false" onmousedown="event.stopPropagation()" onclick="event.stopPropagation();toggleHavenLive(${i})" title="${h.live === false ? "Offline — click to make Live (show on the website)" : "Live — click to take Offline (hide from the website)"}"><i></i>${h.live === false ? "Offline" : "Live"}</span>
                 <span class="hv-grip" title="Drag to reorder">⠿</span>
             </div>
             <div class="hv-cardbody">
@@ -10437,6 +10441,22 @@ function hvAddAmen(){
 }
 function hvDelAmen(idx){ hvDraftAmen.splice(idx, 1); hvRenderChips(); }
 
+// toggle a haven Live (shown on the website) ⇄ Offline (hidden). Default (no flag) = Live.
+let _togglingLive = false;
+async function toggleHavenLive(i){
+    const h = listings[i]; if(!h) return;
+    if(_togglingLive) return;
+    _togglingLive = true;
+    const next = (h.live === false);   // currently offline → go Live; otherwise → go Offline
+    h.live = next;
+    try{
+        const ok = await saveOneRecord("staycation_havens", h);
+        if(!ok){ h.live = !next; alert("⚠️ Couldn't update on the server (slow / offline). Please try again."); return; }
+        setLocalKey("staycation_havens", listings);
+        if(typeof logActivity === "function") logActivity((next ? "set LIVE" : "took OFFLINE") + " — " + (h.name || "haven"));
+        renderListings();
+    } finally { _togglingLive = false; }
+}
 let _savingHaven = false;
 async function saveHaven(){
     if(hvEditIndex < 0) return;

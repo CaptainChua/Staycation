@@ -71,7 +71,7 @@ function renderHavenList(container) {
     const backLink = document.getElementById("backLink");
     if (backLink) { backLink.textContent = "← Back to home"; backLink.href = "index.html"; }
 
-    const havens = loadHavens();
+    const havens = loadHavens().filter(h => h.live !== false);   // hide havens taken Offline in the dashboard
     container.innerHTML = `
         <h1 style="margin-bottom:24px;">Our Havens</h1>
         <div class="cards">

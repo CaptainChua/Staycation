@@ -295,7 +295,7 @@
 <script>
 // Render the haven cards from the shared data (managed in the Admin Dashboard)
 (function renderCards() {
-    const cards = loadHavens().map(h => `
+    const cards = loadHavens().filter(h => h.live !== false).map(h => `
         <a class="card" href="havens.html?id=${h.id}">
             <img src="${h.image}" alt="${h.name}">
             <h3>${h.name}</h3>
