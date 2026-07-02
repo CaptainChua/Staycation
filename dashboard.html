@@ -1587,7 +1587,7 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
     <div class="topbar" style="margin-bottom:14px;">
         <h2 style="font-size:20px;">Guest Form <span class="muted" style="font-size:13px;">— M Place Guest Move-In Clearance</span></h2>
         <div style="display:flex; gap:8px;">
-            <button class="btn secondary" onclick="gfSavePdf()">💾 Save as PDF</button>
+            <button class="btn secondary" id="gfPdfBtn" onclick="gfSavePdf()">💾 Save as PDF</button>
         </div>
     </div>
 
@@ -1648,16 +1648,23 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
         <h2 style="font-size:20px;">Finance Overview</h2>
         <div class="filters fin-filter">
             <select id="finHaven" onchange="renderHavenAnalytics()"></select>
-            <select id="finQuick" onchange="finQuickChange()">
-                <option value="today">Today</option>
-                <option value="week" selected>This week</option>
-                <option value="month">This month</option>
-                <option value="year">This year</option>
-                <option value="">Custom range</option>
+            <button class="btn secondary" onclick="finThisMonth()">This month</button>
+            <select id="finMonthPick" onchange="finPickMonth(this.value)" style="padding:9px 14px; border:1px solid var(--hv-line); border-radius:10px; background:#faf6ee; font-family:inherit; font-size:13px; color:var(--hv-ink); cursor:pointer;">
+                <option value="">Choose month…</option>
+                <option value="0">January</option>
+                <option value="1">February</option>
+                <option value="2">March</option>
+                <option value="3">April</option>
+                <option value="4">May</option>
+                <option value="5">June</option>
+                <option value="6">July</option>
+                <option value="7">August</option>
+                <option value="8">September</option>
+                <option value="9">October</option>
+                <option value="10">November</option>
+                <option value="11">December</option>
             </select>
-            <label class="fin-date">From <input type="date" id="finFrom" onclick="this.showPicker && this.showPicker()"></label>
-            <label class="fin-date">To <input type="date" id="finTo" onclick="this.showPicker && this.showPicker()"></label>
-            <button class="btn secondary" onclick="finApply()">Apply</button>
+            <button class="btn secondary" onclick="finThisYear()">This Year</button>
         </div>
     </div>
     <!-- summary cards -->
@@ -4064,6 +4071,22 @@ function finApply(){
     // only fall back to "Custom range" if the dates don't match a preset
     document.getElementById("finQuick").value = matchQuick(from, to);
     finSetRange(from, to);
+}
+// Finance Overview quick ranges: This month / a chosen month of this year / This year
+function finThisMonth(){
+    const t = today();
+    const mp = document.getElementById("finMonthPick"); if(mp) mp.value = "";
+    finSetRange(iso(new Date(t.getFullYear(), t.getMonth(), 1)), iso(new Date(t.getFullYear(), t.getMonth() + 1, 0)));
+}
+function finThisYear(){
+    const t = today();
+    const mp = document.getElementById("finMonthPick"); if(mp) mp.value = "";
+    finSetRange(iso(new Date(t.getFullYear(), 0, 1)), iso(new Date(t.getFullYear(), 11, 31)));
+}
+function finPickMonth(m){
+    if(m === "" || m == null) return;
+    const y = today().getFullYear(), mi = Number(m);
+    finSetRange(iso(new Date(y, mi, 1)), iso(new Date(y, mi + 1, 0)));
 }
 
 /* ---------- calendar timeline ---------- */
@@ -6980,6 +7003,10 @@ function gfPhotoResizeStart(e, i){
 function gfSavePdf(){
     const doc = document.getElementById("gfDoc");
     if(!doc) return;
+    const _btn = document.getElementById("gfPdfBtn");
+    const _orig = _btn ? _btn.innerHTML : "";
+    if(_btn){ if(_btn.disabled) return; _btn.disabled = true; _btn.innerHTML = "⏳ Generating PDF…"; }
+    const _done = () => { if(_btn){ _btn.disabled = false; _btn.innerHTML = _orig; } };
     const snap = {};
     let idx = 0;
     doc.querySelectorAll("input.gf-ov").forEach(inp => {
@@ -7001,29 +7028,44 @@ function gfSavePdf(){
     let moveIn = gfCalSel;
     try{ moveIn = new Date(gfCalSel + "T00:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric" }); }catch(e){}
     const fname = `GAF ${GF_TOWER}${unitNo} (${moveIn}).pdf`;
-    const run = () => html2pdf().set({
-        margin: 0, filename: fname,
-        image: { type:"jpeg", quality:0.95 },
-        html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff", onclone: cd => {
-            cd.getElementById("gfDoc").style.gap = "0";
-            cd.querySelectorAll("input.gf-ov").forEach(inp => {
-                const s = snap[inp.dataset.pdfkey]; if(!s) return;
-                const d = cd.createElement("div");
-                d.textContent = s.value;
-                d.setAttribute("style", s.css);
-                inp.parentNode.replaceChild(d, inp);
-            });
-            cd.querySelectorAll("#gfDoc .gfToolbar-inline, #gfDoc .gf-idbtns, #gfDoc .gf-resize").forEach(e => e.remove());
-        }},
-        jsPDF: { unit:"px", format:[page.offsetWidth, page.offsetHeight], orientation:"portrait" },
-        pagebreak: { mode:["css","legacy"], before:"#gfPage2" }
-    }).from(doc).save();
-    if(window.html2pdf) return run();
-    const sc = document.createElement("script");
-    sc.src = "https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.2/dist/html2pdf.bundle.min.js";
-    sc.onload = run;
-    sc.onerror = () => { alert("Couldn't load the PDF tool — opening Print so you can choose “Save as PDF”."); window.print(); };
-    document.body.appendChild(sc);
+    // Render ONE PDF page per .gf-page (skip an ID page that has no photos). Doing the pages
+    // ourselves — instead of letting html2pdf auto-paginate one tall canvas — avoids the blank
+    // "sliver" pages that appeared between/after the real pages.
+    const allPages = Array.from(doc.querySelectorAll(".gf-page"));
+    const pages = allPages.filter(el => el.id !== "gfPage2" || gfIdPhotos.length > 0);   // drop the empty IDs page
+    const onclonePage = cd => {
+        cd.querySelectorAll("input.gf-ov").forEach(inp => {
+            const s = snap[inp.dataset.pdfkey]; if(!s) return;
+            const d = cd.createElement("div");
+            d.textContent = s.value; d.setAttribute("style", s.css);
+            inp.parentNode.replaceChild(d, inp);
+        });
+        cd.querySelectorAll(".gfToolbar-inline, .gf-idbtns, .gf-resize").forEach(e => e.remove());
+    };
+    const loadScript = src => new Promise((res, rej) => { const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = rej; document.body.appendChild(s); });
+    const render = async () => {
+        let pdf = null;
+        for(let i = 0; i < pages.length; i++){
+            const el = pages[i], w = el.offsetWidth, h = el.offsetHeight;
+            const canvas = await window.html2canvas(el, { scale: 2, useCORS: true, backgroundColor: "#ffffff", onclone: onclonePage });
+            const img = canvas.toDataURL("image/jpeg", 0.95);
+            if(!pdf) pdf = new window.jspdf.jsPDF({ unit:"px", format:[w, h], orientation:"portrait" });
+            else pdf.addPage([w, h], "portrait");
+            pdf.addImage(img, "JPEG", 0, 0, w, h);
+        }
+        if(pdf) pdf.save(fname);
+    };
+    const start = async () => {
+        try{
+            if(!window.html2canvas) await loadScript("https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js");
+            if(!(window.jspdf && window.jspdf.jsPDF)) await loadScript("https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js");
+            await render();
+        }catch(e){
+            alert("Couldn't build the PDF here — opening Print so you can choose “Save as PDF”."); window.print();
+        }finally{ _done(); }
+    };
+    // let the "Generating…" state paint before the heavy html2canvas render blocks the main thread
+    setTimeout(start, 30);
 }
 
 // form-only: removes the photo from THIS print view, but NOT from the booking
