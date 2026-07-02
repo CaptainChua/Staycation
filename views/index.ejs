@@ -19,7 +19,7 @@
   <div class="sg-wrap">
     <div class="sg-glow"></div>
     <div class="sg-ring"></div>
-    <img class="sg-logo" src="images/splash-logo.png" alt="Staycation Haven PH" onerror="this.style.display='none'">
+    <img class="sg-logo" src="images/logo.png" alt="Staycation Haven PH" onerror="this.style.display='none'">
     <div class="sg-name">Staycation Haven PH</div>
     <div class="sg-bar"><span></span></div>
   </div>
@@ -53,6 +53,27 @@
 (function(){
   var el = document.getElementById("sgSplash");
   if(!el) return;
+  // The logo file has a solid white background — key it out to transparent in the browser
+  // (same-origin canvas, so no tainting) so the mark floats cleanly on the dark splash.
+  var logo = el.querySelector(".sg-logo"), keyed = false;
+  function keyWhite(){
+    if(keyed || !logo || !logo.naturalWidth) return; keyed = true;
+    try{
+      var c = document.createElement("canvas");
+      c.width = logo.naturalWidth; c.height = logo.naturalHeight;
+      var ctx = c.getContext("2d");
+      ctx.drawImage(logo, 0, 0);
+      var im = ctx.getImageData(0, 0, c.width, c.height), p = im.data;
+      for(var i = 0; i < p.length; i += 4){
+        var mn = Math.min(p[i], p[i + 1], p[i + 2]);   // whiteness ≈ the smallest channel
+        if(mn > 210) p[i + 3] = 0;                       // near-white → transparent
+        else if(mn > 170) p[i + 3] = Math.round((210 - mn) / 40 * 255);   // soft edge feather
+      }
+      ctx.putImageData(im, 0, 0);
+      logo.src = c.toDataURL("image/png");
+    }catch(e){}
+  }
+  if(logo){ if(logo.complete && logo.naturalWidth) keyWhite(); else logo.addEventListener("load", keyWhite); }
   // play once per browser session — navigating back to the homepage won't replay it
   try{ if(sessionStorage.getItem("shph_splash_seen") === "1"){ el.remove(); return; } sessionStorage.setItem("shph_splash_seen", "1"); }catch(e){}
   var root = document.documentElement;
