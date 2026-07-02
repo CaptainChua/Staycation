@@ -23,6 +23,7 @@
     <div class="sg-name">Staycation Haven PH</div>
     <div class="sg-bar"><span></span></div>
   </div>
+  <button id="sgSound" type="button" aria-label="Toggle intro sound"><span class="sg-dot"></span><span class="sg-slabel">Waves on</span></button>
 </div>
 <style>
   @keyframes sgLogoIn { 0%{opacity:0;transform:scale(.78);filter:blur(6px)} 55%{opacity:1;filter:blur(0)} 100%{opacity:1;transform:scale(1);filter:blur(0)} }
@@ -47,14 +48,25 @@
   #sgSplash .sg-bar{ margin-top:32px; width:132px; height:2px; border-radius:2px; background:rgba(255,255,255,.10); overflow:hidden; }
   #sgSplash .sg-bar span{ display:block; height:100%; width:100%; transform-origin:left; transform:scaleX(0);
     background:linear-gradient(90deg,#c9a24a,#e7c877); animation:sgBar 2.1s cubic-bezier(.4,0,.2,1) .2s both; }
+  #sgSound{ position:fixed; bottom:22px; right:22px; z-index:100000; display:flex; align-items:center; gap:9px;
+    padding:9px 15px; border-radius:999px; border:1px solid rgba(255,255,255,.18); background:rgba(20,18,16,.55);
+    -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px); color:#d8d2c6; font-family:'Jost',system-ui,sans-serif;
+    font-size:11px; letter-spacing:.18em; text-transform:uppercase; cursor:pointer; }
+  #sgSound .sg-dot{ width:8px; height:8px; border-radius:50%; background:#c9a24a; box-shadow:0 0 8px rgba(201,162,74,.9); transition:all .2s ease; }
+  #sgSound.off .sg-dot{ background:#5a564d; box-shadow:none; }
   @media (prefers-reduced-motion: reduce){ #sgSplash *{ animation-duration:1ms !important; } }
 </style>
 <script>
 (function(){
   var el = document.getElementById("sgSplash");
   if(!el) return;
-  // The logo file has a solid white background — key it out to transparent in the browser
-  // (same-origin canvas, so no tainting) so the mark floats cleanly on the dark splash.
+  var root = document.documentElement;
+
+  // play once per browser session — navigating back to the homepage won't replay it
+  try{ if(sessionStorage.getItem("shph_splash_seen") === "1"){ el.remove(); return; } sessionStorage.setItem("shph_splash_seen", "1"); }catch(e){}
+  root.style.overflow = "hidden";   // no scroll during the intro
+
+  // --- key out the logo's white background (same-origin canvas → no taint) ---
   var logo = el.querySelector(".sg-logo"), keyed = false;
   function keyWhite(){
     if(keyed || !logo || !logo.naturalWidth) return; keyed = true;
@@ -74,12 +86,52 @@
     }catch(e){}
   }
   if(logo){ if(logo.complete && logo.naturalWidth) keyWhite(); else logo.addEventListener("load", keyWhite); }
-  // play once per browser session — navigating back to the homepage won't replay it
-  try{ if(sessionStorage.getItem("shph_splash_seen") === "1"){ el.remove(); return; } sessionStorage.setItem("shph_splash_seen", "1"); }catch(e){}
-  var root = document.documentElement;
-  root.style.overflow = "hidden";                                  // no scroll during the intro
+
+  // --- sound: synthesized sea-waves ambience + a soft welcome chime (Web Audio) ---
+  // (browsers block audio until a user gesture, so it also arms on the first tap/click)
+  var soundOn = true, audio = null, btn = document.getElementById("sgSound");
+  function setSound(v){ soundOn = v; if(btn){ btn.classList.toggle("off", !v); var l = btn.querySelector(".sg-slabel"); if(l) l.textContent = v ? "Waves on" : "Waves off"; } }
+  function setupAudio(){
+    if(audio){ try{ audio.ctx.resume(); }catch(e){} return; }
+    var AC = window.AudioContext || window.webkitAudioContext; if(!AC) return;
+    var ctx = new AC();
+    var master = ctx.createGain(); master.gain.value = 0; master.connect(ctx.destination);
+    // sea waves = brown-ish noise → lowpass, gently swelled by a slow LFO
+    var n = 2 * ctx.sampleRate, buf = ctx.createBuffer(1, n, ctx.sampleRate), d = buf.getChannelData(0), last = 0;
+    for(var i = 0; i < n; i++){ var wn = Math.random() * 2 - 1; last = (last + 0.02 * wn) / 1.02; d[i] = last * 3.2; }
+    var noise = ctx.createBufferSource(); noise.buffer = buf; noise.loop = true;
+    var lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 520; lp.Q.value = 0.6;
+    var wg = ctx.createGain(); wg.gain.value = 0.16;
+    var lfo = ctx.createOscillator(); lfo.frequency.value = 0.12;
+    var lg = ctx.createGain(); lg.gain.value = 0.1;
+    lfo.connect(lg); lg.connect(wg.gain);
+    noise.connect(lp); lp.connect(wg); wg.connect(master);
+    noise.start(); lfo.start();
+    // welcome chime (G5 → D6, a gentle open fifth)
+    var t = ctx.currentTime + 0.25;
+    [783.99, 1174.66].forEach(function(f, i){
+      var st = t + i * 0.16, o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = "sine"; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, st); g.gain.linearRampToValueAtTime(0.16, st + 0.02); g.gain.exponentialRampToValueAtTime(0.0006, st + 1.8);
+      o.connect(g); g.connect(master); o.start(st); o.stop(st + 2.1);
+    });
+    audio = { ctx: ctx, master: master };
+    master.gain.setTargetAtTime(soundOn ? 0.5 : 0, ctx.currentTime, 0.7);   // fade in
+  }
+  function fadeTo(v){ if(audio){ try{ audio.ctx.resume(); audio.master.gain.setTargetAtTime(v, audio.ctx.currentTime, 0.25); }catch(e){} } }
+  function stopAudio(){ if(!audio) return; var a = audio; audio = null; try{ a.master.gain.setTargetAtTime(0, a.ctx.currentTime, 0.16); }catch(e){} setTimeout(function(){ try{ a.ctx.close(); }catch(e){} }, 700); }
+  if(soundOn) setupAudio();
+  function onGesture(){ if(soundOn && el.parentNode){ setupAudio(); fadeTo(0.5); } }
+  ["pointerdown", "keydown", "touchstart"].forEach(function(ev){ window.addEventListener(ev, onGesture, { once: true }); });
+  if(btn) btn.addEventListener("click", function(e){
+    e.stopPropagation();
+    setSound(!soundOn);
+    if(soundOn){ setupAudio(); fadeTo(0.5); } else fadeTo(0);
+  });
+
+  // --- timing ---
   setTimeout(function(){ el.classList.add("sg-hide"); }, 2150);    // begin fade-out
-  setTimeout(function(){ el.remove(); root.style.overflow = ""; }, 3000);  // remove after fade
+  setTimeout(function(){ stopAudio(); var b = document.getElementById("sgSound"); if(b) b.remove(); el.remove(); root.style.overflow = ""; }, 3000);  // remove after fade
 })();
 </script>
 <!-- ===== /Logo Splash ===== -->
