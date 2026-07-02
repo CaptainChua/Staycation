@@ -2180,11 +2180,21 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
             <label>Holiday · per night<span class="peso"><input type="number" id="s_holidayNight"></span></label>
             <label>Holiday · day-use (6–10h)<span class="peso"><input type="number" id="s_holidayDayUse"></span></label>
         </div>
-        <div class="opt-row">
-            <span class="muted">Offer on website</span>
-            <label class="opt-check"><input type="checkbox" id="s_offer6"> 6 hours</label>
-            <label class="opt-check"><input type="checkbox" id="s_offer10"> 10 hours</label>
-            <label class="opt-check"><input type="checkbox" id="s_offer21"> 21 hours / overnight</label>
+        <style>
+          .rate-web{ display:flex; align-items:center; gap:24px; flex-wrap:wrap; }
+          .rate-web .rate-web-lbl{ font-size:11px; letter-spacing:1px; text-transform:uppercase; color:var(--hv-muted); font-weight:700; }
+          .rate-toggle{ display:inline-flex; align-items:center; gap:10px; cursor:pointer; font-size:14px; font-weight:600; color:var(--hv-ink); user-select:none; }
+          .rate-toggle input{ position:absolute; opacity:0; width:0; height:0; }
+          .rate-toggle .rate-slider{ position:relative; width:42px; height:24px; border-radius:24px; background:#cfc8ba; transition:.2s; flex:none; }
+          .rate-toggle .rate-slider::before{ content:""; position:absolute; width:18px; height:18px; left:3px; top:3px; border-radius:50%; background:#fff; transition:.2s; box-shadow:0 1px 3px rgba(0,0,0,.25); }
+          .rate-toggle input:checked + .rate-slider{ background:#2f8f5b; }
+          .rate-toggle input:checked + .rate-slider::before{ transform:translateX(18px); }
+        </style>
+        <div class="opt-row rate-web">
+            <span class="rate-web-lbl">Offer on website</span>
+            <label class="rate-toggle"><input type="checkbox" id="s_offer6"><span class="rate-slider"></span>6 hours</label>
+            <label class="rate-toggle"><input type="checkbox" id="s_offer10"><span class="rate-slider"></span>10 hours</label>
+            <label class="rate-toggle"><input type="checkbox" id="s_offer21"><span class="rate-slider"></span>21 hours / overnight</label>
         </div>
     </div>
 
