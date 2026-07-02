@@ -632,7 +632,10 @@ let pcMonth = null;   // Date = first of the displayed month
 let pcRoom  = null;   // haven shown in the grid
 let pcSearch = "";    // filter pills to bookings matching a name / mobile / booking #
 let pcPickerMonth = null;   // month shown inside the date-picker popup
+let pcRangeStart = null, pcRangeEnd = null;   // the chosen duration (iso strings), or null for a plain month view
+let pcPendingStart = null, pcHoverIso = null; // mid-selection while picking the range
 function _pcFirstOfThisMonth(){ const t = today(); return new Date(t.getFullYear(), t.getMonth(), 1); }
+function _pcShort(di){ return new Date(di + "T00:00:00").toLocaleDateString("en-PH", { month: "short", day: "numeric" }); }
 function pcRoomList(){
     const ps = window.__PARTNER__ || {};
     if(ps.superAdmin) return (typeof PR_ROOMS !== "undefined" ? PR_ROOMS.slice() : []);
@@ -659,7 +662,9 @@ function pcEnsure(){
           + "#partnerMonthCal .pc-dows,#partnerMonthCal .pc-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;}"
           + "#partnerMonthCal .pc-dows{margin-bottom:6px;}"
           + "#partnerMonthCal .pc-dow{color:var(--hv-muted);font-size:12px;font-weight:600;padding-left:4px;}"
-          + "#partnerMonthCal .pc-cell{min-height:96px;border:1px solid var(--hv-line);border-radius:12px;padding:8px;background:#fff;}"
+          + "#partnerMonthCal .pc-grid{grid-auto-rows:120px;}"
+          + "#partnerMonthCal .pc-cell{border:1px solid var(--hv-line);border-radius:12px;padding:8px;background:#fff;overflow:hidden;}"
+          + "#partnerMonthCal .pc-cell.pc-inrange{background:#fff7ec;border-color:#e6c191;box-shadow:inset 0 0 0 1px #e6c191;}"
           + "#partnerMonthCal .pc-cell.empty{background:transparent;border:none;}"
           + "#partnerMonthCal .pc-cell.past{background:#f4f2ef;}"
           + "#partnerMonthCal .pc-num{font-weight:700;font-size:15px;margin-bottom:5px;}"
@@ -684,8 +689,8 @@ function pcEnsure(){
       +       '<div class="dp-popup" id="pcPicker" onclick="event.stopPropagation()">'
       +         '<div class="dp-head"><button type="button" onclick="pcPickerNav(-1)">‹</button><span id="pcPkTitle"></span><button type="button" onclick="pcPickerNav(1)">›</button></div>'
       +         '<div class="dp-grid" id="pcPkGrid"></div>'
-      +         '<div class="dp-hint">Pick a date to jump to its month.</div>'
-      +         '<div class="dp-foot"><span onclick="pcClosePicker()">Close</span><span onclick="pcPickerToday()">Today</span></div>'
+      +         '<div class="dp-hint">Click a date, then an end date for a range (max 30 days).</div>'
+      +         '<div class="dp-foot"><span onclick="pcClearRange()">Clear</span><span onclick="pcPickerToday()">Today</span></div>'
       +       '</div>'
       +     '</div>'
       +     '<button class="pc-btn" onclick="pcNav(1)">Next ›</button>'
@@ -746,18 +751,49 @@ function pcTogglePicker(e){
     pcPickerRender();
     pk.classList.add("show");
 }
-function pcClosePicker(){ const pk = document.getElementById("pcPicker"); if(pk) pk.classList.remove("show"); }
+function pcClosePicker(){ pcPendingStart = null; pcHoverIso = null; const pk = document.getElementById("pcPicker"); if(pk) pk.classList.remove("show"); }
 function pcPickerNav(dir){
     if(!pcPickerMonth) pcPickerMonth = new Date(pcMonth.getFullYear(), pcMonth.getMonth(), 1);
     pcPickerMonth = new Date(pcPickerMonth.getFullYear(), pcPickerMonth.getMonth() + dir, 1);
     pcPickerRender();
 }
-function pcPickerToday(){ pcPickDate(iso(today())); }
-function pcPickDate(di){
-    const d = new Date(di + "T00:00:00");
-    pcMonth = new Date(d.getFullYear(), d.getMonth(), 1);
-    pcClosePicker();
-    pcRender();
+function pcPickerToday(){ pcRangeStart = null; pcRangeEnd = null; pcPendingStart = null; pcHoverIso = null; pcMonth = _pcFirstOfThisMonth(); pcClosePicker(); pcRender(); }
+function pcClearRange(){ pcRangeStart = null; pcRangeEnd = null; pcPendingStart = null; pcHoverIso = null; pcClosePicker(); pcRender(); }
+// pick a DURATION: first click sets the start, second click sets the end (max 30 days)
+function pcPickDay(di){
+    if(!pcPendingStart){ pcPendingStart = di; pcHoverIso = di; _pcUpdateHighlight(); return; }
+    if(di < pcPendingStart){ pcPendingStart = di; _pcUpdateHighlight(); return; }   // clicked earlier → restart from there
+    let end = di;
+    if(daysBetween(pcPendingStart, end) > 29) end = iso(addDays(new Date(pcPendingStart + "T00:00:00"), 29));
+    pcRangeStart = pcPendingStart; pcRangeEnd = end;
+    pcPendingStart = null; pcHoverIso = null;
+    const d = new Date(pcRangeStart + "T00:00:00"); pcMonth = new Date(d.getFullYear(), d.getMonth(), 1);   // jump to the start month
+    pcClosePicker(); pcRender();
+}
+function pcHoverDay(di){ if(pcPendingStart){ pcHoverIso = di; _pcUpdateHighlight(); } }
+function _pcHighlightRange(){
+    if(pcPendingStart){
+        let end = (pcHoverIso && pcHoverIso >= pcPendingStart) ? pcHoverIso : pcPendingStart;
+        if(daysBetween(pcPendingStart, end) > 29) end = iso(addDays(new Date(pcPendingStart + "T00:00:00"), 29));
+        return { start: pcPendingStart, end: end };
+    }
+    if(pcRangeStart) return { start: pcRangeStart, end: pcRangeEnd || pcRangeStart };
+    return { start: null, end: null };
+}
+function _pcUpdateHighlight(){
+    const grid = document.getElementById("pcPkGrid"); if(!grid) return;
+    const r = _pcHighlightRange();
+    grid.querySelectorAll(".dp-day").forEach(function(cell){
+        cell.classList.remove("sel", "range-start", "range-end", "in-range");
+        const ci = cell.dataset.iso; if(!ci) return;
+        if(r.start && ci === r.start && ci === r.end) cell.classList.add("sel");
+        else if(r.start && ci === r.start) cell.classList.add("sel", "range-start");
+        else if(r.end && ci === r.end) cell.classList.add("sel", "range-end");
+        else if(r.start && r.end && ci > r.start && ci < r.end) cell.classList.add("in-range");
+    });
+    const pop = document.getElementById("pcPicker");
+    const hint = pop ? pop.querySelector(".dp-hint") : null;
+    if(hint) hint.textContent = pcPendingStart ? "Now click an end date (max 30 days), or the same day for one date." : "Click a date, then an end date for a range (max 30 days).";
 }
 function pcPickerRender(){
     const ttl = document.getElementById("pcPkTitle"); if(!ttl || !pcPickerMonth) return;
@@ -771,9 +807,10 @@ function pcPickerRender(){
     for(let i = 0; i < startDay; i++) html += '<div class="dp-day empty"></div>';
     for(let d = 1; d <= dim; d++){
         const di = iso(new Date(y, m, d));
-        html += '<div class="dp-day' + (di === todayIso ? " today" : "") + '" onclick="pcPickDate(\'' + di + '\')"><span class="n">' + d + '</span></div>';
+        html += '<div class="dp-day' + (di === todayIso ? " today" : "") + '" data-iso="' + di + '" onclick="pcPickDay(\'' + di + '\')" onmouseover="pcHoverDay(\'' + di + '\')"><span class="n">' + d + '</span></div>';
     }
     document.getElementById("pcPkGrid").innerHTML = html;
+    _pcUpdateHighlight();
 }
 document.addEventListener("click", function(e){
     const pk = document.getElementById("pcPicker");
@@ -791,8 +828,9 @@ function pcRender(){
     const q = (pcSearch || "").trim();
     const roomColor = (typeof havenColors === "function" && havenColors(pcRoom)) ? havenColors(pcRoom).am : "#d8f79a";   // the room's colour = the bubble fill
     const y = pcMonth.getFullYear(), m = pcMonth.getMonth();
-    document.getElementById("pcTitle").textContent = MONTHS[m] + " " + y;
-    const _lbl = document.getElementById("pcPillLabel"); if(_lbl) _lbl.textContent = MONTHS[m] + " " + y;
+    const monthLabel = MONTHS[m] + " " + y;
+    document.getElementById("pcTitle").textContent = monthLabel;
+    const _lbl = document.getElementById("pcPillLabel"); if(_lbl) _lbl.textContent = pcRangeStart ? (_pcShort(pcRangeStart) + " – " + _pcShort(pcRangeEnd)) : monthLabel;
     document.getElementById("pcRooms").innerHTML = rooms.length > 1 ? rooms.map(function(h){   // toggle only when there's more than one room (super-admin)
         return '<button class="pc-room' + (h === pcRoom ? " active" : "") + '" onclick="pcSetRoom(\'' + escAttr(h) + '\')">' + escHtml(h) + '</button>';
     }).join("") : "";
@@ -807,6 +845,7 @@ function pcRender(){
         const di = iso(new Date(y, m, d));
         const past = di < todayIso ? " past" : "";
         const isToday = di === todayIso ? " today" : "";
+        const inRange = (pcRangeStart && di >= pcRangeStart && di <= pcRangeEnd) ? " pc-inrange" : "";   // days inside the chosen duration
         const dayBk = bookings.filter(function(b){
             if(b.cancelled || b.haven !== pcRoom) return false;
             if(q && typeof bkMatchesSearch === "function" && !bkMatchesSearch(b, q)) return false;   // search filter
@@ -819,7 +858,7 @@ function pcRender(){
             const tip = guestNames(b) + " • " + peso(paidOf(b)) + "/" + peso(b.total);
             return '<span class="pc-pill" style="background:' + roomColor + '" title="' + escAttr(tip) + '" onclick="viewBooking(' + b.id + ')"><i class="pc-dot" style="background:' + color + '"></i><span class="pc-nm">' + escHtml(nm) + '</span></span>';
         }).join("");
-        cells += '<div class="pc-cell' + past + isToday + '"><div class="pc-num">' + d + '</div>' + pills + '</div>';
+        cells += '<div class="pc-cell' + past + isToday + inRange + '"><div class="pc-num">' + d + '</div>' + pills + '</div>';
     }
     document.getElementById("pcGrid").innerHTML = cells;
 }
