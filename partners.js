@@ -631,6 +631,7 @@ function renderBoard(){
 let pcMonth = null;   // Date = first of the displayed month
 let pcRoom  = null;   // haven shown in the grid
 let pcSearch = "";    // filter pills to bookings matching a name / mobile / booking #
+let pcPickerMonth = null;   // month shown inside the date-picker popup
 function _pcFirstOfThisMonth(){ const t = today(); return new Date(t.getFullYear(), t.getMonth(), 1); }
 function pcRoomList(){
     const ps = window.__PARTNER__ || {};
@@ -645,6 +646,23 @@ function pcEnsure(){
         st.textContent =
             "#partnerMonthCal .pc-eyebrow{font:800 11px/1 'Mulish',sans-serif;letter-spacing:2px;color:var(--hv-muted);text-transform:uppercase;margin-bottom:4px;}"
           + "#partnerMonthCal .pc-title{font-size:26px;margin:0;}"
+          + "#partnerMonthCal .pc-titlewrap{position:relative;}"
+          + "#partnerMonthCal .pc-datebtn{display:inline-flex;align-items:center;gap:8px;background:none;border:none;padding:0;cursor:pointer;color:var(--hv-ink);font-family:inherit;}"
+          + "#partnerMonthCal .pc-datebtn #pcTitle{font-size:26px;font-weight:800;}"
+          + "#partnerMonthCal .pc-chev{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;color:var(--hv-muted);margin-top:6px;}"
+          + "#partnerMonthCal .pc-picker{display:none;position:absolute;top:100%;left:0;margin-top:8px;z-index:60;background:#fff;border:1px solid var(--hv-line);border-radius:14px;box-shadow:0 12px 34px rgba(60,45,25,.16);padding:14px;width:300px;}"
+          + "#partnerMonthCal .pc-picker.show{display:block;}"
+          + "#partnerMonthCal .pc-pk-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-weight:700;color:var(--hv-ink);}"
+          + "#partnerMonthCal .pc-pk-head button{width:30px;height:30px;border:1px solid var(--hv-line);border-radius:8px;background:#fff;cursor:pointer;}"
+          + "#partnerMonthCal .pc-pk-dows,#partnerMonthCal .pc-pk-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}"
+          + "#partnerMonthCal .pc-pk-dows{margin-bottom:4px;}"
+          + "#partnerMonthCal .pc-pk-dows span{text-align:center;font-size:11px;color:var(--hv-muted);}"
+          + "#partnerMonthCal .pc-pk-day{text-align:center;padding:8px 0;border-radius:9px;background:#f4f2ef;cursor:pointer;font-size:13px;color:var(--hv-ink);}"
+          + "#partnerMonthCal .pc-pk-day:hover{background:#efe7d8;}"
+          + "#partnerMonthCal .pc-pk-day.today{outline:2px solid #e11d48;}"
+          + "#partnerMonthCal .pc-pk-day.empty{background:transparent;cursor:default;}"
+          + "#partnerMonthCal .pc-pk-foot{margin-top:10px;text-align:right;}"
+          + "#partnerMonthCal .pc-pk-foot span{color:var(--hv-terra-d);font-weight:600;font-size:13px;cursor:pointer;}"
           + "#partnerMonthCal .pc-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:16px;}"
           + "#partnerMonthCal .pc-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}"
           + "#partnerMonthCal .pc-rooms{display:inline-flex;gap:6px;}"
@@ -663,14 +681,26 @@ function pcEnsure(){
           + "#partnerMonthCal .pc-num{font-weight:700;font-size:15px;margin-bottom:5px;}"
           + "#partnerMonthCal .pc-cell.past .pc-num{color:#b9b2a8;text-decoration:line-through;}"
           + "#partnerMonthCal .pc-cell.today .pc-num{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;padding:0 6px;background:#e11d48;color:#fff;border-radius:12px;}"
-          + "#partnerMonthCal .pc-pill{display:block;font-size:11px;font-weight:700;color:#3a332c;background:#faf7f2;border-left:4px solid #999;border-radius:6px;padding:3px 6px;margin-top:4px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}";
+          + "#partnerMonthCal .pc-pill{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:#3a3527;border-radius:999px;padding:4px 10px;margin-top:5px;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.07);}"
+          + "#partnerMonthCal .pc-pill:hover{filter:brightness(.97);}"
+          + "#partnerMonthCal .pc-pill .pc-dot{width:7px;height:7px;border-radius:50%;flex:0 0 auto;box-shadow:0 0 0 1.5px rgba(255,255,255,.65);}"
+          + "#partnerMonthCal .pc-pill .pc-nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}";
         document.head.appendChild(st);
     }
     const panel = document.createElement("div");
     panel.className = "panel"; panel.id = "partnerMonthCal"; panel.style.marginBottom = "24px";
     panel.innerHTML =
         '<div class="pc-head">'
-      +   '<div><div class="pc-eyebrow">Partner Calendar</div><h2 class="pc-title" id="pcTitle"></h2></div>'
+      +   '<div class="pc-titlewrap">'
+      +     '<div class="pc-eyebrow">Partner Calendar</div>'
+      +     '<button class="pc-datebtn" id="pcDateBtn" onclick="pcTogglePicker(event)"><span id="pcTitle"></span><svg class="pc-chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>'
+      +     '<div class="pc-picker" id="pcPicker">'
+      +       '<div class="pc-pk-head"><button type="button" onclick="pcPickerNav(-1)">‹</button><span id="pcPkTitle"></span><button type="button" onclick="pcPickerNav(1)">›</button></div>'
+      +       '<div class="pc-pk-dows" id="pcPkDows"></div>'
+      +       '<div class="pc-pk-grid" id="pcPkGrid"></div>'
+      +       '<div class="pc-pk-foot"><span onclick="pcPickerToday()">Today</span></div>'
+      +     '</div>'
+      +   '</div>'
       +   '<div class="pc-controls"><div class="pc-rooms" id="pcRooms"></div>'
       +     '<button class="pc-btn" onclick="pcNav(-1)">‹ Prev</button>'
       +     '<button class="pc-btn" onclick="pcNav(1)">Next ›</button>'
@@ -718,6 +748,51 @@ function pcSetSearch(v){
     }
     pcRender();
 }
+/* ---- date-picker popup: pick any day to jump the grid to that month ---- */
+function pcTogglePicker(e){
+    if(e && e.stopPropagation) e.stopPropagation();
+    const pk = document.getElementById("pcPicker");
+    if(!pk) return;
+    if(pk.classList.contains("show")){ pk.classList.remove("show"); return; }
+    if(!pcMonth) pcMonth = _pcDefaultMonth();
+    pcPickerMonth = new Date(pcMonth.getFullYear(), pcMonth.getMonth(), 1);
+    pcPickerRender();
+    pk.classList.add("show");
+}
+function pcClosePicker(){ const pk = document.getElementById("pcPicker"); if(pk) pk.classList.remove("show"); }
+function pcPickerNav(dir){
+    if(!pcPickerMonth) pcPickerMonth = new Date(pcMonth.getFullYear(), pcMonth.getMonth(), 1);
+    pcPickerMonth = new Date(pcPickerMonth.getFullYear(), pcPickerMonth.getMonth() + dir, 1);
+    pcPickerRender();
+}
+function pcPickerToday(){ pcPickDate(iso(today())); }
+function pcPickDate(di){
+    const d = new Date(di + "T00:00:00");
+    pcMonth = new Date(d.getFullYear(), d.getMonth(), 1);
+    pcClosePicker();
+    pcRender();
+}
+function pcPickerRender(){
+    const ttl = document.getElementById("pcPkTitle"); if(!ttl || !pcPickerMonth) return;
+    const y = pcPickerMonth.getFullYear(), m = pcPickerMonth.getMonth();
+    ttl.textContent = MONTHS[m] + " " + y;
+    document.getElementById("pcPkDows").innerHTML = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map(function(d){ return "<span>" + d + "</span>"; }).join("");
+    const todayIso = iso(today());
+    const firstDow = new Date(y, m, 1).getDay();
+    const dim = new Date(y, m + 1, 0).getDate();
+    let cells = "";
+    for(let i = 0; i < firstDow; i++) cells += '<div class="pc-pk-day empty"></div>';
+    for(let d = 1; d <= dim; d++){
+        const di = iso(new Date(y, m, d));
+        cells += '<div class="pc-pk-day' + (di === todayIso ? " today" : "") + '" onclick="pcPickDate(\'' + di + '\')">' + d + '</div>';
+    }
+    document.getElementById("pcPkGrid").innerHTML = cells;
+}
+document.addEventListener("click", function(e){
+    const pk = document.getElementById("pcPicker");
+    if(pk && pk.classList.contains("show") && e.target && e.target.closest && !e.target.closest("#pcPicker") && !e.target.closest("#pcDateBtn")) pk.classList.remove("show");
+});
+
 function pcRender(){
     const panel = document.getElementById("partnerMonthCal");
     if(!panel) return;
@@ -727,11 +802,12 @@ function pcRender(){
     if(!pcRoom || rooms.indexOf(pcRoom) === -1) pcRoom = rooms[0];
     if(!pcMonth) pcMonth = _pcDefaultMonth();
     const q = (pcSearch || "").trim();
+    const roomColor = (typeof havenColors === "function" && havenColors(pcRoom)) ? havenColors(pcRoom).am : "#d8f79a";   // the room's colour = the bubble fill
     const y = pcMonth.getFullYear(), m = pcMonth.getMonth();
     document.getElementById("pcTitle").textContent = MONTHS[m] + " " + y;
-    document.getElementById("pcRooms").innerHTML = rooms.map(function(h){
+    document.getElementById("pcRooms").innerHTML = rooms.length > 1 ? rooms.map(function(h){   // toggle only when there's more than one room (super-admin)
         return '<button class="pc-room' + (h === pcRoom ? " active" : "") + '" onclick="pcSetRoom(\'' + escAttr(h) + '\')">' + escHtml(h) + '</button>';
-    }).join("");
+    }).join("") : "";
     const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     document.getElementById("pcDows").innerHTML = DOW.map(function(d){ return '<div class="pc-dow">' + d + '</div>'; }).join("");
     const todayIso = iso(today());
@@ -753,7 +829,7 @@ function pcRender(){
             const color = (typeof STATUS_COLOR !== "undefined" && STATUS_COLOR[statusOf(b)]) || "#999";
             const nm = (b.fbName || primaryName(b) || "Guest") + (Number(b.stayHours) === 6 && b.slot ? " (" + (b.slot === "morning" ? "AM" : "PM") + ")" : "");
             const tip = guestNames(b) + " • " + peso(paidOf(b)) + "/" + peso(b.total);
-            return '<span class="pc-pill" style="border-left-color:' + color + '" title="' + escAttr(tip) + '" onclick="viewBooking(' + b.id + ')">' + escHtml(nm) + '</span>';
+            return '<span class="pc-pill" style="background:' + roomColor + '" title="' + escAttr(tip) + '" onclick="viewBooking(' + b.id + ')"><i class="pc-dot" style="background:' + color + '"></i><span class="pc-nm">' + escHtml(nm) + '</span></span>';
         }).join("");
         cells += '<div class="pc-cell' + past + isToday + '"><div class="pc-num">' + d + '</div>' + pills + '</div>';
     }
