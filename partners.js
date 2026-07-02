@@ -293,7 +293,7 @@ function applyPartnerChrome(){
     const MAIN = ["today", "calendar", "deposit"];               // stay under the "Main" header
     const DASH = ["analytics", "finance", "bills", "expenses"];  // move under a new "Dashboard" header
     const BOARD = ["board"];                                     // move under a new "Board" header
-    const ALLOW = MAIN.concat(DASH).concat(BOARD);
+    const ALLOW = MAIN.concat(DASH).concat(BOARD).concat(["account"]);   // "account" = My Account (a modal action; keep it visible)
     const sb = document.querySelector(".sidebar");
 
     // show only the allowed nav items
@@ -316,6 +316,19 @@ function applyPartnerChrome(){
     };
     buildGroup("partnerDashGroup", "Dashboard", DASH);
     buildGroup("partnerBoardGroup", "Board", BOARD);
+
+    // "My Account" at the very bottom — lets a partner change their own password.
+    // Scoped partners only; the super-admin login is managed in code, not here.
+    if(sb && !ps.superAdmin && !document.getElementById("partnerAccountGroup")){
+        const ahdr = document.createElement("div");
+        ahdr.className = "nav-group"; ahdr.id = "partnerAccountGroup"; ahdr.textContent = "Account";
+        sb.appendChild(ahdr);
+        const aitem = document.createElement("div");
+        aitem.className = "nav-item"; aitem.dataset.page = "account"; aitem.style.display = "flex";
+        aitem.innerHTML = '<span class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></span> My Account';
+        aitem.onclick = function(){ openPartnerAccount(); };
+        sb.appendChild(aitem);
+    }
 
     // Security Deposit belongs under MAIN — move it next to Calendar/Bookings
     const _dep = sb && sb.querySelector('.nav-item[data-page="deposit"]');
@@ -396,6 +409,63 @@ function applyPartnerChrome(){
         if(_saved && ALLOW.includes(_saved) && document.getElementById("page-" + _saved)) _land = _saved;
     }catch(e){}
     if(typeof showPage === "function") showPage(_land);
+}
+
+/* ---------- Partner "My Account" — change your own password ---------- */
+function openPartnerAccount(){
+    let ov = document.getElementById("partnerAccountOverlay");
+    if(!ov){
+        ov = document.createElement("div");
+        ov.className = "overlay"; ov.id = "partnerAccountOverlay";
+        ov.innerHTML =
+            '<div class="modal" style="width:420px;">' +
+                '<h2>My Account</h2>' +
+                '<p class="muted" id="paWho" style="margin:-4px 0 14px;"></p>' +
+                '<div class="form-grid">' +
+                    '<div class="field full"><label>Current password</label><input type="password" id="paCur" autocomplete="off"></div>' +
+                    '<div class="field full"><label>New password</label><input type="password" id="paNew" autocomplete="off"></div>' +
+                    '<div class="field full"><label>Confirm new password</label><input type="password" id="paNew2" autocomplete="off"></div>' +
+                '</div>' +
+                '<div id="paMsg" style="min-height:18px;font-size:13px;font-weight:600;margin:2px 0 6px;"></div>' +
+                '<div class="modal-actions">' +
+                    '<button class="btn secondary" onclick="closePartnerAccount()">Cancel</button>' +
+                    '<button class="btn" id="paSaveBtn" onclick="partnerChangePw()">Change password</button>' +
+                '</div>' +
+            '</div>';
+        document.body.appendChild(ov);
+    }
+    const ps = window.__PARTNER__ || {};
+    const who = document.getElementById("paWho");
+    if(who) who.textContent = (ps.name || ps.login || "") + (ps.haven ? " · " + ps.haven : "");
+    ["paCur", "paNew", "paNew2"].forEach(function(id){ const el = document.getElementById(id); if(el) el.value = ""; });
+    const msg = document.getElementById("paMsg"); if(msg) msg.textContent = "";
+    ov.classList.add("show");
+}
+function closePartnerAccount(){ const ov = document.getElementById("partnerAccountOverlay"); if(ov) ov.classList.remove("show"); }
+function partnerChangePw(){
+    const ps = window.__PARTNER__;
+    const msg = document.getElementById("paMsg");
+    const setMsg = function(t, ok){ if(msg){ msg.textContent = t; msg.style.color = ok ? "#2e7d4f" : "#c0283d"; } };
+    if(!ps || ps.id == null){ setMsg("This account's password can't be changed here.", false); return; }
+    const cur  = (document.getElementById("paCur")  || {}).value || "";
+    const nw   = (document.getElementById("paNew")  || {}).value || "";
+    const nw2  = (document.getElementById("paNew2") || {}).value || "";
+    if(!cur || !nw || !nw2){ setMsg("Please fill in all three fields.", false); return; }
+    if(nw.length < 4){ setMsg("New password must be at least 4 characters.", false); return; }
+    if(nw !== nw2){ setMsg("The new passwords don't match.", false); return; }
+    let partners = [];
+    try{ partners = JSON.parse(localStorage.getItem("shph_partners")) || []; }catch(e){ partners = []; }
+    const me = partners.find(function(p){ return String(p.id) === String(ps.id); })
+            || partners.find(function(p){ return (p.login || "").toLowerCase() === (ps.login || "").toLowerCase(); });
+    if(!me){ setMsg("Couldn't find your account — please log out and back in, then try again.", false); return; }
+    if(String(me.pw || "") !== cur){ setMsg("Your current password is incorrect.", false); return; }
+    if(String(me.pw || "") === nw){ setMsg("The new password is the same as your current one.", false); return; }
+    me.pw = nw;
+    // whole-array write → the seed-bridge mirrors shph_partners to the server, so the new password
+    // is what /partner-login validates against next time. Only this record was touched; others intact.
+    try{ localStorage.setItem("shph_partners", JSON.stringify(partners)); }catch(e){}
+    setMsg("✓ Password changed. Use your new password next time you log in.", true);
+    ["paCur", "paNew", "paNew2"].forEach(function(id){ const el = document.getElementById(id); if(el) el.value = ""; });
 }
 
 /* ---------- Users page: Partner Logins section (admin-only) ---------- */
