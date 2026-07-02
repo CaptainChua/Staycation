@@ -6922,6 +6922,7 @@ function gfRenderIds(){
         return `<div class="gf-idphoto" id="gfIdPhoto_${i}" style="left:${lay.x}%; top:${lay.y}%; width:${lay.w}%; transform:rotate(${lay.rot || 0}deg);" onmousedown="gfPhotoDragStart(event, ${i})">
             <img src="${src}" alt="Guest ID" draggable="false">
             <div class="gf-idbtns">
+                <button class="btn secondary" onmousedown="event.stopPropagation()" onclick="gfOpenCrop(${i})" title="Crop">✂</button>
                 <button class="btn secondary" onmousedown="event.stopPropagation()" onclick="gfRotateId(${i})" title="Rotate 90°">↻</button>
                 <button class="btn secondary" onmousedown="event.stopPropagation()" onclick="gfRemoveId(${i})" title="Remove from this print">✕</button>
             </div>
@@ -7027,6 +7028,128 @@ function gfSavePdf(){
 
 // form-only: removes the photo from THIS print view, but NOT from the booking
 function gfRemoveId(i){ gfIdPhotos.splice(i, 1); gfIdLayout.splice(i, 1); gfRenderIds(); }
+
+/* ---------- Guest ID crop tool ---------- */
+let gfCropIndex = null, gfCropNatW = 0, gfCropNatH = 0, gfCropRect = null, gfCropDrag = null;
+function gfEnsureCropUI(){
+    if(document.getElementById("gfCropOverlay")) return;
+    const st = document.createElement("style");
+    st.textContent =
+        "#gfCropOverlay .gfc-stage{position:relative;display:inline-block;line-height:0;overflow:hidden;max-width:90vw;max-height:70vh;}"
+      + "#gfCropOverlay img#gfCropImg{max-width:90vw;max-height:70vh;display:block;user-select:none;-webkit-user-drag:none;}"
+      + "#gfCropOverlay .gfc-box{position:absolute;border:2px solid #fff;box-shadow:0 0 0 9999px rgba(0,0,0,.5);cursor:move;box-sizing:border-box;}"
+      + "#gfCropOverlay .gfc-h{position:absolute;width:16px;height:16px;background:#bd6e3f;border:2px solid #fff;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,.4);}"
+      + "#gfCropOverlay .gfc-h.tl{left:-9px;top:-9px;cursor:nwse-resize;}"
+      + "#gfCropOverlay .gfc-h.tr{right:-9px;top:-9px;cursor:nesw-resize;}"
+      + "#gfCropOverlay .gfc-h.bl{left:-9px;bottom:-9px;cursor:nesw-resize;}"
+      + "#gfCropOverlay .gfc-h.br{right:-9px;bottom:-9px;cursor:nwse-resize;}";
+    document.head.appendChild(st);
+    const ov = document.createElement("div");
+    ov.className = "overlay"; ov.id = "gfCropOverlay";
+    ov.innerHTML =
+        '<div class="modal" style="width:auto;max-width:94vw;text-align:center;">'
+      +   '<h2 style="margin-bottom:4px;">Crop photo</h2>'
+      +   '<p class="muted" style="margin:-2px 0 12px;">Drag the box to move it, drag a corner to resize.</p>'
+      +   '<div class="gfc-stage" id="gfCropStage"><img id="gfCropImg" alt="crop">'
+      +     '<div class="gfc-box" id="gfCropBox" onmousedown="gfCropDragStart(event,\'move\')">'
+      +       '<span class="gfc-h tl" onmousedown="gfCropDragStart(event,\'tl\')"></span>'
+      +       '<span class="gfc-h tr" onmousedown="gfCropDragStart(event,\'tr\')"></span>'
+      +       '<span class="gfc-h bl" onmousedown="gfCropDragStart(event,\'bl\')"></span>'
+      +       '<span class="gfc-h br" onmousedown="gfCropDragStart(event,\'br\')"></span>'
+      +     '</div>'
+      +   '</div>'
+      +   '<div class="modal-actions" style="margin-top:14px;"><button class="btn secondary" onclick="gfCropCancel()">Cancel</button><button class="btn" onclick="gfCropApply()">Apply crop</button></div>'
+      + '</div>';
+    document.body.appendChild(ov);
+}
+function gfOpenCrop(i){
+    if(gfIdPhotos[i] == null) return;
+    gfEnsureCropUI();
+    gfCropIndex = i;
+    const rot = (gfIdLayout[i] && gfIdLayout[i].rot) || 0;
+    const img = new Image();
+    img.onload = function(){
+        // bake the current rotation into the source so "what you see is what you crop"
+        const swap = (rot === 90 || rot === 270);
+        const cw = swap ? img.naturalHeight : img.naturalWidth;
+        const ch = swap ? img.naturalWidth : img.naturalHeight;
+        const c = document.createElement("canvas"); c.width = cw; c.height = ch;
+        const ctx = c.getContext("2d");
+        ctx.translate(cw / 2, ch / 2); ctx.rotate(rot * Math.PI / 180);
+        ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
+        gfCropNatW = cw; gfCropNatH = ch;
+        const el = document.getElementById("gfCropImg");
+        el.onload = gfCropInitBox;
+        el.src = c.toDataURL("image/jpeg", 0.92);
+        document.getElementById("gfCropOverlay").classList.add("show");
+    };
+    img.onerror = function(){ alert("Couldn't load this photo to crop."); };
+    img.src = gfIdPhotos[i];
+}
+function gfCropInitBox(){
+    const img = document.getElementById("gfCropImg");
+    const w = img.clientWidth, h = img.clientHeight;
+    gfCropRect = { x: w * 0.1, y: h * 0.1, w: w * 0.8, h: h * 0.8 };   // start at 80% centred
+    gfCropApplyBox();
+}
+function gfCropApplyBox(){
+    const box = document.getElementById("gfCropBox");
+    if(!box || !gfCropRect) return;
+    box.style.left = gfCropRect.x + "px"; box.style.top = gfCropRect.y + "px";
+    box.style.width = gfCropRect.w + "px"; box.style.height = gfCropRect.h + "px";
+}
+function gfCropDragStart(e, mode){
+    e.preventDefault(); e.stopPropagation();
+    const img = document.getElementById("gfCropImg");
+    gfCropDrag = { mode: mode, sx: e.clientX, sy: e.clientY, rect: Object.assign({}, gfCropRect), maxW: img.clientWidth, maxH: img.clientHeight };
+    document.addEventListener("mousemove", gfCropDragMove);
+    document.addEventListener("mouseup", gfCropDragEnd);
+}
+function gfCropDragMove(e){
+    if(!gfCropDrag) return;
+    const dx = e.clientX - gfCropDrag.sx, dy = e.clientY - gfCropDrag.sy;
+    const r = Object.assign({}, gfCropDrag.rect), MIN = 30, maxW = gfCropDrag.maxW, maxH = gfCropDrag.maxH, mode = gfCropDrag.mode;
+    if(mode === "move"){
+        r.x = Math.max(0, Math.min(maxW - r.w, r.x + dx));
+        r.y = Math.max(0, Math.min(maxH - r.h, r.y + dy));
+    } else {
+        let x1 = r.x, y1 = r.y, x2 = r.x + r.w, y2 = r.y + r.h;
+        if(mode.indexOf("l") >= 0) x1 = Math.max(0, Math.min(x2 - MIN, x1 + dx));
+        if(mode.indexOf("r") >= 0) x2 = Math.min(maxW, Math.max(x1 + MIN, x2 + dx));
+        if(mode.indexOf("t") >= 0) y1 = Math.max(0, Math.min(y2 - MIN, y1 + dy));
+        if(mode.indexOf("b") >= 0) y2 = Math.min(maxH, Math.max(y1 + MIN, y2 + dy));
+        r.x = x1; r.y = y1; r.w = x2 - x1; r.h = y2 - y1;
+    }
+    gfCropRect = r; gfCropApplyBox();
+}
+function gfCropDragEnd(){ gfCropDrag = null; document.removeEventListener("mousemove", gfCropDragMove); document.removeEventListener("mouseup", gfCropDragEnd); }
+function gfCropCancel(){ const ov = document.getElementById("gfCropOverlay"); if(ov) ov.classList.remove("show"); gfCropIndex = null; gfCropDrag = null; }
+function gfCropApply(){
+    if(gfCropIndex == null || !gfCropRect){ gfCropCancel(); return; }
+    const img = document.getElementById("gfCropImg");
+    const scaleX = gfCropNatW / img.clientWidth, scaleY = gfCropNatH / img.clientHeight;
+    const sx = Math.round(gfCropRect.x * scaleX), sy = Math.round(gfCropRect.y * scaleY);
+    const sw = Math.round(gfCropRect.w * scaleX), sh = Math.round(gfCropRect.h * scaleY);
+    if(sw < 2 || sh < 2){ gfCropCancel(); return; }
+    const c = document.createElement("canvas"); c.width = sw; c.height = sh;
+    c.getContext("2d").drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+    const dataUrl = c.toDataURL("image/jpeg", 0.9);
+    const idx = gfCropIndex;
+    gfIdPhotos[idx] = dataUrl;
+    if(gfIdLayout[idx]) gfIdLayout[idx].rot = 0;   // rotation is now baked into the pixels
+    gfCropCancel();
+    gfRenderIds();
+    gfResyncIds();
+}
+// after a crop, rewrite the booking's ids to match what's shown (offloads new images, passes refs through)
+async function gfResyncIds(){
+    if(gfBookingId == null) return;
+    const b = bookings.find(x => x.id === gfBookingId);
+    if(!b) return;
+    b.ids = await Promise.all(gfIdPhotos.map(_offloadImg));
+    _bkMirror(b);
+    fetch(`/api/booking/${encodeURIComponent(gfBookingId)}/ids`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ ids: b.ids }) }).catch(function(){});
+}
 
 /* ---------- Assist: towels to place per haven ---------- */
 function renderAssist(){
