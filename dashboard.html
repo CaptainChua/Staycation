@@ -2010,7 +2010,10 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
   #page-havens .hv-fl{ display:block; font-size:11px; letter-spacing:1.2px; text-transform:uppercase; color:var(--hv-muted); margin:18px 0 7px; font-weight:600; }
   #page-havens .hv-mainimg{ height:170px; border-radius:14px; margin-top:4px; background:#faf4ec repeating-linear-gradient(135deg,#efe6d7,#efe6d7 13px,#e7dcc9 13px,#e7dcc9 26px); background-size:cover; background-position:center; border:1px solid var(--hv-line); }
   #page-havens .hv-gallery{ display:grid; grid-template-columns:repeat(auto-fill, minmax(80px, 1fr)); gap:8px; }
-  #page-havens .hv-gcard{ position:relative; aspect-ratio:1 / 1; border-radius:10px; border:1px solid var(--hv-line); background:#f4f2ee center/cover no-repeat; }
+  #page-havens .hv-gcard{ position:relative; aspect-ratio:1 / 1; border-radius:10px; border:1px solid var(--hv-line); background:#f4f2ee center/cover no-repeat; cursor:grab; }
+  #page-havens .hv-gcard:active{ cursor:grabbing; }
+  #page-havens .hv-gcard.dragging{ opacity:.4; }
+  #page-havens .hv-gcard.over{ outline:2px solid var(--hv-terra); outline-offset:2px; }
   #page-havens .hv-gcard .hv-gx{ position:absolute; top:4px; right:4px; width:22px; height:22px; padding:0; border-radius:50%; border:none; background:rgba(0,0,0,.5); color:#fff; font-size:12px; line-height:1; display:flex; align-items:center; justify-content:center; }
   #page-havens .hv-gcard .hv-gx:hover{ background:rgba(192,40,61,.92); }
   #page-havens .hv-grow{ display:flex; gap:8px; align-items:center; }
@@ -10396,11 +10399,29 @@ function hvPreviewImg(url){
 function hvRenderGallery(){
     document.getElementById("hvGallery").innerHTML = hvDraftGallery.map((u, idx) => {
         const bg = String(u || "").replace(/'/g, "%27").replace(/"/g, "%22");
-        return `<div class="hv-gcard" style="background-image:url('${bg}')" title="Uploaded photo">`
-            + `<button class="hv-gx" onclick="hvDelGallery(${idx})" title="Remove">✕</button></div>`;
+        return `<div class="hv-gcard" draggable="true" data-gi="${idx}" title="Drag to reorder"`
+            + ` ondragstart="hvGalDragStart(event, ${idx})" ondragend="hvGalDragEnd(event)"`
+            + ` ondragover="hvGalDragOver(event)" ondragleave="hvGalDragLeave(event)" ondrop="hvGalDrop(event, ${idx})"`
+            + ` style="background-image:url('${bg}')">`
+            + `<button class="hv-gx" draggable="false" onmousedown="event.stopPropagation()" onclick="hvDelGallery(${idx})" title="Remove">✕</button></div>`;
     }).join("");
 }
 function hvDelGallery(idx){ hvDraftGallery.splice(idx, 1); hvRenderGallery(); }
+// drag to rearrange the gallery photos
+let _hvGalDrag = -1;
+function hvGalDragStart(e, i){ _hvGalDrag = i; e.currentTarget.classList.add("dragging"); try{ e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", String(i)); }catch(_){} }
+function hvGalDragEnd(e){ e.currentTarget.classList.remove("dragging"); _hvGalDrag = -1; document.querySelectorAll("#hvGallery .hv-gcard.over").forEach(el => el.classList.remove("over")); }
+function hvGalDragOver(e){ e.preventDefault(); try{ e.dataTransfer.dropEffect = "move"; }catch(_){} e.currentTarget.classList.add("over"); }
+function hvGalDragLeave(e){ e.currentTarget.classList.remove("over"); }
+function hvGalDrop(e, i){
+    e.preventDefault();
+    e.currentTarget.classList.remove("over");
+    const from = _hvGalDrag; _hvGalDrag = -1;
+    if(from < 0 || from === i) return;
+    const moved = hvDraftGallery.splice(from, 1)[0];
+    hvDraftGallery.splice(i, 0, moved);
+    hvRenderGallery();
+}
 // upload an image file (compressed) as the main image
 function hvUploadMain(file, inputEl){
     if(!file) return;
