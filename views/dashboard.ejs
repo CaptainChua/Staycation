@@ -3942,7 +3942,7 @@ function renderHavenAnalytics(){
 
     el.innerHTML = list.map(h => {
         const c  = HAVEN_COLORS[h] || { am:"#cccccc", pm:"#aaaaaa" };
-        const bk = bookings.filter(b => b.haven === h && inWin(b));
+        const bk = bookings.filter(b => b.haven === h && inWin(b) && !b.cancelled);   // successful bookings only (cancelled free the haven)
         const booked = bk.length;
 
         // booked vs free days inside the window (clamped to the window)
