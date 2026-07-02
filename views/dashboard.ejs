@@ -7470,7 +7470,8 @@ let bills = loadBills();
 
 /* ---------- Expenses (whole-business operating spend) ---------- */
 const EXPENSE_TYPES = ["Laundry", "Supplies", "Tissues", "Fabcon", "Sponge",
-    "Trashbags", "Cleaning agents", "Lalamove", "Dishwashing liquid", "Albatross", "Others"];
+    "Trashbags", "Cleaning agents", "Lalamove", "Dishwashing liquid", "Albatross",
+    "Netflix", "Add Funds", "Housekeeping", "Towels", "Swimpass", "Others"];
 const EXPENSES_KEY = "shph_expenses_v1";
 function loadExpenses(){ try { return (JSON.parse(localStorage.getItem(EXPENSES_KEY)) || []).filter(x => !x.deleted); } catch(e){ return []; } }
 let expenses = loadExpenses();
