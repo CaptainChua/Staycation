@@ -2540,7 +2540,7 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
             </div>
             <div class="field">
                 <label>Amount (₱)</label>
-                <input type="number" id="e_amount" min="0" placeholder="0">
+                <input type="number" id="e_amount" step="any" placeholder="0">
             </div>
             <div class="field">
                 <label>Date</label>
@@ -7631,7 +7631,7 @@ async function saveExpense(){
     const date   = document.getElementById("e_date").value;
     const notes  = document.getElementById("e_notes").value.trim();
     const haven  = document.getElementById("e_haven") ? document.getElementById("e_haven").value : "";
-    if(amount <= 0){ alert("Please enter an amount."); return; }
+    if(!amount){ alert("Please enter an amount. Tip: use a negative amount (e.g. −5000) to record funds the owner added from her own pocket."); return; }
     if(!date){ alert("Please pick a date."); return; }
     if(_savingExpense) return;   // block double-submit (a 2nd click would create a duplicate)
     _savingExpense = true;
