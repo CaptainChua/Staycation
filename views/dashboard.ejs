@@ -4262,7 +4262,7 @@ function renderTimelineHours(){
             // still in-house today until check-out → show it OCCUPIED up to check-out, then the
             // cleaning/turnaround window with the available-from time.
             drawBlock(b.haven, startMin, endMin, {
-                className: "bar bar-clean", label: "occupied",
+                className: "bar bar-clean", label: `occupied · out ${minToTime(endMin)}`,
                 title: `${b.haven} — occupied until ${minToTime(endMin)} (${guestNames(b)}) · free at ${freeAt}`
             });
             drawCleaning();
