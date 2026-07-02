@@ -2153,6 +2153,23 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
   #page-booking .addon-del{ border:1px solid var(--hv-line); background:#fff; border-radius:10px; width:44px; height:44px; flex:none; cursor:pointer; color:#b91c1c; display:flex; align-items:center; justify-content:center; }
   #page-booking .addon-del:hover{ border-color:#e6b8b8; background:#fdf3f3; }
   #page-booking .addon-del svg{ width:17px; height:17px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+
+  /* ---- tabbed layout ---- */
+  #page-booking .rtabs{ display:flex; gap:2px; border-bottom:1px solid var(--hv-line); margin-bottom:22px; flex-wrap:wrap; }
+  #page-booking .rtab{ border:none; background:none; padding:12px 18px; font-family:inherit; font-size:14.5px; font-weight:700; color:var(--hv-muted); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; }
+  #page-booking .rtab:hover{ color:var(--hv-ink); }
+  #page-booking .rtab.active{ color:var(--hv-ink); border-bottom-color:var(--hv-terra); }
+  #page-booking .rpanel{ display:none; }
+  #page-booking .rpanel.active{ display:block; }
+  /* ---- each setting as a row with the value in a pill on the right ---- */
+  #page-booking .rpanel .settings-form{ display:block; }
+  #page-booking .rpanel .settings-form label{ flex-direction:row; align-items:center; justify-content:space-between; gap:16px;
+    padding:15px 2px; border-bottom:1px solid var(--hv-line); font-size:14.5px; font-weight:600; color:var(--hv-ink); }
+  #page-booking .rpanel .settings-form label:last-child{ border-bottom:none; }
+  #page-booking .rpanel .settings-form .peso{ display:inline-flex; align-items:center; background:#f7f4ef; border:1px solid var(--hv-line); border-radius:10px; }
+  #page-booking .rpanel .settings-form .peso::before{ position:static; transform:none; padding:0 3px 0 14px; }
+  #page-booking .rpanel .settings-form .peso input{ padding:9px 14px 9px 4px !important; width:96px; text-align:right; background:transparent; border:none; font-weight:700; }
+  #page-booking .rpanel .settings-form label > input[type=number]{ background:#f7f4ef; border-radius:10px; width:130px; padding:9px 14px; text-align:right; font-weight:700; }
 </style>
 
     <div class="rates-head">
@@ -2164,6 +2181,14 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
             <button class="btn secondary" onclick="resetBookingSettings()">↺ Reset</button>
             <button class="btn" onclick="saveBookingSettings()">💾 Save</button>
         </div>
+    </div>
+
+    <div class="rtabs">
+        <button class="rtab active" data-rt="rates" onclick="rateTab('rates')">Rates</button>
+        <button class="rtab" data-rt="guests" onclick="rateTab('guests')">Guests</button>
+        <button class="rtab" data-rt="addons" onclick="rateTab('addons')">Add-ons</button>
+        <button class="rtab" data-rt="dp" onclick="rateTab('dp')">Downpayment</button>
+        <button class="rtab" data-rt="promos" onclick="rateTab('promos')">Promos</button>
     </div>
 
     <div class="rcard">
@@ -10674,6 +10699,18 @@ function fillBookingSettings(){
 
 /* ---------- custom add-ons editor ---------- */
 let customAddons = [];
+// Rates & Add-ons page: turn the section cards into tabbed panels (Rates / Guests / Add-ons / Downpayment / Promos)
+(function initRateTabs(){
+    const page = document.getElementById("page-booking");
+    if(!page) return;
+    const keys = ["rates", "guests", "addons", "dp", "promos"];
+    page.querySelectorAll(".rcard").forEach(function(c, i){ c.classList.add("rpanel"); if(keys[i]) c.dataset.rt = keys[i]; if(i === 0) c.classList.add("active"); });
+})();
+function rateTab(key){
+    const page = document.getElementById("page-booking"); if(!page) return;
+    page.querySelectorAll(".rpanel").forEach(function(p){ p.classList.toggle("active", p.dataset.rt === key); });
+    page.querySelectorAll(".rtab").forEach(function(t){ t.classList.toggle("active", t.dataset.rt === key); });
+}
 
 function renderCustomAddons(){
     document.getElementById("customAddonList").innerHTML = customAddons.map((a, i) => `
