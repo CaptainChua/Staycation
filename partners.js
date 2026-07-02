@@ -360,6 +360,7 @@ function applyPartnerChrome(){
     // identity + hide admin-only chrome
     const ab = document.getElementById("addBookingBtn"); if(ab) ab.style.display = "none";
     const _calLog = document.getElementById("calLogPanel"); if(_calLog) _calLog.style.display = "none";   // Activity Log is admin-only
+    const _tl = document.getElementById("timeline"); if(_tl){ const _tlp = _tl.closest(".panel"); if(_tlp) _tlp.style.display = "none"; }   // partners use the month grid, not the timeline
     const ul = document.getElementById("currentUserLabel");
     if(ps.superAdmin){
         // super admin: see ALL havens; keep the haven pickers usable to filter
@@ -629,6 +630,7 @@ function renderBoard(){
 /* ---------- Partner month-grid calendar (shown ABOVE the timeline on the Calendar page) ---------- */
 let pcMonth = null;   // Date = first of the displayed month
 let pcRoom  = null;   // haven shown in the grid
+let pcSearch = "";    // filter pills to bookings matching a name / mobile / booking #
 function _pcFirstOfThisMonth(){ const t = today(); return new Date(t.getFullYear(), t.getMonth(), 1); }
 function pcRoomList(){
     const ps = window.__PARTNER__ || {};
@@ -648,7 +650,10 @@ function pcEnsure(){
           + "#partnerMonthCal .pc-rooms{display:inline-flex;gap:6px;}"
           + "#partnerMonthCal .pc-room{padding:8px 16px;border:1px solid var(--hv-line);border-radius:10px;background:#fff;cursor:pointer;font-weight:700;font-size:13px;color:var(--hv-ink);}"
           + "#partnerMonthCal .pc-room.active{background:#1e1a17;color:#fff;border-color:#1e1a17;}"
-          + "#partnerMonthCal .pc-arrow{width:38px;height:34px;border:1px solid var(--hv-line);border-radius:10px;background:#fff;cursor:pointer;font-size:16px;color:var(--hv-ink);}"
+          + "#partnerMonthCal .pc-btn{padding:8px 14px;border:1px solid var(--hv-line);border-radius:10px;background:#fff;cursor:pointer;font-weight:600;font-size:13px;color:var(--hv-ink);}"
+          + "#partnerMonthCal .pc-btn:hover{background:#faf6ee;}"
+          + "#partnerMonthCal .pc-search{padding:9px 14px;border:1px solid var(--hv-line);border-radius:10px;background:#faf6ee;font-family:inherit;font-size:13px;min-width:220px;color:var(--hv-ink);}"
+          + "#partnerMonthCal .pc-search:focus{outline:none;border-color:#c08457;}"
           + "#partnerMonthCal .pc-dows,#partnerMonthCal .pc-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;}"
           + "#partnerMonthCal .pc-dows{margin-bottom:6px;}"
           + "#partnerMonthCal .pc-dow{color:var(--hv-muted);font-size:12px;font-weight:600;padding-left:4px;}"
@@ -667,7 +672,10 @@ function pcEnsure(){
         '<div class="pc-head">'
       +   '<div><div class="pc-eyebrow">Partner Calendar</div><h2 class="pc-title" id="pcTitle"></h2></div>'
       +   '<div class="pc-controls"><div class="pc-rooms" id="pcRooms"></div>'
-      +     '<div class="pc-nav"><button class="pc-arrow" onclick="pcNav(-1)">‹</button> <button class="pc-arrow" onclick="pcNav(1)">›</button></div>'
+      +     '<button class="pc-btn" onclick="pcNav(-1)">‹ Prev</button>'
+      +     '<button class="pc-btn" onclick="pcNav(1)">Next ›</button>'
+      +     '<button class="pc-btn" onclick="pcToday()">Today</button>'
+      +     '<input type="text" id="pcSearch" class="pc-search" placeholder="Search name / mobile / booking #…" oninput="pcSetSearch(this.value)">'
       +   '</div>'
       + '</div>'
       + '<div class="pc-dows" id="pcDows"></div>'
@@ -677,8 +685,39 @@ function pcEnsure(){
     if(anchor && anchor.parentNode === page) page.insertBefore(panel, anchor);
     else page.insertBefore(panel, page.firstChild);
 }
-function pcNav(dir){ if(!pcMonth) pcMonth = _pcFirstOfThisMonth(); pcMonth = new Date(pcMonth.getFullYear(), pcMonth.getMonth() + dir, 1); pcRender(); }
+function _pcDefaultMonth(){
+    // open on the current month; if it has no bookings for the room but earlier ones do, open the most recent month that does
+    const t = today();
+    const thisM = new Date(t.getFullYear(), t.getMonth(), 1), thisKey = iso(thisM).slice(0, 7);
+    const rooms = pcRoomList(), room = (pcRoom && rooms.indexOf(pcRoom) !== -1) ? pcRoom : rooms[0];
+    const months = bookings.filter(function(b){ return !b.cancelled && b.haven === room && b.checkin; }).map(function(b){ return b.checkin.slice(0, 7); });
+    if(months.indexOf(thisKey) !== -1) return thisM;
+    const past = months.filter(function(ym){ return ym <= thisKey; }).sort();
+    if(past.length){ const ym = past[past.length - 1]; return new Date(Number(ym.slice(0, 4)), Number(ym.slice(5, 7)) - 1, 1); }
+    return thisM;
+}
+function pcNav(dir){ if(!pcMonth) pcMonth = _pcDefaultMonth(); pcMonth = new Date(pcMonth.getFullYear(), pcMonth.getMonth() + dir, 1); pcRender(); }
+function pcToday(){ pcMonth = _pcFirstOfThisMonth(); pcRender(); }
 function pcSetRoom(h){ pcRoom = h; pcRender(); }
+function pcSetSearch(v){
+    pcSearch = v || "";
+    if(!pcMonth) pcMonth = _pcDefaultMonth();
+    const q = pcSearch.trim();
+    // if the current month has no match, jump to the earliest month that does
+    if(q && typeof bkMatchesSearch === "function"){
+        const y = pcMonth.getFullYear(), m = pcMonth.getMonth();
+        const here = bookings.some(function(b){
+            if(b.cancelled || b.haven !== pcRoom || !b.checkin) return false;
+            const d = new Date(b.checkin + "T00:00:00");
+            return d.getFullYear() === y && d.getMonth() === m && bkMatchesSearch(b, q);
+        });
+        if(!here){
+            const hits = bookings.filter(function(b){ return !b.cancelled && b.haven === pcRoom && b.checkin && bkMatchesSearch(b, q); }).map(function(b){ return b.checkin; }).sort();
+            if(hits.length){ const d = new Date(hits[0] + "T00:00:00"); pcMonth = new Date(d.getFullYear(), d.getMonth(), 1); }
+        }
+    }
+    pcRender();
+}
 function pcRender(){
     const panel = document.getElementById("partnerMonthCal");
     if(!panel) return;
@@ -686,7 +725,8 @@ function pcRender(){
     if(!rooms.length){ panel.style.display = "none"; return; }
     panel.style.display = "";
     if(!pcRoom || rooms.indexOf(pcRoom) === -1) pcRoom = rooms[0];
-    if(!pcMonth) pcMonth = _pcFirstOfThisMonth();
+    if(!pcMonth) pcMonth = _pcDefaultMonth();
+    const q = (pcSearch || "").trim();
     const y = pcMonth.getFullYear(), m = pcMonth.getMonth();
     document.getElementById("pcTitle").textContent = MONTHS[m] + " " + y;
     document.getElementById("pcRooms").innerHTML = rooms.map(function(h){
@@ -705,6 +745,7 @@ function pcRender(){
         const isToday = di === todayIso ? " today" : "";
         const dayBk = bookings.filter(function(b){
             if(b.cancelled || b.haven !== pcRoom) return false;
+            if(q && typeof bkMatchesSearch === "function" && !bkMatchesSearch(b, q)) return false;   // search filter
             const co = b.checkout > b.checkin ? b.checkout : iso(addDays(new Date(b.checkin + "T00:00:00"), 1));
             return b.checkin <= di && di < co;
         });
