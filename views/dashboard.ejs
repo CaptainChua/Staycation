@@ -5555,6 +5555,10 @@ document.addEventListener("click", e => {
 
 /* ---------- modal / add / edit ---------- */
 let editingId = null;
+// A NEW booking's id is minted ONCE when the modal opens and reused on every save
+// retry, so a "slow save → looked like it failed → user clicks Save again" retry
+// UPSERTS the same record instead of creating a duplicate (server matches by id).
+let _newBookingId = null;
 
 function setField(id, val){ document.getElementById(id).value = val; }
 
@@ -5979,6 +5983,7 @@ function openModal(id){
         setField("f_reference", b.reference || "");
         setField("f_down", b.downpayment || 0);
         setField("f_notes", b.notes || "");
+        _newBookingId = null;                        // editing uses editingId, not a fresh id
         _bookedBy = b.bookedBy || null;              // preserve the ORIGINAL booker on edit
         _bookedAtIso = b.bookedAt || null;
         setField("f_commName", b.commissionName || "Admin");
@@ -6007,6 +6012,7 @@ function openModal(id){
         setField("f_reference", "");
         setField("f_down", 0);
         setField("f_notes", "");
+        _newBookingId = uid();                       // mint the id ONCE so retries reuse it (no duplicate)
         _bookedBy = null;                            // new → stamped with the current user on save
         _bookedAtIso = null;
         setField("f_commName", "Admin");
@@ -6869,10 +6875,13 @@ async function saveBooking(){
             }
             logActivity(`edited booking — ${data.haven} (${primaryName(data)})`);
         } else {
-            const rec = { id: uid(), ...data };          // unique id; upsertOne offloads its images (ids)
+            const rec = { id: _newBookingId || uid(), ...data };   // stable id across retries → retry replaces, never duplicates
             const ok = await saveOneRecord("shph_bookings_v3", rec);
             if(!ok){ alert("⚠️ The booking was NOT saved — the server didn't confirm (slow / offline). Please try again."); _savingBooking = false; return; }
-            bookings.push(rec); _lastCreatedBookingId = rec.id; _stampLocal(rec);
+            // idempotent: if a prior (seemingly-failed) attempt already landed this id, replace in place
+            const _exIdx = bookings.findIndex(b => String(b.id) === String(rec.id));
+            if(_exIdx === -1) bookings.push(rec); else bookings[_exIdx] = rec;
+            _lastCreatedBookingId = rec.id; _stampLocal(rec);
             logActivity(`added booking — ${data.haven} (${primaryName(data)})`);
         }
         // linked haven segments → each its own per-record booking
