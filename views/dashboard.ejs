@@ -3800,11 +3800,17 @@ function migrate(b){
 function collectedSum(b){ return (b.payments || []).reduce((s,p) => s + (Number(p.amount) || 0), 0); }
 // total the customer has paid = original downpayment + later collections
 function paidOf(b){ return Number(b.downpayment || 0) + collectedSum(b); }
-// Has the guest already checked out? Housekeeping is only owed AFTER checkout — a booking that
-// hasn't checked out yet might still cancel, so it shouldn't be charged a cleaning fee.
+// Has the guest already checked out? Housekeeping/commission are only owed AFTER checkout — a
+// booking that hasn't checked out yet might still cancel, so it shouldn't be charged.
 function guestCheckedOut(b){
     if(!b || b.cancelled) return false;
     try{ return bookingInterval(b).end <= Math.round(Date.now() / 60000); }catch(e){ return false; }
+}
+// Has the guest already checked IN? Add-ons (towels / pool passes) are only realized at check-in —
+// before that the guest might still cancel or drop them, so don't count them yet.
+function guestCheckedIn(b){
+    if(!b || b.cancelled) return false;
+    try{ return bookingInterval(b).start <= Math.round(Date.now() / 60000); }catch(e){ return false; }
 }
 // Cash actually RECEIVED within [startIso, endIso] (inclusive) for a booking, for a cash-basis Gross:
 // the downpayment is received on the booking date (bookedAt); each later collection on its recorded
@@ -9959,8 +9965,8 @@ function _partnerMonthNet(ym, commissionRate){
     const swimRateOf = b => ((b.holiday || bookingIsHoliday(b)) ? PRICING.swimHoliday : PRICING.swimRegular);
     const gross  = bk.reduce((s, b) => s + paidOf(b), 0);   // partners: by MONTH (check-in)
     const dep    = live.reduce((s, b) => { const d = Number(b.deposit) || 0; return s + ((d > 0 && paidOf(b) >= (Number(b.total) || 0)) ? d : 0); }, 0);   // deposit = liability, deducted once collected
-    const pool   = live.reduce((s, b) => s + (Number(b.swimpass) || 0) * swimRateOf(b), 0);
-    const towel  = live.reduce((s, b) => s + (Number(b.towels) || 0) * PRICING.towel, 0);
+    const pool   = live.filter(guestCheckedIn).reduce((s, b) => s + (Number(b.swimpass) || 0) * swimRateOf(b), 0);   // only once checked in
+    const towel  = live.filter(guestCheckedIn).reduce((s, b) => s + (Number(b.towels) || 0) * PRICING.towel, 0);     // only once checked in
     const refund = bk.filter(b => b.cancelled && b.dpRefunded).reduce((s, b) => s + paidOf(b), 0);
     const hk     = 100 * live.filter(guestCheckedOut).length;   // only after checkout
     const expM       = expenses.filter(e => e.date && e.date.slice(0, 7) === ym && (e.type || "") !== "Add Funds").reduce((s, e) => s + Number(e.amount || 0), 0);   // exclude owner Add-Funds top-ups
@@ -10049,8 +10055,8 @@ function renderAnalytics(){
     // (booking fully paid) deduct it from gross whether it's still held or already returned. Only the
     // portion KEPT as damage becomes income, added back below via damagesIncome.
     const depTotal    = Math.round(_live.reduce((s,b) => { const dep = Number(b.deposit)||0; return s + ((dep > 0 && paidOf(b) >= (Number(b.total)||0)) ? dep : 0); }, 0));
-    const poolTotal   = Math.round(_live.reduce((s,b) => s + (Number(b.swimpass)||0) * swimRateOf(b), 0));      // pool passes
-    const towelTotal  = Math.round(_live.reduce((s,b) => s + (Number(b.towels)||0) * PRICING.towel, 0));         // towels
+    const poolTotal   = Math.round(_live.filter(guestCheckedIn).reduce((s,b) => s + (Number(b.swimpass)||0) * swimRateOf(b), 0));   // pool passes — only once checked in
+    const towelTotal  = Math.round(_live.filter(guestCheckedIn).reduce((s,b) => s + (Number(b.towels)||0) * PRICING.towel, 0));      // towels — only once checked in
     const damageTotal = Math.round(_live.reduce((s,b) => s + (Number(b.depositDeductAmount)||0), 0));            // damages kept from deposits
     const refundTotal = Math.round(bk.filter(b => b.cancelled && b.dpRefunded).reduce((s,b) => s + paidOf(b), 0)); // refunds on cancelled bookings
     // Cleaning cost: a PARTNER pays ₱100/booking to the admin (deducted from their gross). The ADMIN
