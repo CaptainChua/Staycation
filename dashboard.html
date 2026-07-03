@@ -1826,6 +1826,37 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
 <!-- ===== Calendar/Bookings ===== -->
 <div class="page" id="page-calendar">
 
+<style>
+  #page-calendar .cal-tabs{ display:flex; gap:2px; border-bottom:1px solid var(--hv-line); margin-bottom:22px; }
+  #page-calendar .cal-tab{ border:none; background:none; padding:12px 20px; font-family:inherit; font-size:15px; font-weight:700; color:var(--hv-muted); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; }
+  #page-calendar .cal-tab:hover{ color:var(--hv-ink); }
+  #page-calendar .cal-tab.active{ color:var(--hv-ink); border-bottom-color:var(--hv-terra); }
+  #page-calendar .av-row{ display:flex; align-items:center; justify-content:space-between; gap:16px; padding:16px 4px; border-bottom:1px solid var(--hv-line); flex-wrap:wrap; }
+  #page-calendar .av-row:last-child{ border-bottom:none; }
+  #page-calendar .av-haven{ display:flex; align-items:center; gap:9px; font-weight:700; font-size:15px; color:var(--hv-ink); min-width:130px; }
+  #page-calendar .av-haven .dot{ width:10px; height:10px; border-radius:50%; }
+  #page-calendar .av-info{ font-size:14px; color:var(--hv-ink); }
+  #page-calendar .av-bad{ color:#c0283d; font-weight:700; }
+</style>
+
+<div class="cal-tabs">
+    <button class="cal-tab active" data-ct="calendar" onclick="calTab('calendar')">Calendar</button>
+    <button class="cal-tab" data-ct="availability" onclick="calTab('availability')">Availability</button>
+</div>
+
+<div class="panel" id="availPanel" style="display:none;">
+    <div class="panel-head" style="flex-wrap:wrap; gap:12px;">
+        <h2>Availability</h2>
+        <div style="display:flex; align-items:center; gap:10px; margin-left:auto;">
+            <label style="font-size:13px; color:var(--hv-muted);">Date</label>
+            <input type="date" id="availDate" onchange="renderAvailability()" style="padding:9px 12px; border:1px solid var(--hv-line); border-radius:10px; background:#faf6ee; font-family:inherit; font-size:14px;">
+            <button class="btn secondary" onclick="availToday()">Today</button>
+        </div>
+    </div>
+    <p class="muted" style="margin:-4px 0 16px;">The earliest a new guest can check in on the selected day, and when the next booking is — so you know how long they can stay.</p>
+    <div id="availList"></div>
+</div>
+
 <!-- summary cards -->
 <div class="cards" id="summaryCardsCal" style="margin-bottom:24px;"></div>
 
@@ -4152,6 +4183,69 @@ function finPickMonth(m){
 function tlHourShort(h){ const ap = h < 12 ? "a" : "p"; let hh = h % 12; if(hh === 0) hh = 12; return hh + ap; }
 
 // single-day view → hourly timeline; the hour window auto-fits the day's bookings
+/* ---------- Calendar / Availability tabs ---------- */
+// wrap the existing calendar content so we can toggle it against the Availability panel
+(function initCalTabs(){
+    const page = document.getElementById("page-calendar");
+    if(!page || document.getElementById("calMainView")) return;
+    const tabs = page.querySelector(".cal-tabs"), avail = document.getElementById("availPanel");
+    const wrap = document.createElement("div"); wrap.id = "calMainView";
+    Array.from(page.children).forEach(function(c){ if(c !== tabs && c !== avail && c.tagName !== "STYLE") wrap.appendChild(c); });
+    page.appendChild(wrap);
+})();
+function calTab(view){
+    const main = document.getElementById("calMainView"), avail = document.getElementById("availPanel");
+    if(main) main.style.display = (view === "calendar") ? "" : "none";
+    if(avail) avail.style.display = (view === "availability") ? "" : "none";
+    document.querySelectorAll("#page-calendar .cal-tab").forEach(function(t){ t.classList.toggle("active", t.dataset.ct === view); });
+    if(view === "availability") renderAvailability();
+    else if(typeof renderTimeline === "function") renderTimeline();   // reflow the timeline when coming back
+}
+function availToday(){ const inp = document.getElementById("availDate"); if(inp) inp.value = iso(today()); renderAvailability(); }
+// For the selected date, show each haven's earliest available check-in + its next booking.
+function renderAvailability(){
+    const inp = document.getElementById("availDate");
+    if(!inp) return;
+    if(!inp.value) inp.value = iso(today());
+    const D = inp.value;
+    const dayAbs = Math.round(new Date(D + "T00:00:00").getTime() / 60000);
+    const dayEnd = dayAbs + 1440;
+    const floor = dayAbs + EARLIEST_CHECKIN_MIN;   // can't check in before 9 AM on the day
+    const fmtAbs = function(absMin){
+        const dIso = iso(new Date(absMin * 60000));
+        const mi = absMin - Math.round(new Date(dIso + "T00:00:00").getTime() / 60000);
+        const t = minToTime(mi);
+        return dIso === D ? t : (fmt(dIso) + " · " + t);
+    };
+    const scoped = (window.__PARTNER__ && !window.__PARTNER__.superAdmin && window.__PARTNER__.haven);
+    const havenList = scoped ? [window.__PARTNER__.haven] : HAVENS;
+    const html = havenList.map(function(h){
+        const intervals = bookings.filter(function(b){ return !b.cancelled && b.haven === h && b.checkin; })
+            .map(function(b){ const iv = bookingInterval(b); return { ci: iv.start, freeAt: iv.end + CLEANING_GAP_MIN }; })
+            .sort(function(a, b){ return a.ci - b.ci; });
+        // earliest free check-in at/after the 9 AM floor (chain past any overlapping occupancy + cleaning)
+        let availFrom = floor, changed = true, guard = 0;
+        while(changed && guard++ < 80){
+            changed = false;
+            intervals.forEach(function(it){ if(it.ci <= availFrom && it.freeAt > availFrom){ availFrom = it.freeAt; changed = true; } });
+        }
+        // the next booking that starts at/after that free time — limits how long the new guest can stay
+        let next = null;
+        intervals.forEach(function(it){ if(it.ci >= availFrom && (next === null || it.ci < next)) next = it.ci; });
+        const dot = (HAVEN_COLORS[h] || { am:"#ccc" }).am;
+        let info;
+        if(availFrom >= dayEnd){
+            info = `<span class="av-bad">Fully booked</span> · free ${fmtAbs(availFrom)}`;
+        } else {
+            const availTxt = (availFrom <= floor) ? `${minToTime(EARLIEST_CHECKIN_MIN)} (open)` : minToTime(availFrom - dayAbs);
+            const nextTxt = (next !== null) ? fmtAbs(next) : `<span style="color:#2e7d4f;font-weight:700;">None</span>`;
+            info = `<b>Check-in from ${availTxt}</b> &nbsp;·&nbsp; Next booking: ${nextTxt}`;
+        }
+        return `<div class="av-row"><span class="av-haven"><span class="dot" style="background:${dot}"></span>${h}</span><span class="av-info">${info}</span></div>`;
+    }).join("");
+    document.getElementById("availList").innerHTML = html || `<p class="muted">No havens.</p>`;
+}
+
 // (starts at the earliest check-in, ends at the latest check-out; empty hours are hidden)
 function renderTimelineHours(){
     const grid = document.getElementById("timeline");
