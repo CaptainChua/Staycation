@@ -7948,6 +7948,7 @@ function renderDeposit(){
         const dot = (HAVEN_COLORS[b.haven] || { am:"#ccc" }).am;
         const dep = Number(b.deposit || 0);
         const returned = !!b.depositReturned;
+        const _vdPend = (!returned && typeof _vdDeductForBooking === "function") ? _vdDeductForBooking(b.id) : 0;   // logged-violation deduction, not yet applied
         const ro = _partnerReadOnly();   // scoped partners see deposits READ-ONLY (View only)
         let statusCell;
         if(dep > 0){
@@ -7968,14 +7969,21 @@ function renderDeposit(){
             <td>${primaryName(b)}${b.fbName ? `<br><span class="muted">FB: ${b.fbName}</span>` : ""}</td>
             <td>${b.contact || "—"}</td>
             <td>${fmt(b.checkout)} · <span class="muted">${checkoutTimeStr(b)}</span></td>
-            <td class="dep-amt">${dep > 0 ? peso(dep) : "—"}${(dep > 0 && returned && Number(b.depositDeductAmount) > 0)
-                ? `<br><span class="muted" style="font-weight:500;">Refunded ${peso(b.depositRefundAmount)} · −${peso(b.depositDeductAmount)} ${b.depositDeductReason}</span>`
+            <td class="dep-amt">${dep > 0 ? peso(dep) : "—"}${
+                (dep > 0 && returned && Number(b.depositDeductAmount) > 0)
+                    ? `<br><span class="muted" style="font-weight:500;">Refunded ${peso(b.depositRefundAmount)} · −${peso(b.depositDeductAmount)} ${b.depositDeductReason}</span>`
+                : (dep > 0 && _vdPend > 0)
+                    ? `<br><span style="font-weight:600; color:#c0283d;">−${peso(_vdPend)} pending</span> <span class="muted">· refund ${peso(Math.max(0, dep - _vdPend))}</span>`
                 : ""}</td>
             <td>${statusCell}</td>
         </tr>`;
     }).join("") : `<tr><td colspan="6" class="empty">No check-outs in this period.</td></tr>`;
 
-    const toReturn = list.reduce((s, b) => s + (b.depositReturned ? 0 : Number(b.deposit || 0)), 0);
+    const toReturn = list.reduce((s, b) => {
+        if(b.depositReturned) return s;
+        const pend = (typeof _vdDeductForBooking === "function") ? _vdDeductForBooking(b.id) : 0;
+        return s + Math.max(0, Number(b.deposit || 0) - pend);   // net of pending violation deductions
+    }, 0);
     document.getElementById("depositTotal").innerHTML =
         `<div class="card"><h3>Check-outs</h3><div class="number">${list.length}</div></div>` +
         `<div class="card"><h3>Deposit still to return</h3><div class="number money">${peso(toReturn)}</div></div>`;
