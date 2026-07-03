@@ -5594,8 +5594,9 @@ function removeGuestRow(el){
 /* ---------- additional havens (multi-haven stay) ---------- */
 function segRowHtml(seg){
     seg = seg || { haven:"", checkin:"", checkout:"" };
+    const sid = seg.sid || uid();   // stable per-row id so a save retry UPSERTS this segment (no duplicate)
     const opts = HAVENS.map(h => `<option ${h === seg.haven ? "selected" : ""}>${h}</option>`).join("");
-    return `<div class="seg-row">
+    return `<div class="seg-row" data-sid="${sid}">
         <select class="seg-haven">${opts}</select>
         <input type="date" class="seg-checkin" value="${seg.checkin || ""}" onchange="segAutoCheckout(this)">
         <span class="seg-arrow">→</span>
@@ -5631,6 +5632,7 @@ function segAutoCheckout(input){
 }
 function readSegs(){
     return [...document.querySelectorAll("#segList .seg-row")].map(r => ({
+        sid: r.dataset.sid,
         haven: r.querySelector(".seg-haven").value,
         checkin: r.querySelector(".seg-checkin").value,
         checkout: r.querySelector(".seg-checkout").value
@@ -6815,7 +6817,8 @@ async function saveBooking(){
             notes: data.notes,
             downProof: null, addonProof: null, extendProof: null, balanceProof: null,
             ids: data.ids, idOptOut: data.idOptOut,
-            bookedBy: data.bookedBy, bookedAt: data.bookedAt   // commission stays on the primary only
+            bookedBy: data.bookedBy, bookedAt: data.bookedAt,   // commission stays on the primary only
+            _sid: seg.sid                                        // stable id for retry-safe upsert (stripped before save)
         };
         sd.total = computeTotal(sd);
         // can't clash with existing bookings (except the one being edited), the primary, or earlier segments
@@ -6882,14 +6885,29 @@ async function saveBooking(){
             _lastCreatedBookingId = rec.id; _stampLocal(rec);
             logActivity(`added booking — ${data.haven} (${primaryName(data)})`);
         }
-        // linked haven segments → each its own per-record booking
+        // linked haven segments → each its own per-record booking. Each seg row carries a
+        // STABLE id (_sid) so a save retry re-UPSERTS the same record instead of duplicating;
+        // a failed write ABORTS (keeps the modal open to retry) instead of silently vanishing.
         if(segDatas.length){
+            let savedSegs = 0, segFailed = false;
             for(const sd of segDatas){
-                const rec = { id: uid(), ...sd, groupId };
+                const { _sid, ...clean } = sd;
+                const rec = { id: _sid || uid(), ...clean, groupId };
                 const ok = await saveOneRecord("shph_bookings_v3", rec);
-                if(ok){ bookings.push(rec); _stampLocal(rec); }
+                if(!ok){ segFailed = true; break; }
+                const ix = bookings.findIndex(b => String(b.id) === String(rec.id));
+                if(ix === -1) bookings.push(rec); else bookings[ix] = rec;   // idempotent
+                _stampLocal(rec); savedSegs++;
             }
-            logActivity(`linked ${segDatas.length} more haven(s) to this stay — ${segDatas.map(s => s.haven).join(", ")}`);
+            if(savedSegs) logActivity(`linked ${savedSegs} more haven(s) to this stay — ${segDatas.slice(0, savedSegs).map(s => s.haven).join(", ")}`);
+            if(segFailed){
+                setLocalKey(KEY, bookings);   // mirror the ones that DID save
+                renderAll();
+                alert("⚠️ Some linked haven(s) didn't save (slow / offline connection).\n\n" +
+                    "Your main booking" + (savedSegs ? " and " + savedSegs + " linked haven(s)" : "") + " are saved. " +
+                    "Please click Save Booking again to finish the rest — nothing will be duplicated.");
+                return;   // keep the modal open; the stable ids make the retry safe
+            }
         }
         setLocalKey(KEY, bookings);   // mirror locally WITHOUT a whole-array push
         closeModal();
