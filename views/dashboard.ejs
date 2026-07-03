@@ -1829,8 +1829,8 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
 <div class="page" id="page-calendar">
 
 <style>
-  #page-calendar .cal-tabs{ display:flex; align-items:baseline; gap:24px; margin-bottom:18px; }
-  #page-calendar .cal-tab{ border:none; background:none; padding:0 0 5px; font-family:var(--hv-serif); font-size:26px; font-weight:800; letter-spacing:-.01em; color:var(--hv-muted); cursor:pointer; border-bottom:3px solid transparent; }
+  #page-calendar .cal-tabs{ display:flex; align-items:center; gap:20px; }
+  #page-calendar .cal-tab{ border:none; background:none; padding:0 0 6px; font-family:inherit; font-size:18px; font-weight:800; color:var(--hv-muted); cursor:pointer; border-bottom:2px solid transparent; }
   #page-calendar .cal-tab:hover{ color:var(--hv-ink); }
   #page-calendar .cal-tab.active{ color:var(--hv-ink); border-bottom-color:var(--hv-terra); }
   #page-calendar .av-row{ display:flex; align-items:center; justify-content:space-between; gap:16px; padding:16px 4px; border-bottom:1px solid var(--hv-line); flex-wrap:wrap; }
@@ -1841,31 +1841,17 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
   #page-calendar .av-bad{ color:#c0283d; font-weight:700; }
 </style>
 
-<div class="cal-tabs">
-    <button class="cal-tab active" data-ct="calendar" onclick="calTab('calendar')">Calendar</button>
-    <button class="cal-tab" data-ct="availability" onclick="calTab('availability')">Availability</button>
-</div>
-
-<div class="panel" id="availPanel" style="display:none;">
-    <div class="panel-head" style="flex-wrap:wrap; gap:12px;">
-        <h2>Availability</h2>
-        <div style="display:flex; align-items:center; gap:10px; margin-left:auto;">
-            <label style="font-size:13px; color:var(--hv-muted);">Date</label>
-            <input type="date" id="availDate" onchange="renderAvailability()" style="padding:9px 12px; border:1px solid var(--hv-line); border-radius:10px; background:#faf6ee; font-family:inherit; font-size:14px;">
-            <button class="btn secondary" onclick="availToday()">Today</button>
-        </div>
-    </div>
-    <p class="muted" style="margin:-4px 0 16px;">The earliest a new guest can check in on the selected day, and when the next booking is — so you know how long they can stay.</p>
-    <div id="availList"></div>
-</div>
-
 <!-- summary cards -->
 <div class="cards" id="summaryCardsCal" style="margin-bottom:24px;"></div>
 
 <!-- calendar timeline -->
 <div class="panel">
     <div class="panel-head">
-        <div class="cal-nav">
+        <div class="cal-tabs">
+            <button class="cal-tab active" data-ct="calendar" onclick="calTab('calendar')">Calendar</button>
+            <button class="cal-tab" data-ct="availability" onclick="calTab('availability')">Availability</button>
+        </div>
+        <div class="cal-nav" id="calNav">
             <button class="btn secondary" onclick="shiftWeek(-1)">‹ Prev</button>
             <div class="dp-wrap">
                 <span class="date-pill" onclick="openDatePicker(event)" title="Click to pick a date"><svg class="cal-ico" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg><span id="rangeLabel"></span></span>
@@ -1891,11 +1877,22 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
             <input type="text" id="calSearchInput" placeholder="Search name / mobile / booking #…" oninput="setCalSearch(this.value)" title="Show only bookings matching a guest name, mobile no., or booking #" style="min-width:220px;">
         </div>
     </div>
-    <div class="tl-daylabel" id="tlDayLabel"></div>
-    <div class="timeline">
-        <div class="tl-grid" id="timeline"></div>
+    <div id="calBody">
+        <div class="tl-daylabel" id="tlDayLabel"></div>
+        <div class="timeline">
+            <div class="tl-grid" id="timeline"></div>
+        </div>
+        <div class="legend" id="legend"></div>
     </div>
-    <div class="legend" id="legend"></div>
+    <div id="availBody" style="display:none;">
+        <div style="display:flex; align-items:center; gap:10px; margin:6px 0 16px; flex-wrap:wrap;">
+            <label style="font-size:13px; color:var(--hv-muted);">Date</label>
+            <input type="date" id="availDate" onchange="renderAvailability()" style="padding:9px 12px; border:1px solid var(--hv-line); border-radius:10px; background:#faf6ee; font-family:inherit; font-size:14px;">
+            <button class="btn secondary" onclick="availToday()">Today</button>
+            <span class="muted" style="font-size:13px; margin-left:6px;">Earliest a new guest can check in each haven, and their next booking.</span>
+        </div>
+        <div id="availList"></div>
+    </div>
 </div>
 
 <!-- recent activity (inline copy of the Activity Log, between calendar & bookings) — ADMIN ONLY -->
@@ -4184,22 +4181,15 @@ function finPickMonth(m){
 function tlHourShort(h){ const ap = h < 12 ? "a" : "p"; let hh = h % 12; if(hh === 0) hh = 12; return hh + ap; }
 
 // single-day view → hourly timeline; the hour window auto-fits the day's bookings
-/* ---------- Calendar / Availability tabs ---------- */
-// wrap the existing calendar content so we can toggle it against the Availability panel
-(function initCalTabs(){
-    const page = document.getElementById("page-calendar");
-    if(!page || document.getElementById("calMainView")) return;
-    const tabs = page.querySelector(".cal-tabs"), avail = document.getElementById("availPanel");
-    const wrap = document.createElement("div"); wrap.id = "calMainView";
-    Array.from(page.children).forEach(function(c){ if(c !== tabs && c !== avail && c.tagName !== "STYLE") wrap.appendChild(c); });
-    page.appendChild(wrap);
-})();
+/* ---------- Calendar / Availability tabs (inside the timeline panel) ---------- */
 function calTab(view){
-    const main = document.getElementById("calMainView"), avail = document.getElementById("availPanel");
-    if(main) main.style.display = (view === "calendar") ? "" : "none";
-    if(avail) avail.style.display = (view === "availability") ? "" : "none";
     document.querySelectorAll("#page-calendar .cal-tab").forEach(function(t){ t.classList.toggle("active", t.dataset.ct === view); });
-    if(view === "availability") renderAvailability();
+    const isAvail = (view === "availability");
+    const cal = document.getElementById("calBody"), av = document.getElementById("availBody"), nav = document.getElementById("calNav");
+    if(cal) cal.style.display = isAvail ? "none" : "";
+    if(av) av.style.display = isAvail ? "" : "none";
+    if(nav) nav.style.display = isAvail ? "none" : "";   // the Prev/Next/date controls apply to the timeline only
+    if(isAvail) renderAvailability();
     else if(typeof renderTimeline === "function") renderTimeline();   // reflow the timeline when coming back
 }
 function availToday(){ const inp = document.getElementById("availDate"); if(inp) inp.value = iso(today()); renderAvailability(); }
