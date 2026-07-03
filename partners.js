@@ -536,33 +536,70 @@ function boardTargets(){
     havens.sort();
     return [{ value:"all", label:"All partners" }].concat(havens.map(function(h){ return { value:h, label:h }; }));
 }
-// when the admin switches the "Post to" dropdown, load that target's current text
+// ---- optional notice photo ----
+let _boardPhoto = null;   // data URL of the attached photo, or null
+function onBoardPhotoPick(input){
+    const f = input && input.files && input.files[0];
+    if(!f) return;
+    const reader = new FileReader();
+    reader.onload = function(e){
+        const img = new Image();
+        img.onload = function(){
+            let w = img.width, h = img.height; const max = 1200;   // downscale so the notice stays small
+            if(w > max){ h = Math.round(h * max / w); w = max; }
+            try{
+                const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+                cv.getContext("2d").drawImage(img, 0, 0, w, h);
+                _boardPhoto = cv.toDataURL("image/jpeg", 0.82);
+            }catch(err){ _boardPhoto = e.target.result; }
+            renderBoardPhotoPrev();
+        };
+        img.onerror = function(){ _boardPhoto = e.target.result; renderBoardPhotoPrev(); };
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(f);
+    input.value = "";   // allow re-picking the same file
+}
+function boardRemovePhoto(){ _boardPhoto = null; renderBoardPhotoPrev(); }
+function renderBoardPhotoPrev(){
+    const box = document.getElementById("boardPhotoPrev");
+    if(!box) return;
+    box.innerHTML = _boardPhoto
+        ? '<div style="position:relative; display:inline-block;">'
+            + '<img src="' + _boardPhoto + '" style="max-width:220px; max-height:160px; border-radius:10px; border:1px solid var(--hv-line); display:block;">'
+            + '<span onclick="boardRemovePhoto()" title="Remove" style="position:absolute; top:-8px; right:-8px; background:#c0283d; color:#fff; width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:13px;">✕</span>'
+          + '</div>'
+        : '';
+}
+// when the admin switches the "Post to" dropdown, load that target's current text + photo
 function onBoardTargetChange(){
     const sel = document.getElementById("boardTarget"), ta = document.getElementById("boardText");
     if(!sel || !ta) return;
     const rec = loadBoard()[sel.value];
     ta.value = (rec && rec.text) || "";
+    _boardPhoto = (rec && rec.photo) || null; renderBoardPhotoPrev();
 }
 function saveBoard(){
     const ta = document.getElementById("boardText"), sel = document.getElementById("boardTarget");
     if(!ta) return;
     const target = (sel && sel.value) || "all";
     const board = loadBoard();
-    if(ta.value.trim()){
-        board[target] = { text: ta.value, updatedAt: new Date().toISOString(), updatedBy: (typeof currentUser === "function" ? currentUser() : "") };
+    if(ta.value.trim() || _boardPhoto){
+        board[target] = { text: ta.value, photo: _boardPhoto || null, updatedAt: new Date().toISOString(), updatedBy: (typeof currentUser === "function" ? currentUser() : "") };
     } else {
-        delete board[target];   // empty text clears that target's notice
+        delete board[target];   // no text AND no photo clears that target's notice
     }
     localStorage.setItem(BOARD_KEY, JSON.stringify(board));   // shared key → seed-bridge mirrors it to the server
     if(typeof logActivity === "function") logActivity("updated the partner notice board (" + boardTargetLabel(target) + ")");
     const btn = (typeof event !== "undefined" && event) ? event.target : null;
-    if(btn){ const t = btn.textContent; btn.textContent = ta.value.trim() ? "Posted ✓" : "Cleared ✓"; setTimeout(function(){ btn.textContent = t; }, 1200); }
+    if(btn){ const t = btn.textContent; btn.textContent = (ta.value.trim() || _boardPhoto) ? "Posted ✓" : "Cleared ✓"; setTimeout(function(){ btn.textContent = t; }, 1200); }
+    _boardPhoto = null; renderBoardPhotoPrev();
     renderBoard();
 }
 // one notice card; pass a label to show a target header + a key to show Edit/Delete (admin view),
 // or null/null for the partner view (no header, no buttons)
 function boardNoteHtml(rec, label, key){
-    if(!rec || !(rec.text || "").trim()) return "";
+    if(!rec || (!(rec.text || "").trim() && !rec.photo)) return "";
     const when = rec.updatedAt ? new Date(rec.updatedAt).toLocaleString("en-PH") : "";
     const actions = key
         ? '<div style="margin-top:10px; display:flex; gap:16px;">'
@@ -573,6 +610,7 @@ function boardNoteHtml(rec, label, key){
     return '<div class="board-note" style="margin-bottom:12px;">'
         + (label ? '<div class="muted" style="font-size:11px; font-weight:800; letter-spacing:.4px; text-transform:uppercase; margin-bottom:6px;">' + escHtml(label) + '</div>' : '')
         + escHtml(rec.text).replace(/\n/g, "<br>")
+        + (rec.photo ? '<div style="margin-top:10px;"><img src="' + rec.photo + '" style="max-width:100%; border-radius:10px; border:1px solid var(--hv-line); cursor:zoom-in;" onclick="if(typeof openProofImg===\'function\') openProofImg(this.src); else window.open(this.src)"></div>' : '')
         + (when ? '<div class="muted" style="margin-top:8px; font-size:12px;">Last updated ADMIN · ' + escHtml(when) + '</div>' : '')
         + actions
         + '</div>';
@@ -588,6 +626,7 @@ function boardEdit(key){
     }
     const rec = loadBoard()[key];
     if(ta){ ta.value = (rec && rec.text) || ""; ta.focus(); }
+    _boardPhoto = (rec && rec.photo) || null; renderBoardPhotoPrev();
     const box = document.getElementById("boardAdmin"); if(box && box.scrollIntoView) box.scrollIntoView({ behavior:"smooth", block:"center" });
 }
 // Delete: remove that target's notice
@@ -616,6 +655,7 @@ function renderBoard(){
         if(ta && document.activeElement !== ta){
             const cur = sel ? sel.value : "all";
             ta.value = (board[cur] && board[cur].text) || "";
+            _boardPhoto = (board[cur] && board[cur].photo) || null; renderBoardPhotoPrev();
         }
     }
     const view = document.getElementById("boardView");
