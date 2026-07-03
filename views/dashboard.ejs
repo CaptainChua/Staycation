@@ -4246,7 +4246,8 @@ function renderAvailability(){
     const lbl = document.getElementById("availDateLabel"); if(lbl) lbl.textContent = fmt(D);
     const dayAbs = Math.round(new Date(D + "T00:00:00").getTime() / 60000);
     const dayEnd = dayAbs + 1440;
-    const floor = dayAbs + EARLIEST_CHECKIN_MIN;   // can't check in before 9 AM on the day
+    let floor = dayAbs + EARLIEST_CHECKIN_MIN;   // can't check in before 9 AM on the day
+    if(D === iso(today())) floor = Math.max(floor, Math.round(new Date().getTime() / 60000));   // for TODAY, no earlier than right now
     const fmtAbs = function(absMin){
         const dIso = iso(new Date(absMin * 60000));
         const mi = absMin - Math.round(new Date(dIso + "T00:00:00").getTime() / 60000);
@@ -4271,15 +4272,18 @@ function renderAvailability(){
         const dot = (HAVEN_COLORS[h] || { am:"#ccc" }).am;
         const hcell = `<span class="av-hcell"><span class="dot" style="background:${dot}"></span>${h}</span>`;
         if(availFrom >= dayEnd){
-            return `<tr><td>${hcell}</td><td><span class="av-bad">Fully booked</span></td><td>—</td><td class="muted">free ${fmtAbs(availFrom)}</td></tr>`;
+            // occupied through the rest of the day
+            return `<tr><td>${hcell}</td><td><span class="av-bad">Not available</span></td><td>—</td><td class="muted">free ${fmtAbs(availFrom)}</td></tr>`;
         }
-        const availTxt = (availFrom <= floor) ? `${minToTime(EARLIEST_CHECKIN_MIN)} <span class="muted">(open)</span>` : minToTime(availFrom - dayAbs);
         // which stay lengths (6 / 10 / 21 hrs) fit before the next booking, keeping the cleaning gap
         const windowMin = (next !== null) ? (next - availFrom) : Infinity;
         const fits = [6, 10, 21].filter(function(H){ return (H * 60 + CLEANING_GAP_MIN) <= windowMin; });
-        let hoursTxt;
-        if(!fits.length) hoursTxt = `<span class="av-bad">under 6 hrs</span>`;
-        else hoursTxt = (fits.length === 1 ? String(fits[0]) : (fits.slice(0, -1).join(", ") + " or " + fits[fits.length - 1])) + " hrs";
+        if(!fits.length){
+            // there's a gap, but it can't even fit a 6-hour stay → not bookable
+            return `<tr><td>${hcell}</td><td><span class="av-bad">Not available</span></td><td>—</td><td>${next !== null ? fmtAbs(next) : "—"}</td></tr>`;
+        }
+        const availTxt = (availFrom <= floor) ? `${minToTime(floor - dayAbs)} <span class="muted">(open)</span>` : minToTime(availFrom - dayAbs);
+        const hoursTxt = (fits.length === 1 ? String(fits[0]) : (fits.slice(0, -1).join(", ") + " or " + fits[fits.length - 1])) + " hrs";
         const nextTxt = (next !== null) ? fmtAbs(next) : `<span class="av-open">Open slot</span>`;
         return `<tr><td>${hcell}</td><td><b>${availTxt}</b></td><td>${hoursTxt}</td><td>${nextTxt}</td></tr>`;
     }).join("");
