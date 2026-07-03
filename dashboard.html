@@ -3003,13 +3003,35 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
                 <textarea id="f_notes" rows="2" placeholder="Special requests, late checkout, etc."></textarea>
             </div>
 
+            <style>
+              .bookmeta-row{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+              .bookmeta-sel{ flex:0 0 auto; min-width:130px; }
+              .bookmeta-when{ color:#8a7f76; font-size:13px; font-weight:600; }
+              .bookmeta-amt{ flex:1 1 120px; min-width:100px; }
+              .bookmeta-sel:disabled, .bookmeta-amt:disabled{ opacity:.75; cursor:not-allowed; background:#f3efe9; }
+              .bookmeta-lock{ font-size:11.5px; color:#a99; margin-left:auto; }
+            </style>
             <div class="field full">
-                <label>Source <span class="muted">(who made this booking)</span></label>
-                <select id="f_source">
-                    <option value="Admin">Admin</option>
-                    <option value="Nicole">Nicole</option>
-                    <option value="website">from Website</option>
-                </select>
+                <label>Booked by <span class="muted">(auto-logged)</span></label>
+                <div class="bookmeta-row">
+                    <select id="f_bookedByName" class="bookmeta-sel" onchange="renderBookedStamp()">
+                        <option value="Admin">Admin</option>
+                        <option value="Nicole">Nicole</option>
+                    </select>
+                    <span id="f_bookedByWhen" class="bookmeta-when">—</span>
+                    <span class="bookmeta-lock" id="f_metaLock" style="display:none;">Admin-only</span>
+                </div>
+            </div>
+
+            <div class="field full">
+                <label>Commission <span class="muted">(Admin side only)</span></label>
+                <div class="bookmeta-row">
+                    <select id="f_commName" class="bookmeta-sel">
+                        <option value="Admin">Admin</option>
+                        <option value="Nicole">Nicole</option>
+                    </select>
+                    <input type="number" id="f_commAmount" class="bookmeta-amt" placeholder="Amount ₱" min="0" step="1">
+                </div>
             </div>
         </div>
         </div><!-- /bkPage1 -->
@@ -5959,7 +5981,11 @@ function openModal(id){
         setField("f_reference", b.reference || "");
         setField("f_down", b.downpayment || 0);
         setField("f_notes", b.notes || "");
-        setField("f_source", b.source || "Admin");
+        _bookedAtIso = b.bookedAt || "";
+        setField("f_bookedByName", b.bookedBy || "Admin");
+        setField("f_commName", b.commissionName || b.bookedBy || "Admin");
+        setField("f_commAmount", b.commissionAmount ? b.commissionAmount : "");
+        renderBookedStamp(); applyBookMetaLock();
         renderProofPage(b);
         renderIdPage(b);
     } else {
@@ -5983,7 +6009,11 @@ function openModal(id){
         setField("f_reference", "");
         setField("f_down", 0);
         setField("f_notes", "");
-        setField("f_source", "Admin");
+        _bookedAtIso = new Date().toISOString();
+        setField("f_bookedByName", normBookName());
+        setField("f_commName", normBookName());
+        setField("f_commAmount", "");
+        renderBookedStamp(); applyBookMetaLock();
         renderProofPage(null);
         renderIdPage(null);
     }
@@ -6716,7 +6746,10 @@ async function saveBooking(){
         reference: document.getElementById("f_reference").value.trim(),
         downpayment: Number(document.getElementById("f_down").value) || 0,
         notes: document.getElementById("f_notes").value.trim(),
-        source: (document.getElementById("f_source") || {}).value || "Admin",
+        bookedBy: (document.getElementById("f_bookedByName") || {}).value || "Admin",
+        bookedAt: _bookedAtIso || null,
+        commissionName: (document.getElementById("f_commName") || {}).value || "Admin",
+        commissionAmount: Number((document.getElementById("f_commAmount") || {}).value) || 0,
         downProof: downProofData || null,
         addonProof: addonProofData || null,
         extendProof: extendProofData || null,
@@ -6771,7 +6804,7 @@ async function saveBooking(){
             notes: data.notes,
             downProof: null, addonProof: null, extendProof: null, balanceProof: null,
             ids: data.ids, idOptOut: data.idOptOut,
-            source: data.source
+            bookedBy: data.bookedBy, bookedAt: data.bookedAt   // commission stays on the primary only
         };
         sd.total = computeTotal(sd);
         // can't clash with existing bookings (except the one being edited), the primary, or earlier segments
@@ -8970,6 +9003,37 @@ function benefitsHtml(s, dd){
 }
 // who is logged in (set on the admin login page)
 function currentUser(){ return localStorage.getItem("shph_current_user") || "Admin"; }
+
+// ---- Booking "Booked by" stamp + commission (Admin-side only) ----
+let _bookedAtIso = "";
+// map the logged-in user to a stamp name (only Admin / Nicole are tracked)
+function normBookName(){
+    const cu = (typeof currentUser === "function" ? currentUser() : "Admin") || "Admin";
+    return /nicole/i.test(cu) ? "Nicole" : "Admin";
+}
+function fmtBookStamp(iso){
+    if(!iso) return "";
+    const d = new Date(iso);
+    if(isNaN(d.getTime())) return "";
+    const day = d.toLocaleDateString("en-US", { month:"long", day:"numeric", year:"numeric" });
+    const tm  = d.toLocaleTimeString("en-US", { hour:"numeric", minute:"2-digit" });
+    return `${day} · ${tm}`;
+}
+function renderBookedStamp(){
+    const w = document.getElementById("f_bookedByWhen");
+    if(w) w.textContent = _bookedAtIso ? "— " + fmtBookStamp(_bookedAtIso) : "—";
+}
+// the stamp name + commission can only be changed on the Admin side; everyone
+// else sees the auto-logged values as read-only.
+function applyBookMetaLock(){
+    const admin = (typeof isAdminUser === "function") ? isAdminUser() : true;
+    ["f_bookedByName", "f_commName", "f_commAmount"].forEach(id => {
+        const el = document.getElementById(id);
+        if(el) el.disabled = !admin;
+    });
+    const lock = document.getElementById("f_metaLock");
+    if(lock) lock.style.display = admin ? "none" : "";
+}
 
 /* ---------- global activity log (shared with todaysbooking.html) ---------- */
 const ACTIVITY_KEY = "shph_activity_log";
