@@ -1833,11 +1833,14 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
   #page-calendar .cal-tab{ border:none; background:none; padding:0 0 6px; font-family:inherit; font-size:18px; font-weight:800; color:var(--hv-muted); cursor:pointer; border-bottom:2px solid transparent; }
   #page-calendar .cal-tab:hover{ color:var(--hv-ink); }
   #page-calendar .cal-tab.active{ color:var(--hv-ink); border-bottom-color:var(--hv-terra); }
-  #page-calendar .av-row{ display:flex; align-items:center; justify-content:space-between; gap:16px; padding:16px 4px; border-bottom:1px solid var(--hv-line); flex-wrap:wrap; }
-  #page-calendar .av-row:last-child{ border-bottom:none; }
-  #page-calendar .av-haven{ display:flex; align-items:center; gap:9px; font-weight:700; font-size:15px; color:var(--hv-ink); min-width:130px; }
-  #page-calendar .av-haven .dot{ width:10px; height:10px; border-radius:50%; }
-  #page-calendar .av-info{ font-size:14px; color:var(--hv-ink); }
+  #page-calendar .av-table{ width:100%; border-collapse:collapse; font-size:14px; }
+  #page-calendar .av-table th{ text-align:left; font-size:11px; letter-spacing:.4px; text-transform:uppercase; color:var(--hv-muted); font-weight:700; padding:10px 14px; border-bottom:1px solid var(--hv-line); }
+  #page-calendar .av-table td{ padding:14px; border-bottom:1px solid var(--hv-line); vertical-align:middle; color:var(--hv-ink); }
+  #page-calendar .av-table tbody tr:last-child td{ border-bottom:none; }
+  #page-calendar .av-table tbody tr:hover{ background:#faf7f2; }
+  #page-calendar .av-hcell{ display:flex; align-items:center; gap:9px; font-weight:700; color:var(--hv-ink); }
+  #page-calendar .av-hcell .dot{ width:10px; height:10px; border-radius:50%; }
+  #page-calendar .av-open{ color:#2e7d4f; font-weight:700; }
   #page-calendar .av-bad{ color:#c0283d; font-weight:700; }
 </style>
 
@@ -4252,7 +4255,7 @@ function renderAvailability(){
     };
     const scoped = (window.__PARTNER__ && !window.__PARTNER__.superAdmin && window.__PARTNER__.haven);
     const havenList = scoped ? [window.__PARTNER__.haven] : HAVENS;
-    const html = havenList.map(function(h){
+    const rows = havenList.map(function(h){
         const intervals = bookings.filter(function(b){ return !b.cancelled && b.haven === h && b.checkin; })
             .map(function(b){ const iv = bookingInterval(b); return { ci: iv.start, freeAt: iv.end + CLEANING_GAP_MIN }; })
             .sort(function(a, b){ return a.ci - b.ci; });
@@ -4266,17 +4269,23 @@ function renderAvailability(){
         let next = null;
         intervals.forEach(function(it){ if(it.ci >= availFrom && (next === null || it.ci < next)) next = it.ci; });
         const dot = (HAVEN_COLORS[h] || { am:"#ccc" }).am;
-        let info;
+        const hcell = `<span class="av-hcell"><span class="dot" style="background:${dot}"></span>${h}</span>`;
         if(availFrom >= dayEnd){
-            info = `<span class="av-bad">Fully booked</span> · free ${fmtAbs(availFrom)}`;
-        } else {
-            const availTxt = (availFrom <= floor) ? `${minToTime(EARLIEST_CHECKIN_MIN)} (open)` : minToTime(availFrom - dayAbs);
-            const nextTxt = (next !== null) ? fmtAbs(next) : `<span style="color:#2e7d4f;font-weight:700;">None</span>`;
-            info = `<b>Check-in from ${availTxt}</b> &nbsp;·&nbsp; Next booking: ${nextTxt}`;
+            return `<tr><td>${hcell}</td><td><span class="av-bad">Fully booked</span></td><td>—</td><td class="muted">free ${fmtAbs(availFrom)}</td></tr>`;
         }
-        return `<div class="av-row"><span class="av-haven"><span class="dot" style="background:${dot}"></span>${h}</span><span class="av-info">${info}</span></div>`;
+        const availTxt = (availFrom <= floor) ? `${minToTime(EARLIEST_CHECKIN_MIN)} <span class="muted">(open)</span>` : minToTime(availFrom - dayAbs);
+        // which stay lengths (6 / 10 / 21 hrs) fit before the next booking, keeping the cleaning gap
+        const windowMin = (next !== null) ? (next - availFrom) : Infinity;
+        const fits = [6, 10, 21].filter(function(H){ return (H * 60 + CLEANING_GAP_MIN) <= windowMin; });
+        let hoursTxt;
+        if(!fits.length) hoursTxt = `<span class="av-bad">under 6 hrs</span>`;
+        else hoursTxt = (fits.length === 1 ? String(fits[0]) : (fits.slice(0, -1).join(", ") + " or " + fits[fits.length - 1])) + " hrs";
+        const nextTxt = (next !== null) ? fmtAbs(next) : `<span class="av-open">Open slot</span>`;
+        return `<tr><td>${hcell}</td><td><b>${availTxt}</b></td><td>${hoursTxt}</td><td>${nextTxt}</td></tr>`;
     }).join("");
-    document.getElementById("availList").innerHTML = html || `<p class="muted">No havens.</p>`;
+    document.getElementById("availList").innerHTML = rows
+        ? `<div style="overflow-x:auto;"><table class="av-table"><thead><tr><th>Haven</th><th>Available check-in</th><th>Hours of stay available</th><th>Next check-in</th></tr></thead><tbody>${rows}</tbody></table></div>`
+        : `<p class="muted">No havens.</p>`;
 }
 
 // (starts at the earliest check-in, ends at the latest check-out; empty hours are hidden)
