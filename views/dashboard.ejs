@@ -3004,6 +3004,15 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
                 <label>Notes</label>
                 <textarea id="f_notes" rows="2" placeholder="Special requests, late checkout, etc."></textarea>
             </div>
+
+            <div class="field full">
+                <label>Source <span class="muted">(who made this booking)</span></label>
+                <select id="f_source">
+                    <option value="Admin">Admin</option>
+                    <option value="Nicole">Nicole</option>
+                    <option value="Website">Website</option>
+                </select>
+            </div>
         </div>
         </div><!-- /bkPage1 -->
 
@@ -5952,6 +5961,7 @@ function openModal(id){
         setField("f_reference", b.reference || "");
         setField("f_down", b.downpayment || 0);
         setField("f_notes", b.notes || "");
+        setField("f_source", b.source || "Admin");
         renderProofPage(b);
         renderIdPage(b);
     } else {
@@ -5975,6 +5985,7 @@ function openModal(id){
         setField("f_reference", "");
         setField("f_down", 0);
         setField("f_notes", "");
+        setField("f_source", "Admin");
         renderProofPage(null);
         renderIdPage(null);
     }
@@ -6707,6 +6718,7 @@ async function saveBooking(){
         reference: document.getElementById("f_reference").value.trim(),
         downpayment: Number(document.getElementById("f_down").value) || 0,
         notes: document.getElementById("f_notes").value.trim(),
+        source: (document.getElementById("f_source") || {}).value || "Admin",
         downProof: downProofData || null,
         addonProof: addonProofData || null,
         extendProof: extendProofData || null,
