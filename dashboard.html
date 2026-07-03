@@ -2859,8 +2859,8 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
   <div class="modal" style="width:470px;">
     <h2 id="vdModalTitle">Add violation</h2>
     <div class="form-grid">
-      <div class="field"><label>Haven</label><select id="vd_haven"></select></div>
-      <div class="field"><label>Date</label><input type="date" id="vd_date"></div>
+      <div class="field"><label>Haven</label><select id="vd_haven" onchange="vdAutofill()"></select></div>
+      <div class="field"><label>Date</label><input type="date" id="vd_date" onchange="vdAutofill()"></div>
       <div class="field"><label>Guest name</label><input type="text" id="vd_guest" placeholder="Guest name"></div>
       <div class="field"><label>Booking # <span class="muted">(optional)</span></label><input type="text" id="vd_code" placeholder="#BK-0000"></div>
       <div class="field full"><label>Violation / item taken</label><textarea id="vd_desc" rows="2" placeholder="Describe what happened"></textarea></div>
@@ -7793,7 +7793,36 @@ document.addEventListener("click", e => {
 /* ---------- Security Deposit: check-outs + deposit to return on a date ---------- */
 /* ---------- Violations & Damages ---------- */
 const VIOLATIONS_KEY = "shph_violations_v1";
-let _vdEditId = null;
+let _vdEditId = null, _vdBookingId = null;
+// the (non-cancelled) booking staying in `haven` on `date` — checkin ≤ date ≤ checkout
+function _vdFindBooking(haven, date){
+    if(!haven || !date) return null;
+    const cands = bookings.filter(b => b.haven === haven && !b.cancelled && b.checkin &&
+        b.checkin <= date && date <= ((b.checkout && b.checkout > b.checkin) ? b.checkout : b.checkin));
+    cands.sort((a, b) => (b.checkin || "").localeCompare(a.checkin || ""));   // prefer the most recent check-in
+    return cands[0] || null;
+}
+// pull the guest + booking # from the booking on the chosen haven/date
+function vdAutofill(){
+    const haven = (document.getElementById("vd_haven") || {}).value || "";
+    const date  = (document.getElementById("vd_date") || {}).value || "";
+    const b = _vdFindBooking(haven, date);
+    _vdBookingId = b ? b.id : null;
+    if(b){
+        const g = document.getElementById("vd_guest"), c = document.getElementById("vd_code");
+        if(g) g.value = b.fbName || primaryName(b);
+        if(c) c.value = bookingCode(b) || "";
+    }
+}
+// total (non-waived) violation deduction logged against a booking — used to pre-fill the deposit return
+function _vdDeductForBooking(bookingId){
+    if(bookingId == null) return 0;
+    return loadViolations().filter(v => v.bookingId === bookingId && !v.waived).reduce((s, v) => s + (Number(v.deduction) || 0), 0);
+}
+function _vdReasonForBooking(bookingId){
+    if(bookingId == null) return "";
+    return loadViolations().filter(v => v.bookingId === bookingId && !v.waived && Number(v.deduction) > 0 && v.desc).map(v => v.desc).join("; ");
+}
 function loadViolations(){ try{ return JSON.parse(localStorage.getItem(VIOLATIONS_KEY)) || []; }catch(e){ return []; } }
 function saveViolationsStore(arr){ try{ localStorage.setItem(VIOLATIONS_KEY, JSON.stringify(arr)); }catch(e){} }   // shared key → seed-bridge mirrors it
 function vdSevClass(s){ return s === "Major" ? "major" : (s === "Item lost" ? "item" : "minor"); }
@@ -7823,6 +7852,8 @@ function openViolationModal(id){
     set("vd_ded", rec ? (rec.deduction || 0) : 0);
     document.getElementById("vd_waived").checked = rec ? !!rec.waived : false;
     document.getElementById("vd_resolved").checked = rec ? !!rec.resolved : false;
+    _vdBookingId = (rec && rec.bookingId != null) ? rec.bookingId : null;
+    if(!rec) vdAutofill();   // new record → prefill guest/booking# from the booking on that haven/date
     document.getElementById("vdOverlay").classList.add("show");
 }
 function closeViolationModal(){ document.getElementById("vdOverlay").classList.remove("show"); }
@@ -7835,7 +7866,8 @@ function saveViolation(){
         haven, guest: g("vd_guest").value.trim(), code: g("vd_code").value.trim(),
         date: g("vd_date").value || iso(today()), desc: g("vd_desc").value.trim(),
         severity: g("vd_sev").value, deduction: Number(g("vd_ded").value) || 0,
-        waived: g("vd_waived").checked, resolved: g("vd_resolved").checked
+        waived: g("vd_waived").checked, resolved: g("vd_resolved").checked,
+        bookingId: _vdBookingId != null ? _vdBookingId : null
     };
     const arr = loadViolations();
     const idx = arr.findIndex(v => v.id === _vdEditId);
@@ -8003,8 +8035,12 @@ function openDepReturn(id){
     document.getElementById("depRetInfo").innerHTML =
         `<strong>${b.haven}</strong> — ${primaryName(b)}<br>Deposit held: <strong>${peso(b.deposit || 0)}</strong>`;
     document.getElementById("depMop").value = b.depositMop || "Cash";
-    document.getElementById("depDeduct").value = b.depositDeductReason || "";
-    document.getElementById("depDeductAmt").value = (b.depositDeductAmount != null) ? b.depositDeductAmount : 0;
+    // pre-fill the deduction from any logged Violations & Damages for this booking (only if not
+    // already set/finalised), so the violation deduction is subtracted from the deposit at return.
+    const _vSum = (typeof _vdDeductForBooking === "function") ? _vdDeductForBooking(b.id) : 0;
+    const _vReason = (typeof _vdReasonForBooking === "function") ? _vdReasonForBooking(b.id) : "";
+    document.getElementById("depDeduct").value = b.depositDeductReason || _vReason;
+    document.getElementById("depDeductAmt").value = (b.depositDeductAmount != null && Number(b.depositDeductAmount) > 0) ? b.depositDeductAmount : _vSum;
     document.getElementById("depDeductNote").value = b.depositDeductNote || "";
     depRecalcRefund();
     document.getElementById("depProofName").textContent = depProofData ? "Photo attached ✓" : "No file chosen";
