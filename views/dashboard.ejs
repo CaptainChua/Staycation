@@ -5879,22 +5879,25 @@ function onExtendChange(){ recomputeDashCheckout(); recalc(); }
 // or null if nothing clashes. Used to label/snap busy havens in the dropdown.
 function havenFreeAtMin(haven, cand){
     const ci = bookingInterval(cand);
-    let latest = null, latestEnd = null;
+    let latestEnd = null;
     bookings.forEach(b => {
         if(b.id === editingId) return;
         if(b.cancelled) return;
         if(b.haven !== haven) return;
         const bi = bookingInterval(b);   // absolute minutes — fine for comparing/clashing
         if(ci.start < bi.end + CLEANING_GAP_MIN && bi.start < ci.end + CLEANING_GAP_MIN){
-            if(latestEnd == null || bi.end > latestEnd){ latestEnd = bi.end; latest = b; }
+            if(latestEnd == null || bi.end > latestEnd) latestEnd = bi.end;
         }
     });
-    if(!latest) return null;
-    // free-at = the clashing booking's LOCAL check-out time-of-day + cleaning gap.
-    // (bookingInterval.end is absolute epoch minutes, so % 1440 would be timezone-shifted)
-    const dur = ((Number(latest.stayHours) || 21) + (Number(latest.extend) || 0)) * 60;
-    const m = bookingCheckinMin(latest) + dur + CLEANING_GAP_MIN;
-    return ((m % 1440) + 1440) % 1440;
+    if(latestEnd == null) return null;
+    // Work in ABSOLUTE minutes so the free time carries its correct DATE. A haven whose blocking stay
+    // checks out the NEXT morning frees on that later date — return the time-of-day AND the day offset
+    // so the label/snap don't wrongly place it on the candidate's own check-in date.
+    const freeAbs = latestEnd + CLEANING_GAP_MIN;
+    const candMid = Math.round(new Date(cand.checkin + "T00:00:00").getTime() / 60000);
+    const tod  = ((freeAbs % 1440) + 1440) % 1440;                       // minutes past midnight of the free date
+    const days = Math.max(0, Math.floor((freeAbs - candMid) / 1440));    // 0 = same day, 1 = next day, …
+    return { tod, days };
 }
 // List EVERY haven. Free havens are selectable as-is; a haven that's busy for the chosen time
 // is still selectable but labelled "free from HH:MM" — picking it snaps the check-in time to
@@ -5914,9 +5917,9 @@ function updateHavenOptions(){
         const cand = { haven:h, checkin, checkout, stayHours, extend, checkinTime, slot:null };
         const clash = (checkin && checkinTime) ? findConflictAdmin(cand, editingId) : null;
         if(clash){
-            const freeMin = havenFreeAtMin(h, cand);
-            const freeStr = freeMin != null ? minToTime(freeMin) : "";
-            html += `<option value="${h}" data-freemin="${freeMin}">${h} — free from ${freeStr}</option>`;
+            const free = havenFreeAtMin(h, cand);
+            const freeStr = free ? (minToTime(free.tod) + (free.days > 0 ? (free.days === 1 ? " (next day)" : ` (+${free.days}d)`) : "")) : "";
+            html += `<option value="${h}" data-freemin="${free ? free.tod : ""}" data-freedays="${free ? free.days : 0}">${h} — free from ${freeStr}</option>`;
         } else {
             if(firstFree == null) firstFree = h;
             if(h === current) currentStillFree = true;
@@ -5933,6 +5936,11 @@ function onHavenChange(){
     const opt = sel.options[sel.selectedIndex];
     const fm = opt && opt.dataset ? Number(opt.dataset.freemin) : NaN;
     if(opt && opt.dataset && opt.dataset.freemin != null && opt.dataset.freemin !== "" && !isNaN(fm)){
+        const days = opt.dataset.freedays ? Number(opt.dataset.freedays) : 0;
+        if(days > 0){   // the haven only frees on a later date — move the check-in date to match
+            const ci = document.getElementById("f_checkin");
+            if(ci && ci.value) ci.value = iso(addDays(new Date(ci.value + "T00:00:00"), days));
+        }
         setDashCheckinTime(minToTime(Math.max(fm, EARLIEST_CHECKIN_MIN)));   // book from when it frees
         onStayChange();   // recompute check-out/totals and re-validate the haven list
     } else {
@@ -6722,9 +6730,34 @@ function _stampLocal(b){ try{ b.updatedAt = new Date().toISOString(); if(_bkSig 
 // → can't clobber another device's edit to a different field/payment).
 function _bkMirror(b){ _stampLocal(b); setLocalKey(KEY, bookings); }
 function bkSave(b, set){ _bkMirror(b); patchBooking(b.id, set); }                       // b already mutated; `set` = fields to persist
-function bkPaymentEdit(b, idx){ const p = b.payments[idx]; const existingPid = p && p.pid; if(p && p.pid == null) p.pid = uid(); _bkMirror(b); fetch(`/api/booking/${encodeURIComponent(b.id)}/payment`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ payment: p, editId: existingPid, editIndex: idx }) }).catch(()=>{}); }
+// Durable per-payment write queue. A payment edit/delete hits a per-record endpoint that matches by
+// pid, so it can't clobber another device's edit to a DIFFERENT payment — but the old fire-and-forget
+// call was simply lost on a slow/offline blip. Queue each op and retry (on this action, on reconnect,
+// and on load) until the server confirms; both devices' ops re-apply, so the two edits converge.
+const PAY_Q_KEY = "shph_payop_queue";
+function _payQLoad(){ try{ return JSON.parse(localStorage.getItem(PAY_Q_KEY)) || []; }catch(e){ return []; } }
+function _payQSave(q){ try{ localStorage.setItem(PAY_Q_KEY, JSON.stringify(q)); }catch(e){} }
+function _payQEnqueue(bookingId, body){ const q = _payQLoad(); q.push({ qid: uid(), bookingId, body, tries: 0 }); _payQSave(q); }
+let _payQFlushing = false;
+async function _payQFlush(){
+    if(_payQFlushing) return;
+    _payQFlushing = true;
+    try{
+        const q = _payQLoad();
+        if(!q.length) return;
+        const keep = [];
+        for(const op of q){
+            let ok = false;
+            try{ const r = await fetch(`/api/booking/${encodeURIComponent(op.bookingId)}/payment`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(op.body) }); ok = r.ok; }catch(e){}
+            if(!ok){ op.tries = (op.tries || 0) + 1; if(op.tries < 40) keep.push(op); }   // give up after ~40 failed retries
+        }
+        _payQSave(keep);
+    } finally { _payQFlushing = false; }
+}
+if(typeof window !== "undefined"){ window.addEventListener("online", _payQFlush); _payQFlush(); }   // flush on reconnect + at load
+function bkPaymentEdit(b, idx){ const p = b.payments[idx]; const existingPid = p && p.pid; if(p && p.pid == null) p.pid = uid(); _bkMirror(b); _payQEnqueue(b.id, { payment: p, editId: existingPid, editIndex: idx }); _payQFlush(); }
 // pass the DELETED payment's pid (capture it before splicing locally) so the server matches by id, not position
-function bkPaymentDelete(b, idx, pid){ _bkMirror(b); fetch(`/api/booking/${encodeURIComponent(b.id)}/payment`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ deleteId: pid, deleteIndex: idx }) }).catch(()=>{}); }
+function bkPaymentDelete(b, idx, pid){ _bkMirror(b); _payQEnqueue(b.id, { deleteId: pid, deleteIndex: idx }); _payQFlush(); }
 let _savingBooking = false;
 async function saveBooking(){
     if(_partnerReadOnly()) return;   // scoped partners are read-only everywhere
