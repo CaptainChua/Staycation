@@ -3581,6 +3581,8 @@ const PRICING = {
     stay21Weekend: 2099,   // Friday or Saturday (based on check-in day)
     longWeekday: 1699,     // 3+ nights · Sunday–Thursday (per night)
     longWeekend: 1899,     // 3+ nights · Friday or Saturday (per night)
+    holidayNight: 2099,    // overnight night that falls on a holiday
+    holidayDayUse: 1799,   // 6–10h day-use on a holiday
     swimRegular: 150,      // per pax
     swimHoliday: 300,      // per pax
     towel: 50,             // each
@@ -3594,6 +3596,38 @@ const PRICING = {
     maxKids: 2,
     kidMaxAge: 13          // kid = 0–13 yo
 };
+// Philippine holidays the holiday rate applies to — KEEP IN SYNC with havens.html's HOLIDAYS set.
+const HOLIDAYS = new Set([
+    "2026-01-01", "2026-04-09", "2026-05-01", "2026-06-12",
+    "2026-08-21", "2026-08-31", "2026-11-01", "2026-11-30",
+    "2026-12-08", "2026-12-25", "2026-12-30", "2026-12-31"
+]);
+function isHoliday(dIso){ return HOLIDAYS.has(dIso); }
+// does any night (or the day-use date) of this booking fall on a holiday?
+function bookingIsHoliday(b){
+    if(!b || !b.checkin) return false;
+    const overnight = b.checkout && b.checkout > b.checkin;
+    if(!overnight) return isHoliday(b.checkin);
+    for(let d = new Date(b.checkin + "T00:00:00"), end = new Date(b.checkout + "T00:00:00"); d < end; d.setDate(d.getDate() + 1)){
+        if(isHoliday(iso(d))) return true;
+    }
+    return false;
+}
+// Pull the owner-editable rates from the shared Settings (same source the public website uses) into
+// PRICING, so a rate changed on the Settings page applies to the dashboard too — not just the website.
+function syncPricingFromSettings(){
+    try{
+        const p = ((typeof loadSettings === "function" ? loadSettings() : null) || {}).pricing || {};
+        const map = {
+            stay6:"stay6", stay10:"stay10", stay21Weekday:"stay21Weekday", stay21Weekend:"stay21Weekend",
+            longWeekday:"longWeekday", longWeekend:"longWeekend", holidayNight:"holidayNight", holidayDayUse:"holidayDayUse",
+            deposit:"deposit", includedPax:"baseIncludedPax", addPax:"addPax",
+            poolRegular:"swimRegular", poolHoliday:"swimHoliday", extraHour:"extendPerHr", towelRate:"towel"
+        };
+        for(const k in map){ if(p[k] != null && !isNaN(Number(p[k]))) PRICING[map[k]] = Number(p[k]); }
+    }catch(e){}
+}
+syncPricingFromSettings();   // apply saved rates before anything is priced
 // billable heads = guests aged 5+ ; first 2 are covered by the base rate
 function billablePax(guests){
     return (guests || []).filter(g => g.age != null && Number(g.age) >= PRICING.addPaxMinAge).length;
@@ -3677,16 +3711,22 @@ function overnightBase(checkin, checkout){
     for(let i = 0; i < nights; i++){
         const wd = d.getDay();                       // 0 Sun .. 6 Sat
         const weekend = (wd === 5 || wd === 6);      // Fri / Sat
-        sum += longStay ? (weekend ? PRICING.longWeekend : PRICING.longWeekday)
-                        : (weekend ? PRICING.stay21Weekend : PRICING.stay21Weekday);
+        if(isHoliday(iso(d))){                        // a holiday night is the flat holiday rate
+            sum += PRICING.holidayNight;
+        } else {
+            sum += longStay ? (weekend ? PRICING.longWeekend : PRICING.longWeekday)
+                            : (weekend ? PRICING.stay21Weekend : PRICING.stay21Weekday);
+        }
         d.setDate(d.getDate() + 1);
     }
     return sum;
 }
 function baseRate(stayHours, checkinIso, checkoutIso){
     stayHours = Number(stayHours);
-    if(stayHours === 6) return PRICING.stay6;
-    if(stayHours === 10) return PRICING.stay10;
+    if(stayHours === 6 || stayHours === 10){
+        if(isHoliday(checkinIso)) return PRICING.holidayDayUse;   // day-use on a holiday
+        return stayHours === 6 ? PRICING.stay6 : PRICING.stay10;
+    }
     if(stayHours === 21){
         const co = checkoutIso || iso(addDays(new Date(checkinIso + "T00:00:00"), 1));
         return overnightBase(checkinIso, co);        // 1 night = single overnight rate
@@ -3696,7 +3736,8 @@ function baseRate(stayHours, checkinIso, checkoutIso){
 function computeTotal(b){
     const base = baseRate(b.stayHours, b.checkin, b.checkout);
     const pax  = addPaxFee(b.guests);
-    const swim = (Number(b.swimpass) || 0) * (b.holiday ? PRICING.swimHoliday : PRICING.swimRegular);
+    const hol  = b.holiday || bookingIsHoliday(b);   // derive from the dates so it matches the website
+    const swim = (Number(b.swimpass) || 0) * (hol ? PRICING.swimHoliday : PRICING.swimRegular);
     const tow  = (Number(b.towels) || 0) * PRICING.towel;
     const ext  = (Number(b.extend) || 0) * PRICING.extendPerHr;
     const dep  = (b.deposit === undefined ? PRICING.deposit : Number(b.deposit)) || 0;
@@ -9849,15 +9890,15 @@ let anPeriod = "month";   // day | week | month | year | custom
 function _partnerMonthNet(ym, commissionRate){
     const bk = bookings.filter(b => b.checkin && b.checkin.slice(0, 7) === ym);
     const live = bk.filter(b => !b.cancelled);
-    const swimRateOf = b => (b.holiday ? PRICING.swimHoliday : PRICING.swimRegular);
+    const swimRateOf = b => ((b.holiday || bookingIsHoliday(b)) ? PRICING.swimHoliday : PRICING.swimRegular);
     const gross  = bk.reduce((s, b) => s + paidOf(b), 0);
-    const dep    = live.filter(b => b.depositReturned).reduce((s, b) => s + (Number(b.deposit) || 0), 0);
+    const dep    = live.reduce((s, b) => { const d = Number(b.deposit) || 0; return s + ((d > 0 && paidOf(b) >= (Number(b.total) || 0)) ? d : 0); }, 0);   // deposit = liability, deducted once collected
     const pool   = live.reduce((s, b) => s + (Number(b.swimpass) || 0) * swimRateOf(b), 0);
     const towel  = live.reduce((s, b) => s + (Number(b.towels) || 0) * PRICING.towel, 0);
     const refund = bk.filter(b => b.cancelled && b.dpRefunded).reduce((s, b) => s + paidOf(b), 0);
     const hk     = 100 * live.length;
+    const expM       = expenses.filter(e => e.date && e.date.slice(0, 7) === ym && (e.type || "") !== "Add Funds").reduce((s, e) => s + Number(e.amount || 0), 0);   // exclude owner Add-Funds top-ups
     const billsPaidM = bills.filter(b => b.paid && b.due && b.due.slice(0, 7) === ym).reduce((s, b) => s + Number(b.amount || 0), 0);
-    const expM       = expenses.filter(e => e.date && e.date.slice(0, 7) === ym).reduce((s, e) => s + Number(e.amount || 0), 0);
     const commission = (Number(commissionRate) || 0) * live.length;
     return gross - (dep + pool + towel + refund + hk + billsPaidM + expM + commission);
 }
@@ -9926,8 +9967,11 @@ function renderAnalytics(){
 
     // ---- deductions from gross (admin; a partner's gross already excludes these) ----
     const _live = bk.filter(b => !b.cancelled);
-    const swimRateOf = b => (b.holiday ? PRICING.swimHoliday : PRICING.swimRegular);
-    const depTotal    = Math.round(_live.filter(b => b.depositReturned).reduce((s,b) => s + (Number(b.deposit)||0), 0));   // only deposits actually RETURNED
+    const swimRateOf = b => ((b.holiday || bookingIsHoliday(b)) ? PRICING.swimHoliday : PRICING.swimRegular);
+    // A security deposit is a refundable LIABILITY, never revenue — so once it's been collected
+    // (booking fully paid) deduct it from gross whether it's still held or already returned. Only the
+    // portion KEPT as damage becomes income, added back below via damagesIncome.
+    const depTotal    = Math.round(_live.reduce((s,b) => { const dep = Number(b.deposit)||0; return s + ((dep > 0 && paidOf(b) >= (Number(b.total)||0)) ? dep : 0); }, 0));
     const poolTotal   = Math.round(_live.reduce((s,b) => s + (Number(b.swimpass)||0) * swimRateOf(b), 0));      // pool passes
     const towelTotal  = Math.round(_live.reduce((s,b) => s + (Number(b.towels)||0) * PRICING.towel, 0));         // towels
     const damageTotal = Math.round(_live.reduce((s,b) => s + (Number(b.depositDeductAmount)||0), 0));            // damages kept from deposits
@@ -11141,7 +11185,8 @@ function saveBookingSettings(){
     collectPromos();
     s.promos = promos;
     saveSettings(s);
-    alert("Saved! Rates, add-ons and promos now apply to the website.");
+    syncPricingFromSettings();   // apply the new rates to the dashboard's own pricing immediately
+    alert("Saved! Rates, add-ons and promos now apply to the website and the dashboard.");
 }
 
 function resetBookingSettings(){
