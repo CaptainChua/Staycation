@@ -92,8 +92,8 @@ function renderHaven() {
     if (!id) { renderHavenList(container); return; }
 
     const haven = getHaven(id);
-    if (!haven) {
-        container.innerHTML = "<p>Sorry, that haven was not found.</p>";
+    if (!haven || haven.live === false) {   // offline havens aren't reachable even by direct URL
+        container.innerHTML = "<p>Sorry, that haven is not available right now.</p>";
         return;
     }
 
