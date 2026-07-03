@@ -2872,7 +2872,7 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
             </div>
 
             <div class="field full">
-                <label>Guests <span class="muted">(max 5 pax — up to 4 adults &amp; 2 kids aged 0–13)</span></label>
+                <label>Guests <span class="muted" id="guestCapNote">(max 5 pax — up to 4 adults &amp; 2 kids aged 0–13)</span></label>
                 <div id="guestList"></div>
                 <button type="button" class="btn secondary add-guest" onclick="addGuestRow()">+ Add guest</button>
                 <div class="breakdown">1st guest must be 18+. 2nd guest may be a minor only if a family member (same last name). Base rate covers 2 pax; extra pax aged 5+ is ₱300/head.</div>
@@ -6016,6 +6016,7 @@ function openModal(id){
         renderIdPage(null);
     }
     clearSegRows();   // multi-haven rows start empty; add them to extend the stay
+    updateGuestCapNote();
     bkGoPage(1);
     onStayChange();
     document.getElementById("overlay").classList.add("show");
@@ -6153,7 +6154,7 @@ function buildConfirmationHTML(){
         <div class="resv-meta">
             <span>🏠 ${escHtml(b.haven)}</span>
             <span>🌙 ${nightsBadge}</span>
-            <span>👥 ${guests.length} guest${guests.length === 1 ? "" : "s"} · max ${PRICING.maxPax}</span>
+            <span>👥 ${guests.length} guest${guests.length === 1 ? "" : "s"} · max ${_capPax()}</span>
         </div>
     </div>
     <div class="cards">
@@ -6691,11 +6692,13 @@ async function saveBooking(){
         return;
     }
 
-    // capacity & composition: max 5 pax, up to 4 adults and 2 kids (0–13)
+    // capacity & composition. Admin + Nicole may book up to 6 adults on the dashboard
+    // (the public website keeps the 5-pax / 4-adult limit). Kids cap is unchanged.
     const kids = guests.filter(g => g.age <= PRICING.kidMaxAge).length;
     const adults = guests.length - kids;
-    if(guests.length > PRICING.maxPax){ alert(`Maximum of ${PRICING.maxPax} pax per unit.`); return; }
-    if(adults > PRICING.maxAdults){ alert(`Maximum of ${PRICING.maxAdults} adults per unit.`); return; }
+    const capPax = _capPax(), capAdults = _capAdults();
+    if(guests.length > capPax){ alert(`Maximum of ${capPax} pax per unit.`); return; }
+    if(adults > capAdults){ alert(`Maximum of ${capAdults} adults per unit.`); return; }
     if(kids > PRICING.maxKids){ alert(`Maximum of ${PRICING.maxKids} kids (0–13 yrs) per unit.`); return; }
 
     if(!checkin || !checkout || checkout < checkin){
@@ -9038,6 +9041,19 @@ function applyBookMetaLock(){
     });
     const lock = document.getElementById("f_metaLock");
     if(lock) lock.style.display = admin ? "none" : "";
+}
+// Admin + Nicole may book up to 6 adults on the DASHBOARD only; the public
+// website (booknow) keeps the 5-pax / 4-adult limit.
+function _dashHiCap(){
+    if(typeof isAdminUser === "function" && isAdminUser()) return true;
+    const cu = (typeof currentUser === "function" ? currentUser() : "") || "";
+    return /nicole/i.test(cu);
+}
+function _capPax(){ return _dashHiCap() ? 6 : PRICING.maxPax; }
+function _capAdults(){ return _dashHiCap() ? 6 : PRICING.maxAdults; }
+function updateGuestCapNote(){
+    const el = document.getElementById("guestCapNote");
+    if(el) el.textContent = `(max ${_capPax()} pax — up to ${_capAdults()} adults & ${PRICING.maxKids} kids aged 0–13)`;
 }
 
 /* ---------- global activity log (shared with todaysbooking.html) ---------- */
