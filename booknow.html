@@ -245,7 +245,7 @@ function renderBooking(){
                 </label>
                 <label class="g-age">Age
                     <input type="number" id="g${i}age" min="0" max="99" required placeholder="Age"
-                           oninput="if(this.value.length>2) this.value=this.value.slice(0,2)">
+                           oninput="if(this.value.length>2) this.value=this.value.slice(0,2); renderPriceList();">
                 </label>
             </div>`;
     }
@@ -413,14 +413,36 @@ function changeTowels(delta){
     renderPriceList();
 }
 
+// Extra pax is charged per guest aged 5+ (matching the dashboard). havens.html priced by head
+// count before ages were known; once every age is entered here, credit back any guest under 5.
+function paxAgeAdjust(){
+    const g = booking.guests || {};
+    const P = (SETTINGS && SETTINGS.pricing) || {};
+    const includedPax = Number(P.includedPax) || 2;
+    const addPax = Number(P.addPax) || 300;
+    const counted = (Number(g.adults) || 0) + (Number(g.children) || 0);
+    const stepperExtra = Math.max(0, counted - includedPax);   // what havens.html already charged
+    const pax = paxCount();
+    let billable = 0;
+    for(let i = 1; i <= pax; i++){
+        const el = document.getElementById(`g${i}age`);
+        const v = el ? el.value : "";
+        if(v === "" || isNaN(Number(v))) return 0;   // wait until every age is entered
+        if(Number(v) >= 5) billable++;
+    }
+    const ageExtra = Math.max(0, billable - includedPax);
+    return (ageExtra - stepperExtra) * addPax;   // <= 0 : a credit for guests under 5
+}
 function renderPriceList(){
     const b = booking;
     const towelCost = towels * TOWEL_RATE;
+    const adjust = paxAgeAdjust();
     let rows = (b.lines || []).map(([label, amt]) =>
         `<div class="price-row"><span>${label}</span><span>${peso(amt)}</span></div>`).join("");
+    if(adjust < 0) rows += `<div class="price-row"><span>Less: guest(s) under 5 (not charged)</span><span>−${peso(-adjust)}</span></div>`;
     if(towels) rows += `<div class="price-row"><span>Towel rent (${towels} × ${peso(TOWEL_RATE)})</span><span>${peso(towelCost)}</span></div>`;
     rows += `<div class="price-row"><span>Security deposit</span><span>${peso(b.deposit)}</span></div>`;
-    const total = b.total + towelCost;
+    const total = b.total + towelCost + adjust;
     rows += `<div class="price-row price-total"><span>Total</span><span>${peso(total)}</span></div>`;
     rows += `<div class="price-row"><span>Downpayment</span><span>${peso(b.downpayment)}</span></div>`;
     rows += `<div class="price-row price-balance"><span>Balance on arrival</span><span>${peso(total - b.downpayment)}</span></div>`;
@@ -478,8 +500,10 @@ function onConfirm(e){
     }
 
     const towelCost = towels * TOWEL_RATE;
-    const total = b.total + towelCost;
+    const adjust = paxAgeAdjust();   // all ages are validated above, so this is the real credit
+    const total = b.total + towelCost + adjust;
     const lines = (b.lines || []).slice();
+    if(adjust < 0) lines.push([`Less: guest(s) under 5 (not charged)`, adjust]);
     if(towels) lines.push([`Towel rent (${towels} × ${peso(TOWEL_RATE)})`, towelCost]);
 
     const confirmed = Object.assign({}, b, {
