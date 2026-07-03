@@ -8981,8 +8981,7 @@ function staffBoxHtml(s, scope){
             <div class="pay-staff-actions">
                 ${(payrollIsAdmin() && s.role !== "HOUSEKEEPING") ? `<button class="btn secondary" onclick="openDayModal(${s.id})">+ Add day</button>` : ""}
                 <span class="edit" onclick="downloadStaffPdf(${s.id})">PDF</span>
-                ${payrollIsAdmin() ? `<span class="edit" onclick="openStaffModal(${s.id})">Edit</span>
-                <span class="del" onclick="deleteStaff(${s.id})">Delete</span>` : ""}
+                ${payrollIsAdmin() ? `<span class="edit" onclick="openStaffModal(${s.id})">Edit</span>` : ""}
             </div>
         </div>
         ${dayTableHtml(s, days, null)}
