@@ -137,7 +137,6 @@ function renderHaven() {
                 <ul class="haven-amenities">
                     ${haven.amenities.map(a => `<li>${amenityIcon(a)}<span>${amenityLabel(a)}</span></li>`).join("")}
                 </ul>
-                <button class="book-btn" onclick="alert('Booking request sent for ${haven.name}!')">Book This Haven</button>
             </div>
 
             <aside class="booking-card">
