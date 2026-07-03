@@ -6855,8 +6855,8 @@ async function saveBooking(){
         reference: document.getElementById("f_reference").value.trim(),
         downpayment: Number(document.getElementById("f_down").value) || 0,
         notes: document.getElementById("f_notes").value.trim(),
-        bookedBy: editingId ? _bookedBy : currentUser(),        // stamp the logged-in user on create; preserve on edit
-        bookedAt: editingId ? _bookedAtIso : new Date().toISOString(),
+        bookedBy: _bookedBy || _whoami(),        // preserve the original booker; else stamp the logged-in person
+        bookedAt: _bookedAtIso || new Date().toISOString(),
         commissionName: commissionName,
         commissionAmount: commissionAmount,
         downProof: downProofData || null,
@@ -9147,6 +9147,12 @@ function benefitsHtml(s, dd){
 }
 // who is logged in (set on the admin login page)
 function currentUser(){ return localStorage.getItem("shph_current_user") || "Admin"; }
+// Best available identity of whoever is logged in — a partner session (dashboard.html?mode=partner)
+// doesn't set shph_current_user, so fall back to the partner's name before the "Admin" default.
+function _whoami(){
+    try{ const p = window.__PARTNER__; if(p && (p.name || p.login)) return p.name || p.login; }catch(e){}
+    return currentUser();
+}
 
 // ---- Booking "Booked by" stamp + commission (Admin-side only) ----
 // bookedBy/bookedAt are auto-stamped with the logged-in username + save time,
@@ -9164,10 +9170,10 @@ function fmtBookStamp(iso){
 function renderBookedStamp(){
     const el = document.getElementById("f_bookedStamp");
     if(!el) return;
-    const isNew = (typeof editingId === "undefined" || editingId == null);
-    // new booking → live preview of who's about to stamp it; edit → the stored stamp
-    const name = isNew ? currentUser() : _bookedBy;
-    const iso  = isNew ? new Date().toISOString() : _bookedAtIso;
+    // Show the stored booker if present; otherwise (new booking, OR an old booking that was never
+    // stamped) show the logged-in person — it's stamped for real on save.
+    const name = _bookedBy || _whoami();
+    const iso  = _bookedAtIso || new Date().toISOString();
     const when = fmtBookStamp(iso);
     if(name){
         el.innerHTML = `<b>${escHtml(name)}</b>${when ? ` <span class="when">· ${when}</span>` : ""}`;
