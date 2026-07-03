@@ -3800,6 +3800,20 @@ function migrate(b){
 function collectedSum(b){ return (b.payments || []).reduce((s,p) => s + (Number(p.amount) || 0), 0); }
 // total the customer has paid = original downpayment + later collections
 function paidOf(b){ return Number(b.downpayment || 0) + collectedSum(b); }
+// Cash actually RECEIVED within [startIso, endIso] (inclusive) for a booking, for a cash-basis Gross:
+// the downpayment is received on the booking date (bookedAt); each later collection on its recorded
+// date (p.at). Missing dates fall back to the check-in date. A fully-refunded cancellation kept nothing.
+function cashReceivedIn(b, startIso, endIso){
+    if(!b || (b.cancelled && b.dpRefunded)) return 0;
+    let sum = 0;
+    const dpDate = (b.bookedAt ? String(b.bookedAt).slice(0, 10) : b.checkin) || null;
+    if(dpDate && dpDate >= startIso && dpDate <= endIso) sum += Number(b.downpayment || 0);
+    (b.payments || []).forEach(p => {
+        const pd = (p && p.at ? String(p.at).slice(0, 10) : b.checkin) || null;
+        if(pd && pd >= startIso && pd <= endIso) sum += Number(p.amount || 0);
+    });
+    return sum;
+}
 // a cancelled booking owes nothing more — the non-refundable downpayment stays as revenue,
 // but the remaining balance is no longer due
 function balanceOf(b){ if(b.cancelled) return 0; return Math.max(0, Number(b.total || 0) - paidOf(b)); }
@@ -9937,7 +9951,7 @@ function _partnerMonthNet(ym, commissionRate){
     const bk = bookings.filter(b => b.checkin && b.checkin.slice(0, 7) === ym);
     const live = bk.filter(b => !b.cancelled);
     const swimRateOf = b => ((b.holiday || bookingIsHoliday(b)) ? PRICING.swimHoliday : PRICING.swimRegular);
-    const gross  = bk.reduce((s, b) => s + paidOf(b), 0);
+    const gross  = bk.reduce((s, b) => s + paidOf(b), 0);   // partners: by MONTH (check-in)
     const dep    = live.reduce((s, b) => { const d = Number(b.deposit) || 0; return s + ((d > 0 && paidOf(b) >= (Number(b.total) || 0)) ? d : 0); }, 0);   // deposit = liability, deducted once collected
     const pool   = live.reduce((s, b) => s + (Number(b.swimpass) || 0) * swimRateOf(b), 0);
     const towel  = live.reduce((s, b) => s + (Number(b.towels) || 0) * PRICING.towel, 0);
@@ -9992,6 +10006,7 @@ function renderAnalytics(){
 
     // scope window for the cards (day-level so Daily/Weekly work precisely)
     const tIso = iso(t);
+    const _scopedPartner = !!(window.__PARTNER__ && !window.__PARTNER__.superAdmin);
     let startIso, endIso, scopeText;
     if(anPeriod === "day"){ startIso = endIso = tIso; scopeText = "today · " + fmt(tIso); }
     else if(anPeriod === "week"){ startIso = iso(addDays(t, -6)); endIso = tIso; scopeText = "last 7 days"; }
@@ -9999,17 +10014,27 @@ function renderAnalytics(){
     else if(anPeriod === "custom" && anRangeStart){
         startIso = anRangeStart; endIso = anRangeEnd || anRangeStart;
         scopeText = fmt(startIso) + (startIso === endIso ? "" : " – " + fmt(endIso));
-    } else { startIso = iso(new Date(t.getFullYear(), t.getMonth(), 1)); endIso = tIso; scopeText = "this month"; }   // monthly (default)
+    } else {
+        // Monthly (default). Partners count the WHOLE month (all this-month bookings, incl. later
+        // check-ins); the admin's cash-basis view is month-to-date (you can't receive future cash).
+        startIso = iso(new Date(t.getFullYear(), t.getMonth(), 1));
+        endIso = _scopedPartner ? iso(new Date(t.getFullYear(), t.getMonth() + 1, 0)) : tIso;
+        scopeText = "this month";
+    }
     const months = anMonthsBetween(startIso.slice(0,7), endIso.slice(0,7));
     const inWin = d => d && d >= startIso && d <= endIso;
 
     const bk = bookings.filter(b => inWin(b.checkin));
     const bl = bills.filter(b => inWin(b.due));
     const ex = expenses.filter(e => inWin(e.date));
-    const _scopedPartner = !!(window.__PARTNER__ && !window.__PARTNER__.superAdmin);
-    // GROSS — everything collected BEFORE any deduction (all cash in for the haven(s) in view).
-    const gross = Math.round(bk.reduce((s,b) => s + paidOf(b), 0));
-    const receivables = Math.round(bk.reduce((s,b) => s + balanceOf(b), 0));
+    // (_scopedPartner declared above, before the window computation)
+    // GROSS — CASH BASIS: everything actually RECEIVED in this window, counted on the date it came in
+    // (downpayment on its booking date, collections on their dates). So a downpayment taken this month
+    // for a future check-in is included here, and never double-counted when that booking checks in.
+    const gross = _scopedPartner
+        ? Math.round(bk.reduce((s,b) => s + paidOf(b), 0))                                   // partners: by MONTH (check-in) — whole month
+        : Math.round(bookings.reduce((s,b) => s + cashReceivedIn(b, startIso, endIso), 0));  // admin: CASH basis (received date)
+    const receivables = Math.round(bk.reduce((s,b) => s + balanceOf(b), 0));   // still owed on this window's stays
 
     // ---- deductions from gross (admin; a partner's gross already excludes these) ----
     const _live = bk.filter(b => !b.cancelled);
