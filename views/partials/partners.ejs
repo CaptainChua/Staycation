@@ -166,3 +166,38 @@
         <div id="boardView"></div>
     </div>
 </div>
+
+<!-- Inventory -->
+<div class="page" id="page-inventory">
+    <div class="panel">
+        <div class="panel-head">
+            <h2><span class="sec-ico"><svg viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/></svg></span>Inventory</h2>
+        </div>
+        <p class="muted" style="margin:0 0 14px;">Items in each unit — partners see their own haven's list (read-only).</p>
+        <div id="inventoryAdmin" style="display:none; margin-bottom:18px;">
+            <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px;">
+                <div><label style="display:block; font-size:12px; color:var(--hv-muted); margin:0 0 4px 2px;">Haven</label>
+                    <select id="inv_haven" style="width:100%; padding:9px 11px; border:1px solid var(--hv-line); border-radius:10px; background:#faf6ee; font-family:inherit; font-size:14px;"></select></div>
+                <div><label style="display:block; font-size:12px; color:var(--hv-muted); margin:0 0 4px 2px;">Category</label>
+                    <select id="inv_category" style="width:100%; padding:9px 11px; border:1px solid var(--hv-line); border-radius:10px; background:#faf6ee; font-family:inherit; font-size:14px;">
+                        <option>Linens</option><option>Kitchen</option><option>Bathroom</option><option>Electronics</option><option>Furniture</option><option>Amenities</option><option>Other</option>
+                    </select></div>
+                <div><label style="display:block; font-size:12px; color:var(--hv-muted); margin:0 0 4px 2px;">Item</label>
+                    <input id="inv_name" placeholder="e.g. Bath towel" style="width:100%; padding:9px 11px; border:1px solid var(--hv-line); border-radius:10px; background:#faf6ee; font-family:inherit; font-size:14px;"></div>
+                <div><label style="display:block; font-size:12px; color:var(--hv-muted); margin:0 0 4px 2px;">Qty</label>
+                    <input id="inv_qty" type="number" min="0" value="0" style="width:100%; padding:9px 11px; border:1px solid var(--hv-line); border-radius:10px; background:#faf6ee; font-family:inherit; font-size:14px;"></div>
+                <div><label style="display:block; font-size:12px; color:var(--hv-muted); margin:0 0 4px 2px;">Condition / status</label>
+                    <input id="inv_condition" placeholder="e.g. good · 2 worn" style="width:100%; padding:9px 11px; border:1px solid var(--hv-line); border-radius:10px; background:#faf6ee; font-family:inherit; font-size:14px;"></div>
+            </div>
+            <div style="margin-top:10px;">
+                <label class="btn secondary" style="cursor:pointer; display:inline-block;">📎 Photo<input type="file" id="inv_photo" accept="image/*" style="display:none;" onchange="onInvPhotoPick(this)"></label>
+                <div id="invPhotoPrev" style="margin-top:8px;"></div>
+            </div>
+            <div style="margin-top:10px; display:flex; gap:10px;">
+                <button class="btn" id="invSaveBtn" onclick="saveInventoryItem()">Add item</button>
+                <button class="btn secondary" onclick="invResetForm()">Clear</button>
+            </div>
+        </div>
+        <div id="inventoryView"></div>
+    </div>
+</div>

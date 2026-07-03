@@ -293,7 +293,8 @@ function applyPartnerChrome(){
     const MAIN = ["today", "calendar", "deposit"];               // stay under the "Main" header
     const DASH = ["analytics", "finance", "bills", "expenses"];  // move under a new "Dashboard" header
     const BOARD = ["board"];                                     // move under a new "Board" header
-    const ALLOW = MAIN.concat(DASH).concat(BOARD).concat(["account"]);   // "account" = My Account (a modal action; keep it visible)
+    const INVENTORY = ["inventory"];                            // move under a new "Inventory" header
+    const ALLOW = MAIN.concat(DASH).concat(BOARD).concat(INVENTORY).concat(["account"]);   // "account" = My Account (a modal action; keep it visible)
     const sb = document.querySelector(".sidebar");
 
     // show only the allowed nav items
@@ -324,6 +325,14 @@ function applyPartnerChrome(){
     if(sb && _boardHdr && _boardItem && _firstGroup && _firstGroup !== _boardHdr){
         sb.insertBefore(_boardHdr, _firstGroup);
         sb.insertBefore(_boardItem, _firstGroup);
+    }
+    // Inventory group, placed just below Board (still above Main)
+    buildGroup("partnerInvGroup", "Inventory", INVENTORY);
+    const _invHdr = document.getElementById("partnerInvGroup");
+    const _invItem = sb && sb.querySelector('.nav-item[data-page="inventory"]');
+    if(sb && _invHdr && _invItem && _firstGroup && _firstGroup !== _invHdr){
+        sb.insertBefore(_invHdr, _firstGroup);
+        sb.insertBefore(_invItem, _firstGroup);
     }
 
     // "My Account" at the very bottom — lets a partner change their own password.
@@ -677,6 +686,137 @@ function renderBoard(){
     }
 }
 
+/* ---------- Inventory (admin sets per haven; partners view their own, read-only) ---------- */
+// inventory = { "<Haven>": [ {id, name, qty, category, condition, photo}, ... ], ... }
+const INV_KEY = "shph_partner_inventory";
+const INV_CATEGORIES = ["Linens", "Kitchen", "Bathroom", "Electronics", "Furniture", "Amenities", "Other"];
+function loadInventory(){ try{ return JSON.parse(localStorage.getItem(INV_KEY)) || {}; }catch(e){ return {}; } }
+function saveInventoryStore(inv){ localStorage.setItem(INV_KEY, JSON.stringify(inv)); }
+function invCanEdit(){ return !window.__PARTNER__ || !!window.__PARTNER__.superAdmin; }
+function invHavens(){ return boardTargets().filter(function(o){ return o.value !== "all"; }); }   // per-haven only
+let _invPhoto = null, _invEditId = null;
+function onInvPhotoPick(input){
+    const f = input && input.files && input.files[0];
+    if(!f) return;
+    const reader = new FileReader();
+    reader.onload = function(e){
+        const img = new Image();
+        img.onload = function(){
+            let w = img.width, h = img.height; const max = 1000;
+            if(w > max){ h = Math.round(h * max / w); w = max; }
+            try{ const cv = document.createElement("canvas"); cv.width = w; cv.height = h; cv.getContext("2d").drawImage(img, 0, 0, w, h); _invPhoto = cv.toDataURL("image/jpeg", 0.8); }
+            catch(err){ _invPhoto = e.target.result; }
+            renderInvPhotoPrev();
+        };
+        img.onerror = function(){ _invPhoto = e.target.result; renderInvPhotoPrev(); };
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(f);
+    input.value = "";
+}
+function invRemovePhoto(){ _invPhoto = null; renderInvPhotoPrev(); }
+function renderInvPhotoPrev(){
+    const box = document.getElementById("invPhotoPrev");
+    if(!box) return;
+    box.innerHTML = _invPhoto
+        ? '<div style="position:relative; display:inline-block;"><img src="' + _invPhoto + '" style="max-width:140px; max-height:110px; border-radius:10px; border:1px solid var(--hv-line); display:block;"><span onclick="invRemovePhoto()" title="Remove" style="position:absolute; top:-8px; right:-8px; background:#c0283d; color:#fff; width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:13px;">✕</span></div>'
+        : '';
+}
+function invResetForm(){
+    _invEditId = null; _invPhoto = null;
+    ["inv_name", "inv_qty", "inv_condition"].forEach(function(id){ const el = document.getElementById(id); if(el) el.value = ""; });
+    const c = document.getElementById("inv_category"); if(c) c.selectedIndex = 0;
+    renderInvPhotoPrev();
+    const btn = document.getElementById("invSaveBtn"); if(btn) btn.textContent = "Add item";
+}
+function saveInventoryItem(){
+    if(!invCanEdit()) return;
+    const hs = document.getElementById("inv_haven"), ns = document.getElementById("inv_name");
+    const haven = hs ? hs.value : "", name = ns ? ns.value.trim() : "";
+    if(!haven){ alert("Pick a haven first."); return; }
+    if(!name){ alert("Enter an item name."); return; }
+    const item = {
+        id: _invEditId || ("i" + Date.now() + Math.floor(Math.random() * 1000)),
+        name: name,
+        qty: Number((document.getElementById("inv_qty") || {}).value) || 0,
+        category: (document.getElementById("inv_category") || {}).value || "Other",
+        condition: ((document.getElementById("inv_condition") || {}).value || "").trim(),
+        photo: _invPhoto || null
+    };
+    const inv = loadInventory();
+    const list = inv[haven] || (inv[haven] = []);
+    const idx = list.findIndex(function(x){ return x.id === _invEditId; });
+    if(_invEditId && idx !== -1) list[idx] = item; else list.push(item);
+    saveInventoryStore(inv);
+    if(typeof logActivity === "function") logActivity((_invEditId ? "updated" : "added") + " inventory item — " + haven + " · " + name);
+    invResetForm();
+    renderInventory();
+}
+function editInventoryItem(haven, id){
+    if(!invCanEdit()) return;
+    const it = (loadInventory()[haven] || []).find(function(x){ return x.id === id; });
+    if(!it) return;
+    const hs = document.getElementById("inv_haven"); if(hs) hs.value = haven;
+    const set = function(id2, v){ const el = document.getElementById(id2); if(el) el.value = v; };
+    set("inv_name", it.name || ""); set("inv_qty", it.qty || 0); set("inv_category", it.category || "Other"); set("inv_condition", it.condition || "");
+    _invPhoto = it.photo || null; _invEditId = it.id; renderInvPhotoPrev();
+    const btn = document.getElementById("invSaveBtn"); if(btn) btn.textContent = "Update item";
+    const box = document.getElementById("inventoryAdmin"); if(box && box.scrollIntoView) box.scrollIntoView({ behavior:"smooth", block:"start" });
+}
+function deleteInventoryItem(haven, id){
+    if(!invCanEdit()) return;
+    if(!confirm("Delete this inventory item?")) return;
+    const inv = loadInventory();
+    inv[haven] = (inv[haven] || []).filter(function(x){ return x.id !== id; });
+    if(!inv[haven].length) delete inv[haven];
+    saveInventoryStore(inv);
+    if(typeof logActivity === "function") logActivity("deleted an inventory item — " + haven);
+    renderInventory();
+}
+function invItemHtml(it, haven, canEdit){
+    const photo = it.photo
+        ? '<img src="' + it.photo + '" style="width:54px; height:54px; object-fit:cover; border-radius:8px; border:1px solid var(--hv-line); cursor:zoom-in;" onclick="if(typeof openProofImg===\'function\')openProofImg(this.src);else window.open(this.src)">'
+        : '<div style="width:54px; height:54px; border-radius:8px; border:1px dashed var(--hv-line); flex:none;"></div>';
+    const actions = canEdit
+        ? '<div style="display:flex; gap:14px; margin-top:4px;"><span style="font-size:12px; font-weight:600; color:var(--hv-terra-d); cursor:pointer;" onclick="editInventoryItem(\'' + escAttr(haven) + '\',\'' + escAttr(it.id) + '\')">Edit</span><span style="font-size:12px; font-weight:600; color:#c0283d; cursor:pointer;" onclick="deleteInventoryItem(\'' + escAttr(haven) + '\',\'' + escAttr(it.id) + '\')">Delete</span></div>'
+        : '';
+    return '<div style="display:flex; gap:12px; align-items:flex-start; padding:10px 0; border-bottom:1px solid var(--hv-line);">' + photo
+        + '<div style="flex:1; min-width:0;"><div style="font-weight:700;">' + escHtml(it.name) + ' <span class="muted" style="font-weight:600;">× ' + (Number(it.qty) || 0) + '</span></div>'
+        + (it.condition ? '<div class="muted" style="font-size:13px; margin-top:2px;">' + escHtml(it.condition) + '</div>' : '')
+        + actions + '</div></div>';
+}
+function invListHtml(list, haven, canEdit){
+    const byCat = {};
+    list.forEach(function(it){ const c = it.category || "Other"; (byCat[c] || (byCat[c] = [])).push(it); });
+    return Object.keys(byCat).sort().map(function(c){
+        return '<div style="margin-bottom:14px;"><div class="muted" style="font-size:11px; font-weight:800; letter-spacing:.5px; text-transform:uppercase; margin-bottom:2px;">' + escHtml(c) + '</div>'
+            + byCat[c].map(function(it){ return invItemHtml(it, haven, canEdit); }).join("") + '</div>';
+    }).join("");
+}
+function renderInventory(){
+    const inv = loadInventory(), canEdit = invCanEdit();
+    const adminBox = document.getElementById("inventoryAdmin");
+    if(adminBox) adminBox.style.display = canEdit ? "block" : "none";
+    if(canEdit){
+        const sel = document.getElementById("inv_haven");
+        if(sel){ const prev = sel.value; const opts = invHavens(); sel.innerHTML = opts.map(function(o){ return '<option value="' + escAttr(o.value) + '">' + escHtml(o.label) + '</option>'; }).join(""); if(opts.some(function(o){ return o.value === prev; })) sel.value = prev; }
+        const cat = document.getElementById("inv_category");
+        if(cat && !cat.options.length) cat.innerHTML = INV_CATEGORIES.map(function(c){ return '<option>' + escHtml(c) + '</option>'; }).join("");
+    }
+    const view = document.getElementById("inventoryView");
+    if(!view) return;
+    if(canEdit){
+        const havens = Object.keys(inv).filter(function(h){ return (inv[h] || []).length; }).sort();
+        view.innerHTML = havens.length
+            ? havens.map(function(h){ return '<div class="panel" style="margin-top:14px;"><h3 style="margin:0 0 8px;">' + escHtml(h) + '</h3>' + invListHtml(inv[h], h, true) + '</div>'; }).join("")
+            : '<p class="muted" style="margin:0;">No inventory yet. Pick a haven and add items above.</p>';
+    } else {
+        const ps = window.__PARTNER__ || {}, h = ps.haven;
+        const list = (h && inv[h]) || [];
+        view.innerHTML = list.length ? invListHtml(list, h, false) : '<p class="muted" style="margin:0;">No inventory listed yet.</p>';
+    }
+}
+
 /* ---------- Partner month-grid calendar (shown ABOVE the timeline on the Calendar page) ---------- */
 let pcMonth = null;   // Date = first of the displayed month
 let pcRoom  = null;   // haven shown in the grid
@@ -920,6 +1060,7 @@ function partnersOnShowPage(page){
     else if(page === "prrooms") renderPrRooms();
     else if(page === "users") renderPartnerLogins();
     else if(page === "board") renderBoard();
+    else if(page === "inventory") renderInventory();
     if(page === "calendar" && window.__PARTNER__){ pcEnsure(); pcRender(); }   // partner month grid above the timeline
 }
 
@@ -931,7 +1072,8 @@ function partnersOnShowPage(page){
         { key:"partnerbookings", label:"Bookings by Partner" },
         { key:"prrooms",         label:"PR-Rooms" },
         { key:"partnerdash",     label:"Partner Dashboard" },  // nav item only — navigates to /partner-login
-        { key:"board",           label:"Board" }
+        { key:"board",           label:"Board" },
+        { key:"inventory",       label:"Inventory" }
     ];
     // 1) access-control registry
     if(typeof DASH_PAGES !== "undefined" && Array.isArray(DASH_PAGES)){
@@ -945,7 +1087,8 @@ function partnersOnShowPage(page){
         commissions:["Partners","Commissions"],
         partnerbookings:["Partners","Bookings by Partner"],
         prrooms:["Partners","PR-Rooms"],
-        board:["Main","Board"]
+        board:["Main","Board"],
+        inventory:["Inventory","Inventory"]
     };
     // 3) re-apply permissions so the (now-registered) Partners nav reveals
     //    (in partner mode this runs applyPartnerChrome and lands on Today)
