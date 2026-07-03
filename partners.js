@@ -317,6 +317,15 @@ function applyPartnerChrome(){
     buildGroup("partnerDashGroup", "Dashboard", DASH);
     buildGroup("partnerBoardGroup", "Board", BOARD);
 
+    // Board goes to the TOP of the partner sidebar (above Main)
+    const _boardHdr  = document.getElementById("partnerBoardGroup");
+    const _boardItem = sb && sb.querySelector('.nav-item[data-page="board"]');
+    const _firstGroup = sb && sb.querySelector('.nav-group');   // currently the "Main" header
+    if(sb && _boardHdr && _boardItem && _firstGroup && _firstGroup !== _boardHdr){
+        sb.insertBefore(_boardHdr, _firstGroup);
+        sb.insertBefore(_boardItem, _firstGroup);
+    }
+
     // "My Account" at the very bottom — lets a partner change their own password.
     // Scoped partners only; the super-admin login is managed in code, not here.
     if(sb && !ps.superAdmin && !document.getElementById("partnerAccountGroup")){
