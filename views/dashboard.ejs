@@ -1829,8 +1829,8 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
 <div class="page" id="page-calendar">
 
 <style>
-  #page-calendar .cal-tabs{ display:flex; gap:2px; border-bottom:1px solid var(--hv-line); margin-bottom:22px; }
-  #page-calendar .cal-tab{ border:none; background:none; padding:12px 20px; font-family:inherit; font-size:15px; font-weight:700; color:var(--hv-muted); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; }
+  #page-calendar .cal-tabs{ display:flex; align-items:baseline; gap:24px; margin-bottom:18px; }
+  #page-calendar .cal-tab{ border:none; background:none; padding:0 0 5px; font-family:var(--hv-serif); font-size:26px; font-weight:800; letter-spacing:-.01em; color:var(--hv-muted); cursor:pointer; border-bottom:3px solid transparent; }
   #page-calendar .cal-tab:hover{ color:var(--hv-ink); }
   #page-calendar .cal-tab.active{ color:var(--hv-ink); border-bottom-color:var(--hv-terra); }
   #page-calendar .av-row{ display:flex; align-items:center; justify-content:space-between; gap:16px; padding:16px 4px; border-bottom:1px solid var(--hv-line); flex-wrap:wrap; }
@@ -1865,7 +1865,6 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
 <!-- calendar timeline -->
 <div class="panel">
     <div class="panel-head">
-        <h2>Calendar</h2>
         <div class="cal-nav">
             <button class="btn secondary" onclick="shiftWeek(-1)">‹ Prev</button>
             <div class="dp-wrap">
