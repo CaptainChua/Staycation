@@ -8320,9 +8320,10 @@ function renderBillsStatement(haven, month){
         (!haven || b.haven === haven) &&
         (!month || (b.checkin && b.checkin.slice(0, 7) === month))
     );
-    // exclude ONLY downpayments that were refunded. A non-refundable cancellation keeps the DP as real
-    // revenue (dpRefunded stays false), so it still counts — same rule Finance/Analytics use (netCollectedOf).
-    const earned = earnScope.filter(b => !b.dpRefunded).reduce((s, b) => s + Number(b.downpayment || 0), 0);
+    // revenue actually kept per booking = downpayment + later collections − any returned deposit,
+    // and 0 for a refunded cancellation. Use netCollectedOf (the same rule Finance/Analytics use) so
+    // balances collected via the Paid button count, not just the original downpayment.
+    const earned = earnScope.reduce((s, b) => s + netCollectedOf(b), 0);
     const net = earned - pending;
 
     const scopeBits = [haven || "all havens"];
@@ -8699,7 +8700,7 @@ function otPaidHoursOf(d){ return otHoursOf(d) + nightDiffOf(d); }
 // rooms booked on a date = bookings checking in that day (straight from the calendar)
 function roomsBookedOn(dateIso){
     if(!dateIso) return 0;
-    return bookings.filter(b => b.checkin === dateIso).length;
+    return bookings.filter(b => b.checkin === dateIso && !b.cancelled).length;   // cancelled bookings don't earn room pay
 }
 // rooms a housekeeper actually FINISHED (marked DONE) on a date — only DONE turnovers count
 function safeCleaning(){ try { return cleaning || {}; } catch(e){ return {}; } }  // may run before `cleaning` is initialized
@@ -9896,7 +9897,9 @@ function renderAnalytics(){
     const towelTotal  = Math.round(_live.reduce((s,b) => s + (Number(b.towels)||0) * PRICING.towel, 0));         // towels
     const damageTotal = Math.round(_live.reduce((s,b) => s + (Number(b.depositDeductAmount)||0), 0));            // damages kept from deposits
     const refundTotal = Math.round(bk.filter(b => b.cancelled && b.dpRefunded).reduce((s,b) => s + paidOf(b), 0)); // refunds on cancelled bookings
-    const housekeepingTotal = 100 * _live.length;   // ₱100 per (non-cancelled) booking
+    // Cleaning cost: a PARTNER pays ₱100/booking to the admin (deducted from their gross). The ADMIN
+    // pays the housekeeper through payroll instead, so charging ₱100/booking here too would double-count.
+    const housekeepingTotal = _scopedPartner ? 100 * _live.length : 0;
     // deposit, pool pass, towels and cancellation refunds all go to the MAIN ADMIN — not the
     // partner — so they're deducted from gross. Damages kept are the admin's income (added back,
     // and only relevant to the admin view).
@@ -9917,9 +9920,11 @@ function renderAnalytics(){
     const addFundsSpend = Math.round(ex.filter(e => (e.type || "") === "Add Funds").reduce((s,e) => s + Number(e.amount||0), 0));   // negative
     const suppliesSpend = expensesSpend - addFundsSpend;   // real supplies spend, excludes owner top-ups
     const addFundsCredit = -addFundsSpend;                 // positive amount the owner added
-    const totalExpenses = billsTotal + payroll + expensesSpend;
+    // Use suppliesSpend (real spend), NOT expensesSpend — the latter carries the NEGATIVE "Add Funds"
+    // owner top-ups, which would otherwise shrink expenses and inflate profit. Owner capital isn't income.
+    const totalExpenses = billsTotal + payroll + suppliesSpend;
     const netProfit = netRevenue - totalExpenses;
-    const leftAfterBE = netRevenue - billsTotal - expensesSpend;
+    const leftAfterBE = netRevenue - billsTotal - suppliesSpend;
     // partner: Total Expenses = deductions + PAID bills DUE IN THIS PERIOD + supplies + commission.
     // Use the windowed billsPaid (NOT all-time billsPaidAll) so a bill paid in June doesn't also
     // count against July — each paid bill hits only the month it's due.
@@ -9934,7 +9939,7 @@ function renderAnalytics(){
         }catch(e){}
     }
     const commissionTotal = Math.round(commissionRate * _live.length);   // per-booking rate × successful bookings
-    const partnerExp = deductions + billsPaid + expensesSpend + commissionTotal;
+    const partnerExp = deductions + billsPaid + suppliesSpend + commissionTotal;   // suppliesSpend excludes owner Add-Funds top-ups
     const partnerNet = gross - partnerExp;   // Gross − Total Expenses (this window only)
     // running balance: fold in any deficit carried from prior months so July opens at June's net, etc.
     const carriedIn = _scopedPartner ? Math.round(_partnerCarryIn(startIso.slice(0, 7), commissionRate)) : 0;
@@ -10031,7 +10036,7 @@ function renderAnalytics(){
         havenRev.length ? anHBars(havenRev, havenRev.reduce((s,x) => s + x.value, 0)) : `<p class="muted">No revenue yet.</p>`;
 
     // ---- expenses: bills vs payroll + bills by haven ----
-    const expTotal = (billsTotal + payrollGross + expensesSpend) || 1;
+    const expTotal = (billsTotal + payrollGross + suppliesSpend) || 1;   // suppliesSpend: exclude negative Add-Funds so widths don't break
     const billsW = Math.round(billsTotal / expTotal * 100);
     const payW   = Math.round(payrollGross / expTotal * 100);
     const expW   = Math.max(0, 100 - billsW - payW);
@@ -10051,7 +10056,7 @@ function renderAnalytics(){
         <div class="stack-legend">
             <span class="k"><span class="sw" style="background:#bd6e3f"></span>Bills <b>${peso(billsTotal)}</b> · ${billsW}%</span>
             <span class="k"><span class="sw" style="background:#9a3db8"></span>Payroll <b>${peso(payrollGross)}</b> · ${payW}%</span>
-            <span class="k"><span class="sw" style="background:#3f9e6a"></span>Expenses <b>${peso(expensesSpend)}</b> · ${expW}%</span>
+            <span class="k"><span class="sw" style="background:#3f9e6a"></span>Expenses <b>${peso(suppliesSpend)}</b> · ${expW}%</span>
         </div>
         <div class="sub-h">Bills by haven / category</div>
         ${havenBills.length ? anHBars(havenBills, havenBills.reduce((s,x) => s + x.value, 0)) : `<p class="muted">No bills yet.</p>`}
