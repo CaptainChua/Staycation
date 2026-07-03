@@ -2757,8 +2757,9 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
         <p class="muted" style="margin:0 0 14px;">Security deposits <b>due to return</b> on the selected day. Overnight stays show on their check-out day; <b>day-use (same-day) stays show the next day</b>. Use the quick filters, or pick any date.</p>
         <div class="dep-toolbar">
             <div class="seg" id="depSeg">
+                <button type="button" data-d="toreturn" class="active" onclick="setDepQuick('toreturn')">To return</button>
                 <button type="button" data-d="yesterday" onclick="setDepQuick('yesterday')">Yesterday</button>
-                <button type="button" data-d="today" class="active" onclick="setDepQuick('today')">Today</button>
+                <button type="button" data-d="today" onclick="setDepQuick('today')">Today</button>
                 <button type="button" data-d="month" onclick="setDepQuick('month')">This month</button>
                 <button type="button" data-d="custom" onclick="openDepRange(event)">Custom range</button>
             </div>
@@ -7594,7 +7595,15 @@ function renderDeposit(){
     document.querySelectorAll("#depSeg button").forEach(x => x.classList.toggle("active", x.dataset.d === depQuick));
 
     const hv = (document.getElementById("depHavenFilter") || {}).value || "";
-    const list = bookings.filter(b => { const rd = depReturnDate(b); return !b.cancelled && rd && rd >= start && rd <= end && (!hv || b.haven === hv); })
+    // "To return" = the actionable backlog that matches the nav badge exactly: every UNRETURNED
+    // deposit that's due up to today, regardless of the date range. Other modes use the date window.
+    const _tToday = iso(today());
+    const list = bookings.filter(b => {
+            const rd = depReturnDate(b);
+            if(b.cancelled || !rd || (hv && b.haven !== hv)) return false;
+            if(depQuick === "toreturn") return !b.depositReturned && Number(b.deposit || 0) > 0 && rd <= _tToday;
+            return rd >= start && rd <= end;
+        })
         .sort((a, b) => (depReturnDate(a) || "").localeCompare(depReturnDate(b) || "") || a.haven.localeCompare(b.haven));
     const body = document.getElementById("depositBody");
     body.innerHTML = list.length ? list.map(b => {
@@ -7789,7 +7798,7 @@ document.addEventListener("paste", e => {
 });
 /* Security Deposit: clickable date picker — single day, This month, or a custom range */
 let sdDpMonth = null;
-let depQuick = "today";                       // "yesterday" | "today" | "month" | "custom"
+let depQuick = "toreturn";                    // "toreturn" | "yesterday" | "today" | "month" | "custom"
 let sdRangeMode = false, sdPendingStart = null;
 function _depMonthStart(){ const t = today(); return new Date(t.getFullYear(), t.getMonth(), 1); }
 function _depMonthEnd(){ const t = today(); return new Date(t.getFullYear(), t.getMonth() + 1, 0); }
@@ -7866,6 +7875,7 @@ function sdPickDay(ci){
 function sdUpdateLabel(){
     const lbl = document.getElementById("depositDateLabel");
     if(!lbl) return;
+    if(depQuick === "toreturn"){ lbl.textContent = "All still to return (up to today)"; return; }
     const v = document.getElementById("depositDate").value;
     const e = (document.getElementById("depositDateEnd") || {}).value;
     lbl.textContent = !v ? "Pick a date" : (e && e !== v ? fmt(v) + " – " + fmt(e) : fmt(v));
