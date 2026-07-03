@@ -33,7 +33,8 @@
     "shph_users",
     "shph_activity_log",
     "shph_partners",
-    "shph_partner_board"
+    "shph_partner_board",
+    "shph_partner_inventory"
   ];
   // keys that used to be browser-only: the first time the server copy is still
   // empty, migrate this browser's existing data UP instead of letting the empty
