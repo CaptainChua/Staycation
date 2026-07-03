@@ -6152,7 +6152,7 @@ function buildConfirmationHTML(){
         <div class="resv-meta">
             <span>🏠 ${escHtml(b.haven)}</span>
             <span>🌙 ${nightsBadge}</span>
-            <span>👥 ${guests.length} guest${guests.length === 1 ? "" : "s"} · max ${_capPax()}</span>
+            <span>👥 ${guests.length} guest${guests.length === 1 ? "" : "s"} · max ${Math.max(PRICING.maxPax, guests.length)}</span>
         </div>
     </div>
     <div class="cards">
