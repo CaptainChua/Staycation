@@ -3349,7 +3349,7 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
                     <option value="CSR">CSR — ₱695/day (8 hrs) + OT</option>
                     <option value="ASSIST">Assist — ₱100 per room booked</option>
                     <option value="HOUSEKEEPING">Housekeeping — ₱100 per room cleaned</option>
-                    <option value="COMMISSION">Commission — ₱50 per booked room / day</option>
+                    <option value="COMMISSION">Commission — ₱50 overnight / ₱25 day-use</option>
                 </select>
             </div>
             <div class="field full"><label class="muted" style="margin-top:4px;">Benefits / deductions — SSS &amp; PhilHealth are % of monthly salary</label></div>
@@ -8691,13 +8691,13 @@ renderBills();
 
 /* ---------- payroll ---------- */
 const PAYROLL_KEY = "shph_staff_v1";
-const PAY_RATES = { csrDay:695, csrHours:8, assistRoom:100, hkRoom:100, commissionRoom:50, otMult:1 };
+const PAY_RATES = { csrDay:695, csrHours:8, assistRoom:100, hkRoom:100, commission21:50, commissionDay:25, otMult:1 };
 const ROLE_LABEL = { CSR:"CSR", ASSIST:"Assist", HOUSEKEEPING:"Housekeeping", COMMISSION:"Commission" };
 const ROLE_RATE_INFO = {
     CSR:"₱695/day · 8 hrs · OT = hourly rate",
     ASSIST:"₱100 per room booked",
     HOUSEKEEPING:"₱100 per room cleaned",
-    COMMISSION:"₱50 per booked room / day"
+    COMMISSION:"₱50 per overnight · ₱25 per day-use booking"
 };
 function monthLabel(ym){ const [y, m] = ym.split("-"); return MONTHS[Number(m) - 1] + " " + y; }
 
@@ -8772,6 +8772,13 @@ function roomsBookedOn(dateIso){
     if(!dateIso) return 0;
     return bookings.filter(b => b.checkin === dateIso && !b.cancelled).length;   // cancelled bookings don't earn room pay
 }
+// Commission pay for a date: ₱50 per overnight (21h) booking, ₱25 per day-use (6h/10h) booking.
+// Cancelled bookings don't count.
+function commissionPayOn(dateIso){
+    if(!dateIso) return 0;
+    return bookings.filter(b => b.checkin === dateIso && !b.cancelled)
+        .reduce((s, b) => s + (Number(b.stayHours) === 21 ? PAY_RATES.commission21 : PAY_RATES.commissionDay), 0);
+}
 // rooms a housekeeper actually FINISHED (marked DONE) on a date — only DONE turnovers count
 function safeCleaning(){ try { return cleaning || {}; } catch(e){ return {}; } }  // may run before `cleaning` is initialized
 function roomsCleanedOn(dateIso, staffName){
@@ -8804,7 +8811,7 @@ function dayPay(s, d){
     } else if(s.role === "ASSIST"){
         pay += roomsBookedOn(d.date) * PAY_RATES.assistRoom;
     } else if(s.role === "COMMISSION"){
-        pay += roomsBookedOn(d.date) * PAY_RATES.commissionRoom;
+        pay += commissionPayOn(d.date);   // ₱50 overnight · ₱25 day-use, per booking
     }
     // cleaning credit — anyone who marked rooms DONE earns the housekeeping room rate
     pay += roomsCleanedOn(d.date, s.name) * PAY_RATES.hkRoom;
