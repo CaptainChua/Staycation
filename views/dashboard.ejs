@@ -1305,6 +1305,7 @@ tr.row-cancelled td:nth-child(2){ text-decoration:line-through; }
     <div class="nav-item" data-page="approval" onclick="showPage('approval')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M20 12V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6"/><path d="M9 9h6M9 13h3"/><path d="m15 18 2 2 4-4"/></svg></span> Booking Approval <span class="nav-badge" id="approvalBadge"></span></div>
     <div class="nav-item" data-page="paymentapproval" onclick="showPage('paymentapproval')"><span class="ico"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="m14 16 1.6 1.6L19 14"/></svg></span> Payment Approval <span class="nav-badge" id="paymentApprovalBadge"></span></div>
     <div class="nav-item" data-page="deposit" onclick="showPage('deposit')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v5c0 5 3.4 8.3 8 10 4.6-1.7 8-5 8-10V6Z"/><path d="m9 12 2 2 4-4"/></svg></span> Security Deposit <span class="nav-badge" id="depositBadge"></span></div>
+    <div class="nav-item" data-page="violations" onclick="showPage('violations')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M10.3 3.3 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.3a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg></span> Violations &amp; Damages</div>
 
 <%- include('partials/partners-nav') %>
 
@@ -2795,6 +2796,84 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
         </div>
         <div class="cards" id="depositTotal" style="margin-top:16px;"></div>
     </div>
+</div>
+
+<!-- Violations & Damages -->
+<div class="page" id="page-violations">
+  <style>
+    #page-violations .vd-cards{ display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px; margin:18px 0; }
+    #page-violations .vd-card{ background:#fff; border:1px solid var(--hv-line); border-radius:14px; padding:16px 18px; }
+    #page-violations .vd-card .lbl{ font-size:11px; font-weight:800; letter-spacing:.5px; text-transform:uppercase; color:var(--hv-muted); margin-bottom:8px; }
+    #page-violations .vd-card .num{ font-size:26px; font-weight:800; color:var(--hv-ink); }
+    #page-violations .vd-toolbar{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:14px; }
+    #page-violations .vd-search{ flex:1; min-width:220px; padding:11px 14px; border:1px solid var(--hv-line); border-radius:12px; background:#fff; font-size:14px; font-family:inherit; }
+    #page-violations select.vd-filter{ padding:10px 12px; border:1px solid var(--hv-line); border-radius:10px; background:#fff; font-size:13px; font-weight:600; color:var(--hv-ink); font-family:inherit; cursor:pointer; }
+    #page-violations table{ width:100%; border-collapse:collapse; }
+    #page-violations th{ text-align:left; font-size:11px; font-weight:800; letter-spacing:.5px; text-transform:uppercase; color:var(--hv-muted); padding:10px 12px; border-bottom:1px solid var(--hv-line); }
+    #page-violations td{ padding:14px 12px; border-bottom:1px solid var(--hv-line); font-size:14px; vertical-align:top; }
+    #page-violations .vd-sev{ display:inline-block; font-size:11.5px; font-weight:700; padding:4px 11px; border-radius:20px; }
+    #page-violations .vd-sev.minor{ background:#f6ecd9; color:#9a7700; }
+    #page-violations .vd-sev.major{ background:#f6dede; color:#c0283d; }
+    #page-violations .vd-sev.item{ background:#e9e4f6; color:#6b46c1; }
+    #page-violations .vd-dot{ display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:8px; vertical-align:middle; }
+    #page-violations .vd-ded{ text-align:right; font-weight:700; color:var(--hv-ink); white-space:nowrap; }
+    #page-violations .vd-ded small{ display:block; font-weight:500; color:var(--hv-muted); font-size:11.5px; }
+    #page-violations .vd-waived{ color:var(--hv-muted); font-style:italic; }
+    #page-violations .vd-act{ display:flex; gap:12px; }
+    #page-violations .vd-act span{ cursor:pointer; font-size:12px; font-weight:600; }
+  </style>
+  <div class="panel">
+    <div class="panel-head" style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px;">
+      <div>
+        <h2><span class="sec-ico"><svg viewBox="0 0 24 24"><path d="M10.3 3.3 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.3a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg></span>Violations &amp; Damages</h2>
+        <p class="muted" style="margin:6px 0 0; max-width:640px;">Record what happened, when, and in which haven. Any deduction here is subtracted from the guest's security deposit before refund.</p>
+      </div>
+      <button class="btn" onclick="openViolationModal()">+ Add violation</button>
+    </div>
+    <div class="vd-cards">
+      <div class="vd-card"><div class="lbl">⚠ Open cases</div><div class="num" id="vdOpen">0</div></div>
+      <div class="vd-card"><div class="lbl">📅 This month</div><div class="num" id="vdMonth">0</div></div>
+      <div class="vd-card"><div class="lbl">💸 Deducted (MTD)</div><div class="num" id="vdMtd">₱0</div></div>
+      <div class="vd-card"><div class="lbl">🛡 Fully refunded</div><div class="num" id="vdRefunded">0</div></div>
+    </div>
+    <div class="vd-toolbar">
+      <input type="text" class="vd-search" id="vdSearch" placeholder="Search guest, haven, or item…" oninput="renderViolations()">
+      <select class="vd-filter" id="vdHavenFilter" onchange="renderViolations()"><option value="">All havens</option></select>
+      <select class="vd-filter" id="vdSevFilter" onchange="renderViolations()"><option value="">All severity</option><option>Minor</option><option>Major</option><option>Item lost</option></select>
+    </div>
+    <div style="overflow-x:auto;">
+      <table>
+        <thead><tr><th>Haven / Guest</th><th>Date</th><th>Violation / Item taken</th><th>Severity</th><th style="text-align:right;">Deduction</th><th></th></tr></thead>
+        <tbody id="vdBody"></tbody>
+      </table>
+    </div>
+    <div style="display:flex; justify-content:space-between; align-items:center; padding:14px 12px 2px; border-top:2px solid var(--hv-line); margin-top:4px;">
+      <span class="muted" id="vdCount">0 records</span>
+      <span style="font-size:13px; color:var(--hv-muted); font-weight:700;">TOTAL DEDUCTED <b id="vdTotal" style="color:var(--hv-terra-d); font-size:18px; margin-left:10px;">₱0</b></span>
+    </div>
+  </div>
+</div>
+
+<!-- Violation add/edit modal -->
+<div class="overlay" id="vdOverlay">
+  <div class="modal" style="width:470px;">
+    <h2 id="vdModalTitle">Add violation</h2>
+    <div class="form-grid">
+      <div class="field"><label>Haven</label><select id="vd_haven"></select></div>
+      <div class="field"><label>Date</label><input type="date" id="vd_date"></div>
+      <div class="field"><label>Guest name</label><input type="text" id="vd_guest" placeholder="Guest name"></div>
+      <div class="field"><label>Booking # <span class="muted">(optional)</span></label><input type="text" id="vd_code" placeholder="#BK-0000"></div>
+      <div class="field full"><label>Violation / item taken</label><textarea id="vd_desc" rows="2" placeholder="Describe what happened"></textarea></div>
+      <div class="field"><label>Severity</label><select id="vd_sev"><option>Minor</option><option>Major</option><option>Item lost</option></select></div>
+      <div class="field"><label>Deduction (₱)</label><input type="number" id="vd_ded" min="0" value="0"></div>
+      <div class="field"><label style="display:flex; align-items:center; gap:8px; cursor:pointer;"><input type="checkbox" id="vd_waived"> Waived (no charge)</label></div>
+      <div class="field"><label style="display:flex; align-items:center; gap:8px; cursor:pointer;"><input type="checkbox" id="vd_resolved"> Resolved (deposit settled)</label></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn secondary" onclick="closeViolationModal()">Cancel</button>
+      <button class="btn" onclick="saveViolation()">Save</button>
+    </div>
+  </div>
 </div>
 
 <%- include('partials/partners') %>
@@ -7081,7 +7160,7 @@ function showPage(page){
     localStorage.setItem("shph_dashboard_page", page);   // remember across refreshes
     // breadcrumb in the top bar
     const CRUMB = {
-        today:["Main","Today's Booking"], calendar:["Main","Calendar & Bookings"], guestform:["Main","Guest Form"], approval:["Front Desk","Booking Approval"], paymentapproval:["Front Desk","Payment Approval"], deposit:["Front Desk","Security Deposit"],
+        today:["Main","Today's Booking"], calendar:["Main","Calendar & Bookings"], guestform:["Main","Guest Form"], approval:["Front Desk","Booking Approval"], paymentapproval:["Front Desk","Payment Approval"], deposit:["Front Desk","Security Deposit"], violations:["Front Desk","Violations & Damages"],
         havens:["Property","Havens"], booking:["Property","Rates & Add-ons"], cleaners:["Property","Housekeeping"],
         finance:["Finance","Finance"], payments:["Finance","Payments"], payroll:["Finance","Payroll"],
         bills:["Finance","Bills"], expenses:["Finance","Expenses"], analytics:["Finance","Analytics"],
@@ -7098,6 +7177,7 @@ function showPage(page){
     if(page === "approval") renderApproval();
     if(page === "paymentapproval") renderPaymentApproval();
     if(page === "deposit") renderDeposit();
+    if(page === "violations" && typeof renderViolations === "function") renderViolations();
     if(page === "calendar"){ renderTimeline(); if(typeof renderLog === "function") renderLog(); }
     if(page === "guestform") renderGuestForm();
     if(typeof partnersOnShowPage === "function") partnersOnShowPage(page);   // Partners sub-module (partners.js)
@@ -7711,6 +7791,103 @@ document.addEventListener("click", e => {
 });
 
 /* ---------- Security Deposit: check-outs + deposit to return on a date ---------- */
+/* ---------- Violations & Damages ---------- */
+const VIOLATIONS_KEY = "shph_violations_v1";
+let _vdEditId = null;
+function loadViolations(){ try{ return JSON.parse(localStorage.getItem(VIOLATIONS_KEY)) || []; }catch(e){ return []; } }
+function saveViolationsStore(arr){ try{ localStorage.setItem(VIOLATIONS_KEY, JSON.stringify(arr)); }catch(e){} }   // shared key → seed-bridge mirrors it
+function vdSevClass(s){ return s === "Major" ? "major" : (s === "Item lost" ? "item" : "minor"); }
+function _vdHavenList(){
+    const havs = (typeof HAVENS !== "undefined" ? HAVENS.slice() : []).concat(typeof PR_ROOMS !== "undefined" ? PR_ROOMS : []);
+    return [...new Set(havs)];
+}
+function _vdFillHavenSelects(){
+    const uniq = _vdHavenList();
+    const f = document.getElementById("vdHavenFilter");
+    if(f){ const cur = f.value; f.innerHTML = '<option value="">All havens</option>' + uniq.map(h => `<option>${escHtml(h)}</option>`).join(""); f.value = cur; }
+    const m = document.getElementById("vd_haven");
+    if(m) m.innerHTML = uniq.map(h => `<option>${escHtml(h)}</option>`).join("");
+}
+function openViolationModal(id){
+    _vdEditId = (id != null) ? id : null;
+    _vdFillHavenSelects();
+    const rec = _vdEditId != null ? loadViolations().find(v => v.id === _vdEditId) : null;
+    document.getElementById("vdModalTitle").textContent = rec ? "Edit violation" : "Add violation";
+    const set = (i, v) => { const el = document.getElementById(i); if(el) el.value = v; };
+    set("vd_haven", rec ? rec.haven : ((document.getElementById("vd_haven").options[0] || {}).value || ""));
+    set("vd_guest", rec ? (rec.guest || "") : "");
+    set("vd_code", rec ? (rec.code || "") : "");
+    set("vd_date", rec ? rec.date : iso(today()));
+    set("vd_desc", rec ? (rec.desc || "") : "");
+    set("vd_sev", rec ? rec.severity : "Minor");
+    set("vd_ded", rec ? (rec.deduction || 0) : 0);
+    document.getElementById("vd_waived").checked = rec ? !!rec.waived : false;
+    document.getElementById("vd_resolved").checked = rec ? !!rec.resolved : false;
+    document.getElementById("vdOverlay").classList.add("show");
+}
+function closeViolationModal(){ document.getElementById("vdOverlay").classList.remove("show"); }
+function saveViolation(){
+    const g = id => document.getElementById(id);
+    const haven = g("vd_haven").value;
+    if(!haven){ alert("Pick a haven."); return; }
+    const rec = {
+        id: _vdEditId != null ? _vdEditId : uid(),
+        haven, guest: g("vd_guest").value.trim(), code: g("vd_code").value.trim(),
+        date: g("vd_date").value || iso(today()), desc: g("vd_desc").value.trim(),
+        severity: g("vd_sev").value, deduction: Number(g("vd_ded").value) || 0,
+        waived: g("vd_waived").checked, resolved: g("vd_resolved").checked
+    };
+    const arr = loadViolations();
+    const idx = arr.findIndex(v => v.id === _vdEditId);
+    if(_vdEditId != null && idx !== -1) arr[idx] = rec; else arr.push(rec);
+    saveViolationsStore(arr);
+    logActivity((_vdEditId != null ? "updated" : "added") + " a violation record — " + haven + (rec.guest ? " (" + rec.guest + ")" : ""));
+    closeViolationModal();
+    renderViolations();
+}
+function editViolation(id){ openViolationModal(id); }
+function deleteViolation(id){
+    if(!confirm("Delete this violation record?")) return;
+    saveViolationsStore(loadViolations().filter(v => v.id !== id));
+    logActivity("deleted a violation record");
+    renderViolations();
+}
+function renderViolations(){
+    _vdFillHavenSelects();
+    const all = loadViolations();
+    const ql = ((document.getElementById("vdSearch") || {}).value || "").trim().toLowerCase();
+    const hf = (document.getElementById("vdHavenFilter") || {}).value || "";
+    const sf = (document.getElementById("vdSevFilter") || {}).value || "";
+    const ym = iso(today()).slice(0, 7);
+    // stat cards (over ALL records)
+    const setNum = (id, v) => { const el = document.getElementById(id); if(el) el.textContent = v; };
+    setNum("vdOpen", all.filter(v => !v.resolved).length);
+    setNum("vdMonth", all.filter(v => v.date && v.date.slice(0, 7) === ym).length);
+    setNum("vdMtd", peso(Math.round(all.filter(v => v.date && v.date.slice(0, 7) === ym && !v.waived).reduce((s, v) => s + (Number(v.deduction) || 0), 0))));
+    setNum("vdRefunded", all.filter(v => v.resolved && (v.waived || !(Number(v.deduction) > 0))).length);
+    // filtered rows
+    let rows = all.filter(v => (!hf || v.haven === hf) && (!sf || v.severity === sf));
+    if(ql) rows = rows.filter(v => ((v.guest || "") + " " + (v.haven || "") + " " + (v.desc || "") + " " + (v.code || "")).toLowerCase().includes(ql));
+    rows.sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+    const body = document.getElementById("vdBody");
+    if(body) body.innerHTML = rows.length ? rows.map(v => {
+        const dot = (typeof HAVEN_COLORS !== "undefined" && HAVEN_COLORS[v.haven]) ? HAVEN_COLORS[v.haven].am : "#ccc";
+        const dedHtml = v.waived ? '<span class="vd-waived">Waived</span><small>—</small>'
+            : (Number(v.deduction) > 0 ? peso(v.deduction) : '<span class="muted">—</span>');
+        const longDate = v.date ? new Date(v.date + "T00:00:00").toLocaleDateString("en-US", { month:"short", day:"numeric", year:"numeric" }) : "—";
+        return `<tr>
+            <td><span class="vd-dot" style="background:${dot}"></span><b>${escHtml(v.haven)}</b>${v.guest ? `<div class="muted" style="margin-left:17px;">${escHtml(v.guest)}</div>` : ""}</td>
+            <td>${longDate}${v.code ? `<div class="muted">${escHtml(v.code)}</div>` : ""}</td>
+            <td>${escHtml(v.desc || "—")}</td>
+            <td><span class="vd-sev ${vdSevClass(v.severity)}">${escHtml(v.severity)}</span></td>
+            <td class="vd-ded">${dedHtml}</td>
+            <td><div class="vd-act"><span style="color:var(--hv-terra-d);" onclick="editViolation(${v.id})">Edit</span><span style="color:#c0283d;" onclick="deleteViolation(${v.id})">Delete</span></div></td>
+        </tr>`;
+    }).join("") : `<tr><td colspan="6" class="muted" style="text-align:center;padding:24px;">No violation records yet. Click "+ Add violation".</td></tr>`;
+    const cnt = document.getElementById("vdCount"); if(cnt) cnt.textContent = rows.length + " record" + (rows.length === 1 ? "" : "s");
+    const total = rows.filter(v => !v.waived).reduce((s, v) => s + (Number(v.deduction) || 0), 0);
+    const tot = document.getElementById("vdTotal"); if(tot) tot.textContent = peso(Math.round(total));
+}
 function renderDeposit(){
     updateDepositBadge();
     const inp = document.getElementById("depositDate");
@@ -11460,6 +11637,7 @@ const DASH_PAGES = [
     { key:"approval",  label:"Booking Approval" },
     { key:"paymentapproval", label:"Payment Approval" },
     { key:"deposit",   label:"Security Deposit" },
+    { key:"violations", label:"Violations &amp; Damages" },
     { key:"finance",   label:"Finance" },
     { key:"analytics", label:"Analytics" },
     { key:"calendar",  label:"Calendar/Bookings" },
