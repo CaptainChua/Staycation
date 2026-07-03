@@ -1885,8 +1885,15 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
     <div id="availBody" style="display:none;">
         <div style="display:flex; align-items:center; gap:10px; margin:6px 0 16px; flex-wrap:wrap;">
             <label style="font-size:13px; color:var(--hv-muted);">Date</label>
-            <input type="date" id="availDate" onchange="renderAvailability()" style="padding:9px 12px; border:1px solid var(--hv-line); border-radius:10px; background:#faf6ee; font-family:inherit; font-size:14px;">
-            <button class="btn secondary" onclick="availToday()">Today</button>
+            <div class="dp-wrap" style="position:relative;">
+                <span class="date-pill" onclick="openAvailPicker(event)" title="Pick a date"><svg class="cal-ico" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg><span id="availDateLabel"></span></span>
+                <div class="dp-popup" id="availDpPopup" onclick="event.stopPropagation()">
+                    <div class="dp-head"><button type="button" onclick="availPickerNav(-1)">‹</button><span id="availDpTitle"></span><button type="button" onclick="availPickerNav(1)">›</button></div>
+                    <div class="dp-grid" id="availDpGrid"></div>
+                    <div class="dp-foot"><span onclick="availPickerToday()">Today</span></div>
+                </div>
+            </div>
+            <button class="btn secondary" onclick="availPickerToday()">Today</button>
             <span class="muted" style="font-size:13px; margin-left:6px;">Earliest a new guest can check in each haven, and their next booking.</span>
         </div>
         <div id="availList"></div>
@@ -4190,13 +4197,48 @@ function calTab(view){
     if(isAvail) renderAvailability();
     else if(typeof renderTimeline === "function") renderTimeline();   // reflow the timeline when coming back
 }
-function availToday(){ const inp = document.getElementById("availDate"); if(inp) inp.value = iso(today()); renderAvailability(); }
+// availability date picker (same date-pill + mini-calendar as the rest of the app)
+let availDateSel = null, availPickerMonth = null;
+function openAvailPicker(e){
+    if(e && e.stopPropagation) e.stopPropagation();
+    const pop = document.getElementById("availDpPopup"); if(!pop) return;
+    if(pop.classList.contains("show")){ pop.classList.remove("show"); return; }
+    const d = new Date((availDateSel || iso(today())) + "T00:00:00");
+    availPickerMonth = new Date(d.getFullYear(), d.getMonth(), 1);
+    availPickerRender();
+    pop.classList.add("show");
+}
+function availPickerNav(dir){
+    if(!availPickerMonth){ const d = new Date((availDateSel || iso(today())) + "T00:00:00"); availPickerMonth = new Date(d.getFullYear(), d.getMonth(), 1); }
+    availPickerMonth = new Date(availPickerMonth.getFullYear(), availPickerMonth.getMonth() + dir, 1);
+    availPickerRender();
+}
+function availPickerToday(){ availDateSel = iso(today()); const p = document.getElementById("availDpPopup"); if(p) p.classList.remove("show"); renderAvailability(); }
+function availPickDay(di){ availDateSel = di; const p = document.getElementById("availDpPopup"); if(p) p.classList.remove("show"); renderAvailability(); }
+function availPickerRender(){
+    const ttl = document.getElementById("availDpTitle"); if(!ttl || !availPickerMonth) return;
+    const y = availPickerMonth.getFullYear(), m = availPickerMonth.getMonth();
+    ttl.textContent = MONTHS[m] + " " + y;
+    const todayIso = iso(today()), sel = availDateSel || iso(today());
+    const startDay = new Date(y, m, 1).getDay(), dim = new Date(y, m + 1, 0).getDate();
+    let html = "";
+    ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].forEach(function(d){ html += '<div class="dp-wd">' + d + '</div>'; });
+    for(let i = 0; i < startDay; i++) html += '<div class="dp-day empty"></div>';
+    for(let d = 1; d <= dim; d++){
+        const di = iso(new Date(y, m, d));
+        html += '<div class="dp-day' + (di === todayIso ? " today" : "") + (di === sel ? " sel" : "") + '" data-iso="' + di + '" onclick="availPickDay(\'' + di + '\')"><span class="n">' + d + '</span></div>';
+    }
+    document.getElementById("availDpGrid").innerHTML = html;
+}
+document.addEventListener("click", function(e){
+    const p = document.getElementById("availDpPopup");
+    if(p && p.classList.contains("show") && e.target && e.target.closest && !e.target.closest(".dp-wrap")) p.classList.remove("show");
+});
 // For the selected date, show each haven's earliest available check-in + its next booking.
 function renderAvailability(){
-    const inp = document.getElementById("availDate");
-    if(!inp) return;
-    if(!inp.value) inp.value = iso(today());
-    const D = inp.value;
+    if(!availDateSel) availDateSel = iso(today());
+    const D = availDateSel;
+    const lbl = document.getElementById("availDateLabel"); if(lbl) lbl.textContent = fmt(D);
     const dayAbs = Math.round(new Date(D + "T00:00:00").getTime() / 60000);
     const dayEnd = dayAbs + 1440;
     const floor = dayAbs + EARLIEST_CHECKIN_MIN;   // can't check in before 9 AM on the day
