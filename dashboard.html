@@ -372,6 +372,8 @@ body{ background:#f5f5f5; color:#222; padding:30px 30px 30px 250px; }
 .bar.paid{ background:#2e9e5b; }
 .bar.partial{ background:#e0a800; }
 .bar.unpaid{ background:#d63a4f; }
+/* red dot on a booking that's missing its downpayment proof or an ID photo */
+.bar .bar-flag{ position:absolute; top:2px; right:2px; width:7px; height:7px; border-radius:50%; background:#e01e37; box-shadow:0 0 0 1.5px #fff; pointer-events:none; z-index:3; }
 /* month view: bar shows a stay-shape glyph (★ 6h · ■ 10h · ● 21h) instead of the name */
 .bar.bar-shape{
     justify-content:center;
@@ -4389,6 +4391,25 @@ function renderAvailability(){
 }
 
 // (starts at the earliest check-in, ends at the latest check-out; empty hours are hidden)
+// a booking is flagged (red dot) when it's missing its downpayment proof OR an ID photo
+// (and hasn't opted out of IDs). Cancelled bookings aren't flagged.
+function bookingNeedsPhoto(b){
+    if(!b || b.cancelled) return false;
+    return !b.downProof || (!(b.ids && b.ids.length) && !b.idOptOut);
+}
+function bookingFlagTitle(b){
+    const bits = [];
+    if(!b.downProof) bits.push("downpayment photo");
+    if(!(b.ids && b.ids.length) && !b.idOptOut) bits.push("ID photo");
+    return bits.length ? "⚠ Missing " + bits.join(" & ") : "";
+}
+function addBarFlag(el, b){
+    if(!bookingNeedsPhoto(b)) return;
+    const dot = document.createElement("span");
+    dot.className = "bar-flag";
+    dot.title = bookingFlagTitle(b);
+    el.appendChild(dot);
+}
 function renderTimelineHours(){
     const grid = document.getElementById("timeline");
     const day = rangeStart, dayIso = iso(day);
@@ -4480,6 +4501,7 @@ function renderTimelineHours(){
         el.style.height = (cellH - 14) + "px";
         el.style.bottom = "auto";
         grid.appendChild(el);
+        if(opts.flagBooking) addBarFlag(el, opts.flagBooking);
     }
 
     dayBookings.forEach(({ b, startMin, endMin, departsToday, carryover }) => {
@@ -4514,6 +4536,7 @@ function renderTimelineHours(){
                 title: `${guestNames(b)} • ${checkinTimeStr(b)}→${checkoutTimeStr(b)}`
                     + (departsToday ? ` • free at ${freeAt} (after cleaning)` : "")
                     + ` • ${peso(paidOf(b))}/${peso(b.total)}`,
+                flagBooking: b,
                 onclick: () => openModal(b.id)
             });
             if(departsToday) drawCleaning();
@@ -4633,6 +4656,7 @@ function renderTimeline(){
         bar.title = `${guestNames(b)} • ${fmt(b.checkin)}${b.checkout>b.checkin?"→"+fmt(b.checkout):""}` +
             `${b.slot ? " • " + slotLabel(b.slot) : ""} • ${peso(paidOf(b))}/${peso(b.total)}`;
         bar.onclick = () => openModal(b.id);
+        addBarFlag(bar, b);   // red dot if missing downpayment/ID photo
 
         // position relative to the timeline grid using cell widths
         const cellWidth = firstCell.offsetWidth;
