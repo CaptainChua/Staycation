@@ -3006,21 +3006,16 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
             <style>
               .bookmeta-row{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
               .bookmeta-sel{ flex:0 0 auto; min-width:130px; }
-              .bookmeta-when{ color:#8a7f76; font-size:13px; font-weight:600; }
               .bookmeta-amt{ flex:1 1 120px; min-width:100px; }
               .bookmeta-sel:disabled, .bookmeta-amt:disabled{ opacity:.75; cursor:not-allowed; background:#f3efe9; }
               .bookmeta-lock{ font-size:11.5px; color:#a99; margin-left:auto; }
+              .booked-stamp{ padding:10px 12px; background:#f7f3ee; border:1px solid #eadfce; border-radius:10px; font-size:13.5px; color:#5b5048; }
+              .booked-stamp b{ color:#3f382f; }
+              .booked-stamp .when{ color:#8a7f76; }
             </style>
             <div class="field full">
-                <label>Booked by <span class="muted">(auto-logged)</span></label>
-                <div class="bookmeta-row">
-                    <select id="f_bookedByName" class="bookmeta-sel" onchange="renderBookedStamp()">
-                        <option value="Admin">Admin</option>
-                        <option value="Nicole">Nicole</option>
-                    </select>
-                    <span id="f_bookedByWhen" class="bookmeta-when">—</span>
-                    <span class="bookmeta-lock" id="f_metaLock" style="display:none;">Admin-only</span>
-                </div>
+                <label>Booked by <span class="muted">(auto-logged on save)</span></label>
+                <div id="f_bookedStamp" class="booked-stamp">—</div>
             </div>
 
             <div class="field full">
@@ -3031,6 +3026,7 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
                         <option value="Nicole">Nicole</option>
                     </select>
                     <input type="number" id="f_commAmount" class="bookmeta-amt" placeholder="Amount ₱" min="0" step="1">
+                    <span class="bookmeta-lock" id="f_metaLock" style="display:none;">Admin-only</span>
                 </div>
             </div>
         </div>
@@ -5981,9 +5977,9 @@ function openModal(id){
         setField("f_reference", b.reference || "");
         setField("f_down", b.downpayment || 0);
         setField("f_notes", b.notes || "");
-        _bookedAtIso = b.bookedAt || "";
-        setField("f_bookedByName", b.bookedBy || "Admin");
-        setField("f_commName", b.commissionName || b.bookedBy || "Admin");
+        _bookedBy = b.bookedBy || null;              // preserve the ORIGINAL booker on edit
+        _bookedAtIso = b.bookedAt || null;
+        setField("f_commName", b.commissionName || "Admin");
         setField("f_commAmount", b.commissionAmount ? b.commissionAmount : "");
         renderBookedStamp(); applyBookMetaLock();
         renderProofPage(b);
@@ -6009,9 +6005,9 @@ function openModal(id){
         setField("f_reference", "");
         setField("f_down", 0);
         setField("f_notes", "");
-        _bookedAtIso = new Date().toISOString();
-        setField("f_bookedByName", normBookName());
-        setField("f_commName", normBookName());
+        _bookedBy = null;                            // new → stamped with the current user on save
+        _bookedAtIso = null;
+        setField("f_commName", "Admin");
         setField("f_commAmount", "");
         renderBookedStamp(); applyBookMetaLock();
         renderProofPage(null);
@@ -6746,8 +6742,8 @@ async function saveBooking(){
         reference: document.getElementById("f_reference").value.trim(),
         downpayment: Number(document.getElementById("f_down").value) || 0,
         notes: document.getElementById("f_notes").value.trim(),
-        bookedBy: (document.getElementById("f_bookedByName") || {}).value || "Admin",
-        bookedAt: _bookedAtIso || null,
+        bookedBy: editingId ? _bookedBy : currentUser(),        // stamp the logged-in user on create; preserve on edit
+        bookedAt: editingId ? _bookedAtIso : new Date().toISOString(),
         commissionName: (document.getElementById("f_commName") || {}).value || "Admin",
         commissionAmount: Number((document.getElementById("f_commAmount") || {}).value) || 0,
         downProof: downProofData || null,
@@ -9005,12 +9001,10 @@ function benefitsHtml(s, dd){
 function currentUser(){ return localStorage.getItem("shph_current_user") || "Admin"; }
 
 // ---- Booking "Booked by" stamp + commission (Admin-side only) ----
-let _bookedAtIso = "";
-// map the logged-in user to a stamp name (only Admin / Nicole are tracked)
-function normBookName(){
-    const cu = (typeof currentUser === "function" ? currentUser() : "Admin") || "Admin";
-    return /nicole/i.test(cu) ? "Nicole" : "Admin";
-}
+// bookedBy/bookedAt are auto-stamped with the logged-in username + save time,
+// exactly like the Activity Log — never a dropdown, never editable.
+let _bookedBy = null;      // captured on edit (the ORIGINAL booker); null for new
+let _bookedAtIso = null;   // captured on edit; null for new (stamped on save)
 function fmtBookStamp(iso){
     if(!iso) return "";
     const d = new Date(iso);
@@ -9020,14 +9014,23 @@ function fmtBookStamp(iso){
     return `${day} · ${tm}`;
 }
 function renderBookedStamp(){
-    const w = document.getElementById("f_bookedByWhen");
-    if(w) w.textContent = _bookedAtIso ? "— " + fmtBookStamp(_bookedAtIso) : "—";
+    const el = document.getElementById("f_bookedStamp");
+    if(!el) return;
+    const isNew = (typeof editingId === "undefined" || editingId == null);
+    // new booking → live preview of who's about to stamp it; edit → the stored stamp
+    const name = isNew ? currentUser() : _bookedBy;
+    const iso  = isNew ? new Date().toISOString() : _bookedAtIso;
+    const when = fmtBookStamp(iso);
+    if(name){
+        el.innerHTML = `<b>${escHtml(name)}</b>${when ? ` <span class="when">· ${when}</span>` : ""}`;
+    } else {
+        el.textContent = "—";
+    }
 }
-// the stamp name + commission can only be changed on the Admin side; everyone
-// else sees the auto-logged values as read-only.
+// commission can only be entered on the Admin side; everyone else sees it read-only.
 function applyBookMetaLock(){
     const admin = (typeof isAdminUser === "function") ? isAdminUser() : true;
-    ["f_bookedByName", "f_commName", "f_commAmount"].forEach(id => {
+    ["f_commName", "f_commAmount"].forEach(id => {
         const el = document.getElementById(id);
         if(el) el.disabled = !admin;
     });
