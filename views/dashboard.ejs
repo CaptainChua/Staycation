@@ -6692,11 +6692,17 @@ async function saveBooking(){
         return;
     }
 
-    // capacity & composition. Admin + Nicole may book up to 6 adults on the dashboard
-    // (the public website keeps the 5-pax / 4-adult limit). Kids cap is unchanged.
+    // capacity & composition. Admins + CSRs may book up to 6 adults on the dashboard
+    // (the public website keeps the 4-adult limit). Kids cap is unchanged.
     const kids = guests.filter(g => g.age <= PRICING.kidMaxAge).length;
     const adults = guests.length - kids;
-    const capPax = _capPax(), capAdults = _capAdults();
+    // when editing, never block a party that's ALREADY saved larger (e.g. a limited
+    // user editing an admin/CSR's 6-guest booking) — only cap growth beyond it.
+    const _orig = editingId ? bookings.find(x => x.id === editingId) : null;
+    const _origPax = _orig ? (_orig.guests || []).length : 0;
+    const _origKids = _orig ? (_orig.guests || []).filter(g => Number(g.age) <= PRICING.kidMaxAge).length : 0;
+    const capPax = Math.max(_capPax(), _origPax);
+    const capAdults = Math.max(_capAdults(), _origPax - _origKids);
     if(guests.length > capPax){ alert(`Maximum of ${capPax} pax per unit.`); return; }
     if(adults > capAdults){ alert(`Maximum of ${capAdults} adults per unit.`); return; }
     if(kids > PRICING.maxKids){ alert(`Maximum of ${PRICING.maxKids} kids (0–13 yrs) per unit.`); return; }
@@ -9042,12 +9048,13 @@ function applyBookMetaLock(){
     const lock = document.getElementById("f_metaLock");
     if(lock) lock.style.display = admin ? "none" : "";
 }
-// Admin + Nicole may book up to 6 adults on the DASHBOARD only; the public
-// website (booknow) keeps the 5-pax / 4-adult limit.
+// Admins and CSRs (front-desk staff like Nicole) may book up to 6 adults on the
+// DASHBOARD; the public website (havens.html) stays at 4 adults. Gated by the SAME
+// role check that decides who can create a booking at all — so it follows the CSR
+// role, not a fragile username match (a CSR "Nicole" is renamed elsewhere in the data).
 function _dashHiCap(){
-    if(typeof isAdminUser === "function" && isAdminUser()) return true;
-    const cu = (typeof currentUser === "function" ? currentUser() : "") || "";
-    return /nicole/i.test(cu);
+    try{ return (typeof canAddBooking === "function") ? !!canAddBooking() : true; }
+    catch(e){ return false; }
 }
 function _capPax(){ return _dashHiCap() ? 6 : PRICING.maxPax; }
 function _capAdults(){ return _dashHiCap() ? 6 : PRICING.maxAdults; }
