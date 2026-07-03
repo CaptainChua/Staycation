@@ -3736,9 +3736,10 @@ let _lastCreatedBookingId = null;
 // re-uploading the whole bookings array (which carries base64 images), so a quick refresh
 // right after the click can't lose the change.
 async function bookingAction(id, action){
+    if(_partnerReadOnly()) return;   // refactor-proof backstop: a scoped partner never writes a booking status
     try {
         await fetch(`/api/booking/${encodeURIComponent(id)}/${action}`, { method: "POST" });
-    } catch(e){ /* offline — the normal localStorage mirror is the fallback */ }
+    } catch(e){ /* offline — the localStorage mirror written by the caller is the fallback */ }
 }
 
 // bring older saved bookings up to the current data shape
@@ -4960,10 +4961,15 @@ function toggleDpRefund(id){
 }
 
 async function deleteBooking(id){
+    if(_partnerReadOnly()) return;
     if(!confirm("Delete this booking?")) return;
     const b = bookings.find(x => x.id === id);
-    if(b) logActivity(`deleted booking — ${b.haven} (${primaryName(b)})`);
-    bookings = bookings.filter(b => b.id !== id);
+    if(!b) return;
+    logActivity(`deleted booking — ${b.haven} (${primaryName(b)})`);
+    const now = new Date().toISOString();
+    b.deleted = true; b.deletedAt = now; _stampLocal(b);   // soft-delete, stamped so a failed server write is re-pushed by prime-merge
+    setLocalKey(KEY, bookings);                            // mirror WITH the tombstone so localStorage agrees (no resurrect on refresh)
+    bookings = bookings.filter(x => !x.deleted);           // hide from the working view
     renderAll();   // instant feedback (in-memory)
     await bookingAction(id, "delete");   // durable tiny write so a quick refresh can't lose it
 }
@@ -4971,6 +4977,7 @@ async function deleteBooking(id){
 // cancel a booking: the guest backed out, so free the haven — but the downpayment is
 // non-refundable, so the record stays and its collected money remains in Finance.
 async function cancelBooking(id){
+    if(_partnerReadOnly()) return;
     const b = bookings.find(x => x.id === id);
     if(!b) return;
     const kept = paidOf(b);   // non-refundable: downpayment + anything already collected
@@ -4980,6 +4987,7 @@ async function cancelBooking(id){
         + `• The remaining balance is no longer due.`)) return;
     b.cancelled = true;
     b.cancelledAt = new Date().toISOString();
+    _stampLocal(b); setLocalKey(KEY, bookings);   // stamp + mirror so a failed server write survives a refresh
     renderAll();   // instant feedback (in-memory)
     logActivity(`cancelled booking — ${b.haven} (${primaryName(b)}); kept ${peso(kept)} non-refundable`);
     await bookingAction(id, "cancel");   // durable tiny write so a quick refresh can't lose it
@@ -4987,6 +4995,7 @@ async function cancelBooking(id){
 
 // undo a cancellation, but only if the haven/time hasn't since been taken by another booking
 async function reinstateBooking(id){
+    if(_partnerReadOnly()) return;
     const b = bookings.find(x => x.id === id);
     if(!b) return;
     const clash = findConflictAdmin(b, id);
@@ -4997,6 +5006,7 @@ async function reinstateBooking(id){
     }
     delete b.cancelled;
     delete b.cancelledAt;
+    _stampLocal(b); setLocalKey(KEY, bookings);   // stamp + mirror so a failed server write survives a refresh
     renderAll();   // instant feedback (in-memory)
     logActivity(`reinstated booking — ${b.haven} (${primaryName(b)})`);
     await bookingAction(id, "reinstate");   // durable tiny write so a quick refresh can't lose it
@@ -6659,6 +6669,7 @@ async function _offloadImg(v){
 }
 // patch ONLY the given fields of one booking on the LIVE server record (preserves everything else)
 async function patchBooking(id, set){
+    if(_partnerReadOnly()) return false;   // refactor-proof backstop: scoped partners never write bookings
     try{ const r = await fetch(`/api/booking/${encodeURIComponent(id)}/patch`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ set }) }); return r.ok; }catch(e){ return false; }
 }
 // keep the local record's edit-time + change signature in step with a per-record server write
@@ -6674,6 +6685,7 @@ function bkPaymentEdit(b, idx){ const p = b.payments[idx]; const existingPid = p
 function bkPaymentDelete(b, idx, pid){ _bkMirror(b); fetch(`/api/booking/${encodeURIComponent(b.id)}/payment`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ deleteId: pid, deleteIndex: idx }) }).catch(()=>{}); }
 let _savingBooking = false;
 async function saveBooking(){
+    if(_partnerReadOnly()) return;   // scoped partners are read-only everywhere
     const guests = readGuests();
     const checkin = document.getElementById("f_checkin").value;
     const checkout = document.getElementById("f_checkout").value;
@@ -6714,6 +6726,13 @@ async function saveBooking(){
     if(guests.length > capPax){ alert(`Maximum of ${capPax} pax per unit.`); return; }
     if(adults > capAdults){ alert(`Maximum of ${capAdults} adults per unit.`); return; }
     if(kids > PRICING.maxKids){ alert(`Maximum of ${PRICING.maxKids} kids (0–13 yrs) per unit.`); return; }
+
+    // Commission is Admin-only. The form fields are disabled for non-admins, but read defensively
+    // (devtools could re-enable them): only accept typed values from an admin — otherwise preserve
+    // the existing commission on edit, or default on a new booking.
+    const _commAdmin = (typeof isAdminUser === "function") && isAdminUser();
+    const commissionName = _commAdmin ? ((document.getElementById("f_commName") || {}).value || "Admin") : (_orig ? (_orig.commissionName || "Admin") : "Admin");
+    const commissionAmount = _commAdmin ? (Number((document.getElementById("f_commAmount") || {}).value) || 0) : (_orig ? (Number(_orig.commissionAmount) || 0) : 0);
 
     if(!checkin || !checkout || checkout < checkin){
         alert("Please enter a valid check-in and check-out date.");
@@ -6763,8 +6782,8 @@ async function saveBooking(){
         notes: document.getElementById("f_notes").value.trim(),
         bookedBy: editingId ? _bookedBy : currentUser(),        // stamp the logged-in user on create; preserve on edit
         bookedAt: editingId ? _bookedAtIso : new Date().toISOString(),
-        commissionName: (document.getElementById("f_commName") || {}).value || "Admin",
-        commissionAmount: Number((document.getElementById("f_commAmount") || {}).value) || 0,
+        commissionName: commissionName,
+        commissionAmount: commissionAmount,
         downProof: downProofData || null,
         addonProof: addonProofData || null,
         extendProof: extendProofData || null,
@@ -9172,8 +9191,8 @@ function payrollIsAdmin(){
     try {
         const us = JSON.parse(localStorage.getItem("shph_users")) || [];
         const u = us.find(x => (x.name || "").toLowerCase() === currentUser().toLowerCase());
-        return u ? !!u.admin : true;
-    } catch(e){ return true; }
+        return u ? !!u.admin : false;   // fail CLOSED: an unknown user is NOT a payroll admin
+    } catch(e){ return false; }
 }
 // does this staff record belong to the logged-in user? (handles "Maris" → "Maris Pamilaga")
 function payrollOwns(s){
@@ -9280,6 +9299,7 @@ function openStaffModal(id){
 }
 function closeStaffModal(){ editingStaffId = null; document.getElementById("staffOverlay").classList.remove("show"); }
 function saveStaff(){
+    if(!payrollIsAdmin()) return;
     const g = i => document.getElementById(i);
     if(!g("staffOverlay").classList.contains("show")) return;   // block double-submit: 2nd rapid click after the modal closed
     const name = g("st_name").value.trim();
@@ -9306,6 +9326,7 @@ function saveStaff(){
     persistStaff(); closeStaffModal(); renderPayroll(); renderEmployees();
 }
 function deleteStaff(id){
+    if(!payrollIsAdmin()) return;
     if(!confirm("Delete this staff member and all their entries?")) return;
     const s = staff.find(x => x.id === id);
     if(s){ const now = new Date().toISOString(); s.deleted = true; s.deletedAt = now; s.updatedAt = now; }   // kept on the server, just hidden
@@ -9576,6 +9597,7 @@ function openDayModal(staffId, dayId, recordId){
 }
 function closeDayModal(){ dayStaffId = null; editingDayId = null; dayRecordId = null; document.getElementById("dayOverlay").classList.remove("show"); }
 function saveDay(){
+    if(!payrollIsAdmin()) return;
     const g = i => document.getElementById(i);
     const s = staff.find(x => x.id === Number(g("d_staff").value));
     if(!s) return;
@@ -9610,6 +9632,7 @@ function saveDay(){
     persistStaff(); closeDayModal(); renderPayroll();
 }
 function deleteDay(staffId, dayId, recordId){
+    if(!payrollIsAdmin()) return;
     if(!confirm("Delete this entry?")) return;
     const s = staff.find(x => x.id === staffId);
     if(!s) return;
@@ -9643,6 +9666,7 @@ function openRecordModal(){
 }
 function closeRecordModal(){ document.getElementById("recordOverlay").classList.remove("show"); }
 function saveRecord(){
+    if(!payrollIsAdmin()) return;
     const s = staff.find(x => x.id === Number(document.getElementById("r_staff").value));
     if(!s) return;
     const cutoff = document.getElementById("r_cutoff").value;
@@ -9653,6 +9677,7 @@ function saveRecord(){
     persistStaff(); closeRecordModal(); renderPayroll();
 }
 function deleteRecord(staffId, recordId){
+    if(!payrollIsAdmin()) return;
     if(!confirm("Delete this record and its entries?")) return;
     const s = staff.find(x => x.id === staffId);
     if(!s) return;
@@ -11483,6 +11508,7 @@ function openUserModal(id){
 }
 function closeUserModal(){ editingUserId = null; document.getElementById("userOverlay").classList.remove("show"); }
 function saveUser(){
+    if(!isAdminUser()) return;
     const g = i => document.getElementById(i);
     const name = g("u_name").value.trim();
     if(!name){ alert("Please enter a username."); return; }
@@ -11506,6 +11532,7 @@ function saveUser(){
     persistUsers(); closeUserModal(); renderUsers(); applyPermissions();
 }
 function deleteUser(id){
+    if(!isAdminUser()) return;
     const u = users.find(x => x.id === id);
     if(u && u.admin && users.filter(x => x.admin).length <= 1){ alert("You can't delete the last administrator."); return; }
     if(!confirm("Delete this user?")) return;
