@@ -3124,10 +3124,6 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
                 <label>Downpayment (₱)</label>
                 <input type="number" id="f_down" value="0" min="0" oninput="recalc()">
             </div>
-            <div class="field">
-                <label>Downpayment date collected</label>
-                <input type="date" id="f_downDate">
-            </div>
             <div class="field full">
                 <label>Discount (₱)</label>
                 <button type="button" class="btn secondary" id="f_discountBtn" onclick="showDiscount()">＋ Add discount</button>
@@ -3182,6 +3178,19 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
             <div class="proof-block">
                 <h3>Downpayment</h3>
                 <div class="proof-meta" id="downMeta"></div>
+                <input type="hidden" id="f_downDate">
+                <div class="dp-wrap md-dpwrap" style="margin:4px 0 10px;">
+                    <label style="display:block; font-size:11px; color:var(--hv-muted); text-transform:uppercase; letter-spacing:.5px; font-weight:700; margin-bottom:5px;">Date paid</label>
+                    <div class="md-datepill" id="dpdPill" onclick="openDpdPicker(event)">
+                        <span class="md-dp-ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg></span>
+                        <span id="dpdLbl">—</span>
+                    </div>
+                    <div class="dp-popup md-dppopup" id="dpdDpPopup" onclick="event.stopPropagation()">
+                        <div class="dp-head"><button type="button" onclick="dpdNav(-1)">‹</button><span id="dpdDpTitle"></span><button type="button" onclick="dpdNav(1)">›</button></div>
+                        <div class="dp-grid" id="dpdDpGrid"></div>
+                        <div class="dp-foot"><span onclick="dpdPickToday()">Today</span></div>
+                    </div>
+                </div>
                 <span class="proof-thumb" id="downProofThumb" style="display:none;">
                     <img id="downProofImg" class="proof-img" alt="downpayment proof" onclick="openProofImg(this.src)">
                     <button type="button" class="proof-imgdel" title="Delete photo" onclick="deleteProofImg('down')">✕</button>
@@ -5977,7 +5986,26 @@ function paintDates(){
 }
 /* ---------- custom check-in / check-out calendars (match the app's other pickers) ---------- */
 let ciDpMonth = null, coDpMonth = null;
-function closeModalPickers(){ ["ciDpPopup","coDpPopup"].forEach(id => { const p = document.getElementById(id); if(p) p.classList.remove("show"); }); }
+function closeModalPickers(){ ["ciDpPopup","coDpPopup","dpdDpPopup"].forEach(id => { const p = document.getElementById(id); if(p) p.classList.remove("show"); }); }
+// downpayment "Date paid" picker (Proof-of-Payment tab) — app-style, same as the check-in calendar
+let dpdDpMonth = null;
+function paintDpdPill(){
+    const v = (document.getElementById("f_downDate") || {}).value;
+    const el = document.getElementById("dpdLbl");
+    if(el) el.textContent = v ? new Date(v + "T00:00:00").toLocaleDateString("en-PH", { month:"short", day:"numeric", year:"numeric" }) : "—";
+}
+function openDpdPicker(e){
+    if(e) e.stopPropagation();
+    closeModalPickers();
+    const cur = document.getElementById("f_downDate").value || iso(today());
+    dpdDpMonth = new Date(cur + "T00:00:00"); dpdDpMonth.setDate(1);
+    dpdRender();
+    document.getElementById("dpdDpPopup").classList.add("show");
+}
+function dpdNav(d){ dpdDpMonth.setMonth(dpdDpMonth.getMonth() + d); dpdRender(); }
+function dpdRender(){ mdRenderGrid("dpdDpGrid", "dpdDpTitle", dpdDpMonth, document.getElementById("f_downDate").value, "dpdPick"); }
+function dpdPick(isoVal){ document.getElementById("f_downDate").value = isoVal; closeModalPickers(); paintDpdPill(); }
+function dpdPickToday(){ dpdPick(iso(today())); }
 function mdRenderGrid(gridId, titleId, monthDate, selIso, pickFn){
     const y = monthDate.getFullYear(), m = monthDate.getMonth();
     document.getElementById(titleId).textContent = MONTHS[m] + " " + y;
@@ -6234,7 +6262,7 @@ function openModal(id){
         setField("f_method", b.method || "GCash");
         setField("f_reference", b.reference || "");
         setField("f_down", b.downpayment || 0);
-        setField("f_downDate", b.dpDate || (b.bookedAt ? String(b.bookedAt).slice(0, 10) : (b.checkin || "")));
+        setField("f_downDate", b.dpDate || (b.bookedAt ? String(b.bookedAt).slice(0, 10) : (b.checkin || ""))); paintDpdPill();
         setField("f_notes", b.notes || "");
         _newBookingId = null;                        // editing uses editingId, not a fresh id
         _bookedBy = b.bookedBy || null;              // preserve the ORIGINAL booker on edit
@@ -6264,7 +6292,7 @@ function openModal(id){
         setField("f_method", "GCash");
         setField("f_reference", "");
         setField("f_down", 0);
-        setField("f_downDate", iso(today()));
+        setField("f_downDate", iso(today())); paintDpdPill();
         setField("f_notes", "");
         _newBookingId = uid();                       // mint the id ONCE so retries reuse it (no duplicate)
         _bookedBy = null;                            // new → stamped with the current user on save
