@@ -6019,6 +6019,29 @@ function balDpPick(isoVal){
     renderProofPage(b);            // re-render the Proof tab with the new date
 }
 function balDpToday(){ balDpPick(iso(today())); }
+// manual balance "Date paid" (Proof tab, when no balance collection exists yet) — booking-level b.balanceDate
+let _balMdMonth = null;
+function _balMdBooking(){ return (typeof editingId !== "undefined" && editingId != null) ? bookings.find(x => x.id === editingId) : null; }
+function openBalMd(e){
+    if(e) e.stopPropagation();
+    closeModalPickers();
+    const b = _balMdBooking();
+    const cur = (b && b.balanceDate) || iso(today());
+    _balMdMonth = new Date(cur + "T00:00:00"); _balMdMonth.setDate(1);
+    balMdRender();
+    const pop = document.getElementById("balMdPopup"); if(pop) pop.classList.add("show");
+}
+function balMdRender(){ const b = _balMdBooking(); mdRenderGrid("balMdGrid", "balMdTitle", _balMdMonth, (b && b.balanceDate) || "", "balMdPick"); }
+function balMdNav(d){ if(_balMdMonth){ _balMdMonth.setMonth(_balMdMonth.getMonth() + d); balMdRender(); } }
+function balMdPick(isoVal){
+    const b = _balMdBooking();
+    closeModalPickers();
+    if(!b) return;
+    b.balanceDate = isoVal;
+    bkSave(b, { balanceDate: isoVal });   // durable, clobber-safe per-record write
+    renderProofPage(b);
+}
+function balMdToday(){ balMdPick(iso(today())); }
 // downpayment "Date paid" picker (Proof-of-Payment tab) — app-style, same as the check-in calendar
 let dpdDpMonth = null;
 function paintDpdPill(){
@@ -6869,6 +6892,18 @@ function renderProofPage(b){
         const balShown = balProofData;
         list.innerHTML =
             `<div class="proof-meta">No balance payment recorded yet. Collect it from <strong>Today's Booking</strong>.</div>` +
+            (b ? `<div class="dp-wrap md-dpwrap" style="margin:4px 0 10px;">
+                <label style="display:block; font-size:11px; color:var(--hv-muted); text-transform:uppercase; letter-spacing:.5px; font-weight:700; margin-bottom:5px;">Date paid</label>
+                <div class="md-datepill" id="balMdPill" onclick="openBalMd(event)">
+                    <span class="md-dp-ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg></span>
+                    <span id="balMdLbl">${b.balanceDate ? new Date(b.balanceDate + "T00:00:00").toLocaleDateString("en-PH", { month:"short", day:"numeric", year:"numeric" }) : "—"}</span>
+                </div>
+                <div class="dp-popup md-dppopup" id="balMdPopup" onclick="event.stopPropagation()">
+                    <div class="dp-head"><button type="button" onclick="balMdNav(-1)">‹</button><span id="balMdTitle"></span><button type="button" onclick="balMdNav(1)">›</button></div>
+                    <div class="dp-grid" id="balMdGrid"></div>
+                    <div class="dp-foot"><span onclick="balMdToday()">Today</span></div>
+                </div>
+            </div>` : "") +
             `<span class="proof-thumb" id="balProofThumb" style="${balShown ? "" : "display:none;"}">` +
                 `<img id="balProofImg" class="proof-img" src="${balShown || ""}" onclick="openProofImg(this.src)">` +
                 `<button type="button" class="proof-imgdel" title="Delete photo" onclick="deleteProofImg('bal')">✕</button>` +
