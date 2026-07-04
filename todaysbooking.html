@@ -1120,27 +1120,19 @@
     const inHouseCount = tagged.filter(x => x.info.staying).length;
     const toCollect = arrivals.reduce((s,b) => s + balanceOf(b), 0);
 
-    // money collected from guests CHECKING IN within the range, totalled per MOP
-    // (downpayment via its method + every collection recorded via the "Paid" button)
+    // money collected from the ARRIVING panel only (non-cancelled guests checking in within the
+    // range) — each one's downpayment (via its method) + every collection via the "Paid" button.
+    // Iterating `arrivals` keeps this in step with the panel (cancelled/other bookings never count).
     const MOPS = ["Cash", "GCash", "BDO", "Maya", "Maribank", "Others"];
     const byMop = {}; MOPS.forEach(m => byMop[m] = 0);
     const bucket = (mop, amt) => { byMop[MOPS.includes(mop) ? mop : "Others"] += amt; };
     let collected = 0;
-    bookings.forEach(b => {
-      const checkinInRange = (b.checkin >= start && b.checkin < end);
-      // downpayment counts for guests checking in within the range
-      if(checkinInRange){
-        const dp = Number(b.downpayment) || 0;
-        if(dp > 0){ collected += dp; bucket(b.method, dp); }
-      }
+    arrivals.forEach(b => {
+      const dp = Number(b.downpayment) || 0;
+      if(dp > 0){ collected += dp; bucket(b.method, dp); }
       (b.payments || []).forEach(p => {
         const amt = Number(p.amount) || 0;
-        const payDay = iso(new Date(p.at));
-        // add-ons count on the day they were actually purchased; room/balance follows check-in day
-        const inRange = (p.category === "Add Ons")
-          ? (payDay >= start && payDay < end)
-          : checkinInRange;
-        if(inRange){ collected += amt; bucket(p.mop, amt); }
+        if(amt){ collected += amt; bucket(p.mop, amt); }
       });
     });
 
