@@ -3072,6 +3072,10 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
                 <label>Downpayment (₱)</label>
                 <input type="number" id="f_down" value="0" min="0" oninput="recalc()">
             </div>
+            <div class="field">
+                <label>Downpayment date collected</label>
+                <input type="date" id="f_downDate">
+            </div>
             <div class="field full">
                 <label>Discount (₱)</label>
                 <button type="button" class="btn secondary" id="f_discountBtn" onclick="showDiscount()">＋ Add discount</button>
@@ -6178,6 +6182,7 @@ function openModal(id){
         setField("f_method", b.method || "GCash");
         setField("f_reference", b.reference || "");
         setField("f_down", b.downpayment || 0);
+        setField("f_downDate", b.dpDate || (b.bookedAt ? String(b.bookedAt).slice(0, 10) : (b.checkin || "")));
         setField("f_notes", b.notes || "");
         _newBookingId = null;                        // editing uses editingId, not a fresh id
         _bookedBy = b.bookedBy || null;              // preserve the ORIGINAL booker on edit
@@ -6207,6 +6212,7 @@ function openModal(id){
         setField("f_method", "GCash");
         setField("f_reference", "");
         setField("f_down", 0);
+        setField("f_downDate", iso(today()));
         setField("f_notes", "");
         _newBookingId = uid();                       // mint the id ONCE so retries reuse it (no duplicate)
         _bookedBy = null;                            // new → stamped with the current user on save
@@ -6988,6 +6994,7 @@ async function saveBooking(){
         method: document.getElementById("f_method").value,
         reference: document.getElementById("f_reference").value.trim(),
         downpayment: Number(document.getElementById("f_down").value) || 0,
+        dpDate: (document.getElementById("f_downDate") || {}).value || null,   // date the downpayment was collected (for cash-basis "Collected")
         notes: document.getElementById("f_notes").value.trim(),
         bookedBy: _bookedBy || _whoami(),        // preserve the original booker; else stamp the logged-in person
         bookedAt: _bookedAtIso || new Date().toISOString(),
