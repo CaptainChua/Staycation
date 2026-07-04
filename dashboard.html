@@ -5986,7 +5986,41 @@ function paintDates(){
 }
 /* ---------- custom check-in / check-out calendars (match the app's other pickers) ---------- */
 let ciDpMonth = null, coDpMonth = null;
-function closeModalPickers(){ ["ciDpPopup","coDpPopup","dpdDpPopup"].forEach(id => { const p = document.getElementById(id); if(p) p.classList.remove("show"); }); }
+function closeModalPickers(){ document.querySelectorAll(".md-dppopup.show").forEach(p => p.classList.remove("show")); }
+// edit the "Date paid" of a specific payment record (balance / add-on collections) from the Proof tab
+let _balDpIdx = -1, _balDpMonth = null;
+function openBalDp(gi, e){
+    if(e) e.stopPropagation();
+    closeModalPickers();
+    _balDpIdx = gi;
+    const b = (typeof editingId !== "undefined" && editingId != null) ? bookings.find(x => x.id === editingId) : null;
+    const p = b && b.payments && b.payments[gi];
+    const cur = (p && p.at) ? iso(new Date(p.at)) : iso(today());
+    _balDpMonth = new Date(cur + "T00:00:00"); _balDpMonth.setDate(1);
+    balDpRender();
+    const pop = document.getElementById("balDp_" + gi); if(pop) pop.classList.add("show");
+}
+function balDpRender(){
+    if(_balDpIdx < 0) return;
+    const b = (typeof editingId !== "undefined" && editingId != null) ? bookings.find(x => x.id === editingId) : null;
+    const p = b && b.payments && b.payments[_balDpIdx];
+    mdRenderGrid("balDpGrid_" + _balDpIdx, "balDpTitle_" + _balDpIdx, _balDpMonth, (p && p.at) ? iso(new Date(p.at)) : "", "balDpPick");
+}
+function balDpNav(d){ if(_balDpMonth){ _balDpMonth.setMonth(_balDpMonth.getMonth() + d); balDpRender(); } }
+function balDpPick(isoVal){
+    const b = (typeof editingId !== "undefined" && editingId != null) ? bookings.find(x => x.id === editingId) : null;
+    if(!b || _balDpIdx < 0 || !b.payments || !b.payments[_balDpIdx]){ closeModalPickers(); return; }
+    const p = b.payments[_balDpIdx];
+    const dt = new Date(p.at || Date.now()); if(isNaN(dt.getTime())) dt.setTime(Date.now());
+    const parts = isoVal.split("-").map(Number);
+    dt.setFullYear(parts[0], parts[1] - 1, parts[2]);
+    p.at = dt.toISOString();
+    p.editedAt = new Date().toISOString(); p.editedBy = currentUser();
+    closeModalPickers();
+    bkPaymentEdit(b, _balDpIdx);   // durable per-record persist (matches by pid)
+    renderProofPage(b);            // re-render the Proof tab with the new date
+}
+function balDpToday(){ balDpPick(iso(today())); }
 // downpayment "Date paid" picker (Proof-of-Payment tab) — app-style, same as the check-in calendar
 let dpdDpMonth = null;
 function paintDpdPill(){
@@ -6811,8 +6845,18 @@ function renderProofPage(b){
         // photo, a Replace photo option, and a Delete-this-collection option.
         list.innerHTML = balPays.map(p => {
             const gi = pays.indexOf(p);   // index in the full payments array
+            const dLbl = p.at ? new Date(p.at).toLocaleDateString("en-PH", { month:"short", day:"numeric", year:"numeric" }) : "Set date";
             return `<div class="proof-collection">
                 <div class="proof-meta"><span>Collected <strong>${peso(p.amount)}</strong> via ${escHtml(p.mop || "—")}</span><span>${p.at ? new Date(p.at).toLocaleString("en-PH") : ""} · by ${escHtml(p.by || "—")}</span></div>
+                <div class="dp-wrap md-dpwrap" style="margin:2px 0 8px;">
+                    <span class="muted" style="font-size:11px; text-transform:uppercase; letter-spacing:.5px; font-weight:700; margin-right:8px;">Date paid</span>
+                    <span class="md-datepill" style="padding:4px 10px; font-size:12px; display:inline-flex; vertical-align:middle;" onclick="openBalDp(${gi}, event)"><span class="md-dp-ico" style="width:13px; height:13px;"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg></span> ${dLbl}</span>
+                    <div class="dp-popup md-dppopup" id="balDp_${gi}" onclick="event.stopPropagation()">
+                        <div class="dp-head"><button type="button" onclick="balDpNav(-1)">‹</button><span id="balDpTitle_${gi}"></span><button type="button" onclick="balDpNav(1)">›</button></div>
+                        <div class="dp-grid" id="balDpGrid_${gi}"></div>
+                        <div class="dp-foot"><span onclick="balDpToday()">Today</span></div>
+                    </div>
+                </div>
                 ${p.proof ? `<span class="proof-thumb"><img class="proof-img" src="${p.proof}" onclick="openProofImg(this.src)"><button type="button" class="proof-imgdel" title="Delete photo" onclick="deleteCollectionPhoto(${gi})">✕</button></span>` : `<div class="proof-empty">No photo for this collection.</div>`}
                 <label class="proof-upload">
                     <span class="pu-ico">${UP_ICO}</span>
@@ -6855,6 +6899,17 @@ function renderProofPage(b){
     if(latestAddonPay){
         const more = addonPays.length > 1 ? ` <span class="muted">(+${addonPays.length - 1} earlier)</span>` : "";
         addonMeta += `<span style="flex-basis:100%">Collected <strong>${peso(latestAddonPay.amount)}</strong> via ${latestAddonPay.mop}${more} · by ${latestAddonPay.by || "—"}</span>`;
+        const aGi = pays.indexOf(latestAddonPay);
+        const aLbl = latestAddonPay.at ? new Date(latestAddonPay.at).toLocaleDateString("en-PH", { month:"short", day:"numeric", year:"numeric" }) : "Set date";
+        addonMeta += `<div class="dp-wrap md-dpwrap" style="flex-basis:100%; margin-top:2px;">
+            <span class="muted" style="font-size:11px; text-transform:uppercase; letter-spacing:.5px; font-weight:700; margin-right:8px;">Date paid</span>
+            <span class="md-datepill" style="padding:4px 10px; font-size:12px; display:inline-flex; vertical-align:middle;" onclick="openBalDp(${aGi}, event)"><span class="md-dp-ico" style="width:13px; height:13px;"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg></span> ${aLbl}</span>
+            <div class="dp-popup md-dppopup" id="balDp_${aGi}" onclick="event.stopPropagation()">
+                <div class="dp-head"><button type="button" onclick="balDpNav(-1)">‹</button><span id="balDpTitle_${aGi}"></span><button type="button" onclick="balDpNav(1)">›</button></div>
+                <div class="dp-grid" id="balDpGrid_${aGi}"></div>
+                <div class="dp-foot"><span onclick="balDpToday()">Today</span></div>
+            </div>
+        </div>`;
     }
     document.getElementById("addonMeta").innerHTML = addonMeta;
     const aImg = document.getElementById("addonProofImg");
@@ -7899,6 +7954,11 @@ function _crRange(){
 }
 function crQuick(m){ crMode = m; renderCollections(); }
 function crCustom(){ crMode = "custom"; renderCollections(); }
+// open a booking's Edit modal on the Calendar / Bookings page (from a Booking ID link)
+function crEditBooking(id){
+    if(typeof showPage === "function") showPage("calendar");
+    if(typeof openModal === "function") openModal(id);
+}
 // the day a downpayment was collected: dpDate, else the booking-made day (bookedAt / timestamp id), else check-in
 function _crDpDay(b){
     if(b.dpDate) return b.dpDate;
@@ -7945,7 +8005,7 @@ function renderCollections(){
         const b = r.b;
         const timeTxt = r.at ? new Date(r.at).toLocaleString("en-PH", { month:"short", day:"numeric", hour:"numeric", minute:"2-digit" }) : "—";
         return `<tr>
-            <td>${bookingCode(b)}</td>
+            <td><span onclick="crEditBooking(${b.id})" title="Open this booking on Calendar / Bookings" style="color:var(--hv-terra-d); font-weight:700; cursor:pointer; text-decoration:underline;">${bookingCode(b)}</span></td>
             <td>${escHtml(primaryName(b))}${b.fbName ? `<br><span class="muted" style="font-size:11px;">FB: ${escHtml(b.fbName)}</span>` : ""}</td>
             <td>${escHtml(b.haven)}</td>
             <td>${escHtml(r.methods)}</td>
