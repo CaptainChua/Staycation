@@ -3014,28 +3014,6 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
         </div>
         <div id="bkPage1">
         <div class="form-grid">
-            <div class="field full">
-                <label>Haven</label>
-                <select id="f_haven" onchange="onHavenChange()"></select>
-            </div>
-
-            <div class="field full">
-                <label>Facebook Name</label>
-                <input type="text" id="f_fbName" placeholder="Name on Facebook / Messenger">
-            </div>
-
-            <div class="field full">
-                <label>Guests <span class="muted" id="guestCapNote">(max 5 pax — up to 4 adults &amp; 2 kids aged 0–13)</span></label>
-                <div id="guestList"></div>
-                <button type="button" class="btn secondary add-guest" onclick="addGuestRow()">+ Add guest</button>
-                <div class="breakdown">1st guest must be 18+. 2nd guest may be a minor only if a family member (same last name). Base rate covers 2 pax; extra pax aged 5+ is ₱300/head.</div>
-            </div>
-
-            <div class="field full">
-                <label>Contact number</label>
-                <input type="text" id="f_contact" placeholder="09xx xxx xxxx">
-            </div>
-
             <div class="field">
                 <label>Check-in</label>
                 <div class="dp-wrap md-dpwrap">
@@ -3065,6 +3043,28 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
                         <div class="dp-foot"><span onclick="coPickToday()">Today</span></div>
                     </div>
                 </div>
+            </div>
+
+            <div class="field full">
+                <label>Haven</label>
+                <select id="f_haven" onchange="onHavenChange()"></select>
+            </div>
+
+            <div class="field full">
+                <label>Facebook Name</label>
+                <input type="text" id="f_fbName" placeholder="Name on Facebook / Messenger">
+            </div>
+
+            <div class="field full">
+                <label>Guests <span class="muted" id="guestCapNote">(max 5 pax — up to 4 adults &amp; 2 kids aged 0–13)</span></label>
+                <div id="guestList"></div>
+                <button type="button" class="btn secondary add-guest" onclick="addGuestRow()">+ Add guest</button>
+                <div class="breakdown">1st guest must be 18+. 2nd guest may be a minor only if a family member (same last name). Base rate covers 2 pax; extra pax aged 5+ is ₱300/head.</div>
+            </div>
+
+            <div class="field full">
+                <label>Contact number</label>
+                <input type="text" id="f_contact" placeholder="09xx xxx xxxx">
             </div>
 
             <div class="field">
