@@ -1144,13 +1144,13 @@
       }
       return b.checkin || null;
     };
-    // Attribution: the DOWNPAYMENT counts on its collected day (above); the ROOM/BALANCE counts on the
-    // guest's CHECK-IN day; ADD-ONS count on the day they were PURCHASED. So a guest who checked in
-    // yesterday and paid a balance today is NOT counted here, but an add-on they bought today IS.
+    // Collected = every payment whose DATE falls in the range, across ALL bookings — arrivals' payments,
+    // in-house/departing guests' add-ons or extra payments dated today, and new (Add-booking) payments
+    // dated today. Each collection counts on its recorded date (p.at); the downpayment counts on the day
+    // it was collected (dpDayOf → the booking-made day), so an online downpayment paid earlier is excluded.
     let collected = 0;
     bookings.forEach(b => {
       if(b.cancelled) return;
-      const checkinToday = !!(b.checkin && b.checkin >= start && b.checkin < end);
       const dp = Number(b.downpayment) || 0;
       if(dp > 0){
         const dpDay = dpDayOf(b);
@@ -1158,12 +1158,8 @@
       }
       (b.payments || []).forEach(p => {
         const amt = Number(p.amount) || 0; if(!amt) return;
-        if(p.category === "Add Ons"){
-          const payDay = p.at ? iso(new Date(p.at)) : null;
-          if(payDay && payDay >= start && payDay < end){ collected += amt; bucket(p.mop, amt); }
-        } else if(checkinToday){
-          collected += amt; bucket(p.mop, amt);
-        }
+        const payDay = p.at ? iso(new Date(p.at)) : null;
+        if(payDay && payDay >= start && payDay < end){ collected += amt; bucket(p.mop, amt); }
       });
     });
 
