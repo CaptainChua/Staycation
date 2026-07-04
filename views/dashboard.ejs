@@ -2886,6 +2886,9 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
     #page-collections .sec-ico svg{ width:20px; height:20px; stroke:var(--hv-terra); fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
     #page-collections .cr-toolbar{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:16px 0 14px; }
     #page-collections .cr-toolbar input[type=date], #page-collections select.cr-filter{ padding:9px 12px; border:1px solid var(--hv-line); border-radius:10px; background:#fff; font-size:13px; font-weight:600; color:var(--hv-ink); font-family:inherit; }
+    #page-collections select.cr-status{ padding:5px 8px; border:1px solid var(--hv-line); border-radius:8px; background:#fff; font-size:12px; font-weight:700; color:var(--hv-muted); font-family:inherit; cursor:pointer; }
+    #page-collections select.cr-status.is-ok{ color:#1f8a4c; border-color:#bfe6cd; background:#f2fbf5; }
+    #page-collections select.cr-status.is-no{ color:#c0392b; border-color:#f0c8c2; background:#fdf4f2; }
     #page-collections .cr-seg{ display:flex; background:#fff; border:1px solid var(--hv-line); border-radius:10px; overflow:hidden; }
     #page-collections .cr-seg button{ border:none; background:none; padding:8px 14px; font-size:13px; font-weight:600; color:var(--hv-muted); cursor:pointer; font-family:inherit; }
     #page-collections .cr-seg button.active{ background:var(--hv-ink); color:#fff; }
@@ -2921,7 +2924,7 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
     <div style="overflow-x:auto;">
       <table>
         <thead><tr>
-          <th class="num" style="width:34px;">#</th><th>Booking ID</th><th>Guest Name</th><th>Haven</th><th class="num">Amount</th><th>Type</th><th>Method</th><th>Collected By</th><th>Time Collected</th>
+          <th class="num" style="width:34px;">#</th><th>Booking ID</th><th>Guest Name</th><th>Haven</th><th class="num">Amount</th><th>Type</th><th>Method</th><th>Collected By</th><th>Time Collected</th><th>Status</th>
         </tr></thead>
         <tbody id="crBody"></tbody>
         <tfoot id="crFoot"></tfoot>
@@ -8028,12 +8031,12 @@ function renderCollections(){
         const dp = Number(b.downpayment) || 0;
         if(dp > 0){
             const d = _crDpDay(b);
-            if(d && d >= start && d <= end) rows.push({ b, amount: dp, type: "Downpayment", method: b.method || "—", by: b.bookedBy || "Admin", at: null, day: d });
+            if(d && d >= start && d <= end) rows.push({ b, amount: dp, type: "Downpayment", method: b.method || "—", by: b.bookedBy || "Admin", at: null, day: d, kind: "dp", pi: -1, verified: b.dpVerified || "" });
         }
-        (b.payments || []).forEach(p => {
+        (b.payments || []).forEach((p, pi) => {
             const amt = Number(p.amount) || 0; if(!amt) return;
             const day = p.at ? iso(new Date(p.at)) : null;
-            if(day && day >= start && day <= end) rows.push({ b, amount: amt, type: p.category || "Balance", method: p.mop || "—", by: p.by || "—", at: p.at, day });
+            if(day && day >= start && day <= end) rows.push({ b, amount: amt, type: p.category || "Balance", method: p.mop || "—", by: p.by || "—", at: p.at, day, kind: "pay", pi, verified: p.verified || "" });
         });
     });
     rows.sort((a, c) => (c.at || (c.day + "T00:00")).localeCompare(a.at || (a.day + "T00:00")));
@@ -8054,13 +8057,27 @@ function renderCollections(){
             <td>${escHtml(r.method)}</td>
             <td>${escHtml(r.by)}</td>
             <td>${timeTxt}</td>
+            <td><select class="cr-status ${r.verified === "verified" ? "is-ok" : r.verified === "unverified" ? "is-no" : ""}" onchange="crSetStatus(this, ${b.id}, '${r.kind}', ${r.pi})">
+                <option value=""${r.verified === "" ? " selected" : ""}>--</option>
+                <option value="verified"${r.verified === "verified" ? " selected" : ""}>Verified</option>
+                <option value="unverified"${r.verified === "unverified" ? " selected" : ""}>Not Verified</option>
+            </select></td>
         </tr>`;
-    }).join("") : `<tr><td colspan="9" class="muted" style="text-align:center; padding:24px;">No payments collected in this period.</td></tr>`;
+    }).join("") : `<tr><td colspan="10" class="muted" style="text-align:center; padding:24px;">No payments collected in this period.</td></tr>`;
 
     const total = Math.round(rows.reduce((s, r) => s + r.amount, 0));
     document.getElementById("crTotal").textContent = peso(total);
     const foot = document.getElementById("crFoot");
-    if(foot) foot.innerHTML = rows.length ? `<tr><td colspan="4" style="text-align:right;">Total Collected · ${rows.length} payment${rows.length === 1 ? "" : "s"}</td><td class="num">${peso(total)}</td><td colspan="4"></td></tr>` : "";
+    if(foot) foot.innerHTML = rows.length ? `<tr><td colspan="4" style="text-align:right;">Total Collected · ${rows.length} payment${rows.length === 1 ? "" : "s"}</td><td class="num">${peso(total)}</td><td colspan="5"></td></tr>` : "";
+}
+// mark a Collection Reports row Verified / Not Verified — persisted on the booking (downpayment) or the payment record
+function crSetStatus(sel, bookingId, kind, idx){
+    const val = sel.value;
+    sel.className = "cr-status " + (val === "verified" ? "is-ok" : val === "unverified" ? "is-no" : "");
+    const b = bookings.find(x => String(x.id) === String(bookingId));
+    if(!b) return;
+    if(kind === "dp"){ b.dpVerified = val; if(typeof bkSave === "function") bkSave(b, { dpVerified: val }); }
+    else if(b.payments && b.payments[idx]){ b.payments[idx].verified = val; if(typeof bkPaymentEdit === "function") bkPaymentEdit(b, idx); }
 }
 
 /* ---------- Violations & Damages ---------- */
