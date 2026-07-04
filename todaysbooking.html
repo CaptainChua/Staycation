@@ -694,6 +694,7 @@
     <select id="payFor">
       <option value="Balance">Balance</option>
       <option value="Add Ons">Add Ons</option>
+      <option value="Downpayment">Downpayment</option>
     </select>
 
     <label for="payAmount">Amount collected <span class="lbl-muted">(₱)</span></label>
@@ -1314,7 +1315,7 @@
   }
 
   /* ---------- payment / collection popup ---------- */
-  let payBookingId = null, payProof = null, payEditing = false, payEditIndex = -1;
+  let payBookingId = null, payProof = null, payEditing = false, payEditIndex = -1, payEditDown = false;
 
   // show the downpayment's uploaded proof photo (recorded on the booking) in the lightbox
   function viewDownProof(id){
@@ -1335,10 +1336,10 @@
     let html = `<div class="pay-list-title">Payments made <span class="plt-count">(${count})</span></div>`;
     if(dp > 0){
       const hasProof = !!b.downProof;
-      html += `<div class="pay-list-item">
+      html += `<div class="pay-list-item ${payEditDown ? "active" : ""}">
           ${check}
-          <span class="pli-main" ${hasProof ? `onclick="viewDownProof(${b.id})" style="cursor:zoom-in;"` : ""}><strong>${peso(dp)}</strong> · Downpayment · ${b.method || "—"}
-            <small>upfront (edit in booking)${hasProof ? " · tap to view proof" : ""}</small></span>
+          <span class="pli-main" onclick="loadDownInto()" style="cursor:pointer;"><strong>${peso(dp)}</strong> · Downpayment · ${b.method || "—"}
+            <small>tap to edit (amount / date / method)${hasProof ? " · view proof →" : ""}</small></span>
           ${hasProof ? `<span class="pli-del" style="color:#2b6cb0;" onclick="viewDownProof(${b.id})">View</span>` : ""}
         </div>`;
     }
@@ -1453,7 +1454,7 @@
     return c;
   }
   function openPay(id, edit){
-    payBookingId = id; payProof = null;
+    payBookingId = id; payProof = null; payEditDown = false;
     const b = bookings.find(x => x.id === id);
     if(!b) return;
     const pays = b.payments || [];
@@ -1477,10 +1478,32 @@
   function loadPayInto(index){
     const b = bookings.find(x => x.id === payBookingId);
     if(!b || !b.payments || !b.payments[index]) return;
-    payEditIndex = index; payEditing = true;
+    payEditIndex = index; payEditing = true; payEditDown = false;
     document.getElementById("payTitle").textContent = "Edit Payment";
     fillPayForm(b, b.payments[index]);
     updatePayButtons(true);
+    renderPayList(b);
+  }
+  // edit the booking's DOWNPAYMENT (amount / method / date collected / proof) from the payments list
+  function loadDownInto(){
+    const b = bookings.find(x => x.id === payBookingId);
+    if(!b) return;
+    payEditing = false; payEditIndex = -1; payEditDown = true;
+    document.getElementById("payTitle").textContent = "Edit Downpayment";
+    document.getElementById("payAmount").value = Number(b.downpayment) || 0;
+    document.getElementById("payMop").value = b.method || "Cash";
+    document.getElementById("payFor").value = "Downpayment";
+    payDateSet(b.dpDate || (b.bookedAt ? String(b.bookedAt).slice(0, 10) : (b.checkin || iso(today()))));
+    payProof = b.downProof || null;
+    const prev = document.getElementById("payPreview"), nameEl = document.getElementById("payFileName");
+    if(payProof){ prev.src = payProof; prev.style.display = "block"; } else { prev.src = ""; prev.style.display = "none"; }
+    if(nameEl) nameEl.textContent = payProof ? "Photo attached ✓" : "No file chosen";
+    document.getElementById("payFile").value = "";
+    // downpayment isn't a deletable payment row; show only a single Save
+    document.getElementById("payDelBtn").style.display = "none";
+    document.getElementById("payAddBtn").style.display = "none";
+    document.getElementById("paySaveAddBtn").style.display = "none";
+    const sb = document.getElementById("paySaveBtn"); sb.style.display = "inline-block"; sb.textContent = "Update Downpayment";
     renderPayList(b);
   }
   // delete a specific payment by index
@@ -1521,7 +1544,7 @@
   function addFollowUpPayment(){
     const b = bookings.find(x => x.id === payBookingId);
     if(!b) return;
-    payEditing = false; payEditIndex = -1;
+    payEditing = false; payEditIndex = -1; payEditDown = false;
     document.getElementById("payTitle").textContent = "Record Payment";
     fillPayForm(b, null);
     document.getElementById("payFor").value = "Add Ons";   // follow-ups are usually add-ons
@@ -1529,7 +1552,7 @@
     renderPayList(b);
   }
   function closePay(){
-    payBookingId = null; payProof = null; payEditing = false; payEditIndex = -1;
+    payBookingId = null; payProof = null; payEditing = false; payEditIndex = -1; payEditDown = false;
     document.getElementById("payOverlay").classList.remove("show");
   }
   // shrink + compress an image to keep localStorage small
@@ -1594,7 +1617,7 @@
     if(_savingPay) return;   // block rapid double-clicks — they were appending DUPLICATE payments
     const bookingId = payBookingId;
     if(payBookingId == null) return;
-    if(!payProof){ alert("Please upload a photo of the proof of payment."); return; }
+    if(!payEditDown && !payProof){ alert("Please upload a photo of the proof of payment."); return; }
     const mop = document.getElementById("payMop").value;
     const category = document.getElementById("payFor").value; // "Balance" or "Add Ons"
     const amount = Number(document.getElementById("payAmount").value) || 0;
@@ -1617,6 +1640,20 @@
         const r = await fetch("/api/img", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ data: payProof }) });
         if(r.ok){ const j = await r.json(); if(j && j.url) proofRef = j.url; }
       }catch(e){}
+    }
+
+    // 1b) editing the booking's DOWNPAYMENT (not a payment record) → patch the booking's own fields
+    if(payEditDown){
+      const set = { downpayment: amount, method: mop, dpDate: document.getElementById("payDate").value || null, downProof: proofRef || null };
+      let okDp = false;
+      try{ const res = await fetch("/api/booking/" + encodeURIComponent(bookingId) + "/patch", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ set }) }); okDp = res.ok; }catch(e){}
+      if(!okDp){ alert("⚠️ The downpayment was NOT saved — the server didn't confirm (slow / offline). Please try again."); return; }
+      Object.assign(b, set); b.updatedAt = new Date().toISOString();
+      try{ (window.shphSetLocal || localStorage.setItem.bind(localStorage))(KEY, JSON.stringify(bookings)); }catch(e){}
+      logActivity(`edited downpayment — ${b.haven} · ${peso(amount)} (${mop})`);
+      renderToday();
+      closePay();
+      return;
     }
 
     // 2) build the payment record — each carries a stable `pid` so edits/deletes match by id, not position
