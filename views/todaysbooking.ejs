@@ -696,7 +696,7 @@
     <select id="payFor">
       <option value="Balance">Balance</option>
       <option value="Add Ons">Add Ons</option>
-      <option value="Downpayment">Downpayment</option>
+      <option value="Downpayment" disabled>Downpayment (edit via the downpayment row)</option>
     </select>
 
     <label for="payAmount">Amount collected <span class="lbl-muted">(₱)</span></label>
@@ -1664,8 +1664,10 @@
       }catch(e){}
     }
 
-    // 1b) editing the booking's DOWNPAYMENT (not a payment record) → patch the booking's own fields
-    if(payEditDown){
+    // 1b) editing the booking's DOWNPAYMENT (not a payment record) → patch the booking's own fields.
+    // Also route a "Downpayment"-category save here as a backstop so it can never become a phantom
+    // payment record that double-counts the downpayment.
+    if(payEditDown || category === "Downpayment"){
       const set = { downpayment: amount, method: mop, dpDate: document.getElementById("payDate").value || null, downProof: proofRef || null };
       let okDp = false;
       try{ const res = await fetch("/api/booking/" + encodeURIComponent(bookingId) + "/patch", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ set }) }); okDp = res.ok; }catch(e){}
