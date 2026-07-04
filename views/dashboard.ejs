@@ -2921,7 +2921,7 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
     <div style="overflow-x:auto;">
       <table>
         <thead><tr>
-          <th>Booking ID</th><th>Guest Name</th><th>Haven</th><th class="num">Amount</th><th>Type</th><th>Method</th><th>Collected By</th><th>Time Collected</th>
+          <th class="num" style="width:34px;">#</th><th>Booking ID</th><th>Guest Name</th><th>Haven</th><th class="num">Amount</th><th>Type</th><th>Method</th><th>Collected By</th><th>Time Collected</th>
         </tr></thead>
         <tbody id="crBody"></tbody>
         <tfoot id="crFoot"></tfoot>
@@ -8004,12 +8004,13 @@ function renderCollections(){
     rows.sort((a, c) => (c.at || (c.day + "T00:00")).localeCompare(a.at || (a.day + "T00:00")));
 
     const body = document.getElementById("crBody");
-    if(body) body.innerHTML = rows.length ? rows.map(r => {
+    if(body) body.innerHTML = rows.length ? rows.map((r, ri) => {
         const b = r.b;
         const timeTxt = r.at
             ? new Date(r.at).toLocaleString("en-PH", { month:"short", day:"numeric", hour:"numeric", minute:"2-digit" })
             : (r.day ? new Date(r.day + "T00:00:00").toLocaleDateString("en-PH", { month:"short", day:"numeric", year:"numeric" }) : "—");
         return `<tr>
+            <td class="num muted">${ri + 1}</td>
             <td><a href="dashboard.html?edit=${b.id}" target="_blank" rel="noopener" title="Open this booking in a new tab" style="color:var(--hv-terra-d); font-weight:700; text-decoration:underline;">${bookingCode(b)}</a></td>
             <td>${escHtml(primaryName(b))}${b.fbName ? `<br><span class="muted" style="font-size:11px;">FB: ${escHtml(b.fbName)}</span>` : ""}</td>
             <td>${escHtml(b.haven)}</td>
@@ -8019,12 +8020,12 @@ function renderCollections(){
             <td>${escHtml(r.by)}</td>
             <td>${timeTxt}</td>
         </tr>`;
-    }).join("") : `<tr><td colspan="8" class="muted" style="text-align:center; padding:24px;">No payments collected in this period.</td></tr>`;
+    }).join("") : `<tr><td colspan="9" class="muted" style="text-align:center; padding:24px;">No payments collected in this period.</td></tr>`;
 
     const total = Math.round(rows.reduce((s, r) => s + r.amount, 0));
     document.getElementById("crTotal").textContent = peso(total);
     const foot = document.getElementById("crFoot");
-    if(foot) foot.innerHTML = rows.length ? `<tr><td colspan="3" style="text-align:right;">Total Collected · ${rows.length} payment${rows.length === 1 ? "" : "s"}</td><td class="num">${peso(total)}</td><td colspan="4"></td></tr>` : "";
+    if(foot) foot.innerHTML = rows.length ? `<tr><td colspan="4" style="text-align:right;">Total Collected · ${rows.length} payment${rows.length === 1 ? "" : "s"}</td><td class="num">${peso(total)}</td><td colspan="4"></td></tr>` : "";
 }
 
 /* ---------- Violations & Damages ---------- */
