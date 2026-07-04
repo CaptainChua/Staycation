@@ -6061,6 +6061,9 @@ function coPick(isoVal){
 }
 function coPickToday(){ coPick(iso(today())); }
 document.addEventListener("click", e => { if(!e.target.closest(".md-dpwrap")) closeModalPickers(); });
+// The booking modal stops click-propagation at `.modal`, so the document handler above never fires for
+// clicks INSIDE the modal — add a modal-level listener so tapping outside a calendar dismisses it.
+(function(){ const _m = document.querySelector("#overlay .modal"); if(_m) _m.addEventListener("click", e => { if(!e.target.closest(".md-dpwrap")) closeModalPickers(); }); })();
 // derive check-out date + time from check-in date/time + stay length (+ extend)
 function recomputeDashCheckout(){
     const ci = document.getElementById("f_checkin").value;
