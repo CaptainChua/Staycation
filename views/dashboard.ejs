@@ -1300,6 +1300,7 @@ tr.row-cancelled td:nth-child(2){ text-decoration:line-through; }
     <div class="nav-item active" data-page="today" onclick="window.location.href='/todaysbooking.html'"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/><path d="m9 15 2 2 4-4"/></svg></span> Today's Booking</div>
     <div class="nav-item" data-page="calendar" onclick="showPage('calendar')"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg></span> Calendar/Bookings</div>
     <div class="nav-item" data-page="guestform" onclick="showPage('guestform')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M5 3h11l3 3v15H5z"/><path d="M9 8h6M9 12h6M9 16h4"/><circle cx="12" cy="2.5" r="0"/></svg></span> Guest Form</div>
+    <div class="nav-item" data-page="collections" onclick="showPage('collections')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M3 4h18v4H3zM3 10h18v10H3z"/><path d="M7 14h4M7 17h7"/></svg></span> Collection Reports</div>
 
     <div class="nav-group">Front Desk</div>
     <div class="nav-item" data-page="approval" onclick="showPage('approval')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M20 12V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6"/><path d="M9 9h6M9 13h3"/><path d="m15 18 2 2 4-4"/></svg></span> Booking Approval <span class="nav-badge" id="approvalBadge"></span></div>
@@ -2874,6 +2875,59 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
     <div class="modal-actions">
       <button class="btn secondary" onclick="closeViolationModal()">Cancel</button>
       <button class="btn" onclick="saveViolation()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Collection Reports -->
+<div class="page" id="page-collections">
+  <style>
+    #page-collections .sec-ico{ display:inline-flex; }
+    #page-collections .sec-ico svg{ width:20px; height:20px; stroke:var(--hv-terra); fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+    #page-collections .cr-toolbar{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:16px 0 14px; }
+    #page-collections .cr-toolbar input[type=date], #page-collections select.cr-filter{ padding:9px 12px; border:1px solid var(--hv-line); border-radius:10px; background:#fff; font-size:13px; font-weight:600; color:var(--hv-ink); font-family:inherit; }
+    #page-collections .cr-seg{ display:flex; background:#fff; border:1px solid var(--hv-line); border-radius:10px; overflow:hidden; }
+    #page-collections .cr-seg button{ border:none; background:none; padding:8px 14px; font-size:13px; font-weight:600; color:var(--hv-muted); cursor:pointer; font-family:inherit; }
+    #page-collections .cr-seg button.active{ background:var(--hv-ink); color:#fff; }
+    #page-collections .cr-total{ background:#fff; border:1px solid var(--hv-line); border-radius:14px; padding:14px 20px; display:inline-block; margin-bottom:16px; }
+    #page-collections .cr-total .lbl{ font-size:11px; font-weight:800; letter-spacing:.5px; text-transform:uppercase; color:var(--hv-muted); }
+    #page-collections .cr-total .num{ font-size:28px; font-weight:800; color:#2e7d4f; }
+    #page-collections table{ width:100%; border-collapse:collapse; font-size:13px; }
+    #page-collections th{ text-align:left; font-size:10.5px; font-weight:800; letter-spacing:.4px; text-transform:uppercase; color:var(--hv-muted); padding:9px 10px; border-bottom:1px solid var(--hv-line); white-space:nowrap; }
+    #page-collections td{ padding:11px 10px; border-bottom:1px solid var(--hv-line); vertical-align:top; }
+    #page-collections td.num, #page-collections th.num{ text-align:right; white-space:nowrap; }
+    #page-collections tfoot td{ font-weight:800; border-top:2px solid var(--hv-line); color:var(--hv-ink); }
+  </style>
+  <div class="panel">
+    <div class="panel-head" style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px;">
+      <div>
+        <h2><span class="sec-ico"><svg viewBox="0 0 24 24"><path d="M3 4h18v4H3z"/><path d="M3 10h18v10H3z"/><path d="M7 14h4M7 17h7"/></svg></span>Collection Reports</h2>
+        <p class="muted" style="margin:6px 0 0;">Every payment collected in the selected period — downpayments, balances &amp; add-ons — with who collected it and when.</p>
+      </div>
+      <button class="btn secondary" onclick="window.print()">🖨 Print</button>
+    </div>
+    <div class="cr-toolbar">
+      <div class="cr-seg" id="crSeg">
+        <button class="active" data-c="today" onclick="crQuick('today')">Today</button>
+        <button data-c="yesterday" onclick="crQuick('yesterday')">Yesterday</button>
+        <button data-c="month" onclick="crQuick('month')">This month</button>
+      </div>
+      <input type="date" id="crFrom" onchange="crCustom()">
+      <span class="muted">to</span>
+      <input type="date" id="crTo" onchange="crCustom()">
+      <select class="cr-filter" id="crHaven" onchange="renderCollections()"><option value="">All havens</option></select>
+    </div>
+    <div class="cr-total"><div class="lbl">Total Collected <span id="crRangeLbl" style="text-transform:none; letter-spacing:0; font-weight:600;"></span></div><div class="num" id="crTotal">₱0</div></div>
+    <div style="overflow-x:auto;">
+      <table>
+        <thead><tr>
+          <th>Booking ID</th><th>Guest Name</th><th>Haven</th><th>Payment Type</th>
+          <th class="num">Downpayment</th><th class="num">Remaining Balance</th><th class="num">Security Deposit</th>
+          <th class="num">Extra Charges</th><th class="num">Total Collected</th><th>Collected By</th><th>Time Collected</th>
+        </tr></thead>
+        <tbody id="crBody"></tbody>
+        <tfoot id="crFoot"></tfoot>
+      </table>
     </div>
   </div>
 </div>
@@ -7169,7 +7223,7 @@ function showPage(page){
     localStorage.setItem("shph_dashboard_page", page);   // remember across refreshes
     // breadcrumb in the top bar
     const CRUMB = {
-        today:["Main","Today's Booking"], calendar:["Main","Calendar & Bookings"], guestform:["Main","Guest Form"], approval:["Front Desk","Booking Approval"], paymentapproval:["Front Desk","Payment Approval"], deposit:["Front Desk","Security Deposit"], violations:["Front Desk","Violations & Damages"],
+        today:["Main","Today's Booking"], calendar:["Main","Calendar & Bookings"], guestform:["Main","Guest Form"], collections:["Main","Collection Reports"], approval:["Front Desk","Booking Approval"], paymentapproval:["Front Desk","Payment Approval"], deposit:["Front Desk","Security Deposit"], violations:["Front Desk","Violations & Damages"],
         havens:["Property","Havens"], booking:["Property","Rates & Add-ons"], cleaners:["Property","Housekeeping"],
         finance:["Finance","Finance"], payments:["Finance","Payments"], payroll:["Finance","Payroll"],
         bills:["Finance","Bills"], expenses:["Finance","Expenses"], analytics:["Finance","Analytics"],
@@ -7187,6 +7241,7 @@ function showPage(page){
     if(page === "paymentapproval") renderPaymentApproval();
     if(page === "deposit") renderDeposit();
     if(page === "violations" && typeof renderViolations === "function") renderViolations();
+    if(page === "collections" && typeof renderCollections === "function") renderCollections();
     if(page === "calendar"){ renderTimeline(); if(typeof renderLog === "function") renderLog(); }
     if(page === "guestform") renderGuestForm();
     if(typeof partnersOnShowPage === "function") partnersOnShowPage(page);   // Partners sub-module (partners.js)
@@ -7800,6 +7855,87 @@ document.addEventListener("click", e => {
 });
 
 /* ---------- Security Deposit: check-outs + deposit to return on a date ---------- */
+/* ---------- Collection Reports ---------- */
+let crMode = "today";   // today | yesterday | month | custom
+function _crRange(){
+    const t = today();
+    if(crMode === "yesterday"){ const y = iso(addDays(t, -1)); return { start:y, end:y }; }
+    if(crMode === "month"){ return { start: iso(new Date(t.getFullYear(), t.getMonth(), 1)), end: iso(new Date(t.getFullYear(), t.getMonth() + 1, 0)) }; }
+    if(crMode === "custom"){
+        const f = (document.getElementById("crFrom") || {}).value, tt = (document.getElementById("crTo") || {}).value;
+        const a = f || iso(t), b = tt || a;
+        return { start: a < b ? a : b, end: a < b ? b : a };
+    }
+    return { start: iso(t), end: iso(t) };
+}
+function crQuick(m){ crMode = m; renderCollections(); }
+function crCustom(){ crMode = "custom"; renderCollections(); }
+// the day a downpayment was collected: dpDate, else the booking-made day (bookedAt / timestamp id), else check-in
+function _crDpDay(b){
+    if(b.dpDate) return b.dpDate;
+    if(b.bookedAt){ const s = String(b.bookedAt).slice(0, 10); if(/^\d{4}-\d\d-\d\d$/.test(s)) return s; }
+    const idn = Number(b.id);
+    if(isFinite(idn) && idn >= 1e12){ const ms = idn >= 1e15 ? Math.floor(idn / 1000) : idn; const d = new Date(ms); if(!isNaN(d.getTime()) && d.getFullYear() >= 2020 && d.getFullYear() < 2100) return iso(d); }
+    return b.checkin || null;
+}
+function _crExtra(b){
+    const hol = b.holiday || (typeof bookingIsHoliday === "function" && bookingIsHoliday(b));
+    return (Number(b.swimpass) || 0) * (hol ? PRICING.swimHoliday : PRICING.swimRegular)
+         + (Number(b.towels) || 0) * PRICING.towel
+         + (Number(b.extend) || 0) * PRICING.extendPerHr;
+}
+function renderCollections(){
+    const { start, end } = _crRange();
+    const fromI = document.getElementById("crFrom"), toI = document.getElementById("crTo");
+    if(crMode !== "custom"){ if(fromI) fromI.value = start; if(toI) toI.value = end; }
+    document.querySelectorAll("#crSeg button").forEach(x => x.classList.toggle("active", x.dataset.c === crMode));
+    const lbl = document.getElementById("crRangeLbl");
+    if(lbl) lbl.textContent = "· " + (start === end ? fmt(start) : fmt(start) + " – " + fmt(end));
+    const hvSel = document.getElementById("crHaven");
+    if(hvSel){ const cur = hvSel.value; const uniq = [...new Set((typeof HAVENS !== "undefined" ? HAVENS : []).concat(typeof PR_ROOMS !== "undefined" ? PR_ROOMS : []))]; hvSel.innerHTML = '<option value="">All havens</option>' + uniq.map(h => `<option>${escHtml(h)}</option>`).join(""); hvSel.value = cur; }
+    const hf = (hvSel || {}).value || "";
+
+    const rows = [];
+    bookings.forEach(b => {
+        if(b.cancelled && b.dpRefunded) return;   // fully-refunded cancellation = nothing kept
+        if(hf && b.haven !== hf) return;
+        let sum = 0; const methods = new Set(), collectors = new Set(); let firstAt = null;
+        const dp = Number(b.downpayment) || 0;
+        if(dp > 0){ const d = _crDpDay(b); if(d && d >= start && d <= end){ sum += dp; if(b.method) methods.add(b.method); collectors.add(b.bookedBy || "Admin"); } }
+        (b.payments || []).forEach(p => {
+            const amt = Number(p.amount) || 0; if(!amt) return;
+            const day = p.at ? iso(new Date(p.at)) : null;
+            if(day && day >= start && day <= end){ sum += amt; if(p.mop) methods.add(p.mop); collectors.add(p.by || "—"); if(!firstAt || p.at < firstAt) firstAt = p.at; }
+        });
+        if(sum > 0) rows.push({ b, collected: sum, methods: [...methods].join(", ") || (b.method || "—"), collectors: [...collectors].join(", ") || "—", at: firstAt });
+    });
+    rows.sort((a, c) => (c.at || "").localeCompare(a.at || ""));
+
+    const body = document.getElementById("crBody");
+    if(body) body.innerHTML = rows.length ? rows.map(r => {
+        const b = r.b;
+        const timeTxt = r.at ? new Date(r.at).toLocaleString("en-PH", { month:"short", day:"numeric", hour:"numeric", minute:"2-digit" }) : "—";
+        return `<tr>
+            <td>${bookingCode(b)}</td>
+            <td>${escHtml(primaryName(b))}${b.fbName ? `<br><span class="muted" style="font-size:11px;">FB: ${escHtml(b.fbName)}</span>` : ""}</td>
+            <td>${escHtml(b.haven)}</td>
+            <td>${escHtml(r.methods)}</td>
+            <td class="num">${peso(Number(b.downpayment) || 0)}</td>
+            <td class="num">${peso(balanceOf(b))}</td>
+            <td class="num">${peso(Number(b.deposit) || 0)}</td>
+            <td class="num">${peso(_crExtra(b))}</td>
+            <td class="num"><strong>${peso(r.collected)}</strong></td>
+            <td>${escHtml(r.collectors)}</td>
+            <td>${timeTxt}</td>
+        </tr>`;
+    }).join("") : `<tr><td colspan="11" class="muted" style="text-align:center; padding:24px;">No collections in this period.</td></tr>`;
+
+    const total = Math.round(rows.reduce((s, r) => s + r.collected, 0));
+    document.getElementById("crTotal").textContent = peso(total);
+    const foot = document.getElementById("crFoot");
+    if(foot) foot.innerHTML = rows.length ? `<tr><td colspan="8" style="text-align:right;">Total Collected</td><td class="num">${peso(total)}</td><td colspan="2"></td></tr>` : "";
+}
+
 /* ---------- Violations & Damages ---------- */
 const VIOLATIONS_KEY = "shph_violations_v1";
 let _vdEditId = null, _vdBookingId = null;
@@ -11695,6 +11831,7 @@ const DASH_PAGES = [
     { key:"analytics", label:"Analytics" },
     { key:"calendar",  label:"Calendar/Bookings" },
     { key:"guestform", label:"Guest Form" },
+    { key:"collections", label:"Collection Reports" },
     { key:"havens",    label:"Havens" },
     { key:"booking",   label:"Rates &amp; Add-ons" },
     { key:"payments",  label:"Payments" },
