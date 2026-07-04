@@ -8008,7 +8008,7 @@ function renderCollections(){
             ? new Date(r.at).toLocaleString("en-PH", { month:"short", day:"numeric", hour:"numeric", minute:"2-digit" })
             : (r.day ? new Date(r.day + "T00:00:00").toLocaleDateString("en-PH", { month:"short", day:"numeric", year:"numeric" }) : "—");
         return `<tr>
-            <td><span onclick="crEditBooking(${b.id})" title="Open this booking on Calendar / Bookings" style="color:var(--hv-terra-d); font-weight:700; cursor:pointer; text-decoration:underline;">${bookingCode(b)}</span></td>
+            <td><a href="dashboard.html?edit=${b.id}" target="_blank" rel="noopener" title="Open this booking in a new tab" style="color:var(--hv-terra-d); font-weight:700; text-decoration:underline;">${bookingCode(b)}</a></td>
             <td>${escHtml(primaryName(b))}${b.fbName ? `<br><span class="muted" style="font-size:11px;">FB: ${escHtml(b.fbName)}</span>` : ""}</td>
             <td>${escHtml(b.haven)}</td>
             <td class="num"><strong>${peso(r.amount)}</strong></td>
@@ -12179,6 +12179,19 @@ try{
     if(localStorage.getItem("shph_open_add") === "1"){
         localStorage.removeItem("shph_open_add");
         setTimeout(function(){ if(typeof openModal === "function") openModal(); }, 60);
+    }
+}catch(e){}
+// deep link: dashboard.html?edit=<bookingId> (e.g. from Collection Reports, opened in a new tab)
+try{
+    const _editId = new URLSearchParams(location.search).get("edit");
+    if(_editId){
+        setTimeout(function(){
+            try{
+                const _b = (typeof bookings !== "undefined") && bookings.find(function(x){ return String(x.id) === String(_editId); });
+                if(_b){ if(typeof showPage === "function") showPage("calendar"); if(typeof openModal === "function") openModal(_b.id); }
+            }catch(e){}
+            try{ history.replaceState(null, "", location.pathname); }catch(e){}   // tidy the URL
+        }, 120);
     }
 }catch(e){}
 </script>
