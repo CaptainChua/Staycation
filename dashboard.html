@@ -2919,9 +2919,7 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
     <div style="overflow-x:auto;">
       <table>
         <thead><tr>
-          <th>Booking ID</th><th>Guest Name</th><th>Haven</th><th>Payment Type</th>
-          <th class="num">Downpayment</th><th class="num">Remaining Balance</th><th class="num">Security Deposit</th>
-          <th class="num">Extra Charges</th><th class="num">Total Collected</th><th>Collected By</th><th>Time Collected</th>
+          <th>Booking ID</th><th>Guest Name</th><th>Haven</th><th class="num">Amount</th><th>Type</th><th>Method</th><th>Collected By</th><th>Time Collected</th>
         </tr></thead>
         <tbody id="crBody"></tbody>
         <tfoot id="crFoot"></tfoot>
@@ -7984,45 +7982,47 @@ function renderCollections(){
     if(hvSel){ const cur = hvSel.value; const uniq = [...new Set((typeof HAVENS !== "undefined" ? HAVENS : []).concat(typeof PR_ROOMS !== "undefined" ? PR_ROOMS : []))]; hvSel.innerHTML = '<option value="">All havens</option>' + uniq.map(h => `<option>${escHtml(h)}</option>`).join(""); hvSel.value = cur; }
     const hf = (hvSel || {}).value || "";
 
+    // ONE ROW PER PAYMENT actually made in the period (downpayment + each balance/add-on collection).
+    // Nothing that wasn't collected in the range is listed.
     const rows = [];
     bookings.forEach(b => {
         if(b.cancelled && b.dpRefunded) return;   // fully-refunded cancellation = nothing kept
         if(hf && b.haven !== hf) return;
-        let sum = 0; const methods = new Set(), collectors = new Set(); let firstAt = null;
         const dp = Number(b.downpayment) || 0;
-        if(dp > 0){ const d = _crDpDay(b); if(d && d >= start && d <= end){ sum += dp; if(b.method) methods.add(b.method); collectors.add(b.bookedBy || "Admin"); } }
+        if(dp > 0){
+            const d = _crDpDay(b);
+            if(d && d >= start && d <= end) rows.push({ b, amount: dp, type: "Downpayment", method: b.method || "—", by: b.bookedBy || "Admin", at: null, day: d });
+        }
         (b.payments || []).forEach(p => {
             const amt = Number(p.amount) || 0; if(!amt) return;
             const day = p.at ? iso(new Date(p.at)) : null;
-            if(day && day >= start && day <= end){ sum += amt; if(p.mop) methods.add(p.mop); collectors.add(p.by || "—"); if(!firstAt || p.at < firstAt) firstAt = p.at; }
+            if(day && day >= start && day <= end) rows.push({ b, amount: amt, type: p.category || "Balance", method: p.mop || "—", by: p.by || "—", at: p.at, day });
         });
-        if(sum > 0) rows.push({ b, collected: sum, methods: [...methods].join(", ") || (b.method || "—"), collectors: [...collectors].join(", ") || "—", at: firstAt });
     });
-    rows.sort((a, c) => (c.at || "").localeCompare(a.at || ""));
+    rows.sort((a, c) => (c.at || (c.day + "T00:00")).localeCompare(a.at || (a.day + "T00:00")));
 
     const body = document.getElementById("crBody");
     if(body) body.innerHTML = rows.length ? rows.map(r => {
         const b = r.b;
-        const timeTxt = r.at ? new Date(r.at).toLocaleString("en-PH", { month:"short", day:"numeric", hour:"numeric", minute:"2-digit" }) : "—";
+        const timeTxt = r.at
+            ? new Date(r.at).toLocaleString("en-PH", { month:"short", day:"numeric", hour:"numeric", minute:"2-digit" })
+            : (r.day ? new Date(r.day + "T00:00:00").toLocaleDateString("en-PH", { month:"short", day:"numeric", year:"numeric" }) : "—");
         return `<tr>
             <td><span onclick="crEditBooking(${b.id})" title="Open this booking on Calendar / Bookings" style="color:var(--hv-terra-d); font-weight:700; cursor:pointer; text-decoration:underline;">${bookingCode(b)}</span></td>
             <td>${escHtml(primaryName(b))}${b.fbName ? `<br><span class="muted" style="font-size:11px;">FB: ${escHtml(b.fbName)}</span>` : ""}</td>
             <td>${escHtml(b.haven)}</td>
-            <td>${escHtml(r.methods)}</td>
-            <td class="num">${peso(Number(b.downpayment) || 0)}</td>
-            <td class="num">${peso(balanceOf(b))}</td>
-            <td class="num">${peso(Number(b.deposit) || 0)}</td>
-            <td class="num">${peso(_crExtra(b))}</td>
-            <td class="num"><strong>${peso(r.collected)}</strong></td>
-            <td>${escHtml(r.collectors)}</td>
+            <td class="num"><strong>${peso(r.amount)}</strong></td>
+            <td>${escHtml(r.type)}</td>
+            <td>${escHtml(r.method)}</td>
+            <td>${escHtml(r.by)}</td>
             <td>${timeTxt}</td>
         </tr>`;
-    }).join("") : `<tr><td colspan="11" class="muted" style="text-align:center; padding:24px;">No collections in this period.</td></tr>`;
+    }).join("") : `<tr><td colspan="8" class="muted" style="text-align:center; padding:24px;">No payments collected in this period.</td></tr>`;
 
-    const total = Math.round(rows.reduce((s, r) => s + r.collected, 0));
+    const total = Math.round(rows.reduce((s, r) => s + r.amount, 0));
     document.getElementById("crTotal").textContent = peso(total);
     const foot = document.getElementById("crFoot");
-    if(foot) foot.innerHTML = rows.length ? `<tr><td colspan="8" style="text-align:right;">Total Collected</td><td class="num">${peso(total)}</td><td colspan="2"></td></tr>` : "";
+    if(foot) foot.innerHTML = rows.length ? `<tr><td colspan="3" style="text-align:right;">Total Collected · ${rows.length} payment${rows.length === 1 ? "" : "s"}</td><td class="num">${peso(total)}</td><td colspan="4"></td></tr>` : "";
 }
 
 /* ---------- Violations & Damages ---------- */
