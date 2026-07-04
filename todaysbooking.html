@@ -1128,17 +1128,30 @@
     const MOPS = ["Cash", "GCash", "BDO", "Maya", "Maribank", "Others"];
     const byMop = {}; MOPS.forEach(m => byMop[m] = 0);
     const bucket = (mop, amt) => { byMop[MOPS.includes(mop) ? mop : "Others"] += amt; };
-    // Attribution: the DOWNPAYMENT counts on its collected date (dpDate; defaults to the check-in day),
-    // the ROOM/BALANCE counts on the guest's CHECK-IN day, and ADD-ONS count on the day they were
-    // PURCHASED. So a guest who checked in yesterday and paid a balance today is NOT counted here (that
-    // belongs to their check-in day), but an add-on they bought today IS. Cancelled bookings never count.
+    // A downpayment is collected when the booking is MADE (online / walk-in), so it counts on that day —
+    // its dpDate if set, else the booking-created day (bookedAt, or derived from the timestamp id), else
+    // check-in. So an online booking's downpayment (paid on a past day) is NOT in today's collected.
+    const dpDayOf = b => {
+      if(b.dpDate) return b.dpDate;
+      if(b.bookedAt){ const s = String(b.bookedAt).slice(0, 10); if(/^\d{4}-\d\d-\d\d$/.test(s)) return s; }
+      const idn = Number(b.id);
+      if(isFinite(idn) && idn >= 1e12){
+        const ms = idn >= 1e15 ? Math.floor(idn / 1000) : idn;
+        const d = new Date(ms);
+        if(!isNaN(d.getTime()) && d.getFullYear() >= 2020 && d.getFullYear() < 2100) return iso(d);
+      }
+      return b.checkin || null;
+    };
+    // Attribution: the DOWNPAYMENT counts on its collected day (above); the ROOM/BALANCE counts on the
+    // guest's CHECK-IN day; ADD-ONS count on the day they were PURCHASED. So a guest who checked in
+    // yesterday and paid a balance today is NOT counted here, but an add-on they bought today IS.
     let collected = 0;
     bookings.forEach(b => {
       if(b.cancelled) return;
       const checkinToday = !!(b.checkin && b.checkin >= start && b.checkin < end);
       const dp = Number(b.downpayment) || 0;
       if(dp > 0){
-        const dpDay = b.dpDate || b.checkin;
+        const dpDay = dpDayOf(b);
         if(dpDay && dpDay >= start && dpDay < end){ collected += dp; bucket(b.method, dp); }
       }
       (b.payments || []).forEach(p => {
