@@ -1249,6 +1249,17 @@ tr.row-cancelled td:nth-child(2){ text-decoration:line-through; }
   document.addEventListener('click', function(e){
     if(window.innerWidth<=760 && e.target.closest && e.target.closest('.sidebar .nav-item')) closeSidebar();
   });
+  // clicking a sidebar sub-category reloads the page so it shows the freshest data (incl. edits from other devices)
+  document.addEventListener('click', function(e){
+    var item = e.target.closest && e.target.closest('.sidebar .nav-item[data-page]');
+    if(!item) return;
+    var oc = item.getAttribute('onclick') || '';
+    if(oc.indexOf('showPage') === -1) return;               // skip items that navigate elsewhere (e.g. Today's Booking)
+    var page = item.getAttribute('data-page');
+    if(!page || !document.getElementById('page-' + page)) return;
+    try{ localStorage.setItem('shph_dashboard_page', page); }catch(err){}
+    location.reload();
+  });
   // ----- collapsible sidebar sub-categories (Main / Front Desk / Partners / …) -----
   function navCollapsedSet(){
     try { return JSON.parse(localStorage.getItem('shph_nav_collapsed')) || []; } catch(e){ return []; }
