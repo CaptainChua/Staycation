@@ -279,8 +279,8 @@ function renderBooking(){
                     <label>Mobile number
                         <input type="tel" id="mobile" required placeholder="09XX XXX XXXX">
                     </label>
-                    <label>Email (optional)
-                        <input type="email" id="email" placeholder="you@email.com">
+                    <label>Email <span style="color:#c0392b">*</span> <span class="muted" style="font-weight:400">— we'll send your confirmation here</span>
+                        <input type="email" id="email" required placeholder="you@email.com">
                     </label>
 
                     <div class="id-section">
@@ -498,6 +498,12 @@ function onConfirm(e){
     const idOptOut = document.getElementById("idOptOut").checked;
     if(idList.length === 0 && !idOptOut){
         uhOh("Please upload at least one valid ID, or tick “I will send it on your Facebook page instead.”");
+        return;
+    }
+
+    const emailVal = document.getElementById("email").value.trim();
+    if(!emailVal || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal)){
+        uhOh("Please enter a valid email address — we'll email your booking confirmation there.");
         return;
     }
 

@@ -352,6 +352,64 @@ apiRouter.post("/booking/:id/:action", async (req, res) => {
   res.json({ ok: true });
 });
 
+// ---- Email the guest a booking confirmation (Gmail SMTP via nodemailer) --------------
+// The client sends structured booking fields (never raw HTML), so this can't be abused to
+// send arbitrary content. Requires GMAIL_USER + GMAIL_APP_PASSWORD env vars; OWNER_EMAIL
+// (optional) gets a BCC copy. Returns { ok:false, error:"not_configured" } until set up,
+// so the booking still succeeds even before email is wired.
+const _esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+function _confirmationHtml(bk) {
+  const row = (k, v) => `<tr><td style="padding:7px 0;color:#6a6459;font-size:14px">${_esc(k)}</td><td style="padding:7px 0;text-align:right;font-weight:600;color:#1c1a17;font-size:14px">${_esc(v)}</td></tr>`;
+  return `<div style="font-family:Arial,Helvetica,sans-serif;background:#faf6ef;padding:24px">
+    <div style="max-width:520px;margin:0 auto;background:#fff;border:1px solid #ece5d7;border-radius:16px;overflow:hidden">
+      <div style="background:#1c1a17;color:#f0d488;padding:20px 24px;font-size:20px;font-weight:700">Staycation Haven PH</div>
+      <div style="padding:24px">
+        <h2 style="margin:0 0 4px;color:#1c1a17;font-size:22px">Thank you for booking with us! 🏠</h2>
+        <p style="color:#6a6459;font-size:14px;margin:0 0 4px">We’ve received your reservation and are reviewing your payment.</p>
+        <p style="color:#a9842b;font-weight:700;font-size:15px;margin:0 0 16px">Booking #${_esc(bk.code || "")}</p>
+        <table style="width:100%;border-collapse:collapse">
+          ${row("Haven", bk.haven)}
+          ${row("Check-in", bk.checkin)}
+          ${row("Check-out", bk.checkout)}
+          ${row("Stay", bk.stay)}
+          ${bk.guests ? row("Guests", bk.guests) : ""}
+          ${bk.contact ? row("Contact", bk.contact) : ""}
+          <tr><td colspan="2" style="border-top:1px solid #ece5d7;padding-top:6px"></td></tr>
+          ${row("Total", bk.total)}
+          ${row("Downpayment", bk.downpayment)}
+          ${row("Balance on arrival", bk.balance)}
+        </table>
+        <p style="color:#6a6459;font-size:13.5px;margin:18px 0 0">Please message us with your booking number <b>${_esc(bk.code || "")}</b> to confirm your booking. We’ll message a confirmation once your payment is verified. See you at your staycation! ❤️</p>
+        <p style="margin:14px 0 0"><a href="https://www.facebook.com/staycationhavenph" style="color:#a9842b">facebook.com/staycationhavenph</a></p>
+      </div>
+      <div style="background:#f2ece0;color:#9a9384;padding:14px 24px;font-size:12px;text-align:center">© Staycation Haven PH · Mplace Tower D, Panay Ave, Quezon City</div>
+    </div>
+  </div>`;
+}
+apiRouter.post("/send-confirmation", async (req, res) => {
+  try {
+    const { to, booking } = req.body || {};
+    if (!to || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(to))) return res.status(400).json({ ok: false, error: "bad_email" });
+    if (!booking || typeof booking !== "object") return res.status(400).json({ ok: false, error: "no_booking" });
+    const user = process.env.GMAIL_USER, pass = process.env.GMAIL_APP_PASSWORD;
+    if (!user || !pass) return res.status(200).json({ ok: false, error: "not_configured" });
+    let nodemailer;
+    try { nodemailer = require("nodemailer"); } catch (e) { return res.status(200).json({ ok: false, error: "not_installed" }); }
+    const transporter = nodemailer.createTransport({ service: "gmail", auth: { user, pass } });
+    await transporter.sendMail({
+      from: `"Staycation Haven PH" <${user}>`,
+      to: String(to),
+      bcc: process.env.OWNER_EMAIL || undefined,
+      subject: `Your Staycation Haven PH booking — #${String(booking.code || "").slice(0, 10)}`,
+      html: _confirmationHtml(booking)
+    });
+    res.json({ ok: true });
+  } catch (e) {
+    console.error("[api] send-confirmation failed:", e.message);
+    res.status(200).json({ ok: false, error: "send_failed" });
+  }
+});
+
 app.use("/api", apiRouter);
 
 /* ---------------- Pages (server-rendered EJS) ---------------- */
