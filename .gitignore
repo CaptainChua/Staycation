@@ -19,3 +19,6 @@ Thumbs.db
 
 # local tool settings
 .claude/settings.local.json
+
+# Firebase service account secret — never commit
+serviceAccountKey.json

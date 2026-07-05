@@ -1297,10 +1297,10 @@ tr.row-cancelled td:nth-child(2){ text-decoration:line-through; }
     <div class="nav-item" data-page="board" onclick="showPage('board')"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 13h8M8 16h5"/></svg></span> Board</div>
 
     <div class="nav-group">Main</div>
-    <div class="nav-item active" data-page="today" onclick="window.location.href='/todaysbooking.html'"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/><path d="m9 15 2 2 4-4"/></svg></span> Today's Booking</div>
+    <div class="nav-item active" data-page="today" onclick="window.location.href='/todaysbooking.html'"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/><path d="m9 15 2 2 4-4"/></svg></span> Today's Booking <span class="nav-badge" id="todayBadge"></span></div>
     <div class="nav-item" data-page="calendar" onclick="showPage('calendar')"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg></span> Calendar/Bookings</div>
     <div class="nav-item" data-page="guestform" onclick="showPage('guestform')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M5 3h11l3 3v15H5z"/><path d="M9 8h6M9 12h6M9 16h4"/><circle cx="12" cy="2.5" r="0"/></svg></span> Guest Form</div>
-    <div class="nav-item" data-page="collections" onclick="showPage('collections')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M3 4h18v4H3zM3 10h18v10H3z"/><path d="M7 14h4M7 17h7"/></svg></span> Collection Reports</div>
+    <div class="nav-item" data-page="collections" onclick="showPage('collections')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M3 4h18v4H3zM3 10h18v10H3z"/><path d="M7 14h4M7 17h7"/></svg></span> Collection Reports <span class="nav-badge" id="collectionsBadge"></span></div>
     <div class="nav-item" data-page="website" onclick="showPage('website')"><span class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.5 3.8 5.7 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-5.7-3.8-9S9.5 5.5 12 3Z"/></svg></span> Website</div>
 
     <div class="nav-group">Front Desk</div>
@@ -5365,6 +5365,30 @@ function updateApprovalBadge(){
     badge.textContent = n ? String(n) : "";
 }
 
+// Today's Booking badge = guests ARRIVING today (check-in today), excluding cancelled/deleted
+function updateTodayBadge(){
+    const badge = document.getElementById("todayBadge");
+    if(!badge) return;
+    const t = iso(today());
+    const n = bookings.filter(b => b && !b.cancelled && !b.deleted && b.checkin === t).length;
+    badge.textContent = n ? String(n) : "";
+}
+// Collection Reports badge = number of payments collected TODAY (downpayments + balance/add-on payments)
+function updateCollectionsBadge(){
+    const badge = document.getElementById("collectionsBadge");
+    if(!badge) return;
+    const t = iso(today());
+    let n = 0;
+    bookings.forEach(b => {
+        if(!b || b.deleted) return;
+        if(b.cancelled && b.dpRefunded) return;
+        const dp = Number(b.downpayment) || 0;
+        if(dp > 0){ const d = (typeof _crDpDay === "function") ? _crDpDay(b) : null; if(d === t) n++; }
+        (b.payments || []).forEach(p => { const amt = Number(p.amount) || 0; if(!amt) return; const day = p.at ? iso(new Date(p.at)) : null; if(day === t) n++; });
+    });
+    badge.textContent = n ? String(n) : "";
+}
+
 function apViewProof(src){
     document.getElementById("imgLightboxImg").src = src;
     document.getElementById("imgLightbox").classList.add("show");
@@ -8687,6 +8711,8 @@ function renderAll(){
     if(typeof updateApprovalBadge === "function") updateApprovalBadge();
     if(typeof updatePaymentApprovalBadge === "function") updatePaymentApprovalBadge();
     if(typeof updateDepositBadge === "function") updateDepositBadge();
+    if(typeof updateTodayBadge === "function") updateTodayBadge();
+    if(typeof updateCollectionsBadge === "function") updateCollectionsBadge();
 }
 
 fillHavenSelectors();
