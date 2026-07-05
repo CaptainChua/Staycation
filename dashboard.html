@@ -2934,9 +2934,23 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
         <button data-c="yesterday" onclick="crQuick('yesterday')">Yesterday</button>
         <button data-c="month" onclick="crQuick('month')">This month</button>
       </div>
-      <input type="date" id="crFrom" onchange="crCustom()">
-      <span class="muted">to</span>
-      <input type="date" id="crTo" onchange="crCustom()">
+      <div class="dp-wrap cr-dp-wrap">
+        <span class="date-pill" id="crRangePill" onclick="openCrPicker(event)" title="Pick a date range">Pick dates</span>
+        <div class="dp-popup" id="crDpPopup" onclick="event.stopPropagation()">
+          <div class="dp-head">
+            <button type="button" onclick="crPickerNav(-1)">‹</button>
+            <span id="crDpTitle"></span>
+            <button type="button" onclick="crPickerNav(1)">›</button>
+          </div>
+          <div class="dp-grid" id="crDpGrid"></div>
+          <div class="dp-hint" id="crDpHint"></div>
+          <div class="dp-foot">
+            <span onclick="crDpClear()">Clear</span>
+            <span onclick="crDpToday()">Today</span>
+          </div>
+        </div>
+      </div>
+      <input type="hidden" id="crFrom"><input type="hidden" id="crTo">
       <select class="cr-filter" id="crHaven" onchange="renderCollections()"><option value="">All havens</option></select>
     </div>
     <div class="cr-total"><div class="lbl">Total Collected <span id="crRangeLbl" style="text-transform:none; letter-spacing:0; font-weight:600;"></span></div><div class="num" id="crTotal">₱0</div></div>
@@ -5298,30 +5312,23 @@ function updateTodayBadge(){
     const n = bookings.filter(b => b && !b.cancelled && !b.deleted && b.checkin === t).length;
     badge.textContent = n ? String(n) : "";
 }
-// Collection Reports badge = payments still to VERIFY. Recent collections (last 7 days) — a
-// downpayment or a balance/add-on payment — that haven't been marked Verified or Not Verified yet.
-// A new booking's downpayment (manual OR website) lands here the moment it's added, so this is the
-// running "how many payments do I still need to check" count. Marking a row in Collection Reports
-// (Verified / Not Verified) clears it from the count. Windowed to 7 days so old history never floods it.
+// Collection Reports badge = every payment still to VERIFY. A payment with NO status yet (the "--"
+// option, i.e. not marked Verified or Not Verified) counts as not-yet-verified. Counts ALL of them —
+// each unreviewed downpayment + each unreviewed balance/add-on collection — across every booking, so
+// the badge is the full "payments I still need to check" to-do. Marking a row (Verified / Not
+// Verified) in Collection Reports clears it from the count immediately.
 function updateCollectionsBadge(){
     const badge = document.getElementById("collectionsBadge");
     if(!badge) return;
-    const endIso = iso(today());
-    const startIso = iso(addDays(today(), -6));   // today + previous 6 days = last 7 days
     let n = 0;
     bookings.forEach(b => {
         if(!b || b.deleted) return;
         if(b.cancelled && b.dpRefunded) return;
         const dp = Number(b.downpayment) || 0;
-        if(dp > 0 && !b.dpVerified){   // downpayment not yet reviewed
-            const d = (typeof _crDpDay === "function") ? _crDpDay(b) : null;
-            if(d && d >= startIso && d <= endIso) n++;
-        }
+        if(dp > 0 && !b.dpVerified) n++;             // downpayment with no status yet
         (b.payments || []).forEach(p => {
             const amt = Number(p.amount) || 0; if(!amt) return;
-            if(p.verified) return;     // already Verified / Not Verified
-            const day = p.at ? iso(new Date(p.at)) : null;
-            if(day && day >= startIso && day <= endIso) n++;
+            if(!p.verified) n++;                     // balance/add-on payment with no status yet
         });
     });
     badge.textContent = n ? String(n) : "";
@@ -8078,6 +8085,96 @@ function _crRange(){
 }
 function crQuick(m){ crMode = m; try{ localStorage.setItem("shph_cr_mode", m); }catch(e){} renderCollections(); }
 function crCustom(){ crMode = "custom"; try{ localStorage.setItem("shph_cr_mode", "custom"); localStorage.setItem("shph_cr_from", (document.getElementById("crFrom")||{}).value||""); localStorage.setItem("shph_cr_to", (document.getElementById("crTo")||{}).value||""); }catch(e){} renderCollections(); }
+
+/* ---------- Collection Reports: clickable date-range calendar (matches the other pickers) ---------- */
+let crDpMonth = null, crDpPending = null, crDpHover = null;
+function crUpdateRangeLabel(){
+    const lbl = document.getElementById("crRangePill");
+    if(!lbl) return;
+    const s = (document.getElementById("crFrom") || {}).value, e = (document.getElementById("crTo") || {}).value;
+    const on = (crMode === "custom" && s);
+    lbl.textContent = on ? (s === (e || s) ? fmt(s) : fmt(s) + " – " + fmt(e || s)) : "Pick dates";
+    lbl.classList.toggle("active", !!on);
+}
+function openCrPicker(e){
+    if(e) e.stopPropagation();
+    const pop = document.getElementById("crDpPopup");
+    if(!pop) return;
+    if(pop.classList.contains("show")){ closeCrPicker(); return; }
+    crDpPending = null; crDpHover = null;
+    const cur = (document.getElementById("crFrom") || {}).value;
+    const base = cur ? new Date(cur + "T00:00:00") : today();
+    crDpMonth = new Date(base.getFullYear(), base.getMonth(), 1);
+    crRenderPicker();
+    pop.classList.add("show");
+}
+function closeCrPicker(){ crDpPending = null; crDpHover = null; const p = document.getElementById("crDpPopup"); if(p) p.classList.remove("show"); }
+function crPickerNav(dir){ crDpMonth = new Date(crDpMonth.getFullYear(), crDpMonth.getMonth() + dir, 1); crRenderPicker(); }
+function crHighlightRange(){
+    if(crDpPending){
+        const end = (crDpHover && crDpHover >= crDpPending) ? crDpHover : crDpPending;
+        return { start: crDpPending, end };
+    }
+    const s = (document.getElementById("crFrom") || {}).value, e = (document.getElementById("crTo") || {}).value;
+    if(crMode === "custom" && s) return { start: s, end: e || s };
+    return { start: null, end: null };
+}
+function crRenderPicker(){
+    const y = crDpMonth.getFullYear(), m = crDpMonth.getMonth();
+    document.getElementById("crDpTitle").textContent = MONTHS[m] + " " + y;
+    const startDay = new Date(y, m, 1).getDay();
+    const daysInMonth = new Date(y, m + 1, 0).getDate();
+    const todayIso = iso(today());
+    let html = "";
+    ["Su","Mo","Tu","We","Th","Fr","Sa"].forEach(d => html += `<div class="dp-wd">${d}</div>`);
+    for(let i = 0; i < startDay; i++) html += `<div class="dp-day empty"></div>`;
+    for(let d = 1; d <= daysInMonth; d++){
+        const cellIso = iso(new Date(y, m, d));
+        let cls = "dp-day"; if(cellIso === todayIso) cls += " today";
+        html += `<div class="${cls}" data-iso="${cellIso}" onclick="crPickDay('${cellIso}')" onmouseover="crHoverDay('${cellIso}')"><span class="n">${d}</span></div>`;
+    }
+    document.getElementById("crDpGrid").innerHTML = html;
+    crUpdateHighlight();
+}
+function crUpdateHighlight(){
+    const { start, end } = crHighlightRange();
+    document.querySelectorAll("#crDpGrid .dp-day").forEach(cell => {
+        cell.classList.remove("sel","range-start","range-end","in-range");
+        const ci = cell.dataset.iso; if(!ci || !start) return;
+        if(ci === start && ci === end) cell.classList.add("sel");
+        else if(ci === start) cell.classList.add("sel","range-start");
+        else if(ci === end) cell.classList.add("sel","range-end");
+        else if(ci > start && ci < end) cell.classList.add("in-range");
+    });
+    const hint = document.getElementById("crDpHint");
+    if(hint) hint.textContent = crDpPending ? "Now click an end date — or the same day for a single day" : "Click a start date, then an end date";
+}
+function crPickDay(cellIso){
+    if(!crDpPending){ crDpPending = cellIso; crDpHover = cellIso; crUpdateHighlight(); return; }
+    if(cellIso < crDpPending){ crDpPending = cellIso; crUpdateHighlight(); return; }
+    crApplyRange(crDpPending, cellIso);
+}
+function crHoverDay(cellIso){ if(!crDpPending) return; crDpHover = cellIso; crUpdateHighlight(); }
+function crApplyRange(startIso, endIso){
+    const f = document.getElementById("crFrom"), t = document.getElementById("crTo");
+    if(f) f.value = startIso; if(t) t.value = endIso;
+    closeCrPicker();
+    crCustom();               // crMode='custom', persists from/to, re-renders
+    crUpdateRangeLabel();
+}
+function crDpToday(){ crApplyRange(iso(today()), iso(today())); }
+function crDpClear(){
+    const f = document.getElementById("crFrom"), t = document.getElementById("crTo");
+    if(f) f.value = ""; if(t) t.value = "";
+    closeCrPicker();
+    crQuick("today");
+    crUpdateRangeLabel();
+}
+// close the Collection Reports picker on an outside click
+document.addEventListener("click", e => {
+    const pop = document.getElementById("crDpPopup");
+    if(pop && pop.classList.contains("show") && !e.target.closest(".cr-dp-wrap")) closeCrPicker();
+});
 // open a booking's Edit modal on the Calendar / Bookings page (from a Booking ID link)
 function crEditBooking(id){
     if(typeof showPage === "function") showPage("calendar");
@@ -8107,6 +8204,7 @@ function renderCollections(){
     const fromI = document.getElementById("crFrom"), toI = document.getElementById("crTo");
     if(crMode !== "custom"){ if(fromI) fromI.value = start; if(toI) toI.value = end; }
     document.querySelectorAll("#crSeg button").forEach(x => x.classList.toggle("active", x.dataset.c === crMode));
+    if(typeof crUpdateRangeLabel === "function") crUpdateRangeLabel();   // keep the calendar pill in sync
     const lbl = document.getElementById("crRangeLbl");
     if(lbl) lbl.textContent = "· " + (start === end ? fmt(start) : fmt(start) + " – " + fmt(end));
     const hvSel = document.getElementById("crHaven");
@@ -8169,6 +8267,7 @@ function crSetStatus(sel, bookingId, kind, idx){
     if(!b) return;
     if(kind === "dp"){ b.dpVerified = val; if(typeof bkSave === "function") bkSave(b, { dpVerified: val }); }
     else if(b.payments && b.payments[idx]){ b.payments[idx].verified = val; if(typeof bkPaymentEdit === "function") bkPaymentEdit(b, idx); }
+    if(typeof updateCollectionsBadge === "function") updateCollectionsBadge();   // reflect the new to-verify count right away
 }
 
 /* ---------- Violations & Damages ---------- */
