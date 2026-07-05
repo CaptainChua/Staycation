@@ -67,9 +67,18 @@ apiRouter.post("/import", async (req, res) => {
 apiRouter.get("/kv", (req, res) => res.json(store.all()));
 
 // read one key
-apiRouter.get("/kv/:key", (req, res) => {
-  if (!store.isShared(req.params.key)) return res.status(404).json({ error: "unknown key" });
-  res.json(store.get(req.params.key));
+apiRouter.get("/kv/:key", async (req, res) => {
+  const key = req.params.key;
+  if (!store.isShared(key)) return res.status(404).json({ error: "unknown key" });
+  // For id-keyed list stores (bookings, etc.) read the LIVE Firestore doc, not this
+  // serverless instance's in-memory cache — a warm instance can hold a stale copy that
+  // is missing a record saved via another instance (e.g. a website booking), which is
+  // exactly how a real booking "doesn't show up" on the dashboard. Fall back to cache.
+  if (MERGE_LIST_KEYS.has(key)) {
+    try { return res.json(await store.readFreshList(key)); }
+    catch (e) { console.warn("[api] fresh read failed for", key, "—", e.message); }
+  }
+  res.json(store.get(key));
 });
 
 // Id-keyed list stores that are merged per-item on save (multi-user safe + never erased).
@@ -426,8 +435,21 @@ const PAGES = [
 ];
 
 function renderPage(name) {
-  return (req, res) => {
-    res.render(name, { seed: store.all(), page: name }, (err, html) => {
+  return async (req, res) => {
+    const seed = store.all();
+    // The bookings a page renders with (dashboard list, calendar, website
+    // availability) must reflect the TRUE current list — not this serverless
+    // instance's possibly-stale in-memory cache. A warm instance can be missing a
+    // booking saved via another instance (e.g. a website booking), so it would
+    // silently vanish from the dashboard or a taken slot would look free. Read the
+    // live Firestore list for the seed; fall back to the cache if that read fails.
+    try {
+      const freshBookings = await store.readFreshList("shph_bookings_v3");
+      if (Array.isArray(freshBookings)) seed.shph_bookings_v3 = freshBookings;
+    } catch (e) {
+      console.warn("[render] fresh bookings read failed for", name, "—", e.message);
+    }
+    res.render(name, { seed, page: name }, (err, html) => {
       if (err) {
         console.error("Render error for", name, "—", err.message);
         return res.status(500).send("Page render error: " + err.message);
