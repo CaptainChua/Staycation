@@ -391,8 +391,9 @@ apiRouter.post("/send-confirmation", async (req, res) => {
     const { to, booking } = req.body || {};
     if (!to || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(to))) return res.status(400).json({ ok: false, error: "bad_email" });
     if (!booking || typeof booking !== "object") return res.status(400).json({ ok: false, error: "no_booking" });
-    const user = process.env.GMAIL_USER, pass = process.env.GMAIL_APP_PASSWORD;
-    if (!user || !pass) return res.status(200).json({ ok: false, error: "not_configured" });
+    const user = process.env.GMAIL_USER || "staycationhavenph@gmail.com";
+    const pass = process.env.GMAIL_APP_PASSWORD || process.env.EMAIL_PASSWORD;   // reuse existing EMAIL_PASSWORD if set
+    if (!pass) return res.status(200).json({ ok: false, error: "not_configured" });
     let nodemailer;
     try { nodemailer = require("nodemailer"); } catch (e) { return res.status(200).json({ ok: false, error: "not_installed" }); }
     const transporter = nodemailer.createTransport({ service: "gmail", auth: { user, pass } });
