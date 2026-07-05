@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=Cormorant+Garamond:wght@600;700&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
 </head>
 <body>
 
@@ -95,15 +95,18 @@
      ============================================================ -->
 <style>
   :root{
-    --sh-bg:#f4eee2; --sh-card:#ffffff; --sh-ink:#1b1a17; --sh-muted:#6f6a60;
-    --sh-gold:#b1832f; --sh-gold-2:#c99a3f; --sh-line:#e6ddcb; --sh-footer:#efe7d6;
+    --sh-bg:#faf6ef; --sh-card:#ffffff; --sh-ink:#1b1a17; --sh-muted:#6f6a60;
+    --sh-gold:#b1832f; --sh-gold-2:#c99a3f; --sh-line:#ece4d5; --sh-footer:#f2ece0;
   }
+  /* bold high-contrast serif for headings + brand, to match the design */
+  .sh-brand, .sh-badge, .sh-hero h1, #results h2, .sh-sec-head h2, .sh-card-head h3, .sh-promo h2{ font-family:'Playfair Display', Georgia, 'Times New Roman', serif; }
+  .sh-hero h1, .sh-promo h2, .sh-sec-head h2{ font-weight:800; }
   *, *::before, *::after{ box-sizing:border-box; }
   body{ background:var(--sh-bg); color:var(--sh-ink); font-family:'Jost',system-ui,sans-serif; margin:0; }
   .sh-wrap{ max-width:1120px; margin:0 auto; padding-left:24px; padding-right:24px; }
 
   /* nav — overrides the bare header{} rule in style.css (padding/white bg/shadow) */
-  .sh-nav{ position:sticky; top:0; z-index:60; display:block; padding:0; box-shadow:none; background:rgba(244,238,226,.92); backdrop-filter:blur(8px); border-bottom:1px solid var(--sh-line); }
+  .sh-nav{ position:sticky; top:0; z-index:60; display:block; padding:0; box-shadow:none; background:rgba(250,246,239,.9); backdrop-filter:blur(8px); border-bottom:1px solid var(--sh-line); }
   .sh-nav-in{ max-width:1120px; margin:0 auto; padding:15px 24px; display:flex; align-items:center; justify-content:space-between; }
   .sh-brand{ display:flex; align-items:center; gap:10px; text-decoration:none; color:var(--sh-ink); font-family:'Cormorant Garamond',serif; font-weight:700; font-size:22px; letter-spacing:.01em; }
   .sh-badge{ width:34px; height:34px; border-radius:9px; background:linear-gradient(135deg,#c49a45,#9c7327); color:#fff; display:grid; place-items:center; font-family:'Cormorant Garamond',serif; font-weight:700; font-size:18px; box-shadow:0 3px 10px rgba(156,115,39,.35); }
@@ -118,16 +121,16 @@
   .sh-hero h1{ font-family:'Cormorant Garamond',serif; font-weight:700; font-size:clamp(40px,5.4vw,62px); line-height:1.03; letter-spacing:-.01em; margin:0 0 18px; }
   .sh-lead{ color:var(--sh-muted); font-size:16px; line-height:1.6; max-width:440px; margin:0 0 26px; }
 
-  /* search card (reuses the working #checkinValue/#searchHours/guest hooks) */
+  /* search card (native date inputs + working #searchHours / guest hooks) */
   .sh-search{ background:#fff; border-radius:20px; box-shadow:0 18px 40px rgba(60,45,20,.10); padding:8px; max-width:470px; position:relative; }
   .sh-search-grid{ display:grid; grid-template-columns:1fr 1fr; }
   .sh-search .search-item{ padding:13px 16px; text-align:left; position:relative; }
   .sh-search .search-item:nth-child(odd){ border-right:1px solid var(--sh-line); }
   .sh-search .search-item:nth-child(1), .sh-search .search-item:nth-child(2){ border-bottom:1px solid var(--sh-line); }
   .sh-search .label{ display:block; font-size:10px; letter-spacing:.14em; color:#9a9384; text-transform:uppercase; margin-bottom:6px; font-weight:600; }
-  .sh-search .value, .sh-search .date-display{ font-size:15px; color:var(--sh-ink); font-weight:400; }
-  .sh-search .date-display{ cursor:pointer; display:inline-block; }
-  .sh-search .date-display.empty{ color:#b4ac9c; }
+  .sh-search .value{ font-size:15px; color:var(--sh-ink); font-weight:400; }
+  .sh-search .sh-date{ font-family:inherit; font-size:15px; color:var(--sh-ink); border:none; background:none; padding:0; margin:0; width:100%; cursor:pointer; outline:none; }
+  .sh-search .sh-date::-webkit-calendar-picker-indicator{ opacity:.55; cursor:pointer; }
   .sh-search #searchHours{ border:none; background:none; padding:0; margin:0; font-family:inherit; font-size:15px; color:var(--sh-ink); width:100%; cursor:pointer; outline:none; }
   .sh-search .guest-trigger{ cursor:pointer; }
   .sh-search .guest-trigger .value{ display:block; }
@@ -158,7 +161,7 @@
   .sh-cards{ display:grid; grid-template-columns:repeat(3,1fr); gap:22px; }
   .sh-card{ background:#fff; border-radius:18px; overflow:hidden; box-shadow:0 12px 26px rgba(60,45,20,.08); display:flex; flex-direction:column; }
   .sh-card-media{ display:block; }
-  .sh-card-media img{ width:100%; aspect-ratio:16/11; object-fit:cover; display:block; }
+  .sh-card-media img{ width:100%; aspect-ratio:16/10; object-fit:cover; display:block; }
   .sh-card-body{ padding:16px 16px 18px; display:flex; flex-direction:column; gap:8px; flex:1; }
   .sh-card-head{ display:flex; align-items:baseline; justify-content:space-between; gap:10px; }
   .sh-card-head h3{ font-family:'Cormorant Garamond',serif; font-weight:700; font-size:21px; margin:0; }
@@ -174,8 +177,8 @@
   .sh-promo-in{ background:#161513; border-radius:20px; padding:40px 44px; display:flex; align-items:center; justify-content:space-between; gap:24px; flex-wrap:wrap; }
   .sh-promo-eyebrow{ color:var(--sh-gold-2); font-size:12px; letter-spacing:.24em; text-transform:uppercase; margin-bottom:12px; }
   .sh-promo h2{ font-family:'Cormorant Garamond',serif; font-weight:700; color:#fff; font-size:clamp(24px,3vw,32px); line-height:1.18; margin:0; max-width:560px; }
-  .sh-promo-btn{ background:var(--sh-gold-2); color:#20180a; text-decoration:none; padding:13px 22px; border-radius:11px; font-weight:600; font-size:14px; white-space:nowrap; }
-  .sh-promo-btn:hover{ background:#d9a943; }
+  .sh-promo-btn{ background:linear-gradient(180deg,#dcb052,#c2932e); color:#241a08; text-decoration:none; padding:14px 24px; border-radius:11px; font-weight:600; font-size:14px; white-space:nowrap; box-shadow:0 6px 16px rgba(194,147,46,.35); }
+  .sh-promo-btn:hover{ background:linear-gradient(180deg,#e3b959,#c99a34); }
 
   /* footer */
   .sh-footer{ background:var(--sh-footer); border-top:1px solid var(--sh-line); }
@@ -229,11 +232,11 @@
         <div class="sh-search-grid">
           <div class="search-item">
             <span class="label">Check-in</span>
-            <span class="value date-display empty" id="checkinValue" onclick="openCalendar()">dd/mm/yyyy</span>
+            <input type="date" class="sh-date" id="checkinDate">
           </div>
           <div class="search-item">
             <span class="label">Check-out</span>
-            <span class="value date-display empty" id="checkoutValue" onclick="openCalendar()">dd/mm/yyyy</span>
+            <input type="date" class="sh-date" id="checkoutDate">
           </div>
           <div class="search-item guest-selector">
             <div class="guest-trigger" onclick="toggleGuests()">
@@ -273,39 +276,6 @@
         <button class="sh-cta" onclick="checkAvailability()">Check Availability</button>
       </div>
 
-      <!-- app-style two-month date picker (unchanged hooks) -->
-      <div class="calendar-popup" id="calendarPopup" hidden>
-        <div class="cal-top">
-          <div class="cal-heading">
-            <h3>Select dates</h3>
-            <p>Add your travel dates for exact pricing</p>
-          </div>
-          <div class="cal-fields">
-            <div class="cal-field" id="calFieldIn">
-              <span class="cell-label">CHECK-IN</span>
-              <span class="cal-field-value ph" id="calInValue">MM/DD/YYYY</span>
-              <button type="button" class="cal-clear-x" id="calClearX" onclick="clearDates()">✕</button>
-            </div>
-            <div class="cal-field" id="calFieldOut">
-              <span class="cell-label">CHECKOUT</span>
-              <span class="cal-field-value ph" id="calOutValue">MM/DD/YYYY</span>
-            </div>
-          </div>
-        </div>
-        <div class="cal-months">
-          <button type="button" class="cal-nav cal-prev" id="calPrev" onclick="changeMonth(-1)">‹</button>
-          <div class="cal-month" id="calMonth0"></div>
-          <div class="cal-month" id="calMonth1"></div>
-          <button type="button" class="cal-nav cal-next" onclick="changeMonth(1)">›</button>
-        </div>
-        <div class="cal-footer">
-          <span class="cal-kbd" aria-hidden="true">⌨</span>
-          <div class="cal-actions">
-            <button type="button" class="cal-text-btn" onclick="clearDates()">Clear dates</button>
-            <button type="button" class="cal-close-btn" onclick="closeCalendar()">Close</button>
-          </div>
-        </div>
-      </div>
     </div>
 
     <div class="sh-hero-media">
@@ -419,117 +389,33 @@
 </script>
 <script src="script.js"></script>
 <script>
-/* ---------- homepage two-month date picker ---------- */
+/* ---------- homepage date range (native date inputs, matches the design) ---------- */
 (function(){
-    let selStart = null, selEnd = null, viewDate = null;
+    const ci = document.getElementById("checkinDate");
+    const co = document.getElementById("checkoutDate");
+    function todayIso(){ const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); }
+    if(ci) ci.min = todayIso();
 
-    function isoToDate(iso){ return new Date(iso + "T00:00:00"); }
-    function dateToIso(d){
-        const y = d.getFullYear();
-        const m = String(d.getMonth() + 1).padStart(2, "0");
-        const day = String(d.getDate()).padStart(2, "0");
-        return `${y}-${m}-${day}`;
-    }
-    function todayIso(){ return dateToIso(new Date()); }
-
-    window.openCalendar = function(){
-        const pop = document.getElementById("calendarPopup");
-        if(pop.hasAttribute("hidden")){
-            if(!viewDate){ const t = new Date(); viewDate = new Date(t.getFullYear(), t.getMonth(), 1); }
-            renderCalendar();
-            pop.removeAttribute("hidden");
-        } else {
-            pop.setAttribute("hidden", "");
-        }
-    };
-    window.closeCalendar = function(){ document.getElementById("calendarPopup").setAttribute("hidden", ""); };
-
-    window.changeMonth = function(delta){
-        const cand = new Date(viewDate.getFullYear(), viewDate.getMonth() + delta, 1);
-        const now = new Date();
-        const minMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        if(cand < minMonth) return;
-        viewDate = cand;
-        renderCalendar();
-    };
-
-    function renderCalendar(){
-        const m0 = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1);
-        const m1 = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1);
-        renderMonth(document.getElementById("calMonth0"), m0);
-        renderMonth(document.getElementById("calMonth1"), m1);
-        const now = new Date();
-        document.getElementById("calPrev").disabled =
-            m0.getFullYear() === now.getFullYear() && m0.getMonth() === now.getMonth();
-        updateFields();
-    }
-
-    function renderMonth(container, monthDate){
-        const year = monthDate.getFullYear(), month = monthDate.getMonth();
-        const title = monthDate.toLocaleString("en-US", { month:"long", year:"numeric" });
-        const startWeekday = new Date(year, month, 1).getDay();
-        const daysInMonth = new Date(year, month + 1, 0).getDate();
-        const tIso = todayIso();
-        let cells = "";
-        for(let i = 0; i < startWeekday; i++) cells += `<span class="cal-day empty"></span>`;
-        for(let day = 1; day <= daysInMonth; day++){
-            const iso = dateToIso(new Date(year, month, day));
-            const past = iso < tIso;
-            let cls = "cal-day";
-            if(past) cls += " disabled";
-            if(iso === selStart || iso === selEnd) cls += " selected";
-            else if(selStart && selEnd && iso > selStart && iso < selEnd) cls += " in-range";
-            if(past) cells += `<span class="${cls}">${day}</span>`;
-            else cells += `<button type="button" class="${cls}" onclick="pickDate('${iso}')">${day}</button>`;
-        }
-        container.innerHTML =
-            `<div class="cal-month-title">${title}</div>` +
-            `<div class="cal-weekdays"><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div>` +
-            `<div class="cal-grid">${cells}</div>`;
-    }
-
-    window.pickDate = function(iso){
-        if(!selStart || (selStart && selEnd)) { selStart = iso; selEnd = null; }
-        else if(iso <= selStart) { selStart = iso; selEnd = null; }
-        else { selEnd = iso; }
-        renderCalendar();
-    };
-
-    window.clearDates = function(){ selStart = null; selEnd = null; renderCalendar(); };
-
-    window.getStayDates = function(){ return { start: selStart, end: selEnd }; };
-
-    function fmtSlash(iso){ const d = isoToDate(iso); return `${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()}`; }
-    function fmtField(iso){ return isoToDate(iso).toLocaleDateString("en-GB"); } // dd/mm/yyyy
-
-    function updateFields(){
-        const inV = document.getElementById("calInValue"), outV = document.getElementById("calOutValue");
-        inV.textContent = selStart ? fmtSlash(selStart) : "MM/DD/YYYY";
-        outV.textContent = selEnd ? fmtSlash(selEnd) : "MM/DD/YYYY";
-        inV.classList.toggle("ph", !selStart);
-        outV.classList.toggle("ph", !selEnd);
-        const pickingCheckout = selStart && !selEnd;
-        document.getElementById("calFieldIn").classList.toggle("active", !pickingCheckout);
-        document.getElementById("calFieldOut").classList.toggle("active", pickingCheckout);
-        document.getElementById("calClearX").style.visibility = (selStart || selEnd) ? "visible" : "hidden";
-
-        const ci = document.getElementById("checkinValue"), co = document.getElementById("checkoutValue");
-        ci.textContent = selStart ? fmtField(selStart) : "dd/mm/yyyy";
-        co.textContent = selEnd ? fmtField(selEnd) : "dd/mm/yyyy";
-        ci.classList.toggle("empty", !selStart);
-        co.classList.toggle("empty", !selEnd);
-
+    function onCheckin(){
+        if(co){ co.min = (ci && ci.value) || todayIso(); if(co.value && ci.value && co.value < ci.value) co.value = ""; }
         updateStayHours();
     }
+    if(ci) ci.addEventListener("change", onCheckin);
+    if(co) co.addEventListener("change", updateStayHours);
 
-    // When the stay spans 2+ nights, inject a "N nights" option and auto-select it.
+    // the booking flow reads dates through these (script.js / checkAvailability unchanged)
+    window.getStayDates = function(){ return { start: (ci && ci.value) || null, end: (co && co.value) || null }; };
+    window.openCalendar = function(){ if(ci){ ci.focus(); try{ if(ci.showPicker) ci.showPicker(); }catch(e){} } };
+
+    // when the stay spans 2+ nights, inject a "N nights" option into HOURS and auto-select it
     function updateStayHours(){
         const sel = document.getElementById("searchHours");
         if(!sel) return;
         const prev = sel.querySelector("option[data-nights]");
         if(prev) prev.remove();
-        if(selStart && selEnd){
-            const nights = Math.round((isoToDate(selEnd) - isoToDate(selStart)) / 86400000);
+        const s = ci && ci.value, e = co && co.value;
+        if(s && e && e > s){
+            const nights = Math.round((new Date(e) - new Date(s)) / 86400000);
             if(nights >= 2){
                 const opt = document.createElement("option");
                 opt.value = "nights:" + nights;
@@ -540,14 +426,6 @@
             }
         }
     }
-
-    // close when clicking outside
-    document.addEventListener("click", function(e){
-        const pop = document.getElementById("calendarPopup");
-        if(!pop || pop.hasAttribute("hidden")) return;
-        if(pop.contains(e.target) || e.target.closest(".date-display")) return;
-        pop.setAttribute("hidden", "");
-    });
 })();
 </script>
 
