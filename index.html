@@ -120,10 +120,9 @@
 
   /* hero */
   .sh-hero{ position:relative; padding:56px 0 26px; }
-  .sh-hero-grid{ display:grid; grid-template-columns:1fr 1.05fr; gap:48px; align-items:stretch; }
-  /* left copy fills the photo's height: text at top, search card pinned to the bottom */
+  .sh-hero-grid{ display:grid; grid-template-columns:1fr 1.1fr; gap:48px; align-items:stretch; }
+  /* left column and photo are equal-height (align-items:stretch); the photo matches the copy's height */
   .sh-hero-copy{ display:flex; flex-direction:column; }
-  .sh-hero-copy .sh-search{ margin-top:auto; }
   .sh-eyebrow{ color:var(--sh-gold); font-size:12px; font-weight:500; letter-spacing:.26em; text-transform:uppercase; margin-bottom:18px; }
   .sh-hero h1{ font-family:'Recoleta','Fraunces',Georgia,serif; font-weight:700; font-size:clamp(40px,5.4vw,62px); line-height:1.03; letter-spacing:-.01em; margin:0 0 18px; }
   .sh-lead{ color:var(--sh-muted); font-size:16px; line-height:1.6; max-width:440px; margin:0 0 26px; }
@@ -145,7 +144,7 @@
   .sh-cta:hover{ background:#000; }
 
   /* hero photo + overlay tag */
-  .sh-hero-media{ position:relative; border-radius:22px; overflow:hidden; box-shadow:0 24px 50px rgba(60,45,20,.16); aspect-ratio:1/1; background:#e7ded0; }
+  .sh-hero-media{ position:relative; border-radius:22px; overflow:hidden; box-shadow:0 24px 50px rgba(60,45,20,.16); height:100%; min-height:440px; background:#e7ded0; }
   .sh-hero-media img{ width:100%; height:100%; object-fit:cover; display:block; }
   .sh-hero-tag{ position:absolute; left:16px; bottom:16px; background:#fff; border-radius:12px; padding:10px 14px; box-shadow:0 8px 22px rgba(0,0,0,.14); text-decoration:none; }
   .sh-hero-tag b{ display:block; color:var(--sh-ink); font-size:13px; font-weight:600; }
