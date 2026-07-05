@@ -12447,8 +12447,13 @@ try{
                     } else if(typeof pageAllowed === "function" && !pageAllowed("calendar")){
                         // a limited employee without Calendar access shouldn't bypass the page gate via URL
                     } else {
+                        // this is a transient "view this booking" tab — don't let it overwrite the
+                        // saved page for OTHER tabs (localStorage is shared), which was making a refresh
+                        // elsewhere jump to Calendar. Restore the previous saved page after opening.
+                        const _prevPage = localStorage.getItem("shph_dashboard_page");
                         if(typeof showPage === "function") showPage("calendar");
                         if(typeof openModal === "function") openModal(_b.id);
+                        try{ if(_prevPage) localStorage.setItem("shph_dashboard_page", _prevPage); else localStorage.removeItem("shph_dashboard_page"); }catch(e){}
                     }
                 }
             }catch(e){}
