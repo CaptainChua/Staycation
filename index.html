@@ -120,7 +120,10 @@
 
   /* hero */
   .sh-hero{ position:relative; padding:56px 0 26px; }
-  .sh-hero-grid{ display:grid; grid-template-columns:1fr 1.05fr; gap:48px; align-items:center; }
+  .sh-hero-grid{ display:grid; grid-template-columns:1fr 1.05fr; gap:48px; align-items:stretch; }
+  /* left copy fills the photo's height: text at top, search card pinned to the bottom */
+  .sh-hero-copy{ display:flex; flex-direction:column; }
+  .sh-hero-copy .sh-search{ margin-top:auto; }
   .sh-eyebrow{ color:var(--sh-gold); font-size:12px; font-weight:500; letter-spacing:.26em; text-transform:uppercase; margin-bottom:18px; }
   .sh-hero h1{ font-family:'Recoleta','Fraunces',Georgia,serif; font-weight:700; font-size:clamp(40px,5.4vw,62px); line-height:1.03; letter-spacing:-.01em; margin:0 0 18px; }
   .sh-lead{ color:var(--sh-muted); font-size:16px; line-height:1.6; max-width:440px; margin:0 0 26px; }
@@ -196,6 +199,7 @@
   @media(max-width:900px){
     .sh-hero{ padding-top:36px; }
     .sh-hero-grid{ grid-template-columns:1fr; gap:30px; }
+    .sh-hero-media{ height:auto; min-height:0; aspect-ratio:4/3; }
     .sh-search{ max-width:none; }
     .sh-cards{ grid-template-columns:repeat(2,1fr); }
     .sh-footer-in{ grid-template-columns:1fr 1fr; }
