@@ -63,6 +63,7 @@ function sameHaven(a, b){
 function havenAvailable(havenName, startIso, endIso, hours){
     const reqEnd = (endIso && endIso > startIso) ? endIso : addDaysIso(startIso, 1);
     const overlapping = loadBookings().filter(b => {
+        if(b.deleted || b.cancelled) return false;   // deleted/cancelled → slot is free again
         if(!sameHaven(b.haven, havenName)) return false;
         const bEnd = (b.checkout && b.checkout > b.checkin) ? b.checkout : addDaysIso(b.checkin, 1);
         return startIso < bEnd && b.checkin < reqEnd;   // half-open overlap

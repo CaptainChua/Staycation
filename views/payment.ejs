@@ -173,13 +173,14 @@ function bookingConflicts(arr, b){
     const isMulti = (b.nights && b.nights >= 2) ||
         (b.checkoutDate && pDayIndex(b.checkoutDate) - pDayIndex(b.checkinDate) >= 2);
     if(isMulti){
-        // multi-night needs whole days → any overlap blocks
-        return arr.some(x => pSameHaven(x.haven, b.haven) && cs < pEndExcl(x.checkin, x.checkout) && x.checkin < ce);
+        // multi-night needs whole days → any overlap blocks (ignore deleted/cancelled)
+        return arr.some(x => !x.deleted && !x.cancelled && pSameHaven(x.haven, b.haven) && cs < pEndExcl(x.checkin, x.checkout) && x.checkin < ce);
     }
     const sMin = b.checkinTime ? pCheckinMin(b.checkinTime) : pStartMin(b);
     const candS = pDayIndex(b.checkinDate) * 1440 + (sMin != null ? sMin : 0);
     const candE = candS + ((Number(b.stayHours) || 21) + (Number(b.addons && b.addons.hours) || 0)) * 60;
     return arr.some(x => {
+        if(x.deleted || x.cancelled) return false;   // freed slot
         if(!pSameHaven(x.haven, b.haven)) return false;
         const { s, e } = pAbsInterval(x);
         return candS < e + PAY_CLEAN_BUFFER && s - PAY_CLEAN_BUFFER < candE;

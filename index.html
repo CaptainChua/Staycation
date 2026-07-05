@@ -119,6 +119,8 @@
   .sh-links{ display:flex; gap:28px; }
   .sh-links a{ margin:0; text-decoration:none; color:var(--sh-ink); font-size:14px; font-weight:400; }
   .sh-links a:hover{ color:var(--sh-gold); }
+  .sh-burger{ display:none; align-items:center; justify-content:center; width:44px; height:44px; border-radius:12px; background:#fff; border:1px solid var(--sh-line); color:var(--sh-ink); cursor:pointer; flex:none; }
+  .sh-burger:hover{ background:#f6f1e7; }
 
   /* hero — matches the design: 1fr 1.05fr, 56px gap, copy vertically centered */
   .sh-hero{ position:relative; padding-top:64px; padding-bottom:72px; }
@@ -228,36 +230,38 @@
   .sh-foot-bar{ border-top:1px solid var(--sh-line); text-align:center; padding:16px; color:#9a9384; font-size:12.5px; }
 
   @media(max-width:900px){
-    .sh-hero{ padding-top:36px; }
-    .sh-hero-grid{ grid-template-columns:1fr; gap:30px; }
-    .sh-hero-media{ height:auto; min-height:0; aspect-ratio:4/3; }
+    .sh-hero{ padding-top:28px; }
+    .sh-hero-grid{ grid-template-columns:1fr; gap:24px; }
+    .sh-hero-media{ order:-1; height:auto; min-height:0; aspect-ratio:16/11; }   /* photo on top */
     .sh-search{ max-width:none; }
     .sh-cards{ grid-template-columns:repeat(2,1fr); }
     .sh-footer-in{ grid-template-columns:1fr 1fr; }
     .sh-foot-brand{ grid-column:1 / -1; }
   }
-  @media(max-width:600px){
-    .sh-nav-in{ padding-top:12px; padding-bottom:12px; }
-    .sh-links{ gap:16px; font-size:13px; }
-    .sh-brand{ font-size:19px; }
-    .sh-hero h1{ font-size:clamp(32px,8.6vw,46px); }
-    .sh-cards{ grid-template-columns:1fr; }
+  /* mobile header → hamburger menu (links become a dropdown) */
+  @media(max-width:760px){
+    .sh-burger{ display:inline-flex; }
+    .sh-links{ display:none; position:absolute; top:100%; right:clamp(16px,4vw,48px); margin-top:8px; flex-direction:column; gap:0; background:#fff; border:1px solid var(--sh-line); border-radius:14px; box-shadow:0 18px 40px rgba(80,60,20,.18); padding:8px; min-width:190px; z-index:75; }
+    .sh-links.show{ display:flex; }
+    .sh-links a{ padding:12px 14px; border-radius:10px; font-size:15px; }
+    .sh-links a:hover{ background:#f6f1e7; color:var(--sh-ink); }
+  }
+  @media(max-width:640px){
+    .sh-hero h1{ font-size:clamp(30px,8.6vw,44px); }
+    .sh-hero-media{ aspect-ratio:16/12; }
+    /* "Our Havens" → swipeable card carousel */
+    .sh-cards{ display:flex; overflow-x:auto; gap:16px; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch; padding:2px 2px 10px; }
+    .sh-card{ flex:0 0 84%; scroll-snap-align:start; }
     .sh-promo-in{ padding:28px 22px; }
-    .sh-sec-head h2{ font-size:28px; }
+    .sh-sec-head h2{ font-size:30px; }
     .sh-footer-in{ grid-template-columns:1fr 1fr; }
   }
   @media(max-width:480px){
-    /* stack the search fields so the native date pickers never clip */
-    .sh-search-grid{ grid-template-columns:1fr; }
-    .sh-search .search-item{ border-left:none; }
-    .sh-search .search-item:nth-child(n+2){ border-top:1px solid #efe9dd; }
     .sh-search .guest-popup{ width:min(320px,84vw); left:0; right:auto; }
   }
   @media(max-width:430px){
     .sh-nav-in{ padding-left:16px; padding-right:16px; }
-    .sh-brand{ font-size:16px; }
-    .sh-badge{ width:28px; height:28px; font-size:15px; }
-    .sh-links{ gap:12px; font-size:12px; }
+    .sh-brand{ font-size:18px; }
     .sh-footer-in{ grid-template-columns:1fr; }
   }
 </style>
@@ -265,12 +269,13 @@
 <header class="sh-nav">
   <div class="sh-nav-in">
     <a class="sh-brand" href="index.html"><span class="sh-badge"><img src="images/logo.png" alt="Staycation Haven PH"></span> Staycation Haven PH</a>
-    <nav class="sh-links">
+    <nav class="sh-links" id="shLinks">
       <a href="index.html">Home</a>
       <a href="havens.html">Havens</a>
       <a href="#promo">Promos</a>
       <a href="#contact">Contact</a>
     </nav>
+    <button class="sh-burger" aria-label="Menu" onclick="shToggleNav(event)"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
   </div>
 </header>
 
@@ -557,6 +562,16 @@
         if(hoursPop && !hoursPop.hidden && !hoursPop.contains(e.target) && !e.target.closest(".sh-hours-field")) hoursPop.hidden = true;
     });
 })();
+</script>
+<script>
+/* ---------- mobile hamburger menu ---------- */
+window.shToggleNav = function(e){ if(e) e.stopPropagation(); var l = document.getElementById("shLinks"); if(l) l.classList.toggle("show"); };
+document.addEventListener("click", function(e){
+    var l = document.getElementById("shLinks");
+    if(!l || !l.classList.contains("show")) return;
+    if(e.target.closest(".sh-burger")) return;   // the button's own toggle handles it
+    l.classList.remove("show");                   // any other click (a link, or outside) closes it
+});
 </script>
 
 </body>
