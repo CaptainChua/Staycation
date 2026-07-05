@@ -1636,6 +1636,7 @@
     }
   });
   let _savingPay = false;
+  let _pmtIdLast = 0;   // monotonic guard for payment ids minted this tab (see pmtId below)
   async function savePay(again){
     if(_savingPay) return;   // block rapid double-clicks — they were appending DUPLICATE payments
     const bookingId = payBookingId;
@@ -1681,8 +1682,10 @@
       return;
     }
 
-    // 2) build the payment record — each carries a stable `pid` so edits/deletes match by id, not position
-    const pmtId = () => Date.now() * 1000 + Math.floor(Math.random() * 1000);
+    // 2) build the payment record — each carries a stable `pid` so edits/deletes match by id, not position.
+    //    Monotonic within the tab (like dashboard's uid()) so two payments minted in the same millisecond
+    //    can't collide into the same pid (which would misroute a later edit/delete to the wrong payment).
+    const pmtId = () => { let t = Date.now() * 1000 + Math.floor(Math.random() * 1000); if(t <= _pmtIdLast) t = _pmtIdLast + 1; _pmtIdLast = t; return t; };
     const existingPid = editing ? b.payments[payEditIndex].pid : null;   // null for legacy → server uses index fallback
     const payment = editing
       ? Object.assign({}, b.payments[payEditIndex], { pid: b.payments[payEditIndex].pid || pmtId(), amount, mop, category, proof: proofRef, at: payAtFromInput(), editedAt: new Date().toISOString(), editedBy: currentUser() })

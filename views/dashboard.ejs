@@ -3931,11 +3931,12 @@ let _lastCreatedBookingId = null;
 // the id + action — a tiny request the server applies to the stored array. This avoids
 // re-uploading the whole bookings array (which carries base64 images), so a quick refresh
 // right after the click can't lose the change.
-async function bookingAction(id, action){
+function bookingAction(id, action){
     if(_partnerReadOnly()) return;   // refactor-proof backstop: a scoped partner never writes a booking status
-    try {
-        await fetch(`/api/booking/${encodeURIComponent(id)}/${action}`, { method: "POST" });
-    } catch(e){ /* offline — the localStorage mirror written by the caller is the fallback */ }
+    // DURABLE: enqueue + try now. If the immediate attempt fails (offline/slow), it stays queued and is
+    // retried on reconnect and at next load — so a cancel/reinstate/delete can never be silently lost.
+    _actQEnqueue(id, action);
+    _actQFlush();
 }
 
 // bring older saved bookings up to the current data shape
@@ -3972,7 +3973,11 @@ function guestCheckedIn(b){
 function cashReceivedIn(b, startIso, endIso){
     if(!b || (b.cancelled && b.dpRefunded)) return 0;
     let sum = 0;
-    const dpDate = (b.bookedAt ? String(b.bookedAt).slice(0, 10) : b.checkin) || null;
+    // honor the user-editable "date paid" (dpDate) first — same basis as the Collection Report
+    // (_crDpDay) and Today's Booking (dpDayOf), so the cash-basis Gross agrees with them.
+    const dpDate = (typeof _crDpDay === "function")
+        ? _crDpDay(b)
+        : (b.dpDate || (b.bookedAt ? String(b.bookedAt).slice(0, 10) : b.checkin) || null);
     if(dpDate && dpDate >= startIso && dpDate <= endIso) sum += Number(b.downpayment || 0);
     (b.payments || []).forEach(p => {
         const pd = (p && p.at ? String(p.at).slice(0, 10) : b.checkin) || null;
@@ -7074,6 +7079,31 @@ if(typeof window !== "undefined"){ window.addEventListener("online", _payQFlush)
 function bkPaymentEdit(b, idx){ const p = b.payments[idx]; const existingPid = p && p.pid; if(p && p.pid == null) p.pid = uid(); _bkMirror(b); _payQEnqueue(b.id, { payment: p, editId: existingPid, editIndex: idx }); _payQFlush(); }
 // pass the DELETED payment's pid (capture it before splicing locally) so the server matches by id, not position
 function bkPaymentDelete(b, idx, pid){ _bkMirror(b); _payQEnqueue(b.id, { deleteId: pid, deleteIndex: idx }); _payQFlush(); }
+// Durable booking-status queue (cancel / reinstate / delete). Same idea as the payment queue: the old
+// fire-and-forget bookingAction was simply lost on a slow/offline blip — and unlike a payment there was
+// NO retry, so a cancel/delete done offline could never reach the server (or another device) if the tab
+// was closed before a refresh. Queue each action and retry on reconnect + at load until confirmed.
+const ACT_Q_KEY = "shph_actop_queue";
+function _actQLoad(){ try{ return JSON.parse(localStorage.getItem(ACT_Q_KEY)) || []; }catch(e){ return []; } }
+function _actQSave(q){ try{ localStorage.setItem(ACT_Q_KEY, JSON.stringify(q)); }catch(e){} }
+function _actQEnqueue(bookingId, action){ const q = _actQLoad(); q.push({ qid: uid(), bookingId, action, tries: 0 }); _actQSave(q); }
+let _actQFlushing = false;
+async function _actQFlush(){
+    if(_actQFlushing) return;
+    _actQFlushing = true;
+    try{
+        const q = _actQLoad();
+        if(!q.length) return;
+        const keep = [];
+        for(const op of q){
+            let ok = false;
+            try{ const r = await fetch(`/api/booking/${encodeURIComponent(op.bookingId)}/${op.action}`, { method:"POST" }); ok = r.ok; }catch(e){}
+            if(!ok){ op.tries = (op.tries || 0) + 1; if(op.tries < 40) keep.push(op); }   // give up after ~40 failed retries
+        }
+        _actQSave(keep);
+    } finally { _actQFlushing = false; }
+}
+if(typeof window !== "undefined"){ window.addEventListener("online", _actQFlush); _actQFlush(); }   // flush on reconnect + at load
 let _savingBooking = false;
 async function saveBooking(){
     if(_partnerReadOnly()) return;   // scoped partners are read-only everywhere
@@ -9443,6 +9473,13 @@ function staffDaysInScope(s, month){
 function staffGross(s, month){
     return staffDaysInScope(s, month).reduce((sum, d) => sum + dayPay(s, d), 0);
 }
+// payroll earned within an inclusive [startIso, endIso] date window — used by Analytics so a Daily/
+// Weekly/custom period charges only the pay for days IN that window (not the whole month's payroll).
+function staffGrossInRange(s, startIso, endIso){
+    return staffAllDays(s)
+        .filter(d => d.date && d.date >= startIso && d.date <= endIso)
+        .reduce((sum, d) => sum + dayPay(s, d), 0);
+}
 const DEFAULT_SSS_RATE = 5;          // % of monthly salary (editable per staff, 30th cut-off)
 const DEFAULT_PHILHEALTH_RATE = 2.5; // % of monthly salary (editable per staff, 15th cut-off)
 function sssRateOf(s){ const p = s.benefits && s.benefits.sssPct; return (p == null || isNaN(p)) ? DEFAULT_SSS_RATE : Number(p); }
@@ -10611,7 +10648,9 @@ function renderAnalytics(){
     const billsPending = Math.round(billsTotal - billsPaid);
     const billsPendingAll = Math.round(bills.filter(b => !b.paid).reduce((s,b) => s + Number(b.amount||0), 0));   // ALL unpaid bills (matches the Bills page total)
     const billsPaidAll    = Math.round(bills.filter(b => b.paid).reduce((s,b) => s + Number(b.amount||0), 0));    // ALL paid bills → counted as an expense
-    const payrollGross = Math.round(months.reduce((s,ym) => s + payOf(ym), 0));
+    // payroll earned WITHIN the window (not each spanned month's full payroll) — so Daily/Weekly/custom
+    // periods don't charge a whole month's salaries against a partial-period revenue.
+    const payrollGross = Math.round(staff.reduce((s,st) => s + staffGrossInRange(st, startIso, endIso), 0));
     const payroll = _scopedPartner ? 0 : payrollGross;   // payroll is business-wide, not per-haven
     const expensesSpend = Math.round(ex.reduce((s,e) => s + Number(e.amount||0), 0));
     // "Add Funds" = money the owner put in from her own pocket (entered as a NEGATIVE expense).
@@ -12274,7 +12313,17 @@ try{
         setTimeout(function(){
             try{
                 const _b = (typeof bookings !== "undefined") && bookings.find(function(x){ return String(x.id) === String(_editId); });
-                if(_b){ if(typeof showPage === "function") showPage("calendar"); if(typeof openModal === "function") openModal(_b.id); }
+                if(_b){
+                    if(window.__PARTNER__){
+                        // partners are read-only: show the viewer, never the editable modal
+                        if(typeof viewBooking === "function") viewBooking(_b.id);
+                    } else if(typeof pageAllowed === "function" && !pageAllowed("calendar")){
+                        // a limited employee without Calendar access shouldn't bypass the page gate via URL
+                    } else {
+                        if(typeof showPage === "function") showPage("calendar");
+                        if(typeof openModal === "function") openModal(_b.id);
+                    }
+                }
             }catch(e){}
             try{ history.replaceState(null, "", location.pathname); }catch(e){}   // tidy the URL
         }, 120);
