@@ -186,6 +186,16 @@ function bookingConflicts(arr, b){
         return candS < e + PAY_CLEAN_BUFFER && s - PAY_CLEAN_BUFFER < candE;
     });
 }
+// short booking code — SAME algorithm as the dashboard (bookingCode) so both show e.g. MJN3ET
+function deriveCode(id){
+    const CH = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+    let h = 2166136261 >>> 0;
+    const s = String(id == null ? "" : id);
+    for(let i=0;i<s.length;i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+    let c = "";
+    for(let i=0;i<6;i++){ c += CH.charAt(h % CH.length); h = Math.imul(h ^ (h >>> 13), 2654435761) >>> 0; }
+    return c;
+}
 
 // push the paid booking into the dashboard calendar (shph_bookings_v3); returns false if it would double-book
 // downscale an uploaded screenshot to keep storage light, return a JPEG data URL
@@ -404,11 +414,12 @@ function renderPayment(b){
         }
         localStorage.removeItem("shph_confirmed_booking");
         localStorage.removeItem("shph_pending_booking");
-        const code = "SH-" + String(bookingNo).padStart(4, "0");
+        const code = deriveCode(bookingNo);   // short code, matches the dashboard (e.g. MJN3ET)
         const title = document.getElementById("payTitle");
         if(title) title.innerHTML = `Thank you for Booking with us! <span class="booking-no">${code}</span>`;
         container.innerHTML = `
             <div class="booknow-success">
+                <p style="color:#d11020; font-weight:800; letter-spacing:.04em; text-align:center; margin:0 0 8px; font-size:15px;">PLEASE TAKE A SCREENSHOT</p>
                 <h2>⏰ We are now reviewing your payment</h2>
                 <p>Thank you! Your reservation for <strong>${b.haven}</strong> has been received.</p>
 
