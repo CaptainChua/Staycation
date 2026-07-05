@@ -144,11 +144,13 @@ button{
 }
 
 .card img{
-    width:100%;
-    aspect-ratio:1 / 1;   /* square photo */
+    display:block;
+    width:min(100%, 300px);   /* square photo, a bit smaller than the full card */
+    aspect-ratio:1 / 1;
     height:auto;
     object-fit:cover;
-    display:block;
+    margin:16px auto 0;        /* center it inside the card */
+    border-radius:14px;
 }
 
 .card h3{
