@@ -400,7 +400,7 @@ apiRouter.post("/send-confirmation", async (req, res) => {
     await transporter.sendMail({
       from: `"Staycation Haven PH" <${user}>`,
       to: String(to),
-      bcc: process.env.OWNER_EMAIL || undefined,
+      bcc: process.env.OWNER_EMAIL || "staycationhavenph@gmail.com",   // owner gets a copy of every confirmation
       subject: `Your Staycation Haven PH booking — #${String(booking.code || "").slice(0, 10)}`,
       html: _confirmationHtml(booking)
     });

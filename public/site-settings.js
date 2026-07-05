@@ -46,7 +46,7 @@ const DEFAULT_SETTINGS = {
         promoTitle: "Stay 3 nights, get the 4th on us — book direct this month.",
         promoButton: "See all promos",
         footerTagline: "Mplace Tower D, Panay Ave, Quezon City. Comfortable, affordable and memorable staycations.",
-        footerEmail: "hello@staycationhaven.ph",
+        footerEmail: "staycationhavenph@gmail.com",
         instagram: "",
         facebook: "",
         tiktok: ""
