@@ -12080,7 +12080,12 @@ function _repullUsersThenApply(){
         .then(d => {
             let arr = Array.isArray(d) ? d : (d && (d.value || d.data));
             if(typeof arr === "string"){ try{ arr = JSON.parse(arr); }catch(e){} }
-            if(Array.isArray(arr) && arr.length){ try{ localStorage.setItem(USERS_KEY, JSON.stringify(arr)); }catch(e){} users = loadUsers(); }
+            if(Array.isArray(arr) && arr.length){
+                // use the authoritative copy IN MEMORY first — so it works even if the
+                // localStorage write below fails (e.g. storage is full / quota exceeded).
+                users = arr.filter(u => u && !u.deleted);
+                try{ localStorage.setItem(USERS_KEY, JSON.stringify(arr)); }catch(e){}
+            }
             applyPermissions();   // re-apply with the fresh list
         })
         .catch(() => { applyPermissions(); });
