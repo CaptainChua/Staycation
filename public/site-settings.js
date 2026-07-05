@@ -49,7 +49,8 @@ const DEFAULT_SETTINGS = {
         footerEmail: "staycationhavenph@gmail.com",
         instagram: "",
         facebook: "",
-        tiktok: ""
+        tiktok: "",
+        maintenance: false               // when true, the public website shows a "back soon" notice
     },
     downpayment: [
         { maxDays: 2,  amount: 500 },    // 1–2 days

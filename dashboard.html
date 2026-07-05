@@ -25,7 +25,10 @@ body{ background:#f5f5f5; color:#222; padding:30px 30px 30px 250px; }
     padding:24px 0;
     overflow-y:auto;
     z-index:30;
+    scrollbar-width:none;        /* Firefox — hide the scrollbar so it never eats the width */
+    -ms-overflow-style:none;     /* old Edge/IE */
 }
+.sidebar::-webkit-scrollbar{ width:0; height:0; display:none; }   /* Chrome/Edge/Safari */
 .sidebar .brand{
     font-size:16px;
     font-weight:bold;
@@ -1327,6 +1330,36 @@ tr.row-cancelled td:nth-child(2){ text-decoration:line-through; }
     <div class="nav-item" data-page="employees" onclick="showPage('employees')"><span class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20a8 8 0 0 1 16 0"/></svg></span> Employees</div>
     <div class="nav-item" data-page="assist" onclick="showPage('assist')"><span class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 0 1 4 1.8c0 1.7-2.5 1.7-2.5 3.7M12 18h.01"/></svg></span> Assist</div>
     <div class="nav-item" data-page="log" onclick="showPage('log')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5z"/><path d="M9 9h5M9 13h6M9 17h4"/></svg></span> Log</div>
+    <style>
+      .maint-box{ margin:16px 10px 8px; padding:11px 12px; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.10); border-radius:12px; display:flex; align-items:center; justify-content:space-between; gap:10px; }
+      .maint-box.is-off{ background:rgba(201,110,63,.16); border-color:rgba(201,110,63,.38); }
+      .maint-info{ display:flex; align-items:center; gap:9px; min-width:0; }
+      .maint-dot{ width:9px; height:9px; border-radius:50%; flex:none; }
+      .maint-dot.is-on{ background:#3fbf6a; box-shadow:0 0 0 3px rgba(63,191,106,.18); }
+      .maint-dot.is-off{ background:#e8813a; box-shadow:0 0 0 3px rgba(232,129,58,.22); }
+      .maint-lbl{ font-size:12.5px; font-weight:700; color:#f3ede1; line-height:1.2; }
+      .maint-state{ font-size:11px; color:#c9c0b2; }
+      .switch{ position:relative; display:inline-block; width:42px; height:24px; flex:none; cursor:pointer; }
+      .switch input{ opacity:0; width:0; height:0; }
+      .switch-slider{ position:absolute; inset:0; background:#8a8378; border-radius:24px; transition:.2s; }
+      .switch-slider::before{ content:""; position:absolute; height:18px; width:18px; left:3px; top:3px; background:#fff; border-radius:50%; transition:.2s; }
+      .switch input:checked + .switch-slider{ background:#3fbf6a; }
+      .switch input:checked + .switch-slider::before{ transform:translateX(18px); }
+    </style>
+    <!-- Website Live / Maintenance switch (admin only) -->
+    <div class="maint-box" id="maintBox" style="display:none;">
+      <div class="maint-info">
+        <span class="maint-dot is-on" id="maintDot"></span>
+        <div>
+          <div class="maint-lbl">Website</div>
+          <div class="maint-state" id="maintState">Live</div>
+        </div>
+      </div>
+      <label class="switch" title="Turn the public website on / off">
+        <input type="checkbox" id="maintCheck" checked onchange="setWebsiteLive(this.checked)">
+        <span class="switch-slider"></span>
+      </label>
+    </div>
 </div>
 
 <div class="topbar" id="appTopbar">
@@ -5332,6 +5365,37 @@ function updateCollectionsBadge(){
         });
     });
     badge.textContent = n ? String(n) : "";
+}
+
+/* ---------- Website Live / Maintenance switch (sidebar, admin only) ---------- */
+// Reflect the current setting on the sidebar switch. Admin-only; hidden for partners/limited staff.
+function renderMaintToggle(){
+    const box = document.getElementById("maintBox");
+    if(!box) return;
+    const isAdmin = (typeof isAdminUser === "function") ? isAdminUser() : true;
+    if(!isAdmin || window.__PARTNER__){ box.style.display = "none"; return; }
+    box.style.display = "";
+    let maint = false;
+    try{ const s = loadSettings(); maint = !!(s.site && s.site.maintenance); }catch(e){}
+    const chk = document.getElementById("maintCheck"); if(chk) chk.checked = !maint;   // checked = website LIVE
+    const st = document.getElementById("maintState"); if(st) st.textContent = maint ? "Under maintenance" : "Live";
+    const dot = document.getElementById("maintDot"); if(dot) dot.className = "maint-dot " + (maint ? "is-off" : "is-on");
+    box.classList.toggle("is-off", maint);
+}
+// Flip the public website on/off. checked = live; unchecking takes it offline (with a confirm).
+function setWebsiteLive(live){
+    if(!live && !confirm("Take the website OFFLINE for maintenance?\n\nGuests will see a \"we'll be right back\" notice and can't book until you switch it back on.")){
+        const chk = document.getElementById("maintCheck"); if(chk) chk.checked = true;   // revert the toggle
+        return;
+    }
+    try{
+        const s = loadSettings();
+        s.site = s.site || {};
+        s.site.maintenance = !live;
+        saveSettings(s);   // writes localStorage → seed-bridge mirrors it to the server
+    }catch(e){}
+    renderMaintToggle();
+    if(typeof logActivity === "function") logActivity(live ? "set the website LIVE" : "set the website to MAINTENANCE (offline to guests)");
 }
 
 function apViewProof(src){
@@ -12511,6 +12575,7 @@ try{ if(localStorage.getItem("shph_dashboard_page") === "paymentapproval") local
 const savedPage = localStorage.getItem("shph_dashboard_page");
 if(savedPage && document.getElementById("page-" + savedPage)) showPage(savedPage);
 applyPermissions();
+if(typeof renderMaintToggle === "function") renderMaintToggle();   // sync the Website Live/Maintenance switch
 
 // opened here from Today's Booking's "+ Add booking" → show the unified modal
 try{

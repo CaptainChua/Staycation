@@ -434,6 +434,39 @@ const PAGES = [
   "partner-login"
 ];
 
+// Guest-facing pages that the website Maintenance switch takes offline.
+const PUBLIC_PAGES = new Set(["index", "havens", "booknow", "payment"]);
+
+// A friendly, branded "we'll be right back" page shown to guests while the owner has the website
+// under maintenance. Self-contained (no external assets except the logo) so it always renders.
+function maintenanceHtml() {
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Staycation Haven PH — We'll be right back</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{min-height:100vh;display:flex;align-items:center;justify-content:center;background:#faf6ef;
+    color:#1c1a17;font-family:'Segoe UI',system-ui,-apple-system,Arial,sans-serif;padding:24px;text-align:center}
+  .card{max-width:460px}
+  .logo{width:78px;height:78px;border-radius:18px;background:#fff;border:1px solid #ece5d7;overflow:hidden;
+    display:flex;align-items:center;justify-content:center;margin:0 auto 26px;box-shadow:0 12px 34px rgba(120,90,30,.14)}
+  .logo img{width:100%;height:100%;object-fit:contain}
+  h1{font-family:Georgia,'Times New Roman',serif;font-size:27px;font-weight:800;margin-bottom:14px}
+  p{font-size:15px;line-height:1.65;color:#6a6459}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#a9842b;margin-right:9px;
+    vertical-align:middle;animation:pulse 1.4s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:.35;transform:scale(.9)}50%{opacity:1;transform:scale(1)}}
+  .tag{margin-top:28px;font-size:12px;color:#a9842b;font-weight:800;letter-spacing:1.4px;text-transform:uppercase}
+</style></head><body>
+  <div class="card">
+    <div class="logo"><img src="/images/logo.png" alt="Staycation Haven PH"></div>
+    <h1><span class="dot"></span>We'll be right back</h1>
+    <p>Our website is currently under maintenance.<br>Please check back in a few minutes — thank you for your patience! 💛</p>
+    <div class="tag">Staycation Haven PH</div>
+  </div>
+</body></html>`;
+}
+
 function renderPage(name) {
   return async (req, res) => {
     const seed = store.all();
@@ -448,6 +481,20 @@ function renderPage(name) {
       if (Array.isArray(freshBookings)) seed.shph_bookings_v3 = freshBookings;
     } catch (e) {
       console.warn("[render] fresh bookings read failed for", name, "—", e.message);
+    }
+    // Website Maintenance switch: guest-facing pages show a "back soon" notice while it's on. Read
+    // the flag FRESH so a stale per-instance cache can't keep the site up after the owner takes it
+    // down. The dashboard/admin pages are NOT gated, so the owner can always flip it back.
+    if (PUBLIC_PAGES.has(name)) {
+      try {
+        const freshSettings = await store.readFreshKey("shph_settings");
+        if (freshSettings) seed.shph_settings = freshSettings;
+        if (freshSettings && freshSettings.site && freshSettings.site.maintenance) {
+          return res.status(503).set("Retry-After", "300").send(maintenanceHtml());
+        }
+      } catch (e) {
+        console.warn("[render] maintenance check failed for", name, "—", e.message);
+      }
     }
     res.render(name, { seed, page: name }, (err, html) => {
       if (err) {
